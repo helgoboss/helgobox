@@ -1,0 +1,23 @@
+[package]
+name = "realearn-rs"
+version = "0.1.0"
+authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+reaper-rs = { path = "../reaper-rs/main" }
+c_str_macro = "1.0.2"
+vst = "0.2.0"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser"] }
+
+[build-dependencies]
+bindgen = "0.52.0"
+cc = "1.0.50"
+embed-resource = "1.3"
+
+[lib]
+name = "realearn_rs"
+crate-type = ["cdylib"]
