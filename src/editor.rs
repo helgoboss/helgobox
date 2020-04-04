@@ -10,11 +10,11 @@ use winapi::shared::windef::HWND;
 use winapi::um::wingdi::TextOutA;
 use winapi::um::winuser::MAKEINTRESOURCEA;
 use winapi::um::winuser::{
-    BeginPaint, CreateDialogParamA, DefWindowProcW, PostQuitMessage, SW_SHOWDEFAULT, WM_DESTROY,
-    WM_INITDIALOG, WM_PAINT,
+    BeginPaint, CreateDialogParamA, DefWindowProcW, PostQuitMessage, SW_SHOWDEFAULT, WM_COMMAND,
+    WM_DESTROY, WM_INITDIALOG, WM_PAINT,
 };
 
-use crate::bindings::root::{ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
+use crate::bindings::root::{ID_IMPORT_BUTTON, ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
 
 // See https://doc.rust-lang.org/std/sync/struct.Once.html why this is safe in combination with Once
 pub(crate) static mut GLOBAL_HINSTANCE: HINSTANCE = null_mut();
@@ -35,7 +35,7 @@ impl RealearnEditor {
 
 impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
-        (800, 600)
+        (1200, 600)
     }
 
     fn position(&self) -> (i32, i32) {
@@ -76,10 +76,36 @@ unsafe extern "system" fn wnd_proc(
                 get_global_hinstance(),
                 MAKEINTRESOURCEA(ID_MAPPINGS_DIALOG as u16),
                 hwnd,
-                None,
+                Some(wnd_proc_2),
                 0,
             );
             1
+        }
+        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+    }
+}
+
+unsafe extern "system" fn wnd_proc_2(
+    hwnd: HWND,
+    msg: UINT,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
+    match msg {
+        WM_DESTROY => {
+            PostQuitMessage(0);
+            0
+        }
+        WM_INITDIALOG => 1,
+        WM_COMMAND => {
+            let bla = wparam & 0xffff;
+            if bla == ID_IMPORT_BUTTON as usize {
+                let foo = bla;
+                let ha = 1;
+                1
+            } else {
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
         }
         _ => DefWindowProcW(hwnd, msg, wparam, lparam),
     }

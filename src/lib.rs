@@ -1,6 +1,8 @@
 mod bindings;
 mod editor;
+mod model;
 mod realearn;
+mod view;
 
 use crate::editor::GLOBAL_HINSTANCE;
 use realearn::Realearn;

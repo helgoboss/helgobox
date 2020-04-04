@@ -7,8 +7,12 @@ build = "build.rs"
 
 [dependencies]
 reaper-rs = { path = "../reaper-rs/main" }
+helgoboss-midi = { path = "../helgoboss-midi-rs" }
+helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
 vst = "0.2.0"
+rxrust = "0.8.3"
+serde_json = "1.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser"] }
