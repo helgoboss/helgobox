@@ -7,16 +7,23 @@ use reaper_rs::medium_level;
 use vst::editor::Editor;
 use vst::plugin::{HostCallback, Info, Plugin};
 
-use crate::editor::RealearnEditor;
+use crate::model::RealearnSession;
+use crate::view::RealearnEditor;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Default)]
-pub struct Realearn {
+pub struct RealearnPlugin {
     host: HostCallback,
+    session: Rc<RefCell<RealearnSession<'static>>>,
 }
 
-impl Plugin for Realearn {
+impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
-        Self { host }
+        Self {
+            host,
+            ..Default::default()
+        }
     }
 
     fn get_info(&self) -> Info {
@@ -35,6 +42,6 @@ impl Plugin for Realearn {
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        Some(Box::new(RealearnEditor::new()))
+        Some(Box::new(RealearnEditor::new(self.session.clone())))
     }
 }
