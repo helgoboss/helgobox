@@ -23,7 +23,7 @@ use std::rc::Rc;
 
 pub struct RealearnEditor<'a> {
     open: bool,
-    main_view: MainView,
+    main_view: MainView<'a>,
 }
 
 impl<'a> RealearnEditor<'a> {

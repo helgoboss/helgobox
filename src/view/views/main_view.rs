@@ -1,3 +1,4 @@
+use crate::model::RealearnSession;
 use crate::view::bindings::root::ID_MAPPINGS_DIALOG;
 use crate::view::views::HeaderView;
 use crate::view::{open_view, OpenedData, View};
@@ -7,7 +8,7 @@ use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct MainView {
+pub struct MainView<'a> {
     header_view: HeaderView,
     /// `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
     /// reference here. Why? Because a reference needs a lifetime. Any non-static lifetime would
@@ -46,11 +47,11 @@ pub struct MainView {
     /// behavior. It will let us know immediately when we violated that safety rule.
     /// TODO We must take care, however, that REAPER will not crash as a result, that would be very
     ///  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-    session: Rc<RefCell<RealearnSession>>,
+    session: Rc<RefCell<RealearnSession<'a>>>,
 }
 
-impl MainView {
-    pub fn new(session: Rc<RefCell<RealearnSession>>) -> MainView {
+impl<'a> MainView<'a> {
+    pub fn new(session: Rc<RefCell<RealearnSession<'a>>>) -> MainView<'a> {
         MainView {
             header_view: HeaderView::new(),
             session,
@@ -62,15 +63,15 @@ impl MainView {
     }
 }
 
-impl View for MainView {
+impl<'a> View for MainView<'a> {
     fn opened(&mut self, data: &OpenedData) {
         Reaper::get().show_console_msg(c_str!("Opened main view"));
         self.session
             .borrow()
             .get_dummy_source_model()
             .changed()
-            .subscribe(|_| {
-                self.adjust_dummy_text("moin");
+            .subscribe(move |_| {
+                // self.adjust_dummy_text("moin");
             });
         open_view(&mut self.header_view, ID_MAPPINGS_DIALOG, data.hwnd)
     }
