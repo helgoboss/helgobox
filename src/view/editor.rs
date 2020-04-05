@@ -16,18 +16,16 @@ use winapi::um::winuser::{
 
 use crate::model::RealearnSession;
 use crate::view::bindings::root::{ID_IMPORT_BUTTON, ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
+use crate::view::views::MainView;
+use crate::view::{open_view, View};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-// See https://doc.rust-lang.org/std/sync/struct.Once.html why this is safe in combination with Once
-pub static mut GLOBAL_HINSTANCE: HINSTANCE = null_mut();
-
-pub fn get_global_hinstance() -> HINSTANCE {
-    unsafe { GLOBAL_HINSTANCE }
-}
-
 pub struct RealearnEditor<'a> {
     open: bool,
+    // TODO Is it possible to get a trait object with View interface even when having the specific
+    //  MainView type here? Or even without Box!???
+    main_view: Box<dyn View>,
     // `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
     // reference here. Why? Because a reference needs a lifetime. Any non-static lifetime would not
     // satisfy the 'static requirement. Why not require a 'static reference then? Simply because we
@@ -72,6 +70,7 @@ impl<'a> RealearnEditor<'a> {
         RealearnEditor {
             open: false,
             session,
+            main_view: Box::new(MainView::new()),
         }
     }
 }
@@ -90,95 +89,12 @@ impl<'a> Editor for RealearnEditor<'a> {
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        // print_message("Moin");
-        show_window(parent);
+        open_view(self.main_view.as_ref(), ID_MAIN_DIALOG, parent as HWND);
         self.open = true;
         true
     }
 
     fn is_open(&mut self) -> bool {
         self.open
-    }
-}
-
-static SZ_TEXT: &'static [u8] = b"Hello, world!";
-
-unsafe extern "system" fn wnd_proc(
-    hwnd: HWND,
-    msg: UINT,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    match msg {
-        WM_DESTROY => {
-            PostQuitMessage(0);
-            0
-        }
-        WM_INITDIALOG => {
-            CreateDialogParamA(
-                get_global_hinstance(),
-                MAKEINTRESOURCEA(ID_MAPPINGS_DIALOG as u16),
-                hwnd,
-                Some(wnd_proc_2),
-                0,
-            );
-            1
-        }
-        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
-    }
-}
-
-unsafe extern "system" fn wnd_proc_2(
-    hwnd: HWND,
-    msg: UINT,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
-    match msg {
-        WM_DESTROY => {
-            PostQuitMessage(0);
-            0
-        }
-        WM_INITDIALOG => 1,
-        WM_COMMAND => {
-            let bla = wparam & 0xffff;
-            if bla == ID_IMPORT_BUTTON as usize {
-                let foo = bla;
-                let ha = 1;
-                1
-            } else {
-                DefWindowProcW(hwnd, msg, wparam, lparam)
-            }
-        }
-        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
-    }
-}
-
-#[cfg(windows)]
-fn show_window(parent: *mut c_void) {
-    unsafe {
-        CreateDialogParamA(
-            get_global_hinstance(),
-            MAKEINTRESOURCEA(ID_MAIN_DIALOG as u16),
-            parent as HWND,
-            Some(wnd_proc),
-            0, // TODO self pointer
-        );
-    }
-}
-
-#[cfg(windows)]
-fn print_message(msg: &str) -> Result<i32, Error> {
-    use std::ffi::OsStr;
-    use std::iter::once;
-    use std::os::windows::ffi::OsStrExt;
-    use std::ptr::null_mut;
-    use winapi::um::winuser::{MessageBoxW, MB_OK};
-    let wide: Vec<u16> = OsStr::new(msg).encode_wide().chain(once(0)).collect();
-    let ret = unsafe { MessageBoxW(null_mut(), wide.as_ptr(), wide.as_ptr(), MB_OK) };
-    if ret == 0 {
-        Err(Error::last_os_error())
-    } else {
-        Ok(ret)
     }
 }
