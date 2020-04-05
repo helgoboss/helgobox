@@ -21,7 +21,7 @@ use crate::view::{open_view, View};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct RealearnEditor<'a> {
+pub struct RealearnEditor {
     open: bool,
     main_view: MainView,
     /// `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
@@ -61,10 +61,10 @@ pub struct RealearnEditor<'a> {
     /// behavior. It will let us know immediately when we violated that safety rule.
     /// TODO We must take care, however, that REAPER will not crash as a result, that would be very
     ///  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-    session: Rc<RefCell<RealearnSession<'a>>>,
+    session: Rc<RefCell<RealearnSession>>,
 }
 
-impl<'a> RealearnEditor<'a> {
+impl RealearnEditor {
     pub fn new(session: Rc<RefCell<RealearnSession>>) -> RealearnEditor {
         RealearnEditor {
             open: false,
@@ -74,7 +74,7 @@ impl<'a> RealearnEditor<'a> {
     }
 }
 
-impl<'a> Editor for RealearnEditor<'a> {
+impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
         (1200, 600)
     }

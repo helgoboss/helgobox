@@ -1,16 +1,16 @@
 use crate::model::MidiSourceModel;
 
 #[derive(Default)]
-pub struct RealearnSession<'a> {
-    dummy_source_model: MidiSourceModel<'a>,
+pub struct RealearnSession {
+    dummy_source_model: MidiSourceModel<'static>,
 }
 
-impl<'a> RealearnSession<'a> {
-    pub fn new() -> RealearnSession<'a> {
+impl RealearnSession {
+    pub fn new() -> RealearnSession {
         RealearnSession::default()
     }
 
-    pub fn get_dummy_source_model(&self) -> &MidiSourceModel<'a> {
+    pub fn get_dummy_source_model(&self) -> &MidiSourceModel<'static> {
         &self.dummy_source_model
     }
 }
