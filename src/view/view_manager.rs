@@ -31,24 +31,16 @@ fn get_global_hinstance() -> HINSTANCE {
     unsafe { GLOBAL_HINSTANCE }
 }
 
-pub(super) fn open_view(
-    ref_to_view_trait_object: &mut Box<dyn View>,
-    resource_id: u32,
-    parent_window: HWND,
-) {
-    // view_trait_object is a *fat* pointer which is twice as large as a normal pointer (on 64-bit
-    // architectures 2 x 64 bit = 128 bit = 16 bytes). This is too big to encode within LPARAM.
-    // We need to create a thin pointer
-    // which is "Encode" as thin pointer (see https://users.rust-lang.org/t/sending-a-boxed-trait-over-ffi/21708/6 or
-    // https://stackoverflow.com/questions/38995701/how-do-i-pass-a-closure-through-raw-pointers-as-an-argument-to-a-c-function)
-    let ptr_to_view_trait_object = ref_to_view_trait_object as *mut _ as *mut c_void;
+pub(super) fn open_view<V: View>(view_ref: &mut V, resource_id: u32, parent_window: HWND) {
+    let view_ptr = view_ref as *mut _ as *mut c_void;
+    let view_ptr_address = view_ptr as isize;
     unsafe {
         CreateDialogParamA(
             get_global_hinstance(),
             MAKEINTRESOURCEA(resource_id as u16),
             parent_window,
-            Some(static_window_proc),
-            ptr_to_view_trait_object as isize,
+            Some(static_window_proc::<V>),
+            view_ptr_address,
         );
     }
 }
@@ -70,17 +62,15 @@ fn find_view_address(hwnd: HWND) -> Option<isize> {
     get_view_address_map().borrow().get(&hwnd).map(|v| *v)
 }
 
-fn find_view(hwnd: HWND) -> Option<&'static mut &'static mut dyn View> {
-    find_view_address(hwnd).map(|address| {
-        let ptr_to_view_trait_object = address as *mut c_void;
-        let ref_to_view_trait_object: &mut &mut dyn View =
-            unsafe { &mut *(ptr_to_view_trait_object as *mut _) };
-        ref_to_view_trait_object
+fn find_view<'a, V: View>(hwnd: HWND) -> Option<&'a mut V> {
+    find_view_address(hwnd).map(|view_ptr_address| {
+        let view_ptr = view_ptr_address as *mut c_void;
+        unsafe { &mut *(view_ptr as *mut _) }
     })
 }
 
 /// Called by window system. Finds the view which matches the HWND and delegates.
-unsafe extern "system" fn static_window_proc(
+unsafe extern "system" fn static_window_proc<V: View>(
     hwnd: HWND,
     msg: UINT,
     wparam: WPARAM,
@@ -94,8 +84,8 @@ unsafe extern "system" fn static_window_proc(
         // mapping now.
         register_view(hwnd, lparam);
     }
-    if let Some(view) = find_view(hwnd) {
-        window_proc(hwnd, msg, wparam, lparam, *view)
+    if let Some(view) = find_view::<V>(hwnd) {
+        window_proc::<V>(hwnd, msg, wparam, lparam, view)
     } else {
         DefWindowProcW(hwnd, msg, wparam, lparam)
     }
@@ -103,12 +93,12 @@ unsafe extern "system" fn static_window_proc(
 
 /// Called by our code after having found the view which matches the HWND. Immediately delegates
 /// to the nice View trait methods.
-unsafe fn window_proc(
+unsafe fn window_proc<V: View>(
     hwnd: HWND,
     msg: UINT,
     wparam: WPARAM,
     lparam: LPARAM,
-    view: &mut dyn View,
+    view: &mut V,
 ) -> LRESULT {
     match msg {
         WM_DESTROY => {
