@@ -1,5 +1,5 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
-use crate::view::{OpenedData, View};
+use crate::view::{View, Window};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -114,7 +114,7 @@ unsafe extern "system" fn view_window_proc<V: View>(
     // Found view. Delegate to view struct methods.
     match msg {
         WM_INITDIALOG => {
-            view.opened(&OpenedData { hwnd });
+            view.opened(Window::new(hwnd));
             // TODO-low Is this really necessary?
             ShowWindow(hwnd, SW_SHOW);
             // TODO-low Let view customize return value (decides if view gets keyboard default

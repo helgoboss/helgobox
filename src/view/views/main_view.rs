@@ -1,15 +1,14 @@
 use crate::model::RealearnSession;
 use crate::view::bindings::root::ID_MAPPINGS_DIALOG;
 use crate::view::views::HeaderView;
-use crate::view::{open_view, OpenedData, View};
+use crate::view::{open_view, View, Window};
 use c_str_macro::c_str;
 use reaper_rs::high_level::Reaper;
-use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct MainView<'a> {
-    header_view: HeaderView,
+    header_view: HeaderView<'a>,
     /// `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
     /// reference here. Why? Because a reference needs a lifetime. Any non-static lifetime would
     /// not satisfy the 'static requirement. Why not require a 'static reference then? Simply
@@ -53,26 +52,15 @@ pub struct MainView<'a> {
 impl<'a> MainView<'a> {
     pub fn new(session: Rc<RefCell<RealearnSession<'a>>>) -> MainView<'a> {
         MainView {
-            header_view: HeaderView::new(),
+            header_view: HeaderView::new(session.clone()),
             session,
         }
-    }
-
-    fn adjust_dummy_text(&mut self, text: &str) {
-        todo!()
     }
 }
 
 impl<'a> View for MainView<'a> {
-    fn opened(&mut self, data: &OpenedData) {
-        Reaper::get().show_console_msg(c_str!("Opened main view"));
-        self.session
-            .borrow()
-            .get_dummy_source_model()
-            .changed()
-            .subscribe(move |_| {
-                // self.adjust_dummy_text("moin");
-            });
-        open_view(&mut self.header_view, ID_MAPPINGS_DIALOG, data.hwnd)
+    fn opened(&mut self, window: Window) {
+        Reaper::get().show_console_msg(c_str!("Opened main view\n"));
+        open_view(&mut self.header_view, ID_MAPPINGS_DIALOG, window.get_hwnd());
     }
 }

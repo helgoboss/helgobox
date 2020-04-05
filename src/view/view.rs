@@ -1,3 +1,4 @@
+use crate::view::Window;
 use winapi::_core::mem::zeroed;
 use winapi::_core::ptr::null_mut;
 use winapi::shared::minwindef::HINSTANCE;
@@ -11,14 +12,11 @@ use winapi::um::winuser::{
 };
 
 /// UI component. Has a 1:1 relationship with a window handle (as in HWND).
+// TODO Rename to ViewListener or WindowHandler or anything in-between
 pub trait View {
-    fn opened(&mut self, data: &OpenedData) {}
+    fn opened(&mut self, window: Window) {}
 
     fn closed(&mut self) {}
 
     fn button_clicked(&mut self, resource_id: u32) {}
-}
-
-pub struct OpenedData {
-    pub hwnd: HWND,
 }
