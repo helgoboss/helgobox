@@ -25,7 +25,7 @@ pub struct RealearnEditor<'a> {
     open: bool,
     // TODO Is it possible to get a trait object with View interface even when having the specific
     //  MainView type here? Or even without Box!???
-    main_view: Box<dyn View>,
+    main_view: Box<Box<dyn View>>,
     // `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
     // reference here. Why? Because a reference needs a lifetime. Any non-static lifetime would not
     // satisfy the 'static requirement. Why not require a 'static reference then? Simply because we
@@ -70,7 +70,7 @@ impl<'a> RealearnEditor<'a> {
         RealearnEditor {
             open: false,
             session,
-            main_view: Box::new(MainView::new()),
+            main_view: Box::new(Box::new(MainView::new())),
         }
     }
 }
@@ -89,7 +89,19 @@ impl<'a> Editor for RealearnEditor<'a> {
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        open_view(self.main_view.as_ref(), ID_MAIN_DIALOG, parent as HWND);
+        println!(
+            r#"
+        =====
+        Size of self.main_view: {}
+        Size of &self.main_view: {}
+        Size of self.main_view.as_ref(): {}
+        =====
+        "#,
+            std::mem::size_of_val(&self.main_view),
+            std::mem::size_of_val(&&self.main_view),
+            std::mem::size_of_val(self.main_view.as_ref()),
+        );
+        open_view(self.main_view.as_mut(), ID_MAIN_DIALOG, parent as HWND);
         self.open = true;
         true
     }

@@ -31,12 +31,17 @@ fn get_global_hinstance() -> HINSTANCE {
     unsafe { GLOBAL_HINSTANCE }
 }
 
-pub(super) fn open_view(view_trait_object: &dyn View, resource_id: u32, parent_window: HWND) {
-    // "Encode" as thin pointer
-    // (see https://users.rust-lang.org/t/sending-a-boxed-trait-over-ffi/21708/6 or
+pub(super) fn open_view(
+    ref_to_view_trait_object: &mut Box<dyn View>,
+    resource_id: u32,
+    parent_window: HWND,
+) {
+    // view_trait_object is a *fat* pointer which is twice as large as a normal pointer (on 64-bit
+    // architectures 2 x 64 bit = 128 bit = 16 bytes). This is too big to encode within LPARAM.
+    // We need to create a thin pointer
+    // which is "Encode" as thin pointer (see https://users.rust-lang.org/t/sending-a-boxed-trait-over-ffi/21708/6 or
     // https://stackoverflow.com/questions/38995701/how-do-i-pass-a-closure-through-raw-pointers-as-an-argument-to-a-c-function)
-    let ref_to_view_trait_object = &view_trait_object;
-    let ptr_to_view_trait_object = ref_to_view_trait_object as *const _ as *const c_void;
+    let ptr_to_view_trait_object = ref_to_view_trait_object as *mut _ as *mut c_void;
     unsafe {
         CreateDialogParamA(
             get_global_hinstance(),
@@ -67,7 +72,7 @@ fn find_view_address(hwnd: HWND) -> Option<isize> {
 
 fn find_view(hwnd: HWND) -> Option<&'static mut &'static mut dyn View> {
     find_view_address(hwnd).map(|address| {
-        let ptr_to_view_trait_object = address as *const c_void;
+        let ptr_to_view_trait_object = address as *mut c_void;
         let ref_to_view_trait_object: &mut &mut dyn View =
             unsafe { &mut *(ptr_to_view_trait_object as *mut _) };
         ref_to_view_trait_object
