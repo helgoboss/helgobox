@@ -10,21 +10,21 @@ use std::rc::Rc;
 
 pub struct HeaderView<'a> {
     session: Rc<RefCell<RealearnSession<'a>>>,
-    window: Option<Window>,
+    window: RefCell<Option<Window>>,
 }
 
 impl<'a> HeaderView<'a> {
     pub fn new(session: Rc<RefCell<RealearnSession<'a>>>) -> HeaderView<'a> {
         HeaderView {
             session,
-            window: None,
+            window: RefCell::new(None),
         }
     }
 }
 
 impl<'a> View for HeaderView<'a> {
-    fn opened(&mut self, window: Window) {
-        self.window = Some(window);
+    fn opened(&self, window: Window) {
+        *self.window.borrow_mut() = Some(window);
         Reaper::get().show_console_msg(c_str!("Opened header view\n"));
         self.session
             .borrow_mut()
@@ -92,11 +92,11 @@ impl<'a> View for HeaderView<'a> {
             });
     }
 
-    fn closed(&mut self) {
-        self.window = None;
+    fn closed(&self) {
+        *self.window.borrow_mut() = None;
     }
 
-    fn button_clicked(&mut self, resource_id: u32) {
+    fn button_clicked(&self, resource_id: u32) {
         Reaper::get().show_console_msg(c_str!("Clicked button\n"));
         self.session
             .borrow_mut()

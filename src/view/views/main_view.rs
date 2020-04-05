@@ -59,8 +59,8 @@ impl<'a> MainView<'a> {
 }
 
 impl<'a> View for MainView<'a> {
-    fn opened(&mut self, window: Window) {
+    fn opened(&self, window: Window) {
         Reaper::get().show_console_msg(c_str!("Opened main view\n"));
-        open_view(&mut self.header_view, ID_MAPPINGS_DIALOG, window.get_hwnd());
+        open_view(&self.header_view, ID_MAPPINGS_DIALOG, window.get_hwnd());
     }
 }

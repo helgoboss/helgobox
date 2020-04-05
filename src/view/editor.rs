@@ -49,7 +49,7 @@ impl<'a> Editor for RealearnEditor<'a> {
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        open_view(&mut self.main_view, ID_MAIN_DIALOG, parent as HWND);
+        open_view(&self.main_view, ID_MAIN_DIALOG, parent as HWND);
         self.open = true;
         true
     }

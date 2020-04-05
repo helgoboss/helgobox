@@ -36,8 +36,8 @@ static INIT_VIEW_ADDRESS_MAP: Once = Once::new();
 
 /// Creates a new win32 dialog using the given resource ID. Uses the methods in the given view for
 /// all callbacks.
-pub(super) fn open_view<V: View>(view_ref: &mut V, resource_id: u32, parent_window: HWND) {
-    let view_ptr = view_ref as *mut _ as *mut c_void;
+pub(super) fn open_view<V: View>(view_ref: &V, resource_id: u32, parent_window: HWND) {
+    let view_ptr = view_ref as *const _ as *const c_void;
     let view_ptr_address = view_ptr as isize;
     unsafe {
         CreateDialogParamA(
@@ -78,10 +78,10 @@ fn find_view_address(hwnd: HWND) -> Option<isize> {
 }
 
 /// Finds a view reference given a HWND
-fn find_view<'a, V: View>(hwnd: HWND) -> Option<&'a mut V> {
+fn find_view<'a, V: View>(hwnd: HWND) -> Option<&'a V> {
     find_view_address(hwnd).map(|view_ptr_address| {
-        let view_ptr = view_ptr_address as *mut c_void;
-        unsafe { &mut *(view_ptr as *mut _) }
+        let view_ptr = view_ptr_address as *const c_void;
+        unsafe { &*(view_ptr as *const _) }
     })
 }
 
