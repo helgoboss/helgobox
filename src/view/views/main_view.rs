@@ -1,4 +1,3 @@
-use crate::model::RealearnSession;
 use crate::view::bindings::root::ID_MAPPINGS_DIALOG;
 use crate::view::views::HeaderView;
 use crate::view::{open_view, OpenedData, View};

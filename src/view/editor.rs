@@ -21,12 +21,12 @@ use crate::view::{open_view, View};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct RealearnEditor {
+pub struct RealearnEditor<'a> {
     open: bool,
     main_view: MainView,
 }
 
-impl RealearnEditor {
+impl<'a> RealearnEditor<'a> {
     pub fn new(session: Rc<RefCell<RealearnSession>>) -> RealearnEditor {
         RealearnEditor {
             open: false,
@@ -35,7 +35,7 @@ impl RealearnEditor {
     }
 }
 
-impl Editor for RealearnEditor {
+impl<'a> Editor for RealearnEditor<'a> {
     fn size(&self) -> (i32, i32) {
         (1200, 600)
     }

@@ -15,7 +15,7 @@ use std::rc::Rc;
 #[derive(Default)]
 pub struct RealearnPlugin {
     host: HostCallback,
-    session: Rc<RefCell<RealearnSession>>,
+    session: Rc<RefCell<RealearnSession<'static>>>,
 }
 
 impl Plugin for RealearnPlugin {
