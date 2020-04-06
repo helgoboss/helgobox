@@ -1,4 +1,5 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
+use crate::get_global_hinstance;
 use crate::view::{View, Window};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -37,17 +38,6 @@ pub(super) fn open_view(view_ref: Rc<dyn View>, resource_id: u32, parent_window:
             convert_view_ref_to_address(&view_ref),
         );
     }
-}
-
-/// When this dynamic library is loaded in Windows, this global variable will be filled with the
-/// DLL's HMODULE/HINSTANCE address. This is necessary to access the dialog resources for the Win32
-/// UI.
-pub static mut GLOBAL_HINSTANCE: HINSTANCE = null_mut();
-
-/// On Windows, this returns the DLL's HMODULE/HINSTANCE address as soon as the DLL is loaded,
-/// otherwise null.
-fn get_global_hinstance() -> HINSTANCE {
-    unsafe { GLOBAL_HINSTANCE }
 }
 
 /// This struct manages the mapping from HWNDs to views. This is necessary to get from global win32
