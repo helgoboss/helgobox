@@ -1,6 +1,6 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
-use crate::get_global_hinstance;
-use crate::view::{ViewListener, Window};
+use super::{ViewListener, Window};
+use crate::infrastructure::plugin::get_global_hinstance;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -132,9 +132,7 @@ unsafe extern "system" fn view_window_proc(
                     // do in such a situation (= panicking instead of crashing)
                     // while still notifying the user (or ideally developer) that there's an issue.
                     v.upgrade()
-                        .ok_or(
-                            "Requested view is registered in view map but has been dropped already",
-                        )
+                        .ok_or("Requested ui is registered in ui map but has been dropped already")
                         .unwrap()
                 }
             }

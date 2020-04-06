@@ -1,4 +1,4 @@
-use crate::view::Window;
+use super::Window;
 use std::fmt::Debug;
 use std::rc::Rc;
 use winapi::_core::mem::zeroed;

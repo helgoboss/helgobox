@@ -1,4 +1,4 @@
-use crate::model::MidiSourceModel;
+use super::MidiSourceModel;
 
 #[derive(Default, Debug)]
 pub struct RealearnSession<'a> {

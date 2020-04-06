@@ -1,6 +1,6 @@
-use crate::model::RealearnSession;
-use crate::view::bindings::root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX;
-use crate::view::{ViewListener, Window};
+use crate::domain::RealearnSession;
+use crate::infrastructure::ui::bindings::root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX;
+use crate::infrastructure::ui::{ViewListener, Window};
 use c_str_macro::c_str;
 use helgoboss_midi::channel;
 use reaper_rs::high_level::Reaper;
@@ -35,7 +35,7 @@ impl HeaderView {
 impl ViewListener for HeaderView {
     fn opened(self: Rc<Self>, window: Window) {
         *self.window.borrow_mut() = Some(window);
-        Reaper::get().show_console_msg(c_str!("Opened header view\n"));
+        Reaper::get().show_console_msg(c_str!("Opened header ui\n"));
         let weak_self = Rc::downgrade(&self);
         self.session
             .borrow_mut()

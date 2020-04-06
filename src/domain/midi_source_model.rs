@@ -1,4 +1,4 @@
-use crate::model::Property;
+use crate::domain::Property;
 use helgoboss_learn::{MidiClockTransportMessageKind, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use rxrust::prelude::*;

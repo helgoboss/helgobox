@@ -7,8 +7,8 @@ use reaper_rs::medium_level;
 use vst::editor::Editor;
 use vst::plugin::{HostCallback, Info, Plugin};
 
-use crate::model::RealearnSession;
-use crate::view::RealearnEditor;
+use super::RealearnEditor;
+use crate::domain::RealearnSession;
 use std::cell::RefCell;
 use std::rc::Rc;
 

@@ -12,6 +12,7 @@ helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
 vst = "0.2.0"
 rxrust = "0.8.3"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 [target.'cfg(windows)'.dependencies]

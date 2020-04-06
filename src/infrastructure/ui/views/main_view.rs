@@ -1,11 +1,12 @@
-use crate::model::RealearnSession;
-use crate::view::bindings::root::ID_MAPPINGS_DIALOG;
-use crate::view::views::HeaderView;
-use crate::view::{open_view, ViewListener, Window};
+use crate::domain::RealearnSession;
+use crate::infrastructure::ui::bindings::root::{ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
+use crate::infrastructure::ui::views::HeaderView;
+use crate::infrastructure::ui::{open_view, ViewListener, Window};
 use c_str_macro::c_str;
 use reaper_rs::high_level::Reaper;
 use std::cell::RefCell;
 use std::rc::Rc;
+use winapi::shared::windef::HWND;
 
 #[derive(Debug)]
 pub struct MainView {
@@ -57,11 +58,15 @@ impl MainView {
             session,
         }
     }
+
+    pub fn open(self: Rc<Self>, parent_window: HWND) {
+        open_view(self, ID_MAIN_DIALOG, parent_window);
+    }
 }
 
 impl ViewListener for MainView {
     fn opened(self: Rc<Self>, window: Window) {
-        Reaper::get().show_console_msg(c_str!("Opened main view\n"));
+        Reaper::get().show_console_msg(c_str!("Opened main ui\n"));
         open_view(
             self.header_view.clone(),
             ID_MAPPINGS_DIALOG,
