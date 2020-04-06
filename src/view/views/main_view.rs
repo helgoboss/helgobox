@@ -45,8 +45,8 @@ pub struct MainView {
     /// plugin system would be designed in a different way. However, we *can* use Rust's
     /// runtime borrow checker `RefCell`. And we should, because it gives us fail-fast
     /// behavior. It will let us know immediately when we violated that safety rule.
-    /// TODO We must take care, however, that REAPER will not crash as a result, that would be very
-    ///  bad.  See https://github.com/RustAudio/vst-rs/issues/122
+    /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
+    /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
     session: Rc<RefCell<RealearnSession<'static>>>,
 }
 

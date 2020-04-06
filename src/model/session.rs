@@ -1,7 +1,5 @@
 use crate::model::MidiSourceModel;
 
-// TODO Maybe make the session static. What's the point of having a lifetime parameter? We use it
-//  always as static anyway and that is unnecessary code.
 #[derive(Default, Debug)]
 pub struct RealearnSession<'a> {
     dummy_source_model: MidiSourceModel<'a>,
