@@ -7,8 +7,9 @@ use reaper_rs::high_level::Reaper;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct MainView<'a> {
-    header_view: HeaderView<'a>,
+#[derive(Debug)]
+pub struct MainView {
+    header_view: Rc<HeaderView>,
     /// `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
     /// reference here. Why? Because a reference needs a lifetime. Any non-static lifetime would
     /// not satisfy the 'static requirement. Why not require a 'static reference then? Simply
@@ -46,21 +47,25 @@ pub struct MainView<'a> {
     /// behavior. It will let us know immediately when we violated that safety rule.
     /// TODO We must take care, however, that REAPER will not crash as a result, that would be very
     ///  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-    session: Rc<RefCell<RealearnSession<'a>>>,
+    session: Rc<RefCell<RealearnSession<'static>>>,
 }
 
-impl<'a> MainView<'a> {
-    pub fn new(session: Rc<RefCell<RealearnSession<'a>>>) -> MainView<'a> {
+impl MainView {
+    pub fn new(session: Rc<RefCell<RealearnSession<'static>>>) -> MainView {
         MainView {
-            header_view: HeaderView::new(session.clone()),
+            header_view: Rc::new(HeaderView::new(session.clone())),
             session,
         }
     }
 }
 
-impl<'a> View for MainView<'a> {
+impl View for MainView {
     fn opened(&self, window: Window) {
         Reaper::get().show_console_msg(c_str!("Opened main view\n"));
-        open_view(&self.header_view, ID_MAPPINGS_DIALOG, window.get_hwnd());
+        open_view(
+            self.header_view.clone(),
+            ID_MAPPINGS_DIALOG,
+            window.get_hwnd(),
+        );
     }
 }

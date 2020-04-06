@@ -1,4 +1,5 @@
 use crate::view::Window;
+use std::fmt::Debug;
 use winapi::_core::mem::zeroed;
 use winapi::_core::ptr::null_mut;
 use winapi::shared::minwindef::HINSTANCE;
@@ -37,7 +38,7 @@ use winapi::um::winuser::{
 /// not to write to the same data member non-exclusively. If we fail to achieve that, at least
 /// the panic lets us know about the issue.
 /// TODO Rename to ViewListener or WindowHandler or anything in-between
-pub trait View {
+pub trait View: Debug {
     fn opened(&self, window: Window) {}
 
     fn closed(&self) {}

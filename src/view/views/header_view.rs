@@ -8,13 +8,14 @@ use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub struct HeaderView<'a> {
-    session: Rc<RefCell<RealearnSession<'a>>>,
+#[derive(Debug)]
+pub struct HeaderView {
+    session: Rc<RefCell<RealearnSession<'static>>>,
     window: RefCell<Option<Window>>,
 }
 
-impl<'a> HeaderView<'a> {
-    pub fn new(session: Rc<RefCell<RealearnSession<'a>>>) -> HeaderView<'a> {
+impl HeaderView {
+    pub fn new(session: Rc<RefCell<RealearnSession<'static>>>) -> HeaderView {
         HeaderView {
             session,
             window: RefCell::new(None),
@@ -22,7 +23,7 @@ impl<'a> HeaderView<'a> {
     }
 }
 
-impl<'a> View for HeaderView<'a> {
+impl View for HeaderView {
     fn opened(&self, window: Window) {
         *self.window.borrow_mut() = Some(window);
         Reaper::get().show_console_msg(c_str!("Opened header view\n"));

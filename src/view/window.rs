@@ -2,7 +2,7 @@ use winapi::shared::windef::HWND;
 
 /// Represents a window (in the win32 sense where windows are not only top-level windows but also
 /// embedded components)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Window {
     hwnd: HWND,
 }
