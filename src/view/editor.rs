@@ -17,7 +17,7 @@ use winapi::um::winuser::{
 use crate::model::RealearnSession;
 use crate::view::bindings::root::{ID_IMPORT_BUTTON, ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
 use crate::view::views::MainView;
-use crate::view::{open_view, View};
+use crate::view::{open_view, ViewListener};
 use std::cell::RefCell;
 use std::rc::Rc;
 

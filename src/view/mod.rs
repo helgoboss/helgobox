@@ -3,8 +3,8 @@ mod bindings;
 mod editor;
 pub use editor::*;
 
-mod view;
-pub(super) use view::*;
+mod view_listener;
+pub(super) use view_listener::*;
 
 mod view_manager;
 pub(super) use view_manager::*;

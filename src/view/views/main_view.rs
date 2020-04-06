@@ -1,7 +1,7 @@
 use crate::model::RealearnSession;
 use crate::view::bindings::root::ID_MAPPINGS_DIALOG;
 use crate::view::views::HeaderView;
-use crate::view::{open_view, View, Window};
+use crate::view::{open_view, ViewListener, Window};
 use c_str_macro::c_str;
 use reaper_rs::high_level::Reaper;
 use std::cell::RefCell;
@@ -59,7 +59,7 @@ impl MainView {
     }
 }
 
-impl View for MainView {
+impl ViewListener for MainView {
     fn opened(self: Rc<Self>, window: Window) {
         Reaper::get().show_console_msg(c_str!("Opened main view\n"));
         open_view(
