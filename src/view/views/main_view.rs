@@ -60,7 +60,7 @@ impl MainView {
 }
 
 impl View for MainView {
-    fn opened(&self, window: Window) {
+    fn opened(self: Rc<Self>, window: Window) {
         Reaper::get().show_console_msg(c_str!("Opened main view\n"));
         open_view(
             self.header_view.clone(),

@@ -1,5 +1,6 @@
 use crate::view::Window;
 use std::fmt::Debug;
+use std::rc::Rc;
 use winapi::_core::mem::zeroed;
 use winapi::_core::ptr::null_mut;
 use winapi::shared::minwindef::HINSTANCE;
@@ -16,7 +17,7 @@ use winapi::um::winuser::{
 ///
 /// # Design
 ///
-/// ## Why do view callback methods take self as immutable reference (`&self`)?
+/// ## Why do view callback methods take self not as mutable reference?
 /// win32 window procedures can be *reentered*, see the win32 docs! Now let's assume we would take
 /// self as mutable reference (`&mut self`). If we would have a borrow checker (`RefCell`), it would
 /// complain on reentry by panicking. Rightly so. Without `RefCell` things would get very unsafe and
@@ -37,11 +38,19 @@ use winapi::um::winuser::{
 /// fine-granular `RefCell` approach because reentrancy is unavoidable. We just need to make sure
 /// not to write to the same data member non-exclusively. If we fail to achieve that, at least
 /// the panic lets us know about the issue.
+///
+/// ## Why do view callback methods take self as `Rc<Self>`?
+/// Given the above mentioned safety measures and knowing that we must keep views as `Rc`s anyway
+/// (for lifetime reasons, see `ViewManager`), it is possible to take self as `Rc<Self>` without
+/// sacrificing anything. The obvious advantage we have is that it gives us an easy way to access
+/// view methods in subscribe closures without running into lifetime problems (such as &self
+/// disappearing while still being used in the closure).
+///
 /// TODO Rename to ViewListener or WindowHandler or anything in-between
 pub trait View: Debug {
-    fn opened(&self, window: Window) {}
+    fn opened(self: Rc<Self>, window: Window) {}
 
-    fn closed(&self) {}
+    fn closed(self: Rc<Self>) {}
 
-    fn button_clicked(&self, resource_id: u32) {}
+    fn button_clicked(self: Rc<Self>, resource_id: u32) {}
 }
