@@ -2,6 +2,7 @@ use crate::domain::Property;
 use helgoboss_learn::{MidiClockTransportMessageKind, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use rxrust::prelude::*;
+use serde_repr::*;
 
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
@@ -92,18 +93,19 @@ impl<'a> MidiSourceModel<'a> {
 }
 
 /// Represents possible MIDI sources
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
 pub enum MidiSourceKind {
-    NoteVelocity,
-    NoteKeyNumber,
-    PolyphonicKeyPressureAmount,
-    ControlChangeValue,
-    ProgramChangeNumber,
-    ChannelPressureAmount,
-    PitchBendChangeValue,
-    ParameterNumberValue,
-    ClockTempo,
-    ClockTransport,
+    ControlChangeValue = 0,
+    NoteVelocity = 1,
+    NoteKeyNumber = 2,
+    PitchBendChangeValue = 3,
+    ChannelPressureAmount = 4,
+    ProgramChangeNumber = 5,
+    ParameterNumberValue = 6,
+    PolyphonicKeyPressureAmount = 7,
+    ClockTempo = 8,
+    ClockTransport = 9,
 }
 
 #[cfg(test)]
