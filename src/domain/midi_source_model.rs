@@ -111,7 +111,7 @@ pub enum MidiSourceKind {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helgoboss_midi::channel;
+    use helgoboss_midi::test_util::*;
 
     #[test]
     fn changed() {

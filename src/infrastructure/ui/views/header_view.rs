@@ -2,7 +2,7 @@ use crate::domain::RealearnSession;
 use crate::infrastructure::ui::bindings::root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX;
 use crate::infrastructure::ui::{ViewListener, Window};
 use c_str_macro::c_str;
-use helgoboss_midi::channel;
+use helgoboss_midi::Channel;
 use reaper_rs::high_level::Reaper;
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -57,6 +57,6 @@ impl ViewListener for HeaderView {
             .borrow_mut()
             .get_dummy_source_model()
             .channel
-            .set(Some(channel(14)));
+            .set(Some(Channel::new(14)));
     }
 }

@@ -1,6 +1,6 @@
 use crate::domain::{MidiSourceKind, MidiSourceModel};
 use helgoboss_learn::{MidiClockTransportMessageKind, SourceCharacter};
-use helgoboss_midi::{channel, u14, u7, Channel, U14, U7};
+use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use validator::{Validate, ValidationError, ValidationErrors};
@@ -147,7 +147,7 @@ impl From<&MidiSourceModel<'_>> for SourceModelData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helgoboss_midi::{channel, u14, u7};
+    use helgoboss_midi::test_util::*;
     use serde_json::json;
     use validator::ValidationErrors;
 
