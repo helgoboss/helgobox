@@ -1,5 +1,5 @@
-use crate::domain::{MidiSourceKind, MidiSourceModel};
-use helgoboss_learn::{MidiClockTransportMessageKind, SourceCharacter};
+use crate::domain::{MidiSourceModel, MidiSourceType};
+use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -12,7 +12,7 @@ use validator_derive::*;
 #[serde(rename_all = "camelCase")]
 #[validate(schema(function = "validate_schema"))]
 pub struct SourceModelData {
-    pub r#type: MidiSourceKind,
+    pub r#type: MidiSourceType,
     #[validate(range(min = -1, max = 15))]
     pub channel: Option<i16>,
     #[validate(range(min = -1, max = 16383))]
@@ -26,7 +26,7 @@ pub struct SourceModelData {
 }
 
 fn validate_schema(data: &SourceModelData) -> Result<(), ValidationError> {
-    if data.r#type != MidiSourceKind::ParameterNumberValue
+    if data.r#type != MidiSourceType::ParameterNumberValue
         && data.number.map(|n| U7::is_valid(n)) == Some(false)
     {
         let mut error = ValidationError::new("number_too_large");
@@ -43,13 +43,13 @@ impl SourceModelData {
         model: &mut MidiSourceModel,
     ) -> Result<(), ValidationErrors> {
         self.validate()?;
-        model.kind.set(self.r#type);
+        model.r#type.set(self.r#type);
         model.channel.set(
             self.channel
                 .none_if_negative()
                 .map(|v| v.try_into().unwrap()),
         );
-        if self.r#type == MidiSourceKind::ParameterNumberValue {
+        if self.r#type == MidiSourceType::ParameterNumberValue {
             model.parameter_number_message_number.set(
                 self.number
                     .none_if_negative()
@@ -77,16 +77,14 @@ impl SourceModelData {
         model.is_registered.set(self.is_registered);
         model.is_14_bit.set(self.is_14_bit);
         {
-            use MidiClockTransportMessageKind::*;
-            let transport_msg_kind = match self.message.unwrap_or(0) {
+            use MidiClockTransportMessage::*;
+            let transport_msg = match self.message.unwrap_or(0) {
                 0 => Start,
                 1 => Continue,
                 2 => Stop,
                 _ => unreachable!(),
             };
-            model
-                .midi_clock_transport_message_kind
-                .set(transport_msg_kind);
+            model.midi_clock_transport_message.set(transport_msg);
         }
         Ok(())
     }
@@ -108,9 +106,9 @@ impl<T: PartialOrd + From<i8>> NoneIfNegative for Option<T> {
 impl From<&MidiSourceModel<'_>> for SourceModelData {
     fn from(model: &MidiSourceModel<'_>) -> Self {
         SourceModelData {
-            r#type: *model.kind.get(),
+            r#type: *model.r#type.get(),
             channel: model.channel.get().map(|ch| ch.into()),
-            number: if *model.kind.get() == MidiSourceKind::ParameterNumberValue {
+            number: if *model.r#type.get() == MidiSourceType::ParameterNumberValue {
                 model
                     .parameter_number_message_number
                     .get()
@@ -132,8 +130,8 @@ impl From<&MidiSourceModel<'_>> for SourceModelData {
             is_registered: *model.is_registered.get(),
             is_14_bit: *model.is_14_bit.get(),
             message: {
-                use MidiClockTransportMessageKind::*;
-                match model.midi_clock_transport_message_kind.get() {
+                use MidiClockTransportMessage::*;
+                match model.midi_clock_transport_message.get() {
                     Start => 0,
                     Continue => 1,
                     Stop => 2,
@@ -169,7 +167,7 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
-                r#type: MidiSourceKind::ControlChangeValue,
+                r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(0),
                 number: Some(0),
                 character: Some(0),
@@ -199,7 +197,7 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
-                r#type: MidiSourceKind::ParameterNumberValue,
+                r#type: MidiSourceType::ParameterNumberValue,
                 channel: Some(-1),
                 number: Some(12542),
                 character: None,
@@ -215,7 +213,7 @@ mod tests {
     fn validate_1() {
         // Given
         let data = SourceModelData {
-            r#type: MidiSourceKind::ParameterNumberValue,
+            r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(-4),
             number: Some(21000),
             character: Some(90),
@@ -240,7 +238,7 @@ mod tests {
     fn validate_2() {
         // Given
         let data = SourceModelData {
-            r#type: MidiSourceKind::ControlChangeValue,
+            r#type: MidiSourceType::ControlChangeValue,
             channel: Some(-1),
             number: Some(500),
             character: Some(1),
@@ -261,7 +259,7 @@ mod tests {
     fn apply_1() {
         // Given
         let data = SourceModelData {
-            r#type: MidiSourceKind::ParameterNumberValue,
+            r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(8),
             number: Some(-1),
             character: None,
@@ -274,14 +272,14 @@ mod tests {
         let result = data.apply_to_source_model(&mut model);
         // Then
         assert!(result.is_ok());
-        assert_eq!(*model.kind.get(), MidiSourceKind::ParameterNumberValue);
+        assert_eq!(*model.r#type.get(), MidiSourceType::ParameterNumberValue);
         assert_eq!(*model.channel.get(), Some(channel(8)));
         assert_eq!(*model.midi_message_number.get(), None);
         assert_eq!(*model.parameter_number_message_number.get(), None);
         assert_eq!(*model.custom_character.get(), SourceCharacter::Range);
         assert_eq!(
-            *model.midi_clock_transport_message_kind.get(),
-            MidiClockTransportMessageKind::Start
+            *model.midi_clock_transport_message.get(),
+            MidiClockTransportMessage::Start
         );
         assert_eq!(*model.is_registered.get(), Some(true));
         assert_eq!(*model.is_14_bit.get(), Some(true));
@@ -291,7 +289,7 @@ mod tests {
     fn apply_2() {
         // Given
         let data = SourceModelData {
-            r#type: MidiSourceKind::ClockTransport,
+            r#type: MidiSourceType::ClockTransport,
             channel: None,
             number: Some(112),
             character: None,
@@ -304,14 +302,14 @@ mod tests {
         let result = data.apply_to_source_model(&mut model);
         assert!(result.is_ok());
         // Then
-        assert_eq!(*model.kind.get(), MidiSourceKind::ClockTransport);
+        assert_eq!(*model.r#type.get(), MidiSourceType::ClockTransport);
         assert_eq!(*model.channel.get(), None);
         assert_eq!(*model.midi_message_number.get(), Some(u7(112)));
         assert_eq!(*model.parameter_number_message_number.get(), None);
         assert_eq!(*model.custom_character.get(), SourceCharacter::Range);
         assert_eq!(
-            *model.midi_clock_transport_message_kind.get(),
-            MidiClockTransportMessageKind::Stop
+            *model.midi_clock_transport_message.get(),
+            MidiClockTransportMessage::Stop
         );
         assert_eq!(*model.is_registered.get(), None);
         assert_eq!(*model.is_14_bit.get(), Some(false));
@@ -321,7 +319,7 @@ mod tests {
     fn from_1() {
         // Given
         let mut model = MidiSourceModel::default();
-        model.kind.set(MidiSourceKind::ControlChangeValue);
+        model.r#type.set(MidiSourceType::ControlChangeValue);
         model.channel.set(Some(channel(15)));
         model.midi_message_number.set(Some(u7(12)));
         model.custom_character.set(SourceCharacter::Encoder2);
@@ -332,7 +330,7 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
-                r#type: MidiSourceKind::ControlChangeValue,
+                r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(15),
                 number: Some(12),
                 character: Some(3),
@@ -347,7 +345,7 @@ mod tests {
     fn from_2() {
         // Given
         let mut model = MidiSourceModel::default();
-        model.kind.set(MidiSourceKind::ParameterNumberValue);
+        model.r#type.set(MidiSourceType::ParameterNumberValue);
         model.channel.set(None);
         model.midi_message_number.set(Some(u7(77)));
         model.parameter_number_message_number.set(Some(u14(78)));
@@ -355,15 +353,15 @@ mod tests {
         model.is_14_bit.set(Some(true));
         model.is_registered.set(Some(true));
         model
-            .midi_clock_transport_message_kind
-            .set(MidiClockTransportMessageKind::Continue);
+            .midi_clock_transport_message
+            .set(MidiClockTransportMessage::Continue);
         // When
         let data: SourceModelData = (&model).into();
         // Then
         assert_eq!(
             data,
             SourceModelData {
-                r#type: MidiSourceKind::ParameterNumberValue,
+                r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
                 number: Some(78),
                 character: Some(2),

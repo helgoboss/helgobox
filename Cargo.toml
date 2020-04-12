@@ -6,7 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-reaper-rs = { path = "../reaper-rs/main" }
+reaper-rs = { path = "../reaper-rs/main", features = ["high-level"] }
 helgoboss-midi = { path = "../helgoboss-midi-rs" }
 helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"

@@ -1,5 +1,5 @@
 use crate::domain::Property;
-use helgoboss_learn::{MidiClockTransportMessageKind, MidiSource, SourceCharacter};
+use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use rxrust::prelude::*;
 use serde_repr::*;
@@ -7,12 +7,12 @@ use serde_repr::*;
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
 pub struct MidiSourceModel<'a> {
-    pub kind: Property<'a, MidiSourceKind>,
+    pub r#type: Property<'a, MidiSourceType>,
     pub channel: Property<'a, Option<Channel>>,
     pub midi_message_number: Property<'a, Option<U7>>,
     pub parameter_number_message_number: Property<'a, Option<U14>>,
     pub custom_character: Property<'a, SourceCharacter>,
-    pub midi_clock_transport_message_kind: Property<'a, MidiClockTransportMessageKind>,
+    pub midi_clock_transport_message: Property<'a, MidiClockTransportMessage>,
     pub is_registered: Property<'a, Option<bool>>,
     pub is_14_bit: Property<'a, Option<bool>>,
 }
@@ -20,12 +20,12 @@ pub struct MidiSourceModel<'a> {
 impl<'a> Default for MidiSourceModel<'a> {
     fn default() -> Self {
         Self {
-            kind: Property::new(MidiSourceKind::ControlChangeValue),
+            r#type: Property::new(MidiSourceType::ControlChangeValue),
             channel: Default::default(),
             midi_message_number: Default::default(),
             parameter_number_message_number: Default::default(),
             custom_character: Property::new(SourceCharacter::Range),
-            midi_clock_transport_message_kind: Property::new(MidiClockTransportMessageKind::Start),
+            midi_clock_transport_message: Property::new(MidiClockTransportMessage::Start),
             is_registered: Default::default(),
             is_14_bit: Default::default(),
         }
@@ -35,23 +35,23 @@ impl<'a> Default for MidiSourceModel<'a> {
 impl<'a> MidiSourceModel<'a> {
     /// Fires whenever one of the properties of this model has changed
     pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
-        self.kind
+        self.r#type
             .changed()
             .merge(self.channel.changed())
             .merge(self.midi_message_number.changed())
             .merge(self.parameter_number_message_number.changed())
             .merge(self.custom_character.changed())
-            .merge(self.midi_clock_transport_message_kind.changed())
+            .merge(self.midi_clock_transport_message.changed())
             .merge(self.is_registered.changed())
             .merge(self.is_14_bit.changed())
     }
 
     /// Creates a source reflecting this model's current values
     pub fn create_source(&self) -> MidiSource {
-        use MidiSourceKind::*;
+        use MidiSourceType::*;
         let channel = *self.channel.get();
         let key_number = self.midi_message_number.get().map(|n| n.into());
-        match self.kind.get() {
+        match self.r#type.get() {
             NoteVelocity => MidiSource::NoteVelocity {
                 channel,
                 key_number,
@@ -86,7 +86,7 @@ impl<'a> MidiSourceModel<'a> {
             },
             ClockTempo => MidiSource::ClockTempo,
             ClockTransport => MidiSource::ClockTransport {
-                message_kind: *self.midi_clock_transport_message_kind.get(),
+                message: *self.midi_clock_transport_message.get(),
             },
         }
     }
@@ -95,7 +95,7 @@ impl<'a> MidiSourceModel<'a> {
 /// Represents possible MIDI sources
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
-pub enum MidiSourceKind {
+pub enum MidiSourceType {
     ControlChangeValue = 0,
     NoteVelocity = 1,
     NoteKeyNumber = 2,
@@ -121,10 +121,10 @@ mod tests {
         {
             let mut m = MidiSourceModel::default();
             m.changed().subscribe(|v| invocation_count += 1);
-            m.kind.set(MidiSourceKind::NoteVelocity);
+            m.r#type.set(MidiSourceType::NoteVelocity);
             m.channel.set(Some(channel(5)));
-            m.kind.set(MidiSourceKind::ClockTransport);
-            m.kind.set(MidiSourceKind::ClockTransport);
+            m.r#type.set(MidiSourceType::ClockTransport);
+            m.r#type.set(MidiSourceType::ClockTransport);
             m.channel.set(Some(channel(4)));
         }
         // Then
