@@ -1,9 +1,9 @@
 use c_str_macro::c_str;
-use reaper_rs::high_level;
-use reaper_rs::high_level::{setup_all_with_defaults, Reaper};
-use reaper_rs::low_level;
-use reaper_rs::low_level::ReaperPluginContext;
-use reaper_rs::medium_level;
+use reaper_rs::high;
+use reaper_rs::high::{setup_all_with_defaults, Reaper};
+use reaper_rs::low;
+use reaper_rs::low::ReaperPluginContext;
+use reaper_rs::medium;
 use vst::editor::Editor;
 use vst::plugin::{HostCallback, Info, Plugin};
 

@@ -27,7 +27,7 @@ pub struct SourceModelData {
 
 fn validate_schema(data: &SourceModelData) -> Result<(), ValidationError> {
     if data.r#type != MidiSourceType::ParameterNumberValue
-        && data.number.map(|n| U7::is_valid(n)) == Some(false)
+        && data.number.map(|n| n <= U7::MAX.get() as i32) == Some(false)
     {
         let mut error = ValidationError::new("number_too_large");
         error.add_param("number".into(), &data.number);
