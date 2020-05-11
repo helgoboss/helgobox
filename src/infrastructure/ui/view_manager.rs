@@ -90,7 +90,7 @@ fn interpret_address_as_view_ref<'a>(view_trait_object_address: isize) -> &'a Rc
 /// This is our window procedure. It's called by Windows (or the emulation layer). It basically
 /// finds the particular `View` instance which matches the HWND and then delegates to its
 /// methods.
-unsafe extern "system" fn view_window_proc(
+unsafe extern "C" fn view_window_proc(
     hwnd: HWND,
     msg: UINT,
     wparam: WPARAM,

@@ -1,5 +1,6 @@
 #[cfg(target_os = "windows")]
 mod windows {
+    use winapi::ctypes::c_int;
     pub use winapi::{
         shared::{
             minwindef::{HINSTANCE, LPARAM, LRESULT, UINT, WPARAM},
@@ -21,10 +22,12 @@ pub use windows::*;
 mod linux {
     pub use crate::infrastructure::common::bindings::root::{
         DefWindowProc, DestroyWindow, GetDlgItem, ShowWindow, HINSTANCE, HWND, LPARAM, LRESULT,
-        SW_SHOW, UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
+        UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
     };
 
     use crate::infrastructure::common::bindings::root;
+
+    pub const SW_SHOW: i32 = root::SW_SHOW as i32;
 
     pub unsafe fn CreateDialogParam(
         hinst: HINSTANCE,
