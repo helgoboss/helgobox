@@ -18,9 +18,9 @@ pub(in crate::infrastructure) mod hinstance {
 
 #[cfg(target_os = "windows")]
 pub(in crate::infrastructure) mod hinstance {
+    use crate::infrastructure::common::win32::HINSTANCE;
     use std::ptr::null_mut;
     use std::sync::Once;
-    use winapi::shared::minwindef::HINSTANCE;
 
     /// On Windows, this returns the DLL's HMODULE/HINSTANCE address as soon as the DLL is loaded,
     /// otherwise null.

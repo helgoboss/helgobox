@@ -2,11 +2,10 @@ use crate::domain::RealearnSession;
 use crate::infrastructure::ui::views::MainView;
 use std::cell::RefCell;
 
+use crate::infrastructure::common::win32::HWND;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use vst::editor::Editor;
-#[cfg(target_os = "windows")]
-use winapi::shared::windef::HWND;
 
 pub struct RealearnEditor {
     open: bool,

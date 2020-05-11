@@ -4,21 +4,15 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+use crate::infrastructure::common::win32::{
+    CreateDialogParamA, DefWindowProcW, DestroyWindow, ShowWindow, HWND, LPARAM, LRESULT,
+    MAKEINTRESOURCEA, SW_SHOW, UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
+};
 use crate::infrastructure::plugin::hinstance::get_global_hinstance;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::rc::{Rc, Weak};
 use std::sync::Once;
-#[cfg(target_os = "windows")]
-use winapi::{
-    shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM},
-    shared::windef::HWND,
-    um::winuser::{
-        CreateDialogParamA, DefWindowProcW, DestroyWindow, WM_CLOSE, WM_COMMAND, WM_DESTROY,
-        WM_INITDIALOG,
-    },
-    um::winuser::{ShowWindow, MAKEINTRESOURCEA, SW_SHOW},
-};
 
 /// Creates a new win32 dialog using the given resource ID. Uses the methods in the given view for
 /// all callbacks.

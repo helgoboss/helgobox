@@ -1,5 +1,4 @@
-#[cfg(target_os = "windows")]
-use winapi::{shared::windef::HWND, um::winuser::GetDlgItem, um::winuser::SetWindowTextW};
+use crate::infrastructure::common::win32::{GetDlgItem, SetWindowTextW, HWND};
 
 /// Represents a window (in the win32 sense where windows are not only top-level windows but also
 /// embedded components)
