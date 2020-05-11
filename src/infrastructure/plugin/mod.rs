@@ -11,8 +11,10 @@ plugin_main!(RealearnPlugin);
 
 #[cfg(target_os = "linux")]
 pub(in crate::infrastructure) mod hinstance {
+    use crate::infrastructure::common::win32::HINSTANCE;
+
     pub fn get_global_hinstance() -> HINSTANCE {
-        null_mut()
+        std::ptr::null_mut()
     }
 }
 

@@ -1,5 +1,3 @@
-mod bindings;
-
 mod view_listener;
 pub(self) use view_listener::*;
 

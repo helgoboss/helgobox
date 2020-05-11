@@ -1,4 +1,5 @@
 fn main() {
+    #[cfg(target_os = "linux")]
     generate_bindings();
     let target = std::env::var("TARGET").unwrap();
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
@@ -11,7 +12,7 @@ fn main() {
 
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
-    println!("cargo:rerun-if-changed=src/infrastructure/ui/bindgen.hpp");
+    println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
 
     // The bindgen::Builder is the main entry point
     // to bindgen, and lets you build up options for
@@ -20,7 +21,7 @@ fn generate_bindings() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
-        .header("src/infrastructure/ui/bindgen.hpp")
+        .header("src/infrastructure/ui/wrapper.hpp")
         // .opaque_type("timex")
         // .derive_eq(true)
         // .derive_partialeq(true)
@@ -44,6 +45,6 @@ fn generate_bindings() {
     // Write the bindings to the bindings.rs file.
     let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     bindings
-        .write_to_file(out_path.join("src/infrastructure/ui/bindings.rs"))
+        .write_to_file(out_path.join("src/infrastructure/common/bindings.rs"))
         .expect("Couldn't write bindings!");
 }
