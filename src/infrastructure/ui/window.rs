@@ -1,4 +1,4 @@
-use crate::infrastructure::common::win32::{GetDlgItem, SetWindowTextW, HWND};
+use crate::infrastructure::common::win32::{GetDlgItem, SetWindowText, HWND};
 
 /// Represents a window (in the win32 sense where windows are not only top-level windows but also
 /// embedded components)
@@ -30,6 +30,6 @@ impl Window {
         use std::os::windows::ffi::OsStrExt;
 
         let wide: Vec<u16> = OsStr::new(text).encode_wide().chain(once(0)).collect();
-        unsafe { SetWindowTextW(self.hwnd, wide.as_ptr()) };
+        unsafe { SetWindowText(self.hwnd, wide.as_ptr()) };
     }
 }

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::infrastructure::common::win32::{
-    CreateDialogParamA, DefWindowProcW, DestroyWindow, ShowWindow, HWND, LPARAM, LRESULT,
-    MAKEINTRESOURCEA, SW_SHOW, UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
+    CreateDialogParam, DefWindowProc, DestroyWindow, ShowWindow, HWND, LPARAM, LRESULT,
+    MAKEINTRESOURCE, SW_SHOW, UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
 };
 use crate::infrastructure::plugin::hinstance::get_global_hinstance;
 use std::os::raw::c_void;
@@ -24,9 +24,9 @@ pub(super) fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent
         // `view_window_proc` with message WM_INITDIALOG will be called immediately, not async.
         // That's important because we must be sure that the given view Rc reference is still valid
         // when it arrives in `view_window_proc`.
-        CreateDialogParamA(
+        CreateDialogParam(
             get_global_hinstance(),
-            MAKEINTRESOURCEA(resource_id as u16),
+            MAKEINTRESOURCE(resource_id as u16),
             parent_window,
             Some(view_window_proc),
             convert_view_ref_to_address(&view_ref),
@@ -112,7 +112,7 @@ unsafe extern "system" fn view_window_proc(
             match ViewManager::get().borrow().lookup_view(hwnd) {
                 None => {
                     // View is not (yet) registered. Just use the default handler.
-                    return DefWindowProcW(hwnd, msg, wparam, lparam);
+                    return DefWindowProc(hwnd, msg, wparam, lparam);
                 }
                 Some(v) => {
                     // View is registered. See if it's still existing. If not, the primary owner
@@ -156,8 +156,8 @@ unsafe extern "system" fn view_window_proc(
                 DestroyWindow(hwnd);
                 0
             }
-            _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+            _ => DefWindowProc(hwnd, msg, wparam, lparam),
         }
     })
-    .unwrap_or_else(|_| DefWindowProcW(hwnd, msg, wparam, lparam))
+    .unwrap_or_else(|_| DefWindowProc(hwnd, msg, wparam, lparam))
 }

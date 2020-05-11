@@ -1,5 +1,5 @@
 fn main() {
-    #[cfg(target_os = "linux")]
+    #[cfg(feature = "generate")]
     generate_bindings();
     let target = std::env::var("TARGET").unwrap();
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
