@@ -1,10 +1,10 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use super::{ViewListener, Window};
-use crate::infrastructure::plugin::get_global_hinstance;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+use crate::infrastructure::plugin::hinstance::get_global_hinstance;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::rc::{Rc, Weak};
