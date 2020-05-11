@@ -3,7 +3,7 @@ use crate::infrastructure::ui::bindings::root::{ID_MAIN_DIALOG, ID_MAPPINGS_DIAL
 use crate::infrastructure::ui::views::HeaderView;
 use crate::infrastructure::ui::{open_view, ViewListener, Window};
 use c_str_macro::c_str;
-use reaper_rs::high::Reaper;
+use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::rc::Rc;
 use winapi::shared::windef::HWND;

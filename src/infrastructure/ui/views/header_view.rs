@@ -3,7 +3,7 @@ use crate::infrastructure::ui::bindings::root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CH
 use crate::infrastructure::ui::{ViewListener, Window};
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
-use reaper_rs::high::Reaper;
+use reaper_high::Reaper;
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
