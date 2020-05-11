@@ -1,6 +1,5 @@
 use rxrust::prelude::*;
 use std::fmt;
-use winapi::_core::fmt::{Error, Formatter};
 
 /// A reactive property which has the following characteristics:
 ///
@@ -19,7 +18,7 @@ pub struct Property<'a, T> {
 }
 
 impl<'a, T: fmt::Debug> fmt::Debug for Property<'a, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Property")
             .field("value", &self.value)
             .finish()
