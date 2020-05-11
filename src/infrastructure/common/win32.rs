@@ -5,8 +5,8 @@ pub use winapi::{
         windef::HWND,
     },
     um::winuser::{
-        CreateDialogParamA as CreateDialogParam, DefWindowProcW as DefWindowProc, DestroyWindow,
-        GetDlgItem, SetWindowTextW as SetWindowText, WM_CLOSE, WM_COMMAND, WM_DESTROY,
+        CreateDialogParamA as CreateDialogParam, DefWindowProcA as DefWindowProc, DestroyWindow,
+        GetDlgItem, SetWindowTextA as SetWindowText, WM_CLOSE, WM_COMMAND, WM_DESTROY,
         WM_INITDIALOG,
     },
     um::winuser::{ShowWindow, MAKEINTRESOURCEA as MAKEINTRESOURCE, SW_SHOW},

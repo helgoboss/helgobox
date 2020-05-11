@@ -1,4 +1,5 @@
 use crate::infrastructure::common::win32::{GetDlgItem, SetWindowText, HWND};
+use std::ffi::CString;
 
 /// Represents a window (in the win32 sense where windows are not only top-level windows but also
 /// embedded components)
@@ -27,9 +28,7 @@ impl Window {
     pub fn set_text(&self, text: &str) {
         use std::ffi::OsStr;
         use std::iter::once;
-        use std::os::windows::ffi::OsStrExt;
-
-        let wide: Vec<u16> = OsStr::new(text).encode_wide().chain(once(0)).collect();
-        unsafe { SetWindowText(self.hwnd, wide.as_ptr()) };
+        let c_str = CString::new(text).expect("string too exotic");
+        unsafe { SetWindowText(self.hwnd, c_str.as_ptr()) };
     }
 }
