@@ -2,9 +2,9 @@
 use super::{ViewListener, Window};
 use crate::infrastructure::plugin::get_global_hinstance;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::fmt::Debug;
-use std::mem::MaybeUninit;
+
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::rc::{Rc, Weak};
@@ -107,7 +107,7 @@ unsafe extern "system" fn view_window_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     catch_unwind(|| {
-        let mut view: Rc<dyn ViewListener> = if msg == WM_INITDIALOG {
+        let view: Rc<dyn ViewListener> = if msg == WM_INITDIALOG {
             // A view window is initializing. At this point lparam contains the value which we
             // passed when calling CreateDialogParam. This contains the address of a
             // view reference. At subsequent calls, this address is not passed anymore

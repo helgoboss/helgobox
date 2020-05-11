@@ -105,7 +105,7 @@ mod tests {
     #[test]
     fn get() {
         // Given
-        let mut p = Property::new(5);
+        let p = Property::new(5);
         // When
         // Then
         assert_eq!(p.get(), &5);
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn clone() {
         // Given
-        let mut p = Property::new(5);
+        let p = Property::new(5);
         // When
         let p2 = p.clone();
         // Then
@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn clone_transformer_works() {
         // Given
-        let mut p = Property::new_with_transformer(5, |v| v.min(100));
+        let p = Property::new_with_transformer(5, |v| v.min(100));
         // When
         let mut p2 = p.clone();
         p2.set(105);
@@ -173,7 +173,7 @@ mod tests {
         // When
         {
             let mut p = Property::new(5);
-            p.changed().subscribe(|v| invocation_count += 1);
+            p.changed().subscribe(|_v| invocation_count += 1);
             p.set(6);
         }
         // Then
@@ -188,9 +188,9 @@ mod tests {
         // When
         {
             let mut p = Property::new(5);
-            p.changed().subscribe(|v| p_invocation_count += 1);
+            p.changed().subscribe(|_v| p_invocation_count += 1);
             let mut p2 = p.clone();
-            p2.changed().subscribe(|v| p2_invocation_count += 1);
+            p2.changed().subscribe(|_v| p2_invocation_count += 1);
             p.set(6);
             p2.set(6);
         }

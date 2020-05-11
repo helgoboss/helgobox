@@ -1,6 +1,6 @@
 use crate::domain::{MidiSourceModel, MidiSourceType};
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
-use helgoboss_midi::{Channel, U14, U7};
+use helgoboss_midi::{U7};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use validator::{Validate, ValidationError, ValidationErrors};

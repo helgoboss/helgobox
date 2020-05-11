@@ -120,7 +120,7 @@ mod tests {
         // When
         {
             let mut m = MidiSourceModel::default();
-            m.changed().subscribe(|v| invocation_count += 1);
+            m.changed().subscribe(|_v| invocation_count += 1);
             m.r#type.set(MidiSourceType::NoteVelocity);
             m.channel.set(Some(channel(5)));
             m.r#type.set(MidiSourceType::ClockTransport);

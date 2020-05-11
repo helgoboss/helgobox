@@ -51,7 +51,7 @@ impl ViewListener for HeaderView {
         *self.window.borrow_mut() = None;
     }
 
-    fn button_clicked(self: Rc<Self>, resource_id: u32) {
+    fn button_clicked(self: Rc<Self>, _resource_id: u32) {
         Reaper::get().show_console_msg(c_str!("Clicked button\n"));
         self.session
             .borrow_mut()

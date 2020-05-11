@@ -2,19 +2,7 @@ use super::Window;
 use std::fmt::Debug;
 use std::rc::Rc;
 #[cfg(target_os = "windows")]
-use winapi::{
-    _core::mem::zeroed,
-    _core::ptr::null_mut,
-    shared::minwindef::HINSTANCE,
-    shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM},
-    shared::windef::HWND,
-    um::wingdi::TextOutA,
-    um::winuser::MAKEINTRESOURCEA,
-    um::winuser::{
-        BeginPaint, CreateDialogParamA, DefWindowProcW, PostQuitMessage, SW_SHOWDEFAULT,
-        WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_PAINT,
-    },
-};
+
 
 /// UI component. Has a 1:1 relationship with a window handle (as in HWND).
 ///
@@ -49,9 +37,9 @@ use winapi::{
 /// view methods in subscribe closures without running into lifetime problems (such as &self
 /// disappearing while still being used in the closure).
 pub trait ViewListener: Debug {
-    fn opened(self: Rc<Self>, window: Window) {}
+    fn opened(self: Rc<Self>, _window: Window) {}
 
     fn closed(self: Rc<Self>) {}
 
-    fn button_clicked(self: Rc<Self>, resource_id: u32) {}
+    fn button_clicked(self: Rc<Self>, _resource_id: u32) {}
 }

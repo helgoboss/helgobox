@@ -29,7 +29,7 @@ impl Window {
         use std::ffi::OsStr;
         use std::iter::once;
         use std::os::windows::ffi::OsStrExt;
-        use std::ptr::null_mut;
+        
         let wide: Vec<u16> = OsStr::new(text).encode_wide().chain(once(0)).collect();
         unsafe { SetWindowTextW(self.hwnd, wide.as_ptr()) };
     }

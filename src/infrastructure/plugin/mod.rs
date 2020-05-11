@@ -4,7 +4,7 @@ mod realearn_editor;
 use realearn_editor::*;
 
 use realearn_plugin::RealearnPlugin;
-use std::panic::catch_unwind;
+
 use std::sync::Once;
 use vst::plugin_main;
 #[cfg(target_os = "windows")]
