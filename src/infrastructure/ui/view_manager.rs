@@ -9,17 +9,20 @@ use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::rc::{Rc, Weak};
 use std::sync::Once;
-use winapi::_core::mem::zeroed;
-use winapi::_core::ptr::null_mut;
-use winapi::shared::minwindef::HINSTANCE;
-use winapi::shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM};
-use winapi::shared::windef::HWND;
-use winapi::um::wingdi::TextOutA;
-use winapi::um::winuser::{
-    BeginPaint, CreateDialogParamA, DefWindowProcW, DestroyWindow, PostQuitMessage, SW_SHOWDEFAULT,
-    WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_PAINT,
+#[cfg(target_os = "windows")]
+use winapi::{
+    _core::mem::zeroed,
+    _core::ptr::null_mut,
+    shared::minwindef::HINSTANCE,
+    shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM},
+    shared::windef::HWND,
+    um::wingdi::TextOutA,
+    um::winuser::{
+        BeginPaint, CreateDialogParamA, DefWindowProcW, DestroyWindow, PostQuitMessage,
+        SW_SHOWDEFAULT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_PAINT,
+    },
+    um::winuser::{ShowWindow, MAKEINTRESOURCEA, SW_SHOW},
 };
-use winapi::um::winuser::{ShowWindow, MAKEINTRESOURCEA, SW_SHOW};
 
 /// Creates a new win32 dialog using the given resource ID. Uses the methods in the given view for
 /// all callbacks.

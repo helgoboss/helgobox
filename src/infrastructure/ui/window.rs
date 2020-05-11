@@ -1,4 +1,5 @@
-use winapi::shared::windef::HWND;
+#[cfg(target_os = "windows")]
+use winapi::{shared::windef::HWND, um::winuser::GetDlgItem, um::winuser::SetWindowTextW};
 
 /// Represents a window (in the win32 sense where windows are not only top-level windows but also
 /// embedded components)
@@ -17,7 +18,6 @@ impl Window {
     }
 
     pub fn find_control(&self, control_id: u32) -> Option<Window> {
-        use winapi::um::winuser::GetDlgItem;
         let hwnd = unsafe { GetDlgItem(self.hwnd, control_id as i32) };
         if hwnd.is_null() {
             return None;
@@ -30,7 +30,6 @@ impl Window {
         use std::iter::once;
         use std::os::windows::ffi::OsStrExt;
         use std::ptr::null_mut;
-        use winapi::um::winuser::SetWindowTextW;
         let wide: Vec<u16> = OsStr::new(text).encode_wide().chain(once(0)).collect();
         unsafe { SetWindowTextW(self.hwnd, wide.as_ptr()) };
     }

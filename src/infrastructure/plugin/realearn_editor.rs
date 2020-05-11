@@ -5,6 +5,7 @@ use std::io::Error;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use vst::editor::Editor;
+#[cfg(target_os = "windows")]
 use winapi::shared::windef::HWND;
 
 pub struct RealearnEditor {

@@ -6,6 +6,7 @@ use c_str_macro::c_str;
 use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::rc::Rc;
+#[cfg(target_os = "windows")]
 use winapi::shared::windef::HWND;
 
 #[derive(Debug)]
