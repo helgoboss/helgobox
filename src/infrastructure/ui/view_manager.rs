@@ -2,7 +2,7 @@
 use super::{ViewListener, Window};
 use crate::infrastructure::plugin::get_global_hinstance;
 use std::cell::RefCell;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use std::os::raw::c_void;

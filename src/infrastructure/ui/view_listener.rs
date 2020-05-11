@@ -3,7 +3,6 @@ use std::fmt::Debug;
 use std::rc::Rc;
 #[cfg(target_os = "windows")]
 
-
 /// UI component. Has a 1:1 relationship with a window handle (as in HWND).
 ///
 /// # Design
