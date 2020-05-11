@@ -11,15 +11,11 @@ use std::rc::{Rc, Weak};
 use std::sync::Once;
 #[cfg(target_os = "windows")]
 use winapi::{
-    _core::mem::zeroed,
-    _core::ptr::null_mut,
-    shared::minwindef::HINSTANCE,
     shared::minwindef::{LPARAM, LRESULT, UINT, WPARAM},
     shared::windef::HWND,
-    um::wingdi::TextOutA,
     um::winuser::{
-        BeginPaint, CreateDialogParamA, DefWindowProcW, DestroyWindow, PostQuitMessage,
-        SW_SHOWDEFAULT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WM_PAINT,
+        CreateDialogParamA, DefWindowProcW, DestroyWindow, WM_CLOSE, WM_COMMAND, WM_DESTROY,
+        WM_INITDIALOG,
     },
     um::winuser::{ShowWindow, MAKEINTRESOURCEA, SW_SHOW},
 };
