@@ -2,6 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "(Linux) Launch",
+            "type": "lldb",
+            "request": "launch",
+            "program": "/home/helgoboss/Downloads/reaper_linux_x86_64/REAPER/reaper",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "(Windows) Start",
             "type": "cppvsdbg",
             "request": "launch",
