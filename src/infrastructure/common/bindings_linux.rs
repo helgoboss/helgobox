@@ -132,6 +132,7 @@ pub mod root {
     pub type LONG_PTR = isize;
     pub type ULONG_PTR = usize;
     pub type BOOL = ::std::os::raw::c_schar;
+    pub type WORD = ::std::os::raw::c_ushort;
     pub type UINT = ::std::os::raw::c_uint;
     pub type WPARAM = root::ULONG_PTR;
     pub type LPARAM = root::LONG_PTR;

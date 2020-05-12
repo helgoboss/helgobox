@@ -29,7 +29,7 @@ pub(super) fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent
             MAKEINTRESOURCE(resource_id as u16),
             parent_window,
             Some(view_window_proc),
-            convert_view_ref_to_address(&view_ref),
+            convert_view_ref_to_address(&view_ref) as _,
         );
     }
 }
@@ -102,7 +102,7 @@ unsafe extern "C" fn view_window_proc(
             // passed when calling CreateDialogParam. This contains the address of a
             // view reference. At subsequent calls, this address is not passed anymore
             // but only the HWND. So we need to save a HWND-to-view mapping now.
-            let view_ref = interpret_address_as_view_ref(lparam);
+            let view_ref = interpret_address_as_view_ref(lparam as _);
             ViewManager::get()
                 .borrow_mut()
                 .register_view(hwnd, view_ref);

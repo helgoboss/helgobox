@@ -1,18 +1,17 @@
 #[cfg(target_os = "windows")]
 mod windows {
-    use winapi::ctypes::c_int;
-    pub use winapi::{
-        shared::{
-            minwindef::{HINSTANCE, LPARAM, LRESULT, UINT, WPARAM},
-            windef::HWND,
-        },
-        um::winuser::{
-            CreateDialogParamA as CreateDialogParam, DefWindowProcA as DefWindowProc,
-            DestroyWindow, GetDlgItem, SetWindowTextA as SetWindowText, WM_CLOSE, WM_COMMAND,
-            WM_DESTROY, WM_INITDIALOG,
-        },
-        um::winuser::{ShowWindow, MAKEINTRESOURCEA as MAKEINTRESOURCE, SW_SHOW},
+    use crate::infrastructure::common::bindings::root;
+    pub use crate::infrastructure::common::bindings::root::{
+        CreateDialogParamA as CreateDialogParam, DefWindowProcA as DefWindowProc, DestroyWindow,
+        GetDlgItem, SetWindowTextA as SetWindowText, ShowWindow, HINSTANCE, HWND, LPARAM, LRESULT,
+        UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
     };
+
+    pub const SW_SHOW: i32 = root::SW_SHOW as i32;
+
+    pub fn MAKEINTRESOURCE(x: root::WORD) -> root::LPSTR {
+        x as root::ULONG_PTR as root::LPSTR
+    }
 }
 
 #[cfg(target_os = "windows")]

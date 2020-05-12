@@ -22,9 +22,6 @@ serde_repr = "0.1.5"
 validator = "0.10.0"
 validator_derive = "0.10"
 
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser"] }
-
 [build-dependencies]
 bindgen = "0.52.0"
 cc = "1.0.50"

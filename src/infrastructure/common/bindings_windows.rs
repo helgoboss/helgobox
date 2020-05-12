@@ -126,10 +126,13 @@ pub mod root {
     pub type BOOL = ::std::os::raw::c_int;
     pub type WORD = ::std::os::raw::c_ushort;
     pub type UINT = ::std::os::raw::c_uint;
+    pub type INT_PTR = ::std::os::raw::c_longlong;
     pub type UINT_PTR = ::std::os::raw::c_ulonglong;
     pub type LONG_PTR = ::std::os::raw::c_longlong;
+    pub type ULONG_PTR = ::std::os::raw::c_ulonglong;
     pub type CHAR = ::std::os::raw::c_char;
     pub type LPSTR = *mut root::CHAR;
+    pub type LPCSTR = *const root::CHAR;
     pub type WPARAM = root::UINT_PTR;
     pub type LPARAM = root::LONG_PTR;
     pub type LRESULT = root::LONG_PTR;
@@ -191,6 +194,22 @@ pub mod root {
         );
     }
     pub type HWND = *mut root::HWND__;
+    pub type DLGPROC = ::std::option::Option<
+        unsafe extern "C" fn(
+            arg1: root::HWND,
+            arg2: root::UINT,
+            arg3: root::WPARAM,
+            arg4: root::LPARAM,
+        ) -> root::INT_PTR,
+    >;
+    extern "C" {
+        pub fn DefWindowProcA(
+            hWnd: root::HWND,
+            Msg: root::UINT,
+            wParam: root::WPARAM,
+            lParam: root::LPARAM,
+        ) -> root::LRESULT;
+    }
     extern "C" {
         pub fn DestroyWindow(hWnd: root::HWND) -> root::BOOL;
     }
@@ -198,6 +217,18 @@ pub mod root {
         pub fn ShowWindow(hWnd: root::HWND, nCmdShow: ::std::os::raw::c_int) -> root::BOOL;
     }
     extern "C" {
+        pub fn CreateDialogParamA(
+            hInstance: root::HINSTANCE,
+            lpTemplateName: root::LPCSTR,
+            hWndParent: root::HWND,
+            lpDialogFunc: root::DLGPROC,
+            dwInitParam: root::LPARAM,
+        ) -> root::HWND;
+    }
+    extern "C" {
         pub fn GetDlgItem(hDlg: root::HWND, nIDDlgItem: ::std::os::raw::c_int) -> root::HWND;
+    }
+    extern "C" {
+        pub fn SetWindowTextA(hWnd: root::HWND, lpString: root::LPCSTR) -> root::BOOL;
     }
 }
