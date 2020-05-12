@@ -1,6 +1,20 @@
 fn main() {
     #[cfg(feature = "generate")]
     generate_bindings();
+    embed_resources();
+    #[cfg(target_os = "linux")]
+    compile_swell();
+}
+
+fn compile_swell() {
+    cc::Build::new()
+        .define("SWELL_PROVIDED_BY_APP", None)
+        .cpp(true)
+        .file("lib/WDL/WDL/swell/swell-modstub-generic.cpp")
+        .compile("swell");
+}
+
+fn embed_resources() {
     let target = std::env::var("TARGET").unwrap();
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
         for (key, value) in tool.env() {
