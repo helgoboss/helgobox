@@ -7,7 +7,7 @@ fn main() {
             std::env::set_var(key, value);
         }
     }
-    embed_resource::compile("src/infrastructure/ui/realearn.rc");
+    embed_resource::compile("src/infrastructure/common/realearn.rc");
 }
 
 fn generate_bindings() {
@@ -21,7 +21,7 @@ fn generate_bindings() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
-        .header("src/infrastructure/ui/wrapper.hpp")
+        .header("src/infrastructure/common/wrapper.hpp")
         // .opaque_type("timex")
         // .derive_eq(true)
         // .derive_partialeq(true)
@@ -34,7 +34,29 @@ fn generate_bindings() {
         .raw_line("#![allow(dead_code)]")
         // .whitelist_var("CSURF_EXT_.*")
         // .whitelist_type("HINSTANCE")
-        // .whitelist_function("GetActiveWindow")
+        .whitelist_function("DefWindowProc")
+        .whitelist_function("DestroyWindow")
+        .whitelist_function("GetDlgItem")
+        .whitelist_function("ShowWindow")
+        .whitelist_function("SetDlgItemText")
+        .whitelist_type("HINSTANCE")
+        .whitelist_type("HWND")
+        .whitelist_type("LPARAM")
+        .whitelist_type("LRESULT")
+        .whitelist_type("LPSTR")
+        .whitelist_type("BOOL")
+        .whitelist_type("WORD")
+        .whitelist_type("UINT")
+        .whitelist_var("SWELL_curmodule_dialogresource_head")
+        .whitelist_var("WM_CLOSE")
+        .whitelist_var("WM_COMMAND")
+        .whitelist_var("WM_DESTROY")
+        .whitelist_var("WM_INITDIALOG")
+        .whitelist_var("SW_SHOW")
+        .whitelist_function("SWELL_CreateDialog")
+        .whitelist_type("WPARAM")
+        // ReaLearn UI
+        .whitelist_var("ID_.*")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
@@ -44,7 +66,12 @@ fn generate_bindings() {
         .expect("Unable to generate bindings");
     // Write the bindings to the bindings.rs file.
     let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let file_name = if cfg!(target_os = "linux") {
+        "bindings_linux.rs"
+    } else {
+        "bindings_windows.rs"
+    };
     bindings
-        .write_to_file(out_path.join("src/infrastructure/common/bindings.rs"))
+        .write_to_file(out_path.join("src/infrastructure/common").join(file_name))
         .expect("Couldn't write bindings!");
 }
