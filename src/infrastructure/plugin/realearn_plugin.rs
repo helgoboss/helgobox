@@ -5,10 +5,12 @@ use vst::plugin::{HostCallback, Info, Plugin};
 use super::RealearnEditor;
 use crate::domain::RealearnSession;
 use reaper_high::{Reaper, ReaperGuard};
-use reaper_low::ReaperPluginContext;
+use reaper_low::{reaper_vst_plugin, ReaperPluginContext, Swell};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+
+reaper_vst_plugin!();
 
 #[derive(Default)]
 pub struct RealearnPlugin {
@@ -35,8 +37,13 @@ impl Plugin for RealearnPlugin {
 
     fn init(&mut self) {
         let guard = Reaper::guarded(|| {
-            let context = ReaperPluginContext::from_vst_plugin(self.host).unwrap();
-            Reaper::setup_with_defaults(&context, "info@helgoboss.org");
+            let context = ReaperPluginContext::from_vst_plugin(
+                &self.host,
+                reaper_vst_plugin::static_context(),
+            )
+            .unwrap();
+            Swell::make_available_globally(Swell::load(context));
+            Reaper::setup_with_defaults(context, "info@helgoboss.org");
             let reaper = Reaper::get();
             reaper.activate();
             reaper.show_console_msg(c_str!("Loaded realearn-rs VST plugin\n"));

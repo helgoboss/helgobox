@@ -2,7 +2,7 @@ use crate::domain::RealearnSession;
 use crate::infrastructure::ui::views::MainView;
 use std::cell::RefCell;
 
-use crate::infrastructure::common::win32::HWND;
+use reaper_low::raw::HWND;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use vst::editor::Editor;

@@ -4,11 +4,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use crate::infrastructure::common::win32::{
-    CreateDialogParam, DefWindowProc, DestroyWindow, ShowWindow, HWND, LPARAM, LRESULT,
-    MAKEINTRESOURCE, SW_SHOW, UINT, WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_INITDIALOG, WPARAM,
-};
-use crate::infrastructure::plugin::hinstance::get_global_hinstance;
+use reaper_high::Reaper;
+use reaper_low::{raw, Swell};
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::rc::{Rc, Weak};
@@ -16,7 +13,12 @@ use std::sync::Once;
 
 /// Creates a new win32 dialog using the given resource ID. Uses the methods in the given view for
 /// all callbacks.
-pub(super) fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent_window: HWND) {
+pub(super) fn open_view(
+    view_ref: Rc<dyn ViewListener>,
+    resource_id: u32,
+    parent_window: raw::HWND,
+) {
+    let swell = Swell::get();
     unsafe {
         // This will call the window procedure `view_window_proc`. In order to still know which
         // of the many view objects we are dealing with, we make use of the lparam parameter of
@@ -24,12 +26,12 @@ pub(super) fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent
         // `view_window_proc` with message WM_INITDIALOG will be called immediately, not async.
         // That's important because we must be sure that the given view Rc reference is still valid
         // when it arrives in `view_window_proc`.
-        CreateDialogParam(
-            get_global_hinstance(),
-            MAKEINTRESOURCE(resource_id as u16),
+        swell.CreateDialogParam(
+            swell.plugin_context().h_instance(),
+            resource_id as u16 as raw::ULONG_PTR as raw::LPSTR,
             parent_window,
             Some(view_window_proc),
-            convert_view_ref_to_address(&view_ref) as _,
+            convert_view_ref_to_address(&view_ref),
         );
     }
 }
@@ -39,7 +41,7 @@ pub(super) fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent
 #[derive(Default, Debug)]
 struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
-    view_map: HashMap<HWND, Weak<dyn ViewListener>>,
+    view_map: HashMap<raw::HWND, Weak<dyn ViewListener>>,
 }
 
 impl ViewManager {
@@ -56,17 +58,17 @@ impl ViewManager {
     }
 
     /// Registers a new HWND-to-view mapping
-    fn register_view(&mut self, hwnd: HWND, view: &Rc<dyn ViewListener>) {
+    fn register_view(&mut self, hwnd: raw::HWND, view: &Rc<dyn ViewListener>) {
         self.view_map.insert(hwnd, Rc::downgrade(view));
     }
 
     /// Looks up a view by its corresponding HWND
-    fn lookup_view(&self, hwnd: HWND) -> Option<&Weak<dyn ViewListener>> {
+    fn lookup_view(&self, hwnd: raw::HWND) -> Option<&Weak<dyn ViewListener>> {
         self.view_map.get(&hwnd)
     }
 
     /// Unregisters a HWND-to-View mapping
-    fn unregister_view(&mut self, hwnd: HWND) {
+    fn unregister_view(&mut self, hwnd: raw::HWND) {
         self.view_map.remove(&hwnd);
     }
 }
@@ -91,13 +93,14 @@ fn interpret_address_as_view_ref<'a>(view_trait_object_address: isize) -> &'a Rc
 /// finds the particular `View` instance which matches the HWND and then delegates to its
 /// methods.
 unsafe extern "C" fn view_window_proc(
-    hwnd: HWND,
-    msg: UINT,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
+    hwnd: raw::HWND,
+    msg: raw::UINT,
+    wparam: raw::WPARAM,
+    lparam: raw::LPARAM,
+) -> raw::LRESULT {
     catch_unwind(|| {
-        let view: Rc<dyn ViewListener> = if msg == WM_INITDIALOG {
+        let swell = Swell::get();
+        let view: Rc<dyn ViewListener> = if msg == raw::WM_INITDIALOG {
             // A view window is initializing. At this point lparam contains the value which we
             // passed when calling CreateDialogParam. This contains the address of a
             // view reference. At subsequent calls, this address is not passed anymore
@@ -112,7 +115,7 @@ unsafe extern "C" fn view_window_proc(
             match ViewManager::get().borrow().lookup_view(hwnd) {
                 None => {
                     // View is not (yet) registered. Just use the default handler.
-                    return DefWindowProc(hwnd, msg, wparam, lparam);
+                    return swell.DefWindowProc(hwnd, msg, wparam, lparam);
                 }
                 Some(v) => {
                     // View is registered. See if it's still existing. If not, the primary owner
@@ -132,32 +135,32 @@ unsafe extern "C" fn view_window_proc(
         };
         // Found view. Delegate to view struct methods.
         match msg {
-            WM_INITDIALOG => {
+            raw::WM_INITDIALOG => {
                 view.opened(Window::new(hwnd));
                 // TODO-low Is this really necessary?
-                ShowWindow(hwnd, SW_SHOW);
+                swell.ShowWindow(hwnd, raw::SW_SHOW);
                 // TODO-low Let view customize return value (decides if view gets keyboard default
                 //  focus)  (see https://docs.microsoft.com/en-us/windows/win32/dlgbox/wm-initdialog)
                 1
             }
-            WM_DESTROY => {
+            raw::WM_DESTROY => {
                 view.closed();
                 ViewManager::get().borrow_mut().unregister_view(hwnd);
                 0
             }
-            WM_COMMAND => {
+            raw::WM_COMMAND => {
                 let resource_id = (wparam & 0xffff) as u32;
                 view.button_clicked(resource_id);
                 // TODO-low Return zero if the view processes this message
                 1
             }
-            WM_CLOSE => {
+            raw::WM_CLOSE => {
                 // We never let the user confirm
-                DestroyWindow(hwnd);
+                swell.DestroyWindow(hwnd);
                 0
             }
-            _ => DefWindowProc(hwnd, msg, wparam, lparam),
+            _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),
         }
     })
-    .unwrap_or_else(|_| DefWindowProc(hwnd, msg, wparam, lparam))
+    .unwrap_or_else(|_| Swell::get().DefWindowProc(hwnd, msg, wparam, lparam))
 }

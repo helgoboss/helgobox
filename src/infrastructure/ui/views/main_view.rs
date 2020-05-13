@@ -4,10 +4,9 @@ use crate::infrastructure::ui::views::HeaderView;
 use crate::infrastructure::ui::{open_view, ViewListener, Window};
 use c_str_macro::c_str;
 use reaper_high::Reaper;
+use reaper_low::raw;
 use std::cell::RefCell;
 use std::rc::Rc;
-
-use crate::infrastructure::common::win32::HWND;
 
 #[derive(Debug)]
 pub struct MainView {
@@ -60,7 +59,7 @@ impl MainView {
         }
     }
 
-    pub fn open(self: Rc<Self>, parent_window: HWND) {
+    pub fn open(self: Rc<Self>, parent_window: raw::HWND) {
         open_view(self, ID_MAIN_DIALOG, parent_window);
     }
 }

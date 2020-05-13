@@ -2,16 +2,6 @@ fn main() {
     #[cfg(feature = "generate")]
     generate_bindings();
     embed_resources();
-    #[cfg(target_os = "linux")]
-    compile_swell();
-}
-
-fn compile_swell() {
-    cc::Build::new()
-        .define("SWELL_PROVIDED_BY_APP", None)
-        .cpp(true)
-        .file("lib/WDL/WDL/swell/swell-modstub-generic.cpp")
-        .compile("swell");
 }
 
 fn embed_resources() {
@@ -46,34 +36,6 @@ fn generate_bindings() {
         .raw_line("#![allow(non_camel_case_types)]")
         .raw_line("#![allow(non_snake_case)]")
         .raw_line("#![allow(dead_code)]")
-        // .whitelist_var("CSURF_EXT_.*")
-        // .whitelist_type("HINSTANCE")
-        .whitelist_function("DefWindowProc")
-        .whitelist_function("DefWindowProcA")
-        .whitelist_function("CreateDialogParamA")
-        .whitelist_function("DestroyWindow")
-        .whitelist_function("GetDlgItem")
-        .whitelist_function("ShowWindow")
-        .whitelist_function("SetDlgItemText")
-        .whitelist_function("SetWindowTextA")
-        .whitelist_function("MAKEINTRESOURCEA")
-        .whitelist_type("ULONG_PTR")
-        .whitelist_type("HINSTANCE")
-        .whitelist_type("HWND")
-        .whitelist_type("LPARAM")
-        .whitelist_type("LRESULT")
-        .whitelist_type("LPSTR")
-        .whitelist_type("BOOL")
-        .whitelist_type("WORD")
-        .whitelist_type("UINT")
-        .whitelist_var("SWELL_curmodule_dialogresource_head")
-        .whitelist_var("WM_CLOSE")
-        .whitelist_var("WM_COMMAND")
-        .whitelist_var("WM_DESTROY")
-        .whitelist_var("WM_INITDIALOG")
-        .whitelist_var("SW_SHOW")
-        .whitelist_function("SWELL_CreateDialog")
-        .whitelist_type("WPARAM")
         // ReaLearn UI
         .whitelist_var("ID_.*")
         // Tell cargo to invalidate the built crate whenever any of the
@@ -85,12 +47,11 @@ fn generate_bindings() {
         .expect("Unable to generate bindings");
     // Write the bindings to the bindings.rs file.
     let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let file_name = if cfg!(target_os = "linux") {
-        "bindings_linux.rs"
-    } else {
-        "bindings_windows.rs"
-    };
     bindings
-        .write_to_file(out_path.join("src/infrastructure/common").join(file_name))
+        .write_to_file(
+            out_path
+                .join("src/infrastructure/common")
+                .join("bindings.rs"),
+        )
         .expect("Couldn't write bindings!");
 }
