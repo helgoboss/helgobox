@@ -1,10 +1,27 @@
 fn main() {
     #[cfg(feature = "generate")]
     generate_bindings();
+
+    #[cfg(target_os = "windows")]
     embed_resources();
+
+    #[cfg(not(target_os = "windows"))]
+    compile_dialogs();
 }
 
-fn embed_resources() {
+/// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
+#[cfg(not(target_os = "windows"))]
+fn compile_dialogs() {
+    cc::Build::new()
+        .cpp(true)
+        .warnings(false)
+        .file("src/infrastructure/common/dialogs.cpp")
+        .compile("dialogs");
+}
+
+/// On Windows we can directly embed the dialog resource file produced by ResEdit.
+#[cfg(target_os = "windows")]
+fn embed_dialog_resources() {
     let target = std::env::var("TARGET").unwrap();
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
         for (key, value) in tool.env() {
@@ -14,6 +31,7 @@ fn embed_resources() {
     embed_resource::compile("src/infrastructure/common/realearn.rc");
 }
 
+/// Generates Rust bindings, at the moment only for the dialog resource's control IDs.
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");

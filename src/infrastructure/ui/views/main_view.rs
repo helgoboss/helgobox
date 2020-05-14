@@ -4,8 +4,9 @@ use crate::infrastructure::ui::views::HeaderView;
 use crate::infrastructure::ui::{open_view, ViewListener, Window};
 use c_str_macro::c_str;
 use reaper_high::Reaper;
-use reaper_low::raw;
+use reaper_low::{raw, Swell};
 use std::cell::RefCell;
+use std::ptr::null_mut;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -60,7 +61,8 @@ impl MainView {
     }
 
     pub fn open(self: Rc<Self>, parent_window: raw::HWND) {
-        open_view(self, ID_MAIN_DIALOG, parent_window);
+        // TODO Passing the parent window makes SWELL crash at the moment (same if done in C++)
+        open_view(self, ID_MAIN_DIALOG, null_mut());
     }
 }
 
