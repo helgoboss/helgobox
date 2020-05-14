@@ -1,6 +1,6 @@
 use c_str_macro::c_str;
 use vst::editor::Editor;
-use vst::plugin::{HostCallback, Info, Plugin};
+use vst::plugin::{CanDo, HostCallback, Info, Plugin};
 
 use super::RealearnEditor;
 use crate::domain::RealearnSession;
@@ -9,6 +9,7 @@ use reaper_low::{reaper_vst_plugin, ReaperPluginContext, Swell};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use vst::api::Supported;
 
 reaper_vst_plugin!();
 
@@ -53,5 +54,16 @@ impl Plugin for RealearnPlugin {
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
         Some(Box::new(RealearnEditor::new(self.session.clone())))
+    }
+
+    fn can_do(&self, can_do: CanDo) -> Supported {
+        use CanDo::*;
+        use Supported::*;
+        match can_do {
+            // If we don't do this, REAPER won't give us a SWELL parent window, which leads to a
+            // horrible crash when doing CreateDialogParam.
+            Other(s) if s == "hasCockosViewAsConfig" => Custom(0xbeef_0000),
+            _ => Maybe,
+        }
     }
 }

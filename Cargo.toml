@@ -11,10 +11,10 @@ generate = []
 [dependencies]
 reaper-high = { path = "../reaper-rs/main/high" }
 reaper-low = { version = "0.1.0", path = "../reaper-rs/main/low" }
-helgoboss-midi = { version = "0.1.0", path = '../helgoboss-midi-rs' }
+helgoboss-midi = { version = "0.1.0", path = "../helgoboss-midi-rs" }
 helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
-vst = "0.2.0"
+vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
 rxrust = "0.8.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
