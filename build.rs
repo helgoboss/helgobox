@@ -12,6 +12,25 @@ fn main() {
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
 #[cfg(not(target_os = "windows"))]
 fn compile_dialogs() {
+    // Make RC file SWELL-compatible.
+    // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
+    let mut modified_rc_content = std::fs::read_to_string("src/infrastructure/common/realearn.rc")
+        .expect("couldn't read RC file")
+        .replace("WS_CHILDWINDOW", "WS_CHILD");
+    std::fs::write("target/realearn.modified.rc", modified_rc_content)
+        .expect("couldn't write modified RC file");
+    // Use PHP to translate SWELL-compatible RC file to C++
+    let result = std::process::Command::new("php")
+        .arg("lib/WDL/WDL/swell/mac_resgen.php")
+        .arg("target/realearn.modified.rc")
+        .output()
+        .expect("PHP dialog translator result not available");
+    std::fs::copy(
+        "target/realearn.modified.rc_mac_dlg",
+        "src/infrastructure/common/realearn.rc_mac_dlg",
+    );
+    assert!(result.status.success(), "PHP dialog translator failed");
+    // Compile the resulting C++ file
     cc::Build::new()
         .cpp(true)
         .warnings(false)
