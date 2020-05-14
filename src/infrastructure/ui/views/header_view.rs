@@ -4,6 +4,7 @@ use crate::infrastructure::ui::{ViewListener, Window};
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::Reaper;
+use reaper_low::Swell;
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -34,17 +35,8 @@ impl HeaderView {
 
 impl ViewListener for HeaderView {
     fn opened(self: Rc<Self>, window: Window) {
-        *self.window.borrow_mut() = Some(window);
-        Reaper::get().show_console_msg(c_str!("Opened header ui\n"));
-        let weak_self = Rc::downgrade(&self);
-        self.session
-            .borrow_mut()
-            .get_dummy_source_model()
-            .changed()
-            .subscribe(move |_| {
-                println!("Dummy source model changed");
-                weak_self.upgrade().unwrap().change_text("test");
-            });
+        let swell = Swell::get();
+        self.setup_change_listener(window);
     }
 
     fn closed(self: Rc<Self>) {
@@ -58,5 +50,21 @@ impl ViewListener for HeaderView {
             .get_dummy_source_model()
             .channel
             .set(Some(Channel::new(14)));
+    }
+}
+
+impl HeaderView {
+    fn setup_change_listener(self: Rc<Self>, window: Window) {
+        *self.window.borrow_mut() = Some(window);
+        Reaper::get().show_console_msg(c_str!("Opened header ui\n"));
+        let weak_self = Rc::downgrade(&self);
+        self.session
+            .borrow_mut()
+            .get_dummy_source_model()
+            .changed()
+            .subscribe(move |_| {
+                println!("Dummy source model changed");
+                weak_self.upgrade().unwrap().change_text("test");
+            });
     }
 }
