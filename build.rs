@@ -3,7 +3,7 @@ fn main() {
     generate_bindings();
 
     #[cfg(target_os = "windows")]
-    embed_resources();
+    embed_dialog_resources();
 
     #[cfg(not(target_os = "windows"))]
     compile_dialogs();

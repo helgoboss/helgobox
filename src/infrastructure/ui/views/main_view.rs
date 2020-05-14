@@ -61,8 +61,7 @@ impl MainView {
     }
 
     pub fn open(self: Rc<Self>, parent_window: raw::HWND) {
-        // TODO Passing the parent window makes SWELL crash at the moment (same if done in C++)
-        open_view(self, ID_MAIN_DIALOG, null_mut());
+        open_view(self, ID_MAIN_DIALOG, parent_window);
     }
 }
 
