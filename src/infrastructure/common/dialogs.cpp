@@ -12,7 +12,8 @@
 #define AUTOCHECKBOX CHECKBOX
 #define TRACKBAR_CLASS "msctls_trackbar32"
 #define CBS_HASSTRINGS 0
-#define WS_EX_LEFT 0
+#define WS_EX_LEFT
+#define WS_CHILDWINDOW WS_CHILD
 #define SS_WORDELLIPSIS 0
 #define SWELL_DLG_SCALE_AUTOGEN 1.7
 

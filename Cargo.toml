@@ -12,7 +12,7 @@ generate = []
 reaper-high = { path = "../reaper-rs/main/high" }
 reaper-medium= { path = "../reaper-rs/main/medium" }
 reaper-low = { version = "0.1.0", path = "../reaper-rs/main/low" }
-helgoboss-midi = { version = "0.1.0", path = '../helgoboss-midi-rs' }
+helgoboss-midi = { version = "0.1.0", path = "../helgoboss-midi-rs" }
 helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
 vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
