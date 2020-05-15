@@ -1,4 +1,4 @@
-use crate::domain::RealearnSession;
+use crate::domain::Session;
 use crate::infrastructure::ui::views::MainView;
 use std::cell::RefCell;
 
@@ -13,7 +13,7 @@ pub struct RealearnEditor {
 }
 
 impl RealearnEditor {
-    pub fn new(session: Rc<RefCell<RealearnSession<'static>>>) -> RealearnEditor {
+    pub fn new(session: Rc<RefCell<Session<'static>>>) -> RealearnEditor {
         RealearnEditor {
             open: false,
             main_view: Rc::new(MainView::new(session)),

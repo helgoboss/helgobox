@@ -1,4 +1,4 @@
-use crate::domain::RealearnSession;
+use crate::domain::Session;
 use crate::infrastructure::common::bindings::root::{ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
 use crate::infrastructure::ui::views::HeaderView;
 use crate::infrastructure::ui::{open_view, ViewListener, Window};
@@ -49,11 +49,11 @@ pub struct MainView {
     /// behavior. It will let us know immediately when we violated that safety rule.
     /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
     /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-    session: Rc<RefCell<RealearnSession<'static>>>,
+    session: Rc<RefCell<Session<'static>>>,
 }
 
 impl MainView {
-    pub fn new(session: Rc<RefCell<RealearnSession<'static>>>) -> MainView {
+    pub fn new(session: Rc<RefCell<Session<'static>>>) -> MainView {
         MainView {
             header_view: Rc::new(HeaderView::new(session.clone())),
             session,

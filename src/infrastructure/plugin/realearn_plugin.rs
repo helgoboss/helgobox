@@ -3,7 +3,7 @@ use vst::editor::Editor;
 use vst::plugin::{CanDo, HostCallback, Info, Plugin};
 
 use super::RealearnEditor;
-use crate::domain::RealearnSession;
+use crate::domain::Session;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, ReaperPluginContext, Swell};
 use std::cell::RefCell;
@@ -16,7 +16,7 @@ reaper_vst_plugin!();
 #[derive(Default)]
 pub struct RealearnPlugin {
     host: HostCallback,
-    session: Rc<RefCell<RealearnSession<'static>>>,
+    session: Rc<RefCell<Session<'static>>>,
     reaper_guard: Option<Arc<ReaperGuard>>,
 }
 

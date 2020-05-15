@@ -1,4 +1,4 @@
-use crate::domain::RealearnSession;
+use crate::domain::Session;
 use crate::infrastructure::common::bindings::root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX;
 use crate::infrastructure::ui::{ViewListener, Window};
 use c_str_macro::c_str;
@@ -11,12 +11,12 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct HeaderView {
-    session: Rc<RefCell<RealearnSession<'static>>>,
+    session: Rc<RefCell<Session<'static>>>,
     window: RefCell<Option<Window>>,
 }
 
 impl HeaderView {
-    pub fn new(session: Rc<RefCell<RealearnSession<'static>>>) -> HeaderView {
+    pub fn new(session: Rc<RefCell<Session<'static>>>) -> HeaderView {
         HeaderView {
             session,
             window: RefCell::new(None),
