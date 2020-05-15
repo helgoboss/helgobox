@@ -17,6 +17,13 @@ pub struct Property<'a, T> {
     transformer: fn(T) -> T,
 }
 
+/// Convenience function.
+///
+/// Useful when many properties need to be initialized (can be easily renamed to a shortcut).
+pub fn create_property<'a, T: PartialEq>(initial_value: T) -> Property<'a, T> {
+    Property::new(initial_value)
+}
+
 impl<'a, T: fmt::Debug> fmt::Debug for Property<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Property")

@@ -1,3 +1,4 @@
+use crate::domain::create_property as p;
 use crate::domain::Property;
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -20,14 +21,14 @@ pub struct MidiSourceModel<'a> {
 impl<'a> Default for MidiSourceModel<'a> {
     fn default() -> Self {
         Self {
-            r#type: Property::new(MidiSourceType::ControlChangeValue),
-            channel: Default::default(),
-            midi_message_number: Default::default(),
-            parameter_number_message_number: Default::default(),
-            custom_character: Property::new(SourceCharacter::Range),
-            midi_clock_transport_message: Property::new(MidiClockTransportMessage::Start),
-            is_registered: Default::default(),
-            is_14_bit: Default::default(),
+            r#type: p(MidiSourceType::ControlChangeValue),
+            channel: p(None),
+            midi_message_number: p(None),
+            parameter_number_message_number: p(None),
+            custom_character: p(SourceCharacter::Range),
+            midi_clock_transport_message: p(MidiClockTransportMessage::Start),
+            is_registered: p(None),
+            is_14_bit: p(None),
         }
     }
 }
@@ -92,7 +93,7 @@ impl<'a> MidiSourceModel<'a> {
     }
 }
 
-/// Represents possible MIDI sources
+/// Type of a MIDI source
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum MidiSourceType {
