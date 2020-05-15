@@ -3,6 +3,10 @@ use crate::domain::MappingModel;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// This represents the user session with one ReaLearn instance.
+///
+/// It's ReaLearn's main object which keeps everything together.
+// TODO Probably belongs in application layer.
 #[derive(Default, Debug)]
 pub struct Session<'a> {
     mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
