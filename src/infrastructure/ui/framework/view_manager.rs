@@ -13,7 +13,7 @@ use std::sync::Once;
 
 /// Creates a new win32 dialog using the given resource ID. Uses the methods in the given view for
 /// all callbacks.
-pub fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent_window: raw::HWND) {
+pub fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent_window: Window) {
     let swell = Swell::get();
     unsafe {
         // This will call the window procedure `view_window_proc`. In order to still know which
@@ -25,7 +25,7 @@ pub fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent_window
         swell.CreateDialogParam(
             swell.plugin_context().h_instance(),
             resource_id as u16 as raw::ULONG_PTR as raw::LPSTR,
-            parent_window,
+            parent_window.get_hwnd(),
             Some(view_window_proc),
             convert_view_ref_to_address(&view_ref),
         );

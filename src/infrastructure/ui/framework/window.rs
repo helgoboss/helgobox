@@ -1,3 +1,4 @@
+use reaper_low::raw::WM_CLOSE;
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 
@@ -18,17 +19,19 @@ impl Window {
     }
 
     pub fn find_control(&self, control_id: u32) -> Option<Window> {
-        let swell = Swell::get();
-        let hwnd = unsafe { swell.GetDlgItem(self.hwnd, control_id as i32) };
+        let hwnd = unsafe { Swell::get().GetDlgItem(self.hwnd, control_id as i32) };
         if hwnd.is_null() {
             return None;
         }
         Some(Window::new(hwnd))
     }
 
+    pub fn close(&self) {
+        Swell::get().SendMessage(self.hwnd, WM_CLOSE, 0, 0);
+    }
+
     pub fn set_text(&self, text: &str) {
         let c_str = CString::new(text).expect("string too exotic");
-        let swell = Swell::get();
-        unsafe { swell.SetWindowText(self.hwnd, c_str.as_ptr()) };
+        unsafe { Swell::get().SetWindowText(self.hwnd, c_str.as_ptr()) };
     }
 }

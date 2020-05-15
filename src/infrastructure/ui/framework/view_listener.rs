@@ -35,9 +35,12 @@ use std::rc::Rc;
 /// view methods in subscribe closures without running into lifetime problems (such as &self
 /// disappearing while still being used in the closure).
 pub trait ViewListener: Debug {
+    /// WM_INITDIALOG
     fn opened(self: Rc<Self>, _window: Window) {}
 
+    /// WM_DESTROY
     fn closed(self: Rc<Self>) {}
 
+    /// WM_COMMAND TODO
     fn button_clicked(self: Rc<Self>, _resource_id: u32) {}
 }

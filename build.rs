@@ -50,7 +50,7 @@ fn embed_dialog_resources() {
     embed_resource::compile("src/infrastructure/common/realearn.rc");
 }
 
-/// Generates Rust bindings, at the moment only for the dialog resource's control IDs.
+/// Generates Rust bindings for a couple of C stuff.
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
@@ -75,6 +75,8 @@ fn generate_bindings() {
         .raw_line("#![allow(dead_code)]")
         // ReaLearn UI
         .whitelist_var("ID_.*")
+        // Some Windows API stuff
+        .whitelist_function("MapDialogRect")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

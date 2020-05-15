@@ -1,17 +1,27 @@
 use crate::domain::Session;
 use crate::infrastructure::common::bindings::root::{ID_MAIN_DIALOG, ID_MAPPINGS_DIALOG};
-use crate::infrastructure::ui::framework::{open_view, ViewListener, Window};
+use crate::infrastructure::ui::framework::{
+    convert_dialog_units_to_pixels, open_view, ViewListener, Window,
+};
+use crate::infrastructure::ui::views::constants::OPTIMAL_MAIN_WINDOW_WIDTH_AND_HEIGHT;
 use crate::infrastructure::ui::views::HeaderView;
 use c_str_macro::c_str;
 use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::ptr::null_mut;
 use std::rc::Rc;
 
+/// The complete ReaLearn view containing everything.
 #[derive(Debug)]
 pub struct MainView {
+    /// The upper view contaning lots of general buttons.
     header_view: Rc<HeaderView>,
+    /// This is for HiDPI handling on Windows.
+    ///
+    /// We will set this to true whenever the plug-in window opens and shortly after that set it to
+    /// false to indicate that the size calculation has been done (small state machine).
+    determining_best_dimensions: Cell<bool>,
     /// `Plugin#get_editor()` must return a Box of something 'static, so it's impossible to take a
     /// reference here. Why? Because a reference needs a lifetime. Any non-static lifetime would
     /// not satisfy the 'static requirement. Why not require a 'static reference then? Simply
@@ -56,22 +66,40 @@ impl MainView {
     pub fn new(session: Rc<RefCell<Session<'static>>>) -> MainView {
         MainView {
             header_view: Rc::new(HeaderView::new(session.clone())),
+            determining_best_dimensions: false.into(),
             session,
         }
     }
 
-    pub fn open(self: Rc<Self>, parent_window: raw::HWND) {
+    pub fn open(self: Rc<Self>, parent_window: Window) {
         open_view(self, ID_MAIN_DIALOG, parent_window);
+    }
+
+    pub fn resize_and_open(self: Rc<Self>, parent_window: Window) {
+        // On Windows, the first time opening the dialog window is just to determine the best
+        // dimensions based on HiDPI settings.
+        #[cfg(target_family = "windows")]
+        self.determining_best_dimensions.replace(true);
+        self.open(parent_window)
     }
 }
 
 impl ViewListener for MainView {
     fn opened(self: Rc<Self>, window: Window) {
-        Reaper::get().show_console_msg(c_str!("Opened main ui\n"));
-        open_view(
-            self.header_view.clone(),
-            ID_MAPPINGS_DIALOG,
-            window.get_hwnd(),
-        );
+        if self.determining_best_dimensions.replace(false) {
+            // The dialog has been opened by user request. First calculate optimal size.
+            let (width, height) =
+                convert_dialog_units_to_pixels(window, OPTIMAL_MAIN_WINDOW_WIDTH_AND_HEIGHT);
+            // Close this probe window and initiate a plugin resize => When resized, the plugin
+            // calls show().
+            window.close();
+            // TODO Then we make the PluginEditor return a new size the next time it's opened.
+            // TODO Then we open it again: Challenge: We need to obtain the plug-in window (as
+            //  parent window).
+            // self.open()
+            return;
+        }
+        // Optimal size has been calculated and window has been reopened. Now add sub views!
+        open_view(self.header_view.clone(), ID_MAPPINGS_DIALOG, window);
     }
 }

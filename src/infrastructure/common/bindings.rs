@@ -9,6 +9,10 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
+    pub const ID_CMD: u32 = 236;
+    pub const ID_PSRESTARTWINDOWS: u32 = 2;
+    pub const ID_PSREBOOTSYSTEM: u32 = 3;
+    pub const ID_DEFAULTINST: i32 = -2;
     pub const ID_MAPPING_DIALOG: u32 = 101;
     pub const ID_MAPPINGS_DIALOG: u32 = 104;
     pub const ID_MAPPING_ROW_DIALOG: u32 = 106;
@@ -114,4 +118,100 @@ pub mod root {
     pub const ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX: u32 = 40072;
     pub const ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX: u32 = 40073;
     pub const ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT: u32 = 40074;
+    pub type BOOL = ::std::os::raw::c_int;
+    pub type LONG = ::std::os::raw::c_long;
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone)]
+    pub struct HWND__ {
+        pub unused: ::std::os::raw::c_int,
+    }
+    #[test]
+    fn bindgen_test_layout_HWND__() {
+        assert_eq!(
+            ::std::mem::size_of::<HWND__>(),
+            4usize,
+            concat!("Size of: ", stringify!(HWND__))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<HWND__>(),
+            4usize,
+            concat!("Alignment of ", stringify!(HWND__))
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<HWND__>())).unused as *const _ as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(HWND__),
+                "::",
+                stringify!(unused)
+            )
+        );
+    }
+    pub type HWND = *mut root::HWND__;
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone)]
+    pub struct tagRECT {
+        pub left: root::LONG,
+        pub top: root::LONG,
+        pub right: root::LONG,
+        pub bottom: root::LONG,
+    }
+    #[test]
+    fn bindgen_test_layout_tagRECT() {
+        assert_eq!(
+            ::std::mem::size_of::<tagRECT>(),
+            16usize,
+            concat!("Size of: ", stringify!(tagRECT))
+        );
+        assert_eq!(
+            ::std::mem::align_of::<tagRECT>(),
+            4usize,
+            concat!("Alignment of ", stringify!(tagRECT))
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<tagRECT>())).left as *const _ as usize },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(tagRECT),
+                "::",
+                stringify!(left)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<tagRECT>())).top as *const _ as usize },
+            4usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(tagRECT),
+                "::",
+                stringify!(top)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<tagRECT>())).right as *const _ as usize },
+            8usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(tagRECT),
+                "::",
+                stringify!(right)
+            )
+        );
+        assert_eq!(
+            unsafe { &(*(::std::ptr::null::<tagRECT>())).bottom as *const _ as usize },
+            12usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(tagRECT),
+                "::",
+                stringify!(bottom)
+            )
+        );
+    }
+    pub type LPRECT = *mut root::tagRECT;
+    extern "C" {
+        pub fn MapDialogRect(hDlg: root::HWND, lpRect: root::LPRECT) -> root::BOOL;
+    }
 }
