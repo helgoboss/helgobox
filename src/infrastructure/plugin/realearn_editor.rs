@@ -1,5 +1,5 @@
 use crate::domain::Session;
-use crate::infrastructure::ui::views::MainView;
+use crate::infrastructure::ui::views::MainPanel;
 use std::cell::RefCell;
 
 use crate::infrastructure::ui::framework::{Pixels, Window};
@@ -11,14 +11,14 @@ use vst::editor::Editor;
 pub struct RealearnEditor {
     // TODO Remove
     open: bool,
-    main_view: Rc<MainView>,
+    main_view: Rc<MainPanel>,
 }
 
 impl RealearnEditor {
     pub fn new(session: Rc<RefCell<Session<'static>>>) -> RealearnEditor {
         RealearnEditor {
             open: false,
-            main_view: Rc::new(MainView::new(session)),
+            main_view: Rc::new(MainPanel::new(session)),
         }
     }
 }

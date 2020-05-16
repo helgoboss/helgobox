@@ -1,6 +1,6 @@
 use crate::domain::Session;
 use crate::infrastructure::common::bindings::root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX;
-use crate::infrastructure::ui::framework::{ViewListener, Window};
+use crate::infrastructure::ui::framework::{Window, WindowListener};
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::Reaper;
@@ -9,15 +9,16 @@ use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+/// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
-pub struct HeaderView {
+pub struct HeaderPanel {
     session: Rc<RefCell<Session<'static>>>,
     window: RefCell<Option<Window>>,
 }
 
-impl HeaderView {
-    pub fn new(session: Rc<RefCell<Session<'static>>>) -> HeaderView {
-        HeaderView {
+impl HeaderPanel {
+    pub fn new(session: Rc<RefCell<Session<'static>>>) -> HeaderPanel {
+        HeaderPanel {
             session,
             window: RefCell::new(None),
         }
@@ -33,7 +34,7 @@ impl HeaderView {
     }
 }
 
-impl ViewListener for HeaderView {
+impl WindowListener for HeaderPanel {
     fn opened(self: Rc<Self>, window: Window) {
         let swell = Swell::get();
         self.setup_change_listener(window);
@@ -53,7 +54,7 @@ impl ViewListener for HeaderView {
     }
 }
 
-impl HeaderView {
+impl HeaderPanel {
     fn setup_change_listener(self: Rc<Self>, window: Window) {
         *self.window.borrow_mut() = Some(window);
         Reaper::get().show_console_msg(c_str!("Opened header ui\n"));

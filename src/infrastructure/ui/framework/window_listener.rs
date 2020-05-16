@@ -2,7 +2,9 @@ use super::Window;
 use std::fmt::Debug;
 use std::rc::Rc;
 
-/// UI component. Has a 1:1 relationship with a window handle (as in HWND).
+/// Trait whose methods represent window events, which implementors can handle.
+///
+/// Has a 1:1 relationship with a window handle (HWND).
 ///
 /// # Design
 ///
@@ -34,7 +36,7 @@ use std::rc::Rc;
 /// sacrificing anything. The obvious advantage we have is that it gives us an easy way to access
 /// view methods in subscribe closures without running into lifetime problems (such as &self
 /// disappearing while still being used in the closure).
-pub trait ViewListener: Debug {
+pub trait WindowListener: Debug {
     /// WM_INITDIALOG
     fn opened(self: Rc<Self>, _window: Window) {}
 

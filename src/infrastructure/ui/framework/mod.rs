@@ -1,8 +1,8 @@
-mod view_listener;
-pub use view_listener::*;
+mod window_listener;
+pub use window_listener::*;
 
-mod view_manager;
-pub use view_manager::*;
+mod window_listener_manager;
+pub use window_listener_manager::*;
 
 mod window;
 pub use window::*;

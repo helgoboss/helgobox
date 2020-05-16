@@ -3,8 +3,10 @@ use reaper_low::raw::WM_CLOSE;
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 
-/// Represents a window (in the win32 sense where windows are not only top-level windows but also
-/// embedded components)
+/// Represents a window.
+///
+/// _Window_ is meant in the win32 sense, where windows are not only top-level windows but also
+/// embedded components such as buttons or text fields.
 #[derive(Clone, Copy, Debug)]
 pub struct Window {
     raw: raw::HWND,
