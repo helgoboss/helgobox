@@ -25,7 +25,7 @@ pub fn open_view(view_ref: Rc<dyn ViewListener>, resource_id: u32, parent_window
         swell.CreateDialogParam(
             swell.plugin_context().h_instance(),
             resource_id as u16 as raw::ULONG_PTR as raw::LPSTR,
-            parent_window.get_hwnd(),
+            parent_window.raw(),
             Some(view_window_proc),
             convert_view_ref_to_address(&view_ref),
         );
@@ -132,7 +132,7 @@ unsafe extern "C" fn view_window_proc(
         // Found view. Delegate to view struct methods.
         match msg {
             raw::WM_INITDIALOG => {
-                view.opened(Window::new(hwnd));
+                view.opened(Window::new(hwnd).expect("window was null"));
                 // TODO-low Is this really necessary?
                 swell.ShowWindow(hwnd, raw::SW_SHOW);
                 // TODO-low Let view customize return value (decides if view gets keyboard default

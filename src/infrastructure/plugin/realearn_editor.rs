@@ -9,9 +9,9 @@ use std::rc::Rc;
 use vst::editor::Editor;
 
 pub struct RealearnEditor {
+    // TODO Remove
     open: bool,
     main_view: Rc<MainView>,
-    width_and_height: (Pixels, Pixels),
 }
 
 impl RealearnEditor {
@@ -19,14 +19,13 @@ impl RealearnEditor {
         RealearnEditor {
             open: false,
             main_view: Rc::new(MainView::new(session)),
-            width_and_height: (Pixels(1200), Pixels(600)),
         }
     }
 }
 
 impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
-        (1200, 600)
+        self.main_view.dimensions().to_vst()
     }
 
     fn position(&self) -> (i32, i32) {
@@ -40,7 +39,7 @@ impl Editor for RealearnEditor {
     fn open(&mut self, parent: *mut c_void) -> bool {
         self.main_view
             .clone()
-            .resize_and_open(Window::new(parent as HWND));
+            .open_with_resize(Window::new(parent as HWND).expect("no parent window"));
         self.open = true;
         true
     }
