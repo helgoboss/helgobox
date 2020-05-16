@@ -36,7 +36,7 @@ impl MainPanel {
     pub fn dimensions(&self) -> Dimensions<Pixels> {
         self.dimensions
             .get()
-            .unwrap_or_else(|| MAIN_PANEL_DIMENSIONS.to_pixels())
+            .unwrap_or_else(|| MAIN_PANEL_DIMENSIONS.in_pixels())
     }
 
     pub fn open_with_resize(self: Rc<Self>, parent_window: Window) {
@@ -66,7 +66,7 @@ impl View for MainPanel {
             // The dialog has been opened by user request but the optimal dimensions have not yet
             // been figured out. Figure them out now.
             self.dimensions
-                .replace(Some(window.dimensions_to_pixels(MAIN_PANEL_DIMENSIONS)));
+                .replace(Some(window.convert_to_pixels(MAIN_PANEL_DIMENSIONS)));
             // Close and reopen window, this time with `dimensions()` returning the optimal size to
             // the host.
             let parent_window = window.parent().expect("must have parent");
@@ -76,6 +76,6 @@ impl View for MainPanel {
         }
         // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
         self.header_panel.clone().open(window);
-        // self.mapping_rows_panel.clone().open(window);
+        self.mapping_rows_panel.clone().open(window);
     }
 }

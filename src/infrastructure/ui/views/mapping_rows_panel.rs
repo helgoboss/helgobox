@@ -11,7 +11,7 @@ use crate::domain::Session;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROWS_DIALOG, ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX,
 };
-use crate::infrastructure::ui::framework::{create_window, View, Window};
+use crate::infrastructure::ui::framework::{create_window, DialogUnits, Point, View, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -39,5 +39,9 @@ impl View for MappingRowsPanel {
 
     fn window(&self) -> &Cell<Option<Window>> {
         &self.window
+    }
+
+    fn opened(self: Rc<Self>, window: Window) {
+        window.move_to(Point::new(DialogUnits(0), DialogUnits(78)))
     }
 }
