@@ -1,5 +1,3 @@
-//! Views are displayable logical parts of the UI, such as panels, buttons and rows.
-
 mod main_panel;
 pub use main_panel::*;
 

@@ -1,11 +1,11 @@
-mod window_listener;
-pub use window_listener::*;
-
-mod window_listener_manager;
-pub use window_listener_manager::*;
+mod view_manager;
+pub use view_manager::*;
 
 mod window;
 pub use window::*;
+
+mod view;
+pub use view::*;
 
 mod units;
 pub use units::*;

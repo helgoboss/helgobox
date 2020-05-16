@@ -2,30 +2,27 @@ use crate::domain::Session;
 use crate::infrastructure::ui::views::MainPanel;
 use std::cell::RefCell;
 
-use crate::infrastructure::ui::framework::{Pixels, Window};
+use crate::infrastructure::ui::framework::{Pixels, View, Window};
 use reaper_low::raw::HWND;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use vst::editor::Editor;
 
 pub struct RealearnEditor {
-    // TODO Remove
-    open: bool,
-    main_view: Rc<MainPanel>,
+    main_panel: Rc<MainPanel>,
 }
 
 impl RealearnEditor {
     pub fn new(session: Rc<RefCell<Session<'static>>>) -> RealearnEditor {
         RealearnEditor {
-            open: false,
-            main_view: Rc::new(MainPanel::new(session)),
+            main_panel: Rc::new(MainPanel::new(session)),
         }
     }
 }
 
 impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
-        self.main_view.dimensions().to_vst()
+        self.main_panel.dimensions().to_vst()
     }
 
     fn position(&self) -> (i32, i32) {
@@ -33,18 +30,17 @@ impl Editor for RealearnEditor {
     }
 
     fn close(&mut self) {
-        self.open = false;
+        self.main_panel.close()
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        self.main_view
+        self.main_panel
             .clone()
             .open_with_resize(Window::new(parent as HWND).expect("no parent window"));
-        self.open = true;
         true
     }
 
     fn is_open(&mut self) -> bool {
-        self.open
+        self.main_panel.is_open()
     }
 }
