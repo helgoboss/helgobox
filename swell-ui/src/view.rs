@@ -73,33 +73,12 @@ pub trait View: Debug {
 
     /// Closes this view.
     fn close(&self) {
-        self.require_window().close();
+        self.view_context().require_window().close();
     }
 
     /// Returns whether this view is currently open.
     fn is_open(&self) -> bool {
         self.view_context().window.get().is_some()
-    }
-
-    /// Returns the current window associated with this view.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the window doesn't exist (the view is not open).
-    fn require_window(&self) -> Window {
-        self.view_context()
-            .window
-            .get()
-            .expect("window not found but required")
-    }
-
-    /// Returns the control with the given resource ID.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the window or control doesn't exist.
-    fn require_control(&self, resource_id: u32) -> Window {
-        self.require_window().require_control(resource_id)
     }
 
     fn opened_internal(self: Rc<Self>, window: Window) -> bool {
@@ -140,6 +119,24 @@ pub struct ViewContext {
 }
 
 impl ViewContext {
+    /// Returns the current window associated with this view.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the window doesn't exist (the view is not open).
+    pub fn require_window(&self) -> Window {
+        self.window.get().expect("window not found but required")
+    }
+
+    /// Returns the control with the given resource ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the window or control doesn't exist.
+    pub fn require_control(&self, resource_id: u32) -> Window {
+        self.require_window().require_control(resource_id)
+    }
+
     /// Fires when the window is closed.
     pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> {
         self.closed_subject.borrow().clone()

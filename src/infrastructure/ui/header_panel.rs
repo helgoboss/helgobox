@@ -49,28 +49,32 @@ impl HeaderPanel {
 
     fn update_let_matched_events_through(&self) {
         self.session.borrow_mut().let_matched_events_through.set(
-            self.require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX)
+            self.view_context()
+                .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX)
                 .is_checked(),
         );
     }
 
     fn update_let_unmatched_events_through(&self) {
         self.session.borrow_mut().let_unmatched_events_through.set(
-            self.require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
+            self.view_context()
+                .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
                 .is_checked(),
         );
     }
 
     fn update_send_feedback_only_if_armed(&self) {
         self.session.borrow_mut().send_feedback_only_if_armed.set(
-            self.require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX)
+            self.view_context()
+                .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX)
                 .is_checked(),
         );
     }
 
     fn update_always_auto_detect(&self) {
         self.session.borrow_mut().always_auto_detect.set(
-            self.require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
+            self.view_context()
+                .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
                 .is_checked(),
         );
     }
@@ -103,7 +107,9 @@ impl HeaderPanel {
     }
 
     fn invalidate_let_matched_events_through_check_box(&self) {
-        let check_box = self.require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
+        let check_box = self
+            .view_context()
+            .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
         if *self.session().midi_control_input.get() == MidiControlInput::FxInput {
             check_box.enable();
             check_box.set_checked(*self.session().let_matched_events_through.get());
@@ -114,7 +120,9 @@ impl HeaderPanel {
     }
 
     fn invalidate_let_unmatched_events_through_check_box(&self) {
-        let check_box = self.require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
+        let check_box = self
+            .view_context()
+            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
         if *self.session().midi_control_input.get() == MidiControlInput::FxInput {
             check_box.enable();
             check_box.set_checked(*self.session().let_unmatched_events_through.get());
@@ -125,7 +133,9 @@ impl HeaderPanel {
     }
 
     fn invalidate_send_feedback_only_if_armed_check_box(&self) {
-        let check_box = self.require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
+        let check_box = self
+            .view_context()
+            .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
         if self.session().is_in_input_fx_chain() {
             check_box.disable();
             check_box.check();
@@ -136,7 +146,8 @@ impl HeaderPanel {
     }
 
     fn invalidate_always_auto_detect_check_box(&self) {
-        self.require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
+        self.view_context()
+            .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
             .set_checked(*self.session().always_auto_detect.get());
     }
 
