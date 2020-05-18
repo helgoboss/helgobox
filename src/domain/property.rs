@@ -101,7 +101,9 @@ impl<'a, T: PartialEq> Property<'a, T> {
         self.subject.next(());
     }
 
-    /// Fires whenever the value is changed. Event always contains a boolean "true" instead of the
+    /// Fires whenever the value is changed.
+    ///
+    /// Event always contains a unit value instead of the
     /// new value. This is perfect for combining observables because observables can be combined
     /// much easier if they have the same type. UI event handlers for example are often not
     /// interested in the new value anyway because they will just call some reusable

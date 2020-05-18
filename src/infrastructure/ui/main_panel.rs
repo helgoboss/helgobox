@@ -7,12 +7,12 @@ use reaper_low::{raw, Swell};
 use std::cell::{Cell, RefCell};
 use std::ptr::null_mut;
 use std::rc::Rc;
-use swell_ui::{Dimensions, Pixels, View, Window};
+use swell_ui::{Dimensions, Pixels, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
 #[derive(Debug)]
 pub struct MainPanel {
-    window: Cell<Option<Window>>,
+    view_context: ViewContext,
     header_panel: Rc<HeaderPanel>,
     mapping_rows_panel: Rc<MappingRowsPanel>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
@@ -22,7 +22,7 @@ pub struct MainPanel {
 impl MainPanel {
     pub fn new(session: Rc<RefCell<Session<'static>>>) -> MainPanel {
         MainPanel {
-            window: None.into(),
+            view_context: Default::default(),
             header_panel: HeaderPanel::new(session.clone()).into(),
             mapping_rows_panel: MappingRowsPanel::new(session.clone()).into(),
             dimensions: None.into(),
@@ -53,8 +53,8 @@ impl View for MainPanel {
         root::ID_MAIN_DIALOG
     }
 
-    fn window(&self) -> &Cell<Option<Window>> {
-        &self.window
+    fn view_context(&self) -> &ViewContext {
+        &self.view_context
     }
 
     fn opened(self: Rc<Self>, window: Window) -> bool {

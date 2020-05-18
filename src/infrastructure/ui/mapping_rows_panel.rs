@@ -9,19 +9,19 @@ use rxrust::prelude::*;
 
 use crate::domain::Session;
 use crate::infrastructure::common::bindings::root;
-use swell_ui::{DialogUnits, Point, View, Window};
+use swell_ui::{DialogUnits, Point, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
+    view_context: ViewContext,
     session: Rc<RefCell<Session<'static>>>,
-    window: Cell<Option<Window>>,
 }
 
 impl MappingRowsPanel {
     pub fn new(session: Rc<RefCell<Session<'static>>>) -> MappingRowsPanel {
         MappingRowsPanel {
+            view_context: Default::default(),
             session,
-            window: None.into(),
         }
     }
 }
@@ -31,8 +31,8 @@ impl View for MappingRowsPanel {
         root::ID_MAPPING_ROWS_DIALOG
     }
 
-    fn window(&self) -> &Cell<Option<Window>> {
-        &self.window
+    fn view_context(&self) -> &ViewContext {
+        &self.view_context
     }
 
     fn opened(self: Rc<Self>, window: Window) -> bool {

@@ -22,7 +22,6 @@ helgoboss-midi = { version = "0.1.0", path = "../helgoboss-midi-rs" }
 helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
 vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
-#rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 rxrust = { path = "../rxRust" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

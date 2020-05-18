@@ -1,7 +1,9 @@
 use crate::{create_window, Window};
+use rxrust::prelude::*;
+use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::Debug;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///
@@ -57,8 +59,8 @@ pub trait View: Debug {
     /// Returns the current window, if any.
     ///
     /// In order to implement behavior common to views, the `View` trait needs mutable access to
-    /// the window property.
-    fn window(&self) -> &Cell<Option<Window>>;
+    /// this context.
+    fn view_context(&self) -> &ViewContext;
 
     /// Opens this view in the given parent window.
     fn open(self: Rc<Self>, parent_window: Window)
@@ -71,12 +73,12 @@ pub trait View: Debug {
 
     /// Closes this view.
     fn close(&self) {
-        self.window().get().expect("window was not open").close();
+        self.require_window().close();
     }
 
     /// Returns whether this view is currently open.
     fn is_open(&self) -> bool {
-        self.window().get().is_some()
+        self.view_context().window.get().is_some()
     }
 
     /// Returns the current window associated with this view.
@@ -85,7 +87,10 @@ pub trait View: Debug {
     ///
     /// Panics if the window doesn't exist (the view is not open).
     fn require_window(&self) -> Window {
-        self.window().get().expect("window not found but required")
+        self.view_context()
+            .window
+            .get()
+            .expect("window not found but required")
     }
 
     /// Returns the control with the given resource ID.
@@ -98,13 +103,14 @@ pub trait View: Debug {
     }
 
     fn opened_internal(self: Rc<Self>, window: Window) -> bool {
-        self.window().replace(Some(window));
+        self.view_context().window.replace(Some(window));
         self.opened(window)
     }
 
     fn closed_internal(self: Rc<Self>) {
         self.clone().closed();
-        self.window().replace(None);
+        self.view_context().closed_subject.borrow_mut().next(());
+        self.view_context().window.replace(None);
     }
 
     /// WM_INITDIALOG
@@ -122,4 +128,20 @@ pub trait View: Debug {
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
     fn option_selected(self: Rc<Self>, resource_id: u32) {}
+}
+
+/// Context data of a view.
+///
+/// If Rust traits could provide data in the form of fields, this would be it.
+#[derive(Clone, Default, Debug)]
+pub struct ViewContext {
+    window: Cell<Option<Window>>,
+    closed_subject: RefCell<LocalSubject<'static, (), ()>>,
+}
+
+impl ViewContext {
+    /// Fires when the window is closed.
+    pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> {
+        self.closed_subject.borrow().clone()
+    }
 }

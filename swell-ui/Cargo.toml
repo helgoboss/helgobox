@@ -10,6 +10,7 @@ generate = []
 
 [dependencies]
 reaper-low = { version = "0.1.0", path = "../../reaper-rs/main/low" }
+rxrust = { path = "../../rxRust" }
 
 [build-dependencies]
 bindgen = "0.52.0"

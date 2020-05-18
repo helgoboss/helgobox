@@ -35,6 +35,27 @@ impl Window {
             .expect("required control not found")
     }
 
+    pub fn set_checked(&self, is_checked: bool) {
+        Swell::get().SendMessage(
+            self.raw,
+            raw::BM_SETCHECK,
+            if is_checked {
+                raw::BST_CHECKED
+            } else {
+                raw::BST_UNCHECKED
+            } as usize,
+            0,
+        );
+    }
+
+    pub fn check(&self) {
+        self.set_checked(true);
+    }
+
+    pub fn uncheck(&self) {
+        self.set_checked(false);
+    }
+
     pub fn is_checked(&self) -> bool {
         Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
     }
@@ -52,8 +73,28 @@ impl Window {
         Window::new(Swell::get().GetParent(self.raw))
     }
 
+    pub fn set_visible(&self, is_shown: bool) {
+        Swell::get().ShowWindow(self.raw, if is_shown { raw::SW_SHOW } else { raw::SW_HIDE });
+    }
+
     pub fn show(&self) {
-        Swell::get().ShowWindow(self.raw, raw::SW_SHOW);
+        self.set_visible(true);
+    }
+
+    pub fn hide(&self) {
+        self.set_visible(false);
+    }
+
+    pub fn set_enabled(&self, is_enabled: bool) {
+        Swell::get().EnableWindow(self.raw, is_enabled.into());
+    }
+
+    pub fn enable(&self) {
+        self.set_enabled(true);
+    }
+
+    pub fn disable(&self) {
+        self.set_enabled(false);
     }
 
     pub fn destroy(&self) {
