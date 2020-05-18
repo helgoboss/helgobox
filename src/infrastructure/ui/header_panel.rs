@@ -3,9 +3,8 @@ use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::SessionContext;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper, ReaperSession};
 use reaper_low::Swell;
-use reaper_medium::ReaperFunctions;
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
@@ -232,7 +231,7 @@ impl HeaderPanel {
         reaction: impl Fn(Rc<Self>) + 'static + Copy,
     ) {
         self.view.when(&self, event, move |view| {
-            Reaper::get().execute_later_in_main_thread_asap(move || reaction(view));
+            ReaperSession::get().execute_later_in_main_thread_asap(move || reaction(view));
         });
     }
 }
