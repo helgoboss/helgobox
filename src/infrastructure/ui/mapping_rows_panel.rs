@@ -14,15 +14,15 @@ use swell_ui::{DialogUnits, Point, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
-    view_context: ViewContext,
-    session_context: SessionContext,
+    view: ViewContext,
+    session: SessionContext,
 }
 
 impl MappingRowsPanel {
-    pub fn new(session_context: SessionContext) -> MappingRowsPanel {
+    pub fn new(session: SessionContext) -> MappingRowsPanel {
         MappingRowsPanel {
-            view_context: Default::default(),
-            session_context,
+            view: Default::default(),
+            session,
         }
     }
 }
@@ -33,7 +33,7 @@ impl View for MappingRowsPanel {
     }
 
     fn view_context(&self) -> &ViewContext {
-        &self.view_context
+        &self.view
     }
 
     fn opened(self: Rc<Self>, window: Window) -> bool {

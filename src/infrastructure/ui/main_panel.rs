@@ -12,20 +12,20 @@ use swell_ui::{Dimensions, Pixels, View, ViewContext, Window};
 /// The complete ReaLearn panel containing everything.
 #[derive(Debug)]
 pub struct MainPanel {
-    view_context: ViewContext,
-    session_context: SessionContext,
+    view: ViewContext,
+    session: SessionContext,
     header_panel: Rc<HeaderPanel>,
     mapping_rows_panel: Rc<MappingRowsPanel>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
 }
 
 impl MainPanel {
-    pub fn new(session_context: SessionContext) -> MainPanel {
+    pub fn new(session: SessionContext) -> MainPanel {
         MainPanel {
-            view_context: Default::default(),
-            session_context: session_context.clone(),
-            header_panel: HeaderPanel::new(session_context.clone()).into(),
-            mapping_rows_panel: MappingRowsPanel::new(session_context.clone()).into(),
+            view: Default::default(),
+            session: session.clone(),
+            header_panel: HeaderPanel::new(session.clone()).into(),
+            mapping_rows_panel: MappingRowsPanel::new(session.clone()).into(),
             dimensions: None.into(),
         }
     }
@@ -54,7 +54,7 @@ impl View for MainPanel {
     }
 
     fn view_context(&self) -> &ViewContext {
-        &self.view_context
+        &self.view
     }
 
     fn opened(self: Rc<Self>, window: Window) -> bool {

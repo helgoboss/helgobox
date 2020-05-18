@@ -1,4 +1,4 @@
-use crate::domain::{MidiControlInput, Session};
+use crate::domain::{MidiControlInput, Property, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::SessionContext;
 use c_str_macro::c_str;
@@ -157,21 +157,24 @@ impl HeaderPanel {
     }
 
     fn register_listeners(self: Rc<Self>) {
-        let weak = self.weak();
-        self.session
-            .get()
-            .let_matched_events_through
-            .changed()
-            .take_until(self.view.closed())
-            .subscribe(move |_| {
-                weak.upgrade()
-                    .expect("panel gone")
-                    .invalidate_let_matched_events_through_check_box()
-            });
+        let session = self.session.get();
+        self.when_changed(&session.let_matched_events_through, |view| {
+            view.invalidate_let_matched_events_through_check_box()
+        });
     }
 
-    fn weak(self: &Rc<Self>) -> Weak<Self> {
-        Rc::downgrade(self)
+    fn when_changed<T: PartialEq + 'static>(
+        self: &Rc<Self>,
+        prop: &Property<'static, T>,
+        reaction: impl Fn(&Rc<Self>) + 'static,
+    ) {
+        let weak_view = Rc::downgrade(self);
+        prop.changed()
+            .take_until(self.view.closed())
+            .subscribe(move |_| {
+                let view = weak_view.upgrade().expect("view is gone");
+                reaction(&view);
+            });
     }
 }
 
