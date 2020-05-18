@@ -116,46 +116,46 @@ impl<'a> ModeModel<'a> {
         match self.r#type.get() {
             Absolute => Mode::Absolute(AbsoluteMode {
                 source_value_interval: Interval::new(
-                    *self.min_source_value.get(),
-                    *self.max_source_value.get(),
+                    self.min_source_value.get(),
+                    self.max_source_value.get(),
                 ),
                 target_value_interval: Interval::new(
-                    *self.min_target_value.get(),
-                    *self.max_target_value.get(),
+                    self.min_target_value.get(),
+                    self.max_target_value.get(),
                 ),
-                jump_interval: Interval::new(*self.min_jump.get(), *self.max_jump.get()),
-                approach_target_value: *self.approach_target_value.get(),
-                reverse_target_value: *self.reverse.get(),
-                round_target_value: *self.round_target_value.get(),
-                ignore_out_of_range_source_values: *self.ignore_out_of_range_source_values.get(),
+                jump_interval: Interval::new(self.min_jump.get(), self.max_jump.get()),
+                approach_target_value: self.approach_target_value.get(),
+                reverse_target_value: self.reverse.get(),
+                round_target_value: self.round_target_value.get(),
+                ignore_out_of_range_source_values: self.ignore_out_of_range_source_values.get(),
                 control_transformation: EelTransformation::compile(
-                    self.eel_control_transformation.get(),
+                    self.eel_control_transformation.get_ref(),
                 ),
                 feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get(),
+                    self.eel_feedback_transformation.get_ref(),
                 ),
             }),
             Relative => Mode::Relative(RelativeMode {
                 source_value_interval: Interval::new(
-                    *self.min_source_value.get(),
-                    *self.max_source_value.get(),
+                    self.min_source_value.get(),
+                    self.max_source_value.get(),
                 ),
                 step_count_interval: todo!("needs to transform step size "),
                 step_size_interval: Interval::new(
-                    *self.min_step_size.get(),
-                    *self.max_step_size.get(),
+                    self.min_step_size.get(),
+                    self.max_step_size.get(),
                 ),
                 target_value_interval: Interval::new(
-                    *self.min_target_value.get(),
-                    *self.max_target_value.get(),
+                    self.min_target_value.get(),
+                    self.max_target_value.get(),
                 ),
-                reverse: *self.reverse.get(),
-                rotate: *self.rotate.get(),
+                reverse: self.reverse.get(),
+                rotate: self.rotate.get(),
             }),
             Toggle => Mode::Toggle(ToggleMode {
                 target_value_interval: Interval::new(
-                    *self.min_target_value.get(),
-                    *self.max_target_value.get(),
+                    self.min_target_value.get(),
+                    self.max_target_value.get(),
                 ),
             }),
         }

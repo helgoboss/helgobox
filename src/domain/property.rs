@@ -84,8 +84,16 @@ impl<'a, T: PartialEq> Property<'a, T> {
         }
     }
 
+    /// Returns a copy of the current value of this property.
+    pub fn get(&self) -> T
+    where
+        T: Copy,
+    {
+        self.value
+    }
+
     /// Returns the current value of this property.
-    pub fn get(&self) -> &T {
+    pub fn get_ref(&self) -> &T {
         &self.value
     }
 
@@ -123,7 +131,7 @@ mod tests {
         let p = Property::new(5);
         // When
         // Then
-        assert_eq!(p.get(), &5);
+        assert_eq!(p.get(), 5);
     }
 
     #[test]
@@ -133,7 +141,7 @@ mod tests {
         // When
         p.set(6);
         // Then
-        assert_eq!(p.get(), &6);
+        assert_eq!(p.get(), 6);
     }
 
     #[test]
@@ -143,8 +151,8 @@ mod tests {
         // When
         let p2 = p.clone();
         // Then
-        assert_eq!(p.get(), &5);
-        assert_eq!(p2.get(), &5);
+        assert_eq!(p.get(), 5);
+        assert_eq!(p2.get(), 5);
     }
 
     #[test]
@@ -156,8 +164,8 @@ mod tests {
         p.set(2);
         p2.set(7);
         // Then
-        assert_eq!(p.get(), &2);
-        assert_eq!(p2.get(), &7);
+        assert_eq!(p.get(), 2);
+        assert_eq!(p2.get(), 7);
     }
 
     #[test]
@@ -167,7 +175,7 @@ mod tests {
         // When
         p.set(105);
         // Then
-        assert_eq!(p.get(), &100);
+        assert_eq!(p.get(), 100);
     }
 
     #[test]
@@ -178,7 +186,7 @@ mod tests {
         let mut p2 = p.clone();
         p2.set(105);
         // Then
-        assert_eq!(p2.get(), &100);
+        assert_eq!(p2.get(), 100);
     }
 
     #[test]

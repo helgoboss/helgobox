@@ -106,9 +106,9 @@ impl<T: PartialOrd + From<i8>> NoneIfNegative for Option<T> {
 impl From<&MidiSourceModel<'_>> for SourceModelData {
     fn from(model: &MidiSourceModel<'_>) -> Self {
         SourceModelData {
-            r#type: *model.r#type.get(),
+            r#type: model.r#type.get(),
             channel: model.channel.get().map(|ch| ch.into()),
-            number: if *model.r#type.get() == MidiSourceType::ParameterNumberValue {
+            number: if model.r#type.get() == MidiSourceType::ParameterNumberValue {
                 model
                     .parameter_number_message_number
                     .get()
@@ -127,8 +127,8 @@ impl From<&MidiSourceModel<'_>> for SourceModelData {
                 }
                 .into()
             },
-            is_registered: *model.is_registered.get(),
-            is_14_bit: *model.is_14_bit.get(),
+            is_registered: model.is_registered.get(),
+            is_14_bit: model.is_14_bit.get(),
             message: {
                 use MidiClockTransportMessage::*;
                 match model.midi_clock_transport_message.get() {
@@ -272,17 +272,17 @@ mod tests {
         let result = data.apply_to_source_model(&mut model);
         // Then
         assert!(result.is_ok());
-        assert_eq!(*model.r#type.get(), MidiSourceType::ParameterNumberValue);
-        assert_eq!(*model.channel.get(), Some(channel(8)));
-        assert_eq!(*model.midi_message_number.get(), None);
-        assert_eq!(*model.parameter_number_message_number.get(), None);
-        assert_eq!(*model.custom_character.get(), SourceCharacter::Range);
+        assert_eq!(model.r#type.get(), MidiSourceType::ParameterNumberValue);
+        assert_eq!(model.channel.get(), Some(channel(8)));
+        assert_eq!(model.midi_message_number.get(), None);
+        assert_eq!(model.parameter_number_message_number.get(), None);
+        assert_eq!(model.custom_character.get(), SourceCharacter::Range);
         assert_eq!(
-            *model.midi_clock_transport_message.get(),
+            model.midi_clock_transport_message.get(),
             MidiClockTransportMessage::Start
         );
-        assert_eq!(*model.is_registered.get(), Some(true));
-        assert_eq!(*model.is_14_bit.get(), Some(true));
+        assert_eq!(model.is_registered.get(), Some(true));
+        assert_eq!(model.is_14_bit.get(), Some(true));
     }
 
     #[test]
@@ -302,17 +302,17 @@ mod tests {
         let result = data.apply_to_source_model(&mut model);
         assert!(result.is_ok());
         // Then
-        assert_eq!(*model.r#type.get(), MidiSourceType::ClockTransport);
-        assert_eq!(*model.channel.get(), None);
-        assert_eq!(*model.midi_message_number.get(), Some(u7(112)));
-        assert_eq!(*model.parameter_number_message_number.get(), None);
-        assert_eq!(*model.custom_character.get(), SourceCharacter::Range);
+        assert_eq!(model.r#type.get(), MidiSourceType::ClockTransport);
+        assert_eq!(model.channel.get(), None);
+        assert_eq!(model.midi_message_number.get(), Some(u7(112)));
+        assert_eq!(model.parameter_number_message_number.get(), None);
+        assert_eq!(model.custom_character.get(), SourceCharacter::Range);
         assert_eq!(
-            *model.midi_clock_transport_message.get(),
+            model.midi_clock_transport_message.get(),
             MidiClockTransportMessage::Stop
         );
-        assert_eq!(*model.is_registered.get(), None);
-        assert_eq!(*model.is_14_bit.get(), Some(false));
+        assert_eq!(model.is_registered.get(), None);
+        assert_eq!(model.is_14_bit.get(), Some(false));
     }
 
     #[test]

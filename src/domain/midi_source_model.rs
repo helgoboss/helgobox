@@ -50,7 +50,7 @@ impl<'a> MidiSourceModel<'a> {
     /// Creates a source reflecting this model's current values
     pub fn create_source(&self) -> MidiSource {
         use MidiSourceType::*;
-        let channel = *self.channel.get();
+        let channel = self.channel.get();
         let key_number = self.midi_message_number.get().map(|n| n.into());
         match self.r#type.get() {
             NoteVelocity => MidiSource::NoteVelocity {
@@ -63,7 +63,7 @@ impl<'a> MidiSourceModel<'a> {
                 key_number,
             },
             ControlChangeValue => {
-                if *self.is_14_bit.get() == Some(true) {
+                if self.is_14_bit.get() == Some(true) {
                     MidiSource::ControlChange14BitValue {
                         channel,
                         msb_controller_number: self.midi_message_number.get().map(|n| n.into()),
@@ -72,7 +72,7 @@ impl<'a> MidiSourceModel<'a> {
                     MidiSource::ControlChangeValue {
                         channel,
                         controller_number: self.midi_message_number.get().map(|n| n.into()),
-                        custom_character: *self.custom_character.get(),
+                        custom_character: self.custom_character.get(),
                     }
                 }
             }
@@ -81,13 +81,13 @@ impl<'a> MidiSourceModel<'a> {
             PitchBendChangeValue => MidiSource::PitchBendChangeValue { channel },
             ParameterNumberValue => MidiSource::ParameterNumberValue {
                 channel,
-                number: *self.parameter_number_message_number.get(),
-                is_14_bit: *self.is_14_bit.get(),
-                is_registered: *self.is_registered.get(),
+                number: self.parameter_number_message_number.get(),
+                is_14_bit: self.is_14_bit.get(),
+                is_registered: self.is_registered.get(),
             },
             ClockTempo => MidiSource::ClockTempo,
             ClockTransport => MidiSource::ClockTransport {
-                message: *self.midi_clock_transport_message.get(),
+                message: self.midi_clock_transport_message.get(),
             },
         }
     }

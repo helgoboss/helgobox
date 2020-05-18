@@ -107,9 +107,9 @@ impl HeaderPanel {
         let check_box = self
             .view
             .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
-        if *self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
+        if self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
             check_box.enable();
-            check_box.set_checked(*self.session.get().let_matched_events_through.get());
+            check_box.set_checked(self.session.get().let_matched_events_through.get());
         } else {
             check_box.disable();
             check_box.uncheck();
@@ -120,9 +120,9 @@ impl HeaderPanel {
         let check_box = self
             .view
             .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
-        if *self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
+        if self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
             check_box.enable();
-            check_box.set_checked(*self.session.get().let_unmatched_events_through.get());
+            check_box.set_checked(self.session.get().let_unmatched_events_through.get());
         } else {
             check_box.disable();
             check_box.uncheck();
@@ -138,14 +138,14 @@ impl HeaderPanel {
             check_box.check();
         } else {
             check_box.enable();
-            check_box.set_checked(*self.session.get().send_feedback_only_if_armed.get());
+            check_box.set_checked(self.session.get().send_feedback_only_if_armed.get());
         }
     }
 
     fn invalidate_always_auto_detect_check_box(&self) {
         self.view
             .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
-            .set_checked(*self.session.get().always_auto_detect.get());
+            .set_checked(self.session.get().always_auto_detect.get());
     }
 
     fn invalidate_source_filter_buttons(&self) {
@@ -186,8 +186,8 @@ impl HeaderPanel {
                 // TODO Seems like we almost always want a copy of the property content
                 //  Maybe we should make get() return a copy by default and add get_ref().
                 //  Or add a as_ref() like in Option.
-                if *session.always_auto_detect.get() {
-                    let control_input = *session.midi_control_input.get();
+                if session.always_auto_detect.get() {
+                    let control_input = session.midi_control_input.get();
                     session
                         .send_feedback_only_if_armed
                         .set(control_input != MidiControlInput::FxInput)
