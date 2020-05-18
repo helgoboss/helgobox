@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use reaper_low::{raw, Swell};
+use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::rc::{Rc, Weak};
@@ -138,13 +139,17 @@ unsafe extern "C" fn view_window_proc(
         let window = Window::new(hwnd).expect("window was null");
         match msg {
             raw::WM_INITDIALOG => {
-                let keyboard_focus_desired = view.opened_internal(window);
+                view.view_context().window.replace(Some(window));
+                let keyboard_focus_desired = view.opened(window);
                 // TODO-low Is this really necessary?
                 window.show();
                 keyboard_focus_desired.into()
             }
             raw::WM_DESTROY => {
-                view.closed_internal();
+                let view_context = view.view_context();
+                view_context.closed_subject.borrow_mut().next(());
+                view_context.window.replace(None);
+                view.closed();
                 ViewManager::get().borrow_mut().unregister_view(hwnd);
                 0
             }

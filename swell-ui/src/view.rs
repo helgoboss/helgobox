@@ -51,6 +51,9 @@ use std::rc::{Rc, Weak};
 /// view methods in subscribe closures without running into lifetime problems (such as &self
 /// disappearing while still being used in the closure).
 pub trait View: Debug {
+    // Data providers (implementation required, used internally)
+    // =========================================================
+
     /// ID of the dialog resource to look up when creating the window.
     ///
     /// The dialog resource basically defines the window's initial look.
@@ -61,6 +64,28 @@ pub trait View: Debug {
     /// In order to implement behavior common to views, the `View` trait needs mutable access to
     /// this context.
     fn view_context(&self) -> &ViewContext;
+
+    // Event handlers (implementation optional)
+    // =================================================
+
+    /// WM_INITDIALOG
+    ///
+    /// Sould return `true` if keyboard focus is desired.
+    fn opened(self: Rc<Self>, window: Window) -> bool {
+        false
+    }
+
+    /// WM_DESTROY
+    fn closed(self: Rc<Self>) {}
+
+    /// WM_COMMAND, HIWORD(wparam) == 0
+    fn button_clicked(self: Rc<Self>, resource_id: u32) {}
+
+    /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
+    fn option_selected(self: Rc<Self>, resource_id: u32) {}
+
+    // Public methods (intended to be used by consumers)
+    // =================================================
 
     /// Opens this view in the given parent window.
     fn open(self: Rc<Self>, parent_window: Window)
@@ -80,33 +105,6 @@ pub trait View: Debug {
     fn is_open(&self) -> bool {
         self.view_context().window.get().is_some()
     }
-
-    fn opened_internal(self: Rc<Self>, window: Window) -> bool {
-        self.view_context().window.replace(Some(window));
-        self.opened(window)
-    }
-
-    fn closed_internal(self: Rc<Self>) {
-        self.clone().closed();
-        self.view_context().closed_subject.borrow_mut().next(());
-        self.view_context().window.replace(None);
-    }
-
-    /// WM_INITDIALOG
-    ///
-    /// Returns true if keyboard focus is desired.
-    fn opened(self: Rc<Self>, window: Window) -> bool {
-        false
-    }
-
-    /// WM_DESTROY
-    fn closed(self: Rc<Self>) {}
-
-    /// WM_COMMAND, HIWORD(wparam) == 0
-    fn button_clicked(self: Rc<Self>, resource_id: u32) {}
-
-    /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
-    fn option_selected(self: Rc<Self>, resource_id: u32) {}
 }
 
 /// Context data of a view.
@@ -114,8 +112,8 @@ pub trait View: Debug {
 /// If Rust traits could provide data in the form of fields, this would be it.
 #[derive(Clone, Default, Debug)]
 pub struct ViewContext {
-    window: Cell<Option<Window>>,
-    closed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    pub(crate) window: Cell<Option<Window>>,
+    pub(crate) closed_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
 impl ViewContext {
@@ -140,5 +138,19 @@ impl ViewContext {
     /// Fires when the window is closed.
     pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> {
         self.closed_subject.borrow().clone()
+    }
+
+    /// Executes the given reaction on the view whenever the specified event is raised.
+    pub fn when<R: 'static>(
+        &self,
+        receiver: &Rc<R>,
+        event: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
+        reaction: impl Fn(Rc<R>) + 'static,
+    ) {
+        let weak_receiver = Rc::downgrade(receiver);
+        event.take_until(self.closed()).subscribe(move |_| {
+            let receiver = weak_receiver.upgrade().expect("view is gone");
+            reaction(receiver);
+        });
     }
 }

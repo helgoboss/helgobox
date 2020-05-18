@@ -76,17 +76,17 @@ impl HeaderPanel {
         );
     }
 
-    fn update_control_device(&self) {
+    fn update_midi_control_input(&self) {
         // TODO
     }
 
-    fn update_feedback_device(&self) {
+    fn update_midi_feedback_output(&self) {
         // TODO
     }
 
     fn invalidate_all_controls(&self) {
-        self.invalidate_control_device_combo_box();
-        self.invalidate_feedback_device_combo_box();
+        self.invalidate_midi_control_input_combo_box();
+        self.invalidate_midi_feedback_output_combo_box();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_send_feedback_only_if_armed_check_box();
@@ -95,11 +95,11 @@ impl HeaderPanel {
         self.invalidate_target_filter_buttons();
     }
 
-    fn invalidate_control_device_combo_box(&self) {
+    fn invalidate_midi_control_input_combo_box(&self) {
         todo!()
     }
 
-    fn invalidate_feedback_device_combo_box(&self) {
+    fn invalidate_midi_feedback_output_combo_box(&self) {
         todo!()
     }
 
@@ -158,23 +158,46 @@ impl HeaderPanel {
 
     fn register_listeners(self: Rc<Self>) {
         let session = self.session.get();
-        self.when_changed(&session.let_matched_events_through, |view| {
-            view.invalidate_let_matched_events_through_check_box()
-        });
-    }
-
-    fn when_changed<T: PartialEq + 'static>(
-        self: &Rc<Self>,
-        prop: &Property<'static, T>,
-        reaction: impl Fn(&Rc<Self>) + 'static,
-    ) {
-        let weak_view = Rc::downgrade(self);
-        prop.changed()
-            .take_until(self.view.closed())
-            .subscribe(move |_| {
-                let view = weak_view.upgrade().expect("view is gone");
-                reaction(&view);
+        self.view.when(
+            &self,
+            session.let_matched_events_through.changed(),
+            |view| view.invalidate_let_matched_events_through_check_box(),
+        );
+        self.view.when(
+            &self,
+            session.let_unmatched_events_through.changed(),
+            |view| view.invalidate_let_unmatched_events_through_check_box(),
+        );
+        self.view.when(
+            &self,
+            session.send_feedback_only_if_armed.changed(),
+            |view| view.invalidate_send_feedback_only_if_armed_check_box(),
+        );
+        self.view
+            .when(&self, session.always_auto_detect.changed(), |view| {
+                view.invalidate_always_auto_detect_check_box()
             });
+        self.view
+            .when(&self, session.midi_control_input.changed(), |view| {
+                view.invalidate_midi_control_input_combo_box();
+                view.invalidate_let_matched_events_through_check_box();
+                view.invalidate_let_unmatched_events_through_check_box();
+                let mut session = view.session.get_mut();
+                // TODO Seems like we almost always want a copy of the property content
+                //  Maybe we should make get() return a copy by default and add get_ref().
+                //  Or add a as_ref() like in Option.
+                if *session.always_auto_detect.get() {
+                    let control_input = *session.midi_control_input.get();
+                    session
+                        .send_feedback_only_if_armed
+                        .set(control_input != MidiControlInput::FxInput)
+                }
+            });
+        self.view
+            .when(&self, session.midi_feedback_output.changed(), |view| {
+                view.invalidate_midi_feedback_output_combo_box()
+            });
+        // TODO sourceFilterListening, targetFilterListening,
     }
 }
 
@@ -215,8 +238,8 @@ impl View for HeaderPanel {
     fn option_selected(self: Rc<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            ID_CONTROL_DEVICE_COMBO_BOX => self.update_control_device(),
-            ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_device(),
+            ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
+            ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
             _ => {}
         }
     }
