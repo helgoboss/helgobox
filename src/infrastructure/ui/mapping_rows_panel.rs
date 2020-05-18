@@ -8,10 +8,8 @@ use reaper_low::Swell;
 use rxrust::prelude::*;
 
 use crate::domain::Session;
-use crate::infrastructure::common::bindings::root::{
-    ID_MAPPING_ROWS_DIALOG, ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX,
-};
-use crate::infrastructure::ui::framework::{create_window, DialogUnits, Point, View, Window};
+use crate::infrastructure::common::bindings::root;
+use swell_ui::{DialogUnits, Point, View, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -26,22 +24,19 @@ impl MappingRowsPanel {
             window: None.into(),
         }
     }
-
-    pub fn open(self: Rc<Self>, parent_window: Window) {
-        create_window(self, ID_MAPPING_ROWS_DIALOG, parent_window);
-    }
 }
 
 impl View for MappingRowsPanel {
     fn dialog_resource_id(&self) -> u32 {
-        ID_MAPPING_ROWS_DIALOG
+        root::ID_MAPPING_ROWS_DIALOG
     }
 
     fn window(&self) -> &Cell<Option<Window>> {
         &self.window
     }
 
-    fn opened(self: Rc<Self>, window: Window) {
-        window.move_to(Point::new(DialogUnits(0), DialogUnits(78)))
+    fn opened(self: Rc<Self>, window: Window) -> bool {
+        window.move_to(Point::new(DialogUnits(0), DialogUnits(78)));
+        true
     }
 }

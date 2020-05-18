@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::framework::{create_window, Window};
+use crate::{create_window, Window};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -79,9 +79,18 @@ pub trait View: Debug {
         self.window().get().is_some()
     }
 
-    fn opened_internal(self: Rc<Self>, window: Window) {
+    /// Returns the current window associated with this view.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the window doesn't exist (the view is not open).
+    fn require_window(&self) -> Window {
+        self.window().get().expect("window not found but required")
+    }
+
+    fn opened_internal(self: Rc<Self>, window: Window) -> bool {
         self.window().replace(Some(window));
-        self.opened(window);
+        self.opened(window)
     }
 
     fn closed_internal(self: Rc<Self>) {
@@ -90,11 +99,18 @@ pub trait View: Debug {
     }
 
     /// WM_INITDIALOG
-    fn opened(self: Rc<Self>, window: Window) {}
+    ///
+    /// Returns true if keyboard focus is desired.
+    fn opened(self: Rc<Self>, window: Window) -> bool {
+        false
+    }
 
     /// WM_DESTROY
     fn closed(self: Rc<Self>) {}
 
-    /// WM_COMMAND TODO
+    /// WM_COMMAND, HIWORD(wparam) == 0
     fn button_clicked(self: Rc<Self>, resource_id: u32) {}
+
+    /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
+    fn option_selected(self: Rc<Self>, resource_id: u32) {}
 }

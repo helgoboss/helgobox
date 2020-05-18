@@ -5,6 +5,11 @@ authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
 
+[workspace]
+members = [
+    "swell-ui"
+]
+
 [features]
 generate = []
 
@@ -12,11 +17,13 @@ generate = []
 reaper-high = { path = "../reaper-rs/main/high" }
 reaper-medium= { path = "../reaper-rs/main/medium" }
 reaper-low = { version = "0.1.0", path = "../reaper-rs/main/low" }
+swell-ui = { path = "swell-ui" }
 helgoboss-midi = { version = "0.1.0", path = "../helgoboss-midi-rs" }
 helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
 vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
-rxrust = "0.8.3"
+#rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
+rxrust = { path = "../rxRust" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_repr = "0.1.5"

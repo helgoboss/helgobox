@@ -1,11 +1,11 @@
 use crate::domain::Session;
-use crate::infrastructure::ui::views::MainPanel;
+use crate::infrastructure::ui::MainPanel;
 use std::cell::RefCell;
 
-use crate::infrastructure::ui::framework::{Pixels, View, Window};
 use reaper_low::raw::HWND;
 use std::os::raw::c_void;
 use std::rc::Rc;
+use swell_ui::{Pixels, View, Window};
 use vst::editor::Editor;
 
 pub struct RealearnEditor {

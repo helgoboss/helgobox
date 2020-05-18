@@ -52,6 +52,12 @@ impl<'a, T: Default> Default for Property<'a, T> {
     }
 }
 
+impl<'a, T: PartialEq> From<T> for Property<'a, T> {
+    fn from(value: T) -> Self {
+        Property::new(value)
+    }
+}
+
 impl<'a, T: PartialEq> PartialEq for Property<'a, T> {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value

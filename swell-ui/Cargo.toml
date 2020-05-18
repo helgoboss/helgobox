@@ -1,0 +1,15 @@
+[package]
+name = "swell-ui"
+version = "0.1.0"
+authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
+edition = "2018"
+build = "build.rs"
+
+[features]
+generate = []
+
+[dependencies]
+reaper-low = { version = "0.1.0", path = "../../reaper-rs/main/low" }
+
+[build-dependencies]
+bindgen = "0.52.0"

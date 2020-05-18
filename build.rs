@@ -54,11 +54,6 @@ fn embed_dialog_resources() {
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
-
-    // The bindgen::Builder is the main entry point
-    // to bindgen, and lets you build up options for
-    // the resulting bindings.
-
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
@@ -75,8 +70,6 @@ fn generate_bindings() {
         .raw_line("#![allow(dead_code)]")
         // ReaLearn UI
         .whitelist_var("ID_.*")
-        // Some Windows API stuff
-        .whitelist_function("MapDialogRect")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

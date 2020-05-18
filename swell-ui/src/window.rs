@@ -1,5 +1,5 @@
-use crate::infrastructure::ui::framework::{DialogUnits, Dimensions, Pixels, Point};
-use reaper_low::raw::WM_CLOSE;
+use crate::bindings::root;
+use crate::{DialogUnits, Dimensions, Pixels, Point};
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 use std::ptr::null_mut;
@@ -30,8 +30,17 @@ impl Window {
         Window::new(hwnd)
     }
 
+    pub fn require_control(&self, control_id: u32) -> Window {
+        self.find_control(control_id)
+            .expect("required control not found")
+    }
+
+    pub fn is_checked(&self) -> bool {
+        Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
+    }
+
     pub fn close(&self) {
-        Swell::get().SendMessage(self.raw, WM_CLOSE, 0, 0);
+        Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
     }
 
     pub fn set_text(&self, text: &str) {
@@ -41,6 +50,14 @@ impl Window {
 
     pub fn parent(&self) -> Option<Window> {
         Window::new(Swell::get().GetParent(self.raw))
+    }
+
+    pub fn show(&self) {
+        Swell::get().ShowWindow(self.raw, raw::SW_SHOW);
+    }
+
+    pub fn destroy(&self) {
+        Swell::get().DestroyWindow(self.raw);
     }
 
     pub fn move_to(&self, point: Point<DialogUnits>) {
@@ -70,15 +87,14 @@ impl Window {
         let point = point.into();
         #[cfg(target_family = "windows")]
         {
-            use crate::infrastructure::common::bindings::root::*;
-            let mut rect = tagRECT {
+            let mut rect = root::tagRECT {
                 left: 0,
                 top: 0,
                 right: point.x.as_raw(),
                 bottom: point.y.as_raw(),
             };
             unsafe {
-                MapDialogRect(self.raw as _, &mut rect as _);
+                root::MapDialogRect(self.raw as _, &mut rect as _);
             }
             Point {
                 x: Pixels(rect.right as u32),

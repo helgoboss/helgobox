@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::framework::Window;
+use crate::Window;
 
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]

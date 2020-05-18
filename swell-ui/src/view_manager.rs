@@ -1,10 +1,9 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
-use super::{View, Window};
+use crate::{View, Window};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
@@ -17,7 +16,7 @@ use std::sync::Once;
 ///
 /// Internally, this creates a new win32 dialog using the given resource ID. Uses the methods in the
 /// given view for all callbacks.
-pub fn create_window(view: Rc<dyn View>, resource_id: u32, parent_window: Window) {
+pub(crate) fn create_window(view: Rc<dyn View>, resource_id: u32, parent_window: Window) {
     let swell = Swell::get();
     unsafe {
         // This will call the window procedure `view_window_proc`. In order to still know which
@@ -136,14 +135,13 @@ unsafe extern "C" fn view_window_proc(
             }
         };
         // Found view. Delegate to view struct methods.
+        let window = Window::new(hwnd).expect("window was null");
         match msg {
             raw::WM_INITDIALOG => {
-                view.opened_internal(Window::new(hwnd).expect("window was null"));
+                let keyboard_focus_desired = view.opened_internal(window);
                 // TODO-low Is this really necessary?
-                swell.ShowWindow(hwnd, raw::SW_SHOW);
-                // TODO-low Let view customize return value (decides if view gets keyboard
-                // default  focus)  (see https://docs.microsoft.com/en-us/windows/win32/dlgbox/wm-initdialog)
-                1
+                window.show();
+                keyboard_focus_desired.into()
             }
             raw::WM_DESTROY => {
                 view.closed_internal();
@@ -152,13 +150,24 @@ unsafe extern "C" fn view_window_proc(
             }
             raw::WM_COMMAND => {
                 let resource_id = (wparam & 0xffff) as u32;
-                view.button_clicked(resource_id);
-                // TODO-low Return zero if the view processes this message
-                1
+                let hiword = ((wparam >> 16) & 0xffff) as u32;
+                match hiword {
+                    0 => {
+                        view.button_clicked(resource_id);
+                        // TODO For now we just say the click is handled. Don't know where this
+                        // would not  be the case.
+                        1
+                    }
+                    raw::CBN_SELCHANGE => {
+                        view.option_selected(resource_id);
+                        1
+                    }
+                    _ => 0,
+                }
             }
             raw::WM_CLOSE => {
                 // We never let the user confirm
-                swell.DestroyWindow(hwnd);
+                window.destroy();
                 0
             }
             _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),

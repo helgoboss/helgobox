@@ -1,3 +1,8 @@
+mod macros;
+pub use macros::*;
+
+mod bindings;
+
 mod view_manager;
 pub use view_manager::*;
 
@@ -9,6 +14,3 @@ pub use view::*;
 
 mod units;
 pub use units::*;
-
-mod util;
-pub use util::*;

@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::framework::{DialogUnits, Dimensions, Pixels};
+use swell_ui::{DialogUnits, Dimensions};
 
 /// The optimal size of the main panel in dialog units.
 pub const MAIN_PANEL_DIMENSIONS: Dimensions<DialogUnits> =

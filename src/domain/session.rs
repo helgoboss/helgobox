@@ -1,5 +1,7 @@
 use super::MidiSourceModel;
-use crate::domain::MappingModel;
+use crate::domain::{create_property as p, MappingModel, Property};
+use rxrust::prelude::*;
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -9,25 +11,58 @@ use std::rc::Rc;
 // TODO Probably belongs in application layer.
 #[derive(Default, Debug)]
 pub struct Session<'a> {
+    pub let_matched_events_through: Property<'a, bool>,
+    pub let_unmatched_events_through: Property<'a, bool>,
+    pub always_auto_detect: Property<'a, bool>,
+    pub send_feedback_only_if_armed: Property<'a, bool>,
     mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
-    // TODO remove
-    dummy_source_model: MidiSourceModel<'a>,
+    mappings_changed_subject: LocalSubject<'a, (), ()>,
 }
 
 impl<'a> Session<'a> {
     pub fn new() -> Session<'a> {
         Session {
+            let_matched_events_through: p(false),
+            let_unmatched_events_through: p(true),
+            always_auto_detect: p(true),
+            send_feedback_only_if_armed: p(true),
             mapping_models: example_data::create_example_mappings()
                 .into_iter()
                 .map(|m| Rc::new(RefCell::new(m)))
                 .collect(),
-            dummy_source_model: Default::default(),
+            ..Default::default()
         }
     }
 
-    // TODO remove
-    pub fn get_dummy_source_model(&mut self) -> &mut MidiSourceModel<'a> {
-        &mut self.dummy_source_model
+    pub fn add_default_mapping(&mut self) {
+        let mut mapping = MappingModel::default();
+        mapping.name.set(self.generate_name_for_new_mapping());
+        self.add_mapping(mapping);
+    }
+
+    pub fn mappings_changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+        self.mappings_changed_subject.clone()
+    }
+
+    fn add_mapping(&mut self, mapping: MappingModel<'a>) {
+        self.mapping_models.push(Rc::new(RefCell::new(mapping)));
+        self.mappings_changed_subject.next(());
+    }
+
+    pub fn import_from_clipboard(&mut self) {
+        todo!()
+    }
+
+    pub fn export_to_clipboard(&self) {
+        todo!()
+    }
+
+    pub fn send_feedback(&self) {
+        todo!()
+    }
+
+    fn generate_name_for_new_mapping(&self) -> String {
+        format!("{}", self.mapping_models.len() + 1)
     }
 }
 

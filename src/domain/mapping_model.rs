@@ -1,7 +1,7 @@
 use crate::domain::{MidiSourceModel, ModeModel, Property, TargetModel};
 
 /// A model for creating mappings (a combination of source, mode and target).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct MappingModel<'a> {
     pub name: Property<'a, String>,
     pub control_is_enabled: Property<'a, bool>,
