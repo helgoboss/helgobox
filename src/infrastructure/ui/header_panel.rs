@@ -3,11 +3,12 @@ use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::SessionContext;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
-use reaper_high::Reaper;
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
 use reaper_medium::ReaperFunctions;
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
+use std::ffi::CString;
 use std::rc::{Rc, Weak};
 use swell_ui::{View, ViewContext, Window};
 
@@ -96,49 +97,82 @@ impl HeaderPanel {
     }
 
     fn invalidate_midi_control_input_combo_box(&self) {
-        todo!()
+        self.invalidate_midi_control_input_combo_box_options();
+        self.invalidate_midi_control_input_combo_box_value();
+    }
+
+    fn invalidate_midi_control_input_combo_box_options(&self) {
+        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
+        b.clear_combo_box();
+        b.add_combo_box_item(c_str!("<FX input> (no support for MIDI clock sources)"));
+        for (i, dev) in Reaper::get().get_midi_input_devices().enumerate() {
+            b.add_combo_box_item(
+                CString::new(get_midi_input_device_label(dev))
+                    .expect("string too exotic")
+                    .as_c_str(),
+            );
+            b.set_combo_box_item_data((i + 1) as _, dev.get_id().get() as _);
+        }
+    }
+
+    fn invalidate_midi_control_input_combo_box_value(&self) {
+        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
+        use MidiControlInput::*;
+        match self.session.get().midi_control_input.get() {
+            FxInput => b.select_combo_box_item(0),
+            Device(dev) => {
+                let unknown_label = format!("{}. <Unknown>", dev.get_id().get());
+                b.select_combo_box_item_or_unknown_by_data(
+                    1,
+                    dev.get_id().get() as _,
+                    CString::new(unknown_label)
+                        .expect("string too exotic")
+                        .as_c_str(),
+                );
+            }
+        }
     }
 
     fn invalidate_midi_feedback_output_combo_box(&self) {
-        todo!()
+        // TODO
     }
 
     fn invalidate_let_matched_events_through_check_box(&self) {
-        let check_box = self
+        let b = self
             .view
             .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
         if self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
-            check_box.enable();
-            check_box.set_checked(self.session.get().let_matched_events_through.get());
+            b.enable();
+            b.set_checked(self.session.get().let_matched_events_through.get());
         } else {
-            check_box.disable();
-            check_box.uncheck();
+            b.disable();
+            b.uncheck();
         }
     }
 
     fn invalidate_let_unmatched_events_through_check_box(&self) {
-        let check_box = self
+        let b = self
             .view
             .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
         if self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
-            check_box.enable();
-            check_box.set_checked(self.session.get().let_unmatched_events_through.get());
+            b.enable();
+            b.set_checked(self.session.get().let_unmatched_events_through.get());
         } else {
-            check_box.disable();
-            check_box.uncheck();
+            b.disable();
+            b.uncheck();
         }
     }
 
     fn invalidate_send_feedback_only_if_armed_check_box(&self) {
-        let check_box = self
+        let b = self
             .view
             .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
         if self.session.get().is_in_input_fx_chain() {
-            check_box.disable();
-            check_box.check();
+            b.disable();
+            b.check();
         } else {
-            check_box.enable();
-            check_box.set_checked(self.session.get().send_feedback_only_if_armed.get());
+            b.enable();
+            b.set_checked(self.session.get().send_feedback_only_if_armed.get());
         }
     }
 
@@ -243,4 +277,21 @@ impl View for HeaderPanel {
             _ => {}
         }
     }
+}
+
+fn get_midi_input_device_label(dev: MidiInputDevice) -> String {
+    get_midi_device_label(dev.get_name(), dev.get_id().get(), dev.is_connected())
+}
+
+fn get_midi_output_device_label(dev: MidiOutputDevice) -> String {
+    get_midi_device_label(dev.get_name(), dev.get_id().get(), dev.is_connected())
+}
+
+fn get_midi_device_label(name: CString, raw_id: u8, connected: bool) -> String {
+    format!(
+        "{}. {}{}",
+        raw_id,
+        name.to_str().expect("not UTF-8"),
+        if connected { "" } else { " <not present>" }
+    )
 }

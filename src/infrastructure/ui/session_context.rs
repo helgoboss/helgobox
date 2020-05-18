@@ -2,6 +2,7 @@ use crate::domain::Session;
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
+// TODO Maybe a type alias is enough
 #[derive(Clone, Debug)]
 pub struct SessionContext {
     session: Rc<RefCell<Session<'static>>>,

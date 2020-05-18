@@ -1,7 +1,7 @@
 use crate::bindings::root;
 use crate::{DialogUnits, Dimensions, Pixels, Point};
 use reaper_low::{raw, Swell};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::ptr::null_mut;
 
 /// Represents a window.
@@ -58,6 +58,51 @@ impl Window {
 
     pub fn is_checked(&self) -> bool {
         Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
+    }
+
+    pub fn add_combo_box_item(&self, label: &CStr) {
+        Swell::get().SendMessage(self.raw, raw::CB_ADDSTRING, 0, label.as_ptr() as _);
+    }
+
+    pub fn set_combo_box_item_data(&self, index: u32, data: isize) {
+        Swell::get().SendMessage(self.raw, raw::CB_SETITEMDATA, index as _, data);
+    }
+
+    pub fn combo_box_item_data(&self, index: u32) -> isize {
+        Swell::get().SendMessage(self.raw, raw::CB_GETITEMDATA, index as _, 0)
+    }
+
+    pub fn clear_combo_box(&self) {
+        Swell::get().SendMessage(self.raw, raw::CB_RESETCONTENT, 0, 0);
+    }
+
+    pub fn select_combo_box_item(&self, index: u32) {
+        Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index as _, 0);
+    }
+
+    pub fn select_combo_box_item_or_unknown_by_data(
+        &self,
+        start_index: u32,
+        item_data: isize,
+        unknown_label: &CStr,
+    ) {
+        let item_count = self.combo_box_item_count();
+        let found_item = (start_index..item_count).any(|index| {
+            if self.combo_box_item_data(index) == item_data {
+                self.select_combo_box_item(index);
+                true
+            } else {
+                false
+            }
+        });
+        if !found_item {
+            self.add_combo_box_item(unknown_label);
+            self.select_combo_box_item(item_count);
+        }
+    }
+
+    pub fn combo_box_item_count(&self) -> u32 {
+        Swell::get().SendMessage(self.raw, raw::CB_GETCOUNT, 0, 0) as _
     }
 
     pub fn close(&self) {
