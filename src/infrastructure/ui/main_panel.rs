@@ -1,6 +1,6 @@
 use crate::domain::Session;
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
+use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SessionContext};
 use c_str_macro::c_str;
 use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
@@ -13,20 +13,20 @@ use swell_ui::{Dimensions, Pixels, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct MainPanel {
     view_context: ViewContext,
+    session_context: SessionContext,
     header_panel: Rc<HeaderPanel>,
     mapping_rows_panel: Rc<MappingRowsPanel>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
-    session: Rc<RefCell<Session<'static>>>,
 }
 
 impl MainPanel {
-    pub fn new(session: Rc<RefCell<Session<'static>>>) -> MainPanel {
+    pub fn new(session_context: SessionContext) -> MainPanel {
         MainPanel {
             view_context: Default::default(),
-            header_panel: HeaderPanel::new(session.clone()).into(),
-            mapping_rows_panel: MappingRowsPanel::new(session.clone()).into(),
+            session_context: session_context.clone(),
+            header_panel: HeaderPanel::new(session_context.clone()).into(),
+            mapping_rows_panel: MappingRowsPanel::new(session_context.clone()).into(),
             dimensions: None.into(),
-            session,
         }
     }
 

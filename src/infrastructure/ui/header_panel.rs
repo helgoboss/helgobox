@@ -1,5 +1,6 @@
 use crate::domain::{MidiControlInput, Session};
 use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::ui::SessionContext;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::Reaper;
@@ -13,24 +14,20 @@ use swell_ui::{View, ViewContext, Window};
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
 pub struct HeaderPanel {
-    view_context: ViewContext,
-    session: Rc<RefCell<Session<'static>>>,
+    view: ViewContext,
+    session: SessionContext,
 }
 
 impl HeaderPanel {
-    pub fn new(session: Rc<RefCell<Session<'static>>>) -> HeaderPanel {
+    pub fn new(session: SessionContext) -> HeaderPanel {
         HeaderPanel {
-            view_context: Default::default(),
+            view: Default::default(),
             session,
         }
     }
 }
 
 impl HeaderPanel {
-    fn session(&self) -> Ref<Session<'static>> {
-        self.session.borrow()
-    }
-
     fn learn_source_filter(&self) {
         // TODO
     }
@@ -48,32 +45,32 @@ impl HeaderPanel {
     }
 
     fn update_let_matched_events_through(&self) {
-        self.session.borrow_mut().let_matched_events_through.set(
-            self.view_context()
+        self.session.get_mut().let_matched_events_through.set(
+            self.view
                 .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX)
                 .is_checked(),
         );
     }
 
     fn update_let_unmatched_events_through(&self) {
-        self.session.borrow_mut().let_unmatched_events_through.set(
-            self.view_context()
+        self.session.get_mut().let_unmatched_events_through.set(
+            self.view
                 .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
                 .is_checked(),
         );
     }
 
     fn update_send_feedback_only_if_armed(&self) {
-        self.session.borrow_mut().send_feedback_only_if_armed.set(
-            self.view_context()
+        self.session.get_mut().send_feedback_only_if_armed.set(
+            self.view
                 .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX)
                 .is_checked(),
         );
     }
 
     fn update_always_auto_detect(&self) {
-        self.session.borrow_mut().always_auto_detect.set(
-            self.view_context()
+        self.session.get_mut().always_auto_detect.set(
+            self.view
                 .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
                 .is_checked(),
         );
@@ -108,11 +105,11 @@ impl HeaderPanel {
 
     fn invalidate_let_matched_events_through_check_box(&self) {
         let check_box = self
-            .view_context()
+            .view
             .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
-        if *self.session().midi_control_input.get() == MidiControlInput::FxInput {
+        if *self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
             check_box.enable();
-            check_box.set_checked(*self.session().let_matched_events_through.get());
+            check_box.set_checked(*self.session.get().let_matched_events_through.get());
         } else {
             check_box.disable();
             check_box.uncheck();
@@ -121,11 +118,11 @@ impl HeaderPanel {
 
     fn invalidate_let_unmatched_events_through_check_box(&self) {
         let check_box = self
-            .view_context()
+            .view
             .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
-        if *self.session().midi_control_input.get() == MidiControlInput::FxInput {
+        if *self.session.get().midi_control_input.get() == MidiControlInput::FxInput {
             check_box.enable();
-            check_box.set_checked(*self.session().let_unmatched_events_through.get());
+            check_box.set_checked(*self.session.get().let_unmatched_events_through.get());
         } else {
             check_box.disable();
             check_box.uncheck();
@@ -134,21 +131,21 @@ impl HeaderPanel {
 
     fn invalidate_send_feedback_only_if_armed_check_box(&self) {
         let check_box = self
-            .view_context()
+            .view
             .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
-        if self.session().is_in_input_fx_chain() {
+        if self.session.get().is_in_input_fx_chain() {
             check_box.disable();
             check_box.check();
         } else {
             check_box.enable();
-            check_box.set_checked(*self.session().send_feedback_only_if_armed.get());
+            check_box.set_checked(*self.session.get().send_feedback_only_if_armed.get());
         }
     }
 
     fn invalidate_always_auto_detect_check_box(&self) {
-        self.view_context()
+        self.view
             .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
-            .set_checked(*self.session().always_auto_detect.get());
+            .set_checked(*self.session.get().always_auto_detect.get());
     }
 
     fn invalidate_source_filter_buttons(&self) {
@@ -161,10 +158,11 @@ impl HeaderPanel {
 
     fn register_listeners(self: Rc<Self>) {
         let weak = self.weak();
-        self.session()
+        self.session
+            .get()
             .let_matched_events_through
             .changed()
-            .take_until(self.view_context.closed())
+            .take_until(self.view.closed())
             .subscribe(move |_| {
                 weak.upgrade()
                     .expect("panel gone")
@@ -183,7 +181,7 @@ impl View for HeaderPanel {
     }
 
     fn view_context(&self) -> &ViewContext {
-        &self.view_context
+        &self.view
     }
 
     fn opened(self: Rc<Self>, window: Window) -> bool {
@@ -195,14 +193,14 @@ impl View for HeaderPanel {
     fn button_clicked(self: Rc<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            ID_ADD_MAPPING_BUTTON => self.session.borrow_mut().add_default_mapping(),
+            ID_ADD_MAPPING_BUTTON => self.session.get_mut().add_default_mapping(),
             ID_FILTER_BY_SOURCE_BUTTON => self.learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.learn_target_filter(),
             ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
             ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
-            ID_IMPORT_BUTTON => self.session.borrow_mut().import_from_clipboard(),
-            ID_EXPORT_BUTTON => self.session().export_to_clipboard(),
-            ID_SEND_FEEDBACK_BUTTON => self.session().send_feedback(),
+            ID_IMPORT_BUTTON => self.session.get_mut().import_from_clipboard(),
+            ID_EXPORT_BUTTON => self.session.get().export_to_clipboard(),
+            ID_SEND_FEEDBACK_BUTTON => self.session.get().send_feedback(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
