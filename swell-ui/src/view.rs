@@ -88,6 +88,15 @@ pub trait View: Debug {
         self.window().get().expect("window not found but required")
     }
 
+    /// Returns the control with the given resource ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the window or control doesn't exist.
+    fn require_control(&self, resource_id: u32) -> Window {
+        self.require_window().require_control(resource_id)
+    }
+
     fn opened_internal(self: Rc<Self>, window: Window) -> bool {
         self.window().replace(Some(window));
         self.opened(window)

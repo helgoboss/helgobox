@@ -36,9 +36,12 @@ impl HeaderPanel {
     }
 }
 
-// define_control_methods!(HeaderPanel, [
-//     let_matched_events_through_check_box => ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX
-// ]);
+define_control_methods!(HeaderPanel, [
+    let_matched_events_through_check_box => root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX,
+    let_unmatched_events_through_check_box => root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX,
+    send_feedback_only_if_armed_check_box => root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX,
+    always_auto_detect_check_box => root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX,
+]);
 
 impl HeaderPanel {
     // // TODO Remove
@@ -75,15 +78,10 @@ impl HeaderPanel {
     }
 
     fn update_let_matched_events_through(&self) {
-        self.session
-            .borrow_mut()
-            .let_matched_events_through
-            .set(self.let_matched_events_through_check_box().is_checked());
-    }
-
-    fn let_matched_events_through_check_box(&self) -> Window {
-        self.require_window()
-            .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX)
+        self.session.borrow_mut().let_matched_events_through.set(
+            self.require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn update_let_unmatched_events_through(&self) {
@@ -93,11 +91,6 @@ impl HeaderPanel {
             .set(self.let_unmatched_events_through_check_box().is_checked());
     }
 
-    fn let_unmatched_events_through_check_box(&self) -> Window {
-        self.require_window()
-            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
-    }
-
     fn update_send_feedback_only_if_armed(&self) {
         self.session
             .borrow_mut()
@@ -105,21 +98,11 @@ impl HeaderPanel {
             .set(self.send_feedback_only_if_armed_check_box().is_checked());
     }
 
-    fn send_feedback_only_if_armed_check_box(&self) -> Window {
-        self.require_window()
-            .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX)
-    }
-
     fn update_always_auto_detect(&self) {
         self.session
             .borrow_mut()
             .always_auto_detect
             .set(self.always_auto_detect_check_box().is_checked());
-    }
-
-    fn always_auto_detect_check_box(&self) -> Window {
-        self.require_window()
-            .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
     }
 
     fn update_control_device(&self) {
