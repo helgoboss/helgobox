@@ -1,6 +1,7 @@
 use super::MidiSourceModel;
 use crate::domain::{create_property as p, MappingModel, Property};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
+use reaper_medium::MidiInputDeviceId;
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -47,7 +48,9 @@ impl<'a> Default for Session<'a> {
             let_unmatched_events_through: p(true),
             always_auto_detect: p(true),
             send_feedback_only_if_armed: p(true),
-            midi_control_input: p(MidiControlInput::FxInput),
+            midi_control_input: p(MidiControlInput::Device(MidiInputDevice::new(
+                MidiInputDeviceId::new(47),
+            ))),
             midi_feedback_output: p(None),
             mapping_models: example_data::create_example_mappings()
                 .into_iter()

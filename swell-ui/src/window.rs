@@ -1,7 +1,6 @@
 use crate::bindings::root;
-use crate::{DialogUnits, Dimensions, Pixels, Point};
+use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
-use std::ffi::{CStr, CString};
 use std::ptr::null_mut;
 
 /// Represents a window.
@@ -60,48 +59,59 @@ impl Window {
         Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
     }
 
-    pub fn add_combo_box_item(&self, label: &CStr) {
-        Swell::get().SendMessage(self.raw, raw::CB_ADDSTRING, 0, label.as_ptr() as _);
+    pub fn insert_combo_box_item_with_data<'a>(
+        &self,
+        index: usize,
+        data: isize,
+        label: impl Into<SwellStringArg<'a>>,
+    ) {
+        self.insert_combo_box_item(index, label);
+        self.set_combo_box_item_data(index, data);
     }
 
-    pub fn set_combo_box_item_data(&self, index: u32, data: isize) {
-        Swell::get().SendMessage(self.raw, raw::CB_SETITEMDATA, index as _, data);
+    pub fn insert_combo_box_item<'a>(&self, index: usize, label: impl Into<SwellStringArg<'a>>) {
+        Swell::get().SendMessage(
+            self.raw,
+            raw::CB_INSERTSTRING,
+            index,
+            label.into().as_lparam(),
+        );
     }
 
-    pub fn combo_box_item_data(&self, index: u32) -> isize {
-        Swell::get().SendMessage(self.raw, raw::CB_GETITEMDATA, index as _, 0)
+    pub fn add_combo_box_item<'a>(&self, label: impl Into<SwellStringArg<'a>>) {
+        Swell::get().SendMessage(self.raw, raw::CB_ADDSTRING, 0, label.into().as_lparam());
+    }
+
+    pub fn set_combo_box_item_data(&self, index: usize, data: isize) {
+        Swell::get().SendMessage(self.raw, raw::CB_SETITEMDATA, index, data);
+    }
+
+    pub fn combo_box_item_data(&self, index: usize) -> isize {
+        Swell::get().SendMessage(self.raw, raw::CB_GETITEMDATA, index, 0)
     }
 
     pub fn clear_combo_box(&self) {
         Swell::get().SendMessage(self.raw, raw::CB_RESETCONTENT, 0, 0);
     }
 
-    pub fn select_combo_box_item(&self, index: u32) {
-        Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index as _, 0);
+    pub fn select_combo_box_item(&self, index: usize) {
+        Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
     }
 
-    pub fn select_combo_box_item_or_unknown_by_data(
-        &self,
-        start_index: u32,
-        item_data: isize,
-        unknown_label: &CStr,
-    ) {
-        let item_count = self.combo_box_item_count();
-        let found_item = (start_index..item_count).any(|index| {
-            if self.combo_box_item_data(index) == item_data {
-                self.select_combo_box_item(index);
-                true
-            } else {
-                false
-            }
-        });
-        if !found_item {
-            self.add_combo_box_item(unknown_label);
-            self.select_combo_box_item(item_count);
-        }
+    pub fn select_combo_box_item_by_data(&self, item_data: isize) -> Result<(), ()> {
+        let item_index = (0..self.combo_box_item_count())
+            .find(|index| self.combo_box_item_data(*index) == item_data)
+            .ok_or(())?;
+        self.select_combo_box_item(item_index);
+        Ok(())
     }
 
-    pub fn combo_box_item_count(&self) -> u32 {
+    pub fn select_new_combo_box_item<'a>(&self, label: impl Into<SwellStringArg<'a>>) {
+        self.add_combo_box_item(label);
+        self.select_combo_box_item(self.combo_box_item_count() - 1);
+    }
+
+    pub fn combo_box_item_count(&self) -> usize {
         Swell::get().SendMessage(self.raw, raw::CB_GETCOUNT, 0, 0) as _
     }
 
@@ -109,9 +119,8 @@ impl Window {
         Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
     }
 
-    pub fn set_text(&self, text: &str) {
-        let c_str = CString::new(text).expect("string too exotic");
-        unsafe { Swell::get().SetWindowText(self.raw, c_str.as_ptr()) };
+    pub fn set_text<'a>(&self, text: impl Into<SwellStringArg<'a>>) {
+        unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
     }
 
     pub fn parent(&self) -> Option<Window> {

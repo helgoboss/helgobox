@@ -104,33 +104,35 @@ impl HeaderPanel {
     fn invalidate_midi_control_input_combo_box_options(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
         b.clear_combo_box();
-        b.add_combo_box_item(c_str!("<FX input> (no support for MIDI clock sources)"));
-        for (i, dev) in Reaper::get().get_midi_input_devices().enumerate() {
-            b.add_combo_box_item(
-                CString::new(get_midi_input_device_label(dev))
-                    .expect("string too exotic")
-                    .as_c_str(),
-            );
-            b.set_combo_box_item_data((i + 1) as _, dev.get_id().get() as _);
-        }
+        std::iter::once((
+            -1isize,
+            "<FX input> (no support for MIDI clock sources)".to_string(),
+        ))
+        .chain(Reaper::get().get_midi_input_devices().map(|dev| {
+            (
+                dev.get_id().get() as isize,
+                get_midi_input_device_label(dev),
+            )
+        }))
+        .enumerate()
+        .for_each(|(i, (data, label))| {
+            b.insert_combo_box_item_with_data(i, data, label);
+        });
     }
 
     fn invalidate_midi_control_input_combo_box_value(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
         use MidiControlInput::*;
         match self.session.get().midi_control_input.get() {
-            FxInput => b.select_combo_box_item(0),
-            Device(dev) => {
-                let unknown_label = format!("{}. <Unknown>", dev.get_id().get());
-                b.select_combo_box_item_or_unknown_by_data(
-                    1,
-                    dev.get_id().get() as _,
-                    CString::new(unknown_label)
-                        .expect("string too exotic")
-                        .as_c_str(),
-                );
+            FxInput => {
+                b.select_combo_box_item_by_data(-1);
             }
-        }
+            Device(dev) => b
+                .select_combo_box_item_by_data(dev.get_id().get() as _)
+                .unwrap_or_else(|_| {
+                    b.select_new_combo_box_item(format!("{}. <Unknown>", dev.get_id().get()));
+                }),
+        };
     }
 
     fn invalidate_midi_feedback_output_combo_box(&self) {
