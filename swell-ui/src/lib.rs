@@ -1,3 +1,4 @@
+#![feature(trait_alias)]
 mod macros;
 pub use macros::*;
 

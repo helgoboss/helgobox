@@ -1,4 +1,4 @@
-use crate::{create_window, Window};
+use crate::{create_window, ReactiveEvent, Window};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -144,7 +144,7 @@ impl ViewContext {
     pub fn when<R: 'static>(
         &self,
         receiver: &Rc<R>,
-        event: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
+        event: impl ReactiveEvent,
         reaction: impl Fn(Rc<R>) + 'static,
     ) {
         let weak_receiver = Rc::downgrade(receiver);

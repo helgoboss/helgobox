@@ -10,7 +10,7 @@ use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{View, ViewContext, Window};
+use swell_ui::{ReactiveEvent, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct HeaderPanel {
@@ -210,9 +210,6 @@ impl HeaderPanel {
             view.invalidate_let_matched_events_through_check_box();
             view.invalidate_let_unmatched_events_through_check_box();
             let mut session = view.session.borrow_mut();
-            // TODO Seems like we almost always want a copy of the property content
-            //  Maybe we should make get() return a copy by default and add get_ref().
-            //  Or add a as_ref() like in Option.
             if session.always_auto_detect.get() {
                 let control_input = session.midi_control_input.get();
                 session
@@ -228,7 +225,7 @@ impl HeaderPanel {
 
     fn when(
         self: &Rc<Self>,
-        event: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
+        event: impl ReactiveEvent,
         reaction: impl Fn(Rc<Self>) + 'static + Copy,
     ) {
         self.view.when(&self, event, move |view| {
