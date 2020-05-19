@@ -11,7 +11,6 @@ use std::rc::Rc;
 use swell_ui::{Dimensions, Pixels, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
-#[derive(Debug)]
 pub struct MainPanel {
     view: ViewContext,
     session: SharedSession,

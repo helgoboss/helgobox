@@ -39,7 +39,7 @@ pub(crate) fn create_window(view: Rc<dyn View>, resource_id: u32, parent_window:
 /// This struct manages the mapping from windows to views.
 ///
 /// This is necessary to get from "global" win32 world into beloved "local" Rust struct world.
-#[derive(Default, Debug)]
+#[derive(Default)]
 struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
     view_map: HashMap<raw::HWND, Weak<dyn View>>,

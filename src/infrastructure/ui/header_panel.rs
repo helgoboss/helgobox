@@ -13,7 +13,6 @@ use std::time::Duration;
 use swell_ui::{View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
-#[derive(Debug)]
 pub struct HeaderPanel {
     view: ViewContext,
     session: SharedSession,

@@ -15,5 +15,8 @@ pub use view::*;
 mod units;
 pub use units::*;
 
+mod types;
+pub use types::*;
+
 mod string_types;
 pub use string_types::*;

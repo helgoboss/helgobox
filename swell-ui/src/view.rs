@@ -50,7 +50,7 @@ use std::rc::{Rc, Weak};
 /// sacrificing anything. The obvious advantage we have is that it gives us an easy way to access
 /// view methods in subscribe closures without running into lifetime problems (such as &self
 /// disappearing while still being used in the closure).
-pub trait View: Debug {
+pub trait View {
     // Data providers (implementation required, used internally)
     // =========================================================
 

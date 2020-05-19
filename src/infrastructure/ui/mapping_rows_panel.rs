@@ -12,7 +12,6 @@ use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use swell_ui::{DialogUnits, Point, View, ViewContext, Window};
 
-#[derive(Debug)]
 pub struct MappingRowsPanel {
     view: ViewContext,
     session: SharedSession,
