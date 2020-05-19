@@ -9,17 +9,17 @@ use rxrust::prelude::*;
 
 use crate::domain::Session;
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::SessionContext;
+use crate::infrastructure::common::SharedSession;
 use swell_ui::{DialogUnits, Point, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
     view: ViewContext,
-    session: SessionContext,
+    session: SharedSession,
 }
 
 impl MappingRowsPanel {
-    pub fn new(session: SessionContext) -> MappingRowsPanel {
+    pub fn new(session: SharedSession) -> MappingRowsPanel {
         MappingRowsPanel {
             view: Default::default(),
             session,

@@ -1,7 +1,8 @@
 use crate::domain::Session;
-use crate::infrastructure::ui::{MainPanel, SessionContext};
+use crate::infrastructure::ui::MainPanel;
 use std::cell::RefCell;
 
+use crate::infrastructure::common::SharedSession;
 use reaper_low::raw::HWND;
 use std::os::raw::c_void;
 use std::rc::Rc;
@@ -13,9 +14,9 @@ pub struct RealearnEditor {
 }
 
 impl RealearnEditor {
-    pub fn new(session: Rc<RefCell<Session<'static>>>) -> RealearnEditor {
+    pub fn new(session: SharedSession) -> RealearnEditor {
         RealearnEditor {
-            main_panel: Rc::new(MainPanel::new(SessionContext::new(session))),
+            main_panel: Rc::new(MainPanel::new(session)),
         }
     }
 }
