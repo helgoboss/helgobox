@@ -4,7 +4,7 @@ use vst::plugin::{CanDo, HostCallback, Info, Plugin};
 
 use super::RealearnEditor;
 use crate::domain::Session;
-use reaper_high::{Reaper, ReaperGuard, ReaperSession};
+use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, ReaperPluginContext, Swell};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -78,19 +78,17 @@ impl Plugin for RealearnPlugin {
     }
 
     fn init(&mut self) {
-        let guard = ReaperSession::guarded(|| {
+        let guard = Reaper::guarded(|| {
             let context = ReaperPluginContext::from_vst_plugin(
                 &self.host,
                 reaper_vst_plugin::static_context(),
             )
             .unwrap();
             Swell::make_available_globally(Swell::load(context));
-            ReaperSession::setup_with_defaults(context, "info@helgoboss.org");
-            let session = ReaperSession::get();
-            session.activate();
-            session
-                .reaper()
-                .show_console_msg(c_str!("Loaded realearn-rs VST plugin\n"));
+            Reaper::setup_with_defaults(context, "info@helgoboss.org");
+            let reaper = Reaper::get();
+            reaper.activate();
+            reaper.show_console_msg(c_str!("Loaded realearn-rs VST plugin\n"));
         });
         self.reaper_guard = Some(guard);
     }
