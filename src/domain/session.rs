@@ -2,7 +2,7 @@ use super::MidiSourceModel;
 use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{create_local_prop as p, LocalProp};
+use rx_util::{create_shared_prop as p, SharedProp, SharedReactiveEvent};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -32,14 +32,14 @@ pub enum MidiFeedbackOutput {
 // TODO Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session<'a> {
-    pub let_matched_events_through: LocalProp<'a, bool>,
-    pub let_unmatched_events_through: LocalProp<'a, bool>,
-    pub always_auto_detect: LocalProp<'a, bool>,
-    pub send_feedback_only_if_armed: LocalProp<'a, bool>,
-    pub midi_control_input: LocalProp<'a, MidiControlInput>,
-    pub midi_feedback_output: LocalProp<'a, Option<MidiFeedbackOutput>>,
+    pub let_matched_events_through: SharedProp<bool>,
+    pub let_unmatched_events_through: SharedProp<bool>,
+    pub always_auto_detect: SharedProp<bool>,
+    pub send_feedback_only_if_armed: SharedProp<bool>,
+    pub midi_control_input: SharedProp<MidiControlInput>,
+    pub midi_feedback_output: SharedProp<Option<MidiFeedbackOutput>>,
     mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
-    mappings_changed_subject: LocalSubject<'a, (), ()>,
+    mappings_changed_subject: SharedSubject<(), ()>,
 }
 
 impl<'a> Default for Session<'a> {
@@ -78,7 +78,7 @@ impl<'a> Session<'a> {
         false
     }
 
-    pub fn mappings_changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+    pub fn mappings_changed(&self) -> impl SharedReactiveEvent<()> {
         self.mappings_changed_subject.clone()
     }
 
@@ -113,7 +113,7 @@ mod example_data {
     use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter, UnitValue};
     use helgoboss_midi::Channel;
     use reaper_medium::CommandId;
-    use rx_util::{create_local_prop as p, LocalProp};
+    use rx_util::{create_local_prop as p, SharedProp};
 
     pub fn create_example_mappings<'a>() -> Vec<MappingModel<'a>> {
         vec![

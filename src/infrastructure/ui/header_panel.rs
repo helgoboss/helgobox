@@ -1,13 +1,13 @@
 use crate::domain::{MidiControlInput, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
-use crate::infrastructure::ui::scheduling::when_async;
+use crate::infrastructure::ui::scheduling::{when_async, when_async_2};
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
 use rx_util::LocalProp;
-use rx_util::LocalReactiveEvent;
+use rx_util::SharedReactiveEvent;
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
@@ -238,10 +238,10 @@ impl HeaderPanel {
 
     fn when(
         self: &SharedView<Self>,
-        event: impl LocalReactiveEvent<()>,
+        event: impl SharedReactiveEvent<()>,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(self.view.closed(), &self, event, reaction);
+        when_async_2(event, reaction, &self, self.view.closed());
     }
 }
 
