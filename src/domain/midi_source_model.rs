@@ -1,7 +1,6 @@
-use crate::domain::create_property as p;
-use crate::domain::Property;
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
+use rx_util::{create_property as p, Property};
 use rxrust::prelude::*;
 use serde_repr::*;
 

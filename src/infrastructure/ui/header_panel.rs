@@ -1,4 +1,4 @@
-use crate::domain::{MidiControlInput, Property, Session};
+use crate::domain::{MidiControlInput, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;
@@ -6,6 +6,7 @@ use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
+use rx_util::Property;
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;

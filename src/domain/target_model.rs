@@ -1,7 +1,6 @@
-use crate::domain::create_property as p;
-use crate::domain::Property;
 use reaper_high::Track;
 use reaper_medium::CommandId;
+use rx_util::{create_property as p, Property};
 use serde_repr::*;
 
 /// A model for creating targets

@@ -1,4 +1,5 @@
-use crate::domain::{MidiSourceModel, ModeModel, Property, TargetModel};
+use crate::domain::{MidiSourceModel, ModeModel, TargetModel};
+use rx_util::Property;
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug, Default)]

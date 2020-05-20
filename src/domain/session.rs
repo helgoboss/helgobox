@@ -1,7 +1,8 @@
 use super::MidiSourceModel;
-use crate::domain::{create_property as p, MappingModel, Property};
+use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
+use rx_util::{create_property as p, Property};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -106,12 +107,13 @@ impl<'a> Session<'a> {
 // TODO remove
 mod example_data {
     use crate::domain::{
-        create_property as p, ActionInvocationType, MappingModel, MidiSourceModel, MidiSourceType,
-        ModeModel, ModeType, TargetModel, TargetType, VirtualTrack,
+        ActionInvocationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
+        TargetModel, TargetType, VirtualTrack,
     };
     use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter, UnitValue};
     use helgoboss_midi::Channel;
     use reaper_medium::CommandId;
+    use rx_util::{create_property as p, Property};
 
     pub fn create_example_mappings<'a>() -> Vec<MappingModel<'a>> {
         vec![

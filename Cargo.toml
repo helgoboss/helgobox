@@ -7,7 +7,8 @@ build = "build.rs"
 
 [workspace]
 members = [
-    "swell-ui"
+    "swell-ui",
+    "rx-util"
 ]
 
 [features]
@@ -18,6 +19,7 @@ reaper-high = { path = "../reaper-rs/main/high" }
 reaper-medium= { path = "../reaper-rs/main/medium" }
 reaper-low = { version = "0.1.0", path = "../reaper-rs/main/low" }
 swell-ui = { path = "swell-ui" }
+rx-util = { path = "rx-util" }
 helgoboss-midi = { version = "0.1.0", path = "../helgoboss-midi-rs" }
 helgoboss-learn = { path = "../helgoboss-learn-rs" }
 c_str_macro = "1.0.2"
