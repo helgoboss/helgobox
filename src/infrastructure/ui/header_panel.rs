@@ -1,6 +1,7 @@
 use crate::domain::{MidiControlInput, Property, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
+use crate::infrastructure::ui::scheduling::when_async;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
@@ -223,14 +224,22 @@ impl HeaderPanel {
         // TODO sourceFilterListening, targetFilterListening,
     }
 
+    // fn when(
+    //     self: &SharedView<Self>,
+    //     event: impl ReactiveEvent,
+    //     reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+    // ) {
+    //     self.view.when(&self, event, move |view| {
+    //         Reaper::get().do_later_in_main_thread_asap(move || reaction(view));
+    //     });
+    // }
+
     fn when(
         self: &SharedView<Self>,
         event: impl ReactiveEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        self.view.when(&self, event, move |view| {
-            Reaper::get().do_later_in_main_thread_asap(move || reaction(view));
-        });
+        when_async(self.view.closed(), &self, event, reaction);
     }
 }
 

@@ -10,7 +10,7 @@ generate = []
 
 [dependencies]
 reaper-low = { version = "0.1.0", path = "../../reaper-rs/main/low" }
-rxrust = { path = "../../rxRust" }
+rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 
 [build-dependencies]
 bindgen = "0.52.0"

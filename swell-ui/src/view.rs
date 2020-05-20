@@ -154,28 +154,4 @@ impl ViewContext {
             reaction(receiver);
         });
     }
-
-    /// Executes the given reaction on the view whenever the specified event is raised.
-    pub fn when_async<R: 'static>(
-        &self,
-        receiver: &SharedView<R>,
-        event: impl ReactiveEvent,
-        reaction: impl Fn(SharedView<R>) + 'static,
-    ) {
-        let weak_receiver = AssertSendAndSync(Rc::downgrade(receiver));
-        let sync_reaction = AssertSendAndSync(reaction);
-        event
-            .take_until(self.closed())
-            .observe_on(Schedulers::NewThread)
-            .to_shared()
-            .subscribe(move |_| {
-                let receiver = weak_receiver.0.upgrade().expect("view is gone");
-                (sync_reaction.0)(receiver);
-            });
-    }
 }
-
-struct AssertSendAndSync<T>(T);
-
-unsafe impl<T> Send for AssertSendAndSync<T> {}
-unsafe impl<T> Sync for AssertSendAndSync<T> {}
