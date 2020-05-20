@@ -3,7 +3,7 @@ use helgoboss_learn::{
     ToggleMode, Transformation, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use rx_util::{create_property as p, Property};
+use rx_util::{create_local_prop as p, LocalProp};
 use rxrust::prelude::*;
 use serde_repr::*;
 
@@ -11,25 +11,25 @@ use serde_repr::*;
 #[derive(Clone, Debug)]
 pub struct ModeModel<'a> {
     // For all modes
-    pub r#type: Property<'a, ModeType>,
-    pub min_target_value: Property<'a, UnitValue>,
-    pub max_target_value: Property<'a, UnitValue>,
+    pub r#type: LocalProp<'a, ModeType>,
+    pub min_target_value: LocalProp<'a, UnitValue>,
+    pub max_target_value: LocalProp<'a, UnitValue>,
     // For absolute and relative mode
-    pub min_source_value: Property<'a, UnitValue>,
-    pub max_source_value: Property<'a, UnitValue>,
-    pub reverse: Property<'a, bool>,
+    pub min_source_value: LocalProp<'a, UnitValue>,
+    pub max_source_value: LocalProp<'a, UnitValue>,
+    pub reverse: LocalProp<'a, bool>,
     // For absolute mode
-    pub min_jump: Property<'a, UnitValue>,
-    pub max_jump: Property<'a, UnitValue>,
-    pub ignore_out_of_range_source_values: Property<'a, bool>,
-    pub round_target_value: Property<'a, bool>,
-    pub approach_target_value: Property<'a, bool>,
-    pub eel_control_transformation: Property<'a, String>,
-    pub eel_feedback_transformation: Property<'a, String>,
+    pub min_jump: LocalProp<'a, UnitValue>,
+    pub max_jump: LocalProp<'a, UnitValue>,
+    pub ignore_out_of_range_source_values: LocalProp<'a, bool>,
+    pub round_target_value: LocalProp<'a, bool>,
+    pub approach_target_value: LocalProp<'a, bool>,
+    pub eel_control_transformation: LocalProp<'a, String>,
+    pub eel_feedback_transformation: LocalProp<'a, String>,
     // For relative mode
-    pub min_step_size: Property<'a, UnitValue>,
-    pub max_step_size: Property<'a, UnitValue>,
-    pub rotate: Property<'a, bool>,
+    pub min_step_size: LocalProp<'a, UnitValue>,
+    pub max_step_size: LocalProp<'a, UnitValue>,
+    pub rotate: LocalProp<'a, bool>,
 }
 
 /// Represents a value transformation done via EEL scripting language.

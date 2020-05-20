@@ -1,29 +1,29 @@
 use reaper_high::Track;
 use reaper_medium::CommandId;
-use rx_util::{create_property as p, Property};
+use rx_util::{create_local_prop as p, LocalProp};
 use serde_repr::*;
 
 /// A model for creating targets
 #[derive(Clone, Debug)]
 pub struct TargetModel<'a> {
     // For all targets
-    pub r#type: Property<'a, TargetType>,
+    pub r#type: LocalProp<'a, TargetType>,
     // For action targets only
-    pub command_id: Property<'a, CommandId>,
-    pub action_invocation_type: Property<'a, ActionInvocationType>,
+    pub command_id: LocalProp<'a, CommandId>,
+    pub action_invocation_type: LocalProp<'a, ActionInvocationType>,
     // For track targets
-    pub track: Property<'a, VirtualTrack>,
-    pub enable_only_if_track_selected: Property<'a, bool>,
+    pub track: LocalProp<'a, VirtualTrack>,
+    pub enable_only_if_track_selected: LocalProp<'a, bool>,
     // For track FX targets
-    pub fx_index: Property<'a, Option<u32>>,
-    pub is_input_fx: Property<'a, bool>,
-    pub enable_only_if_fx_has_focus: Property<'a, bool>,
+    pub fx_index: LocalProp<'a, Option<u32>>,
+    pub is_input_fx: LocalProp<'a, bool>,
+    pub enable_only_if_fx_has_focus: LocalProp<'a, bool>,
     // For track FX parameter targets
-    pub parameter_index: Property<'a, u32>,
+    pub parameter_index: LocalProp<'a, u32>,
     // For track send targets
-    pub send_index: Property<'a, Option<u32>>,
+    pub send_index: LocalProp<'a, Option<u32>>,
     // For track selection targets
-    pub select_exclusively: Property<'a, bool>,
+    pub select_exclusively: LocalProp<'a, bool>,
 }
 
 impl<'a> Default for TargetModel<'a> {

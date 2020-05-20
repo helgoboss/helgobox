@@ -2,7 +2,7 @@ use super::MidiSourceModel;
 use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{create_property as p, Property};
+use rx_util::{create_local_prop as p, LocalProp};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -32,12 +32,12 @@ pub enum MidiFeedbackOutput {
 // TODO Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session<'a> {
-    pub let_matched_events_through: Property<'a, bool>,
-    pub let_unmatched_events_through: Property<'a, bool>,
-    pub always_auto_detect: Property<'a, bool>,
-    pub send_feedback_only_if_armed: Property<'a, bool>,
-    pub midi_control_input: Property<'a, MidiControlInput>,
-    pub midi_feedback_output: Property<'a, Option<MidiFeedbackOutput>>,
+    pub let_matched_events_through: LocalProp<'a, bool>,
+    pub let_unmatched_events_through: LocalProp<'a, bool>,
+    pub always_auto_detect: LocalProp<'a, bool>,
+    pub send_feedback_only_if_armed: LocalProp<'a, bool>,
+    pub midi_control_input: LocalProp<'a, MidiControlInput>,
+    pub midi_feedback_output: LocalProp<'a, Option<MidiFeedbackOutput>>,
     mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
     mappings_changed_subject: LocalSubject<'a, (), ()>,
 }
@@ -113,7 +113,7 @@ mod example_data {
     use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter, UnitValue};
     use helgoboss_midi::Channel;
     use reaper_medium::CommandId;
-    use rx_util::{create_property as p, Property};
+    use rx_util::{create_local_prop as p, LocalProp};
 
     pub fn create_example_mappings<'a>() -> Vec<MappingModel<'a>> {
         vec![

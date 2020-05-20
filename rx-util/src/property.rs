@@ -1,6 +1,15 @@
 use rxrust::prelude::*;
 use std::fmt;
 
+/// Convenience function.
+///
+/// Useful when many properties need to be initialized (can be easily renamed to a shortcut).
+pub fn create_local_prop<'a, T: PartialEq>(initial_value: T) -> LocalProp<'a, T> {
+    LocalProp::new(initial_value)
+}
+
+pub type LocalProp<'a, T> = BaseProp<T, LocalSubject<'a, (), ()>>;
+
 /// A reactive property which has the following characteristics:
 ///
 /// - It can be initialized with a transformer, which is an fn that transforms the value passed to
@@ -11,63 +20,19 @@ use std::fmt;
 /// - It's cloneable if its value is cloneable (cloning it clones the value and the transformer, not
 ///   the change listeners)
 /// - Equality operators are based just on the value, not on transformers and listeners
-pub struct Property<'a, T> {
+pub struct BaseProp<T, S> {
     value: T,
-    subject: LocalSubject<'a, (), ()>,
+    subject: S,
     transformer: fn(T) -> T,
 }
 
-/// Convenience function.
-///
-/// Useful when many properties need to be initialized (can be easily renamed to a shortcut).
-pub fn create_property<'a, T: PartialEq>(initial_value: T) -> Property<'a, T> {
-    Property::new(initial_value)
-}
-
-impl<'a, T: fmt::Debug> fmt::Debug for Property<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Property")
-            .field("value", &self.value)
-            .finish()
-    }
-}
-
-impl<'a, T: Clone> Clone for Property<'a, T> {
-    fn clone(&self) -> Self {
-        Property {
-            value: self.value.clone(),
-            subject: Default::default(),
-            transformer: self.transformer,
-        }
-    }
-}
-
-impl<'a, T: Default> Default for Property<'a, T> {
-    fn default() -> Self {
-        Self {
-            value: Default::default(),
-            subject: Default::default(),
-            transformer: |v| v,
-        }
-    }
-}
-
-impl<'a, T: PartialEq> From<T> for Property<'a, T> {
-    fn from(value: T) -> Self {
-        Property::new(value)
-    }
-}
-
-impl<'a, T: PartialEq> PartialEq for Property<'a, T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
-    }
-}
-
-impl<'a, T: PartialEq> Property<'a, T> {
+impl<T, S> BaseProp<T, S> {
     /// Creates the property with an initial value and identity transformer.
-    pub fn new(initial_value: T) -> Self {
-        Property {
+    pub fn new(initial_value: T) -> Self
+    where
+        S: Default,
+    {
+        Self {
             value: initial_value,
             subject: Default::default(),
             transformer: |v| v,
@@ -76,8 +41,11 @@ impl<'a, T: PartialEq> Property<'a, T> {
 
     /// Creates the property with an initial value and a custom transformer. The transformer is not
     /// applied to the initial value.
-    pub fn new_with_transformer(initial_value: T, transformer: fn(T) -> T) -> Self {
-        Property {
+    pub fn new_with_transformer(initial_value: T, transformer: fn(T) -> T) -> Self
+    where
+        S: Default,
+    {
+        Self {
             value: initial_value,
             subject: Default::default(),
             transformer,
@@ -96,11 +64,14 @@ impl<'a, T: PartialEq> Property<'a, T> {
     pub fn get_ref(&self) -> &T {
         &self.value
     }
-
     /// Sets this property to the given value. If a transformer has been defined, the given value
     /// might be changed into another one before. Observers are notified only if the given value
     /// is different from the current value.
-    pub fn set(&mut self, value: T) {
+    pub fn set(&mut self, value: T)
+    where
+        T: PartialEq,
+        S: Observer<(), ()>,
+    {
         let transformed_value = (self.transformer)(value);
         if transformed_value == self.value {
             return;
@@ -108,7 +79,9 @@ impl<'a, T: PartialEq> Property<'a, T> {
         self.value = transformed_value;
         self.subject.next(());
     }
+}
 
+impl<'a, T> LocalProp<'a, T> {
     /// Fires whenever the value is changed.
     ///
     /// Event always contains a unit value instead of the
@@ -121,6 +94,46 @@ impl<'a, T: PartialEq> Property<'a, T> {
     }
 }
 
+impl<T: fmt::Debug, S> fmt::Debug for BaseProp<T, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Property")
+            .field("value", &self.value)
+            .finish()
+    }
+}
+
+impl<T: Clone, S: Default> Clone for BaseProp<T, S> {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            subject: Default::default(),
+            transformer: self.transformer,
+        }
+    }
+}
+
+impl<T: Default, S: Default> Default for BaseProp<T, S> {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            subject: Default::default(),
+            transformer: |v| v,
+        }
+    }
+}
+
+impl<T: PartialEq, S: Default> From<T> for BaseProp<T, S> {
+    fn from(value: T) -> Self {
+        Self::new(value)
+    }
+}
+
+impl<'a, T: PartialEq, S> PartialEq for BaseProp<T, S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -128,7 +141,7 @@ mod tests {
     #[test]
     fn get() {
         // Given
-        let p = Property::new(5);
+        let p = LocalProp::new(5);
         // When
         // Then
         assert_eq!(p.get(), 5);
@@ -137,7 +150,7 @@ mod tests {
     #[test]
     fn set() {
         // Given
-        let mut p = Property::new(5);
+        let mut p = LocalProp::new(5);
         // When
         p.set(6);
         // Then
@@ -147,7 +160,7 @@ mod tests {
     #[test]
     fn clone() {
         // Given
-        let p = Property::new(5);
+        let p = LocalProp::new(5);
         // When
         let p2 = p.clone();
         // Then
@@ -158,7 +171,7 @@ mod tests {
     #[test]
     fn clone_set_independent() {
         // Given
-        let mut p = Property::new(5);
+        let mut p = LocalProp::new(5);
         // When
         let mut p2 = p.clone();
         p.set(2);
@@ -171,7 +184,7 @@ mod tests {
     #[test]
     fn transformer() {
         // Given
-        let mut p = Property::new_with_transformer(5, |v| v.min(100));
+        let mut p = LocalProp::new_with_transformer(5, |v| v.min(100));
         // When
         p.set(105);
         // Then
@@ -181,7 +194,7 @@ mod tests {
     #[test]
     fn clone_transformer_works() {
         // Given
-        let p = Property::new_with_transformer(5, |v| v.min(100));
+        let p = LocalProp::new_with_transformer(5, |v| v.min(100));
         // When
         let mut p2 = p.clone();
         p2.set(105);
@@ -195,7 +208,7 @@ mod tests {
         let mut invocation_count = 0;
         // When
         {
-            let mut p = Property::new(5);
+            let mut p = LocalProp::new(5);
             p.changed().subscribe(|_v| invocation_count += 1);
             p.set(6);
         }
@@ -210,7 +223,7 @@ mod tests {
         let mut p2_invocation_count = 0;
         // When
         {
-            let mut p = Property::new(5);
+            let mut p = LocalProp::new(5);
             p.changed().subscribe(|_v| p_invocation_count += 1);
             let mut p2 = p.clone();
             p2.changed().subscribe(|_v| p2_invocation_count += 1);

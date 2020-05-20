@@ -1,20 +1,20 @@
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use rx_util::{create_property as p, Property};
+use rx_util::{create_local_prop as p, LocalProp};
 use rxrust::prelude::*;
 use serde_repr::*;
 
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
 pub struct MidiSourceModel<'a> {
-    pub r#type: Property<'a, MidiSourceType>,
-    pub channel: Property<'a, Option<Channel>>,
-    pub midi_message_number: Property<'a, Option<U7>>,
-    pub parameter_number_message_number: Property<'a, Option<U14>>,
-    pub custom_character: Property<'a, SourceCharacter>,
-    pub midi_clock_transport_message: Property<'a, MidiClockTransportMessage>,
-    pub is_registered: Property<'a, Option<bool>>,
-    pub is_14_bit: Property<'a, Option<bool>>,
+    pub r#type: LocalProp<'a, MidiSourceType>,
+    pub channel: LocalProp<'a, Option<Channel>>,
+    pub midi_message_number: LocalProp<'a, Option<U7>>,
+    pub parameter_number_message_number: LocalProp<'a, Option<U14>>,
+    pub custom_character: LocalProp<'a, SourceCharacter>,
+    pub midi_clock_transport_message: LocalProp<'a, MidiClockTransportMessage>,
+    pub is_registered: LocalProp<'a, Option<bool>>,
+    pub is_14_bit: LocalProp<'a, Option<bool>>,
 }
 
 impl<'a> Default for MidiSourceModel<'a> {
