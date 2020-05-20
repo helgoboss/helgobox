@@ -149,10 +149,24 @@ impl ViewContext {
         reaction: impl Fn(SharedView<R>) + 'static,
     ) {
         let weak_receiver = SharedView::downgrade(receiver);
+        event.take_until(self.closed()).subscribe(move |_| {
+            let receiver = weak_receiver.upgrade().expect("view is gone");
+            reaction(receiver);
+        });
+    }
+
+    /// Executes the given reaction on the view whenever the specified event is raised.
+    pub fn when_async<R: 'static + Send + Sync>(
+        &self,
+        receiver: &Arc<R>,
+        event: impl Observable<Item = ()> + ReactiveEvent,
+        reaction: impl Fn(Arc<R>) + 'static + Send + Sync,
+    ) {
+        let weak_receiver = Arc::downgrade(receiver);
         event
             .take_until(self.closed())
-            // .observe_on(Schedulers::NewThread)
-            // .to_shared()
+            .observe_on(Schedulers::NewThread)
+            .to_shared()
             .subscribe(move |_| {
                 let receiver = weak_receiver.upgrade().expect("view is gone");
                 reaction(receiver);
