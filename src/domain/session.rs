@@ -2,7 +2,7 @@ use super::MidiSourceModel;
 use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{create_shared_prop as p, SharedProp, SharedReactiveEvent};
+use rx_util::{create_local_prop as p, LocalProp, SharedProp, SharedReactiveEvent};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -32,12 +32,12 @@ pub enum MidiFeedbackOutput {
 // TODO Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session<'a> {
-    pub let_matched_events_through: SharedProp<bool>,
-    pub let_unmatched_events_through: SharedProp<bool>,
-    pub always_auto_detect: SharedProp<bool>,
-    pub send_feedback_only_if_armed: SharedProp<bool>,
-    pub midi_control_input: SharedProp<MidiControlInput>,
-    pub midi_feedback_output: SharedProp<Option<MidiFeedbackOutput>>,
+    pub let_matched_events_through: LocalProp<'a, bool>,
+    pub let_unmatched_events_through: LocalProp<'a, bool>,
+    pub always_auto_detect: LocalProp<'a, bool>,
+    pub send_feedback_only_if_armed: LocalProp<'a, bool>,
+    pub midi_control_input: LocalProp<'a, MidiControlInput>,
+    pub midi_feedback_output: LocalProp<'a, Option<MidiFeedbackOutput>>,
     mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
     mappings_changed_subject: SharedSubject<(), ()>,
 }

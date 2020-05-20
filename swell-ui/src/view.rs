@@ -1,5 +1,5 @@
 use crate::{create_window, SharedView, Window};
-use rx_util::{LocalReactiveEvent, SharedReactiveEvent};
+use rx_util::LocalReactiveEvent;
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -115,7 +115,7 @@ pub trait View {
 #[derive(Clone, Default, Debug)]
 pub struct ViewContext {
     pub(crate) window: Cell<Option<Window>>,
-    pub(crate) closed_subject: RefCell<SharedSubject<(), ()>>,
+    pub(crate) closed_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
 impl ViewContext {
@@ -138,21 +138,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl SharedReactiveEvent<()> {
+    pub fn closed(&self) -> impl LocalReactiveEvent<()> {
         self.closed_subject.borrow().clone()
     }
-
-    // /// Executes the given reaction on the view whenever the specified event is raised.
-    // pub fn when<R: 'static>(
-    //     &self,
-    //     receiver: &SharedView<R>,
-    //     event: impl LocalReactiveEvent<()>,
-    //     reaction: impl Fn(SharedView<R>) + 'static,
-    // ) {
-    //     let weak_receiver = SharedView::downgrade(receiver);
-    //     event.take_until(self.closed()).subscribe(move |_| {
-    //         let receiver = weak_receiver.upgrade().expect("view is gone");
-    //         reaction(receiver);
-    //     });
-    // }
 }
