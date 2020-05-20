@@ -10,7 +10,7 @@ use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{ReactiveEvent, View, ViewContext, Window};
+use swell_ui::{ReactiveEvent, SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct HeaderPanel {
@@ -191,7 +191,7 @@ impl HeaderPanel {
         // TODO
     }
 
-    fn register_listeners(self: Rc<Self>) {
+    fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
         self.when(session.let_matched_events_through.changed(), |view| {
             view.invalidate_let_matched_events_through_check_box()
@@ -224,9 +224,9 @@ impl HeaderPanel {
     }
 
     fn when(
-        self: &Rc<Self>,
+        self: &SharedView<Self>,
         event: impl ReactiveEvent,
-        reaction: impl Fn(Rc<Self>) + 'static + Copy,
+        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         self.view.when(&self, event, move |view| {
             Reaper::get().do_later_in_main_thread_asap(move || reaction(view));
@@ -243,13 +243,13 @@ impl View for HeaderPanel {
         &self.view
     }
 
-    fn opened(self: Rc<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.invalidate_all_controls();
         self.register_listeners();
         true
     }
 
-    fn button_clicked(self: Rc<Self>, resource_id: u32) {
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
             ID_ADD_MAPPING_BUTTON => self.session.borrow_mut().add_default_mapping(),
@@ -268,7 +268,7 @@ impl View for HeaderPanel {
         }
     }
 
-    fn option_selected(self: Rc<Self>, resource_id: u32) {
+    fn option_selected(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),

@@ -8,14 +8,14 @@ use reaper_low::{raw, Swell};
 use std::cell::{Cell, RefCell};
 use std::ptr::null_mut;
 use std::rc::Rc;
-use swell_ui::{Dimensions, Pixels, View, ViewContext, Window};
+use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
 pub struct MainPanel {
     view: ViewContext,
     session: SharedSession,
-    header_panel: Rc<HeaderPanel>,
-    mapping_rows_panel: Rc<MappingRowsPanel>,
+    header_panel: SharedView<HeaderPanel>,
+    mapping_rows_panel: SharedView<MappingRowsPanel>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
 }
 
@@ -36,7 +36,7 @@ impl MainPanel {
             .unwrap_or_else(|| constants::MAIN_PANEL_DIMENSIONS.in_pixels())
     }
 
-    pub fn open_with_resize(self: Rc<Self>, parent_window: Window) {
+    pub fn open_with_resize(self: SharedView<Self>, parent_window: Window) {
         #[cfg(target_family = "windows")]
         {
             // On Windows, the first time opening the dialog window is just to determine the best
@@ -57,7 +57,7 @@ impl View for MainPanel {
         &self.view
     }
 
-    fn opened(self: Rc<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
         #[cfg(target_family = "windows")]
         if self.dimensions.get().is_none() {
             // The dialog has been opened by user request but the optimal dimensions have not yet

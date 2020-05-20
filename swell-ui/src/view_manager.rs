@@ -1,5 +1,5 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
-use crate::{View, Window};
+use crate::{SharedView, View, WeakView, Window};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -17,7 +17,7 @@ use std::sync::Once;
 ///
 /// Internally, this creates a new win32 dialog using the given resource ID. Uses the methods in the
 /// given view for all callbacks.
-pub(crate) fn create_window(view: Rc<dyn View>, resource_id: u32, parent_window: Window) {
+pub(crate) fn create_window(view: SharedView<dyn View>, resource_id: u32, parent_window: Window) {
     let swell = Swell::get();
     unsafe {
         // This will call the window procedure `view_window_proc`. In order to still know which
@@ -42,7 +42,7 @@ pub(crate) fn create_window(view: Rc<dyn View>, resource_id: u32, parent_window:
 #[derive(Default)]
 struct ViewManager {
     /// Holds a mapping from window handles (HWND) to views
-    view_map: HashMap<raw::HWND, Weak<dyn View>>,
+    view_map: HashMap<raw::HWND, WeakView<dyn View>>,
 }
 
 impl ViewManager {
@@ -59,12 +59,12 @@ impl ViewManager {
     }
 
     /// Registers a new HWND-to-view mapping
-    fn register_view(&mut self, hwnd: raw::HWND, view: &Rc<dyn View>) {
-        self.view_map.insert(hwnd, Rc::downgrade(view));
+    fn register_view(&mut self, hwnd: raw::HWND, view: &SharedView<dyn View>) {
+        self.view_map.insert(hwnd, SharedView::downgrade(view));
     }
 
     /// Looks up a view by its corresponding HWND
-    fn lookup_view(&self, hwnd: raw::HWND) -> Option<&Weak<dyn View>> {
+    fn lookup_view(&self, hwnd: raw::HWND) -> Option<&WeakView<dyn View>> {
         self.view_map.get(&hwnd)
     }
 
@@ -75,17 +75,17 @@ impl ViewManager {
 }
 
 // Converts the given view Rc reference to an address which can be transmitted as LPARAM.
-// `Rc<dyn View>` is a so-called trait object, a *fat* pointer which is twice as large as a
+// `SharedView<dyn View>` is a so-called trait object, a *fat* pointer which is twice as large as a
 // normal pointer (on 64-bit architectures 2 x 64 bit = 128 bit = 16 bytes). This is too big to
-// encode within LPARAM. `&Rc<dyn View>` is *not* a trait object but a reference to the trait
-// object. Therefore it is a thin pointer already.
-fn convert_view_ref_to_address(view_trait_object_ref: &Rc<dyn View>) -> isize {
+// encode within LPARAM. `&SharedView<dyn View>` is *not* a trait object but a reference to the
+// trait object. Therefore it is a thin pointer already.
+fn convert_view_ref_to_address(view_trait_object_ref: &SharedView<dyn View>) -> isize {
     let view_trait_object_ptr = view_trait_object_ref as *const _ as *const c_void;
     view_trait_object_ptr as isize
 }
 
 // Converts the given address back to the original view Rc reference.
-fn interpret_address_as_view_ref<'a>(view_trait_object_address: isize) -> &'a Rc<dyn View> {
+fn interpret_address_as_view_ref<'a>(view_trait_object_address: isize) -> &'a SharedView<dyn View> {
     let view_trait_object_ptr = view_trait_object_address as *const c_void;
     unsafe { &*(view_trait_object_ptr as *const _) }
 }
@@ -101,7 +101,7 @@ unsafe extern "C" fn view_window_proc(
 ) -> raw::LRESULT {
     catch_unwind(|| {
         let swell = Swell::get();
-        let view: Rc<dyn View> = if msg == raw::WM_INITDIALOG {
+        let view: SharedView<dyn View> = if msg == raw::WM_INITDIALOG {
             // A view window is initializing. At this point lparam contains the value which we
             // passed when calling CreateDialogParam. This contains the address of a
             // view reference. At subsequent calls, this address is not passed anymore

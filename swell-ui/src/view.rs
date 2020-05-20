@@ -1,9 +1,10 @@
-use crate::{create_window, ReactiveEvent, Window};
+use crate::{create_window, ReactiveEvent, SharedView, Window};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::Debug;
 use std::rc::{Rc, Weak};
+use std::sync::{Arc, Mutex};
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///
@@ -44,11 +45,11 @@ use std::rc::{Rc, Weak};
 /// not to write to the same data member non-exclusively. If we fail to achieve that, at least
 /// the panic lets us know about the issue.
 ///
-/// ## Why do view callback methods take self as `Rc<Self>`?
+/// ## Why do view callback methods take self as `SharedView<Self>`?
 /// Given the above mentioned safety measures and knowing that we must keep views as `Rc`s anyway
-/// (for lifetime reasons, see `ViewManager`), it is possible to take self as `Rc<Self>` without
-/// sacrificing anything. The obvious advantage we have is that it gives us an easy way to access
-/// view methods in subscribe closures without running into lifetime problems (such as &self
+/// (for lifetime reasons, see `ViewManager`), it is possible to take self as `SharedView<Self>`
+/// without sacrificing anything. The obvious advantage we have is that it gives us an easy way to
+/// access view methods in subscribe closures without running into lifetime problems (such as &self
 /// disappearing while still being used in the closure).
 pub trait View {
     // Data providers (implementation required, used internally)
@@ -71,24 +72,24 @@ pub trait View {
     /// WM_INITDIALOG
     ///
     /// Sould return `true` if keyboard focus is desired.
-    fn opened(self: Rc<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
         false
     }
 
     /// WM_DESTROY
-    fn closed(self: Rc<Self>) {}
+    fn closed(self: SharedView<Self>) {}
 
     /// WM_COMMAND, HIWORD(wparam) == 0
-    fn button_clicked(self: Rc<Self>, resource_id: u32) {}
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {}
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
-    fn option_selected(self: Rc<Self>, resource_id: u32) {}
+    fn option_selected(self: SharedView<Self>, resource_id: u32) {}
 
     // Public methods (intended to be used by consumers)
     // =================================================
 
     /// Opens this view in the given parent window.
-    fn open(self: Rc<Self>, parent_window: Window)
+    fn open(self: SharedView<Self>, parent_window: Window)
     where
         Self: Sized + 'static,
     {
@@ -143,14 +144,18 @@ impl ViewContext {
     /// Executes the given reaction on the view whenever the specified event is raised.
     pub fn when<R: 'static>(
         &self,
-        receiver: &Rc<R>,
+        receiver: &SharedView<R>,
         event: impl ReactiveEvent,
-        reaction: impl Fn(Rc<R>) + 'static,
+        reaction: impl Fn(SharedView<R>) + 'static,
     ) {
-        let weak_receiver = Rc::downgrade(receiver);
-        event.take_until(self.closed()).subscribe(move |_| {
-            let receiver = weak_receiver.upgrade().expect("view is gone");
-            reaction(receiver);
-        });
+        let weak_receiver = SharedView::downgrade(receiver);
+        event
+            .take_until(self.closed())
+            // .observe_on(Schedulers::NewThread)
+            // .to_shared()
+            .subscribe(move |_| {
+                let receiver = weak_receiver.upgrade().expect("view is gone");
+                reaction(receiver);
+            });
     }
 }

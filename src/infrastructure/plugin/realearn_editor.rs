@@ -6,17 +6,17 @@ use crate::infrastructure::common::SharedSession;
 use reaper_low::raw::HWND;
 use std::os::raw::c_void;
 use std::rc::Rc;
-use swell_ui::{Pixels, View, Window};
+use swell_ui::{Pixels, SharedView, View, Window};
 use vst::editor::Editor;
 
 pub struct RealearnEditor {
-    main_panel: Rc<MainPanel>,
+    main_panel: SharedView<MainPanel>,
 }
 
 impl RealearnEditor {
     pub fn new(session: SharedSession) -> RealearnEditor {
         RealearnEditor {
-            main_panel: Rc::new(MainPanel::new(session)),
+            main_panel: SharedView::new(MainPanel::new(session)),
         }
     }
 }

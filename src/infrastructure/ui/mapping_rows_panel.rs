@@ -10,7 +10,7 @@ use rxrust::prelude::*;
 use crate::domain::Session;
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
-use swell_ui::{DialogUnits, Point, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 pub struct MappingRowsPanel {
     view: ViewContext,
@@ -35,7 +35,7 @@ impl View for MappingRowsPanel {
         &self.view
     }
 
-    fn opened(self: Rc<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.move_to(Point::new(DialogUnits(0), DialogUnits(78)));
         true
     }
