@@ -4,4 +4,4 @@ use std::sync::Arc;
 
 pub type SharedView<V> = Rc<V>;
 pub type WeakView<V> = std::rc::Weak<V>;
-pub trait ReactiveEvent = LocalObservable<'static, Err = ()> + 'static;
+pub trait ReactiveEvent = Observable<Item = ()> + LocalObservable<'static, Err = ()> + 'static;
