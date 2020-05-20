@@ -1,3 +1,4 @@
+use crate::SharedReactiveEvent;
 use rxrust::prelude::*;
 use std::fmt;
 
@@ -8,7 +9,13 @@ pub fn create_local_prop<'a, T: PartialEq>(initial_value: T) -> LocalProp<'a, T>
     LocalProp::new(initial_value)
 }
 
+pub fn create_shared_prop<T: PartialEq>(initial_value: T) -> SharedProp<T> {
+    SharedProp::new(initial_value)
+}
+
 pub type LocalProp<'a, T> = BaseProp<T, LocalSubject<'a, (), ()>>;
+
+pub type SharedProp<T> = BaseProp<T, SharedSubject<(), ()>>;
 
 /// A reactive property which has the following characteristics:
 ///
@@ -90,6 +97,12 @@ impl<'a, T> LocalProp<'a, T> {
     /// interested in the new value anyway because they will just call some reusable
     /// invalidation code that queries the new value itself.
     pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+        self.subject.clone()
+    }
+}
+
+impl<T> SharedProp<T> {
+    pub fn changed(&self) -> impl SharedReactiveEvent<()> {
         self.subject.clone()
     }
 }
