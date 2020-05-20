@@ -6,8 +6,8 @@ use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
+use rx_util::LocalReactiveEvent;
 use rx_util::Property;
-use rx_util::ReactiveEvent;
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
@@ -238,7 +238,7 @@ impl HeaderPanel {
 
     fn when(
         self: &SharedView<Self>,
-        event: impl ReactiveEvent<()>,
+        event: impl LocalReactiveEvent<()>,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when_async(self.view.closed(), &self, event, reaction);

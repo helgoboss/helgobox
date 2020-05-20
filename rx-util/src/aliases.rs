@@ -1,6 +1,7 @@
 use rxrust::prelude::*;
 
-pub trait ReactiveEvent<I> = Observable<Item = I> + LocalObservable<'static, Err = ()> + 'static;
+pub trait LocalReactiveEvent<I> =
+    Observable<Item = I> + LocalObservable<'static, Err = ()> + 'static;
 
 // The trait bounds of observable items it needs to be used in a SharedReactiveEvent.
 pub trait SharedReactiveItem = Send + Sync + 'static + Clone;

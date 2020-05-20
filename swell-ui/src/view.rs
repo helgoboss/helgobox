@@ -1,5 +1,5 @@
 use crate::{create_window, SharedView, Window};
-use rx_util::ReactiveEvent;
+use rx_util::LocalReactiveEvent;
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -146,7 +146,7 @@ impl ViewContext {
     pub fn when<R: 'static>(
         &self,
         receiver: &SharedView<R>,
-        event: impl ReactiveEvent<()>,
+        event: impl LocalReactiveEvent<()>,
         reaction: impl Fn(SharedView<R>) + 'static,
     ) {
         let weak_receiver = SharedView::downgrade(receiver);

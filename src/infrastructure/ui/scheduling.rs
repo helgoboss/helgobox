@@ -1,5 +1,5 @@
 use reaper_high::Reaper;
-use rx_util::{ReactiveEvent, SharedReactiveEvent, SharedReactiveItem};
+use rx_util::{LocalReactiveEvent, SharedReactiveEvent, SharedReactiveItem};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
@@ -8,9 +8,9 @@ use swell_ui::SharedView;
 
 /// Executes the given reaction on the view whenever the specified event is raised.
 pub fn when_async<R: 'static>(
-    until: impl ReactiveEvent<()>,
+    until: impl LocalReactiveEvent<()>,
     receiver: &SharedView<R>,
-    event: impl ReactiveEvent<()>,
+    event: impl LocalReactiveEvent<()>,
     reaction: impl Fn(SharedView<R>) + 'static,
 ) {
     let weak_receiver = AssertSendAndSync(Rc::downgrade(receiver));
