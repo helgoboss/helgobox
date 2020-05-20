@@ -145,7 +145,7 @@ impl ViewContext {
     pub fn when<R: 'static>(
         &self,
         receiver: &SharedView<R>,
-        event: impl ReactiveEvent,
+        event: impl ReactiveEvent<()>,
         reaction: impl Fn(SharedView<R>) + 'static,
     ) {
         let weak_receiver = SharedView::downgrade(receiver);

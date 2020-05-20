@@ -7,22 +7,21 @@ use swell_ui::{ReactiveEvent, SharedView};
 
 /// Executes the given reaction on the view whenever the specified event is raised.
 pub fn when_async<R: 'static>(
-    until: impl ReactiveEvent,
+    until: impl ReactiveEvent<()>,
     receiver: &SharedView<R>,
-    event: impl ReactiveEvent,
+    event: impl ReactiveEvent<()>,
     reaction: impl Fn(SharedView<R>) + 'static,
 ) {
     let weak_receiver = AssertSendAndSync(Rc::downgrade(receiver));
-    let sync_reaction = AssertSendAndSync(reaction);
-    let scheduler = Reaper::get().main_thread_scheduler();
+    let reaction = AssertSendAndSync(reaction);
     event
         .take_until(until)
-        .observe_on(scheduler)
+        .observe_on(Reaper::get().main_thread_scheduler())
         // .delay(Duration::from_secs(5))
         .to_shared()
         .subscribe(move |_| {
             let receiver = weak_receiver.0.upgrade().expect("view is gone");
-            (sync_reaction.0)(receiver);
+            (reaction.0)(receiver);
         });
 }
 

@@ -236,7 +236,7 @@ impl HeaderPanel {
 
     fn when(
         self: &SharedView<Self>,
-        event: impl ReactiveEvent,
+        event: impl ReactiveEvent<()>,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when_async(self.view.closed(), &self, event, reaction);
