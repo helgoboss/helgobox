@@ -1,9 +1,10 @@
 use reaper_high::Reaper;
+use rx_util::{ReactiveEvent, SharedReactiveEvent, SharedReactiveItem};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
 use std::time::Duration;
-use swell_ui::{ReactiveEvent, SharedReactiveEvent, SharedReactiveItem, SharedView};
+use swell_ui::SharedView;
 
 /// Executes the given reaction on the view whenever the specified event is raised.
 pub fn when_async<R: 'static>(

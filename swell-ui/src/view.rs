@@ -1,4 +1,5 @@
-use crate::{create_window, ReactiveEvent, SharedView, Window};
+use crate::{create_window, SharedView, Window};
+use rx_util::ReactiveEvent;
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};

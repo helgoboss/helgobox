@@ -7,12 +7,13 @@ use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
 use rx_util::Property;
+use rx_util::ReactiveEvent;
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{ReactiveEvent, SharedView, View, ViewContext, Window};
+use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct HeaderPanel {
