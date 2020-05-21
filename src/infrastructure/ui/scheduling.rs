@@ -1,5 +1,5 @@
 use reaper_high::Reaper;
-use rx_util::{LocalReactiveEvent, SharedReactiveEvent, SharedReactiveItem};
+use rx_util::{SharedEvent, SharedItem, SharedItemEvent};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
@@ -16,11 +16,11 @@ use swell_ui::SharedView;
 /// would require them to be shared, too. But `delay()` doesn't work anyway right now
 /// (https://github.com/rxRust/rxRust/issues/106). So there's no reason to change all the
 /// trigger/until subjects/properties into shared ones.
-pub fn when_async<E: SharedReactiveItem, U: SharedReactiveItem, R: 'static>(
-    trigger: impl LocalReactiveEvent<E>,
+pub fn when_async<E: SharedItem, U: SharedItem, R: 'static>(
+    trigger: impl SharedItemEvent<E>,
     reaction: impl Fn(SharedView<R>) + 'static,
     receiver: &SharedView<R>,
-    until: impl LocalReactiveEvent<U>,
+    until: impl SharedItemEvent<U>,
 ) {
     // This is okay because we are sending from main thread to main thread!
     let weak_receiver = unsafe { SendAndSyncWhatever::new(Rc::downgrade(receiver)) };

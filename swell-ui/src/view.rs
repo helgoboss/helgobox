@@ -1,5 +1,5 @@
 use crate::{create_window, SharedView, Window};
-use rx_util::LocalReactiveEvent;
+use rx_util::SharedItemEvent;
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -138,7 +138,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl LocalReactiveEvent<()> {
+    pub fn closed(&self) -> impl SharedItemEvent<()> {
         self.closed_subject.borrow().clone()
     }
 }

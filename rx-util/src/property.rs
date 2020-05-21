@@ -1,4 +1,4 @@
-use crate::SharedReactiveEvent;
+use crate::SharedEvent;
 use rxrust::prelude::*;
 use std::fmt;
 
@@ -12,6 +12,8 @@ pub fn create_local_prop<'a, T: PartialEq>(initial_value: T) -> LocalProp<'a, T>
 pub fn create_shared_prop<T: PartialEq>(initial_value: T) -> SharedProp<T> {
     SharedProp::new(initial_value)
 }
+
+pub type LocalStaticProp<T> = LocalProp<'static, T>;
 
 pub type LocalProp<'a, T> = BaseProp<T, LocalSubject<'a, (), ()>>;
 
@@ -102,7 +104,7 @@ impl<'a, T> LocalProp<'a, T> {
 }
 
 impl<T> SharedProp<T> {
-    pub fn changed(&self) -> impl SharedReactiveEvent<()> {
+    pub fn changed(&self) -> impl SharedEvent<()> {
         self.subject.clone()
     }
 }

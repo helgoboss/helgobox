@@ -2,7 +2,7 @@ use super::MidiSourceModel;
 use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{create_local_prop as p, LocalProp, SharedProp, SharedReactiveEvent};
+use rx_util::{create_local_prop as p, LocalProp, SharedEvent, SharedItemEvent, SharedProp};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -39,7 +39,7 @@ pub struct Session<'a> {
     pub midi_control_input: LocalProp<'a, MidiControlInput>,
     pub midi_feedback_output: LocalProp<'a, Option<MidiFeedbackOutput>>,
     mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
-    mappings_changed_subject: SharedSubject<(), ()>,
+    mappings_changed_subject: LocalSubject<'static, (), ()>,
 }
 
 impl<'a> Default for Session<'a> {
@@ -78,7 +78,7 @@ impl<'a> Session<'a> {
         false
     }
 
-    pub fn mappings_changed(&self) -> impl SharedReactiveEvent<()> {
+    pub fn mappings_changed(&self) -> impl SharedItemEvent<()> {
         self.mappings_changed_subject.clone()
     }
 

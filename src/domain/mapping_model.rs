@@ -8,6 +8,6 @@ pub struct MappingModel<'a> {
     pub control_is_enabled: LocalProp<'a, bool>,
     pub feedback_is_enabled: LocalProp<'a, bool>,
     pub source_model: MidiSourceModel<'a>,
-    pub mode_model: ModeModel<'a>,
+    pub mode_model: ModeModel,
     pub target_model: TargetModel<'a>,
 }

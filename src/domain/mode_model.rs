@@ -3,33 +3,33 @@ use helgoboss_learn::{
     ToggleMode, Transformation, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use rx_util::{create_local_prop as p, LocalProp};
+use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, SharedItemEvent};
 use rxrust::prelude::*;
 use serde_repr::*;
 
 /// A model for creating modes
 #[derive(Clone, Debug)]
-pub struct ModeModel<'a> {
+pub struct ModeModel {
     // For all modes
-    pub r#type: LocalProp<'a, ModeType>,
-    pub min_target_value: LocalProp<'a, UnitValue>,
-    pub max_target_value: LocalProp<'a, UnitValue>,
+    pub r#type: LocalStaticProp<ModeType>,
+    pub min_target_value: LocalStaticProp<UnitValue>,
+    pub max_target_value: LocalStaticProp<UnitValue>,
     // For absolute and relative mode
-    pub min_source_value: LocalProp<'a, UnitValue>,
-    pub max_source_value: LocalProp<'a, UnitValue>,
-    pub reverse: LocalProp<'a, bool>,
+    pub min_source_value: LocalStaticProp<UnitValue>,
+    pub max_source_value: LocalStaticProp<UnitValue>,
+    pub reverse: LocalStaticProp<bool>,
     // For absolute mode
-    pub min_jump: LocalProp<'a, UnitValue>,
-    pub max_jump: LocalProp<'a, UnitValue>,
-    pub ignore_out_of_range_source_values: LocalProp<'a, bool>,
-    pub round_target_value: LocalProp<'a, bool>,
-    pub approach_target_value: LocalProp<'a, bool>,
-    pub eel_control_transformation: LocalProp<'a, String>,
-    pub eel_feedback_transformation: LocalProp<'a, String>,
+    pub min_jump: LocalStaticProp<UnitValue>,
+    pub max_jump: LocalStaticProp<UnitValue>,
+    pub ignore_out_of_range_source_values: LocalStaticProp<bool>,
+    pub round_target_value: LocalStaticProp<bool>,
+    pub approach_target_value: LocalStaticProp<bool>,
+    pub eel_control_transformation: LocalStaticProp<String>,
+    pub eel_feedback_transformation: LocalStaticProp<String>,
     // For relative mode
-    pub min_step_size: LocalProp<'a, UnitValue>,
-    pub max_step_size: LocalProp<'a, UnitValue>,
-    pub rotate: LocalProp<'a, bool>,
+    pub min_step_size: LocalStaticProp<UnitValue>,
+    pub max_step_size: LocalStaticProp<UnitValue>,
+    pub rotate: LocalStaticProp<bool>,
 }
 
 /// Represents a value transformation done via EEL scripting language.
@@ -64,7 +64,7 @@ pub enum ModeType {
     Toggle = 2,
 }
 
-impl<'a> Default for ModeModel<'a> {
+impl Default for ModeModel {
     fn default() -> Self {
         Self {
             r#type: p(ModeType::Absolute),
@@ -87,9 +87,9 @@ impl<'a> Default for ModeModel<'a> {
     }
 }
 
-impl<'a> ModeModel<'a> {
+impl ModeModel {
     /// Fires whenever one of the properties of this model has changed
-    pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+    pub fn changed(&self) -> impl SharedItemEvent<()> {
         self.r#type
             .changed()
             .merge(self.min_target_value.changed())
