@@ -161,7 +161,7 @@ mod example_data {
                 },
                 target_model: TargetModel {
                     r#type: p(TargetType::TrackSelection),
-                    command_id: p(CommandId::new(3500)),
+                    command_id: p(Some(CommandId::new(3500))),
                     action_invocation_type: p(ActionInvocationType::Absolute),
                     track: p(VirtualTrack::Selected),
                     enable_only_if_track_selected: p(true),

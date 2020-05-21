@@ -103,12 +103,11 @@ impl HeaderPanel {
                 -1isize,
                 "<FX input> (no support for MIDI clock sources)".to_string(),
             ))
-            .chain(Reaper::get().get_midi_input_devices().map(|dev| {
-                (
-                    dev.get_id().get() as isize,
-                    get_midi_input_device_label(dev),
-                )
-            })),
+            .chain(
+                Reaper::get()
+                    .midi_input_devices()
+                    .map(|dev| (dev.id().get() as isize, get_midi_input_device_label(dev))),
+            ),
         )
     }
 
@@ -120,9 +119,9 @@ impl HeaderPanel {
                 b.select_combo_box_item_by_data(-1);
             }
             Device(dev) => b
-                .select_combo_box_item_by_data(dev.get_id().get() as _)
+                .select_combo_box_item_by_data(dev.id().get() as _)
                 .unwrap_or_else(|_| {
-                    b.select_new_combo_box_item(format!("{}. <Unknown>", dev.get_id().get()));
+                    b.select_new_combo_box_item(format!("{}. <Unknown>", dev.id().get()));
                 }),
         };
     }
@@ -136,14 +135,13 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        b.fill_combo_box(iter::once((-1isize, "<None>".to_string())).chain(
-            Reaper::get().get_midi_output_devices().map(|dev| {
-                (
-                    dev.get_id().get() as isize,
-                    get_midi_output_device_label(dev),
-                )
-            }),
-        ))
+        b.fill_combo_box(
+            iter::once((-1isize, "<None>".to_string())).chain(
+                Reaper::get()
+                    .midi_output_devices()
+                    .map(|dev| (dev.id().get() as isize, get_midi_output_device_label(dev))),
+            ),
+        )
     }
 
     fn invalidate_midi_feedback_output_combo_box_value(&self) {
@@ -158,9 +156,9 @@ impl HeaderPanel {
             Some(o) => match o {
                 FxOutput => todo!(),
                 Device(dev) => b
-                    .select_combo_box_item_by_data(dev.get_id().get() as _)
+                    .select_combo_box_item_by_data(dev.id().get() as _)
                     .unwrap_or_else(|_| {
-                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev.get_id().get()));
+                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev.id().get()));
                     }),
             },
         };
@@ -171,8 +169,7 @@ impl HeaderPanel {
         let value = match b.selected_combo_box_item_data() {
             -1 => MidiControlInput::FxInput,
             id if id >= 0 => {
-                let dev =
-                    Reaper::get().get_midi_input_device_by_id(MidiInputDeviceId::new(id as _));
+                let dev = Reaper::get().midi_input_device_by_id(MidiInputDeviceId::new(id as _));
                 MidiControlInput::Device(dev)
             }
             _ => unreachable!(),
@@ -187,8 +184,7 @@ impl HeaderPanel {
         let value = match b.selected_combo_box_item_data() {
             -1 => None,
             id if id >= 0 => {
-                let dev =
-                    Reaper::get().get_midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
+                let dev = Reaper::get().midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
                 Some(MidiFeedbackOutput::Device(dev))
             }
             _ => todo!(),
@@ -335,11 +331,11 @@ impl View for HeaderPanel {
 }
 
 fn get_midi_input_device_label(dev: MidiInputDevice) -> String {
-    get_midi_device_label(dev.get_name(), dev.get_id().get(), dev.is_connected())
+    get_midi_device_label(dev.name(), dev.id().get(), dev.is_connected())
 }
 
 fn get_midi_output_device_label(dev: MidiOutputDevice) -> String {
-    get_midi_device_label(dev.get_name(), dev.get_id().get(), dev.is_connected())
+    get_midi_device_label(dev.name(), dev.id().get(), dev.is_connected())
 }
 
 fn get_midi_device_label(name: CString, raw_id: u8, connected: bool) -> String {

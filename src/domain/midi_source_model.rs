@@ -1,8 +1,12 @@
+use derive_more::Display;
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp};
 use rxrust::prelude::*;
+use serde::export::Formatter;
 use serde_repr::*;
+use std::borrow::Cow;
+use std::fmt::{format, Display};
 
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
@@ -90,21 +94,109 @@ impl MidiSourceModel {
             },
         }
     }
+
+    pub fn supports_channel(&self) -> bool {
+        use MidiSourceType::*;
+        matches!(
+            self.r#type.get(),
+            ChannelPressureAmount
+                | ControlChangeValue
+                | NoteVelocity
+                | PolyphonicKeyPressureAmount
+                | NoteKeyNumber
+                | ParameterNumberValue
+                | PitchBendChangeValue
+                | ProgramChangeNumber
+        )
+    }
+
+    fn primary_label(&self) -> Cow<str> {
+        use MidiSourceType::*;
+        match self.r#type.get() {
+            ParameterNumberValue => match self.is_registered.get() {
+                None => ParameterNumberValue.to_string().into(),
+                Some(is_registered) => {
+                    if is_registered {
+                        "RPN".into()
+                    } else {
+                        "NRPN".into()
+                    }
+                }
+            },
+            PolyphonicKeyPressureAmount => "Poly after touch".into(),
+            ClockTempo => "MIDI clock\nTempo".into(),
+            ClockTransport => {
+                format!("MIDI clock\n{}", self.midi_clock_transport_message.get()).into()
+            }
+            t @ _ => t.to_string().into(),
+        }
+    }
+
+    fn channel_label(&self) -> Cow<str> {
+        if self.supports_channel() {
+            match self.channel.get() {
+                None => "Any channel".into(),
+                Some(ch) => format!("Channel {}", ch.get() + 1).into(),
+            }
+        } else {
+            "".into()
+        }
+    }
+
+    fn secondary_label(&self) -> Cow<str> {
+        use MidiSourceType::*;
+        match self.r#type.get() {
+            NoteVelocity | PolyphonicKeyPressureAmount => match self.midi_message_number.get() {
+                None => "Any note".into(),
+                Some(n) => format!("Note number {}", n.get()).into(),
+            },
+            ControlChangeValue => match self.midi_message_number.get() {
+                None => "Any CC".into(),
+                Some(n) => format!("CC number {}", n.get()).into(),
+            },
+            ParameterNumberValue => match self.parameter_number_message_number.get() {
+                None => "Any number".into(),
+                Some(n) => format!("Number {}", n.get()).into(),
+            },
+            _ => "".into(),
+        }
+    }
+}
+
+impl Display for MidiSourceModel {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let compartments = [
+            self.primary_label(),
+            self.channel_label(),
+            self.secondary_label(),
+        ];
+        write!(f, "{}", compartments.join("\n"))
+    }
 }
 
 /// Type of a MIDI source
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr, Display)]
 #[repr(u8)]
 pub enum MidiSourceType {
+    #[display(fmt = "CC value")]
     ControlChangeValue = 0,
+    #[display(fmt = "Note velocity")]
     NoteVelocity = 1,
+    #[display(fmt = "Note number")]
     NoteKeyNumber = 2,
+    #[display(fmt = "Pitch wheel")]
     PitchBendChangeValue = 3,
+    #[display(fmt = "Channel after touch")]
     ChannelPressureAmount = 4,
+    #[display(fmt = "Program change")]
     ProgramChangeNumber = 5,
+    #[display(fmt = "(N)RPN value (no feedback)")]
     ParameterNumberValue = 6,
+    #[display(fmt = "Polyphonic after touch")]
     PolyphonicKeyPressureAmount = 7,
+    #[display(fmt = "MIDI clock tempo (experimental)")]
     ClockTempo = 8,
+    #[display(fmt = "MIDI clock transport")]
     ClockTransport = 9,
 }
 
