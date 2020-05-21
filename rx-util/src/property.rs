@@ -15,6 +15,13 @@ pub fn create_shared_prop<T: PartialEq>(initial_value: T) -> SharedProp<T> {
 
 pub type LocalStaticProp<T> = LocalProp<'static, T>;
 
+/// The lifetime parameter determines the scope of the subscribe closure, which is relevant when
+/// capturing references.
+///
+/// In many real-world cases you should choose 'static. But check the unit tests below. If you use
+/// 'static in them, the closure would require all of its captured references to be 'static. In that
+/// case we would be forced to use shared ownership (e.g. `Rc`) instead of &mut references to do
+/// the test.
 pub type LocalProp<'a, T> = BaseProp<T, LocalSubject<'a, (), ()>>;
 
 pub type SharedProp<T> = BaseProp<T, SharedSubject<(), ()>>;

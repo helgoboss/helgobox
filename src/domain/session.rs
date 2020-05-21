@@ -2,7 +2,9 @@ use super::MidiSourceModel;
 use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{create_local_prop as p, LocalProp, SharedEvent, SharedItemEvent, SharedProp};
+use rx_util::{
+    create_local_prop as p, LocalProp, LocalStaticProp, SharedEvent, SharedItemEvent, SharedProp,
+};
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -31,18 +33,18 @@ pub enum MidiFeedbackOutput {
 /// It's ReaLearn's main object which keeps everything together.
 // TODO Probably belongs in application layer.
 #[derive(Debug)]
-pub struct Session<'a> {
-    pub let_matched_events_through: LocalProp<'a, bool>,
-    pub let_unmatched_events_through: LocalProp<'a, bool>,
-    pub always_auto_detect: LocalProp<'a, bool>,
-    pub send_feedback_only_if_armed: LocalProp<'a, bool>,
-    pub midi_control_input: LocalProp<'a, MidiControlInput>,
-    pub midi_feedback_output: LocalProp<'a, Option<MidiFeedbackOutput>>,
-    mapping_models: Vec<Rc<RefCell<MappingModel<'a>>>>,
+pub struct Session {
+    pub let_matched_events_through: LocalStaticProp<bool>,
+    pub let_unmatched_events_through: LocalStaticProp<bool>,
+    pub always_auto_detect: LocalStaticProp<bool>,
+    pub send_feedback_only_if_armed: LocalStaticProp<bool>,
+    pub midi_control_input: LocalStaticProp<MidiControlInput>,
+    pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
+    mapping_models: Vec<Rc<RefCell<MappingModel>>>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
 }
 
-impl<'a> Default for Session<'a> {
+impl Default for Session {
     fn default() -> Self {
         Self {
             let_matched_events_through: p(false),
@@ -62,8 +64,8 @@ impl<'a> Default for Session<'a> {
     }
 }
 
-impl<'a> Session<'a> {
-    pub fn new() -> Session<'a> {
+impl Session {
+    pub fn new() -> Session {
         Session::default()
     }
 
@@ -82,7 +84,7 @@ impl<'a> Session<'a> {
         self.mappings_changed_subject.clone()
     }
 
-    fn add_mapping(&mut self, mapping: MappingModel<'a>) {
+    fn add_mapping(&mut self, mapping: MappingModel) {
         self.mapping_models.push(Rc::new(RefCell::new(mapping)));
         self.mappings_changed_subject.next(());
     }
@@ -115,7 +117,7 @@ mod example_data {
     use reaper_medium::CommandId;
     use rx_util::{create_local_prop as p, SharedProp};
 
-    pub fn create_example_mappings<'a>() -> Vec<MappingModel<'a>> {
+    pub fn create_example_mappings() -> Vec<MappingModel> {
         vec![
             MappingModel {
                 name: p(String::from("Mapping A")),

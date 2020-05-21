@@ -1,4 +1,8 @@
-//! Here are some trait aliases for typical use cases.
+//! Here are some trait aliases for typical event use cases.
+//!
+//! In LocalObservables we would have the chance to restrict the lifetime of the subscribe closure,
+//! but since AFAIK real-world event use cases are mostly complex enough to require static lifetimes
+//! anyway, we just say that events always have a static nature.
 //!
 //! Those can be for example used in functions returning observables without exposing the internals.
 //! E.g. instead of a `SharedSubject<i32, ()>`, one can return a `impl SharedEvent<i32>`.
@@ -17,14 +21,13 @@ use rxrust::prelude::*;
 ///
 /// - `observe_on()`: no
 /// - `delay()`: no
-pub trait LocalEvent<I> = Observable<Item = I> + LocalObservable<'static, Err = ()> + 'static;
+pub trait LocalEvent<I> = LocalObservable<'static, Item = I, Err = ()> + 'static;
 
 /// Local event with shared items.
 ///
 /// - `observe_on()`: yes
 /// - `delay()`: no
-pub trait SharedItemEvent<I: SharedItem> =
-    Observable<Item = I> + LocalObservable<'static, Err = ()> + 'static;
+pub trait SharedItemEvent<I: SharedItem> = LocalObservable<'static, Item = I, Err = ()> + 'static;
 
 /// Local event with shared items.
 ///

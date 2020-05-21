@@ -43,4 +43,4 @@ use std::rc::Rc;
 /// behavior. It will let us know immediately when we violated that safety rule.
 /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
 /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-pub type SharedSession = Rc<debug_cell::RefCell<Session<'static>>>;
+pub type SharedSession = Rc<debug_cell::RefCell<Session>>;

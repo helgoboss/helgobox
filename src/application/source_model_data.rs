@@ -103,8 +103,8 @@ impl<T: PartialOrd + From<i8>> NoneIfNegative for Option<T> {
     }
 }
 
-impl From<&MidiSourceModel<'_>> for SourceModelData {
-    fn from(model: &MidiSourceModel<'_>) -> Self {
+impl From<&MidiSourceModel> for SourceModelData {
+    fn from(model: &MidiSourceModel) -> Self {
         SourceModelData {
             r#type: model.r#type.get(),
             channel: model.channel.get().map(|ch| ch.into()),

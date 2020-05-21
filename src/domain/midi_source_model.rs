@@ -1,23 +1,23 @@
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use rx_util::{create_local_prop as p, LocalProp};
+use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp};
 use rxrust::prelude::*;
 use serde_repr::*;
 
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
-pub struct MidiSourceModel<'a> {
-    pub r#type: LocalProp<'a, MidiSourceType>,
-    pub channel: LocalProp<'a, Option<Channel>>,
-    pub midi_message_number: LocalProp<'a, Option<U7>>,
-    pub parameter_number_message_number: LocalProp<'a, Option<U14>>,
-    pub custom_character: LocalProp<'a, SourceCharacter>,
-    pub midi_clock_transport_message: LocalProp<'a, MidiClockTransportMessage>,
-    pub is_registered: LocalProp<'a, Option<bool>>,
-    pub is_14_bit: LocalProp<'a, Option<bool>>,
+pub struct MidiSourceModel {
+    pub r#type: LocalStaticProp<MidiSourceType>,
+    pub channel: LocalStaticProp<Option<Channel>>,
+    pub midi_message_number: LocalStaticProp<Option<U7>>,
+    pub parameter_number_message_number: LocalStaticProp<Option<U14>>,
+    pub custom_character: LocalStaticProp<SourceCharacter>,
+    pub midi_clock_transport_message: LocalStaticProp<MidiClockTransportMessage>,
+    pub is_registered: LocalStaticProp<Option<bool>>,
+    pub is_14_bit: LocalStaticProp<Option<bool>>,
 }
 
-impl<'a> Default for MidiSourceModel<'a> {
+impl Default for MidiSourceModel {
     fn default() -> Self {
         Self {
             r#type: p(MidiSourceType::ControlChangeValue),
@@ -32,9 +32,9 @@ impl<'a> Default for MidiSourceModel<'a> {
     }
 }
 
-impl<'a> MidiSourceModel<'a> {
+impl MidiSourceModel {
     /// Fires whenever one of the properties of this model has changed
-    pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> {
         self.r#type
             .changed()
             .merge(self.channel.changed())
@@ -112,23 +112,22 @@ pub enum MidiSourceType {
 mod tests {
     use super::*;
     use helgoboss_midi::test_util::*;
+    use rx_util::create_invocation_mock;
 
     #[test]
     fn changed() {
         // Given
-        let mut invocation_count = 0;
+        let mut m = MidiSourceModel::default();
+        let (mock, mock_mirror) = create_invocation_mock();
         // When
-        {
-            let mut m = MidiSourceModel::default();
-            m.changed().subscribe(|_v| invocation_count += 1);
-            m.r#type.set(MidiSourceType::NoteVelocity);
-            m.channel.set(Some(channel(5)));
-            m.r#type.set(MidiSourceType::ClockTransport);
-            m.r#type.set(MidiSourceType::ClockTransport);
-            m.channel.set(Some(channel(4)));
-        }
+        m.changed().subscribe(move |_| mock.invoke(()));
+        m.r#type.set(MidiSourceType::NoteVelocity);
+        m.channel.set(Some(channel(5)));
+        m.r#type.set(MidiSourceType::ClockTransport);
+        m.r#type.set(MidiSourceType::ClockTransport);
+        m.channel.set(Some(channel(4)));
         // Then
-        assert_eq!(invocation_count, 4);
+        assert_eq!(mock_mirror.invocation_count(), 4);
     }
 
     #[test]
