@@ -59,6 +59,13 @@ impl Window {
         Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
     }
 
+    pub fn fill_combo_box<'a>(&self, items: impl Iterator<Item = (isize, String)>) {
+        self.clear_combo_box();
+        items.enumerate().for_each(|(i, (data, label))| {
+            self.insert_combo_box_item_with_data(i, data, label);
+        });
+    }
+
     pub fn insert_combo_box_item_with_data<'a>(
         &self,
         index: usize,
@@ -67,6 +74,15 @@ impl Window {
     ) {
         self.insert_combo_box_item(index, label);
         self.set_combo_box_item_data(index, data);
+    }
+
+    pub fn selected_combo_box_item_index(&self) -> usize {
+        Swell::get().SendMessage(self.raw, raw::CB_GETCURSEL, 0, 0) as usize
+    }
+
+    pub fn selected_combo_box_item_data(&self) -> isize {
+        let index = self.selected_combo_box_item_index();
+        self.combo_box_item_data(index)
     }
 
     pub fn insert_combo_box_item<'a>(&self, index: usize, label: impl Into<SwellStringArg<'a>>) {

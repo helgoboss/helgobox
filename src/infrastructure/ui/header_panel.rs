@@ -1,4 +1,4 @@
-use crate::domain::{MidiControlInput, Session};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;
@@ -6,10 +6,12 @@ use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
+use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
+use std::iter;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
@@ -78,14 +80,6 @@ impl HeaderPanel {
         );
     }
 
-    fn update_midi_control_input(&self) {
-        // TODO
-    }
-
-    fn update_midi_feedback_output(&self) {
-        // TODO
-    }
-
     fn invalidate_all_controls(&self) {
         self.invalidate_midi_control_input_combo_box();
         self.invalidate_midi_feedback_output_combo_box();
@@ -104,21 +98,18 @@ impl HeaderPanel {
 
     fn invalidate_midi_control_input_combo_box_options(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        b.clear_combo_box();
-        std::iter::once((
-            -1isize,
-            "<FX input> (no support for MIDI clock sources)".to_string(),
-        ))
-        .chain(Reaper::get().get_midi_input_devices().map(|dev| {
-            (
-                dev.get_id().get() as isize,
-                get_midi_input_device_label(dev),
-            )
-        }))
-        .enumerate()
-        .for_each(|(i, (data, label))| {
-            b.insert_combo_box_item_with_data(i, data, label);
-        });
+        b.fill_combo_box(
+            iter::once((
+                -1isize,
+                "<FX input> (no support for MIDI clock sources)".to_string(),
+            ))
+            .chain(Reaper::get().get_midi_input_devices().map(|dev| {
+                (
+                    dev.get_id().get() as isize,
+                    get_midi_input_device_label(dev),
+                )
+            })),
+        )
     }
 
     fn invalidate_midi_control_input_combo_box_value(&self) {
@@ -137,7 +128,72 @@ impl HeaderPanel {
     }
 
     fn invalidate_midi_feedback_output_combo_box(&self) {
-        // TODO
+        self.invalidate_midi_feedback_output_combo_box_options();
+        self.invalidate_midi_feedback_output_combo_box_value();
+    }
+
+    fn invalidate_midi_feedback_output_combo_box_options(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
+        b.fill_combo_box(iter::once((-1isize, "<None>".to_string())).chain(
+            Reaper::get().get_midi_output_devices().map(|dev| {
+                (
+                    dev.get_id().get() as isize,
+                    get_midi_output_device_label(dev),
+                )
+            }),
+        ))
+    }
+
+    fn invalidate_midi_feedback_output_combo_box_value(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
+        use MidiFeedbackOutput::*;
+        match self.session.borrow().midi_feedback_output.get() {
+            None => {
+                b.select_combo_box_item_by_data(-1);
+            }
+            Some(o) => match o {
+                FxOutput => todo!(),
+                Device(dev) => b
+                    .select_combo_box_item_by_data(dev.get_id().get() as _)
+                    .unwrap_or_else(|_| {
+                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev.get_id().get()));
+                    }),
+            },
+        };
+    }
+
+    fn update_midi_control_input(&self) {
+        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
+        let value = match b.selected_combo_box_item_data() {
+            -1 => MidiControlInput::FxInput,
+            id if id >= 0 => {
+                let dev =
+                    Reaper::get().get_midi_input_device_by_id(MidiInputDeviceId::new(id as _));
+                MidiControlInput::Device(dev)
+            }
+            _ => unreachable!(),
+        };
+        self.session.borrow_mut().midi_control_input.set(value);
+    }
+
+    fn update_midi_feedback_output(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
+        let value = match b.selected_combo_box_item_data() {
+            -1 => None,
+            id if id >= 0 => {
+                let dev =
+                    Reaper::get().get_midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
+                Some(MidiFeedbackOutput::Device(dev))
+            }
+            _ => todo!(),
+        };
+        self.session.borrow_mut().midi_feedback_output.set(value);
     }
 
     fn invalidate_let_matched_events_through_check_box(&self) {
@@ -225,20 +281,10 @@ impl HeaderPanel {
         // TODO sourceFilterListening, targetFilterListening,
     }
 
-    // fn when(
-    //     self: &SharedView<Self>,
-    //     event: impl ReactiveEvent,
-    //     reaction: impl Fn(SharedView<Self>) + 'static + Copy,
-    // ) {
-    //     self.view.when(&self, event, move |view| {
-    //         Reaper::get().do_later_in_main_thread_asap(move || reaction(view));
-    //     });
-    // }
-
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+        reaction: impl Fn(SharedView<Self>) + 'static,
     ) {
         when_async(event, reaction, &self, self.view.closed());
     }
@@ -283,7 +329,7 @@ impl View for HeaderPanel {
         match resource_id {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
-            _ => {}
+            _ => unreachable!(),
         }
     }
 }

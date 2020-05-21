@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::domain::MappingModel;
+use crate::domain::{MappingModel, SharedMappingModel};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
@@ -40,7 +40,7 @@ pub struct Session {
     pub send_feedback_only_if_armed: LocalStaticProp<bool>,
     pub midi_control_input: LocalStaticProp<MidiControlInput>,
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
-    mapping_models: Vec<Rc<RefCell<MappingModel>>>,
+    mapping_models: Vec<SharedMappingModel>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
 }
 

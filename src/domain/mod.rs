@@ -12,3 +12,6 @@ pub use mapping_model::*;
 
 mod target_model;
 pub use target_model::*;
+
+mod aliases;
+pub use aliases::*;
