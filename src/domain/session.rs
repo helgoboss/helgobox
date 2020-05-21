@@ -3,7 +3,7 @@ use crate::domain::MappingModel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
-    create_local_prop as p, LocalProp, LocalStaticProp, SharedEvent, SharedItemEvent, SharedProp,
+    create_local_prop as p, LocalProp, LocalStaticProp, SharedEvent, SharedProp, UnitEvent,
 };
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
@@ -80,7 +80,7 @@ impl Session {
         false
     }
 
-    pub fn mappings_changed(&self) -> impl SharedItemEvent<()> {
+    pub fn mappings_changed(&self) -> impl UnitEvent {
         self.mappings_changed_subject.clone()
     }
 

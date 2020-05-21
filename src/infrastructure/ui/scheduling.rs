@@ -1,5 +1,5 @@
 use reaper_high::Reaper;
-use rx_util::{SharedEvent, SharedItem, SharedItemEvent};
+use rx_util::{SharedEvent, SharedItemEvent, SharedPayload};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
@@ -16,7 +16,7 @@ use swell_ui::SharedView;
 /// would require them to be shared, too. But `delay()` doesn't work anyway right now
 /// (https://github.com/rxRust/rxRust/issues/106). So there's no reason to change all the
 /// trigger/until subjects/properties into shared ones.
-pub fn when_async<E: SharedItem, U: SharedItem, R: 'static>(
+pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
     trigger: impl SharedItemEvent<E>,
     reaction: impl Fn(SharedView<R>) + 'static,
     receiver: &SharedView<R>,

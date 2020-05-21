@@ -21,20 +21,27 @@ use rxrust::prelude::*;
 ///
 /// - `observe_on()`: no
 /// - `delay()`: no
-pub trait LocalEvent<I> = LocalObservable<'static, Item = I, Err = ()> + 'static;
+pub trait Event<I> = LocalObservable<'static, Item = I, Err = ()> + 'static;
 
 /// Local event with shared items.
 ///
 /// - `observe_on()`: yes
 /// - `delay()`: no
-pub trait SharedItemEvent<I: SharedItem> = LocalObservable<'static, Item = I, Err = ()> + 'static;
+pub trait SharedItemEvent<I: SharedPayload> =
+    LocalObservable<'static, Item = I, Err = ()> + 'static;
+
+/// Local event which doesn't have any payload.
+///
+/// - `observe_on()`: yes
+/// - `delay()`: no
+pub trait UnitEvent = SharedItemEvent<()>;
 
 /// Local event with shared items.
 ///
 /// - `observe_on()`: yes
 /// - `delay()`: yes
-pub trait SharedEvent<I: SharedItem> =
+pub trait SharedEvent<I: SharedPayload> =
     SharedObservable<Unsub = SharedSubscription, Item = I, Err = ()> + 'static + Send + Sync;
 
-/// The trait bounds of observable items it needs to be used for observe_on().
-pub trait SharedItem = Send + Sync + 'static + Clone;
+/// The trait bounds of observable payloads (items/errs) it needs to be used for observe_on().
+pub trait SharedPayload = Send + Sync + 'static + Clone;
