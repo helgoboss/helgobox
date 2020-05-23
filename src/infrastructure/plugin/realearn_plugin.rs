@@ -10,6 +10,7 @@ use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
 use reaper_medium::TypeSpecificPluginContext;
 use std::cell::RefCell;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::NonNull;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -52,10 +53,12 @@ impl Plugin for RealearnPlugin {
     }
 
     fn init(&mut self) {
-        self.reaper_guard = Some(self.setup_reaper());
-        let session = Session::new(self.get_containing_fx());
-        let shared_session = Rc::new(debug_cell::RefCell::new(session));
-        self.session.fill(shared_session);
+        firewall(|| {
+            self.reaper_guard = Some(self.setup_reaper());
+            let session = Session::new(self.get_containing_fx());
+            let shared_session = Rc::new(debug_cell::RefCell::new(session));
+            self.session.fill(shared_session);
+        });
     }
 
     // Unfortunately, this is called before `init()`. That means we don't know yet the containing
@@ -119,4 +122,8 @@ impl RealearnPlugin {
             reaper.monitoring_fx_chain().fx_by_index_untracked(0)
         }
     }
+}
+
+fn firewall<F: FnOnce() -> R, R>(f: F) -> Option<R> {
+    catch_unwind(AssertUnwindSafe(f)).ok()
 }
