@@ -6,7 +6,7 @@ use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
-use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
+use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
@@ -338,11 +338,11 @@ fn get_midi_output_device_label(dev: MidiOutputDevice) -> String {
     get_midi_device_label(dev.name(), dev.id().get(), dev.is_connected())
 }
 
-fn get_midi_device_label(name: CString, raw_id: u8, connected: bool) -> String {
+fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> String {
     format!(
         "{}. {}{}",
         raw_id,
-        name.to_str().expect("not UTF-8"),
+        name.to_str(),
         if connected { "" } else { " <not present>" }
     )
 }

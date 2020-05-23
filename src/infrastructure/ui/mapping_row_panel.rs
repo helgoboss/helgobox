@@ -12,7 +12,7 @@ pub struct MappingRowPanel {
     view: ViewContext,
     session: SharedSession,
     row_index: u32,
-    mapping: Option<SharedMappingModel>,
+    mapping: RefCell<Option<SharedMappingModel>>,
 }
 
 impl MappingRowPanel {
@@ -21,14 +21,23 @@ impl MappingRowPanel {
             view: Default::default(),
             session,
             row_index,
-            mapping: None,
+            mapping: None.into(),
         }
     }
-}
 
-impl MappingRowPanel {
+    pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMappingModel>) {
+        self.unregister_listeners();
+        self.mapping.replace(mapping);
+        self.invalidate_all_controls();
+        self.register_listeners();
+    }
+
+    fn unregister_listeners(&self) {
+        // TODO
+    }
+
     fn invalidate_all_controls(&self) {
-        match &self.mapping {
+        match self.mapping.borrow().as_ref() {
             None => self.view.require_window().hide(),
             Some(mapping) => {
                 self.view.require_window().show();
@@ -80,7 +89,7 @@ impl MappingRowPanel {
         // TODO
     }
 
-    fn register_listeners(self: SharedView<Self>) {
+    fn register_listeners(self: &SharedView<Self>) {
         let session = self.session.borrow();
         // TODO Also do registrations done in afterMappingChange
         // self.when(session.let_matched_events_through.changed(), |view| {

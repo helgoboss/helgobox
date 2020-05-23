@@ -1,6 +1,6 @@
 use super::MidiSourceModel;
 use crate::domain::{MappingModel, SharedMappingModel};
-use reaper_high::{MidiInputDevice, MidiOutputDevice};
+use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
     create_local_prop as p, LocalProp, LocalStaticProp, SharedEvent, SharedProp, UnitEvent,
@@ -42,11 +42,12 @@ pub struct Session {
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
     mapping_models: Vec<SharedMappingModel>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
+    fx: Fx,
 }
 
-impl Default for Session {
-    fn default() -> Self {
-        Self {
+impl Session {
+    pub fn new(fx: Fx) -> Session {
+        Session {
             let_matched_events_through: p(false),
             let_unmatched_events_through: p(true),
             always_auto_detect: p(true),
@@ -60,19 +61,22 @@ impl Default for Session {
                 .map(|m| Rc::new(RefCell::new(m)))
                 .collect(),
             mappings_changed_subject: Default::default(),
+            fx,
         }
-    }
-}
-
-impl Session {
-    pub fn new() -> Session {
-        Session::default()
     }
 
     pub fn add_default_mapping(&mut self) {
         let mut mapping = MappingModel::default();
         mapping.name.set(self.generate_name_for_new_mapping());
         self.add_mapping(mapping);
+    }
+
+    pub fn mapping_count(&self) -> usize {
+        self.mapping_models.len()
+    }
+
+    pub fn mapping_by_index(&self, index: usize) -> Option<SharedMappingModel> {
+        self.mapping_models.get(index).map(|m| m.clone())
     }
 
     pub fn is_in_input_fx_chain(&self) -> bool {
@@ -168,7 +172,7 @@ mod example_data {
                     fx_index: p(Some(5)),
                     is_input_fx: p(true),
                     enable_only_if_fx_has_focus: p(true),
-                    parameter_index: p(20),
+                    param_index: p(20),
                     send_index: p(Some(2)),
                     select_exclusively: p(true),
                 },

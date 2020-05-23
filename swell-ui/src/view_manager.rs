@@ -141,8 +141,6 @@ unsafe extern "C" fn view_window_proc(
             raw::WM_INITDIALOG => {
                 view.view_context().window.replace(Some(window));
                 let keyboard_focus_desired = view.opened(window);
-                // TODO-low Is this really necessary?
-                window.show();
                 keyboard_focus_desired.into()
             }
             raw::WM_DESTROY => {

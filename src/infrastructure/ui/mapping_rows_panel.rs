@@ -17,6 +17,7 @@ pub struct MappingRowsPanel {
     view: ViewContext,
     session: SharedSession,
     rows: Vec<SharedView<MappingRowPanel>>,
+    scroll_position: Cell<usize>,
 }
 
 impl MappingRowsPanel {
@@ -27,6 +28,38 @@ impl MappingRowsPanel {
                 .map(|i| MappingRowPanel::new(session.clone(), i).into())
                 .collect(),
             session,
+            scroll_position: 0.into(),
+        }
+    }
+
+    fn open_mapping_rows(&self, window: Window) {
+        for row in self.rows.iter() {
+            row.clone().open(window);
+        }
+    }
+
+    /// Let mapping rows reflect the correct mappings.
+    fn invalidate_mapping_rows(&self) {
+        let mut row_index = 0;
+        let mapping_count = self.session.borrow().mapping_count();
+        for i in (self.scroll_position.get()..mapping_count) {
+            if row_index >= self.rows.len() {
+                break;
+            }
+            let mapping = self
+                .session
+                .borrow()
+                .mapping_by_index(i)
+                .expect("impossible");
+            self.rows
+                .get(row_index)
+                .expect("impossible")
+                .set_mapping(Some(mapping));
+            row_index += 1;
+        }
+        // If there are unused rows, clear them
+        for i in (row_index..self.rows.len()) {
+            self.rows.get(i).expect("impossible").set_mapping(None);
         }
     }
 }
@@ -42,9 +75,8 @@ impl View for MappingRowsPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.move_to(Point::new(DialogUnits(0), DialogUnits(78)));
-        for row in self.rows.iter() {
-            row.clone().open(window);
-        }
+        self.open_mapping_rows(window);
+        self.invalidate_mapping_rows();
         true
     }
 }

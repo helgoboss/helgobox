@@ -5,11 +5,14 @@ use vst::plugin::{CanDo, HostCallback, Info, Plugin};
 use super::RealearnEditor;
 use crate::domain::Session;
 use crate::infrastructure::common::SharedSession;
-use reaper_high::{Reaper, ReaperGuard};
-use reaper_low::{reaper_vst_plugin, ReaperPluginContext, Swell};
+use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
+use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
+use reaper_medium::TypeSpecificPluginContext;
 use std::cell::RefCell;
+use std::ptr::NonNull;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 use vst::api::Supported;
 
 reaper_vst_plugin!();
@@ -17,7 +20,7 @@ reaper_vst_plugin!();
 #[derive(Default)]
 pub struct RealearnPlugin {
     host: HostCallback,
-    session: SharedSession,
+    session: Option<SharedSession>,
     reaper_guard: Option<Arc<ReaperGuard>>,
 }
 
@@ -38,23 +41,26 @@ impl Plugin for RealearnPlugin {
     }
 
     fn init(&mut self) {
+        // Make sure reaper-rs is set up
         let guard = Reaper::guarded(|| {
-            let context = ReaperPluginContext::from_vst_plugin(
-                &self.host,
-                reaper_vst_plugin::static_context(),
-            )
-            .unwrap();
+            // Done once for all ReaLearn instances
+            let context =
+                PluginContext::from_vst_plugin(&self.host, reaper_vst_plugin::static_context())
+                    .unwrap();
             Swell::make_available_globally(Swell::load(context));
             Reaper::setup_with_defaults(context, "info@helgoboss.org");
             let reaper = Reaper::get();
             reaper.activate();
-            reaper.show_console_msg(c_str!("Loaded realearn-rs VST plugin\n"));
         });
         self.reaper_guard = Some(guard);
+        // Init ReaLearn
+        let fx = self.get_containing_fx();
+        self.session = Some(Rc::new(debug_cell::RefCell::new(Session::new(fx).into())));
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        Some(Box::new(RealearnEditor::new(self.session.clone())))
+        let session = self.session.clone().expect("session not initialized yet");
+        Some(Box::new(RealearnEditor::new(session)))
     }
 
     fn can_do(&self, can_do: CanDo) -> Supported {
@@ -65,6 +71,32 @@ impl Plugin for RealearnPlugin {
             // horrible crash when doing CreateDialogParam.
             Other(s) if s == "hasCockosViewAsConfig" => Custom(0xbeef_0000),
             _ => Maybe,
+        }
+    }
+}
+
+impl RealearnPlugin {
+    fn get_containing_fx(&mut self) -> Fx {
+        let reaper = Reaper::get();
+        let aeffect = NonNull::new(self.host.raw_effect()).expect("must not be null");
+        let plugin_context = reaper.medium_reaper().plugin_context();
+        let vst_context = match plugin_context.type_specific() {
+            TypeSpecificPluginContext::Vst(ctx) => ctx,
+            _ => unreachable!(),
+        };
+        if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
+            let project = unsafe { vst_context.request_containing_project(aeffect) };
+            let track = Track::new(track, Some(project));
+            // TODO Fix this! This is just wrong and super temporary. Right now we are interested in
+            // track only.
+            track.normal_fx_chain().fx_by_index_untracked(0)
+        } else if let Some(take) = unsafe { vst_context.request_containing_take(aeffect) } {
+            let take = Take::new(take);
+            // TODO Fix this!
+            take.fx_chain().fx_by_index_untracked(0)
+        } else {
+            // TODO Fix this!
+            reaper.monitoring_fx_chain().fx_by_index_untracked(0)
         }
     }
 }
