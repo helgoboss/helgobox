@@ -1,6 +1,8 @@
 use reaper_high::{Action, Fx, FxParameter, Reaper, Track, TrackSend};
-use reaper_medium::{CommandId, TrackLocation};
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp};
+use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
+use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
+use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
+use rxrust::prelude::*;
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -47,6 +49,28 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
+    /// Fires whenever one of the properties of this model has changed
+    pub fn changed(&self) -> impl UnitEvent {
+        self.r#type
+            .changed()
+            .merge(self.command_id.changed())
+            .merge(self.action_invocation_type.changed())
+            .merge(self.track.changed())
+            .merge(self.enable_only_if_track_selected.changed())
+            .merge(self.fx_index.changed())
+            .merge(self.is_input_fx.changed())
+            .merge(self.enable_only_if_fx_has_focus.changed())
+            .merge(self.param_index.changed())
+            .merge(self.send_index.changed())
+            .merge(self.select_exclusively.changed())
+    }
+
+    pub fn with_context<'a>(&'a self, containing_fx: &'a Fx) -> TargetModelWithContext<'a> {
+        TargetModelWithContext {
+            target: self,
+            containing_fx,
+        }
+    }
     fn command_id_label(&self) -> Cow<str> {
         match self.command_id.get() {
             None => "-".into(),
@@ -60,9 +84,9 @@ impl TargetModel {
             .map(|id| Reaper::get().main_section().action_by_command_id(id))
     }
 
-    fn fx(&self) -> Option<Fx> {
+    fn fx(&self, containing_fx: &Fx) -> Option<Fx> {
         let fx_index = self.fx_index.get()?;
-        let track = self.effective_track()?;
+        let track = self.effective_track(containing_fx)?;
         let fx_chain = if self.is_input_fx.get() {
             track.normal_fx_chain()
         } else {
@@ -75,13 +99,22 @@ impl TargetModel {
         }
     }
 
-    fn effective_track(&self) -> Option<Track> {
-        todo!()
+    // TODO-low Consider returning a Cow
+    fn effective_track(&self, containing_fx: &Fx) -> Option<Track> {
+        use VirtualTrack::*;
+        match self.track.get_ref() {
+            Particular(track) => Some(track.clone()),
+            This => Some(containing_fx.track().clone()),
+            Selected => containing_fx
+                .project()
+                .unwrap_or(Reaper::get().current_project())
+                .first_selected_track(IncludeMasterTrack),
+        }
     }
 
-    fn track_send(&self) -> Option<TrackSend> {
+    fn track_send(&self, containing_fx: &Fx) -> Option<TrackSend> {
         let send_index = self.send_index.get()?;
-        let track = self.effective_track()?;
+        let track = self.effective_track(containing_fx)?;
         let send = track.index_based_send_by_index(send_index);
         if !send.is_available() {
             return None;
@@ -89,8 +122,8 @@ impl TargetModel {
         Some(send)
     }
 
-    fn fx_param(&self) -> Option<FxParameter> {
-        let fx = self.fx()?;
+    fn fx_param(&self, containing_fx: &Fx) -> Option<FxParameter> {
+        let fx = self.fx(containing_fx)?;
         if !fx.is_available() {
             return None;
         }
@@ -113,19 +146,19 @@ impl TargetModel {
         }
     }
 
-    fn track_send_label(&self) -> Cow<str> {
-        match self.track_send() {
+    fn track_send_label(&self, containing_fx: &Fx) -> Cow<str> {
+        match self.track_send(containing_fx) {
             None => "-".into(),
             Some(s) => s.name().into_string().into(),
         }
     }
 
-    fn fx_label(&self) -> Cow<str> {
-        get_fx_label(&self.fx(), self.fx_index.get())
+    fn fx_label(&self, containing_fx: &Fx) -> Cow<str> {
+        get_fx_label(&self.fx(containing_fx), self.fx_index.get())
     }
 
-    fn fx_param_label(&self) -> Cow<str> {
-        get_fx_param_label(&self.fx_param(), self.param_index.get())
+    fn fx_param_label(&self, containing_fx: &Fx) -> Cow<str> {
+        get_fx_param_label(&self.fx_param(containing_fx), self.param_index.get())
     }
 }
 
@@ -174,55 +207,60 @@ pub fn get_track_label(track: &Track) -> String {
     }
 }
 
-impl Display for TargetModel {
+pub struct TargetModelWithContext<'a> {
+    target: &'a TargetModel,
+    containing_fx: &'a Fx,
+}
+
+impl<'a> Display for TargetModelWithContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use TargetType::*;
 
-        match self.r#type.get() {
+        match self.target.r#type.get() {
             Action => write!(
                 f,
                 "Action {}\n{}",
-                self.command_id_label(),
-                self.action_name_label()
+                self.target.command_id_label(),
+                self.target.action_name_label()
             ),
             FxParameter => write!(
                 f,
                 "Track FX parameter\nTrack {}\nFX {}\nParam {}",
-                self.track_label(),
-                self.fx_label(),
-                self.fx_param_label()
+                self.target.track_label(),
+                self.target.fx_label(self.containing_fx),
+                self.target.fx_param_label(self.containing_fx)
             ),
-            TrackVolume => write!(f, "Track volume\nTrack {}", self.track_label()),
+            TrackVolume => write!(f, "Track volume\nTrack {}", self.target.track_label()),
             TrackSendVolume => write!(
                 f,
                 "Track send volume\nTrack {}\nSend {}",
-                self.track_label(),
-                self.track_send_label()
+                self.target.track_label(),
+                self.target.track_send_label(self.containing_fx)
             ),
-            TrackPan => write!(f, "Track pan\nTrack {}", self.track_label()),
-            TrackArm => write!(f, "Track arm\nTrack {}", self.track_label()),
-            TrackSelection => write!(f, "Track selection\nTrack {}", self.track_label()),
-            TrackMute => write!(f, "Track mute\nTrack {}", self.track_label()),
-            TrackSolo => write!(f, "Track solo\nTrack {}", self.track_label()),
+            TrackPan => write!(f, "Track pan\nTrack {}", self.target.track_label()),
+            TrackArm => write!(f, "Track arm\nTrack {}", self.target.track_label()),
+            TrackSelection => write!(f, "Track selection\nTrack {}", self.target.track_label()),
+            TrackMute => write!(f, "Track mute\nTrack {}", self.target.track_label()),
+            TrackSolo => write!(f, "Track solo\nTrack {}", self.target.track_label()),
             TrackSendPan => write!(
                 f,
                 "Track send pan\nTrack {}\nSend {}",
-                self.track_label(),
-                self.track_send_label()
+                self.target.track_label(),
+                self.target.track_send_label(self.containing_fx)
             ),
             Tempo => write!(f, "Master tempo"),
             Playrate => write!(f, "Master playrate"),
             FxEnable => write!(
                 f,
                 "Track FX enable\nTrack {}\nFX {}",
-                self.track_label(),
-                self.fx_label(),
+                self.target.track_label(),
+                self.target.fx_label(self.containing_fx),
             ),
             FxPreset => write!(
                 f,
                 "Track FX preset\nTrack {}\nFX {}",
-                self.track_label(),
-                self.fx_label(),
+                self.target.track_label(),
+                self.target.fx_label(self.containing_fx),
             ),
         }
     }

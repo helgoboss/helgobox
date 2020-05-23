@@ -1,7 +1,7 @@
 use derive_more::Display;
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp};
+use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
 use rxrust::prelude::*;
 use serde::export::Formatter;
 use serde_repr::*;
@@ -38,7 +38,7 @@ impl Default for MidiSourceModel {
 
 impl MidiSourceModel {
     /// Fires whenever one of the properties of this model has changed
-    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> {
+    pub fn changed(&self) -> impl UnitEvent {
         self.r#type
             .changed()
             .merge(self.channel.changed())

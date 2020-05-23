@@ -66,6 +66,10 @@ impl Session {
         }
     }
 
+    pub fn containing_fx(&self) -> &Fx {
+        &self.containing_fx
+    }
+
     pub fn add_default_mapping(&mut self) {
         let mut mapping = MappingModel::default();
         mapping.name.set(self.generate_name_for_new_mapping());
@@ -81,8 +85,7 @@ impl Session {
     }
 
     pub fn is_in_input_fx_chain(&self) -> bool {
-        // TODO
-        false
+        self.containing_fx.is_input_fx()
     }
 
     pub fn mappings_changed(&self) -> impl UnitEvent {
