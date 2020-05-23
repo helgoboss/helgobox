@@ -1,5 +1,6 @@
 use super::MidiSourceModel;
 use crate::domain::{MappingModel, SharedMappingModel};
+use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
@@ -42,12 +43,12 @@ pub struct Session {
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
     mapping_models: Vec<SharedMappingModel>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
-    fx: Fx,
+    fx: LazyCell<Fx>,
 }
 
-impl Session {
-    pub fn new(fx: Fx) -> Session {
-        Session {
+impl Default for Session {
+    fn default() -> Self {
+        Self {
             let_matched_events_through: p(false),
             let_unmatched_events_through: p(true),
             always_auto_detect: p(true),
@@ -61,8 +62,19 @@ impl Session {
                 .map(|m| Rc::new(RefCell::new(m)))
                 .collect(),
             mappings_changed_subject: Default::default(),
-            fx,
+            fx: LazyCell::new(),
         }
+    }
+}
+
+impl Session {
+    pub fn new() -> Session {
+        Default::default()
+    }
+
+    /// The containing FX is not available immediately
+    pub fn set_containing_fx(&mut self, fx: Fx) {
+        self.fx.fill(fx);
     }
 
     pub fn add_default_mapping(&mut self) {

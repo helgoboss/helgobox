@@ -20,7 +20,7 @@ reaper_vst_plugin!();
 #[derive(Default)]
 pub struct RealearnPlugin {
     host: HostCallback,
-    session: Option<SharedSession>,
+    session: SharedSession,
     reaper_guard: Option<Arc<ReaperGuard>>,
 }
 
@@ -41,25 +41,13 @@ impl Plugin for RealearnPlugin {
     }
 
     fn init(&mut self) {
-        // Make sure reaper-rs is set up
-        let guard = Reaper::guarded(|| {
-            // Done once for all ReaLearn instances
-            let context =
-                PluginContext::from_vst_plugin(&self.host, reaper_vst_plugin::static_context())
-                    .unwrap();
-            Swell::make_available_globally(Swell::load(context));
-            Reaper::setup_with_defaults(context, "info@helgoboss.org");
-            let reaper = Reaper::get();
-            reaper.activate();
-        });
-        self.reaper_guard = Some(guard);
-        // Init ReaLearn
+        self.reaper_guard = Some(self.setup_reaper());
         let fx = self.get_containing_fx();
-        self.session = Some(Rc::new(debug_cell::RefCell::new(Session::new(fx).into())));
+        self.session.borrow_mut().set_containing_fx(fx);
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        let session = self.session.clone().expect("session not initialized yet");
+        let session = self.session.clone();
         Some(Box::new(RealearnEditor::new(session)))
     }
 
@@ -76,7 +64,22 @@ impl Plugin for RealearnPlugin {
 }
 
 impl RealearnPlugin {
-    fn get_containing_fx(&mut self) -> Fx {
+    fn setup_reaper(&mut self) -> Arc<ReaperGuard> {
+        Reaper::guarded(|| {
+            // Done once for all ReaLearn instances
+            let context =
+                PluginContext::from_vst_plugin(&self.host, reaper_vst_plugin::static_context())
+                    .unwrap();
+            Swell::make_available_globally(Swell::load(context));
+            Reaper::setup_with_defaults(context, "info@helgoboss.org");
+            let reaper = Reaper::get();
+            reaper.activate();
+        })
+    }
+
+    /// Calling this in the `new()` method is too early. The containing FX can't generally be found
+    /// when we just open a REAPER project. We must wait for `init()` to be called.
+    fn get_containing_fx(&self) -> Fx {
         let reaper = Reaper::get();
         let aeffect = NonNull::new(self.host.raw_effect()).expect("must not be null");
         let plugin_context = reaper.medium_reaper().plugin_context();

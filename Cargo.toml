@@ -32,6 +32,7 @@ validator = "0.10.0"
 validator_derive = "0.10"
 debug-cell = "0.1.1"
 derive_more = "0.99.5"
+lazycell = "1.2"
 
 [build-dependencies]
 bindgen = "0.52.0"
