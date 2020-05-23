@@ -43,11 +43,11 @@ pub struct Session {
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
     mapping_models: Vec<SharedMappingModel>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
-    fx: LazyCell<Fx>,
+    containing_fx: Fx,
 }
 
-impl Default for Session {
-    fn default() -> Self {
+impl Session {
+    pub fn new(containing_fx: Fx) -> Session {
         Self {
             let_matched_events_through: p(false),
             let_unmatched_events_through: p(true),
@@ -62,19 +62,8 @@ impl Default for Session {
                 .map(|m| Rc::new(RefCell::new(m)))
                 .collect(),
             mappings_changed_subject: Default::default(),
-            fx: LazyCell::new(),
+            containing_fx,
         }
-    }
-}
-
-impl Session {
-    pub fn new() -> Session {
-        Default::default()
-    }
-
-    /// The containing FX is not available immediately
-    pub fn set_containing_fx(&mut self, fx: Fx) {
-        self.fx.fill(fx);
     }
 
     pub fn add_default_mapping(&mut self) {

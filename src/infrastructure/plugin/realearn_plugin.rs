@@ -5,6 +5,7 @@ use vst::plugin::{CanDo, HostCallback, Info, Plugin};
 use super::RealearnEditor;
 use crate::domain::Session;
 use crate::infrastructure::common::SharedSession;
+use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
 use reaper_medium::TypeSpecificPluginContext;
@@ -17,11 +18,21 @@ use vst::api::Supported;
 
 reaper_vst_plugin!();
 
-#[derive(Default)]
 pub struct RealearnPlugin {
     host: HostCallback,
-    session: SharedSession,
+    // See get_editor() why this is a `Rc<LazyCell<T>>`.
+    session: Rc<LazyCell<SharedSession>>,
     reaper_guard: Option<Arc<ReaperGuard>>,
+}
+
+impl Default for RealearnPlugin {
+    fn default() -> Self {
+        Self {
+            host: Default::default(),
+            session: Rc::new(LazyCell::new()),
+            reaper_guard: None,
+        }
+    }
 }
 
 impl Plugin for RealearnPlugin {
@@ -42,10 +53,16 @@ impl Plugin for RealearnPlugin {
 
     fn init(&mut self) {
         self.reaper_guard = Some(self.setup_reaper());
-        let fx = self.get_containing_fx();
-        self.session.borrow_mut().set_containing_fx(fx);
+        let session = Session::new(self.get_containing_fx());
+        let shared_session = Rc::new(debug_cell::RefCell::new(session));
+        self.session.fill(shared_session);
     }
 
+    // Unfortunately, this is called before `init()`. That means we don't know yet the containing
+    // FX. As a consequence we also don't have a session, because creating an incomplete session
+    // pushes the problem of not knowing *yet* the uninitialized FX into the application logic,
+    // which we for sure don't want. The problem is: The editor of course needs the session in order
+    // to get all the necessary data to be displayed. That's why we pass it a shared lazy session.
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
         let session = self.session.clone();
         Some(Box::new(RealearnEditor::new(session)))
