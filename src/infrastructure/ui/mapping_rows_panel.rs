@@ -14,7 +14,6 @@ use crate::infrastructure::ui::scheduling::when_async;
 use crate::infrastructure::ui::{
     MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
 };
-use by_address::ByAddress;
 use rx_util::UnitEvent;
 use std::collections::HashMap;
 use std::ops::DerefMut;

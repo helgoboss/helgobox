@@ -1,6 +1,5 @@
 use super::MidiSourceModel;
 use crate::domain::{MappingModel, SharedMappingModel};
-use by_address::ByAddress;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
@@ -85,11 +84,42 @@ impl Session {
         self.mapping_models.get(index).map(|m| m.clone())
     }
 
-    pub fn has_mapping(&self, address: ByAddress<SharedMappingModel>) -> bool {
-        // TODO Is cloning of each Rc really necessary? We just want to compare addresses.
+    pub fn mapping_is_learning_source(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn mapping_is_learning_target(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn toggle_learn_source(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn toggle_learn_target(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn move_mapping_up(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn move_mapping_down(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn remove_mapping(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn duplicate_mapping(&self, mapping: *const MappingModel) -> bool {
+        todo!()
+    }
+
+    pub fn has_mapping(&self, address: *const MappingModel) -> bool {
         self.mapping_models
             .iter()
-            .any(|m| ByAddress(m.clone()) == address)
+            .any(|m| m.as_ptr() as *const _ == address)
     }
 
     pub fn is_in_input_fx_chain(&self) -> bool {

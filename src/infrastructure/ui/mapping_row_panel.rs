@@ -1,5 +1,8 @@
 use crate::domain::{MappingModel, SharedMappingModel};
 use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::common::bindings::root::{
+    ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
+};
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;
 use crate::infrastructure::ui::MappingPanelManager;
@@ -94,11 +97,25 @@ impl MappingRowPanel {
     }
 
     fn invalidate_learn_source_button(&self, mapping: &MappingModel) {
-        // TODO
+        let text = if self.session.borrow().mapping_is_learning_source(mapping) {
+            "Stop"
+        } else {
+            "Learn source"
+        };
+        self.view
+            .require_control(root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON)
+            .set_text(text);
     }
 
     fn invalidate_learn_target_button(&self, mapping: &MappingModel) {
-        // TODO
+        let text = if self.session.borrow().mapping_is_learning_target(mapping) {
+            "Stop"
+        } else {
+            "Learn target"
+        };
+        self.view
+            .require_control(root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON)
+            .set_text(text);
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
@@ -146,14 +163,66 @@ impl MappingRowPanel {
             .merge(self.mapping_will_change_subject.borrow().clone())
     }
 
-    fn require_mapping(&self) -> SharedMappingModel {
-        self.mapping.borrow().clone().expect("no mapping")
+    fn require_mapping(&self) -> Ref<SharedMappingModel> {
+        Ref::map(self.mapping.borrow(), |m| m.as_ref().unwrap())
+    }
+
+    fn require_mapping_address(&self) -> *const MappingModel {
+        self.mapping.borrow().as_ref().unwrap().as_ptr()
     }
 
     fn edit_mapping(&self) {
         self.mapping_panel_manager
             .borrow_mut()
-            .edit_mapping(self.require_mapping());
+            .edit_mapping(self.require_mapping().deref());
+    }
+
+    fn move_mapping_up(&self) {
+        self.session
+            .borrow_mut()
+            .move_mapping_up(self.require_mapping_address());
+    }
+
+    fn move_mapping_down(&self) {
+        self.session
+            .borrow_mut()
+            .move_mapping_down(self.require_mapping_address());
+    }
+
+    fn remove_mapping(&self) {
+        self.session
+            .borrow_mut()
+            .remove_mapping(self.require_mapping_address());
+    }
+
+    fn duplicate_mapping(&self) {
+        self.session
+            .borrow_mut()
+            .duplicate_mapping(self.require_mapping_address());
+    }
+
+    fn toggle_learn_source(&self) {
+        self.session
+            .borrow_mut()
+            .toggle_learn_source(self.require_mapping_address());
+    }
+
+    fn toggle_learn_target(&self) {
+        self.session
+            .borrow_mut()
+            .toggle_learn_target(self.require_mapping_address());
+    }
+
+    fn update_control_is_enabled(&self) {
+        self.view
+            .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+            .set_checked(self.require_mapping().borrow().control_is_enabled.get());
+    }
+
+    fn update_feedback_is_enabled(&self) {
+        self.view
+            .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+            .set_checked(self.require_mapping().borrow().feedback_is_enabled.get());
     }
 
     fn when(
@@ -180,15 +249,19 @@ impl View for MappingRowPanel {
         false
     }
 
-    fn closed(self: SharedView<Self>) {
-        println!("Closed row");
-    }
-
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
-            _ => {}
+            root::ID_UP_BUTTON => self.move_mapping_up(),
+            root::ID_DOWN_BUTTON => self.move_mapping_down(),
+            root::ID_MAPPING_ROW_REMOVE_BUTTON => self.remove_mapping(),
+            root::ID_MAPPING_ROW_DUPLICATE_BUTTON => self.duplicate_mapping(),
+            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => self.toggle_learn_source(),
+            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON => self.toggle_learn_target(),
+            root::ID_MAPPING_ROW_CONTROL_CHECK_BOX => self.update_control_is_enabled(),
+            root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
+            _ => unreachable!(),
         }
     }
 }
