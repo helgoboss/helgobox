@@ -140,6 +140,7 @@ unsafe extern "C" fn view_window_proc(
         match msg {
             raw::WM_INITDIALOG => {
                 view.view_context().window.replace(Some(window));
+                window.show();
                 let keyboard_focus_desired = view.opened(window);
                 keyboard_focus_desired.into()
             }

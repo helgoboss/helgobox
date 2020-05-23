@@ -45,7 +45,7 @@ impl Point<DialogUnits> {
     /// A value used for calculating window size and spacing from dialog units.
     ///
     /// Might have to be chosen a bit differently on each OS.
-    const UI_SCALE_FACTOR: f64 = 1.7;
+    const UI_SCALE_FACTOR: f64 = 3.5;
 
     /// Converts this dialog unit point to pixels.
     ///
