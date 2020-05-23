@@ -3,6 +3,7 @@ use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
 use c_str_macro::c_str;
+use lazycell::LazyCell;
 use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use std::cell::{Cell, RefCell};
@@ -11,22 +12,45 @@ use std::rc::Rc;
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
+// TODO Maybe call this SessionPanel
 pub struct MainPanel {
     view: ViewContext,
-    session: SharedSession,
-    header_panel: SharedView<HeaderPanel>,
-    mapping_rows_panel: SharedView<MappingRowsPanel>,
+    active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
 }
 
-impl MainPanel {
-    pub fn new(session: SharedSession) -> MainPanel {
-        MainPanel {
+struct ActiveData {
+    session: SharedSession,
+    header_panel: SharedView<HeaderPanel>,
+    mapping_rows_panel: SharedView<MappingRowsPanel>,
+}
+
+impl Default for MainPanel {
+    fn default() -> Self {
+        Self {
             view: Default::default(),
+            active_data: LazyCell::new(),
+            dimensions: None.into(),
+        }
+    }
+}
+
+impl MainPanel {
+    pub fn new() -> MainPanel {
+        Default::default()
+    }
+
+    pub fn notify_session_is_available(&self, session: SharedSession) {
+        // Finally, the session is available. First, save its reference and create sub panels.
+        let active_data = ActiveData {
             session: session.clone(),
             header_panel: HeaderPanel::new(session.clone()).into(),
             mapping_rows_panel: MappingRowsPanel::new(session.clone()).into(),
-            dimensions: None.into(),
+        };
+        self.active_data.fill(active_data);
+        // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
+        if let Some(window) = self.view.window() {
+            self.open_sub_panels(window);
         }
     }
 
@@ -45,6 +69,13 @@ impl MainPanel {
             self.dimensions.replace(None);
         }
         self.open(parent_window)
+    }
+
+    fn open_sub_panels(&self, window: Window) {
+        if let Some(data) = self.active_data.borrow() {
+            data.header_panel.clone().open(window);
+            data.mapping_rows_panel.clone().open(window);
+        }
     }
 }
 
@@ -73,8 +104,7 @@ impl View for MainPanel {
             return false;
         }
         // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
-        self.header_panel.clone().open(window);
-        self.mapping_rows_panel.clone().open(window);
+        self.open_sub_panels(window);
         true
     }
 }

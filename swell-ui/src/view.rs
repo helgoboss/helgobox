@@ -100,7 +100,7 @@ pub trait View {
 
     /// Closes this view.
     fn close(&self) {
-        self.view_context().require_window().close();
+        self.view_context().window.get().map(Window::close);
     }
 
     /// Returns whether this view is currently open.
@@ -119,13 +119,18 @@ pub struct ViewContext {
 }
 
 impl ViewContext {
+    /// Returns the current window associated with this view if this view is open.
+    pub fn window(&self) -> Option<Window> {
+        self.window.get()
+    }
+
     /// Returns the current window associated with this view.
     ///
     /// # Panics
     ///
     /// Panics if the window doesn't exist (the view is not open).
     pub fn require_window(&self) -> Window {
-        self.window.get().expect("window not found but required")
+        self.window().expect("window not found but required")
     }
 
     /// Returns the control with the given resource ID.

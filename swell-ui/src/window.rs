@@ -20,21 +20,21 @@ impl Window {
         Some(Window { raw: hwnd })
     }
 
-    pub fn raw(&self) -> raw::HWND {
+    pub fn raw(self) -> raw::HWND {
         self.raw
     }
 
-    pub fn find_control(&self, control_id: u32) -> Option<Window> {
+    pub fn find_control(self, control_id: u32) -> Option<Window> {
         let hwnd = unsafe { Swell::get().GetDlgItem(self.raw, control_id as i32) };
         Window::new(hwnd)
     }
 
-    pub fn require_control(&self, control_id: u32) -> Window {
+    pub fn require_control(self, control_id: u32) -> Window {
         self.find_control(control_id)
             .expect("required control not found")
     }
 
-    pub fn set_checked(&self, is_checked: bool) {
+    pub fn set_checked(self, is_checked: bool) {
         Swell::get().SendMessage(
             self.raw,
             raw::BM_SETCHECK,
@@ -47,19 +47,19 @@ impl Window {
         );
     }
 
-    pub fn check(&self) {
+    pub fn check(self) {
         self.set_checked(true);
     }
 
-    pub fn uncheck(&self) {
+    pub fn uncheck(self) {
         self.set_checked(false);
     }
 
-    pub fn is_checked(&self) -> bool {
+    pub fn is_checked(self) -> bool {
         Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
     }
 
-    pub fn fill_combo_box<'a>(&self, items: impl Iterator<Item = (isize, String)>) {
+    pub fn fill_combo_box<'a>(self, items: impl Iterator<Item = (isize, String)>) {
         self.clear_combo_box();
         items.enumerate().for_each(|(i, (data, label))| {
             self.insert_combo_box_item_with_data(i, data, label);
@@ -76,16 +76,16 @@ impl Window {
         self.set_combo_box_item_data(index, data);
     }
 
-    pub fn selected_combo_box_item_index(&self) -> usize {
+    pub fn selected_combo_box_item_index(self) -> usize {
         Swell::get().SendMessage(self.raw, raw::CB_GETCURSEL, 0, 0) as usize
     }
 
-    pub fn selected_combo_box_item_data(&self) -> isize {
+    pub fn selected_combo_box_item_data(self) -> isize {
         let index = self.selected_combo_box_item_index();
         self.combo_box_item_data(index)
     }
 
-    pub fn insert_combo_box_item<'a>(&self, index: usize, label: impl Into<SwellStringArg<'a>>) {
+    pub fn insert_combo_box_item<'a>(self, index: usize, label: impl Into<SwellStringArg<'a>>) {
         Swell::get().SendMessage(
             self.raw,
             raw::CB_INSERTSTRING,
@@ -94,27 +94,27 @@ impl Window {
         );
     }
 
-    pub fn add_combo_box_item<'a>(&self, label: impl Into<SwellStringArg<'a>>) {
+    pub fn add_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {
         Swell::get().SendMessage(self.raw, raw::CB_ADDSTRING, 0, label.into().as_lparam());
     }
 
-    pub fn set_combo_box_item_data(&self, index: usize, data: isize) {
+    pub fn set_combo_box_item_data(self, index: usize, data: isize) {
         Swell::get().SendMessage(self.raw, raw::CB_SETITEMDATA, index, data);
     }
 
-    pub fn combo_box_item_data(&self, index: usize) -> isize {
+    pub fn combo_box_item_data(self, index: usize) -> isize {
         Swell::get().SendMessage(self.raw, raw::CB_GETITEMDATA, index, 0)
     }
 
-    pub fn clear_combo_box(&self) {
+    pub fn clear_combo_box(self) {
         Swell::get().SendMessage(self.raw, raw::CB_RESETCONTENT, 0, 0);
     }
 
-    pub fn select_combo_box_item(&self, index: usize) {
+    pub fn select_combo_box_item(self, index: usize) {
         Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
     }
 
-    pub fn select_combo_box_item_by_data(&self, item_data: isize) -> Result<(), ()> {
+    pub fn select_combo_box_item_by_data(self, item_data: isize) -> Result<(), ()> {
         let item_index = (0..self.combo_box_item_count())
             .find(|index| self.combo_box_item_data(*index) == item_data)
             .ok_or(())?;
@@ -122,56 +122,56 @@ impl Window {
         Ok(())
     }
 
-    pub fn select_new_combo_box_item<'a>(&self, label: impl Into<SwellStringArg<'a>>) {
+    pub fn select_new_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {
         self.add_combo_box_item(label);
         self.select_combo_box_item(self.combo_box_item_count() - 1);
     }
 
-    pub fn combo_box_item_count(&self) -> usize {
+    pub fn combo_box_item_count(self) -> usize {
         Swell::get().SendMessage(self.raw, raw::CB_GETCOUNT, 0, 0) as _
     }
 
-    pub fn close(&self) {
+    pub fn close(self) {
         Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
     }
 
-    pub fn set_text<'a>(&self, text: impl Into<SwellStringArg<'a>>) {
+    pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
     }
 
-    pub fn parent(&self) -> Option<Window> {
+    pub fn parent(self) -> Option<Window> {
         Window::new(Swell::get().GetParent(self.raw))
     }
 
-    pub fn set_visible(&self, is_shown: bool) {
+    pub fn set_visible(self, is_shown: bool) {
         Swell::get().ShowWindow(self.raw, if is_shown { raw::SW_SHOW } else { raw::SW_HIDE });
     }
 
-    pub fn show(&self) {
+    pub fn show(self) {
         self.set_visible(true);
     }
 
-    pub fn hide(&self) {
+    pub fn hide(self) {
         self.set_visible(false);
     }
 
-    pub fn set_enabled(&self, is_enabled: bool) {
+    pub fn set_enabled(self, is_enabled: bool) {
         Swell::get().EnableWindow(self.raw, is_enabled.into());
     }
 
-    pub fn enable(&self) {
+    pub fn enable(self) {
         self.set_enabled(true);
     }
 
-    pub fn disable(&self) {
+    pub fn disable(self) {
         self.set_enabled(false);
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(self) {
         Swell::get().DestroyWindow(self.raw);
     }
 
-    pub fn move_to(&self, point: Point<DialogUnits>) {
+    pub fn move_to(self, point: Point<DialogUnits>) {
         let point: Point<_> = self.convert_to_pixels(point);
         Swell::get().SetWindowPos(
             self.raw,

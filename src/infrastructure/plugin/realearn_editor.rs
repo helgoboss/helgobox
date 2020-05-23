@@ -6,44 +6,25 @@ use crate::infrastructure::common::SharedSession;
 use lazycell::LazyCell;
 use reaper_low::raw::HWND;
 use std::borrow::Borrow;
+use std::future::Future;
 use std::os::raw::c_void;
 use std::rc::Rc;
 use swell_ui::{Pixels, SharedView, View, Window};
 use vst::editor::Editor;
 
 pub struct RealearnEditor {
-    session: Rc<LazyCell<SharedSession>>,
-    main_panel: LazyCell<SharedView<MainPanel>>,
+    main_panel: SharedView<MainPanel>,
 }
 
 impl RealearnEditor {
-    pub fn new(session: Rc<LazyCell<SharedSession>>) -> RealearnEditor {
-        RealearnEditor {
-            session,
-            main_panel: LazyCell::new(),
-        }
-    }
-
-    fn require_session(&self) -> &SharedSession {
-        (*self.session)
-            .borrow()
-            .expect("session not yet initialized")
-    }
-
-    fn require_main_panel(&self) -> &SharedView<MainPanel> {
-        self.main_panel.borrow_with(|| {
-            let session = self.require_session().clone();
-            Rc::new(MainPanel::new(session))
-        })
+    pub fn new(main_panel: SharedView<MainPanel>) -> RealearnEditor {
+        RealearnEditor { main_panel }
     }
 }
 
 impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
-        if !self.session.filled() {
-            return (0, 0);
-        }
-        self.require_main_panel().dimensions().to_vst()
+        self.main_panel.dimensions().to_vst()
     }
 
     fn position(&self) -> (i32, i32) {
@@ -51,17 +32,17 @@ impl Editor for RealearnEditor {
     }
 
     fn close(&mut self) {
-        self.require_main_panel().close()
+        self.main_panel.close()
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        self.require_main_panel()
+        self.main_panel
             .clone()
             .open_with_resize(Window::new(parent as HWND).expect("no parent window"));
         true
     }
 
     fn is_open(&mut self) -> bool {
-        self.require_main_panel().is_open()
+        self.main_panel.is_open()
     }
 }
