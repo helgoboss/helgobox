@@ -30,7 +30,7 @@ impl RealearnEditor {
             .expect("session not yet initialized")
     }
 
-    fn main_panel(&self) -> &SharedView<MainPanel> {
+    fn require_main_panel(&self) -> &SharedView<MainPanel> {
         self.main_panel.borrow_with(|| {
             let session = self.require_session().clone();
             Rc::new(MainPanel::new(session))
@@ -40,7 +40,10 @@ impl RealearnEditor {
 
 impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
-        self.main_panel().dimensions().to_vst()
+        if !self.session.filled() {
+            return (0, 0);
+        }
+        self.require_main_panel().dimensions().to_vst()
     }
 
     fn position(&self) -> (i32, i32) {
@@ -48,17 +51,17 @@ impl Editor for RealearnEditor {
     }
 
     fn close(&mut self) {
-        self.main_panel().close()
+        self.require_main_panel().close()
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        self.main_panel()
+        self.require_main_panel()
             .clone()
             .open_with_resize(Window::new(parent as HWND).expect("no parent window"));
         true
     }
 
     fn is_open(&mut self) -> bool {
-        self.main_panel().is_open()
+        self.require_main_panel().is_open()
     }
 }
