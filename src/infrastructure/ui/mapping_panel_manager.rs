@@ -29,9 +29,9 @@ impl MappingPanelManager {
         let session = self.session.clone();
         let panel = self
             .open_panels
-            .entry(ByAddress(mapping))
+            .entry(ByAddress(mapping.clone()))
             .or_insert_with(move || {
-                let p = MappingPanel::new(session.clone());
+                let p = MappingPanel::new(session.clone(), mapping);
                 SharedView::new(p)
             });
         if panel.is_open() {
@@ -39,5 +39,18 @@ impl MappingPanelManager {
         }
         let reaper_main_window = Window::from_non_null(Reaper::get().main_window());
         panel.clone().open(reaper_main_window);
+    }
+
+    /// Closes and removes panels of mappings which don't exist anymore.
+    pub fn close_orphan_panels(&mut self) {
+        let session = self.session.clone();
+        self.open_panels.retain(move |address, panel| {
+            if session.borrow().has_mapping(address.clone()) {
+                true
+            } else {
+                panel.close();
+                false
+            }
+        });
     }
 }

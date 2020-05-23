@@ -1,4 +1,4 @@
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session, SharedMappingModel};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;
@@ -20,18 +20,24 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 pub struct MappingPanel {
     view: ViewContext,
     session: SharedSession,
+    mapping: SharedMappingModel,
 }
 
 impl MappingPanel {
-    pub fn new(session: SharedSession) -> MappingPanel {
+    pub fn new(session: SharedSession, mapping: SharedMappingModel) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session,
+            mapping,
         }
     }
 }
 
 impl MappingPanel {
+    pub fn mapping(&self) -> &SharedMappingModel {
+        &self.mapping
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,

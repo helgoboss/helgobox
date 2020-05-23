@@ -81,7 +81,10 @@ impl MappingRowsPanel {
     fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
         self.when(session.mappings_changed(), |view| {
-            view.invalidate_mapping_rows()
+            view.invalidate_mapping_rows();
+            view.mapping_panel_manager
+                .borrow_mut()
+                .close_orphan_panels();
         });
     }
 

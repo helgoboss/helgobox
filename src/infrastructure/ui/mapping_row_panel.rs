@@ -180,6 +180,10 @@ impl View for MappingRowPanel {
         false
     }
 
+    fn closed(self: SharedView<Self>) {
+        println!("Closed row");
+    }
+
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {

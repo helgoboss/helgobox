@@ -1,5 +1,6 @@
 use super::MidiSourceModel;
 use crate::domain::{MappingModel, SharedMappingModel};
+use by_address::ByAddress;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
@@ -82,6 +83,13 @@ impl Session {
 
     pub fn mapping_by_index(&self, index: usize) -> Option<SharedMappingModel> {
         self.mapping_models.get(index).map(|m| m.clone())
+    }
+
+    pub fn has_mapping(&self, address: ByAddress<SharedMappingModel>) -> bool {
+        // TODO Is cloning of each Rc really necessary? We just want to compare addresses.
+        self.mapping_models
+            .iter()
+            .any(|m| ByAddress(m.clone()) == address)
     }
 
     pub fn is_in_input_fx_chain(&self) -> bool {
