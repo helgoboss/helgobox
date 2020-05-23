@@ -1,7 +1,7 @@
 use crate::bindings::root;
 use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
-use std::ptr::null_mut;
+use std::ptr::{null_mut, NonNull};
 
 /// Represents a window.
 ///
@@ -14,10 +14,11 @@ pub struct Window {
 
 impl Window {
     pub fn new(hwnd: raw::HWND) -> Option<Window> {
-        if hwnd.is_null() {
-            return None;
-        }
-        Some(Window { raw: hwnd })
+        NonNull::new(hwnd).map(Window::from_non_null)
+    }
+
+    pub fn from_non_null(hwnd: NonNull<raw::HWND__>) -> Window {
+        Window { raw: hwnd.as_ptr() }
     }
 
     pub fn raw(self) -> raw::HWND {

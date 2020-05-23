@@ -2,6 +2,7 @@ use crate::domain::{MappingModel, SharedMappingModel};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;
+use crate::infrastructure::ui::MappingPanelManager;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use std::cell::{Ref, RefCell};
@@ -9,23 +10,37 @@ use std::ops::Deref;
 use std::rc::Rc;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
+pub type SharedMappingPanelManager = Rc<RefCell<MappingPanelManager>>;
+
 /// Panel containing the summary data of one mapping and buttons such as "Remove".
 pub struct MappingRowPanel {
     view: ViewContext,
     session: SharedSession,
     row_index: u32,
-    mapping_will_change_subject: RefCell<LocalSubject<'static, (), ()>>,
+    // We use virtual scrolling in order to be able to show a large amount of rows without any
+    // performance issues. That means there's a fixed number of mapping rows and they just
+    // display different mappings depending on the current scroll position. If there are less
+    // mappings than the fixed number, some rows remain unused. In this case their mapping is
+    // `None`, which will make the row hide itself.
     mapping: RefCell<Option<SharedMappingModel>>,
+    // Fires when a mapping is about to change.
+    mapping_will_change_subject: RefCell<LocalSubject<'static, (), ()>>,
+    mapping_panel_manager: SharedMappingPanelManager,
 }
 
 impl MappingRowPanel {
-    pub fn new(session: SharedSession, row_index: u32) -> MappingRowPanel {
+    pub fn new(
+        session: SharedSession,
+        row_index: u32,
+        mapping_panel_manager: SharedMappingPanelManager,
+    ) -> MappingRowPanel {
         MappingRowPanel {
             view: Default::default(),
             session,
             row_index,
             mapping_will_change_subject: Default::default(),
             mapping: None.into(),
+            mapping_panel_manager,
         }
     }
 
@@ -131,6 +146,16 @@ impl MappingRowPanel {
             .merge(self.mapping_will_change_subject.borrow().clone())
     }
 
+    fn require_mapping(&self) -> SharedMappingModel {
+        self.mapping.borrow().clone().expect("no mapping")
+    }
+
+    fn edit_mapping(&self) {
+        self.mapping_panel_manager
+            .borrow_mut()
+            .edit_mapping(self.require_mapping());
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -158,7 +183,8 @@ impl View for MappingRowPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            _ => unreachable!(),
+            root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
+            _ => {}
         }
     }
 }

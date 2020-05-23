@@ -7,27 +7,42 @@ use reaper_high::Reaper;
 use reaper_low::Swell;
 use rxrust::prelude::*;
 
-use crate::domain::Session;
+use crate::domain::{MappingModel, Session, SharedMappingModel};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
-use crate::infrastructure::ui::MappingRowPanel;
+use crate::infrastructure::ui::scheduling::when_async;
+use crate::infrastructure::ui::{
+    MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
+};
+use by_address::ByAddress;
+use rx_util::UnitEvent;
+use std::collections::HashMap;
+use std::ops::DerefMut;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 pub struct MappingRowsPanel {
     view: ViewContext,
     session: SharedSession,
     rows: Vec<SharedView<MappingRowPanel>>,
+    mapping_panel_manager: SharedMappingPanelManager,
     scroll_position: Cell<usize>,
 }
 
 impl MappingRowsPanel {
     pub fn new(session: SharedSession) -> MappingRowsPanel {
+        let mapping_panel_manager = MappingPanelManager::new(session.clone());
+        let mapping_panel_manager = Rc::new(RefCell::new(mapping_panel_manager));
         MappingRowsPanel {
             view: Default::default(),
             rows: (0..5)
-                .map(|i| MappingRowPanel::new(session.clone(), i).into())
+                .map(|i| {
+                    let panel =
+                        MappingRowPanel::new(session.clone(), i, mapping_panel_manager.clone());
+                    SharedView::new(panel)
+                })
                 .collect(),
             session,
+            mapping_panel_manager,
             scroll_position: 0.into(),
         }
     }
@@ -62,6 +77,21 @@ impl MappingRowsPanel {
             self.rows.get(i).expect("impossible").set_mapping(None);
         }
     }
+
+    fn register_listeners(self: SharedView<Self>) {
+        let session = self.session.borrow();
+        self.when(session.mappings_changed(), |view| {
+            view.invalidate_mapping_rows()
+        });
+    }
+
+    fn when(
+        self: &SharedView<Self>,
+        event: impl UnitEvent,
+        reaction: impl Fn(SharedView<Self>) + 'static,
+    ) {
+        when_async(event, reaction, &self, self.view.closed());
+    }
 }
 
 impl View for MappingRowsPanel {
@@ -77,6 +107,7 @@ impl View for MappingRowsPanel {
         window.move_to(Point::new(DialogUnits(0), DialogUnits(78)));
         self.open_mapping_rows(window);
         self.invalidate_mapping_rows();
+        self.register_listeners();
         true
     }
 }
