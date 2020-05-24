@@ -78,13 +78,23 @@ pub trait View {
     }
 
     /// WM_DESTROY
-    fn closed(self: SharedView<Self>) {}
+    fn closed(self: SharedView<Self>, window: Window) {}
 
     /// WM_COMMAND, HIWORD(wparam) == 0
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {}
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
     fn option_selected(self: SharedView<Self>, resource_id: u32) {}
+
+    // WM_VSCROLL, LOWORD(wparam)
+    fn scrolled_vertically(self: SharedView<Self>, code: u32) -> bool {
+        false
+    }
+
+    // WM_MOUSEWHEEL, HIWORD(wparam)
+    fn mouse_wheel_turned(self: SharedView<Self>, distance: i32) -> bool {
+        false
+    }
 
     // Public methods (intended to be used by consumers)
     // =================================================

@@ -148,34 +148,66 @@ unsafe extern "C" fn view_window_proc(
                 let view_context = view.view_context();
                 view_context.closed_subject.borrow_mut().next(());
                 view_context.window.replace(None);
-                view.closed();
+                view.closed(window);
                 ViewManager::get().borrow_mut().unregister_view(hwnd);
                 0
             }
             raw::WM_COMMAND => {
-                let resource_id = (wparam & 0xffff) as u32;
-                let hiword = ((wparam >> 16) & 0xffff) as u32;
-                match hiword {
+                let resource_id = loword(wparam);
+                match hiword(wparam) as u32 {
                     0 => {
-                        view.button_clicked(resource_id);
+                        view.button_clicked(resource_id as _);
                         // TODO For now we just say the click is handled. Don't know where this
                         // would not  be the case.
-                        1
+                        0
                     }
                     raw::CBN_SELCHANGE => {
-                        view.option_selected(resource_id);
-                        1
+                        view.option_selected(resource_id as _);
+                        0
                     }
-                    _ => 0,
+                    _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),
+                }
+            }
+            raw::WM_VSCROLL => {
+                let code = loword(wparam);
+                let processed = view.scrolled_vertically(code as _);
+                if processed {
+                    0
+                } else {
+                    swell.DefWindowProc(hwnd, msg, wparam, lparam)
+                }
+            }
+            raw::WM_MOUSEWHEEL => {
+                let distance = hiword_signed(wparam);
+                let processed = view.mouse_wheel_turned(distance as _);
+                if processed {
+                    0
+                } else {
+                    swell.DefWindowProc(hwnd, msg, wparam, lparam)
                 }
             }
             raw::WM_CLOSE => {
-                // We never let the user confirm
                 window.destroy();
+                // We never let the user confirm
                 0
             }
             _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),
         }
     })
+    // For messages that you do not explictly handle, you should call DefWindowProc, passing to it
+    // all the parameters to your window proc, and return its return value to the caller.
+    // (https://stackoverflow.com/questions/4650566/correct-return-value-of-windowproc-in-a-win32-application)
     .unwrap_or_else(|_| Swell::get().DefWindowProc(hwnd, msg, wparam, lparam))
+}
+
+fn loword(wparam: usize) -> u16 {
+    (wparam & 0xffff) as _
+}
+
+fn hiword(wparam: usize) -> u16 {
+    ((wparam >> 16) & 0xffff) as _
+}
+
+fn hiword_signed(wparam: usize) -> i16 {
+    hiword(wparam) as _
 }

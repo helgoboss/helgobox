@@ -1,12 +1,26 @@
 fn main() {
+    // Bindings
+    #[cfg(target_os = "linux")]
     #[cfg(feature = "generate")]
     generate_bindings();
 
+    // Scrollbar library
+    compile_coolscroll();
+
+    // Dialogs
     #[cfg(target_os = "windows")]
     embed_dialog_resources();
-
     #[cfg(not(target_os = "windows"))]
     compile_dialogs();
+}
+
+fn compile_coolscroll() {
+    cc::Build::new()
+        .cpp(true)
+        .warnings(false)
+        .file("lib/WDL/WDL/wingui/scrollbar/coolscroll.cpp")
+        .file("lib/WDL/WDL/lice/lice.cpp")
+        .compile("coolscroll");
 }
 
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
@@ -51,9 +65,11 @@ fn embed_dialog_resources() {
 }
 
 /// Generates Rust bindings for a couple of C stuff.
+#[cfg(feature = "generate")]
+#[cfg(target_os = "linux")]
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
-    println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
+    println!("cargo:rerun-if-changed=src/infrastructure/common/wrapper.hpp");
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
@@ -70,6 +86,9 @@ fn generate_bindings() {
         .raw_line("#![allow(dead_code)]")
         // ReaLearn UI
         .whitelist_var("ID_.*")
+        // Scrollbar
+        .whitelist_function(".*CoolSB.*")
+        .whitelist_function("GetIconThemePointer")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

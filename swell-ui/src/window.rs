@@ -1,4 +1,4 @@
-use crate::bindings::root;
+use crate::win_bindings::root;
 use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
 use std::ptr::{null_mut, NonNull};
