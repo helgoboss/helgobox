@@ -11,3 +11,18 @@ pub struct MappingModel {
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
 }
+
+// We design mapping models as entity (in the DDD sense), so we compare them by ID, not by value.
+// Because we store everything in memory instead of working with a database, the memory
+// address serves us as ID. That means we just compare pointers.
+//
+// In all functions which don't need access to the mapping's internal state (comparisons, hashing
+// etc.) we use `*const MappingModel` as parameter type because this saves the consumer from
+// having to borrow the mapping (when kept in a RefCell). Whenever we can we should compare pointers
+// directly, in order to prevent borrowing just to make the following comparison (the RefCell
+// comparison internally calls `borrow()`!).
+impl PartialEq for MappingModel {
+    fn eq(&self, other: &Self) -> bool {
+        self as *const _ == other as *const _
+    }
+}

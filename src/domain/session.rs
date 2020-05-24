@@ -41,6 +41,8 @@ pub struct Session {
     pub send_feedback_only_if_armed: LocalStaticProp<bool>,
     pub midi_control_input: LocalStaticProp<MidiControlInput>,
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
+    pub mapping_which_learns_source: LocalStaticProp<Option<SharedMappingModel>>,
+    pub mapping_which_learns_target: LocalStaticProp<Option<SharedMappingModel>>,
     mapping_models: Vec<SharedMappingModel>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
     containing_fx: Fx,
@@ -57,6 +59,8 @@ impl Session {
                 MidiInputDeviceId::new(47),
             ))),
             midi_feedback_output: p(None),
+            mapping_which_learns_source: p(None),
+            mapping_which_learns_target: p(None),
             mapping_models: example_data::create_example_mappings()
                 .into_iter()
                 .map(|m| Rc::new(RefCell::new(m)))
@@ -85,41 +89,82 @@ impl Session {
     }
 
     pub fn mapping_is_learning_source(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+        match self.mapping_which_learns_source.get_ref() {
+            None => false,
+            Some(m) => m.as_ptr() == mapping as _,
+        }
     }
 
     pub fn mapping_is_learning_target(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+        match self.mapping_which_learns_target.get_ref() {
+            None => false,
+            Some(m) => m.as_ptr() == mapping as _,
+        }
     }
 
-    pub fn toggle_learn_source(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+    pub fn toggle_learn_source(&mut self, mapping: &SharedMappingModel) {
+        toggle_learn(&mut self.mapping_which_learns_source, mapping);
     }
 
-    pub fn toggle_learn_target(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+    pub fn toggle_learn_target(&mut self, mapping: &SharedMappingModel) {
+        toggle_learn(&mut self.mapping_which_learns_target, mapping);
     }
 
-    pub fn move_mapping_up(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+    pub fn move_mapping_up(&mut self, mapping: *const MappingModel) {
+        self.swap_mappings(mapping, -1);
     }
 
-    pub fn move_mapping_down(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+    pub fn move_mapping_down(&mut self, mapping: *const MappingModel) {
+        self.swap_mappings(mapping, 1);
     }
 
-    pub fn remove_mapping(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+    fn swap_mappings(
+        &mut self,
+        mapping: *const MappingModel,
+        increment: isize,
+    ) -> Result<(), &str> {
+        let current_index = self
+            .mapping_models
+            .iter()
+            .position(|m| m.as_ptr() == mapping as _)
+            .ok_or("mapping not found")?;
+        let new_index = current_index as isize + increment;
+        if new_index < 0 {
+            return Err("too far up");
+        }
+        let new_index = new_index as usize;
+        if new_index >= self.mapping_models.len() {
+            return Err("too far down");
+        }
+        self.mapping_models.swap(current_index, new_index);
+        self.mappings_changed_subject.next(());
+        Ok(())
     }
 
-    pub fn duplicate_mapping(&self, mapping: *const MappingModel) -> bool {
-        todo!()
+    pub fn remove_mapping(&mut self, mapping: *const MappingModel) {
+        self.mapping_models.retain(|m| m.as_ptr() != mapping as _);
+        self.mappings_changed_subject.next(());
     }
 
-    pub fn has_mapping(&self, address: *const MappingModel) -> bool {
+    pub fn duplicate_mapping(&mut self, mapping: *const MappingModel) -> Result<(), &str> {
+        let (index, mapping) = self
+            .mapping_models
+            .iter()
+            .enumerate()
+            .find(|(i, m)| m.as_ptr() == mapping as _)
+            .ok_or("mapping not found")?;
+        let mut duplicate = mapping.borrow().clone();
+        duplicate.name.set(self.generate_name_for_new_mapping());
+        self.mapping_models
+            .insert(index + 1, Rc::new(RefCell::new(duplicate)));
+        self.mappings_changed_subject.next(());
+        Ok(())
+    }
+
+    pub fn has_mapping(&self, mapping: *const MappingModel) -> bool {
         self.mapping_models
             .iter()
-            .any(|m| m.as_ptr() as *const _ == address)
+            .any(|m| m.as_ptr() == mapping as _)
     }
 
     pub fn is_in_input_fx_chain(&self) -> bool {
@@ -221,4 +266,14 @@ mod example_data {
             },
         ]
     }
+}
+
+fn toggle_learn(
+    prop: &mut LocalStaticProp<Option<SharedMappingModel>>,
+    mapping: &SharedMappingModel,
+) {
+    match prop.get_ref() {
+        Some(m) if m.as_ptr() == mapping.as_ptr() => prop.set(None),
+        _ => prop.set(Some(mapping.clone())),
+    };
 }

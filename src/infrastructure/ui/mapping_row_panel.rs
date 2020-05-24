@@ -114,7 +114,7 @@ impl MappingRowPanel {
             "Learn target"
         };
         self.view
-            .require_control(root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON)
+            .require_control(root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON)
             .set_text(text);
     }
 
@@ -146,8 +146,18 @@ impl MappingRowPanel {
         self.when(mapping.feedback_is_enabled.changed(), |view| {
             view.with_mapping(Self::invalidate_feedback_check_box);
         });
-        // TODO currentlySourceLearningMapping
-        // TODO currentlyTargetLearningMapping
+        self.when(
+            self.session.borrow().mapping_which_learns_source.changed(),
+            |view| {
+                view.with_mapping(Self::invalidate_learn_source_button);
+            },
+        );
+        self.when(
+            self.session.borrow().mapping_which_learns_target.changed(),
+            |view| {
+                view.with_mapping(Self::invalidate_learn_target_button);
+            },
+        );
     }
 
     fn with_mapping(&self, use_mapping: impl Fn(&Self, &MappingModel)) {
@@ -204,13 +214,13 @@ impl MappingRowPanel {
     fn toggle_learn_source(&self) {
         self.session
             .borrow_mut()
-            .toggle_learn_source(self.require_mapping_address());
+            .toggle_learn_source(self.require_mapping().deref());
     }
 
     fn toggle_learn_target(&self) {
         self.session
             .borrow_mut()
-            .toggle_learn_target(self.require_mapping_address());
+            .toggle_learn_target(self.require_mapping().deref());
     }
 
     fn update_control_is_enabled(&self) {
