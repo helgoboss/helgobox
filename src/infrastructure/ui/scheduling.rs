@@ -18,20 +18,22 @@ use swell_ui::SharedView;
 /// trigger/until subjects/properties into shared ones.
 pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
     trigger: impl SharedItemEvent<E>,
-    reaction: impl Fn(SharedView<R>) + 'static,
+    reaction: impl Fn(SharedView<R>) + Copy + 'static,
     receiver: &SharedView<R>,
     until: impl SharedItemEvent<U>,
 ) {
     // This is okay because we are sending from main thread to main thread!
-    let weak_receiver = unsafe { SendAndSyncWhatever::new(Rc::downgrade(receiver)) };
-    let reaction = unsafe { SendAndSyncWhatever::new(reaction) };
+    let weak_receiver = Rc::downgrade(receiver);
     trigger
         .take_until(until)
-        .observe_on(Reaper::get().main_thread_scheduler())
-        .to_shared()
+        // .observe_on(Reaper::get().main_thread_scheduler())
+        // .to_shared()
         .subscribe(move |v| {
-            let receiver = weak_receiver.0.upgrade().expect("view is gone");
-            (reaction.0)(receiver);
+            let weak_receiver = weak_receiver.clone();
+            Reaper::get().do_later_in_main_thread_asap(move || {
+                let receiver = weak_receiver.upgrade().expect("view is gone");
+                (reaction)(receiver);
+            });
         });
 }
 

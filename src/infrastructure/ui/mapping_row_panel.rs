@@ -238,7 +238,7 @@ impl MappingRowPanel {
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static,
+        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when_async(event, reaction, &self, self.closed_or_mapping_will_change());
     }

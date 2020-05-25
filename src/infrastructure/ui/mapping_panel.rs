@@ -41,7 +41,7 @@ impl MappingPanel {
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static,
+        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when_async(event, reaction, &self, self.view.closed());
     }
