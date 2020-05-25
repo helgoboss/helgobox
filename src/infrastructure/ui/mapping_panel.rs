@@ -67,9 +67,13 @@ impl MappingPanel {
     }
 
     fn invalidate_mapping_name_edit_control(&self) {
-        self.view
-            .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
-            .set_text(self.mapping.borrow().name.get_ref().as_str());
+        let c = self
+            .view
+            .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL);
+        if c.has_focus() {
+            return;
+        }
+        c.set_text(self.mapping.borrow().name.get_ref().as_str());
     }
 
     fn invalidate_mapping_control_enabled_check_box(&self) {
@@ -240,13 +244,17 @@ impl MappingPanel {
     }
 
     fn invalidate_source_parameter_number_message_number_controls(&self) {
+        let c = self
+            .view
+            .require_control(root::ID_SOURCE_NUMBER_EDIT_CONTROL);
+        if c.has_focus() {
+            return;
+        }
         let text = match self.source().parameter_number_message_number.get() {
             None => "".to_string(),
             Some(n) => n.to_string(),
         };
-        self.view
-            .require_control(root::ID_SOURCE_NUMBER_EDIT_CONTROL)
-            .set_text(text)
+        c.set_text(text)
     }
 
     fn invalidate_source_character_combo_box(&self) {
@@ -551,7 +559,7 @@ impl View for MappingPanel {
         false
     }
 
-    fn focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+    fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
         use root::*;
         match resource_id {
             // Mapping

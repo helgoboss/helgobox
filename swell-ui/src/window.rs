@@ -189,6 +189,10 @@ impl Window {
         Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
     }
 
+    pub fn has_focus(&self) -> bool {
+        Swell::get().GetFocus() == self.raw
+    }
+
     pub fn text(self) -> Result<String, &'static str> {
         let (text, result) = with_string_buffer(256, |buffer, max_size| unsafe {
             Swell::get().GetWindowText(self.raw, buffer, max_size)

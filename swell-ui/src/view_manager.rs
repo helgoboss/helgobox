@@ -168,7 +168,15 @@ unsafe extern "C" fn view_window_proc(
                         0
                     }
                     raw::EN_KILLFOCUS => {
-                        let processed = view.focus_killed(resource_id as _);
+                        let processed = view.edit_control_focus_killed(resource_id as _);
+                        if processed {
+                            0
+                        } else {
+                            swell.DefWindowProc(hwnd, msg, wparam, lparam)
+                        }
+                    }
+                    raw::EN_CHANGE => {
+                        let processed = view.edit_control_changed(resource_id as _);
                         if processed {
                             0
                         } else {

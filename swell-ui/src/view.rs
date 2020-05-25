@@ -107,10 +107,19 @@ pub trait View {
         false
     }
 
-    /// EN_KILLFOCUS, HIWORD(wparam).
+    /// EN_CHANGE, LOWORD(wparam).
     ///
     /// Should return `true` if processed.
-    fn focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+    fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+        false
+    }
+
+    /// EN_KILLFOCUS, LOWORD(wparam).
+    ///
+    /// Should return `true` if processed.
+    ///
+    /// Currently not fired on Linux!
+    fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
         false
     }
 
