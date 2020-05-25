@@ -26,3 +26,12 @@ impl PartialEq for MappingModel {
         self as *const _ == other as *const _
     }
 }
+
+impl MappingModel {
+    pub fn target_should_be_hit_with_increments(&self) -> bool {
+        // TODO
+        false
+        // self.target_model.wants_increments()
+        // || (self.source_model.create_source().emits_increments() && self.target_model.)
+    }
+}

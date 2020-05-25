@@ -1,6 +1,6 @@
 use crate::domain::{
-    MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeType, Session,
-    SharedMappingModel, TargetType,
+    MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
+    Session, SharedMappingModel, TargetType,
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
@@ -108,6 +108,10 @@ impl MappingPanel {
 
     fn source(&self) -> Ref<MidiSourceModel> {
         Ref::map(self.mapping.borrow(), |m| &m.source_model)
+    }
+
+    fn mode(&self) -> Ref<ModeModel> {
+        Ref::map(self.mapping.borrow(), |m| &m.mode_model)
     }
 
     fn source_mut(&self) -> RefMut<MidiSourceModel> {
@@ -440,6 +444,76 @@ impl MappingPanel {
     }
 
     fn invalidate_mode_controls(&self) {
+        self.invalidate_mode_type_combo_box();
+        self.invalidate_mode_control_appearance();
+        self.invalidate_mode_source_value_controls();
+        self.invalidate_mode_target_value_controls();
+        self.invalidate_mode_step_size_controls();
+        self.invalidate_mode_rotate_check_box();
+        self.invalidate_mode_ignore_out_of_range_check_box();
+        self.invalidate_mode_round_target_value_check_box();
+        self.invalidate_mode_scale_mode_check_box();
+        self.invalidate_mode_reverse_check_box();
+        self.invalidate_mode_eel_control_transformation_edit_control();
+        self.invalidate_mode_eel_feedback_transformation_edit_control();
+    }
+
+    fn invalidate_mode_type_combo_box(&self) {
+        self.view
+            .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
+            .select_combo_box_item(self.mode().r#type.get().into());
+    }
+
+    fn invalidate_mode_control_appearance(&self) {
+        self.invalidate_mode_control_labels();
+        self.invalidate_mode_control_visibilities();
+    }
+
+    fn invalidate_mode_control_labels(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_control_visibilities(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_source_value_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_target_value_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_step_size_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_rotate_check_box(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_ignore_out_of_range_check_box(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_round_target_value_check_box(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_scale_mode_check_box(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_reverse_check_box(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_eel_control_transformation_edit_control(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_eel_feedback_transformation_edit_control(&self) {
         // TODO
     }
 

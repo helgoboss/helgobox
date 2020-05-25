@@ -1,3 +1,4 @@
+use crate::domain::Target;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use reaper_high::{Action, Fx, FxParameter, Reaper, Track, TrackSend};
@@ -51,6 +52,11 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
+    pub fn wants_increments(&self) -> bool {
+        // TODO
+        false
+    }
+
     /// Fires whenever one of the properties of this model has changed
     pub fn changed(&self) -> impl UnitEvent {
         self.r#type

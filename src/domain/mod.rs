@@ -10,6 +10,9 @@ pub use mode_model::*;
 mod mapping_model;
 pub use mapping_model::*;
 
+mod target;
+pub use target::*;
+
 mod target_model;
 pub use target_model::*;
 
