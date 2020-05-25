@@ -1,3 +1,5 @@
+use derive_more::Display;
+use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteMode, Interval, MidiClockTransportMessage, MidiSource, RelativeMode, SourceCharacter,
     ToggleMode, Transformation, UnitValue,
@@ -56,7 +58,9 @@ pub enum Mode {
 }
 
 /// Type of a mode
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr, IntoEnumIterator, Display,
+)]
 #[repr(u8)]
 pub enum ModeType {
     Absolute = 0,

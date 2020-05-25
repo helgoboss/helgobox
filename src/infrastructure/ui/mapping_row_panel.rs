@@ -224,15 +224,19 @@ impl MappingRowPanel {
     }
 
     fn update_control_is_enabled(&self) {
-        self.view
-            .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-            .set_checked(self.require_mapping().borrow().control_is_enabled.get());
+        self.require_mapping().borrow_mut().control_is_enabled.set(
+            self.view
+                .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn update_feedback_is_enabled(&self) {
-        self.view
-            .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-            .set_checked(self.require_mapping().borrow().feedback_is_enabled.get());
+        self.require_mapping().borrow_mut().feedback_is_enabled.set(
+            self.view
+                .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn when(

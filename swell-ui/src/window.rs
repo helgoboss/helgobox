@@ -1,6 +1,7 @@
 use crate::win_bindings::root;
 use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
+use std::fmt::Display;
 use std::ptr::{null_mut, NonNull};
 
 /// Represents a window.
@@ -60,11 +61,61 @@ impl Window {
         Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
     }
 
-    pub fn fill_combo_box<'a>(self, items: impl Iterator<Item = (isize, String)>) {
+    pub fn fill_combo_box_with_data_vec<I: Display>(self, items: Vec<(isize, I)>) {
+        self.fill_combo_box_with_data(items.into_iter())
+    }
+
+    // TODO-low Check if we can take the items by reference. Probably wouldn't make a big
+    //  difference because moving is not a problem in all known cases.
+    pub fn fill_combo_box_with_data<'a, I: Display>(
+        self,
+        items: impl Iterator<Item = (isize, I)> + ExactSizeIterator,
+    ) {
         self.clear_combo_box();
-        items.enumerate().for_each(|(i, (data, label))| {
-            self.insert_combo_box_item_with_data(i, data, label);
-        });
+        self.maybe_init_combo_box_storage(items.len());
+        for (i, (data, item)) in items.enumerate() {
+            self.insert_combo_box_item_with_data(i, data, item.to_string());
+        }
+    }
+
+    /// Okay to use if approximately less than 100 items, otherwise might become slow.
+    pub fn fill_combo_box_with_data_small<I: Display>(
+        self,
+        items: impl Iterator<Item = (isize, I)>,
+    ) {
+        self.clear_combo_box();
+        self.fill_combo_box_with_data_internal(items);
+    }
+
+    pub fn fill_combo_box<I: Display>(self, items: impl Iterator<Item = I> + ExactSizeIterator) {
+        self.clear_combo_box();
+        self.maybe_init_combo_box_storage(items.len());
+        for item in items {
+            self.add_combo_box_item(item.to_string());
+        }
+    }
+
+    /// Reserves some capacity if there are many items.
+    ///
+    /// See https://docs.microsoft.com/en-us/windows/win32/controls/cb-initstorage.
+    fn maybe_init_combo_box_storage(self, item_count: usize) {
+        if item_count > 100 {
+            // The 32 is just a rough estimate.
+            self.init_combo_box_storage(item_count, 32);
+        }
+    }
+
+    fn fill_combo_box_with_data_internal<I: Display>(
+        self,
+        items: impl Iterator<Item = (isize, I)>,
+    ) {
+        for (i, (data, item)) in items.enumerate() {
+            self.insert_combo_box_item_with_data(i, data, item.to_string());
+        }
+    }
+
+    pub fn init_combo_box_storage(self, item_count: usize, item_size: usize) {
+        Swell::get().SendMessage(self.raw, raw::CB_INITSTORAGE, item_count, item_size as _);
     }
 
     pub fn insert_combo_box_item_with_data<'a>(

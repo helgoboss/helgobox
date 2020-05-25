@@ -186,9 +186,18 @@ unsafe extern "C" fn view_window_proc(
                     swell.DefWindowProc(hwnd, msg, wparam, lparam)
                 }
             }
+            raw::WM_KEYDOWN => {
+                let key_code = wparam as u32;
+                let processed = view.virtual_key_pressed(key_code);
+                if processed {
+                    0
+                } else {
+                    swell.DefWindowProc(hwnd, msg, wparam, lparam)
+                }
+            }
             raw::WM_CLOSE => {
+                // We never let the user confirm. Destroy immediately!
                 window.destroy();
-                // We never let the user confirm
                 0
             }
             _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),

@@ -98,7 +98,7 @@ impl HeaderPanel {
 
     fn invalidate_midi_control_input_combo_box_options(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        b.fill_combo_box(
+        b.fill_combo_box_with_data_small(
             iter::once((
                 -1isize,
                 "<FX input> (no support for MIDI clock sources)".to_string(),
@@ -135,7 +135,7 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        b.fill_combo_box(
+        b.fill_combo_box_with_data_small(
             iter::once((-1isize, "<None>".to_string())).chain(
                 Reaper::get()
                     .midi_output_devices()

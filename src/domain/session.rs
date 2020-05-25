@@ -222,7 +222,7 @@ mod example_data {
                     custom_character: p(SourceCharacter::Encoder2),
                     midi_clock_transport_message: p(MidiClockTransportMessage::Start),
                     is_registered: p(Some(true)),
-                    is_14_bit: p(None),
+                    is_14_bit: p(Some(false)),
                 },
                 mode_model: Default::default(),
                 target_model: Default::default(),

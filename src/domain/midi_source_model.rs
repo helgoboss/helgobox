@@ -1,6 +1,8 @@
 use derive_more::Display;
+use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
+use num_enum::IntoPrimitive;
 use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
 use rxrust::prelude::*;
 use serde::export::Formatter;
@@ -30,8 +32,8 @@ impl Default for MidiSourceModel {
             parameter_number_message_number: p(None),
             custom_character: p(SourceCharacter::Range),
             midi_clock_transport_message: p(MidiClockTransportMessage::Start),
-            is_registered: p(None),
-            is_14_bit: p(None),
+            is_registered: p(Some(false)),
+            is_14_bit: p(Some(false)),
         }
     }
 }
@@ -110,6 +112,40 @@ impl MidiSourceModel {
         )
     }
 
+    pub fn supports_midi_message_number(&self) -> bool {
+        use MidiSourceType::*;
+        matches!(
+            self.r#type.get(),
+            ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount
+        )
+    }
+
+    pub fn supports_14_bit(&self) -> bool {
+        use MidiSourceType::*;
+        matches!(self.r#type.get(), ControlChangeValue | ParameterNumberValue)
+    }
+
+    pub fn supports_parameter_number_message_number(&self) -> bool {
+        self.supports_parameter_number_message_props()
+    }
+
+    pub fn supports_is_registered(&self) -> bool {
+        self.supports_parameter_number_message_props()
+    }
+
+    pub fn supports_custom_character(&self) -> bool {
+        self.r#type.get() == MidiSourceType::ControlChangeValue
+            && self.is_14_bit.get().contains(&false)
+    }
+
+    pub fn supports_midi_clock_transport_message_type(&self) -> bool {
+        self.r#type.get() == MidiSourceType::ClockTransport
+    }
+
+    fn supports_parameter_number_message_props(&self) -> bool {
+        self.r#type.get() == MidiSourceType::ParameterNumberValue
+    }
+
     fn primary_label(&self) -> Cow<str> {
         use MidiSourceType::*;
         match self.r#type.get() {
@@ -175,8 +211,19 @@ impl Display for MidiSourceModel {
 }
 
 /// Type of a MIDI source
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr, Display)]
-#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    Display,
+    IntoPrimitive,
+)]
+#[repr(usize)]
 pub enum MidiSourceType {
     #[display(fmt = "CC value")]
     ControlChangeValue = 0,
@@ -198,6 +245,18 @@ pub enum MidiSourceType {
     ClockTempo = 8,
     #[display(fmt = "MIDI clock transport")]
     ClockTransport = 9,
+}
+
+impl MidiSourceType {
+    pub fn number_label(&self) -> &'static str {
+        use MidiSourceType::*;
+        match self {
+            ControlChangeValue => "CC number",
+            NoteVelocity | PolyphonicKeyPressureAmount => "Note number",
+            ParameterNumberValue => "Number",
+            _ => "",
+        }
+    }
 }
 
 #[cfg(test)]

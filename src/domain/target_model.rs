@@ -1,3 +1,5 @@
+use derive_more::Display;
+use enum_iterator::IntoEnumIterator;
 use reaper_high::{Action, Fx, FxParameter, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
@@ -277,22 +279,38 @@ pub enum VirtualTrack {
 }
 
 /// Type of a target
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr, IntoEnumIterator, Display,
+)]
 #[repr(u8)]
 pub enum TargetType {
+    #[display(fmt = "Action (limited feedback)")]
     Action = 0,
+    #[display(fmt = "Track FX parameter")]
     FxParameter = 1,
+    #[display(fmt = "Track volume")]
     TrackVolume = 2,
+    #[display(fmt = "Track send volume")]
     TrackSendVolume = 3,
+    #[display(fmt = "Track pan")]
     TrackPan = 4,
+    #[display(fmt = "Track arm")]
     TrackArm = 5,
+    #[display(fmt = "Track selection")]
     TrackSelection = 6,
+    #[display(fmt = "Track mute (no feedback from automation)")]
     TrackMute = 7,
+    #[display(fmt = "Track solo")]
     TrackSolo = 8,
+    #[display(fmt = "Track send pan")]
     TrackSendPan = 9,
+    #[display(fmt = "Master tempo")]
     Tempo = 10,
+    #[display(fmt = "Master playrate")]
     Playrate = 11,
+    #[display(fmt = "Track FX enable (no feedback from automation)")]
     FxEnable = 12,
+    #[display(fmt = "Track FX preset (no feedback)")]
     FxPreset = 13,
 }
 

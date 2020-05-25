@@ -70,29 +70,40 @@ pub trait View {
     // Event handlers (implementation optional)
     // =================================================
 
-    /// WM_INITDIALOG
+    /// WM_INITDIALOG.
     ///
-    /// Sould return `true` if keyboard focus is desired.
+    /// Should return `true` if keyboard focus is desired.
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         false
     }
 
-    /// WM_DESTROY
+    /// WM_DESTROY.
     fn closed(self: SharedView<Self>, window: Window) {}
 
-    /// WM_COMMAND, HIWORD(wparam) == 0
+    /// WM_COMMAND, HIWORD(wparam) == 0.
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {}
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
     fn option_selected(self: SharedView<Self>, resource_id: u32) {}
 
-    // WM_VSCROLL, LOWORD(wparam)
+    /// WM_VSCROLL, LOWORD(wparam).
+    ///
+    /// Should return `true` if processed.
     fn scrolled_vertically(self: SharedView<Self>, code: u32) -> bool {
         false
     }
 
-    // WM_MOUSEWHEEL, HIWORD(wparam)
+    /// WM_MOUSEWHEEL, HIWORD(wparam).
+    ///
+    /// Should return `true` if processed.
     fn mouse_wheel_turned(self: SharedView<Self>, distance: i32) -> bool {
+        false
+    }
+
+    /// WM_KEYDOWN, wparam.
+    ///
+    /// Should return `true` if processed.
+    fn virtual_key_pressed(self: SharedView<Self>, key_code: u32) -> bool {
         false
     }
 
