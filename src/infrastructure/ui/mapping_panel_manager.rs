@@ -52,4 +52,20 @@ impl MappingPanelManager {
             }
         });
     }
+
+    /// Closes and removes all mapping panels
+    pub fn close_all(&mut self) {
+        for p in self.open_panels.values() {
+            p.close()
+        }
+        self.open_panels.clear();
+    }
+}
+
+impl Drop for MappingPanelManager {
+    fn drop(&mut self) {
+        // Those are (intentionally) REAPER child windows, not ReaLearn child windows. So we need to
+        // close them manually as soon as ReaLearn is unloaded.
+        self.close_all();
+    }
 }

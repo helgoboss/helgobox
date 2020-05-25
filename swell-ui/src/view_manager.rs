@@ -121,14 +121,14 @@ unsafe extern "C" fn view_window_proc(
                 Some(v) => {
                     // View is registered. See if it's still existing. If not, the primary owner
                     // (most likely a parent view) dropped it already. In that case we panic
-                    // with an appropriate error description. Because requesting
-                    // a view which was dropped already means we have some
-                    // bug in programming - an logical issue related to
-                    // lifetimes. It's important that we neither hide the issue nor cause a
-                    // segmentation fault. That's the whole point of keeping
-                    // weak pointers: To be able to fail as gracefully as we can
-                    // do in such a situation (= panicking instead of crashing)
-                    // while still notifying the user (or ideally developer) that there's an issue.
+                    // with an appropriate error description. Because requesting a view which was
+                    // dropped already means we have some bug in programming - a
+                    // logical issue related to lifetimes. It's important
+                    // that we neither hide the issue nor cause a segmentation
+                    // fault. That's the whole point of keeping weak pointers:
+                    // To be able to fail as gracefully as we can do in such a
+                    // situation (= panicking instead of crashing) while still
+                    // notifying the user (or ideally developer) that there's an issue.
                     v.upgrade()
                         .ok_or("Requested ui is registered in ui map but has been dropped already")
                         .unwrap()
