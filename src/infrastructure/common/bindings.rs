@@ -114,12 +114,4 @@ pub mod root {
     pub const ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX: u32 = 40072;
     pub const ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX: u32 = 40073;
     pub const ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT: u32 = 40074;
-    pub mod std {
-        #[allow(unused_imports)]
-        use self::super::super::root;
-    }
-    pub mod __gnu_cxx {
-        #[allow(unused_imports)]
-        use self::super::super::root;
-    }
 }
