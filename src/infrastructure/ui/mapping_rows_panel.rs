@@ -64,7 +64,7 @@ impl MappingRowsPanel {
             nTrackPos: 0,
         };
         unsafe {
-            root::CoolSB_SetScrollInfo(
+            Reaper::get().medium_reaper().low().CoolSB_SetScrollInfo(
                 self.view.require_window().raw() as _,
                 raw::SB_VERT as _,
                 &scroll_info as *const _ as *mut _,
@@ -78,7 +78,7 @@ impl MappingRowsPanel {
     fn show_or_hide_scroll_bar(&self, scroll_info: &raw::SCROLLINFO) {
         let show = (scroll_info.nMax >= scroll_info.nPage as i32);
         unsafe {
-            root::CoolSB_ShowScrollBar(
+            Reaper::get().medium_reaper().low().CoolSB_ShowScrollBar(
                 self.view.require_window().raw() as _,
                 raw::SB_VERT as _,
                 show as _,
@@ -106,7 +106,7 @@ impl MappingRowsPanel {
             return;
         }
         unsafe {
-            root::CoolSB_SetScrollPos(
+            Reaper::get().medium_reaper().low().CoolSB_SetScrollPos(
                 self.view.require_window().raw() as _,
                 raw::SB_VERT as _,
                 pos as _,
@@ -141,7 +141,7 @@ impl MappingRowsPanel {
             nTrackPos: 0,
         };
         unsafe {
-            root::CoolSB_GetScrollInfo(
+            Reaper::get().medium_reaper().low().CoolSB_GetScrollInfo(
                 self.view.require_window().raw() as _,
                 raw::SB_VERT as _,
                 &mut si as *mut raw::SCROLLINFO as _,
@@ -220,7 +220,10 @@ impl View for MappingRowsPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         #[cfg(target_family = "unix")]
         unsafe {
-            root::InitializeCoolSB(window.raw() as _);
+            Reaper::get()
+                .medium_reaper()
+                .low()
+                .InitializeCoolSB(window.raw() as _);
         }
         window.move_to(Point::new(DialogUnits(0), DialogUnits(78)));
         self.open_mapping_rows(window);
@@ -233,7 +236,10 @@ impl View for MappingRowsPanel {
     fn closed(self: SharedView<Self>, window: Window) {
         #[cfg(target_family = "unix")]
         unsafe {
-            root::UninitializeCoolSB(window.raw() as _);
+            Reaper::get()
+                .medium_reaper()
+                .low()
+                .UninitializeCoolSB(window.raw() as _);
         }
     }
 
@@ -258,33 +264,5 @@ impl View for MappingRowsPanel {
         let new_scroll_pos = self.scroll_pos(code).expect("impossible");
         self.scroll(new_scroll_pos);
         true
-    }
-}
-
-/// Some functions which are called by coolscroll.
-mod coolscroll {
-    use crate::infrastructure::common::bindings::root;
-    use reaper_high::Reaper;
-    use reaper_low::Swell;
-    use std::ptr::null_mut;
-
-    #[no_mangle]
-    extern "C" fn CoolSB_GetSysColor(
-        hwnd: root::HWND,
-        val: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int {
-        Swell::get().GetSysColor(val)
-    }
-
-    #[no_mangle]
-    extern "C" fn GetIconThemePointer(
-        name: *const ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_void {
-        unsafe {
-            Reaper::get()
-                .medium_reaper()
-                .low()
-                .GetIconThemePointer(name)
-        }
     }
 }
