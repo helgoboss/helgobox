@@ -8,16 +8,18 @@ use crate::infrastructure::ui::scheduling::when_async;
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
-use helgoboss_midi::{Channel, U14};
+use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
-use std::cell::{Cell, Ref, RefCell};
+use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::convert::{TryFrom, TryInto};
 use std::ffi::CString;
 use std::iter;
 use std::rc::{Rc, Weak};
+use std::str::FromStr;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
@@ -54,7 +56,7 @@ impl MappingPanel {
         self.invalidate_mapping_feedback_enabled_check_box();
         self.invalidate_source_controls();
         self.invalidate_target_controls();
-        self.invalidate_settings_controls();
+        self.invalidate_mode_controls();
     }
 
     fn invalidate_window_title(&self) {
@@ -85,7 +87,7 @@ impl MappingPanel {
     fn invalidate_source_controls(&self) {
         self.invalidate_source_control_appearance();
         self.invalidate_source_type_combo_box();
-        self.invalidate_source_learn_button();
+        self.invalidate_learn_source_button();
         self.invalidate_source_channel_combo_box();
         self.invalidate_source_14_bit_check_box();
         self.invalidate_source_is_registered_check_box();
@@ -102,6 +104,10 @@ impl MappingPanel {
 
     fn source(&self) -> Ref<MidiSourceModel> {
         Ref::map(self.mapping.borrow(), |m| &m.source_model)
+    }
+
+    fn source_mut(&self) -> RefMut<MidiSourceModel> {
+        RefMut::map(self.mapping.borrow_mut(), |m| &mut m.source_model)
     }
 
     fn invalidate_source_control_labels(&self) {
@@ -167,7 +173,7 @@ impl MappingPanel {
             .select_combo_box_item(self.source().r#type.get().into());
     }
 
-    fn invalidate_source_learn_button(&self) {
+    fn invalidate_learn_source_button(&self) {
         self.invalidate_learn_button(
             self.session
                 .borrow()
@@ -255,11 +261,84 @@ impl MappingPanel {
             .select_combo_box_item(self.source().midi_clock_transport_message.get().into());
     }
 
-    fn invalidate_target_controls(&self) {
-        // TODO
+    fn toggle_learn_source(&self) {
+        self.session.borrow_mut().toggle_learn_source(&self.mapping);
     }
 
-    fn invalidate_settings_controls(&self) {
+    fn update_source_is_registered(&self) {
+        self.source_mut().is_registered.set(Some(
+            self.view
+                .require_control(root::ID_SOURCE_RPN_CHECK_BOX)
+                .is_checked(),
+        ));
+    }
+
+    fn update_source_is_14_bit(&self) {
+        self.source_mut().is_14_bit.set(Some(
+            self.view
+                .require_control(root::ID_SOURCE_14_BIT_CHECK_BOX)
+                .is_checked(),
+        ));
+    }
+
+    fn update_source_channel(&self) {
+        let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
+        let value = match b.selected_combo_box_item_data() {
+            -1 => None,
+            id => Some(Channel::new(id as _)),
+        };
+        self.source_mut().channel.set(value);
+    }
+
+    fn update_source_midi_message_number(&self) {
+        let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
+        let value = match b.selected_combo_box_item_data() {
+            -1 => None,
+            id => Some(U7::new(id as _)),
+        };
+        self.source_mut().midi_message_number.set(value);
+    }
+
+    fn update_source_character(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
+        self.source_mut().custom_character.set(
+            b.selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid source character"),
+        );
+    }
+
+    fn update_source_type(&self) {
+        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
+        self.source_mut().r#type.set(
+            b.selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid source type"),
+        );
+    }
+
+    fn update_source_midi_clock_transport_message_type(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
+        self.source_mut().midi_clock_transport_message.set(
+            b.selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid MTC message type"),
+        );
+    }
+
+    fn update_source_parameter_number_message_number(&self) {
+        let c = self
+            .view
+            .require_control(root::ID_SOURCE_NUMBER_EDIT_CONTROL);
+        let value = c.text().ok().and_then(|t| t.parse::<U14>().ok());
+        self.source_mut().parameter_number_message_number.set(value);
+    }
+
+    fn invalidate_target_controls(&self) {
         // TODO
     }
 
@@ -272,6 +351,10 @@ impl MappingPanel {
     }
 
     fn register_session_listeners(self: &SharedView<Self>) {
+        let session = self.session.borrow();
+        self.when(session.mapping_which_learns_source.changed(), |view| {
+            view.invalidate_learn_source_button();
+        });
         // TODO
     }
 
@@ -292,6 +375,38 @@ impl MappingPanel {
     }
 
     fn register_source_listeners(self: &SharedView<Self>) {
+        let source = self.source();
+        self.when(source.r#type.changed(), |view| {
+            view.invalidate_source_type_combo_box();
+            view.invalidate_source_control_appearance();
+            view.invalidate_mode_controls();
+        });
+        self.when(source.channel.changed(), |view| {
+            view.invalidate_source_channel_combo_box();
+        });
+        self.when(source.is_14_bit.changed(), |view| {
+            view.invalidate_source_14_bit_check_box();
+            view.invalidate_mode_controls();
+            view.invalidate_source_control_appearance();
+        });
+        self.when(source.midi_message_number.changed(), |view| {
+            view.invalidate_source_midi_message_number_controls();
+        });
+        self.when(source.parameter_number_message_number.changed(), |view| {
+            view.invalidate_source_parameter_number_message_number_controls();
+        });
+        self.when(source.is_registered.changed(), |view| {
+            view.invalidate_source_is_registered_check_box();
+        });
+        self.when(source.custom_character.changed(), |view| {
+            view.invalidate_source_character_combo_box();
+        });
+        self.when(source.midi_clock_transport_message.changed(), |view| {
+            view.invalidate_source_midi_clock_transport_message_type_combo_box();
+        });
+    }
+
+    fn invalidate_mode_controls(&self) {
         // TODO
     }
 
@@ -377,14 +492,24 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            _ => {}
+            ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),
+            ID_SOURCE_RPN_CHECK_BOX => self.update_source_is_registered(),
+            ID_SOURCE_14_BIT_CHECK_BOX => self.update_source_is_14_bit(),
+            _ => unreachable!(),
         }
     }
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            _ => {}
+            ID_SOURCE_CHANNEL_COMBO_BOX => self.update_source_channel(),
+            ID_SOURCE_NUMBER_COMBO_BOX => self.update_source_midi_message_number(),
+            ID_SOURCE_CHARACTER_COMBO_BOX => self.update_source_character(),
+            ID_SOURCE_TYPE_COMBO_BOX => self.update_source_type(),
+            ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
+                self.update_source_midi_clock_transport_message_type()
+            }
+            _ => unreachable!(),
         }
     }
 
@@ -392,5 +517,14 @@ impl View for MappingPanel {
         // TODO Really not sure if this is necessary
         // Don't close this window just by pressing enter
         false
+    }
+
+    fn focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        use root::*;
+        match resource_id {
+            ID_SOURCE_NUMBER_EDIT_CONTROL => self.update_source_parameter_number_message_number(),
+            _ => return false,
+        }
+        true
     }
 }

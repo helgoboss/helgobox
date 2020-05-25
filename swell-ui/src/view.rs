@@ -107,6 +107,13 @@ pub trait View {
         false
     }
 
+    /// EN_KILLFOCUS, HIWORD(wparam).
+    ///
+    /// Should return `true` if processed.
+    fn focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        false
+    }
+
     // Public methods (intended to be used by consumers)
     // =================================================
 

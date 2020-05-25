@@ -157,13 +157,23 @@ unsafe extern "C" fn view_window_proc(
                 match hiword(wparam) as u32 {
                     0 => {
                         view.button_clicked(resource_id as _);
-                        // TODO For now we just say the click is handled. Don't know where this
-                        // would not  be the case.
+                        // We just say the click is handled. Don't know where this  would not  be
+                        // the case.
                         0
                     }
                     raw::CBN_SELCHANGE => {
                         view.option_selected(resource_id as _);
+                        // We just say the selection is handled. Don't know where this would not
+                        // be the case.
                         0
+                    }
+                    raw::EN_KILLFOCUS => {
+                        let processed = view.focus_killed(resource_id as _);
+                        if processed {
+                            0
+                        } else {
+                            swell.DefWindowProc(hwnd, msg, wparam, lparam)
+                        }
                     }
                     _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),
                 }

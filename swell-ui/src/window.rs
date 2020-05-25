@@ -1,7 +1,9 @@
 use crate::win_bindings::root;
 use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
+use std::ffi::CString;
 use std::fmt::Display;
+use std::os::raw::c_char;
 use std::ptr::{null_mut, NonNull};
 
 /// Represents a window.
@@ -187,6 +189,16 @@ impl Window {
         Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
     }
 
+    pub fn text(self) -> Result<String, &'static str> {
+        let (text, result) = with_string_buffer(256, |buffer, max_size| unsafe {
+            Swell::get().GetWindowText(self.raw, buffer, max_size)
+        });
+        if result == 0 {
+            return Err("handle not found or doesn't support text");
+        }
+        text.into_string().map_err(|_| "non UTF-8")
+    }
+
     pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
     }
@@ -268,4 +280,16 @@ impl Window {
         #[cfg(target_family = "unix")]
         point.in_pixels().into()
     }
+}
+
+fn with_string_buffer<T>(
+    max_size: u32,
+    fill_buffer: impl FnOnce(*mut c_char, i32) -> T,
+) -> (CString, T) {
+    let vec: Vec<u8> = vec![1; max_size as usize];
+    let c_string = unsafe { CString::from_vec_unchecked(vec) };
+    let raw = c_string.into_raw();
+    let result = fill_buffer(raw, max_size as i32);
+    let string = unsafe { CString::from_raw(raw) };
+    (string, result)
 }

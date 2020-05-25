@@ -2,7 +2,7 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
-use num_enum::IntoPrimitive;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
 use rxrust::prelude::*;
 use serde::export::Formatter;
@@ -220,8 +220,9 @@ impl Display for MidiSourceModel {
     Serialize_repr,
     Deserialize_repr,
     IntoEnumIterator,
-    Display,
+    TryFromPrimitive,
     IntoPrimitive,
+    Display,
 )]
 #[repr(usize)]
 pub enum MidiSourceType {
