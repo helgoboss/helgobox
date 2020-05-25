@@ -1,6 +1,5 @@
 fn main() {
     // Bindings
-    #[cfg(target_os = "linux")]
     #[cfg(feature = "generate")]
     generate_bindings();
 
@@ -54,7 +53,6 @@ fn embed_dialog_resources() {
 
 /// Generates Rust bindings for a couple of C stuff.
 #[cfg(feature = "generate")]
-#[cfg(target_os = "linux")]
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=src/infrastructure/common/wrapper.hpp");

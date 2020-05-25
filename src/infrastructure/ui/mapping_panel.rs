@@ -10,7 +10,7 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-use reaper_low::Swell;
+use reaper_low::{raw, Swell};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
@@ -265,6 +265,31 @@ impl MappingPanel {
         self.session.borrow_mut().toggle_learn_source(&self.mapping);
     }
 
+    fn update_mapping_control_enabled(&self) {
+        self.mapping.borrow_mut().control_is_enabled.set(
+            self.view
+                .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn update_mapping_feedback_enabled(&self) {
+        self.mapping.borrow_mut().feedback_is_enabled.set(
+            self.view
+                .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn update_mapping_name(&self) -> Result<(), &'static str> {
+        let value = self
+            .view
+            .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
+            .text()?;
+        self.mapping.borrow_mut().name.set(value);
+        Ok(())
+    }
+
     fn update_source_is_registered(&self) {
         self.source_mut().is_registered.set(Some(
             self.view
@@ -492,6 +517,12 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
+            // General
+            ID_OK => self.close(),
+            // Mapping
+            ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => self.update_mapping_control_enabled(),
+            ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => self.update_mapping_feedback_enabled(),
+            // Source
             ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),
             ID_SOURCE_RPN_CHECK_BOX => self.update_source_is_registered(),
             ID_SOURCE_14_BIT_CHECK_BOX => self.update_source_is_14_bit(),
@@ -502,6 +533,7 @@ impl View for MappingPanel {
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
+            // Source
             ID_SOURCE_CHANNEL_COMBO_BOX => self.update_source_channel(),
             ID_SOURCE_NUMBER_COMBO_BOX => self.update_source_midi_message_number(),
             ID_SOURCE_CHARACTER_COMBO_BOX => self.update_source_character(),
@@ -522,6 +554,11 @@ impl View for MappingPanel {
     fn focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
         use root::*;
         match resource_id {
+            // Mapping
+            ID_MAPPING_NAME_EDIT_CONTROL => {
+                let _ = self.update_mapping_name();
+            }
+            // Source
             ID_SOURCE_NUMBER_EDIT_CONTROL => self.update_source_parameter_number_message_number(),
             _ => return false,
         }

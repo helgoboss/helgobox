@@ -7,7 +7,6 @@
 #define ID_MAPPING_ROW_DIALOG                   106
 #define ID_MAPPING_ROWS_DIALOG                  108
 #define ID_MAIN_DIALOG                          111
-#define IDOK                                    40000
 #define ID_ADD_MAPPING_BUTTON                   40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
@@ -108,3 +107,4 @@
 #define ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX 40072
 #define ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX 40073
 #define ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT  40074
+#define ID_OK                                   40075
