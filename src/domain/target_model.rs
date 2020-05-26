@@ -53,28 +53,6 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
-    // TODO such functions o TargetModelWithContext
-    pub fn is_known_to_be_discrete(&self, containing_fx: &Fx) -> bool {
-        // TODO-low use cached
-        self.create_target(containing_fx)
-            .map(|t| t.character() == TargetCharacter::Discrete)
-            .unwrap_or(false)
-    }
-
-    pub fn is_known_to_want_increments(&self, containing_fx: &Fx) -> bool {
-        // TODO-low use cached
-        self.create_target(containing_fx)
-            .map(|t| t.wants_increments())
-            .unwrap_or(false)
-    }
-
-    pub fn is_known_to_can_be_discrete(&self, containing_fx: &Fx) -> bool {
-        // TODO-low use cached
-        self.create_target(containing_fx)
-            .map(|t| t.can_be_discrete())
-            .unwrap_or(false)
-    }
-
     /// Fires whenever one of the properties of this model has changed
     pub fn changed(&self) -> impl UnitEvent {
         self.r#type
@@ -98,39 +76,6 @@ impl TargetModel {
         }
     }
 
-    /// Creates a target based on this model's properties and the current REAPER state.
-    ///
-    /// It's possible that no target is created if there's not information provided by the model
-    /// or REAPER state.
-    pub fn create_target(&self, containing_fx: &Fx) -> Result<ReaperTarget, &'static str> {
-        use TargetType::*;
-        let target = match self.r#type.get() {
-            Action => ReaperTarget::Action {
-                action: self.action()?,
-                invocation_type: self.action_invocation_type.get(),
-            },
-            FxParameter => ReaperTarget::FxParameter {
-                param: self.fx_param(containing_fx)?,
-            },
-            TrackVolume => ReaperTarget::TrackVolume { track: todo!() },
-            TrackSendVolume => ReaperTarget::TrackSendVolume { send: todo!() },
-            TrackPan => ReaperTarget::TrackPan { track: todo!() },
-            TrackArm => ReaperTarget::TrackArm { track: todo!() },
-            TrackSelection => ReaperTarget::TrackSelection {
-                track: todo!(),
-                select_exclusively: self.select_exclusively.get(),
-            },
-            TrackMute => ReaperTarget::TrackMute { track: todo!() },
-            TrackSolo => ReaperTarget::TrackSolo { track: todo!() },
-            TrackSendPan => ReaperTarget::TrackSendPan { send: todo!() },
-            Tempo => ReaperTarget::Tempo,
-            Playrate => ReaperTarget::Playrate,
-            FxEnable => ReaperTarget::FxEnable { fx: todo!() },
-            FxPreset => ReaperTarget::FxPreset { fx: todo!() },
-        };
-        Ok(target)
-    }
-
     fn command_id_label(&self) -> Cow<str> {
         match self.command_id.get() {
             None => "-".into(),
@@ -152,69 +97,6 @@ impl TargetModel {
             })
     }
 
-    // Returns an error if the FX doesn't exist.
-    fn fx(&self, containing_fx: &Fx) -> Result<Fx, &'static str> {
-        let fx_index = self.fx_index.get().ok_or("FX index not set")?;
-        let track = self.effective_track(containing_fx)?;
-        let fx_chain = if self.is_input_fx.get() {
-            track.normal_fx_chain()
-        } else {
-            track.input_fx_chain()
-        };
-        if *self.track.get_ref() == VirtualTrack::Selected {
-            let fx = fx_chain.fx_by_index_untracked(fx_index);
-            if !fx.is_available() {
-                return Err("no FX at that index in currently selected track");
-            } else {
-                Ok(fx)
-            }
-        } else {
-            fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
-        }
-    }
-
-    // TODO-low Consider returning a Cow
-    fn effective_track(&self, containing_fx: &Fx) -> Result<Track, &'static str> {
-        use VirtualTrack::*;
-        match self.track.get_ref() {
-            Particular(track) => Ok(track.clone()),
-            This => Ok(containing_fx.track().clone()),
-            Selected => containing_fx
-                .project()
-                .unwrap_or(Reaper::get().current_project())
-                .first_selected_track(IncludeMasterTrack)
-                .ok_or("no track selected"),
-        }
-    }
-
-    // Returns an error if that send (or track) doesn't exist.
-    fn track_send(&self, containing_fx: &Fx) -> Result<TrackSend, &'static str> {
-        let send_index = self.send_index.get().ok_or("send index not set")?;
-        let track = self.effective_track(containing_fx)?;
-        let send = track.index_based_send_by_index(send_index);
-        if !send.is_available() {
-            return Err("send doesn't exist");
-        }
-        Ok(send)
-    }
-
-    // Returns an error if that param (or FX) doesn't exist.
-    fn fx_param(&self, containing_fx: &Fx) -> Result<FxParameter, &'static str> {
-        let fx = self.fx(containing_fx)?;
-        let param = fx.parameter_by_index(self.param_index.get());
-        if !param.is_available() {
-            return Err("parameter doesn't exist");
-        }
-        return Ok(param);
-    }
-
-    fn action_name_label(&self) -> Cow<str> {
-        match self.action().ok() {
-            None => "-".into(),
-            Some(a) => a.name().into_string().into(),
-        }
-    }
-
     fn track_label(&self) -> Cow<str> {
         use VirtualTrack::*;
         match self.track.get_ref() {
@@ -224,19 +106,11 @@ impl TargetModel {
         }
     }
 
-    fn track_send_label(&self, containing_fx: &Fx) -> Cow<str> {
-        match self.track_send(containing_fx).ok() {
+    fn action_name_label(&self) -> Cow<str> {
+        match self.action().ok() {
             None => "-".into(),
-            Some(s) => s.name().into_string().into(),
+            Some(a) => a.name().into_string().into(),
         }
-    }
-
-    fn fx_label(&self, containing_fx: &Fx) -> Cow<str> {
-        get_fx_label(&self.fx(containing_fx).ok(), self.fx_index.get())
-    }
-
-    fn fx_param_label(&self, containing_fx: &Fx) -> Cow<str> {
-        get_fx_param_label(&self.fx_param(containing_fx).ok(), self.param_index.get())
     }
 }
 
@@ -290,6 +164,133 @@ pub struct TargetModelWithContext<'a> {
     containing_fx: &'a Fx,
 }
 
+impl<'a> TargetModelWithContext<'a> {
+    /// Creates a target based on this model's properties and the current REAPER state.
+    ///
+    /// It's possible that no target is created if there's not information provided by the model
+    /// or REAPER state.
+    pub fn create_target(&self) -> Result<ReaperTarget, &'static str> {
+        use TargetType::*;
+        let target = match self.target.r#type.get() {
+            Action => ReaperTarget::Action {
+                action: self.target.action()?,
+                invocation_type: self.target.action_invocation_type.get(),
+            },
+            FxParameter => ReaperTarget::FxParameter {
+                param: self.fx_param()?,
+            },
+            TrackVolume => ReaperTarget::TrackVolume { track: todo!() },
+            TrackSendVolume => ReaperTarget::TrackSendVolume { send: todo!() },
+            TrackPan => ReaperTarget::TrackPan { track: todo!() },
+            TrackArm => ReaperTarget::TrackArm { track: todo!() },
+            TrackSelection => ReaperTarget::TrackSelection {
+                track: todo!(),
+                select_exclusively: self.target.select_exclusively.get(),
+            },
+            TrackMute => ReaperTarget::TrackMute { track: todo!() },
+            TrackSolo => ReaperTarget::TrackSolo { track: todo!() },
+            TrackSendPan => ReaperTarget::TrackSendPan { send: todo!() },
+            Tempo => ReaperTarget::Tempo,
+            Playrate => ReaperTarget::Playrate,
+            FxEnable => ReaperTarget::FxEnable { fx: todo!() },
+            FxPreset => ReaperTarget::FxPreset { fx: todo!() },
+        };
+        Ok(target)
+    }
+
+    pub fn is_known_to_be_discrete(&self) -> bool {
+        // TODO-low use cached
+        self.create_target()
+            .map(|t| t.character() == TargetCharacter::Discrete)
+            .unwrap_or(false)
+    }
+
+    pub fn is_known_to_want_increments(&self) -> bool {
+        // TODO-low use cached
+        self.create_target()
+            .map(|t| t.wants_increments())
+            .unwrap_or(false)
+    }
+
+    pub fn is_known_to_can_be_discrete(&self) -> bool {
+        // TODO-low use cached
+        self.create_target()
+            .map(|t| t.can_be_discrete())
+            .unwrap_or(false)
+    }
+    // Returns an error if the FX doesn't exist.
+    fn fx(&self) -> Result<Fx, &'static str> {
+        let fx_index = self.target.fx_index.get().ok_or("FX index not set")?;
+        let track = self.effective_track()?;
+        let fx_chain = if self.target.is_input_fx.get() {
+            track.normal_fx_chain()
+        } else {
+            track.input_fx_chain()
+        };
+        if *self.target.track.get_ref() == VirtualTrack::Selected {
+            let fx = fx_chain.fx_by_index_untracked(fx_index);
+            if !fx.is_available() {
+                return Err("no FX at that index in currently selected track");
+            } else {
+                Ok(fx)
+            }
+        } else {
+            fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
+        }
+    }
+
+    // TODO-low Consider returning a Cow
+    fn effective_track(&self) -> Result<Track, &'static str> {
+        use VirtualTrack::*;
+        match self.target.track.get_ref() {
+            Particular(track) => Ok(track.clone()),
+            This => Ok(self.containing_fx.track().clone()),
+            Selected => self
+                .containing_fx
+                .project()
+                .unwrap_or(Reaper::get().current_project())
+                .first_selected_track(IncludeMasterTrack)
+                .ok_or("no track selected"),
+        }
+    }
+
+    // Returns an error if that send (or track) doesn't exist.
+    fn track_send(&self) -> Result<TrackSend, &'static str> {
+        let send_index = self.target.send_index.get().ok_or("send index not set")?;
+        let track = self.effective_track()?;
+        let send = track.index_based_send_by_index(send_index);
+        if !send.is_available() {
+            return Err("send doesn't exist");
+        }
+        Ok(send)
+    }
+
+    // Returns an error if that param (or FX) doesn't exist.
+    fn fx_param(&self) -> Result<FxParameter, &'static str> {
+        let fx = self.fx()?;
+        let param = fx.parameter_by_index(self.target.param_index.get());
+        if !param.is_available() {
+            return Err("parameter doesn't exist");
+        }
+        return Ok(param);
+    }
+
+    fn track_send_label(&self) -> Cow<str> {
+        match self.track_send().ok() {
+            None => "-".into(),
+            Some(s) => s.name().into_string().into(),
+        }
+    }
+
+    fn fx_label(&self) -> Cow<str> {
+        get_fx_label(&self.fx().ok(), self.target.fx_index.get())
+    }
+
+    fn fx_param_label(&self) -> Cow<str> {
+        get_fx_param_label(&self.fx_param().ok(), self.target.param_index.get())
+    }
+}
+
 impl<'a> Display for TargetModelWithContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use TargetType::*;
@@ -305,15 +306,15 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 f,
                 "Track FX parameter\nTrack {}\nFX {}\nParam {}",
                 self.target.track_label(),
-                self.target.fx_label(self.containing_fx),
-                self.target.fx_param_label(self.containing_fx)
+                self.fx_label(),
+                self.fx_param_label()
             ),
             TrackVolume => write!(f, "Track volume\nTrack {}", self.target.track_label()),
             TrackSendVolume => write!(
                 f,
                 "Track send volume\nTrack {}\nSend {}",
                 self.target.track_label(),
-                self.target.track_send_label(self.containing_fx)
+                self.track_send_label()
             ),
             TrackPan => write!(f, "Track pan\nTrack {}", self.target.track_label()),
             TrackArm => write!(f, "Track arm\nTrack {}", self.target.track_label()),
@@ -324,7 +325,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 f,
                 "Track send pan\nTrack {}\nSend {}",
                 self.target.track_label(),
-                self.target.track_send_label(self.containing_fx)
+                self.track_send_label()
             ),
             Tempo => write!(f, "Master tempo"),
             Playrate => write!(f, "Master playrate"),
@@ -332,13 +333,13 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 f,
                 "Track FX enable\nTrack {}\nFX {}",
                 self.target.track_label(),
-                self.target.fx_label(self.containing_fx),
+                self.fx_label(),
             ),
             FxPreset => write!(
                 f,
                 "Track FX preset\nTrack {}\nFX {}",
                 self.target.track_label(),
-                self.target.fx_label(self.containing_fx),
+                self.fx_label(),
             ),
         }
     }

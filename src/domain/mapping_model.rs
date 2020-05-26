@@ -30,8 +30,9 @@ impl PartialEq for MappingModel {
 
 impl MappingModel {
     pub fn target_should_be_hit_with_increments(&self, containing_fx: &Fx) -> bool {
-        self.target_model.is_known_to_want_increments(containing_fx)
+        let target_with_context = self.target_model.with_context(containing_fx);
+        target_with_context.is_known_to_want_increments()
             || (self.source_model.emits_increments()
-                && self.target_model.is_known_to_be_discrete(containing_fx))
+                && target_with_context.is_known_to_be_discrete())
     }
 }

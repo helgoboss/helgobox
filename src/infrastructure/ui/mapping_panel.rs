@@ -509,9 +509,9 @@ impl MappingPanel {
     fn invalidate_mode_control_visibilities(&self) {
         let (session, mapping, mode, target) =
             (self.session(), self.mapping(), self.mode(), self.target());
+        let target_with_context = target.with_context(session.containing_fx());
         self.show_if(
-            mode.supports_round_target_value()
-                && target.is_known_to_can_be_discrete(session.containing_fx()),
+            mode.supports_round_target_value() && target_with_context.is_known_to_can_be_discrete(),
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
         );
         self.show_if(
@@ -543,7 +543,7 @@ impl MappingPanel {
             ],
         );
         let show_value_text = mapping.target_should_be_hit_with_increments(session.containing_fx())
-            || !target.is_known_to_be_discrete(session.containing_fx());
+            || !target_with_context.is_known_to_be_discrete();
         self.show_if(
             mode.supports_step_size() && show_value_text,
             &[
@@ -643,7 +643,10 @@ impl MappingPanel {
         value: UnitValue,
     ) {
         let (session, target) = (self.session(), self.target());
-        let real_target = target.create_target(session.containing_fx()).ok();
+        let real_target = target
+            .with_context(session.containing_fx())
+            .create_target()
+            .ok();
         let edit_control_text = match &real_target {
             Some(target) => {
                 if target.character() == TargetCharacter::Discrete {
