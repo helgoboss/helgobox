@@ -256,4 +256,81 @@ mod tests {
         assert_eq!(p_invocation_count, 1);
         assert_eq!(p2_invocation_count, 1);
     }
+
+    /// In C++ ReaLearn, we used to automatically adjust other fields in a struct whenever the
+    /// value of a property in that struct has changed by subscribing to it in the constructor.
+    /// Either to ensure that min value is always <= max value, or to keep the
+    /// processor in sync with the model. Each of those cases boils down to having a
+    /// self-referential struct: The struct holds an rx subject which holds a subscriber which
+    /// points "back" to a field of the very same struct.
+    ///
+    /// In Rust, such self references would turn invalid as soon as the type moves, because moving
+    /// in Rust means memcpy to a different place in memory - which would let pointers/references
+    /// dangle. This is shown in the test.
+    ///
+    /// In C++ this was possible because C++ has a move constructor called when moving an object, in
+    /// which all self references can be reestablished. Rust intentionally doesn't have such move
+    /// constructors because always doing a simple memcpy has a multitude of advantages.
+    ///
+    /// In Rust, we can achieve the same by making sure the self-referenced data will stay where it
+    /// is, even if moved. We do that by putting it on the heap (e.g. using Box or Rc).
+    ///
+    /// Another way is to always calculate the memory address of the self-referenced data
+    /// on-the-fly:
+    ///
+    /// > So, to recap: instead of storing a pointer to an object itself, store some
+    /// > information so that you can calculate the pointer later. This is also commonly called
+    /// using > “handles”. (https://blog.sentry.io/2018/04/05/you-cant-rust-that)
+    ///
+    /// Or we use this opportunity to reconsider the design. Instead of enforcing that min value is
+    /// <= max value, we could just let it happen and instead provide an additional method which
+    /// returns the fixed value ... a more functional style. After all, the models are not the kind
+    /// of core domain objects for which it is important that they keep invariants. They are
+    /// made specifically for UI and (de)serialization needs. That's also why we have domain
+    /// counterparts without the suffix `Model`, which have no properties, are immutable and
+    /// therefore don't have this kind of issues by definition.
+    ///
+    /// Regarding use case 2, the "cached" processor to keep in sync with the model: An `Rc` would
+    /// certainly do the job, in our case with totally neglectable overhead. Or we don't expose
+    /// the properties directly and use setter methods which take care of updating the cached
+    /// processor. However, at first we might just want to go without caching the processor at all!
+    #[test]
+    fn update_other_member_on_change_fail() {
+        struct Combination<'a> {
+            value: LocalProp<'a, i32>,
+            derived_value: i32,
+        }
+
+        impl<'a> Combination<'a> {
+            fn new(initial_value: i32) -> Combination<'a> {
+                let mut c = Combination {
+                    value: LocalProp::new(initial_value),
+                    derived_value: initial_value,
+                };
+                let c_ptr = to_ptr(&mut c);
+                c.value.changed().subscribe(move |_| {
+                    // This won't work because at the time we move c out of this `new` function,
+                    // it will move to a different address in memory. In the old C++ code, this
+                    // only worked because we did the subscription in a move/copy constructor, which
+                    // was called whenever this value was moved.
+                    // Related to discussion here: https://internals.rust-lang.org/t/idea-limited-custom-move-semantics-through-explicitly-specified-relocations/6704/12
+                    let c = unsafe { &mut *c_ptr };
+                    c.derived_value = c.value.get() * 2;
+                });
+                c
+            }
+        }
+
+        fn to_ptr<T>(value: &mut T) -> *mut T {
+            let ptr = value as *mut T;
+            println!("{:?}", ptr);
+            ptr
+        }
+
+        // Given
+        let mut c = Combination::new(5);
+        to_ptr(&mut c);
+        // The following would most likely crash!
+        // c.value.set(8);
+    }
 }
