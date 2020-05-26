@@ -168,7 +168,7 @@ impl<'a> TargetModelWithContext<'a> {
     /// Creates a target based on this model's properties and the current REAPER state.
     ///
     /// It's possible that no target is created if there's not information provided by the model
-    /// or REAPER state.
+    /// or REAPER state or if the object is not available.
     pub fn create_target(&self) -> Result<ReaperTarget, &'static str> {
         use TargetType::*;
         let target = match self.target.r#type.get() {
@@ -179,21 +179,35 @@ impl<'a> TargetModelWithContext<'a> {
             FxParameter => ReaperTarget::FxParameter {
                 param: self.fx_param()?,
             },
-            TrackVolume => ReaperTarget::TrackVolume { track: todo!() },
-            TrackSendVolume => ReaperTarget::TrackSendVolume { send: todo!() },
-            TrackPan => ReaperTarget::TrackPan { track: todo!() },
-            TrackArm => ReaperTarget::TrackArm { track: todo!() },
+            TrackVolume => ReaperTarget::TrackVolume {
+                track: self.effective_track()?,
+            },
+            TrackSendVolume => ReaperTarget::TrackSendVolume {
+                send: self.track_send()?,
+            },
+            TrackPan => ReaperTarget::TrackPan {
+                track: self.effective_track()?,
+            },
+            TrackArm => ReaperTarget::TrackArm {
+                track: self.effective_track()?,
+            },
             TrackSelection => ReaperTarget::TrackSelection {
-                track: todo!(),
+                track: self.effective_track()?,
                 select_exclusively: self.target.select_exclusively.get(),
             },
-            TrackMute => ReaperTarget::TrackMute { track: todo!() },
-            TrackSolo => ReaperTarget::TrackSolo { track: todo!() },
-            TrackSendPan => ReaperTarget::TrackSendPan { send: todo!() },
+            TrackMute => ReaperTarget::TrackMute {
+                track: self.effective_track()?,
+            },
+            TrackSolo => ReaperTarget::TrackSolo {
+                track: self.effective_track()?,
+            },
+            TrackSendPan => ReaperTarget::TrackSendPan {
+                send: self.track_send()?,
+            },
             Tempo => ReaperTarget::Tempo,
             Playrate => ReaperTarget::Playrate,
-            FxEnable => ReaperTarget::FxEnable { fx: todo!() },
-            FxPreset => ReaperTarget::FxPreset { fx: todo!() },
+            FxEnable => ReaperTarget::FxEnable { fx: self.fx()? },
+            FxPreset => ReaperTarget::FxPreset { fx: self.fx()? },
         };
         Ok(target)
     }
