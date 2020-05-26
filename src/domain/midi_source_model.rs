@@ -1,6 +1,6 @@
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{MidiClockTransportMessage, MidiSource, SourceCharacter};
+use helgoboss_learn::{ControlValue, MidiClockTransportMessage, MidiSource, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
@@ -50,6 +50,16 @@ impl MidiSourceModel {
             .merge(self.midi_clock_transport_message.changed())
             .merge(self.is_registered.changed())
             .merge(self.is_14_bit.changed())
+    }
+
+    pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
+        // TODO-low use cached
+        self.create_source().format_control_value(value)
+    }
+
+    pub fn emits_increments(&self) -> bool {
+        // TODO-low use cached
+        self.create_source().emits_increments()
     }
 
     /// Creates a source reflecting this model's current values

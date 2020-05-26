@@ -1,13 +1,15 @@
 use crate::domain::{
-    MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
-    Session, SharedMappingModel, TargetType,
+    MappingModel, MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel,
+    ModeType, Session, SharedMappingModel, TargetCharacter, TargetModel, TargetType,
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
+use helgoboss_learn::{
+    ControlValue, DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter, UnitValue,
+};
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::{raw, Swell};
@@ -18,6 +20,7 @@ use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::convert::{TryFrom, TryInto};
 use std::ffi::CString;
 use std::iter;
+use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::str::FromStr;
 use std::time::Duration;
@@ -60,10 +63,9 @@ impl MappingPanel {
     }
 
     fn invalidate_window_title(&self) {
-        self.view.require_window().set_text(format!(
-            "Edit mapping {}",
-            self.mapping.borrow().name.get_ref()
-        ));
+        self.view
+            .require_window()
+            .set_text(format!("Edit mapping {}", self.mapping().name.get_ref()));
     }
 
     fn invalidate_mapping_name_edit_control(&self) {
@@ -73,19 +75,19 @@ impl MappingPanel {
         if c.has_focus() {
             return;
         }
-        c.set_text(self.mapping.borrow().name.get_ref().as_str());
+        c.set_text(self.mapping().name.get_ref().as_str());
     }
 
     fn invalidate_mapping_control_enabled_check_box(&self) {
         self.view
             .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
-            .set_checked(self.mapping.borrow().control_is_enabled.get());
+            .set_checked(self.mapping().control_is_enabled.get());
     }
 
     fn invalidate_mapping_feedback_enabled_check_box(&self) {
         self.view
             .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
-            .set_checked(self.mapping.borrow().feedback_is_enabled.get());
+            .set_checked(self.mapping().feedback_is_enabled.get());
     }
 
     fn invalidate_source_controls(&self) {
@@ -106,16 +108,36 @@ impl MappingPanel {
         self.invalidate_source_control_visibilities();
     }
 
-    fn source(&self) -> Ref<MidiSourceModel> {
-        Ref::map(self.mapping.borrow(), |m| &m.source_model)
+    fn mapping(&self) -> Ref<MappingModel> {
+        self.mapping.borrow()
     }
 
-    fn mode(&self) -> Ref<ModeModel> {
-        Ref::map(self.mapping.borrow(), |m| &m.mode_model)
+    fn mapping_mut(&self) -> RefMut<MappingModel> {
+        self.mapping.borrow_mut()
+    }
+
+    fn source(&self) -> Ref<MidiSourceModel> {
+        Ref::map(self.mapping(), |m| &m.source_model)
     }
 
     fn source_mut(&self) -> RefMut<MidiSourceModel> {
-        RefMut::map(self.mapping.borrow_mut(), |m| &mut m.source_model)
+        RefMut::map(self.mapping_mut(), |m| &mut m.source_model)
+    }
+
+    fn mode(&self) -> Ref<ModeModel> {
+        Ref::map(self.mapping(), |m| &m.mode_model)
+    }
+
+    fn mode_mut(&self) -> RefMut<ModeModel> {
+        RefMut::map(self.mapping_mut(), |m| &mut m.mode_model)
+    }
+
+    fn target(&self) -> Ref<TargetModel> {
+        Ref::map(self.mapping(), |m| &m.target_model)
+    }
+
+    fn target_mut(&self) -> RefMut<TargetModel> {
+        RefMut::map(self.mapping_mut(), |m| &mut m.target_model)
     }
 
     fn invalidate_source_control_labels(&self) {
@@ -278,7 +300,7 @@ impl MappingPanel {
     }
 
     fn update_mapping_control_enabled(&self) {
-        self.mapping.borrow_mut().control_is_enabled.set(
+        self.mapping_mut().control_is_enabled.set(
             self.view
                 .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
                 .is_checked(),
@@ -286,7 +308,7 @@ impl MappingPanel {
     }
 
     fn update_mapping_feedback_enabled(&self) {
-        self.mapping.borrow_mut().feedback_is_enabled.set(
+        self.mapping_mut().feedback_is_enabled.set(
             self.view
                 .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
                 .is_checked(),
@@ -298,7 +320,7 @@ impl MappingPanel {
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
             .text()?;
-        self.mapping.borrow_mut().name.set(value);
+        self.mapping_mut().name.set(value);
         Ok(())
     }
 
@@ -396,19 +418,16 @@ impl MappingPanel {
     }
 
     fn register_mapping_listeners(self: &SharedView<Self>) {
-        self.when(self.mapping.borrow().name.changed(), |view| {
+        self.when(self.mapping().name.changed(), |view| {
             view.invalidate_window_title();
             view.invalidate_mapping_name_edit_control();
         });
-        self.when(self.mapping.borrow().control_is_enabled.changed(), |view| {
+        self.when(self.mapping().control_is_enabled.changed(), |view| {
             view.invalidate_mapping_control_enabled_check_box();
         });
-        self.when(
-            self.mapping.borrow().feedback_is_enabled.changed(),
-            |view| {
-                view.invalidate_mapping_feedback_enabled_check_box();
-            },
-        );
+        self.when(self.mapping().feedback_is_enabled.changed(), |view| {
+            view.invalidate_mapping_feedback_enabled_check_box();
+        });
     }
 
     fn register_source_listeners(self: &SharedView<Self>) {
@@ -469,19 +488,184 @@ impl MappingPanel {
         self.invalidate_mode_control_visibilities();
     }
 
+    fn session(&self) -> debug_cell::Ref<Session> {
+        self.session.borrow()
+    }
+
     fn invalidate_mode_control_labels(&self) {
-        // TODO
+        let step_label = if self
+            .mapping()
+            .target_should_be_hit_with_increments(self.session().containing_fx())
+        {
+            "Step count"
+        } else {
+            "Step size"
+        };
+        self.view
+            .require_control(root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT)
+            .set_text(step_label);
     }
 
     fn invalidate_mode_control_visibilities(&self) {
-        // TODO
+        let (session, mapping, mode, target) =
+            (self.session(), self.mapping(), self.mode(), self.target());
+        self.show_if(
+            mode.supports_round_target_value()
+                && target.target_is_known_to_can_be_discrete(session.containing_fx()),
+            &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_reverse(),
+            &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_approach_target_value(),
+            &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_rotate_is_enabled(),
+            &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_ignore_out_of_range_source_values(),
+            &[root::ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_step_size(),
+            &[
+                root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+            ],
+        );
+        let show_value_text = mapping.target_should_be_hit_with_increments(session.containing_fx())
+            || !target.target_is_known_to_be_discrete(session.containing_fx());
+        self.show_if(
+            mode.supports_step_size() && show_value_text,
+            &[
+                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+            ],
+        );
+        self.show_if(
+            mode.supports_jump(),
+            &[
+                root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
+            ],
+        );
+        self.show_if(
+            mode.supports_eel_control_transformation(),
+            &[
+                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
+                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
+            ],
+        );
+        self.show_if(
+            mode.supports_eel_feedback_transformation(),
+            &[
+                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
+                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+            ],
+        );
     }
 
     fn invalidate_mode_source_value_controls(&self) {
-        // TODO
+        self.invalidate_mode_min_source_value_controls();
+        self.invalidate_mode_max_source_value_controls();
     }
 
     fn invalidate_mode_target_value_controls(&self) {
+        self.invalidate_mode_min_target_value_controls();
+        self.invalidate_mode_max_target_value_controls();
+        self.invalidate_mode_min_jump_controls();
+        self.invalidate_mode_max_jump_controls();
+    }
+
+    fn invalidate_mode_min_source_value_controls(&self) {
+        self.invalidate_mode_source_value_controls_internal(
+            root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
+            self.mode().min_source_value.get(),
+        );
+    }
+
+    fn invalidate_mode_max_source_value_controls(&self) {
+        self.invalidate_mode_source_value_controls_internal(
+            root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
+            self.mode().max_source_value.get(),
+        );
+    }
+
+    fn invalidate_mode_source_value_controls_internal(
+        &self,
+        slider_control_id: u32,
+        edit_control_id: u32,
+        value: UnitValue,
+    ) {
+        let formatted_value = self
+            .source()
+            .format_control_value(ControlValue::Absolute(value))
+            .unwrap_or("".to_string());
+        self.view
+            .require_control(edit_control_id)
+            .set_text(formatted_value);
+        self.view
+            .require_control(slider_control_id)
+            .set_slider_to_unit_value(value);
+    }
+
+    fn invalidate_mode_min_target_value_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_max_target_value_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_target_value_controls_internal(
+        &self,
+        slider_control_id: u32,
+        edit_control_id: u32,
+        value_text_control_id: u32,
+        value: UnitValue,
+    ) {
+        self.view
+            .require_control(slider_control_id)
+            .set_slider_to_unit_value(value);
+        let (session, target) = (self.session(), self.target());
+        // if target.character(session.containing_fx()) == TargetCharacter::Discrete {}
+        // // TODO
+
+        let formatted_value = self
+            .source()
+            .format_control_value(ControlValue::Absolute(value))
+            .unwrap_or("".to_string());
+        self.view
+            .require_control(edit_control_id)
+            .set_text(formatted_value);
+        self.view
+            .require_control(slider_control_id)
+            .set_slider_to_unit_value(value);
+    }
+
+    fn invalidate_mode_min_jump_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_max_jump_controls(&self) {
         // TODO
     }
 
@@ -645,5 +829,18 @@ impl View for MappingPanel {
             _ => return false,
         }
         true
+    }
+}
+
+trait WindowExt {
+    fn set_slider_to_unit_value(&self, value: UnitValue);
+}
+
+impl WindowExt for Window {
+    fn set_slider_to_unit_value(&self, value: UnitValue) {
+        let slider_interval = Interval::new(DiscreteValue::new(0), DiscreteValue::new(100));
+        self.set_slider_range(slider_interval.min().get(), slider_interval.max().get());
+        let discrete_value = value.map_from_unit_interval_to_discrete(&slider_interval);
+        self.set_slider_value(discrete_value.get());
     }
 }

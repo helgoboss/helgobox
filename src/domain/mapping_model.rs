@@ -1,4 +1,5 @@
-use crate::domain::{MidiSourceModel, ModeModel, TargetModel};
+use crate::domain::{MidiSourceModel, ModeModel, TargetCharacter, TargetModel};
+use reaper_high::Fx;
 use rx_util::{LocalProp, LocalStaticProp};
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -28,10 +29,12 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
-    pub fn target_should_be_hit_with_increments(&self) -> bool {
-        // TODO
-        false
-        // self.target_model.wants_increments()
-        // || (self.source_model.create_source().emits_increments() && self.target_model.)
+    pub fn target_should_be_hit_with_increments(&self, containing_fx: &Fx) -> bool {
+        self.target_model
+            .target_is_known_to_want_increments(containing_fx)
+            || (self.source_model.emits_increments()
+                && self
+                    .target_model
+                    .target_is_known_to_be_discrete(containing_fx))
     }
 }

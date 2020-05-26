@@ -174,4 +174,41 @@ impl ModeModel {
             }),
         }
     }
+
+    pub fn supports_reverse(&self) -> bool {
+        use ModeType::*;
+        matches!(self.r#type.get(), Absolute | Relative)
+    }
+
+    pub fn supports_ignore_out_of_range_source_values(&self) -> bool {
+        self.r#type.get() == ModeType::Absolute
+    }
+
+    pub fn supports_jump(&self) -> bool {
+        self.r#type.get() == ModeType::Absolute
+    }
+
+    pub fn supports_eel_control_transformation(&self) -> bool {
+        self.r#type.get() == ModeType::Absolute
+    }
+
+    pub fn supports_eel_feedback_transformation(&self) -> bool {
+        self.r#type.get() == ModeType::Absolute
+    }
+
+    pub fn supports_round_target_value(&self) -> bool {
+        self.r#type.get() == ModeType::Absolute
+    }
+
+    pub fn supports_approach_target_value(&self) -> bool {
+        self.r#type.get() == ModeType::Absolute
+    }
+
+    pub fn supports_step_size(&self) -> bool {
+        self.r#type.get() == ModeType::Relative
+    }
+
+    pub fn supports_rotate_is_enabled(&self) -> bool {
+        self.r#type.get() == ModeType::Relative
+    }
 }

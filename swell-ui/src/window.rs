@@ -193,6 +193,14 @@ impl Window {
         Swell::get().GetFocus() == self.raw
     }
 
+    pub fn set_slider_range(&self, min: u32, max: u32) {
+        Swell::get().SendMessage(self.raw, raw::TBM_SETRANGE, 0, make_long(min, max));
+    }
+
+    pub fn set_slider_value(&self, value: u32) {
+        Swell::get().SendMessage(self.raw, raw::TBM_SETPOS, 1, value as _);
+    }
+
     pub fn text(self) -> Result<String, &'static str> {
         let (text, result) = with_string_buffer(256, |buffer, max_size| unsafe {
             Swell::get().GetWindowText(self.raw, buffer, max_size)
@@ -296,4 +304,8 @@ fn with_string_buffer<T>(
     let result = fill_buffer(raw, max_size as i32);
     let string = unsafe { CString::from_raw(raw) };
     (string, result)
+}
+
+fn make_long(lo: u32, hi: u32) -> isize {
+    ((lo & 0xffff) | ((hi & 0xffff) << 16)) as _
 }
