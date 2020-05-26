@@ -1,6 +1,6 @@
 use crate::domain::{
     MappingModel, MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel,
-    ModeType, Session, SharedMappingModel, TargetCharacter, TargetModel, TargetType,
+    ModeType, ReaperTarget, Session, SharedMappingModel, TargetCharacter, TargetModel, TargetType,
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
@@ -511,7 +511,7 @@ impl MappingPanel {
             (self.session(), self.mapping(), self.mode(), self.target());
         self.show_if(
             mode.supports_round_target_value()
-                && target.target_is_known_to_can_be_discrete(session.containing_fx()),
+                && target.is_known_to_can_be_discrete(session.containing_fx()),
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
         );
         self.show_if(
@@ -543,7 +543,7 @@ impl MappingPanel {
             ],
         );
         let show_value_text = mapping.target_should_be_hit_with_increments(session.containing_fx())
-            || !target.target_is_known_to_be_discrete(session.containing_fx());
+            || !target.is_known_to_be_discrete(session.containing_fx());
         self.show_if(
             mode.supports_step_size() && show_value_text,
             &[
@@ -635,30 +635,60 @@ impl MappingPanel {
         // TODO
     }
 
-    fn invalidate_mode_target_value_controls_internal(
+    fn invalidate_target_controls_internal(
         &self,
         slider_control_id: u32,
         edit_control_id: u32,
         value_text_control_id: u32,
         value: UnitValue,
     ) {
+        let (session, target) = (self.session(), self.target());
+        let real_target = target.create_target(session.containing_fx()).ok();
+        let edit_control_text = match &real_target {
+            Some(target) => {
+                if target.character() == TargetCharacter::Discrete {
+                    target
+                        .convert_value_to_discrete_value(value)
+                        .map(|v| v.to_string())
+                        .unwrap_or("".to_string())
+                } else {
+                    target.format_value_without_unit(value)
+                }
+            }
+            None => "".to_string(),
+        };
         self.view
             .require_control(slider_control_id)
             .set_slider_to_unit_value(value);
-        let (session, target) = (self.session(), self.target());
-        // if target.character(session.containing_fx()) == TargetCharacter::Discrete {}
-        // // TODO
-
-        let formatted_value = self
-            .source()
-            .format_control_value(ControlValue::Absolute(value))
-            .unwrap_or("".to_string());
         self.view
             .require_control(edit_control_id)
-            .set_text(formatted_value);
+            .set_text(edit_control_text);
+        self.set_text_right_to_target_edit_control(&real_target, value_text_control_id, value);
+    }
+
+    fn set_text_right_to_target_edit_control(
+        &self,
+        target: &Option<ReaperTarget>,
+        value_text_control_id: u32,
+        value: UnitValue,
+    ) {
+        let text = match target {
+            None => "".to_string(),
+            Some(t) => {
+                if t.can_parse_real_values() {
+                    t.unit()
+                } else if t.character() == TargetCharacter::Discrete {
+                    // Please note that discrete FX parameters can only show their *current* value,
+                    // unless they implement the REAPER VST extension functions.
+                    t.format_value(value)
+                } else {
+                    format!("{}  {}", t.unit(), t.format_value(value))
+                }
+            }
+        };
         self.view
-            .require_control(slider_control_id)
-            .set_slider_to_unit_value(value);
+            .require_control(value_text_control_id)
+            .set_text(text);
     }
 
     fn invalidate_mode_min_jump_controls(&self) {

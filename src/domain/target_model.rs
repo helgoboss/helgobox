@@ -1,7 +1,7 @@
 use crate::domain::{ReaperTarget, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::Target;
+use helgoboss_learn::{Target, UnitValue};
 use reaper_high::{Action, Fx, FxParameter, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
@@ -53,21 +53,22 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
-    pub fn target_is_known_to_be_discrete(&self, containing_fx: &Fx) -> bool {
+    // TODO such functions o TargetModelWithContext
+    pub fn is_known_to_be_discrete(&self, containing_fx: &Fx) -> bool {
         // TODO-low use cached
         self.create_target(containing_fx)
-            .map(|t| t.character().is_discrete())
+            .map(|t| t.character() == TargetCharacter::Discrete)
             .unwrap_or(false)
     }
 
-    pub fn target_is_known_to_want_increments(&self, containing_fx: &Fx) -> bool {
+    pub fn is_known_to_want_increments(&self, containing_fx: &Fx) -> bool {
         // TODO-low use cached
         self.create_target(containing_fx)
             .map(|t| t.wants_increments())
             .unwrap_or(false)
     }
 
-    pub fn target_is_known_to_can_be_discrete(&self, containing_fx: &Fx) -> bool {
+    pub fn is_known_to_can_be_discrete(&self, containing_fx: &Fx) -> bool {
         // TODO-low use cached
         self.create_target(containing_fx)
             .map(|t| t.can_be_discrete())
