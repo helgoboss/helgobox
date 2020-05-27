@@ -406,7 +406,7 @@ impl MappingPanel {
         self.register_mapping_listeners();
         self.register_source_listeners();
         self.register_target_listeners();
-        self.register_settings_listeners();
+        self.register_mode_listeners();
     }
 
     fn register_session_listeners(self: &SharedView<Self>) {
@@ -471,7 +471,7 @@ impl MappingPanel {
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_ignore_out_of_range_check_box();
         self.invalidate_mode_round_target_value_check_box();
-        self.invalidate_mode_scale_mode_check_box();
+        self.invalidate_mode_approach_check_box();
         self.invalidate_mode_reverse_check_box();
         self.invalidate_mode_eel_control_transformation_edit_control();
         self.invalidate_mode_eel_feedback_transformation_edit_control();
@@ -719,11 +719,21 @@ impl MappingPanel {
     }
 
     fn invalidate_mode_min_step_size_controls(&self) {
-        // TODO
+        self.invalidate_mode_step_size_controls_internal(
+            root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+            self.mode().min_step_size.get(),
+        );
     }
 
     fn invalidate_mode_max_step_size_controls(&self) {
-        // TODO
+        self.invalidate_mode_step_size_controls_internal(
+            root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+            self.mode().max_step_size.get(),
+        );
     }
 
     fn invalidate_mode_step_size_controls_internal(
@@ -772,38 +782,52 @@ impl MappingPanel {
     }
 
     fn invalidate_mode_rotate_check_box(&self) {
-        // TODO
+        self.view
+            .require_control(root::ID_SETTINGS_ROTATE_CHECK_BOX)
+            .set_checked(self.mode().rotate.get());
     }
 
     fn invalidate_mode_ignore_out_of_range_check_box(&self) {
-        // TODO
+        self.view
+            .require_control(root::ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX)
+            .set_checked(self.mode().ignore_out_of_range_source_values.get());
     }
 
     fn invalidate_mode_round_target_value_check_box(&self) {
-        // TODO
+        self.view
+            .require_control(root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX)
+            .set_checked(self.mode().round_target_value.get());
     }
 
-    fn invalidate_mode_scale_mode_check_box(&self) {
-        // TODO
+    fn invalidate_mode_approach_check_box(&self) {
+        self.view
+            .require_control(root::ID_SETTINGS_SCALE_MODE_CHECK_BOX)
+            .set_checked(self.mode().approach_target_value.get());
     }
 
     fn invalidate_mode_reverse_check_box(&self) {
-        // TODO
+        self.view
+            .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
+            .set_checked(self.mode().reverse.get());
     }
 
     fn invalidate_mode_eel_control_transformation_edit_control(&self) {
-        // TODO
+        self.view
+            .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
+            .set_text(self.mode().eel_control_transformation.get_ref().as_str());
     }
 
     fn invalidate_mode_eel_feedback_transformation_edit_control(&self) {
-        // TODO
+        self.view
+            .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
+            .set_text(self.mode().eel_feedback_transformation.get_ref().as_str());
     }
 
     fn register_target_listeners(self: &SharedView<Self>) {
         // TODO
     }
 
-    fn register_settings_listeners(self: &SharedView<Self>) {
+    fn register_mode_listeners(self: &SharedView<Self>) {
         // TODO
     }
 
