@@ -628,11 +628,21 @@ impl MappingPanel {
     }
 
     fn invalidate_mode_min_target_value_controls(&self) {
-        // TODO
+        self.invalidate_target_controls_internal(
+            root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
+            self.mode().min_target_value.get(),
+        );
     }
 
     fn invalidate_mode_max_target_value_controls(&self) {
-        // TODO
+        self.invalidate_target_controls_internal(
+            root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
+            self.mode().max_target_value.get(),
+        );
     }
 
     fn invalidate_target_controls_internal(
@@ -647,63 +657,118 @@ impl MappingPanel {
             .with_context(session.containing_fx())
             .create_target()
             .ok();
-        let edit_control_text = match &real_target {
+        let (edit_text, value_text) = match &real_target {
             Some(target) => {
-                if target.character() == TargetCharacter::Discrete {
+                let edit_text = if target.character() == TargetCharacter::Discrete {
                     target
                         .convert_value_to_discrete_value(value)
                         .map(|v| v.to_string())
                         .unwrap_or("".to_string())
                 } else {
                     target.format_value_without_unit(value)
-                }
+                };
+                let value_text = self.get_text_right_to_target_edit_control(&target, value);
+                (edit_text, value_text)
             }
-            None => "".to_string(),
+            None => ("".to_string(), "".to_string()),
         };
         self.view
             .require_control(slider_control_id)
             .set_slider_to_unit_value(value);
         self.view
             .require_control(edit_control_id)
-            .set_text(edit_control_text);
-        self.set_text_right_to_target_edit_control(&real_target, value_text_control_id, value);
-    }
-
-    fn set_text_right_to_target_edit_control(
-        &self,
-        target: &Option<ReaperTarget>,
-        value_text_control_id: u32,
-        value: UnitValue,
-    ) {
-        let text = match target {
-            None => "".to_string(),
-            Some(t) => {
-                if t.can_parse_real_values() {
-                    t.unit()
-                } else if t.character() == TargetCharacter::Discrete {
-                    // Please note that discrete FX parameters can only show their *current* value,
-                    // unless they implement the REAPER VST extension functions.
-                    t.format_value(value)
-                } else {
-                    format!("{}  {}", t.unit(), t.format_value(value))
-                }
-            }
-        };
+            .set_text(edit_text);
         self.view
             .require_control(value_text_control_id)
-            .set_text(text);
+            .set_text(value_text);
+    }
+
+    fn get_text_right_to_target_edit_control(&self, t: &ReaperTarget, value: UnitValue) -> String {
+        if t.can_parse_real_values() {
+            t.unit().to_string()
+        } else if t.character() == TargetCharacter::Discrete {
+            // Please note that discrete FX parameters can only show their *current* value,
+            // unless they implement the REAPER VST extension functions.
+            t.format_value(value)
+        } else {
+            format!("{}  {}", t.unit(), t.format_value(value))
+        }
     }
 
     fn invalidate_mode_min_jump_controls(&self) {
-        // TODO
+        self.invalidate_target_controls_internal(
+            root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
+            self.mode().min_jump.get(),
+        );
     }
 
     fn invalidate_mode_max_jump_controls(&self) {
-        // TODO
+        self.invalidate_target_controls_internal(
+            root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
+            self.mode().max_jump.get(),
+        );
     }
 
     fn invalidate_mode_step_size_controls(&self) {
+        self.invalidate_mode_min_step_size_controls();
+        self.invalidate_mode_max_step_size_controls();
+    }
+
+    fn invalidate_mode_min_step_size_controls(&self) {
         // TODO
+    }
+
+    fn invalidate_mode_max_step_size_controls(&self) {
+        // TODO
+    }
+
+    fn invalidate_mode_step_size_controls_internal(
+        &self,
+        slider_control_id: u32,
+        edit_control_id: u32,
+        value_text_control_id: u32,
+        value: UnitValue,
+    ) {
+        let (session, mapping, target_model) = (self.session(), self.mapping(), self.target());
+        let target = target_model
+            .with_context(session.containing_fx())
+            .create_target()
+            .ok();
+        let (edit_text, value_text) = match &target {
+            Some(target) => {
+                if mapping.target_should_be_hit_with_increments(session.containing_fx()) {
+                    let edit_text = target
+                        .convert_step_size_to_step_count(value)
+                        .map(|v| v.to_string())
+                        .unwrap_or("".to_string());
+                    (edit_text, "x".to_string())
+                } else if target.character() == TargetCharacter::Discrete {
+                    let edit_text = target
+                        .convert_value_to_discrete_value(value)
+                        .map(|v| v.to_string())
+                        .unwrap_or("".to_string());
+                    (edit_text, "".to_string())
+                } else {
+                    let edit_text = target.format_value_without_unit(value);
+                    let value_text = self.get_text_right_to_target_edit_control(target, value);
+                    (edit_text, value_text)
+                }
+            }
+            None => ("".to_string(), "".to_string()),
+        };
+        self.view
+            .require_control(slider_control_id)
+            .set_slider_to_unit_value(value);
+        self.view
+            .require_control(edit_control_id)
+            .set_text(edit_text);
+        self.view
+            .require_control(value_text_control_id)
+            .set_text(value_text)
     }
 
     fn invalidate_mode_rotate_check_box(&self) {

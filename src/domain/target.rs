@@ -1,10 +1,11 @@
 use crate::domain::ActionInvocationType;
 use helgoboss_learn::{Target, UnitValue};
 use reaper_high::{
-    Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Tempo, Track,
-    TrackSend, Volume,
+    Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Tempo,
+    Track, TrackSend, Volume,
 };
-use reaper_medium::{CommandId, Db, NormalizedPlayRate};
+use reaper_medium::{Bpm, CommandId, Db, NormalizedPlayRate, ReaperNormalizedFxParamValue};
+use std::cmp;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
@@ -51,8 +52,12 @@ pub enum ReaperTarget {
     TrackSendPan {
         send: TrackSend,
     },
-    Tempo,
-    Playrate,
+    Tempo {
+        project: Project,
+    },
+    Playrate {
+        project: Project,
+    },
     FxEnable {
         fx: Fx,
     },
@@ -86,8 +91,8 @@ impl ReaperTarget {
             TrackMute { .. } => Switch,
             TrackSolo { .. } => Switch,
             TrackSendPan { .. } => Continuous,
-            Tempo => Continuous,
-            Playrate => Continuous,
+            Tempo { .. } => Continuous,
+            Playrate { .. } => Continuous,
             FxEnable { .. } => Switch,
             FxPreset { .. } => Discrete,
         }
@@ -99,8 +104,28 @@ impl ReaperTarget {
 
     /// Formats the value completely (including a possible unit).
     pub fn format_value(&self, value: UnitValue) -> String {
-        "".to_string()
-        // TODO
+        use ReaperTarget::*;
+        match self {
+            Action { .. } => "".to_string(),
+            FxParameter { param } => {
+                // TODO This doesn't take into account that ReaperNormalizedFxParamValue can be > 1.
+                param
+                    .format_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
+                    .into_string()
+            }
+            TrackVolume { .. } | TrackSendVolume { .. } => format_as_db(value),
+            TrackPan { .. } | TrackSendPan { .. } => format_as_pan(value),
+            FxEnable { .. }
+            | TrackArm { .. }
+            | TrackMute { .. }
+            | TrackSelection { .. }
+            | TrackSolo { .. } => format_as_on_off(value).to_string(),
+            FxPreset { fx } => match unit_value_to_preset_index(fx, value) {
+                None => "<No preset>".to_string(),
+                Some(i) => (i + 1).to_string(),
+            },
+            _ => format!("{} {}", self.format_value_without_unit(value), self.unit()),
+        }
     }
 
     /// Formats the value without unit.
@@ -108,9 +133,9 @@ impl ReaperTarget {
         use ReaperTarget::*;
         match self {
             TrackVolume { .. } | TrackSendVolume { .. } => format_as_db_without_unit(value),
-            TrackPan { .. } | TrackSendPan { .. } => format_as_pan_without_unit(value),
-            Tempo => format_as_bpm_without_unit(value),
-            Playrate => format_as_playback_speed_factor_without_unit(value),
+            TrackPan { .. } | TrackSendPan { .. } => format_as_pan(value),
+            Tempo { .. } => format_as_bpm_without_unit(value),
+            Playrate { .. } => format_as_playback_speed_factor_without_unit(value),
             _ => format_as_percent_without_unit(value),
         }
     }
@@ -126,43 +151,106 @@ impl ReaperTarget {
     /// # Errors
     ///
     /// Returns an error if this target doesn't report a step size.
-    pub fn convert_value_to_discrete_value(&self, value: UnitValue) -> Result<u32, &'static str> {
+    pub fn convert_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
         // Example (target step size = 0.10):
         // - 0    => 0
         // - 0.05 => 1
         // - 0.10 => 1
         // - 0.15 => 2
         // - 0.20 => 2
+        // TODO This is maybe wrong for preset target because it has 0 as special value (no preset)
+        //  and is otherwise shifted
         let target_step_size = self.step_size().ok_or("target doesn't report step size")?;
-        Ok((value.get() / target_step_size.get()).round() as _)
+        Ok((input.get() / target_step_size.get()).round() as _)
+    }
+
+    /// This converts the given step size to a discrete increment (= step count).
+    ///
+    /// In case the target wants increments, this takes 63 as the highest possible value. Otherwise
+    /// it just acts like `convert_value_to_discrete_value()`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this target doesn't want increments and doesn't report a step size.
+    pub fn convert_step_size_to_step_count(&self, input: UnitValue) -> Result<u32, &'static str> {
+        if self.wants_increments() {
+            // Relative MIDI controllers support a maximum of 63 steps.
+            Ok((input.get() * 63.0).round() as _)
+        } else {
+            self.convert_value_to_discrete_value(input)
+        }
     }
 
     /// Meaning: not just percentages.
     pub fn can_parse_real_values(&self) -> bool {
-        // TODO
-        false
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackSendPan { .. }
+            | Playrate { .. }
+            | Tempo { .. } => true,
+            _ => false,
+        }
     }
 
-    pub fn unit(&self) -> String {
-        // TODO
-        "".to_string()
+    pub fn unit(&self) -> &'static str {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. } | TrackSendVolume { .. } => "dB",
+            TrackPan { .. } | TrackSendPan { .. } => "",
+            Tempo { .. } => "bpm",
+            Playrate { .. } => "x",
+            _ => "%",
+        }
     }
 }
 
 impl Target for ReaperTarget {
     fn current_value(&self) -> UnitValue {
-        // TODO
-        UnitValue::MIN
+        use ReaperTarget::*;
+        match self {
+            Action { action, .. } => bool_to_unit_value(action.is_on()),
+            // TODO This will panic if the "soft" normalized value is > 1
+            FxParameter { param } => UnitValue::new(param.normalized_value().get()),
+            // TODO This will panic if the "soft" normalized value is > 1
+            TrackVolume { track } => UnitValue::new(track.volume().soft_normalized_value()),
+            // TODO This will panic if the "soft" normalized value is > 1
+            TrackSendVolume { send } => UnitValue::new(send.volume().soft_normalized_value()),
+            TrackPan { track } => UnitValue::new(track.pan().normalized_value()),
+            TrackArm { track } => bool_to_unit_value(track.is_armed(false)),
+            TrackSelection { track, .. } => bool_to_unit_value(track.is_selected()),
+            TrackMute { track } => bool_to_unit_value(track.is_muted()),
+            TrackSolo { track } => bool_to_unit_value(track.is_solo()),
+            TrackSendPan { send } => UnitValue::new(send.pan().normalized_value()),
+            Tempo { project } => UnitValue::new(project.tempo().normalized_value()),
+            Playrate { project } => UnitValue::new(project.play_rate().normalized_value().get()),
+            FxEnable { fx } => bool_to_unit_value(fx.is_enabled()),
+            FxPreset { fx } => preset_index_to_unit_value(fx, fx.preset_index()),
+        }
     }
 
     fn step_size(&self) -> Option<UnitValue> {
-        // TODO
-        None
+        use ReaperTarget::*;
+        match self {
+            FxParameter { param } => param.step_size().map(UnitValue::new),
+            Tempo { .. } => Some(UnitValue::new(1.0 / (Bpm::MAX.get() - Bpm::MIN.get()))),
+            FxPreset { fx } => {
+                // `+ 1` because "no preset" is also a possible value
+                Some(UnitValue::new(1.0 / (fx.preset_count() + 1) as f64))
+            }
+            _ => None,
+        }
     }
 
     fn wants_increments(&self) -> bool {
-        // TODO
-        false
+        match self {
+            ReaperTarget::Action {
+                invocation_type, ..
+            } if *invocation_type == ActionInvocationType::Relative => true,
+            _ => false,
+        }
     }
 }
 
@@ -188,7 +276,7 @@ fn format_as_percent_without_unit(value: UnitValue) -> String {
 }
 
 fn format_as_db_without_unit(value: UnitValue) -> String {
-    let db = Volume::from_normalized_value(value.get()).db();
+    let db = Volume::from_soft_normalized_value(value.get()).db();
     if db == Db::MINUS_INF {
         "-inf".to_string()
     } else {
@@ -196,6 +284,44 @@ fn format_as_db_without_unit(value: UnitValue) -> String {
     }
 }
 
-fn format_as_pan_without_unit(value: UnitValue) -> String {
+fn format_as_db(value: UnitValue) -> String {
+    Volume::from_soft_normalized_value(value.get()).to_string()
+}
+
+fn format_as_pan(value: UnitValue) -> String {
     Pan::from_normalized_value(value.get()).to_string()
+}
+
+fn format_as_on_off(value: UnitValue) -> &'static str {
+    if value.is_one() { "On" } else { "Off" }
+}
+
+fn bool_to_unit_value(on: bool) -> UnitValue {
+    if on { UnitValue::MAX } else { UnitValue::MIN }
+}
+
+fn unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
+    // 0 corresponds to "no preset"
+    if value.is_zero() {
+        None
+    } else {
+        let preset_count = fx.preset_count();
+        let step_size = 1.0 / preset_count as f64;
+        let shifted_value = (value.get() - step_size).max(0.0);
+        Some((shifted_value * preset_count as f64).round() as u32)
+    }
+}
+
+fn preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
+    // 0 corresponds to "no preset"
+    match index {
+        None => UnitValue::MIN,
+        Some(i) => {
+            let preset_count = fx.preset_count();
+            let shifted_value = i as f64 / preset_count as f64;
+            let step_size = 1.0 / preset_count as f64;
+            let value = (shifted_value + step_size).min(1.0);
+            UnitValue::new(value)
+        }
+    }
 }

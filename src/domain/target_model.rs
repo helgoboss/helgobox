@@ -2,7 +2,7 @@ use crate::domain::{ReaperTarget, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{Target, UnitValue};
-use reaper_high::{Action, Fx, FxParameter, Reaper, Track, TrackSend};
+use reaper_high::{Action, Fx, FxParameter, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
 use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
@@ -204,8 +204,12 @@ impl<'a> TargetModelWithContext<'a> {
             TrackSendPan => ReaperTarget::TrackSendPan {
                 send: self.track_send()?,
             },
-            Tempo => ReaperTarget::Tempo,
-            Playrate => ReaperTarget::Playrate,
+            Tempo => ReaperTarget::Tempo {
+                project: self.project(),
+            },
+            Playrate => ReaperTarget::Playrate {
+                project: self.project(),
+            },
             FxEnable => ReaperTarget::FxEnable { fx: self.fx()? },
             FxPreset => ReaperTarget::FxPreset { fx: self.fx()? },
         };
@@ -253,6 +257,12 @@ impl<'a> TargetModelWithContext<'a> {
         }
     }
 
+    fn project(&self) -> Project {
+        self.containing_fx
+            .project()
+            .unwrap_or(Reaper::get().current_project())
+    }
+
     // TODO-low Consider returning a Cow
     fn effective_track(&self) -> Result<Track, &'static str> {
         use VirtualTrack::*;
@@ -260,9 +270,7 @@ impl<'a> TargetModelWithContext<'a> {
             Particular(track) => Ok(track.clone()),
             This => Ok(self.containing_fx.track().clone()),
             Selected => self
-                .containing_fx
                 .project()
-                .unwrap_or(Reaper::get().current_project())
                 .first_selected_track(IncludeMasterTrack)
                 .ok_or("no track selected"),
         }
