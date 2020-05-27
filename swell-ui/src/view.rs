@@ -1,4 +1,5 @@
 use crate::{create_window, SharedView, Window};
+use reaper_low::raw;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use std::borrow::BorrowMut;
@@ -123,6 +124,21 @@ pub trait View {
         false
     }
 
+    /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback
+    /// method.
+    ///
+    /// Return `None` to indicate that processing should continue, that is, the other callback
+    /// methods should be called accordingly.
+    fn process_raw(
+        &self,
+        window: Window,
+        msg: raw::UINT,
+        wparam: raw::WPARAM,
+        laram: raw::LPARAM,
+    ) -> Option<raw::INT_PTR> {
+        None
+    }
+
     // Public methods (intended to be used by consumers)
     // =================================================
 
@@ -132,7 +148,16 @@ pub trait View {
         Self: Sized + 'static,
     {
         let resource_id = self.dialog_resource_id();
-        create_window(self, resource_id, parent_window);
+        create_window(self, resource_id, Some(parent_window));
+    }
+
+    /// Opens this view in a free window.
+    fn open_without_parent(self: SharedView<Self>)
+    where
+        Self: Sized + 'static,
+    {
+        let resource_id = self.dialog_resource_id();
+        create_window(self, resource_id, None);
     }
 
     /// Closes this view.

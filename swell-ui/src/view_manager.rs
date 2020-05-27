@@ -8,6 +8,7 @@ use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
+use std::ptr::null_mut;
 use std::rc::{Rc, Weak};
 use std::sync::Once;
 
@@ -17,20 +18,24 @@ use std::sync::Once;
 ///
 /// Internally, this creates a new win32 dialog using the given resource ID. Uses the methods in the
 /// given view for all callbacks.
-pub(crate) fn create_window(view: SharedView<dyn View>, resource_id: u32, parent_window: Window) {
+pub(crate) fn create_window(
+    view: SharedView<dyn View>,
+    resource_id: u32,
+    parent_window: Option<Window>,
+) {
     let swell = Swell::get();
     unsafe {
-        // This will call the window procedure `view_window_proc`. In order to still know which
+        // This will call the dialog procedure `view_dialog_proc`. In order to still know which
         // of the many view objects we are dealing with, we make use of the lparam parameter of
         // `CreateDialogParamA` by passing it an address which points to the concrete view.
-        // `view_window_proc` with message WM_INITDIALOG will be called immediately, not async.
+        // `view_dialog_proc` with message WM_INITDIALOG will be called immediately, not async.
         // That's important because we must be sure that the given view Rc reference is still
-        // valid when it arrives in `view_window_proc`.
+        // valid when it arrives in `view_dialog_proc`.
         swell.CreateDialogParam(
             swell.plugin_context().h_instance(),
             resource_id as u16 as raw::ULONG_PTR as raw::LPSTR,
-            parent_window.raw(),
-            Some(view_window_proc),
+            parent_window.map(|w| w.raw()).unwrap_or(null_mut()),
+            Some(view_dialog_proc),
             convert_view_ref_to_address(&view),
         );
     }
@@ -90,15 +95,25 @@ fn interpret_address_as_view_ref<'a>(view_trait_object_address: isize) -> &'a Sh
     unsafe { &*(view_trait_object_ptr as *const _) }
 }
 
-/// This is our window procedure. It's called by Windows (or the emulation layer). It basically
-/// finds the particular `View` instance which matches the HWND and then delegates to its
-/// methods.
-unsafe extern "C" fn view_window_proc(
+/// This is our dialog procedure.
+///
+/// It's called by Windows (or the emulation layer). It basically finds the particular `View`
+/// instance which matches the HWND and then delegates to its methods. Please note that this is
+/// a DialogProc, not a WindowProc. The difference is mainly the return value. A WindowProc
+/// usually returns 0 if the message has been processed, or it delegates to `DefWindowProc()`.
+/// If we do the latter in a DialogProc, non-child windows start to become always modal (not
+/// returning focus) because it's wrong!
+///
+/// In DialogProc it's the opposite: It returns 1 if the message has been processed and 0 if not.
+/// If we have a message where the return value has a special meaning (beyond processed or
+/// unprocesssed), we need to "return" that via `SetWindowLong` instead, except for WM_INITDIALOG.
+/// See https://docs.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-dlgproc.
+unsafe extern "C" fn view_dialog_proc(
     hwnd: raw::HWND,
     msg: raw::UINT,
     wparam: raw::WPARAM,
     lparam: raw::LPARAM,
-) -> raw::LRESULT {
+) -> raw::INT_PTR {
     catch_unwind(|| {
         let swell = Swell::get();
         let view: SharedView<dyn View> = if msg == raw::WM_INITDIALOG {
@@ -115,8 +130,8 @@ unsafe extern "C" fn view_window_proc(
             // Try to find view corresponding to given HWND
             match ViewManager::get().borrow().lookup_view(hwnd) {
                 None => {
-                    // View is not (yet) registered. Just use the default handler.
-                    return swell.DefWindowProc(hwnd, msg, wparam, lparam);
+                    // View is not (yet) registered. Do default stuff.
+                    return 0;
                 }
                 Some(v) => {
                     // View is registered. See if it's still existing. If not, the primary owner
@@ -137,11 +152,16 @@ unsafe extern "C" fn view_window_proc(
         };
         // Found view. Delegate to view struct methods.
         let window = Window::new(hwnd).expect("window was null");
+        if let Some(result) = view.process_raw(window, msg, wparam, lparam) {
+            return result;
+        }
         match msg {
             raw::WM_INITDIALOG => {
                 view.view_context().window.replace(Some(window));
                 window.show();
                 let keyboard_focus_desired = view.opened(window);
+                // WM_INITDIALOG is special in a DialogProc in that we don't need to use
+                // `SetWindowLong()` for return values with special meaning.
                 keyboard_focus_desired.into()
             }
             raw::WM_DESTROY => {
@@ -150,7 +170,7 @@ unsafe extern "C" fn view_window_proc(
                 view_context.window.replace(None);
                 view.closed(window);
                 ViewManager::get().borrow_mut().unregister_view(hwnd);
-                0
+                1
             }
             raw::WM_COMMAND => {
                 let resource_id = loword(wparam);
@@ -159,72 +179,40 @@ unsafe extern "C" fn view_window_proc(
                         view.button_clicked(resource_id as _);
                         // We just say the click is handled. Don't know where this  would not  be
                         // the case.
-                        0
+                        1
                     }
                     raw::CBN_SELCHANGE => {
                         view.option_selected(resource_id as _);
                         // We just say the selection is handled. Don't know where this would not
                         // be the case.
-                        0
+                        1
                     }
-                    raw::EN_KILLFOCUS => {
-                        let processed = view.edit_control_focus_killed(resource_id as _);
-                        if processed {
-                            0
-                        } else {
-                            swell.DefWindowProc(hwnd, msg, wparam, lparam)
-                        }
-                    }
-                    raw::EN_CHANGE => {
-                        let processed = view.edit_control_changed(resource_id as _);
-                        if processed {
-                            0
-                        } else {
-                            swell.DefWindowProc(hwnd, msg, wparam, lparam)
-                        }
-                    }
-                    _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),
+                    raw::EN_KILLFOCUS => view.edit_control_focus_killed(resource_id as _).into(),
+                    raw::EN_CHANGE => view.edit_control_changed(resource_id as _).into(),
+                    _ => 0,
                 }
             }
             raw::WM_VSCROLL => {
                 let code = loword(wparam);
-                let processed = view.scrolled_vertically(code as _);
-                if processed {
-                    0
-                } else {
-                    swell.DefWindowProc(hwnd, msg, wparam, lparam)
-                }
+                view.scrolled_vertically(code as _).into()
             }
             raw::WM_MOUSEWHEEL => {
                 let distance = hiword_signed(wparam);
-                let processed = view.mouse_wheel_turned(distance as _);
-                if processed {
-                    0
-                } else {
-                    swell.DefWindowProc(hwnd, msg, wparam, lparam)
-                }
+                view.mouse_wheel_turned(distance as _).into()
             }
             raw::WM_KEYDOWN => {
                 let key_code = wparam as u32;
-                let processed = view.virtual_key_pressed(key_code);
-                if processed {
-                    0
-                } else {
-                    swell.DefWindowProc(hwnd, msg, wparam, lparam)
-                }
+                view.virtual_key_pressed(key_code).into()
             }
             raw::WM_CLOSE => {
                 // We never let the user confirm. Destroy immediately!
                 window.destroy();
-                0
+                1
             }
-            _ => swell.DefWindowProc(hwnd, msg, wparam, lparam),
+            _ => 0,
         }
     })
-    // For messages that you do not explictly handle, you should call DefWindowProc, passing to it
-    // all the parameters to your window proc, and return its return value to the caller.
-    // (https://stackoverflow.com/questions/4650566/correct-return-value-of-windowproc-in-a-win32-application)
-    .unwrap_or_else(|_| Swell::get().DefWindowProc(hwnd, msg, wparam, lparam))
+    .unwrap_or(0)
 }
 
 fn loword(wparam: usize) -> u16 {
