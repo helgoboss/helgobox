@@ -33,6 +33,19 @@ pub struct MappingPanel {
     view: ViewContext,
     session: SharedSession,
     mapping: SharedMappingModel,
+    is_in_reaction: Cell<bool>,
+    sliders: RefCell<Option<Sliders>>,
+}
+
+struct Sliders {
+    mode_min_target_value: Window,
+    mode_max_target_value: Window,
+    mode_min_source_value: Window,
+    mode_max_source_value: Window,
+    mode_min_step_size: Window,
+    mode_max_step_size: Window,
+    mode_min_jump: Window,
+    mode_max_jump: Window,
 }
 
 impl MappingPanel {
@@ -41,6 +54,8 @@ impl MappingPanel {
             view: Default::default(),
             session,
             mapping,
+            is_in_reaction: false.into(),
+            sliders: None.into(),
         }
     }
 
@@ -626,7 +641,7 @@ impl MappingPanel {
             .set_text(formatted_value);
         self.view
             .require_control(slider_control_id)
-            .set_slider_to_unit_value(value);
+            .set_slider_unit_value(value);
     }
 
     fn invalidate_mode_min_target_value_controls(&self) {
@@ -672,7 +687,7 @@ impl MappingPanel {
         };
         self.view
             .require_control(slider_control_id)
-            .set_slider_to_unit_value(value);
+            .set_slider_unit_value(value);
         self.view
             .require_control(edit_control_id)
             .set_text(edit_text);
@@ -766,7 +781,7 @@ impl MappingPanel {
         };
         self.view
             .require_control(slider_control_id)
-            .set_slider_to_unit_value(value);
+            .set_slider_unit_value(value);
         self.view
             .require_control(edit_control_id)
             .set_text(edit_text);
@@ -1086,12 +1101,91 @@ impl MappingPanel {
         self.mode_mut().eel_feedback_transformation.set(value);
     }
 
+    fn update_mode_min_target_value_from_slider(&self, slider: Window) {
+        self.mode_mut()
+            .min_target_value
+            .set(slider.slider_unit_value());
+    }
+
+    fn update_mode_max_target_value_from_slider(&self, slider: Window) {
+        self.mode_mut()
+            .max_target_value
+            .set(slider.slider_unit_value());
+    }
+
+    fn update_mode_min_source_value_from_slider(&self, slider: Window) {
+        self.mode_mut()
+            .min_source_value
+            .set(slider.slider_unit_value());
+    }
+
+    fn update_mode_max_source_value_from_slider(&self, slider: Window) {
+        self.mode_mut()
+            .max_source_value
+            .set(slider.slider_unit_value());
+    }
+
+    fn update_mode_min_step_size_from_slider(&self, slider: Window) {
+        self.mode_mut()
+            .min_step_size
+            .set(slider.slider_unit_value());
+    }
+
+    fn update_mode_max_step_size_from_slider(&self, slider: Window) {
+        self.mode_mut()
+            .max_step_size
+            .set(slider.slider_unit_value());
+    }
+
+    fn update_mode_min_jump_from_slider(&self, slider: Window) {
+        self.mode_mut().min_jump.set(slider.slider_unit_value());
+    }
+
+    fn update_mode_max_jump_from_slider(&self, slider: Window) {
+        self.mode_mut().max_jump.set(slider.slider_unit_value());
+    }
+
+    fn memorize_all_slider_controls(&self) {
+        let view = &self.view;
+        let sliders = Sliders {
+            mode_min_target_value: view
+                .require_control(root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL),
+            mode_max_target_value: view
+                .require_control(root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL),
+            mode_min_source_value: view
+                .require_control(root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL),
+            mode_max_source_value: view
+                .require_control(root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL),
+            mode_min_step_size: view
+                .require_control(root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL),
+            mode_max_step_size: view
+                .require_control(root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL),
+            mode_min_jump: view.require_control(root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL),
+            mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
+        };
+        self.sliders.replace(Some(sliders));
+    }
+
+    fn is_in_reaction(&self) -> bool {
+        self.is_in_reaction.get()
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, reaction, &self, self.view.closed());
+        when_async(
+            event,
+            move |view| {
+                let view_mirror = view.clone();
+                view_mirror.is_in_reaction.set(true);
+                scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
+                reaction(view);
+            },
+            &self,
+            self.view.closed(),
+        );
     }
 }
 
@@ -1105,10 +1199,15 @@ impl View for MappingPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
+        self.memorize_all_slider_controls();
         self.fill_all_controls();
         self.invalidate_all_controls();
         self.register_listeners();
         true
+    }
+
+    fn closed(self: SharedView<Self>, window: Window) {
+        self.sliders.replace(None);
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
@@ -1153,6 +1252,32 @@ impl View for MappingPanel {
         }
     }
 
+    fn slider_moved(self: SharedView<Self>, slider: Window) {
+        use root::*;
+        let sliders = self.sliders.borrow();
+        let sliders = sliders.as_ref().expect("sliders not set");
+        match slider {
+            // Mode
+            s if s == sliders.mode_min_target_value => {
+                self.update_mode_min_target_value_from_slider(s)
+            }
+            s if s == sliders.mode_max_target_value => {
+                self.update_mode_max_target_value_from_slider(s)
+            }
+            s if s == sliders.mode_min_source_value => {
+                self.update_mode_min_source_value_from_slider(s)
+            }
+            s if s == sliders.mode_max_source_value => {
+                self.update_mode_max_source_value_from_slider(s)
+            }
+            s if s == sliders.mode_min_step_size => self.update_mode_min_step_size_from_slider(s),
+            s if s == sliders.mode_max_step_size => self.update_mode_max_step_size_from_slider(s),
+            s if s == sliders.mode_min_jump => self.update_mode_min_jump_from_slider(s),
+            s if s == sliders.mode_max_jump => self.update_mode_max_jump_from_slider(s),
+            _ => unreachable!(),
+        };
+    }
+
     fn virtual_key_pressed(self: SharedView<Self>, key_code: u32) -> bool {
         // TODO Really not sure if this is necessary
         // Don't close this window just by pressing enter
@@ -1160,6 +1285,17 @@ impl View for MappingPanel {
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+        // TODO Multiple reentrancy checks ... is one of them obsolete?
+        if self.is_in_reaction() {
+            // We are just reacting (async) to a change. Although the edit control text is changed
+            // programmatically, it also triggers the change handler. Ignore it!
+            return false;
+        }
+        if self.view.has_been_reentered() {
+            // Oh, similar problem. The dialog procedure has been reentered because we changed
+            // an edit control text programmatically (e.g. when opening the window). Go away!
+            return false;
+        }
         use root::*;
         match resource_id {
             // Mapping
@@ -1206,11 +1342,18 @@ impl View for MappingPanel {
 }
 
 trait WindowExt {
-    fn set_slider_to_unit_value(&self, value: UnitValue);
+    fn slider_unit_value(&self) -> UnitValue;
+    fn set_slider_unit_value(&self, value: UnitValue);
 }
 
 impl WindowExt for Window {
-    fn set_slider_to_unit_value(&self, value: UnitValue) {
+    fn slider_unit_value(&self) -> UnitValue {
+        let discrete_value = self.slider_value();
+        UnitValue::new(discrete_value as f64 / 100.0)
+    }
+
+    fn set_slider_unit_value(&self, value: UnitValue) {
+        // TODO Refactor that map_to_interval stuff to be more generic and less boilerplate
         let slider_interval = Interval::new(DiscreteValue::new(0), DiscreteValue::new(100));
         self.set_slider_range(slider_interval.min().get(), slider_interval.max().get());
         let discrete_value = value.map_from_unit_interval_to_discrete(&slider_interval);

@@ -22,7 +22,6 @@ pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
     receiver: &SharedView<R>,
     until: impl SharedItemEvent<U>,
 ) {
-    // This is okay because we are sending from main thread to main thread!
     let weak_receiver = Rc::downgrade(receiver);
     trigger
         .take_until(until)

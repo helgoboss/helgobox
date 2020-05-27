@@ -8,7 +8,7 @@ use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
-use std::ptr::null_mut;
+use std::ptr::{null_mut, NonNull};
 use std::rc::{Rc, Weak};
 use std::sync::Once;
 
@@ -115,7 +115,6 @@ unsafe extern "C" fn view_dialog_proc(
     lparam: raw::LPARAM,
 ) -> raw::INT_PTR {
     catch_unwind(|| {
-        let swell = Swell::get();
         let view: SharedView<dyn View> = if msg == raw::WM_INITDIALOG {
             // A view window is initializing. At this point lparam contains the value which we
             // passed when calling CreateDialogParam. This contains the address of a
@@ -150,7 +149,14 @@ unsafe extern "C" fn view_dialog_proc(
                 }
             }
         };
-        // Found view. Delegate to view struct methods.
+        // Found view.
+        // Make view reentry-aware.
+        let view_mirror = view.clone();
+        view_mirror.view_context().enter();
+        scopeguard::defer! {
+            view_mirror.view_context().leave();
+        }
+        // Delegate to view struct methods.
         let window = Window::new(hwnd).expect("window was null");
         if let Some(result) = view.process_raw(window, msg, wparam, lparam) {
             return result;
@@ -195,6 +201,15 @@ unsafe extern "C" fn view_dialog_proc(
             raw::WM_VSCROLL => {
                 let code = loword(wparam);
                 view.scrolled_vertically(code as _).into()
+            }
+            raw::WM_HSCROLL => {
+                if lparam <= 0 {
+                    // This is not a slider. Not interested.
+                    return 0;
+                }
+                let raw_slider = NonNull::new_unchecked(lparam as raw::HWND);
+                view.slider_moved(Window::from_non_null(raw_slider));
+                1
             }
             raw::WM_MOUSEWHEEL => {
                 let distance = hiword_signed(wparam);

@@ -10,7 +10,7 @@ use std::ptr::{null_mut, NonNull};
 ///
 /// _Window_ is meant in the win32 sense, where windows are not only top-level windows but also
 /// embedded components such as buttons or text fields.
-#[derive(Clone, Copy, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Window {
     raw: raw::HWND,
 }
@@ -199,6 +199,10 @@ impl Window {
 
     pub fn set_slider_value(&self, value: u32) {
         Swell::get().SendMessage(self.raw, raw::TBM_SETPOS, 1, value as _);
+    }
+
+    pub fn slider_value(&self) -> u32 {
+        Swell::get().SendMessage(self.raw, raw::TBM_GETPOS, 0, 0) as _
     }
 
     pub fn text(self) -> Result<String, &'static str> {

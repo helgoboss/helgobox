@@ -12,6 +12,7 @@ generate = []
 reaper-low = { version = "0.1.0", path = "../../reaper-rs/main/low" }
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 rx-util = { path = "../rx-util" }
+scopeguard = "1.1.0"
 
 [build-dependencies]
 bindgen = "0.52.0"

@@ -94,6 +94,9 @@ pub trait View {
         false
     }
 
+    /// WM_HSCROLL, lparam (!= 0).
+    fn slider_moved(self: SharedView<Self>, slider: Window) {}
+
     /// WM_MOUSEWHEEL, HIWORD(wparam).
     ///
     /// Should return `true` if processed.
@@ -134,7 +137,7 @@ pub trait View {
         window: Window,
         msg: raw::UINT,
         wparam: raw::WPARAM,
-        laram: raw::LPARAM,
+        lparam: raw::LPARAM,
     ) -> Option<raw::INT_PTR> {
         None
     }
@@ -178,6 +181,7 @@ pub trait View {
 pub struct ViewContext {
     pub(crate) window: Cell<Option<Window>>,
     pub(crate) closed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    pub(crate) entry_count: Cell<u32>,
 }
 
 impl ViewContext {
@@ -207,5 +211,21 @@ impl ViewContext {
     /// Fires when the window is closed.
     pub fn closed(&self) -> impl UnitEvent {
         self.closed_subject.borrow().clone()
+    }
+
+    /// Returns whether the dialog procedure is currently processing more than one message for this
+    /// view because it has been reentered.
+    // TODO Not used at the moment. Maybe we should remove this feature because it makes things a
+    //  tiny bit slower  (it clones an Rc each time the view is entered).
+    pub fn has_been_reentered(&self) -> bool {
+        self.entry_count.get() > 1
+    }
+
+    pub(crate) fn enter(&self) {
+        self.entry_count.set(self.entry_count.get() + 1)
+    }
+
+    pub(crate) fn leave(&self) {
+        self.entry_count.set(self.entry_count.get() - 1)
     }
 }
