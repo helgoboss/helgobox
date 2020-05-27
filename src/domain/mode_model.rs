@@ -18,8 +18,7 @@ pub struct ModeModel {
     pub min_target_value: LocalStaticProp<UnitValue>,
     pub max_target_value: LocalStaticProp<UnitValue>,
     // For absolute and relative mode
-    pub min_source_value: LocalStaticProp<UnitValue>,
-    pub max_source_value: LocalStaticProp<UnitValue>,
+    pub source_value_interval: LocalStaticProp<Interval<UnitValue>>,
     pub reverse: LocalStaticProp<bool>,
     // For absolute mode
     pub min_jump: LocalStaticProp<UnitValue>,
@@ -85,8 +84,7 @@ impl Default for ModeModel {
             r#type: p(ModeType::Absolute),
             min_target_value: p(UnitValue::MIN),
             max_target_value: p(UnitValue::MAX),
-            min_source_value: p(UnitValue::MIN),
-            max_source_value: p(UnitValue::MAX),
+            source_value_interval: p(Interval::new(UnitValue::MIN, UnitValue::MAX)),
             reverse: p(false),
             min_jump: p(UnitValue::MIN),
             max_jump: p(UnitValue::MAX),
@@ -109,8 +107,7 @@ impl ModeModel {
             .changed()
             .merge(self.min_target_value.changed())
             .merge(self.max_target_value.changed())
-            .merge(self.min_source_value.changed())
-            .merge(self.max_source_value.changed())
+            .merge(self.source_value_interval.changed())
             .merge(self.reverse.changed())
             .merge(self.min_jump.changed())
             .merge(self.max_jump.changed())
@@ -129,10 +126,7 @@ impl ModeModel {
         use ModeType::*;
         match self.r#type.get() {
             Absolute => Mode::Absolute(AbsoluteMode {
-                source_value_interval: Interval::new(
-                    self.min_source_value.get(),
-                    self.max_source_value.get(),
-                ),
+                source_value_interval: self.source_value_interval.get(),
                 target_value_interval: Interval::new(
                     self.min_target_value.get(),
                     self.max_target_value.get(),
@@ -150,10 +144,7 @@ impl ModeModel {
                 ),
             }),
             Relative => Mode::Relative(RelativeMode {
-                source_value_interval: Interval::new(
-                    self.min_source_value.get(),
-                    self.max_source_value.get(),
-                ),
+                source_value_interval: self.source_value_interval.get(),
                 step_count_interval: todo!("needs to transform step size "),
                 step_size_interval: Interval::new(
                     self.min_step_size.get(),

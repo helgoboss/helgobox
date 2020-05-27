@@ -614,7 +614,7 @@ impl MappingPanel {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
-            self.mode().min_source_value.get(),
+            self.mode().source_value_interval.get().min(),
         );
     }
 
@@ -622,7 +622,7 @@ impl MappingPanel {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
-            self.mode().max_source_value.get(),
+            self.mode().source_value_interval.get().max(),
         );
     }
 
@@ -847,10 +847,8 @@ impl MappingPanel {
         self.when(mode.max_target_value.changed(), |view| {
             view.invalidate_mode_max_target_value_controls();
         });
-        self.when(mode.min_source_value.changed(), |view| {
+        self.when(mode.source_value_interval.changed(), |view| {
             view.invalidate_mode_min_source_value_controls();
-        });
-        self.when(mode.max_source_value.changed(), |view| {
             view.invalidate_mode_max_source_value_controls();
         });
         self.when(mode.min_jump.changed(), |view| {
@@ -1040,7 +1038,9 @@ impl MappingPanel {
         let value = self
             .get_value_from_source_edit_control(root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL)
             .unwrap_or(UnitValue::MIN);
-        self.mode_mut().min_source_value.set(value);
+        self.mode_mut()
+            .source_value_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn get_value_from_source_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
@@ -1052,7 +1052,9 @@ impl MappingPanel {
         let value = self
             .get_value_from_source_edit_control(root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL)
             .unwrap_or(UnitValue::MAX);
-        self.mode_mut().max_source_value.set(value);
+        self.mode_mut()
+            .source_value_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn update_mode_min_step_size_from_edit_control(&self) {
@@ -1115,14 +1117,14 @@ impl MappingPanel {
 
     fn update_mode_min_source_value_from_slider(&self, slider: Window) {
         self.mode_mut()
-            .min_source_value
-            .set(slider.slider_unit_value());
+            .source_value_interval
+            .set_with(|prev| prev.with_min(slider.slider_unit_value()));
     }
 
     fn update_mode_max_source_value_from_slider(&self, slider: Window) {
         self.mode_mut()
-            .max_source_value
-            .set(slider.slider_unit_value());
+            .source_value_interval
+            .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
     fn update_mode_min_step_size_from_slider(&self, slider: Window) {

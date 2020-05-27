@@ -203,7 +203,7 @@ mod example_data {
         ActionInvocationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
         TargetModel, TargetType, VirtualTrack,
     };
-    use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter, UnitValue};
+    use helgoboss_learn::{Interval, MidiClockTransportMessage, SourceCharacter, UnitValue};
     use helgoboss_midi::Channel;
     use reaper_medium::CommandId;
     use rx_util::{create_local_prop as p, SharedProp};
@@ -236,8 +236,7 @@ mod example_data {
                     r#type: p(ModeType::Relative),
                     min_target_value: p(UnitValue::new(0.5)),
                     max_target_value: p(UnitValue::MAX),
-                    min_source_value: p(UnitValue::MIN),
-                    max_source_value: p(UnitValue::MAX),
+                    source_value_interval: p(Interval::new(UnitValue::MIN, UnitValue::MAX)),
                     reverse: p(true),
                     min_jump: p(UnitValue::MIN),
                     max_jump: p(UnitValue::MAX),

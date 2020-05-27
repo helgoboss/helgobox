@@ -80,6 +80,7 @@ impl<T, S> BaseProp<T, S> {
     pub fn get_ref(&self) -> &T {
         &self.value
     }
+
     /// Sets this property to the given value. If a transformer has been defined, the given value
     /// might be changed into another one before. Observers are notified only if the given value
     /// is different from the current value.
@@ -94,6 +95,16 @@ impl<T, S> BaseProp<T, S> {
         }
         self.value = transformed_value;
         self.subject.next(());
+    }
+
+    /// Like `set()`, but lets you use the previous value for calculating the new one.
+    pub fn set_with(&mut self, f: impl Fn(&T) -> T)
+    where
+        T: PartialEq,
+        S: Observer<(), ()>,
+    {
+        let value = f(&self.value);
+        self.set(value);
     }
 }
 
