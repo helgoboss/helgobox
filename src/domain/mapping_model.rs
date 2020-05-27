@@ -35,4 +35,12 @@ impl MappingModel {
             || (self.source_model.emits_increments()
                 && target_with_context.is_known_to_be_discrete())
     }
+
+    pub fn reset_mode(&self) {
+        todo!()
+    }
+
+    pub fn set_preferred_mode_values(&self) {
+        todo!()
+    }
 }

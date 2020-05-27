@@ -1,6 +1,7 @@
 use crate::domain::{
     MappingModel, MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel,
-    ModeType, ReaperTarget, Session, SharedMappingModel, TargetCharacter, TargetModel, TargetType,
+    ModeType, ReaperTarget, Session, SharedMappingModel, TargetCharacter, TargetModel,
+    TargetModelWithContext, TargetType,
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
@@ -8,7 +9,8 @@ use crate::infrastructure::ui::scheduling::when_async;
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter, UnitValue,
+    ControlValue, DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter, Target,
+    UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
@@ -653,11 +655,7 @@ impl MappingPanel {
         value: UnitValue,
     ) {
         let (session, target) = (self.session(), self.target());
-        let real_target = target
-            .with_context(session.containing_fx())
-            .create_target()
-            .ok();
-        let (edit_text, value_text) = match &real_target {
+        let (edit_text, value_text) = match &self.real_target() {
             Some(target) => {
                 let edit_text = if target.character() == TargetCharacter::Discrete {
                     target
@@ -684,7 +682,7 @@ impl MappingPanel {
     }
 
     fn get_text_right_to_target_edit_control(&self, t: &ReaperTarget, value: UnitValue) -> String {
-        if t.can_parse_real_values() {
+        if t.can_parse_values() {
             t.unit().to_string()
         } else if t.character() == TargetCharacter::Discrete {
             // Please note that discrete FX parameters can only show their *current* value,
@@ -744,11 +742,7 @@ impl MappingPanel {
         value: UnitValue,
     ) {
         let (session, mapping, target_model) = (self.session(), self.mapping(), self.target());
-        let target = target_model
-            .with_context(session.containing_fx())
-            .create_target()
-            .ok();
-        let (edit_text, value_text) = match &target {
+        let (edit_text, value_text) = match &self.real_target() {
             Some(target) => {
                 if mapping.target_should_be_hit_with_increments(session.containing_fx()) {
                     let edit_text = target
@@ -828,7 +822,55 @@ impl MappingPanel {
     }
 
     fn register_mode_listeners(self: &SharedView<Self>) {
-        // TODO
+        let mode = self.mode();
+        self.when(mode.r#type.changed(), |view| {
+            view.invalidate_mode_control_appearance();
+        });
+        self.when(mode.min_target_value.changed(), |view| {
+            view.invalidate_mode_min_target_value_controls();
+        });
+        self.when(mode.max_target_value.changed(), |view| {
+            view.invalidate_mode_max_target_value_controls();
+        });
+        self.when(mode.min_source_value.changed(), |view| {
+            view.invalidate_mode_min_source_value_controls();
+        });
+        self.when(mode.max_source_value.changed(), |view| {
+            view.invalidate_mode_max_source_value_controls();
+        });
+        self.when(mode.min_jump.changed(), |view| {
+            view.invalidate_mode_min_jump_controls();
+        });
+        self.when(mode.max_jump.changed(), |view| {
+            view.invalidate_mode_max_jump_controls();
+        });
+        self.when(mode.min_step_size.changed(), |view| {
+            view.invalidate_mode_min_step_size_controls();
+        });
+        self.when(mode.max_step_size.changed(), |view| {
+            view.invalidate_mode_max_step_size_controls();
+        });
+        self.when(mode.ignore_out_of_range_source_values.changed(), |view| {
+            view.invalidate_mode_ignore_out_of_range_check_box();
+        });
+        self.when(mode.round_target_value.changed(), |view| {
+            view.invalidate_mode_round_target_value_check_box();
+        });
+        self.when(mode.approach_target_value.changed(), |view| {
+            view.invalidate_mode_approach_check_box();
+        });
+        self.when(mode.rotate.changed(), |view| {
+            view.invalidate_mode_rotate_check_box();
+        });
+        self.when(mode.reverse.changed(), |view| {
+            view.invalidate_mode_reverse_check_box();
+        });
+        self.when(mode.eel_control_transformation.changed(), |view| {
+            view.invalidate_mode_eel_control_transformation_edit_control();
+        });
+        self.when(mode.eel_feedback_transformation.changed(), |view| {
+            view.invalidate_mode_eel_feedback_transformation_edit_control();
+        });
     }
 
     fn fill_source_type_combo_box(&self) {
@@ -877,6 +919,173 @@ impl MappingPanel {
         b.fill_combo_box(TargetType::into_enum_iter());
     }
 
+    fn update_mode_rotate(&self) {
+        self.mode_mut().rotate.set(
+            self.view
+                .require_control(root::ID_SETTINGS_ROTATE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn update_mode_ignore_out_of_range_values(&self) {
+        self.mode_mut().rotate.set(
+            self.view
+                .require_control(root::ID_SETTINGS_ROTATE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn update_mode_round_target_value(&self) {
+        self.mode_mut().round_target_value.set(
+            self.view
+                .require_control(root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn update_mode_approach(&self) {
+        self.mode_mut().approach_target_value.set(
+            self.view
+                .require_control(root::ID_SETTINGS_SCALE_MODE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn update_mode_reverse(&self) {
+        self.mode_mut().reverse.set(
+            self.view
+                .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
+    fn reset_mode(&self) {
+        self.mapping_mut().reset_mode();
+    }
+
+    fn update_mode_type(&self) {
+        let mut mapping = self.mapping_mut();
+        let b = self.view.require_control(root::ID_SETTINGS_MODE_COMBO_BOX);
+        mapping.mode_model.r#type.set(
+            b.selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid mode type"),
+        );
+        mapping.set_preferred_mode_values();
+    }
+
+    fn update_mode_min_target_value_from_edit_control(&self) {
+        let value = self
+            .get_value_from_target_edit_control(root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MIN);
+        self.mode_mut().min_target_value.set(value);
+    }
+
+    fn real_target(&self) -> Option<ReaperTarget> {
+        self.target()
+            .with_context(self.session().containing_fx())
+            .create_target()
+            .ok()
+    }
+
+    fn get_value_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
+        let target = self.real_target()?;
+        let text = self.view.require_control(edit_control_id).text().ok()?;
+        if target.character() == TargetCharacter::Discrete {
+            target
+                .parse_unit_value_from_discrete_value(text.as_str())
+                .ok()
+        } else {
+            target.parse_unit_value(text.as_str()).ok()
+        }
+    }
+
+    fn update_mode_max_target_value_from_edit_control(&self) {
+        let value = self
+            .get_value_from_target_edit_control(root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MAX);
+        self.mode_mut().max_target_value.set(value);
+    }
+
+    fn update_mode_min_jump_from_edit_control(&self) {
+        let value = self
+            .get_value_from_target_edit_control(root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MIN);
+        self.mode_mut().min_jump.set(value);
+    }
+
+    fn update_mode_max_jump_from_edit_control(&self) {
+        let value = self
+            .get_value_from_target_edit_control(root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MAX);
+        self.mode_mut().max_jump.set(value);
+    }
+
+    fn update_mode_min_source_value_from_edit_control(&self) {
+        let value = self
+            .get_value_from_source_edit_control(root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MIN);
+        self.mode_mut().min_source_value.set(value);
+    }
+
+    fn get_value_from_source_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
+        let text = self.view.require_control(edit_control_id).text().ok()?;
+        self.source().parse_control_value(text.as_str()).ok()
+    }
+
+    fn update_mode_max_source_value_from_edit_control(&self) {
+        let value = self
+            .get_value_from_source_edit_control(root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MAX);
+        self.mode_mut().max_source_value.set(value);
+    }
+
+    fn update_mode_min_step_size_from_edit_control(&self) {
+        let value = self
+            .get_value_from_step_size_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MIN);
+        self.mode_mut().min_step_size.set(value);
+    }
+
+    fn get_value_from_step_size_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
+        if self
+            .mapping()
+            .target_should_be_hit_with_increments(self.session().containing_fx())
+        {
+            let text = self.view.require_control(edit_control_id).text().ok()?;
+            self.real_target()?
+                .parse_step_size_from_step_count(text.as_str())
+                .ok()
+        } else {
+            self.get_value_from_target_edit_control(edit_control_id)
+        }
+    }
+
+    fn update_mode_max_step_size_from_edit_control(&self) {
+        let value = self
+            .get_value_from_step_size_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
+            .unwrap_or(UnitValue::MAX);
+        self.mode_mut().max_step_size.set(value);
+    }
+
+    fn update_mode_eel_control_transformation(&self) {
+        let value = self
+            .view
+            .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
+            .text()
+            .unwrap_or("".to_string());
+        self.mode_mut().eel_control_transformation.set(value);
+    }
+
+    fn update_mode_eel_feedback_transformation(&self) {
+        let value = self
+            .view
+            .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
+            .text()
+            .unwrap_or("".to_string());
+        self.mode_mut().eel_feedback_transformation.set(value);
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -914,6 +1123,15 @@ impl View for MappingPanel {
             ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),
             ID_SOURCE_RPN_CHECK_BOX => self.update_source_is_registered(),
             ID_SOURCE_14_BIT_CHECK_BOX => self.update_source_is_14_bit(),
+            // Mode
+            ID_SETTINGS_ROTATE_CHECK_BOX => self.update_mode_rotate(),
+            ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX => {
+                self.update_mode_ignore_out_of_range_values()
+            }
+            ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX => self.update_mode_round_target_value(),
+            ID_SETTINGS_SCALE_MODE_CHECK_BOX => self.update_mode_approach(),
+            ID_SETTINGS_REVERSE_CHECK_BOX => self.update_mode_reverse(),
+            ID_SETTINGS_RESET_BUTTON => self.reset_mode(),
             _ => unreachable!(),
         }
     }
@@ -929,6 +1147,8 @@ impl View for MappingPanel {
             ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
                 self.update_source_midi_clock_transport_message_type()
             }
+            // Mode
+            ID_SETTINGS_MODE_COMBO_BOX => self.update_mode_type(),
             _ => unreachable!(),
         }
     }
@@ -948,6 +1168,37 @@ impl View for MappingPanel {
             }
             // Source
             ID_SOURCE_NUMBER_EDIT_CONTROL => self.update_source_parameter_number_message_number(),
+            // Mode
+            ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
+                self.update_mode_min_target_value_from_edit_control()
+            }
+            ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
+                self.update_mode_max_target_value_from_edit_control()
+            }
+            ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
+                self.update_mode_min_jump_from_edit_control()
+            }
+            ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
+                self.update_mode_max_jump_from_edit_control()
+            }
+            ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
+                self.update_mode_min_source_value_from_edit_control()
+            }
+            ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
+                self.update_mode_max_source_value_from_edit_control()
+            }
+            ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
+                self.update_mode_min_step_size_from_edit_control()
+            }
+            ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
+                self.update_mode_max_step_size_from_edit_control()
+            }
+            ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
+                self.update_mode_eel_control_transformation()
+            }
+            ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
+                self.update_mode_eel_feedback_transformation()
+            }
             _ => return false,
         }
         true

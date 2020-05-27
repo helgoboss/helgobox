@@ -182,7 +182,7 @@ impl ReaperTarget {
     }
 
     /// Meaning: not just percentages.
-    pub fn can_parse_real_values(&self) -> bool {
+    pub fn can_parse_values(&self) -> bool {
         use ReaperTarget::*;
         match self {
             TrackVolume { .. }
@@ -193,6 +193,28 @@ impl ReaperTarget {
             | Tempo { .. } => true,
             _ => false,
         }
+    }
+
+    pub fn parse_unit_value_from_discrete_value(
+        &self,
+        text: &str,
+    ) -> Result<UnitValue, &'static str> {
+        // const int discreteStepSize = editControlIntValue(editControl);
+        // const double actualStepSize =
+        //    helgoboss::util::calcActualStepSize(discreteStepSize,
+        // mapping().target().getStepSize());
+        todo!()
+    }
+
+    pub fn parse_unit_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        // target.parseAsNormalizedValue
+        todo!()
+    }
+
+    pub fn parse_step_size_from_step_count(&self, text: &str) -> Result<UnitValue, &'static str> {
+        // const double stepSize = helgoboss::util::convertStepCountToStepSize(stepCount,
+        // mapping().target());
+        todo!()
     }
 
     pub fn unit(&self) -> &'static str {
