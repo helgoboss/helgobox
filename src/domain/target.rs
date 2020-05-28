@@ -4,8 +4,11 @@ use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Tempo,
     Track, TrackSend, Volume,
 };
-use reaper_medium::{Bpm, CommandId, Db, NormalizedPlayRate, ReaperNormalizedFxParamValue};
+use reaper_medium::{
+    Bpm, CommandId, Db, NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue,
+};
 use std::cmp;
+use std::convert::TryInto;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
@@ -136,7 +139,7 @@ impl ReaperTarget {
             TrackPan { .. } | TrackSendPan { .. } => format_as_pan(value),
             Tempo { .. } => format_as_bpm_without_unit(value),
             Playrate { .. } => format_as_playback_speed_factor_without_unit(value),
-            _ => format_as_percent_without_unit(value),
+            _ => format_as_percentage_without_unit(value),
         }
     }
 
@@ -184,6 +187,18 @@ impl ReaperTarget {
             | Playrate { .. }
             | Tempo { .. } => true,
             _ => false,
+        }
+    }
+
+    /// Parses the given text as a target value and returns it as unit value.
+    pub fn parse_unit_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. } | TrackSendVolume { .. } => parse_from_db(text),
+            TrackPan { .. } | TrackSendPan { .. } => parse_from_pan(text),
+            Playrate { .. } => parse_from_playback_speed_factor(text),
+            Tempo { .. } => parse_from_bpm(text),
+            _ => parse_from_percentage(text),
         }
     }
 
@@ -276,7 +291,7 @@ fn format_as_bpm_without_unit(value: UnitValue) -> String {
     format!("{:.4}", tempo.bpm().get())
 }
 
-fn format_as_percent_without_unit(value: UnitValue) -> String {
+fn format_as_percentage_without_unit(value: UnitValue) -> String {
     let percent = value.get() * 100.0;
     if (percent - percent.round()).abs() < 0.0000_0001 {
         // No fraction. Omit zeros after dot.
@@ -336,4 +351,35 @@ fn preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
             UnitValue::new(value)
         }
     }
+}
+
+fn parse_from_percentage(text: &str) -> Result<UnitValue, &'static str> {
+    let percentage: f64 = text.parse().map_err(|_| "not a valid decimal value")?;
+    (percentage / 100.0).try_into()
+}
+
+fn parse_from_db(text: &str) -> Result<UnitValue, &'static str> {
+    let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
+    let db: Db = decimal.try_into().map_err(|_| "not in dB range")?;
+    Volume::from_db(db).soft_normalized_value().try_into()
+}
+
+fn parse_from_pan(text: &str) -> Result<UnitValue, &'static str> {
+    let pan: Pan = text.parse()?;
+    pan.normalized_value().try_into()
+}
+
+fn parse_from_playback_speed_factor(text: &str) -> Result<UnitValue, &'static str> {
+    let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
+    let factor: PlaybackSpeedFactor = decimal.try_into().map_err(|_| "not in play rate range")?;
+    PlayRate::from_playback_speed_factor(factor)
+        .normalized_value()
+        .get()
+        .try_into()
+}
+
+fn parse_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
+    let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
+    let bpm: Bpm = decimal.try_into().map_err(|_| "not in BPM range")?;
+    Tempo::from_bpm(bpm).normalized_value().try_into()
 }

@@ -1345,7 +1345,7 @@ impl MappingPanel {
                 .convert_discrete_value_to_unit_value(text.parse().ok()?)
                 .ok()
         } else {
-            text.parse().ok()
+            target.parse_unit_value(text.as_str()).ok()
         }
     }
 
