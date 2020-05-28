@@ -1,4 +1,7 @@
-use crate::domain::{MidiSourceModel, ModeModel, TargetCharacter, TargetModel};
+use crate::domain::{
+    MidiSourceModel, ModeModel, ReaperTarget, TargetCharacter, TargetModel, TargetModelWithContext,
+};
+use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
 use rx_util::{LocalProp, LocalStaticProp};
 
@@ -29,18 +32,52 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
-    pub fn target_should_be_hit_with_increments(&self, containing_fx: &Fx) -> bool {
-        let target_with_context = self.target_model.with_context(containing_fx);
-        target_with_context.is_known_to_want_increments()
-            || (self.source_model.emits_increments()
-                && target_with_context.is_known_to_be_discrete())
+    pub fn with_context<'a>(&'a self, containing_fx: &'a Fx) -> MappingModelWithContext<'a> {
+        MappingModelWithContext {
+            mapping: self,
+            containing_fx,
+        }
     }
 
-    pub fn reset_mode(&self) {
-        todo!()
+    pub fn reset_mode(&mut self, containing_fx: &Fx) {
+        self.mode_model.reset_within_type();
+        self.set_preferred_mode_values(containing_fx);
     }
 
-    pub fn set_preferred_mode_values(&self) {
-        todo!()
+    // Changes mode settings if there are some preferred ones for a certain source or target.
+    pub fn set_preferred_mode_values(&mut self, containing_fx: &Fx) {
+        self.mode_model.step_size_interval.set(
+            self.with_context(containing_fx)
+                .preferred_step_size_interval(),
+        )
+    }
+}
+
+pub struct MappingModelWithContext<'a> {
+    mapping: &'a MappingModel,
+    containing_fx: &'a Fx,
+}
+
+impl<'a> MappingModelWithContext<'a> {
+    pub fn target_should_be_hit_with_increments(&self) -> bool {
+        let target = self.target_with_context();
+        target.is_known_to_want_increments()
+            || (self.mapping.source_model.emits_increments() && target.is_known_to_be_discrete())
+    }
+
+    fn preferred_step_size_interval(&self) -> Interval<UnitValue> {
+        match self.target_step_size() {
+            Some(step_size) => Interval::new(step_size, step_size),
+            None => ModeModel::default_step_size_interval(),
+        }
+    }
+
+    fn target_step_size(&self) -> Option<UnitValue> {
+        let target = self.target_with_context().create_target().ok()?;
+        target.step_size()
+    }
+
+    fn target_with_context(&self) -> TargetModelWithContext<'_> {
+        self.mapping.target_model.with_context(self.containing_fx)
     }
 }

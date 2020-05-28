@@ -203,7 +203,9 @@ mod example_data {
         ActionInvocationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
         TargetModel, TargetType, VirtualTrack,
     };
-    use helgoboss_learn::{Interval, MidiClockTransportMessage, SourceCharacter, UnitValue};
+    use helgoboss_learn::{
+        DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter, UnitValue,
+    };
     use helgoboss_midi::Channel;
     use reaper_medium::CommandId;
     use rx_util::{create_local_prop as p, SharedProp};
@@ -234,19 +236,19 @@ mod example_data {
                 source_model: Default::default(),
                 mode_model: ModeModel {
                     r#type: p(ModeType::Relative),
-                    min_target_value: p(UnitValue::new(0.5)),
-                    max_target_value: p(UnitValue::MAX),
+                    target_value_interval: p(Interval::new(UnitValue::new(0.5), UnitValue::MAX)),
                     source_value_interval: p(Interval::new(UnitValue::MIN, UnitValue::MAX)),
                     reverse: p(true),
-                    min_jump: p(UnitValue::MIN),
-                    max_jump: p(UnitValue::MAX),
+                    jump_interval: p(Interval::new(UnitValue::MIN, UnitValue::MAX)),
                     ignore_out_of_range_source_values: p(false),
                     round_target_value: p(false),
                     approach_target_value: p(false),
                     eel_control_transformation: p(String::new()),
                     eel_feedback_transformation: p(String::new()),
-                    min_step_size: p(UnitValue::new(0.01)),
-                    max_step_size: p(UnitValue::new(0.01)),
+                    step_size_interval: p(Interval::new(
+                        UnitValue::new(0.01),
+                        UnitValue::new(0.01),
+                    )),
                     rotate: p(true),
                 },
                 target_model: TargetModel {

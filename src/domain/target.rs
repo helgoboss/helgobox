@@ -148,10 +148,16 @@ impl ReaperTarget {
     /// don't show normalized values of course but a discrete number of presets, by using this
     /// function.
     ///
+    /// In case the target wants increments, this takes 63 as the highest possible value.
+    ///
     /// # Errors
     ///
     /// Returns an error if this target doesn't report a step size.
     pub fn convert_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+        if self.wants_increments() {
+            // Relative MIDI controllers support a maximum of 63 steps.
+            return Ok((input.get() * 63.0).round() as _);
+        }
         // Example (target step size = 0.10):
         // - 0    => 0
         // - 0.05 => 1
@@ -162,23 +168,6 @@ impl ReaperTarget {
         //  and is otherwise shifted
         let target_step_size = self.step_size().ok_or("target doesn't report step size")?;
         Ok((input.get() / target_step_size.get()).round() as _)
-    }
-
-    /// This converts the given step size to a discrete increment (= step count).
-    ///
-    /// In case the target wants increments, this takes 63 as the highest possible value. Otherwise
-    /// it just acts like `convert_value_to_discrete_value()`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if this target doesn't want increments and doesn't report a step size.
-    pub fn convert_step_size_to_step_count(&self, input: UnitValue) -> Result<u32, &'static str> {
-        if self.wants_increments() {
-            // Relative MIDI controllers support a maximum of 63 steps.
-            Ok((input.get() * 63.0).round() as _)
-        } else {
-            self.convert_value_to_discrete_value(input)
-        }
     }
 
     /// Meaning: not just percentages.

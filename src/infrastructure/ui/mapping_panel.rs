@@ -512,7 +512,8 @@ impl MappingPanel {
     fn invalidate_mode_control_labels(&self) {
         let step_label = if self
             .mapping()
-            .target_should_be_hit_with_increments(self.session().containing_fx())
+            .with_context(self.session().containing_fx())
+            .target_should_be_hit_with_increments()
         {
             "Step count"
         } else {
@@ -559,7 +560,9 @@ impl MappingPanel {
                 root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
             ],
         );
-        let show_value_text = mapping.target_should_be_hit_with_increments(session.containing_fx())
+        let show_value_text = mapping
+            .with_context(session.containing_fx())
+            .target_should_be_hit_with_increments()
             || !target_with_context.is_known_to_be_discrete();
         self.show_if(
             mode.supports_step_size() && show_value_text,
@@ -614,7 +617,7 @@ impl MappingPanel {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
-            self.mode().source_value_interval.get().min(),
+            self.mode().source_value_interval.get_ref().min(),
         );
     }
 
@@ -622,7 +625,7 @@ impl MappingPanel {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
-            self.mode().source_value_interval.get().max(),
+            self.mode().source_value_interval.get_ref().max(),
         );
     }
 
@@ -649,7 +652,7 @@ impl MappingPanel {
             root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
-            self.mode().min_target_value.get(),
+            self.mode().target_value_interval.get_ref().min(),
         );
     }
 
@@ -658,7 +661,7 @@ impl MappingPanel {
             root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
-            self.mode().max_target_value.get(),
+            self.mode().target_value_interval.get_ref().max(),
         );
     }
 
@@ -669,7 +672,6 @@ impl MappingPanel {
         value_text_control_id: u32,
         value: UnitValue,
     ) {
-        let (session, target) = (self.session(), self.target());
         let (edit_text, value_text) = match &self.real_target() {
             Some(target) => {
                 let edit_text = if target.character() == TargetCharacter::Discrete {
@@ -713,7 +715,7 @@ impl MappingPanel {
             root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-            self.mode().min_jump.get(),
+            self.mode().jump_interval.get_ref().min(),
         );
     }
 
@@ -722,7 +724,7 @@ impl MappingPanel {
             root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-            self.mode().max_jump.get(),
+            self.mode().jump_interval.get_ref().max(),
         );
     }
 
@@ -736,7 +738,7 @@ impl MappingPanel {
             root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-            self.mode().min_step_size.get(),
+            self.mode().step_size_interval.get_ref().min(),
         );
     }
 
@@ -745,7 +747,7 @@ impl MappingPanel {
             root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-            self.mode().max_step_size.get(),
+            self.mode().step_size_interval.get_ref().max(),
         );
     }
 
@@ -756,22 +758,27 @@ impl MappingPanel {
         value_text_control_id: u32,
         value: UnitValue,
     ) {
-        let (session, mapping, target_model) = (self.session(), self.mapping(), self.target());
+        let (session, mapping) = (self.session(), self.mapping());
         let (edit_text, value_text) = match &self.real_target() {
             Some(target) => {
-                if mapping.target_should_be_hit_with_increments(session.containing_fx()) {
-                    let edit_text = target
-                        .convert_step_size_to_step_count(value)
-                        .map(|v| v.to_string())
-                        .unwrap_or("".to_string());
-                    (edit_text, "x".to_string())
-                } else if target.character() == TargetCharacter::Discrete {
+                let send_increments = mapping
+                    .with_context(session.containing_fx())
+                    .target_should_be_hit_with_increments();
+                let is_discrete = target.character() == TargetCharacter::Discrete;
+                if send_increments || is_discrete {
                     let edit_text = target
                         .convert_value_to_discrete_value(value)
                         .map(|v| v.to_string())
                         .unwrap_or("".to_string());
-                    (edit_text, "".to_string())
+                    if send_increments {
+                        // "count {x}"
+                        (edit_text, "x".to_string())
+                    } else {
+                        // "count"
+                        (edit_text, "".to_string())
+                    }
                 } else {
+                    // "{size} {unit}"
                     let edit_text = target.format_value_without_unit(value);
                     let value_text = self.get_text_right_to_target_edit_control(target, value);
                     (edit_text, value_text)
@@ -841,27 +848,19 @@ impl MappingPanel {
         self.when(mode.r#type.changed(), |view| {
             view.invalidate_mode_control_appearance();
         });
-        self.when(mode.min_target_value.changed(), |view| {
+        self.when(mode.target_value_interval.changed(), |view| {
             view.invalidate_mode_min_target_value_controls();
-        });
-        self.when(mode.max_target_value.changed(), |view| {
             view.invalidate_mode_max_target_value_controls();
         });
         self.when(mode.source_value_interval.changed(), |view| {
-            view.invalidate_mode_min_source_value_controls();
-            view.invalidate_mode_max_source_value_controls();
+            view.invalidate_mode_source_value_controls();
         });
-        self.when(mode.min_jump.changed(), |view| {
+        self.when(mode.jump_interval.changed(), |view| {
             view.invalidate_mode_min_jump_controls();
-        });
-        self.when(mode.max_jump.changed(), |view| {
             view.invalidate_mode_max_jump_controls();
         });
-        self.when(mode.min_step_size.changed(), |view| {
-            view.invalidate_mode_min_step_size_controls();
-        });
-        self.when(mode.max_step_size.changed(), |view| {
-            view.invalidate_mode_max_step_size_controls();
+        self.when(mode.step_size_interval.changed(), |view| {
+            view.invalidate_mode_step_size_controls();
         });
         self.when(mode.ignore_out_of_range_source_values.changed(), |view| {
             view.invalidate_mode_ignore_out_of_range_check_box();
@@ -973,7 +972,8 @@ impl MappingPanel {
     }
 
     fn reset_mode(&self) {
-        self.mapping_mut().reset_mode();
+        self.mapping_mut()
+            .reset_mode(self.session().containing_fx());
     }
 
     fn update_mode_type(&self) {
@@ -984,14 +984,16 @@ impl MappingPanel {
                 .try_into()
                 .expect("invalid mode type"),
         );
-        mapping.set_preferred_mode_values();
+        mapping.set_preferred_mode_values(self.session().containing_fx());
     }
 
     fn update_mode_min_target_value_from_edit_control(&self) {
         let value = self
             .get_value_from_target_edit_control(root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL)
             .unwrap_or(UnitValue::MIN);
-        self.mode_mut().min_target_value.set(value);
+        self.mode_mut()
+            .target_value_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn real_target(&self) -> Option<ReaperTarget> {
@@ -1017,21 +1019,27 @@ impl MappingPanel {
         let value = self
             .get_value_from_target_edit_control(root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL)
             .unwrap_or(UnitValue::MAX);
-        self.mode_mut().max_target_value.set(value);
+        self.mode_mut()
+            .target_value_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn update_mode_min_jump_from_edit_control(&self) {
         let value = self
             .get_value_from_target_edit_control(root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL)
             .unwrap_or(UnitValue::MIN);
-        self.mode_mut().min_jump.set(value);
+        self.mode_mut()
+            .jump_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn update_mode_max_jump_from_edit_control(&self) {
         let value = self
             .get_value_from_target_edit_control(root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL)
             .unwrap_or(UnitValue::MAX);
-        self.mode_mut().max_jump.set(value);
+        self.mode_mut()
+            .jump_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn update_mode_min_source_value_from_edit_control(&self) {
@@ -1061,13 +1069,16 @@ impl MappingPanel {
         let value = self
             .get_value_from_step_size_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
             .unwrap_or(UnitValue::MIN);
-        self.mode_mut().min_step_size.set(value);
+        self.mode_mut()
+            .step_size_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn get_value_from_step_size_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         if self
             .mapping()
-            .target_should_be_hit_with_increments(self.session().containing_fx())
+            .with_context(self.session().containing_fx())
+            .target_should_be_hit_with_increments()
         {
             let text = self.view.require_control(edit_control_id).text().ok()?;
             self.real_target()?
@@ -1082,7 +1093,9 @@ impl MappingPanel {
         let value = self
             .get_value_from_step_size_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
             .unwrap_or(UnitValue::MAX);
-        self.mode_mut().max_step_size.set(value);
+        self.mode_mut()
+            .step_size_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn update_mode_eel_control_transformation(&self) {
@@ -1105,14 +1118,14 @@ impl MappingPanel {
 
     fn update_mode_min_target_value_from_slider(&self, slider: Window) {
         self.mode_mut()
-            .min_target_value
-            .set(slider.slider_unit_value());
+            .target_value_interval
+            .set_with(|prev| prev.with_min(slider.slider_unit_value()));
     }
 
     fn update_mode_max_target_value_from_slider(&self, slider: Window) {
         self.mode_mut()
-            .max_target_value
-            .set(slider.slider_unit_value());
+            .target_value_interval
+            .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
     fn update_mode_min_source_value_from_slider(&self, slider: Window) {
@@ -1129,22 +1142,26 @@ impl MappingPanel {
 
     fn update_mode_min_step_size_from_slider(&self, slider: Window) {
         self.mode_mut()
-            .min_step_size
-            .set(slider.slider_unit_value());
+            .step_size_interval
+            .set_with(|prev| prev.with_min(slider.slider_unit_value()));
     }
 
     fn update_mode_max_step_size_from_slider(&self, slider: Window) {
         self.mode_mut()
-            .max_step_size
-            .set(slider.slider_unit_value());
+            .step_size_interval
+            .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
     fn update_mode_min_jump_from_slider(&self, slider: Window) {
-        self.mode_mut().min_jump.set(slider.slider_unit_value());
+        self.mode_mut()
+            .jump_interval
+            .set_with(|prev| prev.with_min(slider.slider_unit_value()));
     }
 
     fn update_mode_max_jump_from_slider(&self, slider: Window) {
-        self.mode_mut().max_jump.set(slider.slider_unit_value());
+        self.mode_mut()
+            .jump_interval
+            .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
     fn memorize_all_slider_controls(&self) {
