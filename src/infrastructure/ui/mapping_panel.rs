@@ -443,7 +443,7 @@ impl MappingPanel {
         } else if target.r#type.get() == TargetType::Action {
             combo.show();
             label.show();
-            // TODO Find a good solution for choosing actions, preferably one which doesn't
+            // TODO Later find a good solution for choosing actions, preferably one which doesn't
             //  need filling a combo box with thousands of actions
             combo.clear_combo_box();
         // self.fill_target_action_combo_box();
@@ -581,6 +581,7 @@ impl MappingPanel {
                 )
             })
             .collect();
+        // TODO-low Just the index would be enough, don't need data.
         combo.fill_combo_box_with_data_vec(params);
     }
 
@@ -681,7 +682,7 @@ impl MappingPanel {
     }
 
     fn invalidate_target_value_controls(&self) {
-        // TODO
+        // TODO Do later, not so important
     }
 
     fn invalidate_learn_target_button(&self) {
@@ -706,7 +707,36 @@ impl MappingPanel {
         self.when(session.mapping_which_learns_source.changed(), |view| {
             view.invalidate_learn_source_button();
         });
-        // TODO
+        self.when(session.mapping_which_learns_target.changed(), |view| {
+            view.invalidate_learn_target_button();
+        });
+        let reaper = Reaper::get();
+        self.when(
+            reaper
+                .track_added()
+                .map_to(())
+                .merge(reaper.track_removed().map_to(()))
+                .merge(reaper.track_selected_changed().map_to(())),
+            |view| {
+                view.invalidate_target_controls();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.when(
+            reaper
+                .fx_reordered()
+                .map_to(())
+                .merge(reaper.fx_added().map_to(()))
+                .merge(reaper.fx_removed().map_to(())),
+            |view| {
+                // TODO The C++ code yields here:
+                //  Yield. Because the model might also listen to such events and we want the model
+                // to digest it *before* the  UI. It happened that this UI handler
+                // is called *before* the model handler in some cases. Then it is super
+                //  important - otherwise crash.
+                view.invalidate_target_controls();
+            },
+        );
     }
 
     fn register_mapping_listeners(self: &SharedView<Self>) {
@@ -1117,7 +1147,8 @@ impl MappingPanel {
     fn register_target_listeners(self: &SharedView<Self>) {
         let target = self.target();
         self.when(target.r#type.changed(), |view| {
-            view.invalidate_target_type_combo_box();
+            view.invalidate_target_controls();
+            view.invalidate_mode_controls();
         });
         self.when(target.track.changed(), |view| {
             view.invalidate_target_controls();
@@ -1468,47 +1499,116 @@ impl MappingPanel {
     }
 
     fn update_target_value_from_slider(&self, slider: Window) {
-        // TODO
+        // TODO Do later, not so important
     }
 
     fn update_target_is_input_fx(&self) {
-        // TODO
+        self.target_mut().is_input_fx.set(
+            self.view
+                .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn update_target_only_if_fx_has_focus(&self) {
-        // TODO
+        let is_checked = self
+            .view
+            .require_control(root::ID_TARGET_FX_FOCUS_CHECK_BOX)
+            .is_checked();
+        let mut target = self.target_mut();
+        if target.supports_fx() {
+            target.enable_only_if_fx_has_focus.set(is_checked);
+        } else if target.r#type.get() == TargetType::TrackSelection {
+            target.select_exclusively.set(is_checked);
+        }
     }
 
     fn update_target_only_if_track_is_selected(&self) {
-        // TODO
+        self.target_mut().enable_only_if_track_selected.set(
+            self.view
+                .require_control(root::ID_TARGET_TRACK_SELECTED_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn toggle_learn_target(&self) {
-        // TODO
+        self.session.borrow_mut().toggle_learn_target(&self.mapping);
     }
 
     fn open_target(&self) {
-        // TODO
+        // TODO Do later, not so important
     }
 
     fn update_target_type(&self) {
-        // TODO
+        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
+        self.target_mut().r#type.set(
+            b.selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid target type"),
+        );
     }
 
-    fn update_target_track_or_command(&self) {
-        // TODO
+    fn update_target_track_or_command(&self) -> Result<(), &'static str> {
+        let data = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX)
+            .selected_combo_box_item_data();
+        let session = self.session();
+        let mut target = self.target_mut();
+        if target.supports_track() {
+            use VirtualTrack::*;
+            let target_with_context = target.with_context(session.containing_fx());
+            let project = target_with_context.project();
+            let track = match data {
+                -3 => This,
+                -2 => Selected,
+                -1 => Master,
+                _ => Particular(
+                    project
+                        .track_by_index(data as u32)
+                        .ok_or("track not existing")?,
+                ),
+            };
+            target.track.set(track);
+        } else if target.r#type.get() == TargetType::Action {
+            // TODO Do as soon as we are sure about the action picker
+        }
+        Ok(())
     }
 
-    fn update_target_from_combo_box_three(&self) {
-        // TODO
+    fn update_target_from_combo_box_three(&self) -> Result<(), &'static str> {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
+        let mut target = self.target_mut();
+        if target.supports_fx() {
+            let data = combo.selected_combo_box_item_data();
+            let fx_index = if data == -1 { None } else { Some(data as u32) };
+            target.fx_index.set(fx_index);
+        } else if target.supports_send() {
+            let data = combo.selected_combo_box_item_data();
+            let send_index = if data == -1 { None } else { Some(data as u32) };
+            target.send_index.set(send_index);
+        } else if target.r#type.get() == TargetType::Action {
+            let index = combo.selected_combo_box_item_index();
+            target
+                .action_invocation_type
+                .set(index.try_into().expect("invalid action invocation type"));
+        }
+        Ok(())
     }
 
     fn update_target_fx_parameter(&self) {
-        // TODO
+        let data = self
+            .view
+            .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX)
+            .selected_combo_box_item_data();
+        let mut target = self.target_mut();
+        target.param_index.set(data as _);
     }
 
     fn update_target_value_from_edit_control(&self) {
-        // TODO
+        // TODO Do later, not so important
     }
 
     fn memorize_all_slider_controls(&self) {
@@ -1623,8 +1723,12 @@ impl View for MappingPanel {
             ID_SETTINGS_MODE_COMBO_BOX => self.update_mode_type(),
             // Target
             ID_TARGET_TYPE_COMBO_BOX => self.update_target_type(),
-            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => self.update_target_track_or_command(),
-            ID_TARGET_FX_OR_SEND_COMBO_BOX => self.update_target_from_combo_box_three(),
+            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
+                self.update_target_track_or_command();
+            }
+            ID_TARGET_FX_OR_SEND_COMBO_BOX => {
+                self.update_target_from_combo_box_three();
+            }
             ID_TARGET_FX_PARAMETER_COMBO_BOX => self.update_target_fx_parameter(),
             _ => unreachable!(),
         }
@@ -1658,13 +1762,13 @@ impl View for MappingPanel {
     }
 
     fn virtual_key_pressed(self: SharedView<Self>, key_code: u32) -> bool {
-        // TODO Really not sure if this is necessary
+        // TODO-low Really not sure if this is necessary
         // Don't close this window just by pressing enter
         false
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
-        // TODO Multiple reentrancy checks ... is one of them obsolete?
+        // TODO-low Multiple reentrancy checks ... is one of them obsolete?
         if self.is_in_reaction() {
             // We are just reacting (async) to a change. Although the edit control text is changed
             // programmatically, it also triggers the change handler. Ignore it!
@@ -1734,7 +1838,7 @@ impl WindowExt for Window {
     }
 
     fn set_slider_unit_value(&self, value: UnitValue) {
-        // TODO Refactor that map_to_interval stuff to be more generic and less boilerplate
+        // TODO-low Refactor that map_to_interval stuff to be more generic and less boilerplate
         let slider_interval = Interval::new(DiscreteValue::new(0), DiscreteValue::new(100));
         self.set_slider_range(slider_interval.min().get(), slider_interval.max().get());
         let discrete_value = value.map_from_unit_interval_to_discrete(&slider_interval);

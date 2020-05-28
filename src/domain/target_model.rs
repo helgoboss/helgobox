@@ -266,9 +266,9 @@ impl<'a> TargetModelWithContext<'a> {
         let fx_index = self.target.fx_index.get().ok_or("FX index not set")?;
         let track = self.effective_track()?;
         let fx_chain = if self.target.is_input_fx.get() {
-            track.normal_fx_chain()
-        } else {
             track.input_fx_chain()
+        } else {
+            track.normal_fx_chain()
         };
         if *self.target.track.get_ref() == VirtualTrack::Selected {
             let fx = fx_chain.fx_by_index_untracked(fx_index);
