@@ -1,7 +1,8 @@
 use crate::domain::{
-    MappingModel, MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel,
-    ModeType, ReaperTarget, Session, SharedMappingModel, TargetCharacter, TargetModel,
-    TargetModelWithContext, TargetType,
+    get_fx_label, get_fx_param_label, ActionInvocationType, MappingModel, MidiControlInput,
+    MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType, ReaperTarget,
+    Session, SharedMappingModel, TargetCharacter, TargetModel, TargetModelWithContext, TargetType,
+    VirtualTrack,
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
@@ -13,7 +14,7 @@ use helgoboss_learn::{
     UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper, Track};
 use reaper_low::{raw, Swell};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use rx_util::{LocalProp, UnitEvent};
@@ -272,15 +273,12 @@ impl MappingPanel {
     }
 
     fn invalidate_source_midi_message_number_controls(&self) {
-        let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
-        match self.source().midi_message_number.get() {
-            None => {
-                b.select_combo_box_item_by_data(-1);
-            }
-            Some(n) => {
-                b.select_combo_box_item_by_data(n.get() as _);
-            }
+        let combo = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
+        let data = match self.source().midi_message_number.get() {
+            None => -1,
+            Some(n) => n.get() as _,
         };
+        combo.select_combo_box_item_by_data(data);
     }
 
     fn invalidate_source_parameter_number_message_number_controls(&self) {
@@ -412,7 +410,286 @@ impl MappingPanel {
     }
 
     fn invalidate_target_controls(&self) {
+        self.invalidate_target_type_combo_box();
+        self.invalidate_target_track_or_action_combo_box();
+        self.invalidate_target_line_three();
+        self.invalidate_target_only_if_fx_has_focus_check_box();
+        self.invalidate_target_only_if_track_is_selected_check_box();
+        self.invalidate_target_fx_param_combo_box();
+        self.invalidate_target_value_controls();
+        self.invalidate_learn_target_button();
+    }
+
+    fn invalidate_target_type_combo_box(&self) {
+        self.view
+            .require_control(root::ID_TARGET_TYPE_COMBO_BOX)
+            .select_combo_box_item(self.target().r#type.get().into());
+    }
+
+    fn invalidate_target_track_or_action_combo_box(&self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX);
+        let label = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_OR_CMD_LABEL_TEXT);
+        let target = self.target();
+        if target.supports_track() {
+            combo.show();
+            label.show();
+            self.fill_target_track_combo_box(label, combo);
+            self.set_target_track_combo_box_value(combo);
+        } else if target.r#type.get() == TargetType::Action {
+            combo.show();
+            label.show();
+            // TODO Find a good solution for choosing actions, preferably one which doesn't
+            //  need filling a combo box with thousands of actions
+            combo.clear_combo_box();
+        // self.fill_target_action_combo_box();
+        // self.set_target_action_combo_box_value();
+        } else {
+            label.hide();
+            combo.hide();
+        }
+    }
+
+    fn fill_target_track_combo_box(&self, label: Window, combo: Window) {
+        label.set_text("Track");
+        let mut v = vec![
+            (-3isize, VirtualTrack::This),
+            (-2isize, VirtualTrack::Selected),
+            (-1isize, VirtualTrack::Master),
+        ];
+        let target = self.target();
+        let session = self.session();
+        let target_with_context = target.with_context(session.containing_fx());
+        let project = target_with_context.project();
+        v.extend(
+            project
+                .tracks()
+                .enumerate()
+                .map(|(i, track)| (i as isize, VirtualTrack::Particular(track))),
+        );
+        combo.fill_combo_box_with_data_vec(v);
+    }
+
+    fn set_target_track_combo_box_value(&self, combo: Window) {
+        use VirtualTrack::*;
+        let data: isize = match self.target().track.get_ref() {
+            This => -3,
+            Selected => -2,
+            Master => -1,
+            Particular(t) => t.index().expect("we know it's not the master track") as _,
+        };
+        combo.select_combo_box_item_by_data(data);
+    }
+
+    fn invalidate_target_line_three(&self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
+        let label = self
+            .view
+            .require_control(root::ID_TARGET_FX_OR_SEND_LABEL_TEXT);
+        let input_fx_box = self
+            .view
+            .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX);
+        let target = self.target();
+        if target.supports_fx() {
+            combo.show();
+            label.show();
+            input_fx_box.show();
+            self.fill_target_fx_combo_box(label, combo);
+            self.set_target_fx_combo_box_value(combo);
+        } else if target.supports_send() {
+            combo.show();
+            label.show();
+            input_fx_box.hide();
+            self.fill_target_send_combo_box(label, combo);
+            self.set_target_send_combo_box_value(combo);
+        } else if target.r#type.get() == TargetType::Action {
+            combo.show();
+            label.show();
+            input_fx_box.hide();
+            self.fill_target_invocation_type_combo_box(label, combo);
+            self.set_target_invocation_type_combo_box_value(combo);
+        } else {
+            label.hide();
+            combo.hide();
+            input_fx_box.hide();
+        }
+    }
+
+    fn fill_target_send_combo_box(&self, label: Window, combo: Window) {
+        label.set_text("Send");
+        let target = self.target();
+        let session = self.session();
+        let target_with_context = target.with_context(session.containing_fx());
+        let track = match target_with_context.effective_track().ok() {
+            None => {
+                combo.clear_combo_box();
+                return;
+            }
+            Some(t) => t,
+        };
+        let sends = track
+            .sends()
+            .enumerate()
+            .map(|(i, send)| (i as isize, send));
+        combo.fill_combo_box_with_data_small(sends);
+    }
+
+    fn set_target_send_combo_box_value(&self, combo: Window) {
+        let target = self.target();
+        match target.send_index.get() {
+            None => combo.select_new_combo_box_item("<None>"),
+            Some(i) => combo
+                .select_combo_box_item_by_data(i as isize)
+                .unwrap_or_else(|_| {
+                    combo.select_new_combo_box_item(format!("{}. <Not present>", i + 1).as_str());
+                }),
+        }
+    }
+
+    fn fill_target_invocation_type_combo_box(&self, label: Window, combo: Window) {
+        label.set_text("Invoke");
+        combo.fill_combo_box(ActionInvocationType::into_enum_iter());
+    }
+
+    fn set_target_invocation_type_combo_box_value(&self, combo: Window) {
+        combo.select_combo_box_item(self.target().action_invocation_type.get().into());
+    }
+
+    fn fill_target_fx_param_combo_box(&self, combo: Window) {
+        let target = self.target();
+        let session = self.session();
+        let target_with_context = target.with_context(session.containing_fx());
+        let fx = match target_with_context.fx().ok() {
+            None => {
+                combo.clear_combo_box();
+                return;
+            }
+            Some(fx) => fx,
+        };
+        let params: Vec<_> = fx
+            .parameters()
+            .map(|param| {
+                (
+                    param.index() as isize,
+                    get_fx_param_label(Some(&param), param.index()),
+                )
+            })
+            .collect();
+        combo.fill_combo_box_with_data_vec(params);
+    }
+
+    fn set_target_fx_param_combo_box_value(&self, combo: Window) {
+        let target = self.target();
+        let param_index = target.param_index.get();
+        combo
+            .select_combo_box_item_by_data(param_index as isize)
+            .unwrap_or_else(|_| {
+                combo.select_new_combo_box_item(get_fx_param_label(None, param_index).as_ref());
+            });
+    }
+
+    fn fill_target_fx_combo_box(&self, label: Window, combo: Window) {
+        label.set_text("FX");
+        let target = self.target();
+        let session = self.session();
+        let target_with_context = target.with_context(session.containing_fx());
+        let track = match target_with_context.effective_track().ok() {
+            None => {
+                combo.clear_combo_box();
+                return;
+            }
+            Some(t) => t,
+        };
+        let fx_chain = if target.is_input_fx.get() {
+            track.input_fx_chain()
+        } else {
+            track.normal_fx_chain()
+        };
+        let fxs = fx_chain
+            .fxs()
+            .enumerate()
+            .map(|(i, fx)| (i as isize, get_fx_label(Some(&fx), Some(i as u32))).to_owned());
+        combo.fill_combo_box_with_data_small(fxs);
+    }
+
+    fn set_target_fx_combo_box_value(&self, combo: Window) {
+        let target = self.target();
+        match target.fx_index.get() {
+            None => combo.select_new_combo_box_item("<None>"),
+            Some(i) => combo
+                .select_combo_box_item_by_data(i as isize)
+                .unwrap_or_else(|_| {
+                    combo.select_new_combo_box_item(get_fx_label(None, Some(i)).as_ref());
+                }),
+        }
+    }
+
+    fn invalidate_target_only_if_fx_has_focus_check_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_TARGET_FX_FOCUS_CHECK_BOX);
+        let target = self.target();
+        if target.supports_fx() {
+            b.show();
+            b.set_text("FX must have focus");
+            b.set_checked(target.enable_only_if_fx_has_focus.get());
+        } else if target.r#type.get() == TargetType::TrackSelection {
+            b.show();
+            b.set_text("Select exclusively");
+            b.set_checked(target.select_exclusively.get());
+        } else {
+            b.hide();
+        }
+    }
+
+    fn invalidate_target_only_if_track_is_selected_check_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_SELECTED_CHECK_BOX);
+        let target = self.target();
+        if target.supports_track() {
+            b.show();
+            b.set_checked(target.enable_only_if_track_selected.get());
+        } else {
+            b.hide();
+        }
+    }
+
+    fn invalidate_target_fx_param_combo_box(&self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX);
+        let label = self
+            .view
+            .require_control(root::ID_TARGET_FX_PARAMETER_LABEL_TEXT);
+        let target = self.target();
+        if target.r#type.get() == TargetType::FxParameter {
+            combo.show();
+            label.show();
+            self.fill_target_fx_param_combo_box(combo);
+            self.set_target_fx_param_combo_box_value(combo);
+        } else {
+            combo.hide();
+            label.hide();
+        }
+    }
+
+    fn invalidate_target_value_controls(&self) {
         // TODO
+    }
+
+    fn invalidate_learn_target_button(&self) {
+        self.invalidate_learn_button(
+            self.session
+                .borrow()
+                .mapping_is_learning_target(self.mapping.as_ptr()),
+            root::ID_TARGET_LEARN_BUTTON,
+        );
     }
 
     fn register_listeners(self: &SharedView<Self>) {
@@ -837,7 +1114,35 @@ impl MappingPanel {
     }
 
     fn register_target_listeners(self: &SharedView<Self>) {
-        // TODO
+        let target = self.target();
+        self.when(target.r#type.changed(), |view| {
+            view.invalidate_target_type_combo_box();
+        });
+        self.when(target.track.changed(), |view| {
+            view.invalidate_target_controls();
+            view.invalidate_mode_controls();
+        });
+        // TODO .merge(fxChanged())
+        self.when(
+            target
+                .fx_index
+                .changed()
+                .merge(target.is_input_fx.changed()),
+            |view| {
+                view.invalidate_target_line_three();
+                view.invalidate_target_fx_param_combo_box();
+                view.invalidate_target_value_controls();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.when(target.param_index.changed(), |view| {
+            view.invalidate_target_value_controls();
+            view.invalidate_mode_controls();
+        });
+        self.when(target.action_invocation_type.changed(), |view| {
+            view.invalidate_target_line_three();
+            view.invalidate_mode_controls();
+        });
     }
 
     fn register_mode_listeners(self: &SharedView<Self>) {

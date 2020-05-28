@@ -2,6 +2,7 @@ use crate::domain::{ReaperTarget, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{Target, UnitValue};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Action, Fx, FxParameter, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
@@ -9,6 +10,7 @@ use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
 use rxrust::prelude::*;
 use serde_repr::*;
 use std::borrow::Cow;
+use std::fmt;
 use std::fmt::{Display, Formatter};
 
 /// A model for creating targets
@@ -76,6 +78,34 @@ impl TargetModel {
         }
     }
 
+    pub fn supports_track(&self) -> bool {
+        use TargetType::*;
+        matches!(
+            self.r#type.get(),
+            FxParameter
+                | TrackVolume
+                | TrackSendVolume
+                | TrackPan
+                | TrackArm
+                | TrackSelection
+                | TrackMute
+                | TrackSolo
+                | TrackSendPan
+                | FxEnable
+                | FxPreset
+        )
+    }
+
+    pub fn supports_send(&self) -> bool {
+        use TargetType::*;
+        matches!(self.r#type.get(), TrackSendVolume | TrackSendPan)
+    }
+
+    pub fn supports_fx(&self) -> bool {
+        use TargetType::*;
+        matches!(self.r#type.get(), FxParameter | FxEnable | FxPreset)
+    }
+
     fn command_id_label(&self) -> Cow<str> {
         match self.command_id.get() {
             None => "-".into(),
@@ -97,13 +127,8 @@ impl TargetModel {
             })
     }
 
-    fn track_label(&self) -> Cow<str> {
-        use VirtualTrack::*;
-        match self.track.get_ref() {
-            This => "<This>".into(),
-            Selected => "<Selected>".into(),
-            Particular(t) => get_track_label(t).into(),
-        }
+    fn track_label(&self) -> String {
+        self.track.get_ref().to_string()
     }
 
     fn action_name_label(&self) -> Cow<str> {
@@ -114,7 +139,7 @@ impl TargetModel {
     }
 }
 
-pub fn get_fx_param_label(fx_param: &Option<FxParameter>, index: u32) -> Cow<'static, str> {
+pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'static, str> {
     let position = index + 1;
     match fx_param {
         None => format!("{}. <Not present>", position).into(),
@@ -130,7 +155,7 @@ pub fn get_fx_param_label(fx_param: &Option<FxParameter>, index: u32) -> Cow<'st
     }
 }
 
-pub fn get_fx_label(fx: &Option<Fx>, index: Option<u32>) -> Cow<'static, str> {
+pub fn get_fx_label(fx: Option<&Fx>, index: Option<u32>) -> Cow<'static, str> {
     let index = match index {
         None => return "<None>".into(),
         Some(i) => i,
@@ -237,7 +262,7 @@ impl<'a> TargetModelWithContext<'a> {
             .unwrap_or(false)
     }
     // Returns an error if the FX doesn't exist.
-    fn fx(&self) -> Result<Fx, &'static str> {
+    pub fn fx(&self) -> Result<Fx, &'static str> {
         let fx_index = self.target.fx_index.get().ok_or("FX index not set")?;
         let track = self.effective_track()?;
         let fx_chain = if self.target.is_input_fx.get() {
@@ -257,22 +282,23 @@ impl<'a> TargetModelWithContext<'a> {
         }
     }
 
-    fn project(&self) -> Project {
+    pub fn project(&self) -> Project {
         self.containing_fx
             .project()
             .unwrap_or(Reaper::get().current_project())
     }
 
     // TODO-low Consider returning a Cow
-    fn effective_track(&self) -> Result<Track, &'static str> {
+    pub fn effective_track(&self) -> Result<Track, &'static str> {
         use VirtualTrack::*;
         match self.target.track.get_ref() {
-            Particular(track) => Ok(track.clone()),
             This => Ok(self.containing_fx.track().clone()),
             Selected => self
                 .project()
                 .first_selected_track(IncludeMasterTrack)
                 .ok_or("no track selected"),
+            Master => Ok(self.project().master_track()),
+            Particular(track) => Ok(track.clone()),
         }
     }
 
@@ -305,11 +331,11 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     fn fx_label(&self) -> Cow<str> {
-        get_fx_label(&self.fx().ok(), self.target.fx_index.get())
+        get_fx_label(self.fx().ok().as_ref(), self.target.fx_index.get())
     }
 
     fn fx_param_label(&self) -> Cow<str> {
-        get_fx_param_label(&self.fx_param().ok(), self.target.param_index.get())
+        get_fx_param_label(self.fx_param().ok().as_ref(), self.target.param_index.get())
     }
 }
 
@@ -369,19 +395,43 @@ impl<'a> Display for TargetModelWithContext<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VirtualTrack {
-    /// A particular track.
-    Particular(Track),
     /// Current track (the one which contains the ReaLearn instance).
     This,
     /// Currently selected track.
     Selected,
+    /// Master track.
+    Master,
+    /// A particular track.
+    Particular(Track),
+}
+
+impl fmt::Display for VirtualTrack {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use VirtualTrack::*;
+        match self {
+            This => write!(f, "<This>"),
+            Selected => write!(f, "<Selected>"),
+            Master => write!(f, "<Master>"),
+            Particular(t) => write!(f, "{}", get_track_label(t)),
+        }
+    }
 }
 
 /// Type of a target
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr, IntoEnumIterator, Display,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
 )]
-#[repr(u8)]
+#[repr(usize)]
 pub enum TargetType {
     #[display(fmt = "Action (limited feedback)")]
     Action = 0,
@@ -414,10 +464,25 @@ pub enum TargetType {
 }
 
 /// How to invoke an action target
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr, Deserialize_repr)]
-#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
 pub enum ActionInvocationType {
+    #[display(fmt = "Trigger")]
     Trigger = 0,
+    #[display(fmt = "Absolute")]
     Absolute = 1,
+    #[display(fmt = "Relative")]
     Relative = 2,
 }
