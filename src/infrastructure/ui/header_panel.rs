@@ -154,7 +154,7 @@ impl HeaderPanel {
                 b.select_combo_box_item_by_data(-1);
             }
             Some(o) => match o {
-                FxOutput => todo!(),
+                FxOutput => todo!("feedback to FX output not yet supported"),
                 Device(dev) => b
                     .select_combo_box_item_by_data(dev.id().get() as _)
                     .unwrap_or_else(|_| {
@@ -187,7 +187,7 @@ impl HeaderPanel {
                 let dev = Reaper::get().midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
                 Some(MidiFeedbackOutput::Device(dev))
             }
-            _ => todo!(),
+            _ => todo!("feedback to FX output not yet supported"),
         };
         self.session.borrow_mut().midi_feedback_output.set(value);
     }

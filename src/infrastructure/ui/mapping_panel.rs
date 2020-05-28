@@ -676,7 +676,7 @@ impl MappingPanel {
             Some(target) => {
                 let edit_text = if target.character() == TargetCharacter::Discrete {
                     target
-                        .convert_value_to_discrete_value(value)
+                        .convert_unit_value_to_discrete_value(value)
                         .map(|v| v.to_string())
                         .unwrap_or("".to_string())
                 } else {
@@ -767,7 +767,7 @@ impl MappingPanel {
                 let is_discrete = target.character() == TargetCharacter::Discrete;
                 if send_increments || is_discrete {
                     let edit_text = target
-                        .convert_value_to_discrete_value(value)
+                        .convert_unit_value_to_discrete_value(value)
                         .map(|v| v.to_string())
                         .unwrap_or("".to_string());
                     if send_increments {
@@ -1008,10 +1008,10 @@ impl MappingPanel {
         let text = self.view.require_control(edit_control_id).text().ok()?;
         if target.character() == TargetCharacter::Discrete {
             target
-                .parse_unit_value_from_discrete_value(text.as_str())
+                .convert_discrete_value_to_unit_value(text.parse().ok()?)
                 .ok()
         } else {
-            target.parse_unit_value(text.as_str()).ok()
+            text.parse().ok()
         }
     }
 
@@ -1082,7 +1082,7 @@ impl MappingPanel {
         {
             let text = self.view.require_control(edit_control_id).text().ok()?;
             self.real_target()?
-                .parse_step_size_from_step_count(text.as_str())
+                .convert_discrete_value_to_unit_value(text.parse().ok()?)
                 .ok()
         } else {
             self.get_value_from_target_edit_control(edit_control_id)

@@ -153,7 +153,10 @@ impl ReaperTarget {
     /// # Errors
     ///
     /// Returns an error if this target doesn't report a step size.
-    pub fn convert_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    pub fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+    ) -> Result<u32, &'static str> {
         if self.wants_increments() {
             // Relative MIDI controllers support a maximum of 63 steps.
             return Ok((input.get() * 63.0).round() as _);
@@ -184,26 +187,24 @@ impl ReaperTarget {
         }
     }
 
-    pub fn parse_unit_value_from_discrete_value(
+    /// Like `convert_ùnit_value_to_discrete_value()` but in the other direction.
+    pub fn convert_discrete_value_to_unit_value(
         &self,
-        text: &str,
+        value: u32,
     ) -> Result<UnitValue, &'static str> {
-        // const int discreteStepSize = editControlIntValue(editControl);
-        // const double actualStepSize =
-        //    helgoboss::util::calcActualStepSize(discreteStepSize,
-        // mapping().target().getStepSize());
-        todo!()
-    }
-
-    pub fn parse_unit_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        // target.parseAsNormalizedValue
-        todo!()
-    }
-
-    pub fn parse_step_size_from_step_count(&self, text: &str) -> Result<UnitValue, &'static str> {
-        // const double stepSize = helgoboss::util::convertStepCountToStepSize(stepCount,
-        // mapping().target());
-        todo!()
+        if self.wants_increments() {
+            return Ok(UnitValue::new(value as f64 / 63.0));
+        }
+        // Example (target step size = 0.10):
+        // - 0    => 0
+        // - 0.05 => 1
+        // - 0.10 => 1
+        // - 0.15 => 2
+        // - 0.20 => 2
+        // TODO This is maybe wrong for preset target because it has 0 as special value (no preset)
+        //  and is otherwise shifted
+        let target_step_size = self.step_size().ok_or("target doesn't report step size")?;
+        Ok(UnitValue::new(value as f64 * target_step_size.get()))
     }
 
     pub fn unit(&self) -> &'static str {

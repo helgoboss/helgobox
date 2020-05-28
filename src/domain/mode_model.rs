@@ -218,6 +218,8 @@ impl ModeModel {
 }
 
 fn make_discrete(value: UnitValue, target: &ReaperTarget) -> DiscreteValue {
-    let discrete = target.convert_value_to_discrete_value(value).unwrap_or(1);
+    let discrete = target
+        .convert_unit_value_to_discrete_value(value)
+        .unwrap_or(1);
     DiscreteValue::new(discrete)
 }
