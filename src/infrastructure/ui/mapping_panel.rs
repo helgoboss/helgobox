@@ -47,6 +47,7 @@ struct Sliders {
     mode_max_step_size: Window,
     mode_min_jump: Window,
     mode_max_jump: Window,
+    target_value: Window,
 }
 
 impl MappingPanel {
@@ -1466,6 +1467,50 @@ impl MappingPanel {
             .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
+    fn update_target_value_from_slider(&self, slider: Window) {
+        // TODO
+    }
+
+    fn update_target_is_input_fx(&self) {
+        // TODO
+    }
+
+    fn update_target_only_if_fx_has_focus(&self) {
+        // TODO
+    }
+
+    fn update_target_only_if_track_is_selected(&self) {
+        // TODO
+    }
+
+    fn toggle_learn_target(&self) {
+        // TODO
+    }
+
+    fn open_target(&self) {
+        // TODO
+    }
+
+    fn update_target_type(&self) {
+        // TODO
+    }
+
+    fn update_target_track_or_command(&self) {
+        // TODO
+    }
+
+    fn update_target_from_combo_box_three(&self) {
+        // TODO
+    }
+
+    fn update_target_fx_parameter(&self) {
+        // TODO
+    }
+
+    fn update_target_value_from_edit_control(&self) {
+        // TODO
+    }
+
     fn memorize_all_slider_controls(&self) {
         let view = &self.view;
         let sliders = Sliders {
@@ -1483,6 +1528,7 @@ impl MappingPanel {
                 .require_control(root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL),
             mode_min_jump: view.require_control(root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL),
             mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
+            target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
         };
         self.sliders.replace(Some(sliders));
     }
@@ -1552,6 +1598,12 @@ impl View for MappingPanel {
             ID_SETTINGS_SCALE_MODE_CHECK_BOX => self.update_mode_approach(),
             ID_SETTINGS_REVERSE_CHECK_BOX => self.update_mode_reverse(),
             ID_SETTINGS_RESET_BUTTON => self.reset_mode(),
+            // Target
+            ID_TARGET_INPUT_FX_CHECK_BOX => self.update_target_is_input_fx(),
+            ID_TARGET_FX_FOCUS_CHECK_BOX => self.update_target_only_if_fx_has_focus(),
+            ID_TARGET_TRACK_SELECTED_CHECK_BOX => self.update_target_only_if_track_is_selected(),
+            ID_TARGET_LEARN_BUTTON => self.toggle_learn_target(),
+            ID_TARGET_OPEN_BUTTON => self.open_target(),
             _ => unreachable!(),
         }
     }
@@ -1569,6 +1621,11 @@ impl View for MappingPanel {
             }
             // Mode
             ID_SETTINGS_MODE_COMBO_BOX => self.update_mode_type(),
+            // Target
+            ID_TARGET_TYPE_COMBO_BOX => self.update_target_type(),
+            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => self.update_target_track_or_command(),
+            ID_TARGET_FX_OR_SEND_COMBO_BOX => self.update_target_from_combo_box_three(),
+            ID_TARGET_FX_PARAMETER_COMBO_BOX => self.update_target_fx_parameter(),
             _ => unreachable!(),
         }
     }
@@ -1595,6 +1652,7 @@ impl View for MappingPanel {
             s if s == sliders.mode_max_step_size => self.update_mode_max_step_size_from_slider(s),
             s if s == sliders.mode_min_jump => self.update_mode_min_jump_from_slider(s),
             s if s == sliders.mode_max_jump => self.update_mode_max_jump_from_slider(s),
+            s if s == sliders.target_value => self.update_target_value_from_slider(s),
             _ => unreachable!(),
         };
     }
@@ -1656,6 +1714,8 @@ impl View for MappingPanel {
             ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
                 self.update_mode_eel_feedback_transformation()
             }
+            // Target
+            ID_TARGET_VALUE_EDIT_CONTROL => self.update_target_value_from_edit_control(),
             _ => return false,
         }
         true
