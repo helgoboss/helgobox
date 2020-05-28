@@ -89,10 +89,7 @@ impl MappingPanel {
         let c = self
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL);
-        if c.has_focus() {
-            return;
-        }
-        c.set_text(self.mapping().name.get_ref().as_str());
+        c.set_text_if_not_focused(self.mapping().name.get_ref().as_str());
     }
 
     fn invalidate_mapping_control_enabled_check_box(&self) {
@@ -297,7 +294,7 @@ impl MappingPanel {
             None => "".to_string(),
             Some(n) => n.to_string(),
         };
-        c.set_text(text)
+        c.set_text_if_not_focused(text)
     }
 
     fn invalidate_source_character_combo_box(&self) {
@@ -641,7 +638,7 @@ impl MappingPanel {
             .unwrap_or("".to_string());
         self.view
             .require_control(edit_control_id)
-            .set_text(formatted_value);
+            .set_text_if_not_focused(formatted_value);
         self.view
             .require_control(slider_control_id)
             .set_slider_unit_value(value);
@@ -692,7 +689,7 @@ impl MappingPanel {
             .set_slider_unit_value(value);
         self.view
             .require_control(edit_control_id)
-            .set_text(edit_text);
+            .set_text_if_not_focused(edit_text);
         self.view
             .require_control(value_text_control_id)
             .set_text(value_text);
@@ -791,7 +788,7 @@ impl MappingPanel {
             .set_slider_unit_value(value);
         self.view
             .require_control(edit_control_id)
-            .set_text(edit_text);
+            .set_text_if_not_focused(edit_text);
         self.view
             .require_control(value_text_control_id)
             .set_text(value_text)
@@ -830,13 +827,13 @@ impl MappingPanel {
     fn invalidate_mode_eel_control_transformation_edit_control(&self) {
         self.view
             .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
-            .set_text(self.mode().eel_control_transformation.get_ref().as_str());
+            .set_text_if_not_focused(self.mode().eel_control_transformation.get_ref().as_str());
     }
 
     fn invalidate_mode_eel_feedback_transformation_edit_control(&self) {
         self.view
             .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
-            .set_text(self.mode().eel_feedback_transformation.get_ref().as_str());
+            .set_text_if_not_focused(self.mode().eel_feedback_transformation.get_ref().as_str());
     }
 
     fn register_target_listeners(self: &SharedView<Self>) {

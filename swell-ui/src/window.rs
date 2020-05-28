@@ -198,6 +198,10 @@ impl Window {
     }
 
     pub fn set_slider_value(&self, value: u32) {
+        if self.has_focus() {
+            // No need to set value if this is the slider which we are currently tracking.
+            return;
+        }
         Swell::get().SendMessage(self.raw, raw::TBM_SETPOS, 1, value as _);
     }
 
@@ -217,6 +221,13 @@ impl Window {
 
     pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
+    }
+
+    pub fn set_text_if_not_focused<'a>(self, text: impl Into<SwellStringArg<'a>>) {
+        if self.has_focus() {
+            return;
+        }
+        self.set_text(text);
     }
 
     pub fn parent(self) -> Option<Window> {
