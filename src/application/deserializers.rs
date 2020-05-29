@@ -32,3 +32,18 @@ where
         }
     }
 }
+
+/// This is like the u32 deserializer but is also fine with decimal numbers (e.g. 4.0).
+///
+/// For some reason we have serialized positive integers as floating point numbers in ReaLearn C++.
+pub fn f32_as_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: f32 = Deserialize::deserialize(deserializer)?;
+    let integer = value as i32;
+    if integer < 0 {
+        return Err(serde::de::Error::custom("number must not be negative"));
+    }
+    Ok(integer as u32)
+}
