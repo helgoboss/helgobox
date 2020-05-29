@@ -1,10 +1,11 @@
 use c_str_macro::c_str;
 use vst::editor::Editor;
-use vst::plugin::{CanDo, HostCallback, Info, Plugin};
+use vst::plugin::{CanDo, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
 use crate::domain::Session;
 use crate::infrastructure::common::SharedSession;
+use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
@@ -29,6 +30,8 @@ pub struct RealearnPlugin {
     host: HostCallback,
     // This will be set as soon as the containing FX is known (one main loop cycle after `init()`).
     session: Rc<LazyCell<SharedSession>>,
+    // We need to keep that here in order to notify it as soon as the session becomes available.
+    plugin_parameters: Arc<RealearnPluginParameters>,
     // This will be set on `init()`.
     reaper_guard: Option<Arc<ReaperGuard>>,
 }
@@ -40,6 +43,7 @@ impl Default for RealearnPlugin {
             session: Rc::new(LazyCell::new()),
             main_panel: Default::default(),
             reaper_guard: None,
+            plugin_parameters: Default::default(),
         }
     }
 }
@@ -56,6 +60,7 @@ impl Plugin for RealearnPlugin {
         Info {
             name: "realearn-rs".to_string(),
             unique_id: 2964,
+            preset_chunks: true,
             ..Default::default()
         }
     }
@@ -75,11 +80,17 @@ impl Plugin for RealearnPlugin {
         use CanDo::*;
         use Supported::*;
         match can_do {
-            // If we don't do this, REAPER won't give us a SWELL parent window, which leads to a
-            // horrible crash when doing CreateDialogParam.
+            // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
+            // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
+            // to put controls into the plug-in window. SWELL assumes that the parent window for
+            // controls is also a SWELL window.
             Other(s) if s == "hasCockosViewAsConfig" => Custom(0xbeef_0000),
             _ => Maybe,
         }
+    }
+
+    fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
+        self.plugin_parameters.clone()
     }
 }
 
@@ -105,11 +116,13 @@ impl RealearnPlugin {
     fn schedule_session_creation(&self) {
         let main_panel = self.main_panel.clone();
         let session_container = self.session.clone();
+        let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
         Reaper::get().do_later_in_main_thread_asap(move || {
             let session = Session::new(get_containing_fx(&host));
             let shared_session = Rc::new(debug_cell::RefCell::new(session));
             main_panel.notify_session_is_available(shared_session.clone());
+            plugin_parameters.notify_session_is_available(shared_session.clone());
             session_container.fill(shared_session);
         });
     }

@@ -35,17 +35,3 @@ pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
             });
         });
 }
-
-/// Claims that it doesn't matter for the wrapped value not implementing Send and Sync.
-///
-/// Of course this is unsafe and should only be used if it really doesn't matter.
-struct SendAndSyncWhatever<T>(T);
-
-impl<T> SendAndSyncWhatever<T> {
-    pub unsafe fn new(value: T) -> Self {
-        Self(value)
-    }
-}
-
-unsafe impl<T> Send for SendAndSyncWhatever<T> {}
-unsafe impl<T> Sync for SendAndSyncWhatever<T> {}
