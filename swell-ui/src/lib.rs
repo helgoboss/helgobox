@@ -21,3 +21,6 @@ pub use types::*;
 
 mod string_types;
 pub use string_types::*;
+
+mod clipboard;
+pub use clipboard::*;

@@ -1,3 +1,4 @@
+use crate::application::session_data::SessionData;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
@@ -12,9 +13,10 @@ use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
 use std::iter;
+use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{SharedView, View, ViewContext, Window};
+use swell_ui::{Clipboard, SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct HeaderPanel {
@@ -245,6 +247,22 @@ impl HeaderPanel {
         // TODO
     }
 
+    pub fn import_from_clipboard(&self) {
+        let clipboard = Clipboard::new();
+        let json = clipboard.read_text().expect("couldn't read from clipboard");
+        let session_data: SessionData =
+            serde_json::from_str(json.as_str()).expect("not valid session data");
+        session_data.apply_to_session(self.session.borrow_mut().deref_mut());
+    }
+
+    pub fn export_to_clipboard(&self) {
+        let session_data = SessionData::from_session(self.session.borrow().deref());
+        let json =
+            serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
+        let clipboard = Clipboard::new();
+        clipboard.write_text(json.as_str());
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
         self.when(session.let_matched_events_through.changed(), |view| {
@@ -309,8 +327,8 @@ impl View for HeaderPanel {
             ID_FILTER_BY_TARGET_BUTTON => self.learn_target_filter(),
             ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
             ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
-            ID_IMPORT_BUTTON => self.session.borrow_mut().import_from_clipboard(),
-            ID_EXPORT_BUTTON => self.session.borrow().export_to_clipboard(),
+            ID_IMPORT_BUTTON => self.import_from_clipboard(),
+            ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session.borrow().send_feedback(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),

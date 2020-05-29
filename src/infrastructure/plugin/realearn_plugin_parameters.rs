@@ -53,9 +53,7 @@ impl PluginParameters for RealearnPluginParameters {
             Some(s) => s,
         };
         let session_data = SessionData::from_session(session.borrow().deref());
-        let json =
-            serde_json::to_string(&session_data).expect("couldn't serialize ReaLearn session data");
-        json.into_bytes()
+        serde_json::to_vec(&session_data).expect("couldn't serialize session data")
     }
 
     fn load_bank_data(&self, data: &[u8]) {
@@ -73,7 +71,7 @@ impl PluginParameters for RealearnPluginParameters {
             Some(s) => s,
         };
         let session_data: SessionData =
-            serde_json::from_slice(data).expect("couldn't deserialize ReaLearn session data");
+            serde_json::from_slice(data).expect("couldn't deserialize session data");
         session_data.apply_to_session(session.borrow_mut().deref_mut());
     }
 }

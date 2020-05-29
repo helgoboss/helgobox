@@ -55,9 +55,7 @@ impl Session {
             let_unmatched_events_through: p(true),
             always_auto_detect: p(true),
             send_feedback_only_if_armed: p(true),
-            midi_control_input: p(MidiControlInput::Device(MidiInputDevice::new(
-                MidiInputDeviceId::new(47),
-            ))),
+            midi_control_input: p(MidiControlInput::FxInput),
             midi_feedback_output: p(None),
             mapping_which_learns_source: p(None),
             mapping_which_learns_target: p(None),
@@ -178,14 +176,6 @@ impl Session {
     fn add_mapping(&mut self, mapping: MappingModel) {
         self.mapping_models.push(Rc::new(RefCell::new(mapping)));
         self.mappings_changed_subject.next(());
-    }
-
-    pub fn import_from_clipboard(&mut self) {
-        todo!()
-    }
-
-    pub fn export_to_clipboard(&self) {
-        todo!()
     }
 
     pub fn send_feedback(&self) {
