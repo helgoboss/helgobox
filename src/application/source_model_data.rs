@@ -1,22 +1,20 @@
+use super::none_if_minus_one;
 use crate::domain::{MidiSourceModel, MidiSourceType};
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
-use helgoboss_midi::U7;
+use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
-use validator::{Validate, ValidationError, ValidationErrors};
-use validator_derive::*;
 
 /// This is the structure in which source settings are loaded and saved. It's optimized for being
 /// represented as JSON. The JSON representation must be 100% backward-compatible.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-#[validate(schema(function = "validate_schema"))]
 pub struct SourceModelData {
     pub r#type: MidiSourceType,
-    #[validate(range(min = -1, max = 15))]
-    pub channel: Option<i16>,
-    #[validate(range(min = -1, max = 16383))]
-    pub number: Option<i32>,
+    #[serde(deserialize_with = "none_if_minus_one")]
+    pub channel: Option<Channel>,
+    #[serde(deserialize_with = "none_if_minus_one")]
+    pub number: Option<U14>,
     pub character: SourceCharacter,
     pub is_registered: Option<bool>,
     pub is_14_bit: Option<bool>,
@@ -27,8 +25,8 @@ impl Default for SourceModelData {
     fn default() -> Self {
         Self {
             r#type: MidiSourceType::ControlChangeValue,
-            channel: Some(0),
-            number: Some(0),
+            channel: Some(Channel::new(0)),
+            number: Some(U14::new(0)),
             character: SourceCharacter::Range,
             is_registered: Some(false),
             is_14_bit: Some(false),
@@ -37,27 +35,13 @@ impl Default for SourceModelData {
     }
 }
 
-fn validate_schema(data: &SourceModelData) -> Result<(), ValidationError> {
-    if data.r#type != MidiSourceType::ParameterNumberValue
-        && data.number.map(|n| n <= U7::MAX.get() as i32) == Some(false)
-    {
-        let mut error = ValidationError::new("number_too_large");
-        error.add_param("number".into(), &data.number);
-        return Err(error);
-    }
-    Ok(())
-}
-
 impl SourceModelData {
     pub fn from_model(model: &MidiSourceModel) -> Self {
         Self {
             r#type: model.r#type.get(),
-            channel: model.channel.get().map(|ch| ch.into()),
+            channel: model.channel.get(),
             number: if model.r#type.get() == MidiSourceType::ParameterNumberValue {
-                model
-                    .parameter_number_message_number
-                    .get()
-                    .map(|n| n.into())
+                model.parameter_number_message_number.get()
             } else {
                 model.midi_message_number.get().map(|n| n.into())
             },
@@ -70,27 +54,17 @@ impl SourceModelData {
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
     pub fn apply_to_model(&self, model: &mut MidiSourceModel) -> Result<(), &'static str> {
-        // Validation
-        let channel = match self.channel.none_if_negative() {
-            None => None,
-            Some(v) => Some(v.try_into().map_err(|_| "invalid channel")?),
-        };
-        // Mutation
-        model.r#type.set(self.r#type);
-        model.channel.set(channel);
         if self.r#type == MidiSourceType::ParameterNumberValue {
-            model.parameter_number_message_number.set(
-                self.number
-                    .none_if_negative()
-                    .map(|v| v.try_into().unwrap()),
-            )
+            model.parameter_number_message_number.set(self.number)
         } else {
-            model.midi_message_number.set(
-                self.number
-                    .none_if_negative()
-                    .map(|v| v.try_into().unwrap()),
-            )
-        }
+            let number: Option<U7> = match self.number {
+                None => None,
+                Some(v) => Some(v.try_into().map_err(|_| "MIDI message number too high")?),
+            };
+            model.midi_message_number.set(number);
+        };
+        model.r#type.set(self.r#type);
+        model.channel.set(self.channel);
         model.custom_character.set(self.character);
         model.is_registered.set(self.is_registered);
         model.is_14_bit.set(self.is_14_bit);
@@ -99,25 +73,11 @@ impl SourceModelData {
     }
 }
 
-trait NoneIfNegative {
-    fn none_if_negative(self) -> Self;
-}
-
-impl<T: PartialOrd + From<i8> + Copy> NoneIfNegative for Option<T> {
-    fn none_if_negative(self) -> Self {
-        match self {
-            Some(v) if v >= 0.into() => self,
-            _ => None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use helgoboss_midi::test_util::*;
     use serde_json::json;
-    use validator::ValidationErrors;
 
     #[test]
     fn deserialize_1() {
@@ -138,15 +98,14 @@ mod tests {
             data,
             SourceModelData {
                 r#type: MidiSourceType::ControlChangeValue,
-                channel: Some(0),
-                number: Some(0),
+                channel: Some(Channel::new(0)),
+                number: Some(U14::new(0)),
                 character: SourceCharacter::Range,
                 is_registered: Some(false),
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start
             }
         );
-        assert!(data.validate().is_ok());
     }
 
     #[test]
@@ -168,59 +127,14 @@ mod tests {
             data,
             SourceModelData {
                 r#type: MidiSourceType::ParameterNumberValue,
-                channel: Some(-1),
-                number: Some(12542),
+                channel: None,
+                number: Some(U14::new(12542)),
                 character: SourceCharacter::Range,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start
             }
         );
-        assert!(data.validate().is_ok());
-    }
-
-    #[test]
-    fn validate_1() {
-        // Given
-        let data = SourceModelData {
-            r#type: MidiSourceType::ParameterNumberValue,
-            channel: Some(-4),
-            number: Some(21000),
-            character: SourceCharacter::Switch,
-            is_registered: Some(true),
-            is_14_bit: Some(true),
-            message: MidiClockTransportMessage::Continue,
-        };
-        // When
-        let result: Result<(), ValidationErrors> = data.validate();
-        // Then
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let errors = err.errors();
-        assert_eq!(errors.len(), 2);
-        assert!(errors.contains_key("channel"));
-        assert!(errors.contains_key("number"));
-    }
-
-    #[test]
-    fn validate_2() {
-        // Given
-        let data = SourceModelData {
-            r#type: MidiSourceType::ControlChangeValue,
-            channel: Some(-1),
-            number: Some(500),
-            character: SourceCharacter::Switch,
-            is_registered: Some(false),
-            is_14_bit: None,
-            message: MidiClockTransportMessage::Start,
-        };
-        // When
-        let result: Result<(), ValidationErrors> = data.validate();
-        // Then
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let errors = err.errors();
-        assert_eq!(errors.len(), 1);
     }
 
     #[test]
@@ -228,8 +142,8 @@ mod tests {
         // Given
         let data = SourceModelData {
             r#type: MidiSourceType::ParameterNumberValue,
-            channel: Some(8),
-            number: Some(-1),
+            channel: Some(Channel::new(8)),
+            number: None,
             character: SourceCharacter::Range,
             is_registered: Some(true),
             is_14_bit: Some(true),
@@ -259,7 +173,7 @@ mod tests {
         let data = SourceModelData {
             r#type: MidiSourceType::ClockTransport,
             channel: None,
-            number: Some(112),
+            number: Some(U14::new(112)),
             character: SourceCharacter::Range,
             is_registered: None,
             is_14_bit: Some(false),
@@ -299,8 +213,8 @@ mod tests {
             data,
             SourceModelData {
                 r#type: MidiSourceType::ControlChangeValue,
-                channel: Some(15),
-                number: Some(12),
+                channel: Some(Channel::new(15)),
+                number: Some(U14::new(12)),
                 character: SourceCharacter::Encoder2,
                 is_registered: Some(false),
                 is_14_bit: Some(true),
@@ -331,7 +245,7 @@ mod tests {
             SourceModelData {
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
-                number: Some(78),
+                number: Some(U14::new(78)),
                 character: SourceCharacter::Encoder1,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
