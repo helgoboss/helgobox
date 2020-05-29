@@ -645,6 +645,7 @@ dependencies = [
  "num",
  "num_enum 0.5.0",
  "serde",
+ "serde_repr",
 ]
 
 [[package]]

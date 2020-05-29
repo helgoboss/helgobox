@@ -17,12 +17,10 @@ pub struct SourceModelData {
     pub channel: Option<i16>,
     #[validate(range(min = -1, max = 16383))]
     pub number: Option<i32>,
-    #[validate(range(min = 0, max = 4))]
-    pub character: u8,
+    pub character: SourceCharacter,
     pub is_registered: Option<bool>,
     pub is_14_bit: Option<bool>,
-    #[validate(range(min = 0, max = 2))]
-    pub message: u8,
+    pub message: MidiClockTransportMessage,
 }
 
 impl Default for SourceModelData {
@@ -31,10 +29,10 @@ impl Default for SourceModelData {
             r#type: MidiSourceType::ControlChangeValue,
             channel: Some(0),
             number: Some(0),
-            character: 0,
+            character: SourceCharacter::Range,
             is_registered: Some(false),
             is_14_bit: Some(false),
-            message: 0,
+            message: MidiClockTransportMessage::Start,
         }
     }
 }
@@ -63,28 +61,10 @@ impl SourceModelData {
             } else {
                 model.midi_message_number.get().map(|n| n.into())
             },
-            character: {
-                use SourceCharacter::*;
-                match model.custom_character.get() {
-                    Range => 0,
-                    Switch => 1,
-                    Encoder1 => 2,
-                    Encoder2 => 3,
-                    Encoder3 => 4,
-                }
-                .into()
-            },
+            character: model.custom_character.get(),
             is_registered: model.is_registered.get(),
             is_14_bit: model.is_14_bit.get(),
-            message: {
-                use MidiClockTransportMessage::*;
-                match model.midi_clock_transport_message.get() {
-                    Start => 0,
-                    Continue => 1,
-                    Stop => 2,
-                }
-                .into()
-            },
+            message: model.midi_clock_transport_message.get(),
         }
     }
 
@@ -111,30 +91,10 @@ impl SourceModelData {
                     .map(|v| v.try_into().unwrap()),
             )
         }
-        {
-            use SourceCharacter::*;
-            let character = match self.character {
-                0 => Range,
-                1 => Switch,
-                2 => Encoder1,
-                3 => Encoder2,
-                4 => Encoder3,
-                _ => unreachable!(),
-            };
-            model.custom_character.set(character);
-        }
+        model.custom_character.set(self.character);
         model.is_registered.set(self.is_registered);
         model.is_14_bit.set(self.is_14_bit);
-        {
-            use MidiClockTransportMessage::*;
-            let transport_msg = match self.message {
-                0 => Start,
-                1 => Continue,
-                2 => Stop,
-                _ => unreachable!(),
-            };
-            model.midi_clock_transport_message.set(transport_msg);
-        }
+        model.midi_clock_transport_message.set(self.message);
         Ok(())
     }
 }
@@ -180,10 +140,10 @@ mod tests {
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(0),
                 number: Some(0),
-                character: 0,
+                character: SourceCharacter::Range,
                 is_registered: Some(false),
                 is_14_bit: Some(false),
-                message: 0
+                message: MidiClockTransportMessage::Start
             }
         );
         assert!(data.validate().is_ok());
@@ -210,10 +170,10 @@ mod tests {
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: Some(-1),
                 number: Some(12542),
-                character: 0,
+                character: SourceCharacter::Range,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
-                message: 0
+                message: MidiClockTransportMessage::Start
             }
         );
         assert!(data.validate().is_ok());
@@ -226,10 +186,10 @@ mod tests {
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(-4),
             number: Some(21000),
-            character: 90,
+            character: SourceCharacter::Switch,
             is_registered: Some(true),
             is_14_bit: Some(true),
-            message: 80,
+            message: MidiClockTransportMessage::Continue,
         };
         // When
         let result: Result<(), ValidationErrors> = data.validate();
@@ -237,11 +197,9 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         let errors = err.errors();
-        assert_eq!(errors.len(), 4);
+        assert_eq!(errors.len(), 2);
         assert!(errors.contains_key("channel"));
         assert!(errors.contains_key("number"));
-        assert!(errors.contains_key("message"));
-        assert!(errors.contains_key("character"));
     }
 
     #[test]
@@ -251,10 +209,10 @@ mod tests {
             r#type: MidiSourceType::ControlChangeValue,
             channel: Some(-1),
             number: Some(500),
-            character: 1,
+            character: SourceCharacter::Switch,
             is_registered: Some(false),
             is_14_bit: None,
-            message: 0,
+            message: MidiClockTransportMessage::Start,
         };
         // When
         let result: Result<(), ValidationErrors> = data.validate();
@@ -272,10 +230,10 @@ mod tests {
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(8),
             number: Some(-1),
-            character: 0,
+            character: SourceCharacter::Range,
             is_registered: Some(true),
             is_14_bit: Some(true),
-            message: 0,
+            message: MidiClockTransportMessage::Start,
         };
         let mut model = MidiSourceModel::default();
         // When
@@ -302,10 +260,10 @@ mod tests {
             r#type: MidiSourceType::ClockTransport,
             channel: None,
             number: Some(112),
-            character: 0,
+            character: SourceCharacter::Range,
             is_registered: None,
             is_14_bit: Some(false),
-            message: 2,
+            message: MidiClockTransportMessage::Stop,
         };
         let mut model = MidiSourceModel::default();
         // When
@@ -343,10 +301,10 @@ mod tests {
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(15),
                 number: Some(12),
-                character: 3,
+                character: SourceCharacter::Encoder2,
                 is_registered: Some(false),
                 is_14_bit: Some(true),
-                message: 0,
+                message: MidiClockTransportMessage::Start,
             }
         );
     }
@@ -374,10 +332,10 @@ mod tests {
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
                 number: Some(78),
-                character: 2,
+                character: SourceCharacter::Encoder1,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
-                message: 1,
+                message: MidiClockTransportMessage::Continue,
             }
         );
     }

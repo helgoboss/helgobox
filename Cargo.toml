@@ -22,7 +22,7 @@ reaper-low = { version = "0.1.0", path = "../reaper-rs/main/low" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 helgoboss-midi = { version = "0.1.0", path = "../helgoboss-midi-rs", features = ["serde", "serde_repr"] }
-helgoboss-learn = { path = "helgoboss-learn", features = ["serde"] }
+helgoboss-learn = { path = "helgoboss-learn", features = ["serde", "serde_repr"] }
 c_str_macro = "1.0.2"
 vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
