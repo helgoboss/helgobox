@@ -1,6 +1,5 @@
 use crate::domain::TargetModel;
 use serde::{Deserialize, Serialize};
-use validator::ValidationErrors;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -18,7 +17,7 @@ impl TargetModelData {
         Self {}
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel) -> Result<(), ValidationErrors> {
+    pub fn apply_to_model(&self, model: &mut TargetModel) -> Result<(), &'static str> {
         // TODO
         Ok(())
     }

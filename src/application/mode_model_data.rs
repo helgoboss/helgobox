@@ -1,7 +1,6 @@
 use crate::domain::{ModeModel, ModeType};
 use helgoboss_learn::{Interval, UnitValue};
 use serde::{Deserialize, Serialize};
-use validator::ValidationErrors;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -71,7 +70,7 @@ impl ModeModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut ModeModel) -> Result<(), ValidationErrors> {
+    pub fn apply_to_model(&self, model: &mut ModeModel) -> Result<(), &'static str> {
         model.r#type.set(self.r#type);
         model
             .source_value_interval

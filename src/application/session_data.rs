@@ -5,26 +5,23 @@ use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::ops::Deref;
-use validator::{Validate, ValidationError, ValidationErrors};
-use validator_derive::*;
 
 /// This is the structure for loading and saving a ReaLearn session.
 ///
 /// It's optimized for being represented as JSON. The JSON representation must be 100%
 /// backward-compatible.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Validate)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-// #[validate(schema(function = "validate_schema"))]
 pub struct SessionData {
-    pub let_matched_events_through: bool,
-    pub let_unmatched_events_through: bool,
-    pub always_auto_detect_mode: bool,
-    pub send_feedback_only_if_armed: bool,
+    let_matched_events_through: bool,
+    let_unmatched_events_through: bool,
+    always_auto_detect_mode: bool,
+    send_feedback_only_if_armed: bool,
     // None = FxInput
-    pub control_device_id: Option<String>,
+    control_device_id: Option<String>,
     // None = None
-    pub feedback_device_id: Option<String>,
-    pub mappings: Vec<MappingModelData>,
+    feedback_device_id: Option<String>,
+    mappings: Vec<MappingModelData>,
 }
 
 impl Default for SessionData {
@@ -71,6 +68,7 @@ impl SessionData {
     }
 
     pub fn apply_to_model(&self, session: &mut Session) -> Result<(), &'static str> {
+        // Validation
         let control_input = match self.control_device_id.as_ref() {
             None => MidiControlInput::FxInput,
             Some(dev_id_string) => {
@@ -93,6 +91,7 @@ impl SessionData {
                 Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(dev_id)))
             }
         };
+        // Mutation
         session
             .let_matched_events_through
             .set(self.let_matched_events_through);

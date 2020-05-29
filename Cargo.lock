@@ -654,6 +654,8 @@ dependencies = [
  "derive_more",
  "doc-comment",
  "num_enum 0.4.3",
+ "serde",
+ "serde_repr",
 ]
 
 [[package]]

@@ -2,7 +2,6 @@ use crate::application::{ModeModelData, SourceModelData, TargetModelData};
 use crate::domain::MappingModel;
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
-use validator::ValidationErrors;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -46,7 +45,7 @@ impl MappingModelData {
         model
     }
 
-    fn apply_to_model(&self, model: &mut MappingModel) -> Result<(), ValidationErrors> {
+    fn apply_to_model(&self, model: &mut MappingModel) -> Result<(), &'static str> {
         model.name.set(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());

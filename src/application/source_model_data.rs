@@ -91,14 +91,15 @@ impl SourceModelData {
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
-    pub fn apply_to_model(&self, model: &mut MidiSourceModel) -> Result<(), ValidationErrors> {
-        self.validate()?;
+    pub fn apply_to_model(&self, model: &mut MidiSourceModel) -> Result<(), &'static str> {
+        // Validation
+        let channel = match self.channel.none_if_negative() {
+            None => None,
+            Some(v) => Some(v.try_into().map_err(|_| "invalid channel")?),
+        };
+        // Mutation
         model.r#type.set(self.r#type);
-        model.channel.set(
-            self.channel
-                .none_if_negative()
-                .map(|v| v.try_into().unwrap()),
-        );
+        model.channel.set(channel);
         if self.r#type == MidiSourceType::ParameterNumberValue {
             model.parameter_number_message_number.set(
                 self.number
@@ -141,14 +142,14 @@ impl SourceModelData {
 }
 
 trait NoneIfNegative {
-    fn none_if_negative(&self) -> &Self;
+    fn none_if_negative(self) -> Self;
 }
 
-impl<T: PartialOrd + From<i8>> NoneIfNegative for Option<T> {
-    fn none_if_negative(&self) -> &Self {
+impl<T: PartialOrd + From<i8> + Copy> NoneIfNegative for Option<T> {
+    fn none_if_negative(self) -> Self {
         match self {
-            Some(v) if *v >= 0.into() => self,
-            _ => &None,
+            Some(v) if v >= 0.into() => self,
+            _ => None,
         }
     }
 }
