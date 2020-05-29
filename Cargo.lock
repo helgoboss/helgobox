@@ -644,6 +644,7 @@ dependencies = [
  "helgoboss-midi 0.1.0",
  "num",
  "num_enum 0.5.0",
+ "serde",
 ]
 
 [[package]]

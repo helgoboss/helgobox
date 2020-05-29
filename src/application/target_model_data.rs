@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use validator::ValidationErrors;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct TargetModelData {}
 
 impl Default for TargetModelData {

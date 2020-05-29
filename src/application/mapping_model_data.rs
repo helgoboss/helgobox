@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 use validator::ValidationErrors;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct MappingModelData {
     name: String,
     source: SourceModelData,

@@ -251,7 +251,7 @@ impl HeaderPanel {
         let clipboard = Clipboard::new();
         let json = clipboard.read_text().expect("couldn't read from clipboard");
         let session_data: SessionData =
-            serde_json::from_str(json.as_str()).expect("not valid session data");
+            serde_json::from_str(json.as_str()).expect("invalid session data");
         session_data.apply_to_model(self.session.borrow_mut().deref_mut());
     }
 
