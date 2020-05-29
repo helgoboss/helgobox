@@ -3,10 +3,10 @@ use crate::domain::{
 };
 use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
-use rx_util::{LocalProp, LocalStaticProp};
+use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp};
 
 /// A model for creating mappings (a combination of source, mode and target).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct MappingModel {
     pub name: LocalStaticProp<String>,
     pub control_is_enabled: LocalStaticProp<bool>,
@@ -14,6 +14,19 @@ pub struct MappingModel {
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
+}
+
+impl Default for MappingModel {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            control_is_enabled: p(true),
+            feedback_is_enabled: p(true),
+            source_model: Default::default(),
+            mode_model: Default::default(),
+            target_model: Default::default(),
+        }
+    }
 }
 
 // We design mapping models as entity (in the DDD sense), so we compare them by ID, not by value.

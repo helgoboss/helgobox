@@ -9,7 +9,7 @@ use validator_derive::*;
 /// This is the structure in which source settings are loaded and saved. It's optimized for being
 /// represented as JSON. The JSON representation must be 100% backward-compatible.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Validate)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 #[validate(schema(function = "validate_schema"))]
 pub struct SourceModelData {
     pub r#type: MidiSourceType,
@@ -17,12 +17,28 @@ pub struct SourceModelData {
     pub channel: Option<i16>,
     #[validate(range(min = -1, max = 16383))]
     pub number: Option<i32>,
+    // TODO Now that we have a default trait, this probably doesn't have to be an Option
     #[validate(range(min = 0, max = 4))]
     pub character: Option<u8>,
     pub is_registered: Option<bool>,
     pub is_14_bit: Option<bool>,
+    // TODO Now that we have a default trait, this probably doesn't have to be an Option
     #[validate(range(min = 0, max = 2))]
     pub message: Option<u8>,
+}
+
+impl Default for SourceModelData {
+    fn default() -> Self {
+        Self {
+            r#type: MidiSourceType::ControlChangeValue,
+            channel: Some(0),
+            number: Some(0),
+            character: Some(0),
+            is_registered: Some(false),
+            is_14_bit: Some(false),
+            message: Some(0),
+        }
+    }
 }
 
 fn validate_schema(data: &SourceModelData) -> Result<(), ValidationError> {
@@ -37,11 +53,45 @@ fn validate_schema(data: &SourceModelData) -> Result<(), ValidationError> {
 }
 
 impl SourceModelData {
+    pub fn from_model(model: &MidiSourceModel) -> Self {
+        Self {
+            r#type: model.r#type.get(),
+            channel: model.channel.get().map(|ch| ch.into()),
+            number: if model.r#type.get() == MidiSourceType::ParameterNumberValue {
+                model
+                    .parameter_number_message_number
+                    .get()
+                    .map(|n| n.into())
+            } else {
+                model.midi_message_number.get().map(|n| n.into())
+            },
+            character: {
+                use SourceCharacter::*;
+                match model.custom_character.get() {
+                    Range => 0,
+                    Switch => 1,
+                    Encoder1 => 2,
+                    Encoder2 => 3,
+                    Encoder3 => 4,
+                }
+                .into()
+            },
+            is_registered: model.is_registered.get(),
+            is_14_bit: model.is_14_bit.get(),
+            message: {
+                use MidiClockTransportMessage::*;
+                match model.midi_clock_transport_message.get() {
+                    Start => 0,
+                    Continue => 1,
+                    Stop => 2,
+                }
+                .into()
+            },
+        }
+    }
+
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
-    pub fn apply_to_source_model(
-        &self,
-        model: &mut MidiSourceModel,
-    ) -> Result<(), ValidationErrors> {
+    pub fn apply_to_model(&self, model: &mut MidiSourceModel) -> Result<(), ValidationErrors> {
         self.validate()?;
         model.r#type.set(self.r#type);
         model.channel.set(
@@ -99,45 +149,6 @@ impl<T: PartialOrd + From<i8>> NoneIfNegative for Option<T> {
         match self {
             Some(v) if *v >= 0.into() => self,
             _ => &None,
-        }
-    }
-}
-
-impl From<&MidiSourceModel> for SourceModelData {
-    fn from(model: &MidiSourceModel) -> Self {
-        SourceModelData {
-            r#type: model.r#type.get(),
-            channel: model.channel.get().map(|ch| ch.into()),
-            number: if model.r#type.get() == MidiSourceType::ParameterNumberValue {
-                model
-                    .parameter_number_message_number
-                    .get()
-                    .map(|n| n.into())
-            } else {
-                model.midi_message_number.get().map(|n| n.into())
-            },
-            character: {
-                use SourceCharacter::*;
-                match model.custom_character.get() {
-                    Range => 0,
-                    Switch => 1,
-                    Encoder1 => 2,
-                    Encoder2 => 3,
-                    Encoder3 => 4,
-                }
-                .into()
-            },
-            is_registered: model.is_registered.get(),
-            is_14_bit: model.is_14_bit.get(),
-            message: {
-                use MidiClockTransportMessage::*;
-                match model.midi_clock_transport_message.get() {
-                    Start => 0,
-                    Continue => 1,
-                    Stop => 2,
-                }
-                .into()
-            },
         }
     }
 }
@@ -269,7 +280,7 @@ mod tests {
         };
         let mut model = MidiSourceModel::default();
         // When
-        let result = data.apply_to_source_model(&mut model);
+        let result = data.apply_to_model(&mut model);
         // Then
         assert!(result.is_ok());
         assert_eq!(model.r#type.get(), MidiSourceType::ParameterNumberValue);
@@ -299,7 +310,7 @@ mod tests {
         };
         let mut model = MidiSourceModel::default();
         // When
-        let result = data.apply_to_source_model(&mut model);
+        let result = data.apply_to_model(&mut model);
         assert!(result.is_ok());
         // Then
         assert_eq!(model.r#type.get(), MidiSourceType::ClockTransport);
@@ -325,7 +336,7 @@ mod tests {
         model.custom_character.set(SourceCharacter::Encoder2);
         model.is_14_bit.set(Some(true));
         // When
-        let data: SourceModelData = (&model).into();
+        let data = SourceModelData::from_model(&model);
         // Then
         assert_eq!(
             data,
@@ -356,7 +367,7 @@ mod tests {
             .midi_clock_transport_message
             .set(MidiClockTransportMessage::Continue);
         // When
-        let data: SourceModelData = (&model).into();
+        let data = SourceModelData::from_model(&model);
         // Then
         assert_eq!(
             data,

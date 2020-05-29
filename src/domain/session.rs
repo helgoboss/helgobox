@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::domain::{MappingModel, SharedMappingModel};
+use crate::domain::{share_mapping, MappingModel, SharedMapping};
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
@@ -41,9 +41,9 @@ pub struct Session {
     pub send_feedback_only_if_armed: LocalStaticProp<bool>,
     pub midi_control_input: LocalStaticProp<MidiControlInput>,
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
-    pub mapping_which_learns_source: LocalStaticProp<Option<SharedMappingModel>>,
-    pub mapping_which_learns_target: LocalStaticProp<Option<SharedMappingModel>>,
-    mapping_models: Vec<SharedMappingModel>,
+    pub mapping_which_learns_source: LocalStaticProp<Option<SharedMapping>>,
+    pub mapping_which_learns_target: LocalStaticProp<Option<SharedMapping>>,
+    mapping_models: Vec<SharedMapping>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
     containing_fx: Fx,
 }
@@ -61,7 +61,7 @@ impl Session {
             mapping_which_learns_target: p(None),
             mapping_models: example_data::create_example_mappings()
                 .into_iter()
-                .map(|m| Rc::new(RefCell::new(m)))
+                .map(share_mapping)
                 .collect(),
             mappings_changed_subject: Default::default(),
             containing_fx,
@@ -82,8 +82,12 @@ impl Session {
         self.mapping_models.len()
     }
 
-    pub fn mapping_by_index(&self, index: usize) -> Option<SharedMappingModel> {
+    pub fn mapping_by_index(&self, index: usize) -> Option<SharedMapping> {
         self.mapping_models.get(index).map(|m| m.clone())
+    }
+
+    pub fn mappings(&self) -> impl Iterator<Item = &SharedMapping> {
+        self.mapping_models.iter()
     }
 
     pub fn mapping_is_learning_source(&self, mapping: *const MappingModel) -> bool {
@@ -100,11 +104,11 @@ impl Session {
         }
     }
 
-    pub fn toggle_learn_source(&mut self, mapping: &SharedMappingModel) {
+    pub fn toggle_learn_source(&mut self, mapping: &SharedMapping) {
         toggle_learn(&mut self.mapping_which_learns_source, mapping);
     }
 
-    pub fn toggle_learn_target(&mut self, mapping: &SharedMappingModel) {
+    pub fn toggle_learn_target(&mut self, mapping: &SharedMapping) {
         toggle_learn(&mut self.mapping_which_learns_target, mapping);
     }
 
@@ -154,7 +158,7 @@ impl Session {
         let mut duplicate = mapping.borrow().clone();
         duplicate.name.set(self.generate_name_for_new_mapping());
         self.mapping_models
-            .insert(index + 1, Rc::new(RefCell::new(duplicate)));
+            .insert(index + 1, share_mapping(duplicate));
         self.mappings_changed_subject.next(());
         Ok(())
     }
@@ -173,8 +177,13 @@ impl Session {
         self.mappings_changed_subject.clone()
     }
 
+    pub fn set_mappings(&mut self, mappings: impl Iterator<Item = MappingModel>) {
+        self.mapping_models = mappings.map(share_mapping).collect();
+        self.mappings_changed_subject.next(());
+    }
+
     fn add_mapping(&mut self, mapping: MappingModel) {
-        self.mapping_models.push(Rc::new(RefCell::new(mapping)));
+        self.mapping_models.push(share_mapping(mapping));
         self.mappings_changed_subject.next(());
     }
 
@@ -259,10 +268,7 @@ mod example_data {
     }
 }
 
-fn toggle_learn(
-    prop: &mut LocalStaticProp<Option<SharedMappingModel>>,
-    mapping: &SharedMappingModel,
-) {
+fn toggle_learn(prop: &mut LocalStaticProp<Option<SharedMapping>>, mapping: &SharedMapping) {
     match prop.get_ref() {
         Some(m) if m.as_ptr() == mapping.as_ptr() => prop.set(None),
         _ => prop.set(Some(mapping.clone())),

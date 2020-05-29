@@ -1,4 +1,4 @@
-use crate::domain::{MappingModel, SharedMappingModel};
+use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::MappingPanel;
 use reaper_high::Reaper;
@@ -24,7 +24,7 @@ impl MappingPanelManager {
     /// Opens a panel for editing the given mapping.
     ///
     /// If the window is already open, it will be closed and reopened.
-    pub fn edit_mapping(&mut self, mapping: &SharedMappingModel) {
+    pub fn edit_mapping(&mut self, mapping: &SharedMapping) {
         let session = self.session.clone();
         let panel = self
             .open_panels

@@ -1,4 +1,4 @@
-use crate::domain::{MappingModel, SharedMappingModel};
+use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
@@ -25,7 +25,7 @@ pub struct MappingRowPanel {
     // display different mappings depending on the current scroll position. If there are less
     // mappings than the fixed number, some rows remain unused. In this case their mapping is
     // `None`, which will make the row hide itself.
-    mapping: RefCell<Option<SharedMappingModel>>,
+    mapping: RefCell<Option<SharedMapping>>,
     // Fires when a mapping is about to change.
     mapping_will_change_subject: RefCell<LocalSubject<'static, (), ()>>,
     mapping_panel_manager: SharedMappingPanelManager,
@@ -47,7 +47,7 @@ impl MappingRowPanel {
         }
     }
 
-    pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMappingModel>) {
+    pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMapping>) {
         self.mapping_will_change_subject.borrow_mut().next(());
         match &mapping {
             None => self.view.require_window().hide(),
@@ -173,7 +173,7 @@ impl MappingRowPanel {
             .merge(self.mapping_will_change_subject.borrow().clone())
     }
 
-    fn require_mapping(&self) -> Ref<SharedMappingModel> {
+    fn require_mapping(&self) -> Ref<SharedMapping> {
         Ref::map(self.mapping.borrow(), |m| m.as_ref().unwrap())
     }
 

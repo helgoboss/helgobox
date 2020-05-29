@@ -7,7 +7,7 @@ use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 
-use crate::domain::{MappingModel, Session, SharedMappingModel};
+use crate::domain::{MappingModel, Session, SharedMapping};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::scheduling::when_async;

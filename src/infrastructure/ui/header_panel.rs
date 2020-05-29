@@ -1,4 +1,4 @@
-use crate::application::session_data::SessionData;
+use crate::application::SessionData;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
@@ -252,11 +252,11 @@ impl HeaderPanel {
         let json = clipboard.read_text().expect("couldn't read from clipboard");
         let session_data: SessionData =
             serde_json::from_str(json.as_str()).expect("not valid session data");
-        session_data.apply_to_session(self.session.borrow_mut().deref_mut());
+        session_data.apply_to_model(self.session.borrow_mut().deref_mut());
     }
 
     pub fn export_to_clipboard(&self) {
-        let session_data = SessionData::from_session(self.session.borrow().deref());
+        let session_data = SessionData::from_model(self.session.borrow().deref());
         let json =
             serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
         let clipboard = Clipboard::new();

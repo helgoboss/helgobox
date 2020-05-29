@@ -1057,6 +1057,7 @@ dependencies = [
  "reaper-medium",
  "regex",
  "rxrust",
+ "serde",
  "slog",
  "slog-stdlog",
  "slog-term",
@@ -1091,6 +1092,7 @@ dependencies = [
  "helgoboss-midi 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reaper-low",
  "reaper-macros",
+ "serde",
  "vst",
 ]
 

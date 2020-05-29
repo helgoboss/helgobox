@@ -1,7 +1,7 @@
 use crate::domain::{
     get_fx_label, get_fx_param_label, ActionInvocationType, MappingModel, MidiControlInput,
     MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType, ReaperTarget,
-    Session, SharedMappingModel, TargetCharacter, TargetModel, TargetModelWithContext, TargetType,
+    Session, SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext, TargetType,
     VirtualTrack,
 };
 use crate::infrastructure::common::bindings::root;
@@ -33,7 +33,7 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 pub struct MappingPanel {
     view: ViewContext,
     session: SharedSession,
-    mapping: SharedMappingModel,
+    mapping: SharedMapping,
     is_in_reaction: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
 }
@@ -51,7 +51,7 @@ struct Sliders {
 }
 
 impl MappingPanel {
-    pub fn new(session: SharedSession, mapping: SharedMappingModel) -> MappingPanel {
+    pub fn new(session: SharedSession, mapping: SharedMapping) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session,

@@ -1,4 +1,4 @@
-use crate::application::session_data::SessionData;
+use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
 use crate::domain::Session;
 use crate::infrastructure::common::SharedSession;
@@ -11,6 +11,8 @@ use vst::plugin::PluginParameters;
 
 pub struct RealearnPluginParameters {
     session: AtomicLazyCell<SendOrSyncWhatever<SharedSession>>,
+    // We may have to cache some data that the host wants us to load because we are not ready
+    // for loading data as long as the session is not available.
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
 }
 
@@ -52,7 +54,7 @@ impl PluginParameters for RealearnPluginParameters {
             }
             Some(s) => s,
         };
-        let session_data = SessionData::from_session(session.borrow().deref());
+        let session_data = SessionData::from_model(session.borrow().deref());
         serde_json::to_vec(&session_data).expect("couldn't serialize session data")
     }
 
@@ -72,6 +74,6 @@ impl PluginParameters for RealearnPluginParameters {
         };
         let session_data: SessionData =
             serde_json::from_slice(data).expect("couldn't deserialize session data");
-        session_data.apply_to_session(session.borrow_mut().deref_mut());
+        session_data.apply_to_model(session.borrow_mut().deref_mut());
     }
 }
