@@ -17,14 +17,12 @@ pub struct SourceModelData {
     pub channel: Option<i16>,
     #[validate(range(min = -1, max = 16383))]
     pub number: Option<i32>,
-    // TODO Now that we have a default trait, this probably doesn't have to be an Option
     #[validate(range(min = 0, max = 4))]
-    pub character: Option<u8>,
+    pub character: u8,
     pub is_registered: Option<bool>,
     pub is_14_bit: Option<bool>,
-    // TODO Now that we have a default trait, this probably doesn't have to be an Option
     #[validate(range(min = 0, max = 2))]
-    pub message: Option<u8>,
+    pub message: u8,
 }
 
 impl Default for SourceModelData {
@@ -33,10 +31,10 @@ impl Default for SourceModelData {
             r#type: MidiSourceType::ControlChangeValue,
             channel: Some(0),
             number: Some(0),
-            character: Some(0),
+            character: 0,
             is_registered: Some(false),
             is_14_bit: Some(false),
-            message: Some(0),
+            message: 0,
         }
     }
 }
@@ -115,7 +113,7 @@ impl SourceModelData {
         }
         {
             use SourceCharacter::*;
-            let character = match self.character.unwrap_or(0) {
+            let character = match self.character {
                 0 => Range,
                 1 => Switch,
                 2 => Encoder1,
@@ -129,7 +127,7 @@ impl SourceModelData {
         model.is_14_bit.set(self.is_14_bit);
         {
             use MidiClockTransportMessage::*;
-            let transport_msg = match self.message.unwrap_or(0) {
+            let transport_msg = match self.message {
                 0 => Start,
                 1 => Continue,
                 2 => Stop,
@@ -182,10 +180,10 @@ mod tests {
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(0),
                 number: Some(0),
-                character: Some(0),
-                is_registered: None,
+                character: 0,
+                is_registered: Some(false),
                 is_14_bit: Some(false),
-                message: None
+                message: 0
             }
         );
         assert!(data.validate().is_ok());
@@ -212,10 +210,10 @@ mod tests {
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: Some(-1),
                 number: Some(12542),
-                character: None,
+                character: 0,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
-                message: None
+                message: 0
             }
         );
         assert!(data.validate().is_ok());
@@ -228,10 +226,10 @@ mod tests {
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(-4),
             number: Some(21000),
-            character: Some(90),
+            character: 90,
             is_registered: Some(true),
             is_14_bit: Some(true),
-            message: Some(80),
+            message: 80,
         };
         // When
         let result: Result<(), ValidationErrors> = data.validate();
@@ -253,10 +251,10 @@ mod tests {
             r#type: MidiSourceType::ControlChangeValue,
             channel: Some(-1),
             number: Some(500),
-            character: Some(1),
+            character: 1,
             is_registered: Some(false),
             is_14_bit: None,
-            message: None,
+            message: 0,
         };
         // When
         let result: Result<(), ValidationErrors> = data.validate();
@@ -274,10 +272,10 @@ mod tests {
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(8),
             number: Some(-1),
-            character: None,
+            character: 0,
             is_registered: Some(true),
             is_14_bit: Some(true),
-            message: None,
+            message: 0,
         };
         let mut model = MidiSourceModel::default();
         // When
@@ -304,10 +302,10 @@ mod tests {
             r#type: MidiSourceType::ClockTransport,
             channel: None,
             number: Some(112),
-            character: None,
+            character: 0,
             is_registered: None,
             is_14_bit: Some(false),
-            message: Some(2),
+            message: 2,
         };
         let mut model = MidiSourceModel::default();
         // When
@@ -345,10 +343,10 @@ mod tests {
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(15),
                 number: Some(12),
-                character: Some(3),
-                is_registered: None,
+                character: 3,
+                is_registered: Some(false),
                 is_14_bit: Some(true),
-                message: Some(0),
+                message: 0,
             }
         );
     }
@@ -376,10 +374,10 @@ mod tests {
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
                 number: Some(78),
-                character: Some(2),
+                character: 2,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
-                message: Some(1),
+                message: 1,
             }
         );
     }
