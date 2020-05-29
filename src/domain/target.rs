@@ -208,7 +208,7 @@ impl ReaperTarget {
         value: u32,
     ) -> Result<UnitValue, &'static str> {
         if self.wants_increments() {
-            return Ok(UnitValue::new(value as f64 / 63.0));
+            return (value as f64 / 63.0).try_into();
         }
         // Example (target step size = 0.10):
         // - 0    => 0
@@ -219,7 +219,7 @@ impl ReaperTarget {
         // TODO This is maybe wrong for preset target because it has 0 as special value (no preset)
         //  and is otherwise shifted
         let target_step_size = self.step_size().ok_or("target doesn't report step size")?;
-        Ok(UnitValue::new(value as f64 * target_step_size.get()))
+        (value as f64 * target_step_size.get()).try_into()
     }
 
     pub fn unit(&self) -> &'static str {
