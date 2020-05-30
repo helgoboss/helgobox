@@ -1,5 +1,5 @@
 use reaper_high::{Fx, Project, Reaper, Take, Track};
-use reaper_medium::TypeSpecificPluginContext;
+use reaper_medium::{ReaperFunctionError, TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::plugin::HostCallback;
 
@@ -7,6 +7,8 @@ use vst::plugin::HostCallback;
 pub struct SessionContext {
     containing_fx: Fx,
 }
+
+pub const WAITING_FOR_SESSION_PARAM_NAME: &'static str = "realearn/waiting-for-session";
 
 impl SessionContext {
     pub fn from_host(host: &HostCallback) -> SessionContext {
@@ -39,9 +41,17 @@ fn get_containing_fx(host: &HostCallback) -> Fx {
     if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
         let project = unsafe { vst_context.request_containing_project(aeffect) };
         let track = Track::new(track, Some(project));
-        // TODO Fix this! This is just wrong and super temporary. Right now we are interested in
-        // track only.
-        track.normal_fx_chain().fx_by_index_untracked(0)
+        track
+            .normal_fx_chain()
+            .fxs()
+            .find(is_realearn_waiting_for_session)
+            .or_else(|| {
+                track
+                    .input_fx_chain()
+                    .fxs()
+                    .find(is_realearn_waiting_for_session)
+            })
+            .expect("couldn't find containing FX")
     } else if let Some(take) = unsafe { vst_context.request_containing_take(aeffect) } {
         let take = Take::new(take);
         // TODO Fix this!
@@ -49,5 +59,13 @@ fn get_containing_fx(host: &HostCallback) -> Fx {
     } else {
         // TODO Fix this!
         reaper.monitoring_fx_chain().fx_by_index_untracked(0)
+    }
+}
+
+fn is_realearn_waiting_for_session(fx: &Fx) -> bool {
+    let result = fx.get_named_config_param(WAITING_FOR_SESSION_PARAM_NAME, 1);
+    match result {
+        Ok(buffer) => *buffer.first().expect("impossible") == 1,
+        Err(_) => false,
     }
 }

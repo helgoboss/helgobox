@@ -1,5 +1,6 @@
 use c_str_macro::c_str;
 use vst::editor::Editor;
+use vst::plugin;
 use vst::plugin::{CanDo, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
@@ -13,9 +14,12 @@ use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
 use reaper_medium::TypeSpecificPluginContext;
 use rxrust::prelude::*;
 use std::cell::RefCell;
+use std::ffi::CStr;
+use std::os::raw::{c_char, c_void};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::NonNull;
 use std::rc::Rc;
+use std::str::Utf8Error;
 use std::sync::Arc;
 use std::time::Duration;
 use swell_ui::SharedView;
@@ -84,13 +88,37 @@ impl Plugin for RealearnPlugin {
             // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
             // to put controls into the plug-in window. SWELL assumes that the parent window for
             // controls is also a SWELL window.
-            Other(s) if s == "hasCockosViewAsConfig" => Custom(0xbeef_0000),
+            Other(s) => match s.as_str() {
+                "hasCockosViewAsConfig" => Custom(0xbeef_0000),
+                "hasCockosExtensions" => Custom(0xbeef_0000),
+                _ => Maybe,
+            },
             _ => Maybe,
         }
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
         self.plugin_parameters.clone()
+    }
+
+    fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
+        let opcode = plugin::OpCode::from(index);
+        use plugin::OpCode::*;
+        match opcode {
+            // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
+            GetData if value != 0 => {
+                let param_name = unsafe { CStr::from_ptr(value as *const c_char) };
+                let param_name = match param_name.to_str() {
+                    Ok(n) => n,
+                    Err(_) => return 0,
+                };
+                let buffer =
+                    unsafe { std::slice::from_raw_parts_mut(ptr as *mut c_char, opt as _) };
+                let supported = self.get_named_config_param(param_name, buffer);
+                if supported { 0xf00d } else { 0 }
+            }
+            _ => 0,
+        }
     }
 }
 
@@ -126,6 +154,19 @@ impl RealearnPlugin {
             plugin_parameters.notify_session_is_available(shared_session.clone());
             session_container.fill(shared_session);
         });
+    }
+
+    fn get_named_config_param(&self, param_name: &str, buffer: &mut [c_char]) -> bool {
+        if buffer.len() < 1 {
+            return false;
+        }
+        match param_name {
+            crate::domain::WAITING_FOR_SESSION_PARAM_NAME => {
+                buffer[0] = if self.session.filled() { 0 } else { 1 };
+                true
+            }
+            _ => false,
+        }
     }
 }
 
