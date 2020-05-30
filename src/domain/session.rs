@@ -60,10 +60,7 @@ impl Session {
             mapping_which_learns_source: p(None),
             mapping_which_learns_target: p(None),
             context,
-            mapping_models: example_data::create_example_mappings()
-                .into_iter()
-                .map(share_mapping)
-                .collect(),
+            mapping_models: vec![],
             mappings_changed_subject: Default::default(),
         }
     }
@@ -193,78 +190,6 @@ impl Session {
 
     fn generate_name_for_new_mapping(&self) -> String {
         format!("{}", self.mapping_models.len() + 1)
-    }
-}
-
-// TODO remove
-mod example_data {
-    use crate::domain::{
-        ActionInvocationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
-        TargetModel, TargetType, VirtualTrack,
-    };
-    use helgoboss_learn::{
-        DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter, UnitValue,
-    };
-    use helgoboss_midi::Channel;
-    use reaper_medium::CommandId;
-    use rx_util::{create_local_prop as p, SharedProp};
-
-    pub fn create_example_mappings() -> Vec<MappingModel> {
-        vec![
-            MappingModel {
-                name: p(String::from("Mapping A")),
-                control_is_enabled: p(true),
-                feedback_is_enabled: p(false),
-                source_model: MidiSourceModel {
-                    r#type: p(MidiSourceType::PolyphonicKeyPressureAmount),
-                    channel: p(Some(Channel::new(5))),
-                    midi_message_number: p(None),
-                    parameter_number_message_number: p(None),
-                    custom_character: p(SourceCharacter::Encoder2),
-                    midi_clock_transport_message: p(MidiClockTransportMessage::Start),
-                    is_registered: p(Some(true)),
-                    is_14_bit: p(Some(false)),
-                },
-                mode_model: Default::default(),
-                target_model: Default::default(),
-            },
-            MappingModel {
-                name: p(String::from("Mapping B")),
-                control_is_enabled: p(false),
-                feedback_is_enabled: p(true),
-                source_model: Default::default(),
-                mode_model: ModeModel {
-                    r#type: p(ModeType::Relative),
-                    target_value_interval: p(Interval::new(UnitValue::new(0.5), UnitValue::MAX)),
-                    source_value_interval: p(Interval::new(UnitValue::MIN, UnitValue::MAX)),
-                    reverse: p(true),
-                    jump_interval: p(Interval::new(UnitValue::MIN, UnitValue::MAX)),
-                    ignore_out_of_range_source_values: p(false),
-                    round_target_value: p(false),
-                    approach_target_value: p(false),
-                    eel_control_transformation: p(String::new()),
-                    eel_feedback_transformation: p(String::new()),
-                    step_size_interval: p(Interval::new(
-                        UnitValue::new(0.01),
-                        UnitValue::new(0.01),
-                    )),
-                    rotate: p(true),
-                },
-                target_model: TargetModel {
-                    r#type: p(TargetType::TrackSelection),
-                    command_id: p(Some(CommandId::new(3500))),
-                    action_invocation_type: p(ActionInvocationType::Absolute),
-                    track: p(VirtualTrack::Selected),
-                    enable_only_if_track_selected: p(true),
-                    fx_index: p(Some(5)),
-                    is_input_fx: p(true),
-                    enable_only_if_fx_has_focus: p(true),
-                    param_index: p(20),
-                    send_index: p(Some(2)),
-                    select_exclusively: p(true),
-                },
-            },
-        ]
     }
 }
 

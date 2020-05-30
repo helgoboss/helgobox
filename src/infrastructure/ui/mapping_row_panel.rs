@@ -85,15 +85,14 @@ impl MappingRowPanel {
     }
 
     fn invalidate_target_label(&self, mapping: &MappingModel) {
+        let target_model_string = mapping
+            .target_model
+            .with_context(self.session.borrow().context())
+            .to_string();
         self.view
             .require_window()
             .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)
-            .set_text(
-                mapping
-                    .target_model
-                    .with_context(self.session.borrow().context())
-                    .to_string(),
-            );
+            .set_text(target_model_string);
     }
 
     fn invalidate_learn_source_button(&self, mapping: &MappingModel) {

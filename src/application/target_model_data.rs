@@ -1,7 +1,7 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
 use crate::domain::{ActionInvocationType, SessionContext, TargetModel, TargetType, VirtualTrack};
-use reaper_high::{Guid, Project, Reaper};
+use reaper_high::{Guid, Project, Reaper, Track};
 use reaper_medium::ReaperString;
 use serde::{Deserialize, Serialize};
 
@@ -58,6 +58,7 @@ impl Default for TargetModelData {
 
 impl TargetModelData {
     pub fn from_model(model: &TargetModel) -> Self {
+        let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
             r#type: model.r#type.get(),
             // TODO
@@ -65,10 +66,8 @@ impl TargetModelData {
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
             invoke_relative: false,
-            // TODO
-            track_guid: None,
-            // TODO
-            track_name: None,
+            track_guid,
+            track_name,
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_index: model.fx_index.get(),
             is_input_fx: model.is_input_fx.get(),
@@ -106,6 +105,20 @@ impl TargetModelData {
     }
 }
 
+fn serialize_track(virtual_track: &VirtualTrack) -> (Option<String>, Option<String>) {
+    use VirtualTrack::*;
+    match virtual_track {
+        This => (None, None),
+        Selected => (Some("selected".to_string()), None),
+        Master => (Some("master".to_string()), None),
+        Particular(track) => {
+            let guid = track.guid().to_string_without_braces();
+            let name = track.name().expect("track must have name").into_string();
+            (Some(guid), Some(name))
+        }
+    }
+}
+
 fn deserialize_track(
     id: &Option<String>,
     name: &Option<String>,
@@ -124,16 +137,18 @@ fn deserialize_track(
                 let name = name
                     .as_ref()
                     .ok_or("track not found by ID and no name provided")?;
-                project
-                    .tracks()
-                    .find(|t| match t.name() {
-                        None => false,
-                        Some(n) => n.to_str() == name.as_str(),
-                    })
+                find_track_by_name(project, name.as_str())
                     .ok_or("track not found, not even by name")?
             };
             VirtualTrack::Particular(track)
         }
     };
     Ok(virtual_track)
+}
+
+fn find_track_by_name(project: Project, name: &str) -> Option<Track> {
+    project.tracks().find(|t| match t.name() {
+        None => false,
+        Some(n) => n.to_str() == name,
+    })
 }

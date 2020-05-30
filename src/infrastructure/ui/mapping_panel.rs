@@ -779,6 +779,8 @@ impl MappingPanel {
     }
 
     fn invalidate_mode_control_labels(&self) {
+        // TODO Instead of always constructing the TargetWithContext object, we could provide
+        //  a use_target_with_context(|t| t) function.
         let step_label = if self
             .mapping()
             .with_context(self.session().context())
