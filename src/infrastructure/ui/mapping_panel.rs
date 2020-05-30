@@ -124,38 +124,6 @@ impl MappingPanel {
         self.invalidate_source_control_visibilities();
     }
 
-    fn mapping(&self) -> Ref<MappingModel> {
-        self.mapping.borrow()
-    }
-
-    fn mapping_mut(&self) -> RefMut<MappingModel> {
-        self.mapping.borrow_mut()
-    }
-
-    fn source(&self) -> Ref<MidiSourceModel> {
-        Ref::map(self.mapping(), |m| &m.source_model)
-    }
-
-    fn source_mut(&self) -> RefMut<MidiSourceModel> {
-        RefMut::map(self.mapping_mut(), |m| &mut m.source_model)
-    }
-
-    fn mode(&self) -> Ref<ModeModel> {
-        Ref::map(self.mapping(), |m| &m.mode_model)
-    }
-
-    fn mode_mut(&self) -> RefMut<ModeModel> {
-        RefMut::map(self.mapping_mut(), |m| &mut m.mode_model)
-    }
-
-    fn target(&self) -> Ref<TargetModel> {
-        Ref::map(self.mapping(), |m| &m.target_model)
-    }
-
-    fn target_mut(&self) -> RefMut<TargetModel> {
-        RefMut::map(self.mapping_mut(), |m| &mut m.target_model)
-    }
-
     fn invalidate_source_control_labels(&self) {
         self.view
             .require_control(root::ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT)
@@ -463,7 +431,7 @@ impl MappingPanel {
         ];
         let target = self.target();
         let session = self.session();
-        let target_with_context = target.with_context(session.containing_fx());
+        let target_with_context = target.with_context(session.context());
         let project = target_with_context.project();
         v.extend(
             project
@@ -525,7 +493,7 @@ impl MappingPanel {
         label.set_text("Send");
         let target = self.target();
         let session = self.session();
-        let target_with_context = target.with_context(session.containing_fx());
+        let target_with_context = target.with_context(session.context());
         let track = match target_with_context.effective_track().ok() {
             None => {
                 combo.clear_combo_box();
@@ -564,7 +532,7 @@ impl MappingPanel {
     fn fill_target_fx_param_combo_box(&self, combo: Window) {
         let target = self.target();
         let session = self.session();
-        let target_with_context = target.with_context(session.containing_fx());
+        let target_with_context = target.with_context(session.context());
         let fx = match target_with_context.fx().ok() {
             None => {
                 combo.clear_combo_box();
@@ -599,7 +567,7 @@ impl MappingPanel {
         label.set_text("FX");
         let target = self.target();
         let session = self.session();
-        let target_with_context = target.with_context(session.containing_fx());
+        let target_with_context = target.with_context(session.context());
         let track = match target_with_context.effective_track().ok() {
             None => {
                 combo.clear_combo_box();
@@ -810,14 +778,10 @@ impl MappingPanel {
         self.invalidate_mode_control_visibilities();
     }
 
-    fn session(&self) -> debug_cell::Ref<Session> {
-        self.session.borrow()
-    }
-
     fn invalidate_mode_control_labels(&self) {
         let step_label = if self
             .mapping()
-            .with_context(self.session().containing_fx())
+            .with_context(self.session().context())
             .target_should_be_hit_with_increments()
         {
             "Step count"
@@ -832,7 +796,7 @@ impl MappingPanel {
     fn invalidate_mode_control_visibilities(&self) {
         let (session, mapping, mode, target) =
             (self.session(), self.mapping(), self.mode(), self.target());
-        let target_with_context = target.with_context(session.containing_fx());
+        let target_with_context = target.with_context(session.context());
         self.show_if(
             mode.supports_round_target_value() && target_with_context.is_known_to_can_be_discrete(),
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
@@ -866,7 +830,7 @@ impl MappingPanel {
             ],
         );
         let show_value_text = mapping
-            .with_context(session.containing_fx())
+            .with_context(session.context())
             .target_should_be_hit_with_increments()
             || !target_with_context.is_known_to_be_discrete();
         self.show_if(
@@ -1067,7 +1031,7 @@ impl MappingPanel {
         let (edit_text, value_text) = match &self.real_target() {
             Some(target) => {
                 let send_increments = mapping
-                    .with_context(session.containing_fx())
+                    .with_context(session.context())
                     .target_should_be_hit_with_increments();
                 let is_discrete = target.character() == TargetCharacter::Discrete;
                 if send_increments || is_discrete {
@@ -1306,8 +1270,7 @@ impl MappingPanel {
     }
 
     fn reset_mode(&self) {
-        self.mapping_mut()
-            .reset_mode(self.session().containing_fx());
+        self.mapping_mut().reset_mode(self.session().context());
     }
 
     fn update_mode_type(&self) {
@@ -1318,7 +1281,7 @@ impl MappingPanel {
                 .try_into()
                 .expect("invalid mode type"),
         );
-        mapping.set_preferred_mode_values(self.session().containing_fx());
+        mapping.set_preferred_mode_values(self.session().context());
     }
 
     fn update_mode_min_target_value_from_edit_control(&self) {
@@ -1332,7 +1295,7 @@ impl MappingPanel {
 
     fn real_target(&self) -> Option<ReaperTarget> {
         self.target()
-            .with_context(self.session().containing_fx())
+            .with_context(self.session().context())
             .create_target()
             .ok()
     }
@@ -1411,7 +1374,7 @@ impl MappingPanel {
     fn get_value_from_step_size_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         if self
             .mapping()
-            .with_context(self.session().containing_fx())
+            .with_context(self.session().context())
             .target_should_be_hit_with_increments()
         {
             let text = self.view.require_control(edit_control_id).text().ok()?;
@@ -1557,7 +1520,7 @@ impl MappingPanel {
         let mut target = self.target_mut();
         if target.supports_track() {
             use VirtualTrack::*;
-            let target_with_context = target.with_context(session.containing_fx());
+            let target_with_context = target.with_context(session.context());
             let project = target_with_context.project();
             let track = match data {
                 -3 => This,
@@ -1635,6 +1598,42 @@ impl MappingPanel {
 
     fn is_in_reaction(&self) -> bool {
         self.is_in_reaction.get()
+    }
+
+    fn session(&self) -> debug_cell::Ref<Session> {
+        self.session.borrow()
+    }
+
+    fn mapping(&self) -> Ref<MappingModel> {
+        self.mapping.borrow()
+    }
+
+    fn mapping_mut(&self) -> RefMut<MappingModel> {
+        self.mapping.borrow_mut()
+    }
+
+    fn source(&self) -> Ref<MidiSourceModel> {
+        Ref::map(self.mapping(), |m| &m.source_model)
+    }
+
+    fn source_mut(&self) -> RefMut<MidiSourceModel> {
+        RefMut::map(self.mapping_mut(), |m| &mut m.source_model)
+    }
+
+    fn mode(&self) -> Ref<ModeModel> {
+        Ref::map(self.mapping(), |m| &m.mode_model)
+    }
+
+    fn mode_mut(&self) -> RefMut<ModeModel> {
+        RefMut::map(self.mapping_mut(), |m| &mut m.mode_model)
+    }
+
+    fn target(&self) -> Ref<TargetModel> {
+        Ref::map(self.mapping(), |m| &m.target_model)
+    }
+
+    fn target_mut(&self) -> RefMut<TargetModel> {
+        RefMut::map(self.mapping_mut(), |m| &mut m.target_model)
     }
 
     fn when(

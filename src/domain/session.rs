@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::domain::{share_mapping, MappingModel, SharedMapping};
+use crate::domain::{share_mapping, MappingModel, SessionContext, SharedMapping};
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
@@ -43,13 +43,13 @@ pub struct Session {
     pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
     pub mapping_which_learns_source: LocalStaticProp<Option<SharedMapping>>,
     pub mapping_which_learns_target: LocalStaticProp<Option<SharedMapping>>,
+    context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mappings_changed_subject: LocalSubject<'static, (), ()>,
-    containing_fx: Fx,
 }
 
 impl Session {
-    pub fn new(containing_fx: Fx) -> Session {
+    pub fn new(context: SessionContext) -> Session {
         Self {
             let_matched_events_through: p(false),
             let_unmatched_events_through: p(true),
@@ -59,17 +59,17 @@ impl Session {
             midi_feedback_output: p(None),
             mapping_which_learns_source: p(None),
             mapping_which_learns_target: p(None),
+            context,
             mapping_models: example_data::create_example_mappings()
                 .into_iter()
                 .map(share_mapping)
                 .collect(),
             mappings_changed_subject: Default::default(),
-            containing_fx,
         }
     }
 
-    pub fn containing_fx(&self) -> &Fx {
-        &self.containing_fx
+    pub fn context(&self) -> &SessionContext {
+        &self.context
     }
 
     pub fn add_default_mapping(&mut self) {
@@ -170,7 +170,7 @@ impl Session {
     }
 
     pub fn is_in_input_fx_chain(&self) -> bool {
-        self.containing_fx.is_input_fx()
+        self.context.containing_fx().is_input_fx()
     }
 
     pub fn mappings_changed(&self) -> impl UnitEvent {

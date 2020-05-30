@@ -104,7 +104,8 @@ impl SessionData {
             .set(self.send_feedback_only_if_armed);
         session.midi_control_input.set(control_input);
         session.midi_feedback_output.set(feedback_output);
-        session.set_mappings(self.mappings.iter().map(MappingModelData::to_model));
+        let session_context = session.context().clone();
+        session.set_mappings(self.mappings.iter().map(|m| m.to_model(&session_context)));
         Ok(())
     }
 }

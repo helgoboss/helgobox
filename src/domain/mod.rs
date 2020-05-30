@@ -1,6 +1,9 @@
 mod session;
 pub use session::*;
 
+mod session_context;
+pub use session_context::*;
+
 mod midi_source_model;
 pub use midi_source_model::*;
 

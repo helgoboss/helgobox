@@ -1,5 +1,5 @@
 use crate::application::{ModeModelData, SourceModelData, TargetModelData};
-use crate::domain::MappingModel;
+use crate::domain::{MappingModel, SessionContext};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
@@ -39,17 +39,22 @@ impl MappingModelData {
         }
     }
 
-    pub fn to_model(&self) -> MappingModel {
+    pub fn to_model(&self, context: &SessionContext) -> MappingModel {
         let mut model = MappingModel::default();
-        self.apply_to_model(&mut model);
+        self.apply_to_model(&mut model, context);
         model
     }
 
-    fn apply_to_model(&self, model: &mut MappingModel) -> Result<(), &'static str> {
+    fn apply_to_model(
+        &self,
+        model: &mut MappingModel,
+        context: &SessionContext,
+    ) -> Result<(), &'static str> {
         model.name.set(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());
-        self.target.apply_to_model(model.target_model.borrow_mut());
+        self.target
+            .apply_to_model(model.target_model.borrow_mut(), context);
         model.control_is_enabled.set(self.control_is_enabled);
         model.feedback_is_enabled.set(self.feedback_is_enabled);
         Ok(())

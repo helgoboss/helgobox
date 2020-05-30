@@ -3,7 +3,7 @@ use vst::editor::Editor;
 use vst::plugin::{CanDo, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::domain::Session;
+use crate::domain::{Session, SessionContext};
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
@@ -119,7 +119,8 @@ impl RealearnPlugin {
         let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
         Reaper::get().do_later_in_main_thread_asap(move || {
-            let session = Session::new(get_containing_fx(&host));
+            let session_context = SessionContext::from_host(&host);
+            let session = Session::new(session_context);
             let shared_session = Rc::new(debug_cell::RefCell::new(session));
             main_panel.notify_session_is_available(shared_session.clone());
             plugin_parameters.notify_session_is_available(shared_session.clone());
@@ -130,30 +131,4 @@ impl RealearnPlugin {
 
 fn firewall<F: FnOnce() -> R, R>(f: F) -> Option<R> {
     catch_unwind(AssertUnwindSafe(f)).ok()
-}
-
-/// Calling this in the `new()` method is too early. The containing FX can't generally be found
-/// when we just open a REAPER project. We must wait for `init()` to be called.
-fn get_containing_fx(host: &HostCallback) -> Fx {
-    let reaper = Reaper::get();
-    let aeffect = NonNull::new(host.raw_effect()).expect("must not be null");
-    let plugin_context = reaper.medium_reaper().plugin_context();
-    let vst_context = match plugin_context.type_specific() {
-        TypeSpecificPluginContext::Vst(ctx) => ctx,
-        _ => unreachable!(),
-    };
-    if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
-        let project = unsafe { vst_context.request_containing_project(aeffect) };
-        let track = Track::new(track, Some(project));
-        // TODO Fix this! This is just wrong and super temporary. Right now we are interested in
-        // track only.
-        track.normal_fx_chain().fx_by_index_untracked(0)
-    } else if let Some(take) = unsafe { vst_context.request_containing_take(aeffect) } {
-        let take = Take::new(take);
-        // TODO Fix this!
-        take.fx_chain().fx_by_index_untracked(0)
-    } else {
-        // TODO Fix this!
-        reaper.monitoring_fx_chain().fx_by_index_untracked(0)
-    }
 }

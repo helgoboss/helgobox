@@ -1,7 +1,7 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use crate::domain::{ActionInvocationType, TargetModel, TargetType, VirtualTrack};
-use reaper_high::{Guid, Reaper};
+use crate::domain::{ActionInvocationType, SessionContext, TargetModel, TargetType, VirtualTrack};
+use reaper_high::{Guid, Project, Reaper};
 use reaper_medium::ReaperString;
 use serde::{Deserialize, Serialize};
 
@@ -79,13 +79,17 @@ impl TargetModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel) -> Result<(), &'static str> {
+    pub fn apply_to_model(
+        &self,
+        model: &mut TargetModel,
+        context: &SessionContext,
+    ) -> Result<(), &'static str> {
         model.r#type.set(self.r#type);
         // TODO
         model.command_id.set(None);
         // TODO invoke_relative
         model.action_invocation_type.set(self.invocation_type);
-        let track = deserialize_track(&self.track_guid, &self.track_name)?;
+        let track = deserialize_track(&self.track_guid, &self.track_name, context.project())?;
         model.track.set(track);
         model
             .enable_only_if_track_selected
@@ -105,6 +109,7 @@ impl TargetModelData {
 fn deserialize_track(
     id: &Option<String>,
     name: &Option<String>,
+    project: Project,
 ) -> Result<VirtualTrack, &'static str> {
     let virtual_track = match id.as_ref().map(String::as_str) {
         None => VirtualTrack::This,
@@ -112,8 +117,6 @@ fn deserialize_track(
         Some("selected") => VirtualTrack::Selected,
         Some(s) => {
             let guid = Guid::from_string_without_braces(s)?;
-            // TODO We should pass in the context instead of just taking the current project.
-            let project = Reaper::get().current_project();
             let track = project.track_by_guid(&guid);
             let track = if track.is_available() {
                 track

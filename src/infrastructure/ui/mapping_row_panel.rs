@@ -91,7 +91,7 @@ impl MappingRowPanel {
             .set_text(
                 mapping
                     .target_model
-                    .with_context(self.session.borrow().containing_fx())
+                    .with_context(self.session.borrow().context())
                     .to_string(),
             );
     }

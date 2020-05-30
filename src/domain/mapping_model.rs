@@ -1,5 +1,6 @@
 use crate::domain::{
-    MidiSourceModel, ModeModel, ReaperTarget, TargetCharacter, TargetModel, TargetModelWithContext,
+    MidiSourceModel, ModeModel, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
+    TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
@@ -45,30 +46,29 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
-    pub fn with_context<'a>(&'a self, containing_fx: &'a Fx) -> MappingModelWithContext<'a> {
+    pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
-            containing_fx,
+            context,
         }
     }
 
-    pub fn reset_mode(&mut self, containing_fx: &Fx) {
+    pub fn reset_mode(&mut self, context: &SessionContext) {
         self.mode_model.reset_within_type();
-        self.set_preferred_mode_values(containing_fx);
+        self.set_preferred_mode_values(context);
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
-    pub fn set_preferred_mode_values(&mut self, containing_fx: &Fx) {
-        self.mode_model.step_size_interval.set(
-            self.with_context(containing_fx)
-                .preferred_step_size_interval(),
-        )
+    pub fn set_preferred_mode_values(&mut self, context: &SessionContext) {
+        self.mode_model
+            .step_size_interval
+            .set(self.with_context(context).preferred_step_size_interval())
     }
 }
 
 pub struct MappingModelWithContext<'a> {
     mapping: &'a MappingModel,
-    containing_fx: &'a Fx,
+    context: &'a SessionContext,
 }
 
 impl<'a> MappingModelWithContext<'a> {
@@ -91,6 +91,6 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     fn target_with_context(&self) -> TargetModelWithContext<'_> {
-        self.mapping.target_model.with_context(self.containing_fx)
+        self.mapping.target_model.with_context(self.context)
     }
 }

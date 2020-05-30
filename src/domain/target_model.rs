@@ -1,4 +1,4 @@
-use crate::domain::{ReaperTarget, TargetCharacter};
+use crate::domain::{ReaperTarget, SessionContext, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{Target, UnitValue};
@@ -71,10 +71,10 @@ impl TargetModel {
             .merge(self.select_exclusively.changed())
     }
 
-    pub fn with_context<'a>(&'a self, containing_fx: &'a Fx) -> TargetModelWithContext<'a> {
+    pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> TargetModelWithContext<'a> {
         TargetModelWithContext {
             target: self,
-            containing_fx,
+            context,
         }
     }
 
@@ -186,7 +186,7 @@ pub fn get_track_label(track: &Track) -> String {
 
 pub struct TargetModelWithContext<'a> {
     target: &'a TargetModel,
-    containing_fx: &'a Fx,
+    context: &'a SessionContext,
 }
 
 impl<'a> TargetModelWithContext<'a> {
@@ -283,16 +283,14 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     pub fn project(&self) -> Project {
-        self.containing_fx
-            .project()
-            .unwrap_or(Reaper::get().current_project())
+        self.context.project()
     }
 
     // TODO-low Consider returning a Cow
     pub fn effective_track(&self) -> Result<Track, &'static str> {
         use VirtualTrack::*;
         match self.target.track.get_ref() {
-            This => Ok(self.containing_fx.track().clone()),
+            This => Ok(self.context.containing_fx().track().clone()),
             Selected => self
                 .project()
                 .first_selected_track(IncludeMasterTrack)
