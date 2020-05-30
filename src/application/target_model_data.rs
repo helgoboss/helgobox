@@ -14,7 +14,7 @@ pub struct TargetModelData {
     invocation_type: ActionInvocationType,
     // Until ReaLearn 1.0.0-beta6
     #[serde(skip_serializing)]
-    invoke_relative: bool,
+    invoke_relative: Option<bool>,
     // Track target
     // None means "This" track
     #[serde(rename = "trackGUID")]
@@ -42,7 +42,7 @@ impl Default for TargetModelData {
             r#type: TargetType::FxParameter,
             command_name: None,
             invocation_type: ActionInvocationType::Trigger,
-            invoke_relative: false,
+            invoke_relative: None,
             track_guid: None,
             track_name: None,
             enable_only_if_track_is_selected: false,
@@ -57,15 +57,15 @@ impl Default for TargetModelData {
 }
 
 impl TargetModelData {
-    pub fn from_model(model: &TargetModel) -> Self {
+    pub fn from_model(model: &TargetModel, context: &SessionContext) -> Self {
         let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
             r#type: model.r#type.get(),
-            // TODO
+            // TODO-high
             command_name: None,
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
-            invoke_relative: false,
+            invoke_relative: None,
             track_guid,
             track_name,
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
@@ -84,10 +84,19 @@ impl TargetModelData {
         context: &SessionContext,
     ) -> Result<(), &'static str> {
         model.r#type.set(self.r#type);
-        // TODO
+        // TODO-high
         model.command_id.set(None);
-        // TODO invoke_relative
-        model.action_invocation_type.set(self.invocation_type);
+        let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
+            // Very old ReaLearn version
+            if invoke_relative {
+                ActionInvocationType::Relative
+            } else {
+                ActionInvocationType::Absolute
+            }
+        } else {
+            self.invocation_type
+        };
+        model.action_invocation_type.set(invocation_type);
         let track = deserialize_track(&self.track_guid, &self.track_name, context.project())?;
         model.track.set(track);
         model

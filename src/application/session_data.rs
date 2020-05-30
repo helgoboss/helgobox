@@ -62,7 +62,7 @@ impl SessionData {
             },
             mappings: session
                 .mappings()
-                .map(|m| MappingModelData::from_model(m.borrow().deref()))
+                .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
                 .collect(),
         }
     }
