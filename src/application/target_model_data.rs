@@ -1,6 +1,8 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
 use crate::domain::{ActionInvocationType, TargetModel, TargetType, VirtualTrack};
+use reaper_high::{Guid, Reaper};
+use reaper_medium::ReaperString;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -83,8 +85,8 @@ impl TargetModelData {
         model.command_id.set(None);
         // TODO invoke_relative
         model.action_invocation_type.set(self.invocation_type);
-        // TODO
-        model.track.set(VirtualTrack::This);
+        let track = deserialize_track(&self.track_guid, &self.track_name)?;
+        model.track.set(track);
         model
             .enable_only_if_track_selected
             .set(self.enable_only_if_track_is_selected);
@@ -98,4 +100,37 @@ impl TargetModelData {
         model.select_exclusively.set(self.select_exclusively);
         Ok(())
     }
+}
+
+fn deserialize_track(
+    id: &Option<String>,
+    name: &Option<String>,
+) -> Result<VirtualTrack, &'static str> {
+    let virtual_track = match id.as_ref().map(String::as_str) {
+        None => VirtualTrack::This,
+        Some("master") => VirtualTrack::Master,
+        Some("selected") => VirtualTrack::Selected,
+        Some(s) => {
+            let guid = Guid::from_string_without_braces(s)?;
+            // TODO We should pass in the context instead of just taking the current project.
+            let project = Reaper::get().current_project();
+            let track = project.track_by_guid(&guid);
+            let track = if track.is_available() {
+                track
+            } else {
+                let name = name
+                    .as_ref()
+                    .ok_or("track not found by ID and no name provided")?;
+                project
+                    .tracks()
+                    .find(|t| match t.name() {
+                        None => false,
+                        Some(n) => n.to_str() == name.as_str(),
+                    })
+                    .ok_or("track not found, not even by name")?
+            };
+            VirtualTrack::Particular(track)
+        }
+    };
+    Ok(virtual_track)
 }
