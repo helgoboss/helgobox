@@ -78,6 +78,13 @@ pub trait View {
         false
     }
 
+    /// WM_COSE.
+    ///
+    /// Should return `true` if the window must not be destroyed.
+    fn close_requested(self: SharedView<Self>) -> bool {
+        false
+    }
+
     /// WM_DESTROY.
     fn closed(self: SharedView<Self>, window: Window) {}
 

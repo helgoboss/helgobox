@@ -220,8 +220,10 @@ unsafe extern "C" fn view_dialog_proc(
                 view.virtual_key_pressed(key_code).into()
             }
             raw::WM_CLOSE => {
-                // We never let the user confirm. Destroy immediately!
-                window.destroy();
+                let processed = view.close_requested();
+                if !processed {
+                    window.destroy();
+                }
                 1
             }
             _ => 0,
