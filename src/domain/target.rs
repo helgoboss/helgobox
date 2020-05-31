@@ -262,7 +262,7 @@ impl Target for ReaperTarget {
         use ReaperTarget::*;
         match self {
             FxParameter { param } => param.step_size().map(UnitValue::new),
-            Tempo { .. } => Some(UnitValue::new(1.0 / (Bpm::MAX.get() - Bpm::MIN.get()))),
+            Tempo { .. } => Some(UnitValue::MIN),
             FxPreset { fx } => {
                 // `+ 1` because "no preset" is also a possible value
                 Some(UnitValue::new(1.0 / (fx.preset_count() + 1) as f64))
