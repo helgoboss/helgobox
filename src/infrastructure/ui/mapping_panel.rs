@@ -1825,6 +1825,16 @@ impl View for MappingPanel {
         }
         true
     }
+
+    fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        // The edit control which is currently edited by the user doesn't get invalidated during
+        // `edit_control_changed()`, for good reasons. As soon as the edit control loses focus, we
+        // should invalidate it. This is especially important if the user entered an invalid value.
+        // Because we are lazy and edit controls are not manipulated very frequently, we just
+        // invalidate all controls.
+        self.invalidate_all_controls();
+        false
+    }
 }
 
 trait WindowExt {
