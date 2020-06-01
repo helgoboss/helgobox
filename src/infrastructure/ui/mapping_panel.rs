@@ -337,11 +337,14 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_ignore_out_of_range_values(&mut self) {
-        self.mapping.mode_model.rotate.set(
-            self.view
-                .require_control(root::ID_SETTINGS_ROTATE_CHECK_BOX)
-                .is_checked(),
-        );
+        self.mapping
+            .mode_model
+            .ignore_out_of_range_source_values
+            .set(
+                self.view
+                    .require_control(root::ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX)
+                    .is_checked(),
+            );
     }
 
     fn update_mode_round_target_value(&mut self) {
