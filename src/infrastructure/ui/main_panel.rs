@@ -1,6 +1,6 @@
 use crate::domain::Session;
+use crate::domain::SharedSession;
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
 use c_str_macro::c_str;
 use lazycell::LazyCell;

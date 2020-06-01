@@ -1,5 +1,5 @@
+use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
-use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::MappingPanel;
 use reaper_high::Reaper;
 use std::cell::RefCell;

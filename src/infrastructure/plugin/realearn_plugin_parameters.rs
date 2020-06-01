@@ -1,7 +1,7 @@
 use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
 use crate::domain::Session;
-use crate::infrastructure::common::SharedSession;
+use crate::domain::SharedSession;
 use lazycell::{AtomicLazyCell, LazyCell};
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};

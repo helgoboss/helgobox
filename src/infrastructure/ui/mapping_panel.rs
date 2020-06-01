@@ -1,4 +1,5 @@
 use crate::core::when_async;
+use crate::domain::SharedSession;
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
     MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
@@ -6,7 +7,6 @@ use crate::domain::{
     TargetType, VirtualTrack,
 };
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::common::SharedSession;
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{

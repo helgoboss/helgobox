@@ -4,8 +4,8 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
+use crate::domain::SharedSession;
 use crate::domain::{RealTimeProcessor, RealTimeTask, Session, SessionContext};
-use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};

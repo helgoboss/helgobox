@@ -8,9 +8,9 @@ use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 
 use crate::core::when_async;
+use crate::domain::SharedSession;
 use crate::domain::{MappingModel, Session, SharedMapping};
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::{
     MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
 };

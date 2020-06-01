@@ -1,10 +1,10 @@
 use crate::core::when_async;
+use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
-use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::ui::MappingPanelManager;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;

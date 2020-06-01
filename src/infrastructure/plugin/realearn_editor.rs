@@ -2,7 +2,7 @@ use crate::domain::Session;
 use crate::infrastructure::ui::MainPanel;
 use std::cell::RefCell;
 
-use crate::infrastructure::common::SharedSession;
+use crate::domain::SharedSession;
 use lazycell::LazyCell;
 use reaper_low::raw::HWND;
 use std::borrow::Borrow;

@@ -1,8 +1,8 @@
 use crate::application::SessionData;
 use crate::core::when_async;
+use crate::domain::SharedSession;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::common::SharedSession;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};

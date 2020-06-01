@@ -39,13 +39,15 @@ pub struct EelTransformation {}
 impl EelTransformation {
     // Compiles the given script and creates an appropriate transformation.
     fn compile(eel_script: &str) -> Option<EelTransformation> {
-        todo!()
+        // TODO
+        None
     }
 }
 
 impl Transformation for EelTransformation {
     fn transform(&self, input_value: UnitValue) -> Result<UnitValue, ()> {
-        todo!()
+        // TODO
+        Err(())
     }
 }
 
