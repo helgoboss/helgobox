@@ -1,7 +1,9 @@
 use super::MidiSourceModel;
 use crate::core::when_async;
 use crate::domain::{
-    share_mapping, Mapping, MappingModel, RealTimeTask, SessionContext, SharedMapping,
+    share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
+    ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, SessionContext,
+    SharedMapping,
 };
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
@@ -52,13 +54,15 @@ pub struct Session {
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_or_any_mapping_changed_subject: LocalSubject<'static, (), ()>,
-    real_time_sender: crossbeam_channel::Sender<RealTimeTask>,
+    main_processor: MainProcessor,
+    real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
 }
 
 impl Session {
     pub fn new(
         context: SessionContext,
-        real_time_sender: crossbeam_channel::Sender<RealTimeTask>,
+        real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+        main_processor_receiver: crossbeam_channel::Receiver<MainProcessorTask>,
     ) -> Session {
         Self {
             let_matched_events_through: p(false),
@@ -73,45 +77,55 @@ impl Session {
             mapping_models: vec![],
             mapping_list_changed_subject: Default::default(),
             mapping_list_or_any_mapping_changed_subject: Default::default(),
-            real_time_sender,
+            real_time_processor_sender,
+            main_processor: MainProcessor::new(main_processor_receiver),
         }
     }
 
-    /// Connects the dots by keeping settings of real-time processor in sync with the session.
+    /// Connects the dots.
     pub fn activate(shared_session: SharedSession) {
-        let session = shared_session.borrow();
-        // Whenever the mapping list changes, notify listeners and resubscribe to all mappings.
-        Session::when(&shared_session, session.mapping_list_changed(), move |s| {
-            s.borrow_mut()
-                .mapping_list_or_any_mapping_changed_subject
-                .next(());
-            Session::resubscribe_to_all_mappings(s.clone());
+        {
+            let session = shared_session.borrow();
+            // Whenever the mapping list changes, notify listeners and resubscribe to all mappings.
+            Session::when(&shared_session, session.mapping_list_changed(), move |s| {
+                s.borrow_mut()
+                    .mapping_list_or_any_mapping_changed_subject
+                    .next(());
+                Session::resubscribe_to_all_mappings(s.clone());
+            });
+            let reaper = Reaper::get();
+            // Whenever anything in the mapping changes, including the mappings itself, resync
+            // mappings to processors.
+            Session::when(
+                &shared_session,
+                session
+                    .mapping_list_or_any_mapping_changed()
+                    // The following conditions can enable/disable targets, so we do a re-sync!
+                    .merge(reaper.track_selected_changed().map_to(()))
+                    // TODO-high Problem: We don't get notified about focus kill :(
+                    .merge(reaper.fx_focused().map_to(())),
+                move |s| {
+                    // TODO-medium This is pretty much stuff to do when doing slider changes.
+                    //  A debounce is in order!
+                    s.borrow_mut().sync_mappings_to_processors();
+                },
+            );
+            // Whenever additional settings are changed, resync them to the processors.
+            Session::when(
+                &shared_session,
+                session
+                    .let_matched_events_through
+                    .changed()
+                    .merge(session.let_unmatched_events_through.changed()),
+                move |s| {
+                    s.borrow().sync_flags_to_real_time_processor();
+                },
+            );
+        }
+        // Call main processor regularly so that it can process control tasks.
+        Reaper::get().main_thread_idle().subscribe(move |_| {
+            shared_session.borrow().main_processor.idle();
         });
-        let reaper = Reaper::get();
-        Session::when(
-            &shared_session,
-            session
-                .mapping_list_or_any_mapping_changed()
-                // The following conditions can enable/disable targets, so we do a re-sync!
-                .merge(reaper.track_selected_changed().map_to(()))
-                // TODO-high Problem: We don't get notified about focus kill :(
-                .merge(reaper.fx_focused().map_to(())),
-            move |s| {
-                // TODO-medium This is pretty much stuff to do when doing slider changes.
-                //  A debounce would be in line!
-                s.borrow().sync_mappings_to_real_time_processor();
-            },
-        );
-        Session::when(
-            &shared_session,
-            session
-                .let_matched_events_through
-                .changed()
-                .merge(session.let_unmatched_events_through.changed()),
-            move |s| {
-                s.borrow().sync_flags_to_real_time_processor();
-            },
-        );
     }
 
     fn when(
@@ -282,25 +296,26 @@ impl Session {
     }
 
     fn sync_flags_to_real_time_processor(&self) {
-        let task = RealTimeTask::UpdateFlags {
+        let task = RealTimeProcessorTask::UpdateFlags {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
         };
-        self.real_time_sender.send(task);
+        self.real_time_processor_sender.send(task);
     }
 
-    fn sync_mappings_to_real_time_processor(&self) {
-        let mappings: Vec<Mapping> = self
-            .mappings()
-            .map(|m| {
-                m.borrow()
-                    .with_context(&self.context)
-                    .create_real_time_mapping()
-            })
-            .flatten()
-            .collect();
-        let task = RealTimeTask::UpdateMappings(mappings);
-        self.real_time_sender.send(task);
+    fn sync_mappings_to_processors(&mut self) {
+        let processor_mappings = self.mappings().filter_map(|m| {
+            m.borrow()
+                .with_context(&self.context)
+                .create_processor_mapping()
+        });
+        let (real_time_mappings, main_mappings): (Vec<_>, Vec<_>) = processor_mappings
+            .enumerate()
+            .map(|(i, m)| m.splinter(MappingId::new(i as _)))
+            .unzip();
+        self.main_processor.update_mappings(main_mappings);
+        self.real_time_processor_sender
+            .send(RealTimeProcessorTask::UpdateMappings(real_time_mappings));
     }
 
     fn generate_name_for_new_mapping(&self) -> String {

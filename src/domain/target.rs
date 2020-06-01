@@ -1,11 +1,12 @@
 use crate::domain::ActionInvocationType;
-use helgoboss_learn::{Target, UnitValue};
+use helgoboss_learn::{ControlValue, Target, UnitValue};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Tempo,
     Track, TrackSend, Volume,
 };
 use reaper_medium::{
-    Bpm, CommandId, Db, NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue,
+    Bpm, CommandId, Db, FxPresetRef, NormalizedPlayRate, PlaybackSpeedFactor,
+    ReaperNormalizedFxParamValue, UndoBehavior,
 };
 use std::cmp;
 use std::convert::TryInto;
@@ -262,6 +263,102 @@ impl ReaperTarget {
             _ => return None,
         };
         Some(fx)
+    }
+
+    pub fn control(&self, value: ControlValue) -> Result<(), &'static str> {
+        use ControlValue::*;
+        use ReaperTarget::*;
+        match self {
+            Action {
+                action,
+                invocation_type,
+            } => {
+                // TODO-high implement
+            }
+            FxParameter { param } => {
+                // TODO-high How about values > 1.0?
+                let fx_value = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
+                param.set_normalized_value(fx_value);
+            }
+            TrackVolume { track } => {
+                let volume = Volume::from_soft_normalized_value(value.as_absolute()?.get());
+                track.set_volume(volume);
+            }
+            TrackSendVolume { send } => {
+                let volume = Volume::from_soft_normalized_value(value.as_absolute()?.get());
+                send.set_volume(volume);
+            }
+            TrackPan { track } => {
+                let pan = Pan::from_normalized_value(value.as_absolute()?.get());
+                track.set_pan(pan);
+            }
+            TrackArm { track } => {
+                if value.as_absolute()?.is_zero() {
+                    track.disarm(false);
+                } else {
+                    track.arm(false);
+                }
+            }
+            TrackSelection {
+                track,
+                select_exclusively,
+            } => {
+                if value.as_absolute()?.is_zero() {
+                    track.unselect();
+                } else {
+                    if *select_exclusively {
+                        track.select_exclusively();
+                    } else {
+                        track.select();
+                    }
+                }
+                track.scroll_mixer();
+            }
+            TrackMute { track } => {
+                if value.as_absolute()?.is_zero() {
+                    track.unmute();
+                } else {
+                    track.mute();
+                }
+            }
+            TrackSolo { track } => {
+                if value.as_absolute()?.is_zero() {
+                    track.unsolo();
+                } else {
+                    track.solo();
+                }
+            }
+            TrackSendPan { send } => {
+                let pan = Pan::from_normalized_value(value.as_absolute()?.get());
+                send.set_pan(pan);
+            }
+            Tempo { project } => {
+                let tempo = reaper_high::Tempo::from_normalized_value(value.as_absolute()?.get());
+                project.set_tempo(tempo, UndoBehavior::OmitUndoPoint);
+            }
+            Playrate { project } => {
+                let play_rate = PlayRate::from_normalized_value(NormalizedPlayRate::new(
+                    value.as_absolute()?.get(),
+                ));
+                project.set_play_rate(play_rate);
+            }
+            FxEnable { fx } => {
+                if value.as_absolute()?.is_zero() {
+                    fx.disable();
+                } else {
+                    fx.enable();
+                }
+            }
+            FxPreset { fx } => {
+                let preset_index = unit_value_to_preset_index(fx, value.as_absolute()?);
+                let preset_ref = match preset_index {
+                    None => FxPresetRef::FactoryPreset,
+                    Some(i) => FxPresetRef::Preset(i),
+                };
+                fx.activate_preset(preset_ref);
+            }
+        };
+        Ok(())
     }
 }
 

@@ -2,8 +2,9 @@ use crate::domain::ReaperTarget;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, DiscreteValue, Interval, MidiClockTransportMessage,
-    MidiSource, RelativeMode, SourceCharacter, ToggleMode, Transformation, UnitValue,
+    full_unit_interval, AbsoluteMode, ControlValue, DiscreteValue, Interval,
+    MidiClockTransportMessage, MidiSource, RelativeMode, SourceCharacter, Target, ToggleMode,
+    Transformation, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -57,6 +58,21 @@ pub enum Mode {
     Absolute(AbsoluteMode<EelTransformation>),
     Relative(RelativeMode),
     Toggle(ToggleMode),
+}
+
+impl Mode {
+    pub fn control(&self, value: ControlValue, target: &impl Target) -> Option<ControlValue> {
+        use Mode::*;
+        match self {
+            Absolute(m) => m
+                .control(value.as_absolute().ok()?, target)
+                .map(ControlValue::Absolute),
+            Relative(m) => m.control(value, target),
+            Toggle(m) => m
+                .control(value.as_absolute().ok()?, target)
+                .map(ControlValue::Absolute),
+        }
+    }
 }
 
 /// Type of a mode

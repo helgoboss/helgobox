@@ -4,6 +4,9 @@ pub use session::*;
 mod real_time_processor;
 pub use real_time_processor::*;
 
+mod main_processor;
+pub use main_processor::*;
+
 mod session_context;
 pub use session_context::*;
 
