@@ -22,6 +22,7 @@ pub enum TargetCharacter {
 ///
 /// Unlike TargetModel, the real target has everything resolved already (e.g. track and FX) and
 /// is immutable.
+#[derive(Debug)]
 pub enum ReaperTarget {
     Action {
         action: Action,

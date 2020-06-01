@@ -1024,6 +1024,7 @@ dependencies = [
  "bindgen",
  "c_str_macro",
  "cc",
+ "crossbeam-channel",
  "debug-cell",
  "derive_more",
  "embed-resource",

@@ -7,10 +7,10 @@ use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 
+use crate::core::when_async;
 use crate::domain::{MappingModel, Session, SharedMapping};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
-use crate::infrastructure::ui::scheduling::when_async;
 use crate::infrastructure::ui::{
     MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
 };
@@ -189,7 +189,7 @@ impl MappingRowsPanel {
 
     fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
-        self.when(session.mappings_changed(), |view| {
+        self.when(session.mapping_list_changed(), |view| {
             view.invalidate_mapping_rows();
             view.mapping_panel_manager
                 .borrow_mut()
@@ -204,7 +204,7 @@ impl MappingRowsPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, reaction, &self, self.view.closed());
+        when_async(event, self.view.closed(), &self, reaction);
     }
 }
 

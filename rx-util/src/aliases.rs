@@ -15,6 +15,7 @@
 //! exactly what you need to do on the observable in terms of operators and choose the alias
 //! accordingly.
 
+use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 
 /// Completely local event.
@@ -35,6 +36,9 @@ pub trait SharedItemEvent<I: SharedPayload> =
 /// - `observe_on()`: yes
 /// - `delay()`: no
 pub trait UnitEvent = SharedItemEvent<()>;
+
+/// Like `UnitEvent` but as concrete type.
+pub type BoxedUnitEvent = LocalBoxOp<'static, (), ()>;
 
 /// Local event with shared items.
 ///

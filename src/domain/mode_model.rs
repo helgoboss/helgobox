@@ -33,6 +33,7 @@ pub struct ModeModel {
 }
 
 /// Represents a value transformation done via EEL scripting language.
+#[derive(Debug)]
 pub struct EelTransformation {}
 
 impl EelTransformation {
@@ -49,6 +50,7 @@ impl Transformation for EelTransformation {
 }
 
 // Represents a learn mode
+#[derive(Debug)]
 pub enum Mode {
     Absolute(AbsoluteMode<EelTransformation>),
     Relative(RelativeMode),

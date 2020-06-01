@@ -1,10 +1,10 @@
+use crate::core::when_async;
 use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::common::SharedSession;
-use crate::infrastructure::ui::scheduling::when_async;
 use crate::infrastructure::ui::MappingPanelManager;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -243,7 +243,7 @@ impl MappingRowPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, reaction, &self, self.closed_or_mapping_will_change());
+        when_async(event, self.closed_or_mapping_will_change(), &self, reaction);
     }
 }
 

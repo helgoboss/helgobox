@@ -1,13 +1,14 @@
 use c_str_macro::c_str;
 use vst::editor::Editor;
 use vst::plugin;
-use vst::plugin::{CanDo, HostCallback, Info, Plugin, PluginParameters};
+use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::domain::{Session, SessionContext};
+use crate::domain::{RealTimeProcessor, RealTimeTask, Session, SessionContext};
 use crate::infrastructure::common::SharedSession;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
+use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
@@ -23,7 +24,9 @@ use std::str::Utf8Error;
 use std::sync::Arc;
 use std::time::Duration;
 use swell_ui::SharedView;
-use vst::api::Supported;
+use vst::api::{Events, Supported};
+use vst::buffer::AudioBuffer;
+use vst::event::{Event, MidiEvent};
 
 reaper_vst_plugin!();
 
@@ -38,16 +41,23 @@ pub struct RealearnPlugin {
     plugin_parameters: Arc<RealearnPluginParameters>,
     // This will be set on `init()`.
     reaper_guard: Option<Arc<ReaperGuard>>,
+    // Used for communicating with real-time processor
+    real_time_sender: crossbeam_channel::Sender<RealTimeTask>,
+    // Called in real-time audio thread only.
+    real_time_processor: RealTimeProcessor,
 }
 
 impl Default for RealearnPlugin {
     fn default() -> Self {
+        let (real_time_sender, real_time_receiver) = crossbeam_channel::unbounded();
         Self {
             host: Default::default(),
             session: Rc::new(LazyCell::new()),
             main_panel: Default::default(),
             reaper_guard: None,
             plugin_parameters: Default::default(),
+            real_time_sender,
+            real_time_processor: RealTimeProcessor::new(real_time_receiver),
         }
     }
 }
@@ -65,6 +75,7 @@ impl Plugin for RealearnPlugin {
             name: "realearn-rs".to_string(),
             unique_id: 2964,
             preset_chunks: true,
+            category: Category::Synth,
             ..Default::default()
         }
     }
@@ -120,6 +131,24 @@ impl Plugin for RealearnPlugin {
             _ => 0,
         }
     }
+
+    fn process_events(&mut self, events: &Events) {
+        for e in events.events() {
+            match e {
+                Event::Midi(MidiEvent { data, .. }) => {
+                    let msg =
+                        RawShortMessage::from_bytes((data[0], U7::new(data[1]), U7::new(data[2])))
+                            .expect("received invalid MIDI message");
+                    self.real_time_processor.process_midi(msg);
+                }
+                _ => (),
+            }
+        }
+    }
+
+    fn process(&mut self, _buffer: &mut AudioBuffer<f32>) {
+        self.real_time_processor.idle();
+    }
 }
 
 impl RealearnPlugin {
@@ -146,10 +175,12 @@ impl RealearnPlugin {
         let session_container = self.session.clone();
         let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
+        let real_time_sender = self.real_time_sender.clone();
         Reaper::get().do_later_in_main_thread_asap(move || {
             let session_context = SessionContext::from_host(&host);
-            let session = Session::new(session_context);
+            let session = Session::new(session_context, real_time_sender);
             let shared_session = Rc::new(debug_cell::RefCell::new(session));
+            Session::activate(shared_session.clone());
             main_panel.notify_session_is_available(shared_session.clone());
             plugin_parameters.notify_session_is_available(shared_session.clone());
             session_container.fill(shared_session);

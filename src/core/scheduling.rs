@@ -4,7 +4,6 @@ use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
 use std::time::Duration;
-use swell_ui::SharedView;
 
 /// Executes the given reaction on the view whenever the specified event is raised.
 ///
@@ -18,9 +17,9 @@ use swell_ui::SharedView;
 /// trigger/until subjects/properties into shared ones.
 pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
     trigger: impl SharedItemEvent<E>,
-    reaction: impl Fn(SharedView<R>) + Copy + 'static,
-    receiver: &SharedView<R>,
     until: impl SharedItemEvent<U>,
+    receiver: &Rc<R>,
+    reaction: impl Fn(Rc<R>) + Copy + 'static,
 ) {
     let weak_receiver = Rc::downgrade(receiver);
     trigger
@@ -30,7 +29,7 @@ pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
         .subscribe(move |v| {
             let weak_receiver = weak_receiver.clone();
             Reaper::get().do_later_in_main_thread_asap(move || {
-                let receiver = weak_receiver.upgrade().expect("view is gone");
+                let receiver = weak_receiver.upgrade().expect("receiver is gone");
                 (reaction)(receiver);
             });
         });

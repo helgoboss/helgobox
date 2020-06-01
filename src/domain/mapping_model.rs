@@ -1,10 +1,10 @@
 use crate::domain::{
-    MidiSourceModel, ModeModel, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
-    TargetModelWithContext,
+    Mapping, MidiSourceModel, ModeModel, ReaperTarget, SessionContext, TargetCharacter,
+    TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp};
+use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
@@ -64,6 +64,14 @@ impl MappingModel {
             .step_size_interval
             .set(self.with_context(context).preferred_step_size_interval())
     }
+
+    pub fn control_relevant_prop_changed(&self) -> impl UnitEvent {
+        self.source_model
+            .changed()
+            .merge(self.mode_model.changed())
+            .merge(self.target_model.changed())
+            .merge(self.control_is_enabled.changed())
+    }
 }
 
 pub struct MappingModelWithContext<'a> {
@@ -72,6 +80,13 @@ pub struct MappingModelWithContext<'a> {
 }
 
 impl<'a> MappingModelWithContext<'a> {
+    pub fn create_mapping(&self) -> Result<Mapping, &'static str> {
+        let target = self.target_with_context().create_target()?;
+        let source = self.mapping.source_model.create_source();
+        let mode = self.mapping.mode_model.create_mode(&target);
+        Ok(Mapping::new(source, mode, target))
+    }
+
     pub fn target_should_be_hit_with_increments(&self) -> bool {
         let target = self.target_with_context();
         target.is_known_to_want_increments()

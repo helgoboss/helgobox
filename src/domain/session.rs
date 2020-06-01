@@ -1,14 +1,17 @@
 use super::MidiSourceModel;
-use crate::domain::{share_mapping, MappingModel, SessionContext, SharedMapping};
+use crate::core::when_async;
+use crate::domain::{share_mapping, MappingModel, RealTimeTask, SessionContext, SharedMapping};
+use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
-    create_local_prop as p, LocalProp, LocalStaticProp, SharedEvent, SharedProp, UnitEvent,
+    create_local_prop as p, BoxedUnitEvent, LocalProp, LocalStaticProp, SharedEvent, SharedProp,
+    UnitEvent,
 };
 use rxrust::prelude::*;
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 /// MIDI source which provides ReaLearn control data.
@@ -45,11 +48,16 @@ pub struct Session {
     pub mapping_which_learns_target: LocalStaticProp<Option<SharedMapping>>,
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
-    mappings_changed_subject: LocalSubject<'static, (), ()>,
+    mapping_list_changed_subject: LocalSubject<'static, (), ()>,
+    mapping_list_or_any_mapping_changed_subject: LocalSubject<'static, (), ()>,
+    real_time_sender: crossbeam_channel::Sender<RealTimeTask>,
 }
 
 impl Session {
-    pub fn new(context: SessionContext) -> Session {
+    pub fn new(
+        context: SessionContext,
+        real_time_sender: crossbeam_channel::Sender<RealTimeTask>,
+    ) -> Session {
         Self {
             let_matched_events_through: p(false),
             let_unmatched_events_through: p(true),
@@ -61,8 +69,57 @@ impl Session {
             mapping_which_learns_target: p(None),
             context,
             mapping_models: vec![],
-            mappings_changed_subject: Default::default(),
+            mapping_list_changed_subject: Default::default(),
+            mapping_list_or_any_mapping_changed_subject: Default::default(),
+            real_time_sender,
         }
+    }
+
+    /// Connects the dots by keeping settings of real-time processor in sync with the session.
+    // TODO Maybe we should put SharedSession type in this file
+    pub fn activate(shared_session: Rc<debug_cell::RefCell<Session>>) {
+        let session = shared_session.borrow();
+        // Whenever the mapping list changes, notify listeners and resubscribe to all mappings.
+        Session::when(&shared_session, session.mapping_list_changed(), move |s| {
+            s.borrow_mut()
+                .mapping_list_or_any_mapping_changed_subject
+                .next(());
+            Session::resubscribe_to_all_mappings(s.clone());
+        });
+        Session::when(
+            &shared_session,
+            session.mapping_list_or_any_mapping_changed(),
+            move |s| {
+                s.borrow().sync_mappings_to_real_time_processor();
+            },
+        );
+        Session::when(
+            &shared_session,
+            session
+                .let_matched_events_through
+                .changed()
+                .merge(session.let_unmatched_events_through.changed()),
+            move |s| {
+                s.borrow().sync_flags_to_real_time_processor();
+            },
+        );
+    }
+
+    fn when(
+        shared_session: &Rc<debug_cell::RefCell<Session>>,
+        event: impl UnitEvent,
+        reaction: impl Fn(Rc<debug_cell::RefCell<Session>>) + 'static + Copy,
+    ) {
+        when_async(event, observable::never(), shared_session, reaction);
+    }
+
+    fn resubscribe_to_all_mappings(shared_session: Rc<debug_cell::RefCell<Session>>) {
+        let session = shared_session.borrow();
+        Session::when(&shared_session, session.any_mapping_changed(), move |s| {
+            s.borrow_mut()
+                .mapping_list_or_any_mapping_changed_subject
+                .next(());
+        });
     }
 
     pub fn context(&self) -> &SessionContext {
@@ -136,13 +193,13 @@ impl Session {
             return Err("too far down");
         }
         self.mapping_models.swap(current_index, new_index);
-        self.mappings_changed_subject.next(());
+        self.mapping_list_changed_subject.next(());
         Ok(())
     }
 
     pub fn remove_mapping(&mut self, mapping: *const MappingModel) {
         self.mapping_models.retain(|m| m.as_ptr() != mapping as _);
-        self.mappings_changed_subject.next(());
+        self.mapping_list_changed_subject.next(());
     }
 
     pub fn duplicate_mapping(&mut self, mapping: *const MappingModel) -> Result<(), &str> {
@@ -162,7 +219,7 @@ impl Session {
         };
         self.mapping_models
             .insert(index + 1, share_mapping(duplicate));
-        self.mappings_changed_subject.next(());
+        self.mapping_list_changed_subject.next(());
         Ok(())
     }
 
@@ -176,22 +233,55 @@ impl Session {
         self.context.containing_fx().is_input_fx()
     }
 
-    pub fn mappings_changed(&self) -> impl UnitEvent {
-        self.mappings_changed_subject.clone()
+    /// Fires if a mapping has been added, removed or changed its position in the list.
+    ///
+    /// Doesn't fire if a mapping in the list has changed.
+    pub fn mapping_list_changed(&self) -> impl UnitEvent {
+        self.mapping_list_changed_subject.clone()
+    }
+
+    /// Fires whenever any mapping in the list has changed, until the list itself changes.
+    fn any_mapping_changed(&self) -> impl UnitEvent {
+        self.mapping_models
+            .iter()
+            .map(|m| m.borrow().control_relevant_prop_changed())
+            .fold(
+                observable::never().box_it(),
+                |prev: BoxedUnitEvent, current| prev.merge(current).box_it(),
+            )
+            .take_until(self.mapping_list_changed())
+    }
+
+    fn mapping_list_or_any_mapping_changed(&self) -> impl UnitEvent {
+        // TODO Maybe we can just merge mapping_list_changed_subject and
+        //  any_mapping_changed_subject
+        self.mapping_list_or_any_mapping_changed_subject.clone()
     }
 
     pub fn set_mappings(&mut self, mappings: impl Iterator<Item = MappingModel>) {
         self.mapping_models = mappings.map(share_mapping).collect();
-        self.mappings_changed_subject.next(());
+        self.mapping_list_changed_subject.next(());
     }
 
     fn add_mapping(&mut self, mapping: MappingModel) {
         self.mapping_models.push(share_mapping(mapping));
-        self.mappings_changed_subject.next(());
+        self.mapping_list_changed_subject.next(());
     }
 
     pub fn send_feedback(&self) {
         todo!()
+    }
+
+    fn sync_flags_to_real_time_processor(&self) {
+        let task = RealTimeTask::UpdateFlags {
+            let_matched_events_through: self.let_matched_events_through.get(),
+            let_unmatched_events_through: self.let_unmatched_events_through.get(),
+        };
+        self.real_time_sender.send(task);
+    }
+
+    fn sync_mappings_to_real_time_processor(&self) {
+        println!("Something changed");
     }
 
     fn generate_name_for_new_mapping(&self) -> String {

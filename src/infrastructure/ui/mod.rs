@@ -17,6 +17,3 @@ mod mapping_panel_manager;
 pub use mapping_panel_manager::*;
 
 mod constants;
-
-mod scheduling;
-use scheduling::*;

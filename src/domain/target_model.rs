@@ -192,8 +192,14 @@ pub struct TargetModelWithContext<'a> {
 impl<'a> TargetModelWithContext<'a> {
     /// Creates a target based on this model's properties and the current REAPER state.
     ///
-    /// It's possible that no target is created if there's not information provided by the model
-    /// or REAPER state or if the object is not available.
+    /// This returns a target regardless of the activation conditions of the target. Example:
+    /// If `enable_only_if_track_selected` is `true` and the track is _not_ selected when calling
+    /// this function, the target will still be created!
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if not enough information is provided by the model or if something (e.g.
+    /// track/FX/parameter) is not available.
     pub fn create_target(&self) -> Result<ReaperTarget, &'static str> {
         use TargetType::*;
         let target = match self.target.r#type.get() {

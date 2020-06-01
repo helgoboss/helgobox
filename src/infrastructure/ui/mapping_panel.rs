@@ -1,3 +1,4 @@
+use crate::core::when_async;
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
     MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
@@ -6,7 +7,6 @@ use crate::domain::{
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
-use crate::infrastructure::ui::scheduling::when_async;
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -201,17 +201,12 @@ impl MappingPanel {
         event: impl UnitEvent,
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) {
-        when_async(
-            event,
-            move |view| {
-                let view_mirror = view.clone();
-                view_mirror.is_in_reaction.set(true);
-                scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
-                view.with_immutable(reaction);
-            },
-            self,
-            self.party_is_over(),
-        );
+        when_async(event, self.party_is_over(), self, move |view| {
+            let view_mirror = view.clone();
+            view_mirror.is_in_reaction.set(true);
+            scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
+            view.with_immutable(reaction);
+        });
     }
 }
 

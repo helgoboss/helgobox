@@ -1,6 +1,9 @@
 mod session;
 pub use session::*;
 
+mod real_time_processor;
+pub use real_time_processor::*;
+
 mod session_context;
 pub use session_context::*;
 
@@ -12,6 +15,9 @@ pub use mode_model::*;
 
 mod mapping_model;
 pub use mapping_model::*;
+
+mod mapping;
+pub use mapping::*;
 
 mod target;
 pub use target::*;

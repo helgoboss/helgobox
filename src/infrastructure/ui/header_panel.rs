@@ -1,8 +1,8 @@
 use crate::application::SessionData;
+use crate::core::when_async;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::SharedSession;
-use crate::infrastructure::ui::scheduling::when_async;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
@@ -300,7 +300,7 @@ impl HeaderPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, reaction, &self, self.view.closed());
+        when_async(event, self.view.closed(), &self, reaction);
     }
 }
 
