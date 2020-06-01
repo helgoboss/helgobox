@@ -99,7 +99,7 @@ impl View for MainPanel {
             // Close and reopen window, this time with `dimensions()` returning the optimal size to
             // the host.
             let parent_window = window.parent().expect("must have parent");
-            window.close();
+            window.destroy();
             self.open(parent_window);
             return false;
         }

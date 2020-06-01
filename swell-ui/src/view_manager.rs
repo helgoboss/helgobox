@@ -1,6 +1,6 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{SharedView, View, WeakView, Window};
-use std::cell::RefCell;
+use std::cell::{BorrowMutError, Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -115,119 +115,141 @@ unsafe extern "C" fn view_dialog_proc(
     lparam: raw::LPARAM,
 ) -> raw::INT_PTR {
     catch_unwind(|| {
-        let view: SharedView<dyn View> = if msg == raw::WM_INITDIALOG {
-            // A view window is initializing. At this point lparam contains the value which we
-            // passed when calling CreateDialogParam. This contains the address of a
-            // view reference. At subsequent calls, this address is not passed anymore
-            // but only the HWND. So we need to save a HWND-to-view mapping now.
-            let view_ref = interpret_address_as_view_ref(lparam as _);
-            ViewManager::get()
-                .borrow_mut()
-                .register_view(hwnd, view_ref);
-            view_ref.clone()
-        } else {
-            // Try to find view corresponding to given HWND
-            match ViewManager::get().borrow().lookup_view(hwnd) {
-                None => {
-                    // View is not (yet) registered. Do default stuff.
-                    return 0;
-                }
-                Some(v) => {
-                    // View is registered. See if it's still existing. If not, the primary owner
-                    // (most likely a parent view) dropped it already. In that case we panic
-                    // with an appropriate error description. Because requesting a view which was
-                    // dropped already means we have some bug in programming - a
-                    // logical issue related to lifetimes. It's important
-                    // that we neither hide the issue nor cause a segmentation
-                    // fault. That's the whole point of keeping weak pointers:
-                    // To be able to fail as gracefully as we can do in such a
-                    // situation (= panicking instead of crashing) while still
-                    // notifying the user (or ideally developer) that there's an issue.
-                    v.upgrade()
-                        .ok_or("Requested ui is registered in ui map but has been dropped already")
-                        .unwrap()
+        DIALOG_PROC_ALREADY_ENTERED.with(|entered| {
+            // Detect reentrancy
+            let already_entered = entered.replace(true);
+            scopeguard::defer! {
+                if !already_entered {
+                    entered.set(false);
                 }
             }
-        };
-        // Found view.
-        // Make view reentry-aware.
-        let view_mirror = view.clone();
-        view_mirror.view_context().enter();
-        scopeguard::defer! {
-            view_mirror.view_context().leave();
-        }
-        // Delegate to view struct methods.
-        let window = Window::new(hwnd).expect("window was null");
-        if let Some(result) = view.process_raw(window, msg, wparam, lparam) {
-            return result;
-        }
-        match msg {
-            raw::WM_INITDIALOG => {
-                view.view_context().window.replace(Some(window));
-                window.show();
-                let keyboard_focus_desired = view.opened(window);
-                // WM_INITDIALOG is special in a DialogProc in that we don't need to use
-                // `SetWindowLong()` for return values with special meaning.
-                keyboard_focus_desired.into()
-            }
-            raw::WM_DESTROY => {
-                let view_context = view.view_context();
-                view_context.closed_subject.borrow_mut().next(());
-                view_context.window.replace(None);
-                view.closed(window);
-                ViewManager::get().borrow_mut().unregister_view(hwnd);
-                1
-            }
-            raw::WM_COMMAND => {
-                let resource_id = loword(wparam);
-                match hiword(wparam) as u32 {
-                    0 => {
-                        view.button_clicked(resource_id as _);
-                        // We just say the click is handled. Don't know where this  would not  be
-                        // the case.
-                        1
+            // Obtain view
+            let view: SharedView<dyn View> = if msg == raw::WM_INITDIALOG {
+                // A view window is initializing. At this point lparam contains the value which we
+                // passed when calling CreateDialogParam. This contains the address of a
+                // view reference. At subsequent calls, this address is not passed anymore
+                // but only the HWND. So we need to save a HWND-to-view mapping now.
+                let view_ref = interpret_address_as_view_ref(lparam as _);
+                ViewManager::get()
+                    .borrow_mut()
+                    .register_view(hwnd, view_ref);
+                view_ref.clone()
+            } else {
+                // Try to find view corresponding to given HWND
+                match ViewManager::get().borrow().lookup_view(hwnd) {
+                    None => {
+                        // View is not (yet) registered. Do default stuff.
+                        return 0;
                     }
-                    raw::CBN_SELCHANGE => {
-                        view.option_selected(resource_id as _);
-                        // We just say the selection is handled. Don't know where this would not
-                        // be the case.
-                        1
+                    Some(v) => {
+                        // View is registered. See if it's still existing. If not, the primary owner
+                        // (most likely a parent view) dropped it already. In that case we panic
+                        // with an appropriate error description. Because requesting a view which
+                        // was dropped already means we have some bug in
+                        // programming - a logical issue related to
+                        // lifetimes. It's important that we neither hide
+                        // the issue nor cause a segmentation fault. That's
+                        // the whole point of keeping weak pointers:
+                        // To be able to fail as gracefully as we can do in such a
+                        // situation (= panicking instead of crashing) while still
+                        // notifying the user (or ideally developer) that there's an issue.
+                        v.upgrade()
+                            .ok_or(
+                                "Requested ui is registered in ui map but has been dropped already",
+                            )
+                            .unwrap()
                     }
-                    raw::EN_KILLFOCUS => view.edit_control_focus_killed(resource_id as _).into(),
-                    raw::EN_CHANGE => view.edit_control_changed(resource_id as _).into(),
-                    _ => 0,
                 }
+            };
+            // Found view.
+            // Make view reentry-aware.
+            let view_mirror = view.clone();
+            view_mirror.view_context().enter();
+            scopeguard::defer! {
+                view_mirror.view_context().leave();
             }
-            raw::WM_VSCROLL => {
-                let code = loword(wparam);
-                view.scrolled_vertically(code as _).into()
+            // Delegate to view struct methods.
+            let window = Window::new(hwnd).expect("window was null");
+            if let Some(result) = view.process_raw(window, msg, wparam, lparam) {
+                return result;
             }
-            raw::WM_HSCROLL => {
-                if lparam <= 0 {
-                    // This is not a slider. Not interested.
-                    return 0;
+            match msg {
+                raw::WM_INITDIALOG => {
+                    view.view_context().window.replace(Some(window));
+                    window.show();
+                    let keyboard_focus_desired = view.opened(window);
+                    // WM_INITDIALOG is special in a DialogProc in that we don't need to use
+                    // `SetWindowLong()` for return values with special meaning.
+                    keyboard_focus_desired.into()
                 }
-                let raw_slider = NonNull::new_unchecked(lparam as raw::HWND);
-                view.slider_moved(Window::from_non_null(raw_slider));
-                1
-            }
-            raw::WM_MOUSEWHEEL => {
-                let distance = hiword_signed(wparam);
-                view.mouse_wheel_turned(distance as _).into()
-            }
-            raw::WM_KEYDOWN => {
-                let key_code = wparam as u32;
-                view.virtual_key_pressed(key_code).into()
-            }
-            raw::WM_CLOSE => {
-                let processed = view.close_requested();
-                if !processed {
-                    window.destroy();
+                raw::WM_DESTROY => {
+                    let view_context = view.view_context();
+                    view_context.closed_subject.borrow_mut().next(());
+                    view_context.window.replace(None);
+                    view.closed(window);
+                    ViewManager::get().borrow_mut().unregister_view(hwnd);
+                    1
                 }
-                1
+                raw::WM_COMMAND => {
+                    let resource_id = loword(wparam);
+                    match hiword(wparam) as u32 {
+                        0 => {
+                            view.button_clicked(resource_id as _);
+                            // We just say the click is handled. Don't know where this  would not
+                            // be the case.
+                            1
+                        }
+                        raw::CBN_SELCHANGE => {
+                            view.option_selected(resource_id as _);
+                            // We just say the selection is handled. Don't know where this would not
+                            // be the case.
+                            1
+                        }
+                        raw::EN_KILLFOCUS => {
+                            view.edit_control_focus_killed(resource_id as _).into()
+                        }
+                        raw::EN_CHANGE => {
+                            // Edit control change event is fired even if we change an edit control
+                            // text programmatically. We don't want this. In general.
+                            if already_entered {
+                                return 0;
+                            }
+                            view.edit_control_changed(resource_id as _).into()
+                        }
+                        _ => 0,
+                    }
+                }
+                raw::WM_VSCROLL => {
+                    let code = loword(wparam);
+                    view.scrolled_vertically(code as _).into()
+                }
+                raw::WM_HSCROLL => {
+                    if lparam <= 0 {
+                        // This is not a slider. Not interested.
+                        return 0;
+                    }
+                    let raw_slider = NonNull::new_unchecked(lparam as raw::HWND);
+                    view.slider_moved(Window::from_non_null(raw_slider));
+                    1
+                }
+                raw::WM_MOUSEWHEEL => {
+                    let distance = hiword_signed(wparam);
+                    view.mouse_wheel_turned(distance as _).into()
+                }
+                raw::WM_KEYDOWN => {
+                    let key_code = wparam as u32;
+                    view.virtual_key_pressed(key_code).into()
+                }
+                raw::WM_CLOSE => {
+                    let processed = view.close_requested();
+                    if !processed {
+                        window.destroy();
+                    }
+                    1
+                }
+                _ => 0,
             }
-            _ => 0,
-        }
+        })
     })
     .unwrap_or(0)
 }
@@ -243,3 +265,6 @@ fn hiword(wparam: usize) -> u16 {
 fn hiword_signed(wparam: usize) -> i16 {
     hiword(wparam) as _
 }
+
+/// Used for global dialog proc reentrancy check.
+thread_local!(static DIALOG_PROC_ALREADY_ENTERED: Cell<bool> = Cell::new(false));

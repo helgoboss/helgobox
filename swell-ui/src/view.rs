@@ -172,7 +172,7 @@ pub trait View {
 
     /// Closes this view.
     fn close(&self) {
-        self.view_context().window.get().map(Window::close);
+        self.view_context().window.get().map(Window::destroy);
     }
 
     /// Returns whether this view is currently open.

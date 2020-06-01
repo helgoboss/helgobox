@@ -24,6 +24,7 @@ use std::convert::{TryFrom, TryInto};
 use std::ffi::CString;
 use std::iter;
 use std::ops::Deref;
+use std::ptr::null;
 use std::rc::{Rc, Weak};
 use std::str::FromStr;
 use std::time::Duration;
@@ -33,9 +34,11 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 pub struct MappingPanel {
     view: ViewContext,
     session: SharedSession,
-    mapping: RefCell<SharedMapping>,
+    mapping: RefCell<Option<SharedMapping>>,
     is_in_reaction: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
+    // Fires when a mapping is about to change or the panel is hidden.
+    party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
 // TODO Is it enough to have a MutableMappingPanel?
@@ -72,35 +75,65 @@ struct Sliders {
 }
 
 impl MappingPanel {
-    pub fn new(session: SharedSession, mapping: SharedMapping) -> MappingPanel {
+    pub fn new(session: SharedSession) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session,
-            mapping: RefCell::new(mapping),
+            mapping: None.into(),
             is_in_reaction: false.into(),
             sliders: None.into(),
+            party_is_over_subject: Default::default(),
         }
     }
 
-    pub fn set_mapping(&self, mapping: SharedMapping) {
-        self.mapping.replace(mapping);
+    pub fn is_free(&self) -> bool {
+        self.mapping.borrow().is_none()
     }
 
     pub fn mapping_ptr(&self) -> *const MappingModel {
-        self.mapping.borrow().as_ptr() as _
+        match self.mapping.borrow().as_ref() {
+            None => null(),
+            Some(m) => m.as_ptr() as _,
+        }
     }
 
     pub fn hide(&self) {
+        self.stop_party();
         self.view.require_window().hide();
+        self.mapping.replace(None);
     }
 
-    pub fn show(&self) {
-        self.view.require_window().show();
+    pub fn show(self: SharedView<Self>, mapping: SharedMapping) {
+        self.stop_party();
+        self.mapping.replace(Some(mapping));
+        self.clone().start_party();
+        self.bring_to_foreground();
+    }
+
+    pub fn bring_to_foreground(&self) {
+        let window = self.view.require_window();
+        window.hide();
+        window.show();
+    }
+
+    /// Unregisters listeners.
+    fn stop_party(&self) {
+        self.party_is_over_subject.borrow_mut().next(());
+    }
+
+    /// Invalidates everything and registers listeners.
+    fn start_party(self: SharedView<Self>) {
+        self.with_immutable(|p| {
+            p.fill_all_controls();
+            p.invalidate_all_controls();
+            p.register_listeners();
+        });
     }
 
     fn with_immutable<R>(self: SharedView<Self>, op: impl Fn(&ImmutableMappingPanel) -> R) -> R {
         let session = self.session.borrow();
         let shared_mapping = self.mapping.borrow();
+        let shared_mapping = shared_mapping.as_ref().expect("mapping not filled");
         let mapping = shared_mapping.borrow();
         let p = ImmutableMappingPanel {
             session: &session,
@@ -119,6 +152,7 @@ impl MappingPanel {
     fn with_mutable<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
         let mut session = self.session.borrow_mut();
         let mut shared_mapping = self.mapping.borrow_mut();
+        let mut shared_mapping = shared_mapping.as_mut().expect("mapping not filled");
         let mut mapping = shared_mapping.borrow_mut();
         let mut p = MutableMappingPanel {
             session: &mut session,
@@ -156,6 +190,12 @@ impl MappingPanel {
         self.sliders.replace(Some(sliders));
     }
 
+    fn party_is_over(&self) -> impl UnitEvent {
+        self.view
+            .closed()
+            .merge(self.party_is_over_subject.borrow().clone())
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -170,7 +210,7 @@ impl MappingPanel {
                 view.with_immutable(reaction);
             },
             self,
-            self.view.closed(),
+            self.party_is_over(),
         );
     }
 }
@@ -1748,29 +1788,26 @@ impl View for MappingPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.memorize_all_slider_controls();
-        self.with_immutable(|p| {
-            p.fill_all_controls();
-            p.invalidate_all_controls();
-            p.register_listeners();
-        });
         true
     }
 
-    // fn close_requested(self: SharedView<Self>) -> bool {
-    //     self.hide();
-    //     true
-    // }
+    fn close_requested(self: SharedView<Self>) -> bool {
+        self.hide();
+        true
+    }
 
     fn closed(self: SharedView<Self>, window: Window) {
         self.sliders.replace(None);
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        if resource_id == root::ID_OK {
+            self.hide();
+            return;
+        }
         self.with_mutable(|p| {
             use root::*;
             match resource_id {
-                // General
-                ID_OK => p.panel.close(),
                 // Mapping
                 ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => p.update_mapping_control_enabled(),
                 ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => p.update_mapping_feedback_enabled(),
@@ -1862,15 +1899,12 @@ impl View for MappingPanel {
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
-        // TODO-low Multiple reentrancy checks ... is one of them obsolete?
         if self.is_in_reaction() {
-            // We are just reacting (async) to a change. Although the edit control text is changed
-            // programmatically, it also triggers the change handler. Ignore it!
-            return false;
-        }
-        if self.view.has_been_reentered() {
-            // Oh, similar problem. The dialog procedure has been reentered because we changed
-            // an edit control text programmatically (e.g. when opening the window). Go away!
+            // We don't want to continue if the edit control change was not caused by the user.
+            // Although the edit control text is changed programmatically, it also triggers the
+            // change handler. Ignore it! Most of those events are filtered out already
+            // by the dialog proc reentrancy check, but this one is not because the
+            // dialog proc is not reentered - we are just reacting (async) to a change.
             return false;
         }
         self.with_mutable(|p| {
@@ -1922,6 +1956,7 @@ impl View for MappingPanel {
     }
 
     fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        // This is also called when the window is hidden.
         self.with_immutable(|p| {
             // The edit control which is currently edited by the user doesn't get invalidated during
             // `edit_control_changed()`, for good reasons. As soon as the edit control loses focus,
