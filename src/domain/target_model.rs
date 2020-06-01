@@ -106,6 +106,27 @@ impl TargetModel {
         matches!(self.r#type.get(), FxParameter | FxEnable | FxPreset)
     }
 
+    /// Returns whether all conditions for this target to be active are met.
+    ///
+    /// Targets conditions are for example "track selected" or "FX focused".
+    pub fn conditions_are_met(&self, target: &ReaperTarget) -> bool {
+        if self.enable_only_if_track_selected.get() {
+            if let Some(track) = target.track() {
+                if !track.is_selected() {
+                    return false;
+                }
+            }
+        }
+        if self.enable_only_if_fx_has_focus.get() {
+            if let Some(fx) = target.fx() {
+                if !fx.window_has_focus() {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     fn command_id_label(&self) -> Cow<str> {
         match self.command_id.get() {
             None => "-".into(),

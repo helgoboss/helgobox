@@ -233,6 +233,36 @@ impl ReaperTarget {
             _ => "%",
         }
     }
+
+    pub fn track(&self) -> Option<&Track> {
+        use ReaperTarget::*;
+        let track = match self {
+            FxParameter { param } => param.fx().track(),
+            TrackVolume { track } => track,
+            TrackSendVolume { send } => send.source_track(),
+            TrackPan { track } => track,
+            TrackArm { track } => track,
+            TrackSelection { track, .. } => track,
+            TrackMute { track } => track,
+            TrackSolo { track } => track,
+            TrackSendPan { send } => send.source_track(),
+            FxEnable { fx } => fx.track(),
+            FxPreset { fx } => fx.track(),
+            _ => return None,
+        };
+        Some(track)
+    }
+
+    pub fn fx(&self) -> Option<&Fx> {
+        use ReaperTarget::*;
+        let fx = match self {
+            FxParameter { param } => param.fx(),
+            FxEnable { fx } => fx,
+            FxPreset { fx } => fx,
+            _ => return None,
+        };
+        Some(fx)
+    }
 }
 
 impl Target for ReaperTarget {

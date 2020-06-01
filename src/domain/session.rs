@@ -5,7 +5,7 @@ use crate::domain::{
 };
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
-use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice};
+use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
     create_local_prop as p, BoxedUnitEvent, LocalProp, LocalStaticProp, SharedEvent, SharedProp,
@@ -87,11 +87,17 @@ impl Session {
                 .next(());
             Session::resubscribe_to_all_mappings(s.clone());
         });
+        let reaper = Reaper::get();
         Session::when(
             &shared_session,
-            session.mapping_list_or_any_mapping_changed(),
+            session
+                .mapping_list_or_any_mapping_changed()
+                // The following conditions can enable/disable targets, so we do a re-sync!
+                .merge(reaper.track_selected_changed().map_to(()))
+                // TODO-high Problem: We don't get notified about focus kill :(
+                .merge(reaper.fx_focused().map_to(())),
             move |s| {
-                // TODO This is pretty much stuff to do when doing slider changes.
+                // TODO-medium This is pretty much stuff to do when doing slider changes.
                 //  A debounce would be in line!
                 s.borrow().sync_mappings_to_real_time_processor();
             },
@@ -286,7 +292,11 @@ impl Session {
     fn sync_mappings_to_real_time_processor(&self) {
         let mappings: Vec<Mapping> = self
             .mappings()
-            .map(|m| m.borrow().with_context(&self.context).create_mapping())
+            .map(|m| {
+                m.borrow()
+                    .with_context(&self.context)
+                    .create_real_time_mapping()
+            })
             .flatten()
             .collect();
         let task = RealTimeTask::UpdateMappings(mappings);
