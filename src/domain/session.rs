@@ -152,8 +152,14 @@ impl Session {
             .enumerate()
             .find(|(i, m)| m.as_ptr() == mapping as _)
             .ok_or("mapping not found")?;
-        let mut duplicate = mapping.borrow().clone();
-        duplicate.name.set(self.generate_name_for_new_mapping());
+        let duplicate = {
+            let mapping = mapping.borrow();
+            let mut duplicate = mapping.clone();
+            duplicate
+                .name
+                .set(format!("Copy of {}", mapping.name.get_ref()));
+            duplicate
+        };
         self.mapping_models
             .insert(index + 1, share_mapping(duplicate));
         self.mappings_changed_subject.next(());
