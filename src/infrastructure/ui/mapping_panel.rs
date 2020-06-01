@@ -1801,7 +1801,7 @@ impl View for MappingPanel {
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        if resource_id == root::ID_OK {
+        if matches!(resource_id, root::ID_OK | raw::IDCANCEL) {
             self.hide();
             return;
         }
@@ -1890,12 +1890,6 @@ impl View for MappingPanel {
                 _ => unreachable!(),
             };
         });
-    }
-
-    fn virtual_key_pressed(self: SharedView<Self>, key_code: u32) -> bool {
-        // TODO-low Really not sure if this is necessary
-        // Don't close this window just by pressing enter
-        false
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {

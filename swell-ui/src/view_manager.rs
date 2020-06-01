@@ -230,10 +230,6 @@ unsafe extern "C" fn view_dialog_proc(
                     let distance = hiword_signed(wparam);
                     view.mouse_wheel_turned(distance as _).into()
                 }
-                raw::WM_KEYDOWN => {
-                    let key_code = wparam as u32;
-                    view.virtual_key_pressed(key_code).into()
-                }
                 raw::WM_CLOSE => {
                     let processed = view.close_requested();
                     if !processed {

@@ -111,13 +111,6 @@ pub trait View {
         false
     }
 
-    /// WM_KEYDOWN, wparam.
-    ///
-    /// Should return `true` if processed.
-    fn virtual_key_pressed(self: SharedView<Self>, key_code: u32) -> bool {
-        false
-    }
-
     /// EN_CHANGE, LOWORD(wparam).
     ///
     /// Should return `true` if processed.
