@@ -162,12 +162,6 @@ unsafe extern "C" fn view_dialog_proc(
                 }
             };
             // Found view.
-            // Make view reentry-aware.
-            let view_mirror = view.clone();
-            view_mirror.view_context().enter();
-            scopeguard::defer! {
-                view_mirror.view_context().leave();
-            }
             // Delegate to view struct methods.
             let window = Window::new(hwnd).expect("window was null");
             if let Some(result) = view.process_raw(window, msg, wparam, lparam) {
