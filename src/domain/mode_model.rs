@@ -1,3 +1,4 @@
+use crate::core::{prop, Prop};
 use crate::domain::ReaperTarget;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -8,7 +9,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde_repr::*;
 
@@ -16,21 +17,21 @@ use serde_repr::*;
 #[derive(Clone, Debug)]
 pub struct ModeModel {
     // For all modes
-    pub r#type: LocalStaticProp<ModeType>,
-    pub target_value_interval: LocalStaticProp<Interval<UnitValue>>,
+    pub r#type: Prop<ModeType>,
+    pub target_value_interval: Prop<Interval<UnitValue>>,
     // For absolute and relative mode
-    pub source_value_interval: LocalStaticProp<Interval<UnitValue>>,
-    pub reverse: LocalStaticProp<bool>,
+    pub source_value_interval: Prop<Interval<UnitValue>>,
+    pub reverse: Prop<bool>,
     // For absolute mode
-    pub jump_interval: LocalStaticProp<Interval<UnitValue>>,
-    pub ignore_out_of_range_source_values: LocalStaticProp<bool>,
-    pub round_target_value: LocalStaticProp<bool>,
-    pub approach_target_value: LocalStaticProp<bool>,
-    pub eel_control_transformation: LocalStaticProp<String>,
-    pub eel_feedback_transformation: LocalStaticProp<String>,
+    pub jump_interval: Prop<Interval<UnitValue>>,
+    pub ignore_out_of_range_source_values: Prop<bool>,
+    pub round_target_value: Prop<bool>,
+    pub approach_target_value: Prop<bool>,
+    pub eel_control_transformation: Prop<String>,
+    pub eel_feedback_transformation: Prop<String>,
     // For relative mode
-    pub step_size_interval: LocalStaticProp<Interval<UnitValue>>,
-    pub rotate: LocalStaticProp<bool>,
+    pub step_size_interval: Prop<Interval<UnitValue>>,
+    pub rotate: Prop<bool>,
 }
 
 /// Represents a value transformation done via EEL scripting language.
@@ -99,18 +100,18 @@ pub enum ModeType {
 impl Default for ModeModel {
     fn default() -> Self {
         Self {
-            r#type: p(ModeType::Absolute),
-            target_value_interval: p(full_unit_interval()),
-            source_value_interval: p(full_unit_interval()),
-            reverse: p(false),
-            jump_interval: p(full_unit_interval()),
-            ignore_out_of_range_source_values: p(false),
-            round_target_value: p(false),
-            approach_target_value: p(false),
-            eel_control_transformation: p(String::new()),
-            eel_feedback_transformation: p(String::new()),
-            step_size_interval: p(Self::default_step_size_interval()),
-            rotate: p(false),
+            r#type: prop(ModeType::Absolute),
+            target_value_interval: prop(full_unit_interval()),
+            source_value_interval: prop(full_unit_interval()),
+            reverse: prop(false),
+            jump_interval: prop(full_unit_interval()),
+            ignore_out_of_range_source_values: prop(false),
+            round_target_value: prop(false),
+            approach_target_value: prop(false),
+            eel_control_transformation: prop(String::new()),
+            eel_feedback_transformation: prop(String::new()),
+            step_size_interval: prop(Self::default_step_size_interval()),
+            rotate: prop(false),
         }
     }
 }

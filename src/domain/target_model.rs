@@ -1,3 +1,4 @@
+use crate::core::{prop, Prop};
 use crate::domain::{ReaperTarget, SessionContext, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -6,7 +7,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Action, Fx, FxParameter, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde_repr::*;
 use std::borrow::Cow;
@@ -17,39 +18,39 @@ use std::fmt::{Display, Formatter};
 #[derive(Clone, Debug)]
 pub struct TargetModel {
     // For all targets
-    pub r#type: LocalStaticProp<TargetType>,
+    pub r#type: Prop<TargetType>,
     // For action targets only
-    pub command_id: LocalStaticProp<Option<CommandId>>,
-    pub action_invocation_type: LocalStaticProp<ActionInvocationType>,
+    pub command_id: Prop<Option<CommandId>>,
+    pub action_invocation_type: Prop<ActionInvocationType>,
     // For track targets
-    pub track: LocalStaticProp<VirtualTrack>,
-    pub enable_only_if_track_selected: LocalStaticProp<bool>,
+    pub track: Prop<VirtualTrack>,
+    pub enable_only_if_track_selected: Prop<bool>,
     // For track FX targets
-    pub fx_index: LocalStaticProp<Option<u32>>,
-    pub is_input_fx: LocalStaticProp<bool>,
-    pub enable_only_if_fx_has_focus: LocalStaticProp<bool>,
+    pub fx_index: Prop<Option<u32>>,
+    pub is_input_fx: Prop<bool>,
+    pub enable_only_if_fx_has_focus: Prop<bool>,
     // For track FX parameter targets
-    pub param_index: LocalStaticProp<u32>,
+    pub param_index: Prop<u32>,
     // For track send targets
-    pub send_index: LocalStaticProp<Option<u32>>,
+    pub send_index: Prop<Option<u32>>,
     // For track selection targets
-    pub select_exclusively: LocalStaticProp<bool>,
+    pub select_exclusively: Prop<bool>,
 }
 
 impl Default for TargetModel {
     fn default() -> Self {
         Self {
-            r#type: p(TargetType::FxParameter),
-            command_id: p(None),
-            action_invocation_type: p(ActionInvocationType::Trigger),
-            track: p(VirtualTrack::This),
-            enable_only_if_track_selected: p(false),
-            fx_index: p(None),
-            is_input_fx: p(false),
-            enable_only_if_fx_has_focus: p(false),
-            param_index: p(0),
-            send_index: p(None),
-            select_exclusively: p(false),
+            r#type: prop(TargetType::FxParameter),
+            command_id: prop(None),
+            action_invocation_type: prop(ActionInvocationType::Trigger),
+            track: prop(VirtualTrack::This),
+            enable_only_if_track_selected: prop(false),
+            fx_index: prop(None),
+            is_input_fx: prop(false),
+            enable_only_if_fx_has_focus: prop(false),
+            param_index: prop(0),
+            send_index: prop(None),
+            select_exclusively: prop(false),
         }
     }
 }

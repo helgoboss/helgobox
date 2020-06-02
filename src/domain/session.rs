@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::core::when_async;
+use crate::core::{prop, when_async, Prop};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
     ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, SessionContext,
@@ -9,10 +9,7 @@ use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{
-    create_local_prop as p, BoxedUnitEvent, LocalProp, LocalStaticProp, SharedEvent, SharedProp,
-    UnitEvent,
-};
+use rx_util::{BoxedUnitEvent, SharedEvent, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -42,14 +39,14 @@ pub enum MidiFeedbackOutput {
 // TODO Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
-    pub let_matched_events_through: LocalStaticProp<bool>,
-    pub let_unmatched_events_through: LocalStaticProp<bool>,
-    pub always_auto_detect: LocalStaticProp<bool>,
-    pub send_feedback_only_if_armed: LocalStaticProp<bool>,
-    pub midi_control_input: LocalStaticProp<MidiControlInput>,
-    pub midi_feedback_output: LocalStaticProp<Option<MidiFeedbackOutput>>,
-    pub mapping_which_learns_source: LocalStaticProp<Option<SharedMapping>>,
-    pub mapping_which_learns_target: LocalStaticProp<Option<SharedMapping>>,
+    pub let_matched_events_through: Prop<bool>,
+    pub let_unmatched_events_through: Prop<bool>,
+    pub always_auto_detect: Prop<bool>,
+    pub send_feedback_only_if_armed: Prop<bool>,
+    pub midi_control_input: Prop<MidiControlInput>,
+    pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
+    pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
@@ -65,14 +62,14 @@ impl Session {
         main_processor_receiver: crossbeam_channel::Receiver<MainProcessorTask>,
     ) -> Session {
         Self {
-            let_matched_events_through: p(false),
-            let_unmatched_events_through: p(true),
-            always_auto_detect: p(true),
-            send_feedback_only_if_armed: p(true),
-            midi_control_input: p(MidiControlInput::FxInput),
-            midi_feedback_output: p(None),
-            mapping_which_learns_source: p(None),
-            mapping_which_learns_target: p(None),
+            let_matched_events_through: prop(false),
+            let_unmatched_events_through: prop(true),
+            always_auto_detect: prop(true),
+            send_feedback_only_if_armed: prop(true),
+            midi_control_input: prop(MidiControlInput::FxInput),
+            midi_feedback_output: prop(None),
+            mapping_which_learns_source: prop(None),
+            mapping_which_learns_target: prop(None),
             context,
             mapping_models: vec![],
             mapping_list_changed_subject: Default::default(),
@@ -324,7 +321,7 @@ impl Session {
     }
 }
 
-fn toggle_learn(prop: &mut LocalStaticProp<Option<SharedMapping>>, mapping: &SharedMapping) {
+fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping) {
     match prop.get_ref() {
         Some(m) if m.as_ptr() == mapping.as_ptr() => prop.set(None),
         _ => prop.set(Some(mapping.clone())),

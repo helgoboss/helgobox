@@ -1,3 +1,4 @@
+use crate::core::{prop, Prop};
 use crate::domain::{
     MainProcessorMapping, MidiSourceModel, ModeModel, ProcessorMapping, RealTimeProcessorMapping,
     ReaperTarget, SessionContext, SharedMapping, TargetCharacter, TargetModel,
@@ -5,16 +6,16 @@ use crate::domain::{
 };
 use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
-use rx_util::{create_local_prop as p, BoxedUnitEvent, LocalProp, LocalStaticProp, UnitEvent};
+use rx_util::{BoxedUnitEvent, UnitEvent};
 use rxrust::prelude::ops::box_it::{BoxObservable, LocalBoxOp};
 use rxrust::prelude::*;
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
 pub struct MappingModel {
-    pub name: LocalStaticProp<String>,
-    pub control_is_enabled: LocalStaticProp<bool>,
-    pub feedback_is_enabled: LocalStaticProp<bool>,
+    pub name: Prop<String>,
+    pub control_is_enabled: Prop<bool>,
+    pub feedback_is_enabled: Prop<bool>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -24,8 +25,8 @@ impl Default for MappingModel {
     fn default() -> Self {
         Self {
             name: Default::default(),
-            control_is_enabled: p(true),
-            feedback_is_enabled: p(true),
+            control_is_enabled: prop(true),
+            feedback_is_enabled: prop(true),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: Default::default(),

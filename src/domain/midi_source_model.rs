@@ -1,3 +1,4 @@
+use crate::core::{prop, Prop};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -5,7 +6,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::export::Formatter;
 use serde_repr::*;
@@ -15,27 +16,27 @@ use std::fmt::{format, Display};
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
 pub struct MidiSourceModel {
-    pub r#type: LocalStaticProp<MidiSourceType>,
-    pub channel: LocalStaticProp<Option<Channel>>,
-    pub midi_message_number: LocalStaticProp<Option<U7>>,
-    pub parameter_number_message_number: LocalStaticProp<Option<U14>>,
-    pub custom_character: LocalStaticProp<SourceCharacter>,
-    pub midi_clock_transport_message: LocalStaticProp<MidiClockTransportMessage>,
-    pub is_registered: LocalStaticProp<Option<bool>>,
-    pub is_14_bit: LocalStaticProp<Option<bool>>,
+    pub r#type: Prop<MidiSourceType>,
+    pub channel: Prop<Option<Channel>>,
+    pub midi_message_number: Prop<Option<U7>>,
+    pub parameter_number_message_number: Prop<Option<U14>>,
+    pub custom_character: Prop<SourceCharacter>,
+    pub midi_clock_transport_message: Prop<MidiClockTransportMessage>,
+    pub is_registered: Prop<Option<bool>>,
+    pub is_14_bit: Prop<Option<bool>>,
 }
 
 impl Default for MidiSourceModel {
     fn default() -> Self {
         Self {
-            r#type: p(MidiSourceType::ControlChangeValue),
-            channel: p(None),
-            midi_message_number: p(None),
-            parameter_number_message_number: p(None),
-            custom_character: p(SourceCharacter::Range),
-            midi_clock_transport_message: p(MidiClockTransportMessage::Start),
-            is_registered: p(Some(false)),
-            is_14_bit: p(Some(false)),
+            r#type: prop(MidiSourceType::ControlChangeValue),
+            channel: prop(None),
+            midi_message_number: prop(None),
+            parameter_number_message_number: prop(None),
+            custom_character: prop(SourceCharacter::Range),
+            midi_clock_transport_message: prop(MidiClockTransportMessage::Start),
+            is_registered: prop(Some(false)),
+            is_14_bit: prop(Some(false)),
         }
     }
 }
