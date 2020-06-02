@@ -133,6 +133,7 @@ impl Session {
         event: impl UnitEvent,
         reaction: impl Fn(SharedSession) + 'static + Copy,
     ) {
+        // TODO Maybe observable::empty() is better here because it completes and frees resources?
         when_async(event, observable::never(), shared_session, reaction);
     }
 

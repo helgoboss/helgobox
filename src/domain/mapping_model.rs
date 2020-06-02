@@ -1,10 +1,13 @@
 use crate::domain::{
     MainProcessorMapping, MidiSourceModel, ModeModel, ProcessorMapping, RealTimeProcessorMapping,
-    ReaperTarget, SessionContext, TargetCharacter, TargetModel, TargetModelWithContext,
+    ReaperTarget, SessionContext, SharedMapping, TargetCharacter, TargetModel,
+    TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
-use rx_util::{create_local_prop as p, LocalProp, LocalStaticProp, UnitEvent};
+use rx_util::{create_local_prop as p, BoxedUnitEvent, LocalProp, LocalStaticProp, UnitEvent};
+use rxrust::prelude::ops::box_it::{BoxObservable, LocalBoxOp};
+use rxrust::prelude::*;
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
@@ -71,6 +74,27 @@ impl MappingModel {
             .merge(self.mode_model.changed())
             .merge(self.target_model.changed())
             .merge(self.control_is_enabled.changed())
+    }
+
+    pub fn target_value_changed(
+        mapping: SharedMapping,
+        context: SessionContext,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> {
+        Self::target_value_changed_observables(mapping, context).switch_on_next()
+    }
+
+    fn target_value_changed_observables(
+        mapping: SharedMapping,
+        context: SessionContext,
+    ) -> impl LocalObservable<'static, Item = BoxedUnitEvent, Err = ()> {
+        let target_changed = mapping.borrow().target_model.changed();
+        target_changed.map(move |_| {
+            let mapping = mapping.borrow();
+            match mapping.target_model.with_context(&context).create_target() {
+                Ok(t) => t.value_changed(),
+                Err(_) => observable::empty().box_it(),
+            }
+        })
     }
 }
 

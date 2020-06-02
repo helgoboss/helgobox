@@ -1,13 +1,15 @@
 use crate::domain::ActionInvocationType;
 use helgoboss_learn::{ControlValue, Target, UnitValue};
 use reaper_high::{
-    Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Tempo,
-    Track, TrackSend, Volume,
+    Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
+    Tempo, Track, TrackSend, Volume,
 };
 use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, NormalizedPlayRate, PlaybackSpeedFactor,
     ReaperNormalizedFxParamValue, UndoBehavior,
 };
+use rx_util::{BoxedUnitEvent, UnitEvent};
+use rxrust::prelude::*;
 use std::cmp;
 use std::convert::TryInto;
 
@@ -359,6 +361,111 @@ impl ReaperTarget {
             }
         };
         Ok(())
+    }
+
+    pub fn value_changed(&self) -> BoxedUnitEvent {
+        use ReaperTarget::*;
+        match self {
+            Action {
+                action,
+                invocation_type,
+            } => {
+                let action = action.clone();
+                // TODO-medium It's not cool that reaper-rs exposes some events as Payload<Rc<T>>
+                //  and some not
+                Reaper::get()
+                    .action_invoked()
+                    .filter(move |a| a.0.as_ref() == &action)
+                    .map_to(())
+                    .box_it()
+            }
+            FxParameter { param } => {
+                let param = param.clone();
+                Reaper::get()
+                    .fx_parameter_value_changed()
+                    .filter(move |p| p == &param)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackVolume { track } => {
+                let track = track.clone();
+                Reaper::get()
+                    .track_volume_changed()
+                    .filter(move |t| t == &track)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackSendVolume { send } => {
+                let send = send.clone();
+                Reaper::get()
+                    .track_send_volume_changed()
+                    .filter(move |s| s == &send)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackPan { track } => {
+                let track = track.clone();
+                Reaper::get()
+                    .track_pan_changed()
+                    .filter(move |t| t == &track)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackArm { track } => {
+                let track = track.clone();
+                Reaper::get()
+                    .track_arm_changed()
+                    .filter(move |t| t == &track)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackSelection { track, .. } => {
+                let track = track.clone();
+                Reaper::get()
+                    .track_selected_changed()
+                    .filter(move |t| t == &track)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackMute { track } => {
+                let track = track.clone();
+                Reaper::get()
+                    .track_mute_changed()
+                    .filter(move |t| t == &track)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackSolo { track } => {
+                let track = track.clone();
+                Reaper::get()
+                    .track_solo_changed()
+                    .filter(move |t| t == &track)
+                    .map_to(())
+                    .box_it()
+            }
+            TrackSendPan { send } => {
+                let send = send.clone();
+                Reaper::get()
+                    .track_send_pan_changed()
+                    .filter(move |s| s == &send)
+                    .map_to(())
+                    .box_it()
+            }
+            Tempo { .. } => Reaper::get().master_tempo_changed().map_to(()).box_it(),
+            Playrate { .. } => Reaper::get().master_playrate_changed().map_to(()).box_it(),
+            FxEnable { fx } => {
+                let fx = fx.clone();
+                Reaper::get()
+                    .fx_enabled_changed()
+                    .filter(move |f| f == &fx)
+                    .map_to(())
+                    .box_it()
+            }
+            FxPreset { .. } => {
+                // REAPER doesn't notify us when a preset is changed.
+                observable::empty().box_it()
+            }
+        }
     }
 }
 

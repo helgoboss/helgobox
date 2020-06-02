@@ -41,10 +41,11 @@ pub struct MappingPanel {
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
-// TODO Is it enough to have a MutableMappingPanel?
+// TODO-low Is it enough to have a MutableMappingPanel?
 struct ImmutableMappingPanel<'a> {
     session: &'a Session,
     mapping_ptr: *const MappingModel,
+    shared_mapping: &'a SharedMapping,
     mapping: &'a MappingModel,
     source: &'a MidiSourceModel,
     mode: &'a ModeModel,
@@ -138,6 +139,7 @@ impl MappingPanel {
         let p = ImmutableMappingPanel {
             session: &session,
             mapping_ptr: shared_mapping.as_ptr(),
+            shared_mapping: &shared_mapping,
             mapping: &mapping,
             source: &mapping.source_model,
             mode: &mapping.mode_model,
@@ -220,7 +222,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn open_target(&self) {
-        // TODO Do later, not so important
+        // TODO-high Do later, not so important
     }
 
     fn toggle_learn_source(&mut self) {
@@ -582,7 +584,9 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_value_from_slider(&mut self, slider: Window) {
-        // TODO Do later, not so important
+        if let Some(t) = self.real_target() {
+            t.control(ControlValue::Absolute(slider.slider_unit_value()));
+        }
     }
 
     fn update_target_is_input_fx(&mut self) {
@@ -1176,7 +1180,14 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_value_controls(&self) {
-        // TODO Do later, not so important
+        if let Some(t) = self.real_target() {
+            self.invalidate_target_controls_internal(
+                root::ID_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_TARGET_VALUE_TEXT,
+                t.current_value(),
+            )
+        }
     }
 
     fn invalidate_learn_target_button(&self) {
@@ -1641,6 +1652,13 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_target_listeners(&self) {
         let target = self.target;
+        // let target_value_changed = MappingModel::target_value_changed(
+        //     self.shared_mapping.clone(),
+        //     self.session.context().clone(),
+        // );
+        // self.panel.when(target_value_changed, |view| {
+        //     view.invalidate_target_value_controls();
+        // });
         self.panel.when(target.r#type.changed(), |view| {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
@@ -1649,7 +1667,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
         });
-        // TODO .merge(fxChanged())
+        // TODO-high ReaLearn C++ had additional ugly code to keep the FX synced on fxAdded,
+        //  fxRemoved  and fxReordered. See how it behaves in ReaLearn RS (uses other techniques)
+        //  and - if still relevant - write hopefully not so ugly code to handle that.
         self.panel.when(
             target
                 .fx_index
