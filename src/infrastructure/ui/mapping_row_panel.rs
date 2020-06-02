@@ -1,4 +1,4 @@
-use crate::core::when_async;
+use crate::core::when_sync;
 use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::common::bindings::root;
@@ -27,7 +27,7 @@ pub struct MappingRowPanel {
     // `None`, which will make the row hide itself.
     mapping: RefCell<Option<SharedMapping>>,
     // Fires when a mapping is about to change.
-    mapping_will_change_subject: RefCell<LocalSubject<'static, (), ()>>,
+    party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
     mapping_panel_manager: SharedMappingPanelManager,
 }
 
@@ -41,14 +41,14 @@ impl MappingRowPanel {
             view: Default::default(),
             session,
             row_index,
-            mapping_will_change_subject: Default::default(),
+            party_is_over_subject: Default::default(),
             mapping: None.into(),
             mapping_panel_manager,
         }
     }
 
     pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMapping>) {
-        self.mapping_will_change_subject.borrow_mut().next(());
+        self.party_is_over_subject.borrow_mut().next(());
         match &mapping {
             None => self.view.require_window().hide(),
             Some(m) => {
@@ -169,7 +169,7 @@ impl MappingRowPanel {
     fn closed_or_mapping_will_change(&self) -> impl UnitEvent {
         self.view
             .closed()
-            .merge(self.mapping_will_change_subject.borrow().clone())
+            .merge(self.party_is_over_subject.borrow().clone())
     }
 
     fn require_mapping(&self) -> Ref<SharedMapping> {
@@ -243,7 +243,7 @@ impl MappingRowPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, self.closed_or_mapping_will_change(), &self, reaction);
+        when_sync(event, self.closed_or_mapping_will_change(), &self, reaction);
     }
 }
 

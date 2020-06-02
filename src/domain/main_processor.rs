@@ -18,7 +18,6 @@ impl MainProcessor {
     }
 
     pub fn update_mappings(&mut self, mappings: Vec<MainProcessorMapping>) {
-        println!("Update main mappings {:?} ", &mappings);
         self.mappings = mappings;
     }
 

@@ -1,4 +1,4 @@
-use crate::core::when_async;
+use crate::core::when_sync;
 use crate::domain::SharedSession;
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
@@ -203,7 +203,7 @@ impl MappingPanel {
         event: impl UnitEvent,
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) {
-        when_async(event, self.party_is_over(), self, move |view| {
+        when_sync(event, self.party_is_over(), self, move |view| {
             let view_mirror = view.clone();
             view_mirror.is_in_reaction.set(true);
             scopeguard::defer! { view_mirror.is_in_reaction.set(false); }

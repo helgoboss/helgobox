@@ -37,15 +37,11 @@ impl RealTimeProcessor {
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use RealTimeProcessorTask::*;
             match task {
-                UpdateMappings(mappings) => {
-                    println!("Mappings synced: {:?}", &mappings);
-                    self.mappings = mappings
-                }
+                UpdateMappings(mappings) => self.mappings = mappings,
                 UpdateFlags {
                     let_matched_events_through,
                     let_unmatched_events_through,
                 } => {
-                    println!("Flags synced");
                     self.let_matched_events_through = let_matched_events_through;
                     self.let_unmatched_events_through = let_unmatched_events_through;
                 }

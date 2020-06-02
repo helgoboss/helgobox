@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::core::{prop, when_async, Prop};
+use crate::core::{prop, when_async, when_sync, AsyncNotifier, Prop};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
     ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, SessionContext,
@@ -9,7 +9,7 @@ use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{BoxedUnitEvent, SharedEvent, UnitEvent};
+use rx_util::{BoxedUnitEvent, Notifier, SharedEvent, SyncNotifier, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -50,6 +50,7 @@ pub struct Session {
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
+    // TODO-high Solve this with switch_next
     mapping_list_or_any_mapping_changed_subject: LocalSubject<'static, (), ()>,
     main_processor: MainProcessor,
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
@@ -84,23 +85,21 @@ impl Session {
         {
             let session = shared_session.borrow();
             // Whenever the mapping list changes, notify listeners and resubscribe to all mappings.
-            Session::when(&shared_session, session.mapping_list_changed(), move |s| {
-                s.borrow_mut()
-                    .mapping_list_or_any_mapping_changed_subject
-                    .next(());
+            Session::when_async(session.mapping_list_changed(), &shared_session, move |s| {
+                s.borrow_mut().notify_mapping_list_or_any_mapping_changed();
                 Session::resubscribe_to_all_mappings(s.clone());
             });
             let reaper = Reaper::get();
             // Whenever anything in the mapping changes, including the mappings itself, resync
             // mappings to processors.
-            Session::when(
-                &shared_session,
+            Session::when_async(
                 session
                     .mapping_list_or_any_mapping_changed()
                     // The following conditions can enable/disable targets, so we do a re-sync!
                     .merge(reaper.track_selected_changed().map_to(()))
                     // TODO-high Problem: We don't get notified about focus kill :(
                     .merge(reaper.fx_focused().map_to(())),
+                &shared_session,
                 move |s| {
                     // TODO-medium This is pretty much stuff to do when doing slider changes.
                     //  A debounce is in order!
@@ -108,12 +107,12 @@ impl Session {
                 },
             );
             // Whenever additional settings are changed, resync them to the processors.
-            Session::when(
-                &shared_session,
+            Session::when_sync(
                 session
                     .let_matched_events_through
                     .changed()
                     .merge(session.let_unmatched_events_through.changed()),
+                &shared_session,
                 move |s| {
                     s.borrow().sync_flags_to_real_time_processor();
                 },
@@ -125,21 +124,10 @@ impl Session {
         });
     }
 
-    fn when(
-        shared_session: &SharedSession,
-        event: impl UnitEvent,
-        reaction: impl Fn(SharedSession) + 'static + Copy,
-    ) {
-        // TODO Maybe observable::empty() is better here because it completes and frees resources?
-        when_async(event, observable::never(), shared_session, reaction);
-    }
-
     fn resubscribe_to_all_mappings(shared_session: SharedSession) {
         let session = shared_session.borrow();
-        Session::when(&shared_session, session.any_mapping_changed(), move |s| {
-            s.borrow_mut()
-                .mapping_list_or_any_mapping_changed_subject
-                .next(());
+        Session::when_async(session.any_mapping_changed(), &shared_session, move |s| {
+            s.borrow_mut().notify_mapping_list_or_any_mapping_changed();
         });
     }
 
@@ -214,13 +202,13 @@ impl Session {
             return Err("too far down");
         }
         self.mapping_models.swap(current_index, new_index);
-        self.mapping_list_changed_subject.next(());
+        self.notify_mapping_list_changed();
         Ok(())
     }
 
     pub fn remove_mapping(&mut self, mapping: *const MappingModel) {
         self.mapping_models.retain(|m| m.as_ptr() != mapping as _);
-        self.mapping_list_changed_subject.next(());
+        self.notify_mapping_list_changed();
     }
 
     pub fn duplicate_mapping(&mut self, mapping: *const MappingModel) -> Result<(), &str> {
@@ -240,7 +228,7 @@ impl Session {
         };
         self.mapping_models
             .insert(index + 1, share_mapping(duplicate));
-        self.mapping_list_changed_subject.next(());
+        self.notify_mapping_list_changed();
         Ok(())
     }
 
@@ -281,16 +269,24 @@ impl Session {
 
     pub fn set_mappings(&mut self, mappings: impl Iterator<Item = MappingModel>) {
         self.mapping_models = mappings.map(share_mapping).collect();
-        self.mapping_list_changed_subject.next(());
+        self.notify_mapping_list_changed();
     }
 
     fn add_mapping(&mut self, mapping: MappingModel) {
         self.mapping_models.push(share_mapping(mapping));
-        self.mapping_list_changed_subject.next(());
+        self.notify_mapping_list_changed();
     }
 
     pub fn send_feedback(&self) {
         todo!()
+    }
+
+    fn notify_mapping_list_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.mapping_list_changed_subject);
+    }
+
+    fn notify_mapping_list_or_any_mapping_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.mapping_list_or_any_mapping_changed_subject);
     }
 
     fn sync_flags_to_real_time_processor(&self) {
@@ -318,6 +314,26 @@ impl Session {
 
     fn generate_name_for_new_mapping(&self) -> String {
         format!("{}", self.mapping_models.len() + 1)
+    }
+
+    fn when_sync(
+        event: impl UnitEvent,
+        shared_session: &SharedSession,
+        reaction: impl Fn(SharedSession) + 'static + Copy,
+    ) {
+        // TODO-medium Maybe observable::empty() is better here because it completes and frees
+        // resources?
+        when_sync(event, observable::never(), shared_session, reaction);
+    }
+
+    fn when_async(
+        event: impl UnitEvent,
+        shared_session: &SharedSession,
+        reaction: impl Fn(SharedSession) + 'static + Copy,
+    ) {
+        // TODO-medium Maybe observable::empty() is better here because it completes and frees
+        // resources?
+        when_async(event, observable::never(), shared_session, reaction);
     }
 }
 

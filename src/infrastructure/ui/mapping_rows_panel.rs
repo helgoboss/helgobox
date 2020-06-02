@@ -7,7 +7,7 @@ use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 
-use crate::core::when_async;
+use crate::core::when_sync;
 use crate::domain::SharedSession;
 use crate::domain::{MappingModel, Session, SharedMapping};
 use crate::infrastructure::common::bindings::root;
@@ -204,7 +204,7 @@ impl MappingRowsPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, self.view.closed(), &self, reaction);
+        when_sync(event, self.view.closed(), &self, reaction);
     }
 }
 

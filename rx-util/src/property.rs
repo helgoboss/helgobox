@@ -10,14 +10,13 @@ use std::marker::PhantomData;
 /// 'static in them, the closure would require all of its captured references to be 'static. In that
 /// case we would be forced to use shared ownership (e.g. `Rc`) instead of &mut references to do
 /// the test.
-pub type LocalProp<'a, T, N = DirectNotifier<LocalSubject<'a, (), ()>>> =
-    Prop<T, LocalPropSubject<'a>, N>;
-
+pub type LocalProp<'a, T, N> = Prop<T, LocalPropSubject<'a>, N>;
 pub type LocalPropSubject<'a> = LocalSubject<'a, (), ()>;
+pub type LocalSyncNotifier<'a> = SyncNotifier<LocalPropSubject<'a>>;
 
-pub type SharedProp<T, N = DirectNotifier<SharedSubject<(), ()>>> = Prop<T, SharedPropSubject, N>;
-
+pub type SharedProp<T, N> = Prop<T, SharedPropSubject, N>;
 pub type SharedPropSubject = SharedSubject<(), ()>;
+pub type SharedSyncNotifier = SyncNotifier<SharedPropSubject>;
 
 /// A reactive property which has the following characteristics:
 ///
@@ -36,13 +35,13 @@ pub type SharedPropSubject = SharedSubject<(), ()>;
 /// - `S`: subject type
 /// - `N`: notifier (not a function pointer because the notifier is usually everywhere the same in
 ///   one application, so we save memory by attaching it to the type instead of the instance)
-pub struct Prop<T, S, N = DirectNotifier<S>>
+pub struct Prop<T, S, N>
 where
     // Incomparable values don't make sense because change notification is
     // what properties are all about!
     T: PartialEq,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     value: T,
     subject: S,
@@ -56,9 +55,9 @@ pub trait Notifier {
     fn notify(subject: &mut Self::Subject);
 }
 
-pub struct DirectNotifier<S>(PhantomData<S>);
+pub struct SyncNotifier<S>(PhantomData<S>);
 
-impl<S> Notifier for DirectNotifier<S>
+impl<S> Notifier for SyncNotifier<S>
 where
     S: Observer<(), ()>,
 {
@@ -73,7 +72,7 @@ impl<T, S, N> Prop<T, S, N>
 where
     T: PartialEq,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     /// Creates the property with an initial value and identity transformer.
     pub fn new(initial_value: T) -> Self {
@@ -118,7 +117,7 @@ where
             return;
         }
         self.value = transformed_value;
-        self.subject.next(());
+        N::notify(&mut self.subject);
     }
 
     /// Like `set()`, but lets you use the previous value for calculating the new one.
@@ -131,7 +130,7 @@ where
 impl<'a, T, N> LocalProp<'a, T, N>
 where
     T: PartialEq,
-    N: Notifier,
+    N: Notifier<Subject = LocalPropSubject<'a>>,
 {
     /// Fires whenever the value is changed.
     ///
@@ -148,7 +147,7 @@ where
 impl<T, N> SharedProp<T, N>
 where
     T: PartialEq,
-    N: Notifier,
+    N: Notifier<Subject = SharedPropSubject>,
 {
     pub fn changed(&self) -> impl SharedEvent<()> {
         self.subject.clone()
@@ -159,7 +158,7 @@ impl<T, S, N> fmt::Debug for Prop<T, S, N>
 where
     T: PartialEq + fmt::Debug,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Property")
@@ -172,7 +171,7 @@ impl<T, S, N> Clone for Prop<T, S, N>
 where
     T: PartialEq + Clone,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -188,7 +187,7 @@ impl<T, S, N> Default for Prop<T, S, N>
 where
     T: PartialEq + Default,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     fn default() -> Self {
         Self {
@@ -204,7 +203,7 @@ impl<T, S, N> From<T> for Prop<T, S, N>
 where
     T: PartialEq,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     fn from(value: T) -> Self {
         Self::new(value)
@@ -215,7 +214,7 @@ impl<'a, T, S, N> PartialEq for Prop<T, S, N>
 where
     T: PartialEq,
     S: Observer<(), ()> + Default,
-    N: Notifier,
+    N: Notifier<Subject = S>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
@@ -229,7 +228,7 @@ mod tests {
     #[test]
     fn get() {
         // Given
-        let p = local_prop(5);
+        let p = prop(5);
         // When
         // Then
         assert_eq!(p.get(), 5);
@@ -238,7 +237,7 @@ mod tests {
     #[test]
     fn set() {
         // Given
-        let mut p = local_prop(5);
+        let mut p = prop(5);
         // When
         p.set(6);
         // Then
@@ -248,7 +247,7 @@ mod tests {
     #[test]
     fn clone() {
         // Given
-        let p = local_prop(5);
+        let p = prop(5);
         // When
         let p2 = p.clone();
         // Then
@@ -259,7 +258,7 @@ mod tests {
     #[test]
     fn clone_set_independent() {
         // Given
-        let mut p = local_prop(5);
+        let mut p = prop(5);
         // When
         let mut p2 = p.clone();
         p.set(2);
@@ -296,7 +295,7 @@ mod tests {
         let mut invocation_count = 0;
         // When
         {
-            let mut p = local_prop(5);
+            let mut p = prop(5);
             p.changed().subscribe(|_v| invocation_count += 1);
             p.set(6);
         }
@@ -311,7 +310,7 @@ mod tests {
         let mut p2_invocation_count = 0;
         // When
         {
-            let mut p = local_prop(5);
+            let mut p = prop(5);
             p.changed().subscribe(|_v| p_invocation_count += 1);
             let mut p2 = p.clone();
             p2.changed().subscribe(|_v| p2_invocation_count += 1);
@@ -363,14 +362,14 @@ mod tests {
     #[test]
     fn update_other_member_on_change_fail() {
         struct Combination<'a> {
-            value: LocalProp<'a, i32>,
+            value: TestProp<'a, i32>,
             derived_value: i32,
         }
 
         impl<'a> Combination<'a> {
             fn new(initial_value: i32) -> Combination<'a> {
                 let mut c = Combination {
-                    value: local_prop(initial_value),
+                    value: prop(initial_value),
                     derived_value: initial_value,
                 };
                 let c_ptr = to_ptr(&mut c);
@@ -400,24 +399,24 @@ mod tests {
         // c.value.set(8);
     }
 
-    fn local_prop<'a, T>(initial_value: T) -> LocalProp<'a, T>
+    // TODO-low Add some SharedProp tests
+
+    type TestProp<'a, T> = LocalProp<'a, T, LocalSyncNotifier<'a>>;
+
+    fn prop<'a, T>(initial_value: T) -> TestProp<'a, T>
     where
         T: PartialEq,
     {
-        LocalProp::new(initial_value)
+        TestProp::new(initial_value)
     }
 
     fn local_prop_with_transformer<'a, T>(
         initial_value: T,
         transformer: fn(T) -> T,
-    ) -> LocalProp<'a, T>
+    ) -> TestProp<'a, T>
     where
         T: PartialEq,
     {
-        LocalProp::new_with_transformer(initial_value, transformer)
-    }
-
-    fn create_shared_prop<T: PartialEq>(initial_value: T) -> SharedProp<T> {
-        SharedProp::new(initial_value)
+        TestProp::new_with_transformer(initial_value, transformer)
     }
 }

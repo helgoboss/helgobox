@@ -5,7 +5,21 @@ use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
 use std::time::Duration;
 
-/// Executes the given reaction on the view whenever the specified event is raised.
+/// Executes the given reaction synchronously whenever the specified event is raised.
+pub fn when_sync<E: SharedPayload, U: SharedPayload, R: 'static>(
+    trigger: impl SharedItemEvent<E>,
+    until: impl SharedItemEvent<U>,
+    receiver: &Rc<R>,
+    reaction: impl Fn(Rc<R>) + Copy + 'static,
+) {
+    let weak_receiver = Rc::downgrade(receiver);
+    trigger.take_until(until).subscribe(move |v| {
+        let receiver = weak_receiver.upgrade().expect("receiver is gone");
+        (reaction)(receiver);
+    });
+}
+
+/// Executes the given reaction whenever the specified event is raised.
 ///
 /// It doesn't execute the reaction immediately but in the next main run loop cycle. That's also why
 /// the "trigger" and "until" items need to be shareable (Clone + Send + Sync), which is no problem

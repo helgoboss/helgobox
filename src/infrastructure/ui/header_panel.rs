@@ -1,5 +1,5 @@
 use crate::application::SessionData;
-use crate::core::when_async;
+use crate::core::when_sync;
 use crate::domain::SharedSession;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::infrastructure::common::bindings::root;
@@ -300,7 +300,7 @@ impl HeaderPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_async(event, self.view.closed(), &self, reaction);
+        when_sync(event, self.view.closed(), &self, reaction);
     }
 }
 
