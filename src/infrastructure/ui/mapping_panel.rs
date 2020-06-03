@@ -1230,28 +1230,23 @@ impl<'a> ImmutableMappingPanel<'a> {
         let reaper = Reaper::get();
         self.panel.when(
             reaper
+                // Because we want to display new tracks in combo box as soon as they appear.
                 .track_added()
                 .map_to(())
-                .merge(reaper.track_removed().map_to(()))
-                .merge(reaper.track_selected_changed().map_to(())),
-            |view| {
-                view.invalidate_target_controls();
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            reaper
-                .fx_reordered()
-                .map_to(())
+                // Because we want to display new FX in combo box as soon as they appear.
                 .merge(reaper.fx_added().map_to(()))
-                .merge(reaper.fx_removed().map_to(())),
+                // Because we want a changed track name to be reflected immediately in the UI.
+                .merge(reaper.track_name_changed().map_to(()))
+                // Because we want to see any possible effective `ReaperTarget` change immediately.
+                .merge(TargetModel::potential_change_events()),
             |view| {
-                // TODO The C++ code yields here:
+                // TODO The C++ code yields here (when FX changed):
                 //  Yield. Because the model might also listen to such events and we want the model
                 // to digest it *before* the  UI. It happened that this UI handler
                 // is called *before* the model handler in some cases. Then it is super
                 //  important - otherwise crash.
                 view.invalidate_target_controls();
+                view.invalidate_mode_controls();
             },
         );
     }

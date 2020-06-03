@@ -6,6 +6,7 @@ use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::MappingPanelManager;
+use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use std::cell::{Ref, RefCell};
@@ -136,9 +137,16 @@ impl MappingRowPanel {
         self.when(mapping.source_model.changed(), |view| {
             view.with_mapping(Self::invalidate_source_label);
         });
-        self.when(mapping.target_model.changed(), |view| {
-            view.with_mapping(Self::invalidate_target_label);
-        });
+        self.when(
+            mapping
+                .target_model
+                .changed()
+                // We also want to reflect track name changes immediately.
+                .merge(Reaper::get().track_name_changed().map_to(())),
+            |view| {
+                view.with_mapping(Self::invalidate_target_label);
+            },
+        );
         self.when(mapping.control_is_enabled.changed(), |view| {
             view.with_mapping(Self::invalidate_control_check_box);
         });

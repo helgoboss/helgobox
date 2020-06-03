@@ -3,7 +3,7 @@ use crate::core::{prop, when_async, when_sync, AsyncNotifier, Prop};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
     ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, SessionContext,
-    SharedMapping,
+    SharedMapping, TargetModel,
 };
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
@@ -95,10 +95,7 @@ impl Session {
             Session::when_async(
                 session
                     .mapping_list_or_any_mapping_changed()
-                    // The following conditions can enable/disable targets, so we do a re-sync!
-                    .merge(reaper.track_selected_changed().map_to(()))
-                    // TODO-high Problem: We don't get notified about focus kill :(
-                    .merge(reaper.fx_focused().map_to(())),
+                    .merge(TargetModel::potential_change_events()),
                 &shared_session,
                 move |s| {
                     // TODO-medium This is pretty much stuff to do when doing slider changes.

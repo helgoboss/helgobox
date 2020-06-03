@@ -56,6 +56,24 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
+    /// Notifies about other events which can affect the resulting `ReaperTarget`.
+    ///
+    /// The resulting `ReaperTarget` doesn't change only if one of our the model properties changes.
+    /// It can also change if a track is selected, removed or FX focus changes. We don't include
+    /// those in `changed()` because they are global in nature. If we listen to n targets,
+    /// we don't want to listen to those global events n times. Just 1 time is enough!
+    pub fn potential_change_events() -> impl UnitEvent {
+        let reaper = Reaper::get();
+        reaper
+            // TODO-high Problem: We don't get notified about focus kill :(
+            .fx_focused()
+            .map_to(())
+            .merge(reaper.track_removed().map_to(()))
+            .merge(reaper.track_selected_changed().map_to(()))
+            .merge(reaper.fx_reordered().map_to(()))
+            .merge(reaper.fx_removed().map_to(()))
+    }
+
     /// Fires whenever one of the properties of this model has changed
     pub fn changed(&self) -> impl UnitEvent {
         self.r#type
