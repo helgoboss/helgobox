@@ -1,4 +1,4 @@
-use crate::core::when_sync;
+use crate::core::{when_async, when_sync};
 use crate::domain::SharedSession;
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
@@ -204,6 +204,19 @@ impl MappingPanel {
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) {
         when_sync(event, self.party_is_over(), self, move |view| {
+            let view_mirror = view.clone();
+            view_mirror.is_in_reaction.set(true);
+            scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
+            view.with_immutable(reaction);
+        });
+    }
+
+    fn when_async(
+        self: &SharedView<Self>,
+        event: impl UnitEvent,
+        reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
+    ) {
+        when_async(event, self.party_is_over(), self, move |view| {
             let view_mirror = view.clone();
             view_mirror.is_in_reaction.set(true);
             scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
@@ -1652,13 +1665,13 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_target_listeners(&self) {
         let target = self.target;
-        // let target_value_changed = MappingModel::target_value_changed(
-        //     self.shared_mapping.clone(),
-        //     self.session.context().clone(),
-        // );
-        // self.panel.when(target_value_changed, |view| {
-        //     view.invalidate_target_value_controls();
-        // });
+        let target_value_changed = MappingModel::target_value_changed(
+            self.shared_mapping.clone(),
+            self.session.context().clone(),
+        );
+        self.panel.when_async(target_value_changed, |view| {
+            view.invalidate_target_value_controls();
+        });
         self.panel.when(target.r#type.changed(), |view| {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
