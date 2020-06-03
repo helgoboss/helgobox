@@ -115,8 +115,11 @@ impl<'a> MappingModelWithContext<'a> {
     ///
     /// Returns `None` if a target cannot be built because there's insufficient data available.
     /// Also returns `None` if a target condition (e.g. "track selected" or "FX focused") is not
-    /// satisfied).
+    /// satisfied) or control is disabled for this mapping.
     pub fn create_processor_mapping(&self) -> Option<ProcessorMapping> {
+        if !self.mapping.control_is_enabled.get() {
+            return None;
+        }
         let target = self.target_with_context().create_target().ok()?;
         if !self.mapping.target_model.conditions_are_met(&target) {
             return None;

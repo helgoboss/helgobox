@@ -50,7 +50,7 @@ pub struct Session {
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
-    // TODO-high Solve this with switch_next
+    // TODO-medium Solve this with switch_next
     mapping_list_or_any_mapping_changed_subject: LocalSubject<'static, (), ()>,
     main_processor: MainProcessor,
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
@@ -108,7 +108,8 @@ impl Session {
                 session
                     .let_matched_events_through
                     .changed()
-                    .merge(session.let_unmatched_events_through.changed()),
+                    .merge(session.let_unmatched_events_through.changed())
+                    .merge(session.midi_control_input.changed()),
                 &shared_session,
                 move |s| {
                     s.borrow().sync_flags_to_real_time_processor();
@@ -290,6 +291,7 @@ impl Session {
         let task = RealTimeProcessorTask::UpdateFlags {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
+            midi_control_input: self.midi_control_input.get(),
         };
         self.real_time_processor_sender.send(task);
     }

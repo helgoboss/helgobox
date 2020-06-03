@@ -12,7 +12,7 @@ use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
-use reaper_medium::TypeSpecificPluginContext;
+use reaper_medium::{Hz, TypeSpecificPluginContext};
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::ffi::CStr;
@@ -67,6 +67,7 @@ impl Default for RealearnPlugin {
             real_time_processor: RealTimeProcessor::new(
                 real_time_processor_receiver,
                 main_processor_sender,
+                HostCallback::default(),
             ),
         }
     }
@@ -74,9 +75,14 @@ impl Default for RealearnPlugin {
 
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
+        let default = RealearnPlugin::default();
         Self {
             host,
-            ..Default::default()
+            real_time_processor: RealTimeProcessor {
+                host,
+                ..default.real_time_processor
+            },
+            ..default
         }
     }
 
@@ -105,6 +111,7 @@ impl Plugin for RealearnPlugin {
         use CanDo::*;
         use Supported::*;
         match can_do {
+            SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent => Supported::Yes,
             // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
             // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
             // to put controls into the plug-in window. SWELL assumes that the parent window for
@@ -145,19 +152,33 @@ impl Plugin for RealearnPlugin {
     fn process_events(&mut self, events: &Events) {
         for e in events.events() {
             match e {
-                Event::Midi(MidiEvent { data, .. }) => {
-                    let msg =
-                        RawShortMessage::from_bytes((data[0], U7::new(data[1]), U7::new(data[2])))
-                            .expect("received invalid MIDI message");
-                    self.real_time_processor.process_short_from_fx_input(msg);
+                Event::Midi(me) => {
+                    let msg = RawShortMessage::from_bytes((
+                        me.data[0],
+                        U7::new(me.data[1]),
+                        U7::new(me.data[2]),
+                    ))
+                    .expect("received invalid MIDI message");
+                    // This is called in real-time audio thread, so we can just call the real-time
+                    // processor.
+                    self.real_time_processor
+                        .process_incoming_midi_from_fx_input(me.delta_frames, msg);
                 }
                 _ => (),
             }
         }
     }
 
-    fn process(&mut self, _buffer: &mut AudioBuffer<f32>) {
-        self.real_time_processor.idle();
+    fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
+        // This is called in real-time audio thread, so we can just call the real-time processor.
+        self.real_time_processor.idle(buffer.samples());
+    }
+
+    fn set_sample_rate(&mut self, rate: f32) {
+        // This is called in main thread, so we need to send it to the real-time processor via
+        // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
+        self.real_time_processor_sender
+            .send(RealTimeProcessorTask::UpdateSampleRate(Hz::new(rate as _)));
     }
 }
 

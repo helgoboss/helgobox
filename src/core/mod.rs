@@ -6,3 +6,6 @@ pub use scheduling::*;
 
 mod property;
 pub use property::*;
+
+mod moving_average_calculator;
+pub use moving_average_calculator::*;
