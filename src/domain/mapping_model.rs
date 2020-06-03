@@ -89,9 +89,12 @@ impl MappingModel {
         context: SessionContext,
     ) -> impl LocalObservable<'static, Item = BoxedUnitEvent, Err = ()> {
         // We want to listen now and whenever the target model changes.
-        // TODO-high The real target can change also in other situations: When REAPER track
-        //  has changed etc.
-        let trigger = observable::of(()).merge(mapping.borrow().target_model.changed());
+        let trigger = {
+            let m = mapping.borrow();
+            observable::of(())
+                .merge(m.target_model.changed())
+                .merge(TargetModel::potential_global_change_events())
+        };
         trigger.map(move |_| {
             let mapping = mapping.borrow();
             match mapping.target_model.with_context(&context).create_target() {

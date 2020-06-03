@@ -95,7 +95,7 @@ impl Session {
             Session::when_async(
                 session
                     .mapping_list_or_any_mapping_changed()
-                    .merge(TargetModel::potential_change_events()),
+                    .merge(TargetModel::potential_global_change_events()),
                 &shared_session,
                 move |s| {
                     // TODO-medium This is pretty much stuff to do when doing slider changes.

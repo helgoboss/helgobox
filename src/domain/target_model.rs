@@ -62,7 +62,7 @@ impl TargetModel {
     /// It can also change if a track is selected, removed or FX focus changes. We don't include
     /// those in `changed()` because they are global in nature. If we listen to n targets,
     /// we don't want to listen to those global events n times. Just 1 time is enough!
-    pub fn potential_change_events() -> impl UnitEvent {
+    pub fn potential_global_change_events() -> impl UnitEvent {
         let reaper = Reaper::get();
         reaper
             // TODO-high Problem: We don't get notified about focus kill :(
