@@ -81,27 +81,22 @@ impl MappingModel {
         mapping: SharedMapping,
         context: SessionContext,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> {
-        Self::target_value_changed_observables(mapping, context).switch_on_next()
-    }
-
-    fn target_value_changed_observables(
-        mapping: SharedMapping,
-        context: SessionContext,
-    ) -> impl LocalObservable<'static, Item = BoxedUnitEvent, Err = ()> {
-        // We want to listen now and whenever the target model changes.
         let trigger = {
             let m = mapping.borrow();
+            // We want to be notified of value changes starting when subscribed ...
             observable::of(())
+                // ... and whenever the target model changes
                 .merge(m.target_model.changed())
                 .merge(TargetModel::potential_global_change_events())
         };
-        trigger.map(move |_| {
+        let observables = trigger.map(move |_| {
             let mapping = mapping.borrow();
             match mapping.target_model.with_context(&context).create_target() {
                 Ok(t) => t.value_changed(),
                 Err(_) => observable::empty().box_it(),
             }
-        })
+        });
+        observables.switch_on_next()
     }
 }
 

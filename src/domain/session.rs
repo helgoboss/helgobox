@@ -50,8 +50,6 @@ pub struct Session {
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
-    // TODO-medium Solve this with switch_next
-    mapping_list_or_any_mapping_changed_subject: LocalSubject<'static, (), ()>,
     main_processor: MainProcessor,
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
 }
@@ -74,7 +72,6 @@ impl Session {
             context,
             mapping_models: vec![],
             mapping_list_changed_subject: Default::default(),
-            mapping_list_or_any_mapping_changed_subject: Default::default(),
             real_time_processor_sender,
             main_processor: MainProcessor::new(main_processor_receiver),
         }
@@ -84,17 +81,13 @@ impl Session {
     pub fn activate(shared_session: SharedSession) {
         {
             let session = shared_session.borrow();
-            // Whenever the mapping list changes, notify listeners and resubscribe to all mappings.
-            Session::when_async(session.mapping_list_changed(), &shared_session, move |s| {
-                s.borrow_mut().notify_mapping_list_or_any_mapping_changed();
-                Session::resubscribe_to_all_mappings(s.clone());
-            });
-            let reaper = Reaper::get();
             // Whenever anything in the mapping changes, including the mappings itself, resync
             // mappings to processors.
             Session::when_async(
                 observable::of(())
-                    .merge(session.mapping_list_or_any_mapping_changed())
+                    .merge(Session::mapping_list_or_any_mapping_changed(
+                        shared_session.clone(),
+                    ))
                     .merge(TargetModel::potential_global_change_events()),
                 &shared_session,
                 move |s| {
@@ -118,13 +111,6 @@ impl Session {
         // Call main processor regularly so that it can process control tasks.
         Reaper::get().main_thread_idle().subscribe(move |_| {
             shared_session.borrow().main_processor.idle();
-        });
-    }
-
-    fn resubscribe_to_all_mappings(shared_session: SharedSession) {
-        let session = shared_session.borrow();
-        Session::when_async(session.any_mapping_changed(), &shared_session, move |s| {
-            s.borrow_mut().notify_mapping_list_or_any_mapping_changed();
         });
     }
 
@@ -246,22 +232,33 @@ impl Session {
         self.mapping_list_changed_subject.clone()
     }
 
-    /// Fires whenever any mapping in the list has changed, until the list itself changes.
-    fn any_mapping_changed(&self) -> impl UnitEvent {
+    /// Fires whenever any mapping in the _current_ list has changed.
+    ///
+    /// For getting a continuous event stream that just keeps delivering mapping changes
+    /// even if the list changes, use `mapping_list_or_any_mapping_changed()`.
+    fn any_mapping_in_current_list_changed(&self) -> impl UnitEvent {
         self.mapping_models
             .iter()
             .map(|m| m.borrow().control_relevant_prop_changed())
             .fold(
-                observable::never().box_it(),
+                observable::empty().box_it(),
                 |prev: BoxedUnitEvent, current| prev.merge(current).box_it(),
             )
-            .take_until(self.mapping_list_changed())
     }
 
-    fn mapping_list_or_any_mapping_changed(&self) -> impl UnitEvent {
-        // TODO Maybe we can just merge mapping_list_changed_subject and
-        //  any_mapping_changed_subject. But it might cause some order issues.
-        self.mapping_list_or_any_mapping_changed_subject.clone()
+    fn mapping_list_or_any_mapping_changed(shared_session: SharedSession) -> impl UnitEvent {
+        let trigger = {
+            let session = shared_session.borrow();
+            // We want to be notified of mapping changes starting when subscribed ...
+            observable::of(())
+                // ... and whenever the mapping list changes
+                .merge(session.mapping_list_changed())
+        };
+        let observables = trigger.map(move |_| {
+            let session = shared_session.borrow();
+            session.any_mapping_in_current_list_changed()
+        });
+        observables.switch_on_next()
     }
 
     pub fn set_mappings(&mut self, mappings: impl Iterator<Item = MappingModel>) {
@@ -280,10 +277,6 @@ impl Session {
 
     fn notify_mapping_list_changed(&mut self) {
         AsyncNotifier::notify(&mut self.mapping_list_changed_subject);
-    }
-
-    fn notify_mapping_list_or_any_mapping_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.mapping_list_or_any_mapping_changed_subject);
     }
 
     fn sync_settings_to_real_time_processor(&self) {
@@ -319,8 +312,6 @@ impl Session {
         shared_session: &SharedSession,
         reaction: impl Fn(SharedSession) + 'static + Copy,
     ) {
-        // TODO-medium Maybe observable::empty() is better here because it completes and frees
-        // resources?
         when_sync(event, observable::never(), shared_session, reaction);
     }
 
@@ -329,8 +320,6 @@ impl Session {
         shared_session: &SharedSession,
         reaction: impl Fn(SharedSession) + 'static + Copy,
     ) {
-        // TODO-medium Maybe observable::empty() is better here because it completes and frees
-        // resources?
         when_async(event, observable::never(), shared_session, reaction);
     }
 }
