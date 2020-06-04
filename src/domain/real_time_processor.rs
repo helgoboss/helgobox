@@ -92,7 +92,7 @@ impl RealTimeProcessor {
             use RealTimeProcessorTask::*;
             match task {
                 UpdateMappings(mappings) => self.mappings = mappings,
-                UpdateFlags {
+                UpdateSettings {
                     let_matched_events_through,
                     let_unmatched_events_through,
                     midi_control_input,
@@ -322,7 +322,7 @@ impl RealTimeProcessor {
 #[derive(Debug)]
 pub enum RealTimeProcessorTask {
     UpdateMappings(Vec<RealTimeProcessorMapping>),
-    UpdateFlags {
+    UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
         midi_control_input: MidiControlInput,

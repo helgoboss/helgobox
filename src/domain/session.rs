@@ -93,8 +93,8 @@ impl Session {
             // Whenever anything in the mapping changes, including the mappings itself, resync
             // mappings to processors.
             Session::when_async(
-                session
-                    .mapping_list_or_any_mapping_changed()
+                observable::of(())
+                    .merge(session.mapping_list_or_any_mapping_changed())
                     .merge(TargetModel::potential_global_change_events()),
                 &shared_session,
                 move |s| {
@@ -105,14 +105,13 @@ impl Session {
             );
             // Whenever additional settings are changed, resync them to the processors.
             Session::when_sync(
-                session
-                    .let_matched_events_through
-                    .changed()
+                observable::of(())
+                    .merge(session.let_matched_events_through.changed())
                     .merge(session.let_unmatched_events_through.changed())
                     .merge(session.midi_control_input.changed()),
                 &shared_session,
                 move |s| {
-                    s.borrow().sync_flags_to_real_time_processor();
+                    s.borrow().sync_settings_to_real_time_processor();
                 },
             );
         }
@@ -287,8 +286,8 @@ impl Session {
         AsyncNotifier::notify(&mut self.mapping_list_or_any_mapping_changed_subject);
     }
 
-    fn sync_flags_to_real_time_processor(&self) {
-        let task = RealTimeProcessorTask::UpdateFlags {
+    fn sync_settings_to_real_time_processor(&self) {
+        let task = RealTimeProcessorTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
             midi_control_input: self.midi_control_input.get(),
