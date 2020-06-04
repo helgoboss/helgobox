@@ -641,7 +641,7 @@ dependencies = [
  "approx",
  "derive_more",
  "enum-iterator",
- "helgoboss-midi 0.1.0",
+ "helgoboss-midi",
  "num",
  "num_enum 0.5.0",
  "serde",
@@ -651,23 +651,13 @@ dependencies = [
 [[package]]
 name = "helgoboss-midi"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/helgoboss-midi#607283ee1a03c9172003fab20dbb839f4224e6d5"
 dependencies = [
  "derive_more",
  "doc-comment",
  "num_enum 0.4.3",
  "serde",
  "serde_repr",
-]
-
-[[package]]
-name = "helgoboss-midi"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c68f7406dccee0ba54582ebeb2490da9e7aab2f65a8ae17b06c5c9cbd41e91e"
-dependencies = [
- "derive_more",
- "doc-comment",
- "num_enum 0.4.3",
 ]
 
 [[package]]
@@ -1030,7 +1020,7 @@ dependencies = [
  "embed-resource",
  "enum-iterator",
  "helgoboss-learn",
- "helgoboss-midi 0.1.0",
+ "helgoboss-midi",
  "lazycell",
  "num_enum 0.5.0",
  "reaper-high",
@@ -1055,7 +1045,7 @@ dependencies = [
  "c_str_macro",
  "crossbeam-channel",
  "futures",
- "helgoboss-midi 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "helgoboss-midi",
  "num_enum 0.4.3",
  "once_cell",
  "reaper-low",
@@ -1094,7 +1084,7 @@ dependencies = [
  "c_str_macro",
  "derive_more",
  "enumflags2",
- "helgoboss-midi 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "helgoboss-midi",
  "reaper-low",
  "reaper-macros",
  "serde",

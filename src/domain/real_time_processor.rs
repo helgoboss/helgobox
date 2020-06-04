@@ -4,8 +4,9 @@ use helgoboss_learn::{Bpm, MidiSourceValue};
 use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, MessageMainCategory,
     ParameterNumberMessage, ParameterNumberMessageScanner, RawShortMessage, ShortMessage,
-    ShortMessageType,
+    ShortMessageFactory, ShortMessageType, U7,
 };
+use reaper_high::Reaper;
 use reaper_medium::Hz;
 use std::ptr::null_mut;
 use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
@@ -15,7 +16,8 @@ use vst::plugin::HostCallback;
 const BULK_SIZE: usize = 1;
 
 pub struct RealTimeProcessor {
-    // Basic processing data
+    // Synced processing settings
+    // TODO-high We need to make one initial sync!!!
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) mappings: Vec<RealTimeProcessorMapping>,
     pub(crate) let_matched_events_through: bool,
@@ -23,7 +25,7 @@ pub struct RealTimeProcessor {
     // Inter-thread communication
     pub(crate) receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
     pub(crate) main_processor_sender: crossbeam_channel::Sender<MainProcessorTask>,
-    // In order to query info from host and forward MIDI events
+    // Host communication
     pub(crate) host: HostCallback,
     // Scanners for more complex MIDI message types
     pub(crate) nrpn_scanner: ParameterNumberMessageScanner,
@@ -107,6 +109,14 @@ impl RealTimeProcessor {
         // Get current time information so we can detect changes in play state reliably
         // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
         self.was_playing_in_last_cycle = self.is_now_playing();
+        // Read MIDI events from devices
+        if let MidiControlInput::Device(dev) = self.midi_control_input {
+            dev.with_midi_input(|mi| {
+                for evt in mi.get_read_buf().enum_items(0) {
+                    self.process_incoming_midi(evt.frame_offset() as _, evt.message());
+                }
+            });
+        }
     }
 
     fn is_now_playing(&self) -> bool {
