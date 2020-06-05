@@ -120,6 +120,23 @@ where
         N::notify(&mut self.subject);
     }
 
+    /// Like `set` but returns old value.
+    pub fn replace(&mut self, value: T) -> T
+    where
+        T: Clone,
+    {
+        let old_value = self.value.clone();
+        self.set(value);
+        old_value
+    }
+
+    /// Sets the value of this property to the value of the given one, invoking listeners.
+    ///
+    /// Consumes the given property.
+    pub fn apply_from(&mut self, other: Self) {
+        self.set(other.value)
+    }
+
     /// Like `set()`, but lets you use the previous value for calculating the new one.
     pub fn set_with(&mut self, f: impl Fn(&T) -> T) {
         let value = f(&self.value);

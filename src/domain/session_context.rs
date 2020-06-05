@@ -21,6 +21,10 @@ impl SessionContext {
         &self.containing_fx
     }
 
+    pub fn track(&self) -> Option<&Track> {
+        Some(self.containing_fx.track())
+    }
+
     pub fn project(&self) -> Project {
         self.containing_fx
             .project()

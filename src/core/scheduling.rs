@@ -1,14 +1,16 @@
 use reaper_high::Reaper;
-use rx_util::{SharedEvent, SharedItemEvent, SharedPayload};
+use rx_util::{Event, SharedEvent, SharedItemEvent, SharedPayload};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
 use std::rc::Rc;
 use std::time::Duration;
 
+// TODO-medium We should remove duplicate code here without changing the public interface!
+
 /// Executes the given reaction synchronously whenever the specified event is raised.
-pub fn when_sync<E: SharedPayload, U: SharedPayload, R: 'static>(
-    trigger: impl SharedItemEvent<E>,
-    until: impl SharedItemEvent<U>,
+pub fn when_sync<E, U, R: 'static>(
+    trigger: impl Event<E>,
+    until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>) + Copy + 'static,
 ) {
@@ -16,6 +18,19 @@ pub fn when_sync<E: SharedPayload, U: SharedPayload, R: 'static>(
     trigger.take_until(until).subscribe(move |v| {
         let receiver = weak_receiver.upgrade().expect("receiver is gone");
         (reaction)(receiver);
+    });
+}
+
+pub fn when_sync_with_item<E, U, R: 'static>(
+    trigger: impl Event<E>,
+    until: impl Event<U>,
+    receiver: &Rc<R>,
+    reaction: impl Fn(Rc<R>, E) + Copy + 'static,
+) {
+    let weak_receiver = Rc::downgrade(receiver);
+    trigger.take_until(until).subscribe(move |v| {
+        let receiver = weak_receiver.upgrade().expect("receiver is gone");
+        (reaction)(receiver, v);
     });
 }
 
@@ -29,9 +44,9 @@ pub fn when_sync<E: SharedPayload, U: SharedPayload, R: 'static>(
 /// would require them to be shared, too. But `delay()` doesn't work anyway right now
 /// (https://github.com/rxRust/rxRust/issues/106). So there's no reason to change all the
 /// trigger/until subjects/properties into shared ones.
-pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
-    trigger: impl SharedItemEvent<E>,
-    until: impl SharedItemEvent<U>,
+pub fn when_async<E, U, R: 'static>(
+    trigger: impl Event<E>,
+    until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>) + Copy + 'static,
 ) {
@@ -47,4 +62,20 @@ pub fn when_async<E: SharedPayload, U: SharedPayload, R: 'static>(
                 (reaction)(receiver);
             });
         });
+}
+
+pub fn when_async_with_item<E: 'static, U, R: 'static>(
+    trigger: impl Event<E>,
+    until: impl Event<U>,
+    receiver: &Rc<R>,
+    reaction: impl Fn(Rc<R>, E) + Copy + 'static,
+) {
+    let weak_receiver = Rc::downgrade(receiver);
+    trigger.take_until(until).subscribe(move |v| {
+        let weak_receiver = weak_receiver.clone();
+        Reaper::get().do_later_in_main_thread_asap(move || {
+            let receiver = weak_receiver.upgrade().expect("receiver is gone");
+            (reaction)(receiver, v);
+        });
+    });
 }

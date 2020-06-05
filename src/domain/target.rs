@@ -8,10 +8,11 @@ use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, NormalizedPlayRate, PlaybackSpeedFactor,
     ReaperNormalizedFxParamValue, UndoBehavior,
 };
-use rx_util::{BoxedUnitEvent, UnitEvent};
+use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
 use std::cmp;
 use std::convert::TryInto;
+use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
@@ -25,7 +26,7 @@ pub enum TargetCharacter {
 ///
 /// Unlike TargetModel, the real target has everything resolved already (e.g. track and FX) and
 /// is immutable.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ReaperTarget {
     Action {
         action: Action,
@@ -74,6 +75,93 @@ pub enum ReaperTarget {
 }
 
 impl ReaperTarget {
+    pub fn touched() -> impl Event<Rc<ReaperTarget>> {
+        use ReaperTarget::*;
+        let reaper = Reaper::get();
+        observable::empty()
+            .merge(
+                reaper
+                    .fx_parameter_touched()
+                    .map(move |param| FxParameter { param }.into()),
+            )
+            .merge(
+                reaper
+                    .fx_enabled_changed()
+                    .map(move |fx| FxEnable { fx }.into()),
+            )
+            .merge(
+                reaper
+                    .track_volume_touched()
+                    .map(move |track| TrackVolume { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_pan_touched()
+                    .map(move |track| TrackPan { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_arm_changed()
+                    .map(move |track| TrackArm { track }.into()),
+            )
+            .merge(reaper.track_selected_changed().map(move |track| {
+                TrackSelection {
+                    track,
+                    select_exclusively: false,
+                }
+                .into()
+            }))
+            .merge(
+                reaper
+                    .track_mute_touched()
+                    .map(move |track| TrackMute { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_solo_changed()
+                    .map(move |track| TrackSolo { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_send_volume_touched()
+                    .map(move |send| TrackSendVolume { send }.into()),
+            )
+            .merge(
+                reaper
+                    .track_send_pan_touched()
+                    .map(move |send| TrackSendPan { send }.into()),
+            )
+            .merge(reaper.action_invoked().map(move |action| {
+                Action {
+                    action: (*action).clone(),
+                    invocation_type: ActionInvocationType::Trigger,
+                }
+                .into()
+            }))
+            .merge(
+                reaper
+                    .master_tempo_touched()
+                    // TODO-low In future this might come from a certain project
+                    .map(move |_| {
+                        Tempo {
+                            project: reaper.current_project(),
+                        }
+                        .into()
+                    }),
+            )
+            .merge(
+                reaper
+                    .master_playrate_touched()
+                    // TODO-low In future this might come from a certain project
+                    .map(move |_| {
+                        Playrate {
+                            project: reaper.current_project(),
+                        }
+                        .into()
+                    }),
+            )
+    }
+
     pub fn character(&self) -> TargetCharacter {
         use ReaperTarget::*;
         use TargetCharacter::*;
@@ -237,6 +325,24 @@ impl ReaperTarget {
         }
     }
 
+    pub fn project(&self) -> Option<Project> {
+        use ReaperTarget::*;
+        let project = match self {
+            Action { .. } => return None,
+            FxParameter { param } => param.fx().project()?,
+            TrackVolume { track }
+            | TrackPan { track }
+            | TrackArm { track }
+            | TrackSelection { track, .. }
+            | TrackMute { track }
+            | TrackSolo { track } => track.project(),
+            TrackSendPan { send } | TrackSendVolume { send } => send.source_track().project(),
+            Tempo { project } | Playrate { project } => *project,
+            FxEnable { fx } | FxPreset { fx } => fx.project()?,
+        };
+        Some(project)
+    }
+
     pub fn track(&self) -> Option<&Track> {
         use ReaperTarget::*;
         let track = match self {
@@ -265,6 +371,15 @@ impl ReaperTarget {
             _ => return None,
         };
         Some(fx)
+    }
+
+    pub fn send(&self) -> Option<&TrackSend> {
+        use ReaperTarget::*;
+        let send = match self {
+            TrackSendPan { send } | TrackSendVolume { send } => send,
+            _ => return None,
+        };
+        Some(send)
     }
 
     pub fn control(&self, value: ControlValue) -> Result<(), &'static str> {
@@ -371,11 +486,11 @@ impl ReaperTarget {
                 invocation_type,
             } => {
                 let action = action.clone();
-                // TODO-medium It's not cool that reaper-rs exposes some events as Payload<Rc<T>>
+                // TODO-medium It's not cool that reaper-rs exposes some events as Rc<T>
                 //  and some not
                 Reaper::get()
                     .action_invoked()
-                    .filter(move |a| a.0.as_ref() == &action)
+                    .filter(move |a| a.as_ref() == &action)
                     .map_to(())
                     .box_it()
             }

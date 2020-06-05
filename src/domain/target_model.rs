@@ -7,12 +7,14 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Action, Fx, FxParameter, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
-use rx_util::UnitEvent;
+use rx_util::{Event, UnitEvent};
+use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 /// A model for creating targets
 #[derive(Clone, Debug)]
@@ -72,6 +74,89 @@ impl TargetModel {
             .merge(reaper.track_selected_changed().map_to(()))
             .merge(reaper.fx_reordered().map_to(()))
             .merge(reaper.fx_removed().map_to(()))
+    }
+
+    /// A bit like cloning the given model but invokes listeners.
+    // TODO-low Not used?
+    pub fn apply_from(&mut self, other: TargetModel) {
+        self.r#type.apply_from(other.r#type);
+        self.command_id.apply_from(other.command_id);
+        self.action_invocation_type
+            .apply_from(other.action_invocation_type);
+        self.track.apply_from(other.track);
+        self.enable_only_if_track_selected
+            .apply_from(other.enable_only_if_track_selected);
+        self.fx_index.apply_from(other.fx_index);
+        self.is_input_fx.apply_from(other.is_input_fx);
+        self.enable_only_if_fx_has_focus
+            .apply_from(other.enable_only_if_fx_has_focus);
+        self.param_index.apply_from(other.param_index);
+        self.send_index.apply_from(other.send_index);
+        self.select_exclusively.apply_from(other.select_exclusively);
+    }
+
+    pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &SessionContext) {
+        use ReaperTarget::*;
+        if let Some(track) = target.track() {
+            self.track.set(virtualize(track.clone(), context));
+        }
+        if let Some(fx) = target.fx() {
+            self.fx_index.set(Some(fx.index()));
+            self.is_input_fx.set(fx.is_input_fx());
+        }
+        if let Some(send) = target.send() {
+            self.send_index.set(Some(send.index()));
+        }
+        match target {
+            Action {
+                action,
+                invocation_type,
+            } => {
+                self.r#type.set(TargetType::Action);
+                self.command_id.set(Some(action.command_id()));
+                self.action_invocation_type.set(*invocation_type);
+            }
+            FxParameter { param } => {
+                self.r#type.set(TargetType::FxParameter);
+                self.param_index.set(param.index());
+            }
+            TrackVolume { .. } => {
+                self.r#type.set(TargetType::TrackVolume);
+            }
+            TrackSendVolume { .. } => {
+                self.r#type.set(TargetType::TrackSendVolume);
+            }
+            TrackPan { .. } => {
+                self.r#type.set(TargetType::TrackPan);
+            }
+            TrackArm { .. } => {
+                self.r#type.set(TargetType::TrackArm);
+            }
+            TrackSelection { .. } => {
+                self.r#type.set(TargetType::TrackSelection);
+            }
+            TrackMute { .. } => {
+                self.r#type.set(TargetType::TrackMute);
+            }
+            TrackSolo { .. } => {
+                self.r#type.set(TargetType::TrackSolo);
+            }
+            TrackSendPan { .. } => {
+                self.r#type.set(TargetType::TrackSendPan);
+            }
+            Tempo { .. } => {
+                self.r#type.set(TargetType::Tempo);
+            }
+            Playrate { .. } => {
+                self.r#type.set(TargetType::Playrate);
+            }
+            FxEnable { .. } => {
+                self.r#type.set(TargetType::FxEnable);
+            }
+            FxPreset { .. } => {
+                self.r#type.set(TargetType::FxPreset);
+            }
+        };
     }
 
     /// Fires whenever one of the properties of this model has changed
@@ -529,4 +614,11 @@ pub enum ActionInvocationType {
     Absolute = 1,
     #[display(fmt = "Relative")]
     Relative = 2,
+}
+
+fn virtualize(track: Track, context: &SessionContext) -> VirtualTrack {
+    match context.track() {
+        Some(t) if *t == track => VirtualTrack::This,
+        _ => VirtualTrack::Particular(track),
+    }
 }

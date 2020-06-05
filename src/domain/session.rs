@@ -1,15 +1,21 @@
 use super::MidiSourceModel;
-use crate::core::{prop, when_async, when_sync, AsyncNotifier, Prop};
+use crate::core::{
+    prop, when_async, when_async_with_item, when_sync, when_sync_with_item, AsyncNotifier, Prop,
+};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
-    ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, SessionContext,
-    SharedMapping, TargetModel,
+    ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, ReaperTarget,
+    SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::MidiInputDeviceId;
-use rx_util::{BoxedUnitEvent, Notifier, SharedEvent, SyncNotifier, UnitEvent};
+use rx_util::{
+    BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, SyncNotifier,
+    UnitEvent,
+};
+use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -107,11 +113,43 @@ impl Session {
                     s.borrow().sync_settings_to_real_time_processor();
                 },
             );
+            // Enable target learning
+            Session::when_async_with_item(
+                Session::target_touched_observables(shared_session.clone()).switch_on_next(),
+                &shared_session,
+                move |s, t| {
+                    s.borrow_mut().learn_target(t.as_ref());
+                },
+            );
         }
         // Call main processor regularly so that it can process control tasks.
+        // TODO-medium We should try to find a way to do this without having to borrow the session!
+        //  Because this interferes with target learning (if done via when_sync_with_item). In order
+        //  to achieve this, we would need  to give this closure or a dedicated control
+        //  surface ownership of the main processor and  do the synchronization stuff  via
+        //  sender. It's not an interthread communication,  but at least an async one, so a
+        //  channel is maybe not that bad! It's maybe even cleaner.  A bit like with an actor
+        //  system. An actor also receives stuff only via messages and  therefore doesn't
+        //  need to worry at all about mutable access.
         Reaper::get().main_thread_idle().subscribe(move |_| {
             shared_session.borrow().main_processor.idle();
         });
+    }
+
+    fn learn_target(&mut self, target: &ReaperTarget) {
+        // Prevent learning targets from in other project tabs (leads to weird effects, just think
+        // about it)
+        if let Some(p) = target.project() {
+            if p != self.context.project() {
+                return;
+            }
+        }
+        if let Some(mapping) = self.mapping_which_learns_target.replace(None) {
+            mapping
+                .borrow_mut()
+                .target_model
+                .apply_from_target(target, &self.context);
+        }
     }
 
     pub fn context(&self) -> &SessionContext {
@@ -246,6 +284,22 @@ impl Session {
             )
     }
 
+    fn target_touched_observables(
+        shared_session: SharedSession,
+    ) -> impl Event<LocalBoxOp<'static, Rc<ReaperTarget>, ()>> {
+        let trigger = {
+            let session = shared_session.borrow();
+            session.mapping_which_learns_target.changed()
+        };
+        trigger.map(move |_| {
+            let session = shared_session.borrow();
+            match session.mapping_which_learns_target.get_ref() {
+                None => observable::empty().box_it(),
+                Some(_) => ReaperTarget::touched().box_it(),
+            }
+        })
+    }
+
     fn mapping_list_or_any_mapping_changed(shared_session: SharedSession) -> impl UnitEvent {
         let trigger = {
             let session = shared_session.borrow();
@@ -307,11 +361,20 @@ impl Session {
         format!("{}", self.mapping_models.len() + 1)
     }
 
+    fn when_async_with_item<I: 'static>(
+        event: impl Event<I>,
+        shared_session: &SharedSession,
+        reaction: impl Fn(SharedSession, I) + 'static + Copy,
+    ) {
+        when_async_with_item(event, observable::never(), shared_session, reaction);
+    }
+
     fn when_sync(
         event: impl UnitEvent,
         shared_session: &SharedSession,
         reaction: impl Fn(SharedSession) + 'static + Copy,
     ) {
+        // TODO-high We really should provide an "until". At least "session destroyed".
         when_sync(event, observable::never(), shared_session, reaction);
     }
 
