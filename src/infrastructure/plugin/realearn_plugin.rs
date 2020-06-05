@@ -42,7 +42,10 @@ pub struct RealearnPlugin {
     // This will be set on `init()`.
     reaper_guard: Option<Arc<ReaperGuard>>,
     // Will be cloned to session as soon as it gets created.
-    main_processor_receiver: crossbeam_channel::Receiver<MainProcessorTask>,
+    main_processor_channel: (
+        crossbeam_channel::Sender<MainProcessorTask>,
+        crossbeam_channel::Receiver<MainProcessorTask>,
+    ),
     // Will be cloned to session as soon as it gets created.
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
     // Called in real-time audio thread only.
@@ -63,7 +66,7 @@ impl Default for RealearnPlugin {
             reaper_guard: None,
             plugin_parameters: Default::default(),
             real_time_processor_sender,
-            main_processor_receiver,
+            main_processor_channel: (main_processor_sender.clone(), main_processor_receiver),
             real_time_processor: RealTimeProcessor::new(
                 real_time_processor_receiver,
                 main_processor_sender,
@@ -207,11 +210,11 @@ impl RealearnPlugin {
         let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
         let real_time_sender = self.real_time_processor_sender.clone();
-        let main_processor_receiver = self.main_processor_receiver.clone();
+        let main_processor_channel = self.main_processor_channel.clone();
         Reaper::get().do_later_in_main_thread_asap(move || {
             let session_context = SessionContext::from_host(&host);
-            let session = Session::new(session_context, real_time_sender, main_processor_receiver);
-            let shared_session = Rc::new(debug_cell::RefCell::new(session));
+            let session = Session::new(session_context, real_time_sender, main_processor_channel);
+            let shared_session = Rc::new(RefCell::new(session));
             Session::activate(shared_session.clone());
             main_panel.notify_session_is_available(shared_session.clone());
             plugin_parameters.notify_session_is_available(shared_session.clone());

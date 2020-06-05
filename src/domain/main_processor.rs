@@ -1,5 +1,6 @@
-use crate::domain::{MainProcessorMapping, MappingId, Mode, ReaperTarget};
+use crate::domain::{MainProcessorMapping, MappingId, Mode, ReaperTarget, SharedSession};
 use helgoboss_learn::{ControlValue, MidiSource};
+use reaper_medium::ControlSurface;
 
 const BULK_SIZE: usize = 30;
 
@@ -7,34 +8,41 @@ const BULK_SIZE: usize = 30;
 pub struct MainProcessor {
     mappings: Vec<MainProcessorMapping>,
     receiver: crossbeam_channel::Receiver<MainProcessorTask>,
+    session: SharedSession,
 }
 
-impl MainProcessor {
-    pub fn new(receiver: crossbeam_channel::Receiver<MainProcessorTask>) -> MainProcessor {
-        MainProcessor {
-            receiver,
-            mappings: vec![],
-        }
-    }
-
-    pub fn update_mappings(&mut self, mappings: Vec<MainProcessorMapping>) {
-        self.mappings = mappings;
-    }
-
-    /// Should be called regularly in main thread.
-    pub fn idle(&self) {
+impl ControlSurface for MainProcessor {
+    fn run(&mut self) {
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use MainProcessorTask::*;
             match task {
-                Control { mapping_id, value } => {
-                    self.process(mapping_id, value);
+                UpdateMappings(mappings) => {
+                    self.mappings = mappings;
                 }
-                LearnSource(source) => todo!(),
+                Control { mapping_id, value } => {
+                    self.control(mapping_id, value);
+                }
+                LearnSource(source) => {
+                    self.session.borrow_mut().learn_source(&source);
+                }
             }
         }
     }
+}
 
-    fn process(&self, mapping_id: MappingId, value: ControlValue) {
+impl MainProcessor {
+    pub fn new(
+        receiver: crossbeam_channel::Receiver<MainProcessorTask>,
+        session: SharedSession,
+    ) -> MainProcessor {
+        MainProcessor {
+            receiver,
+            mappings: vec![],
+            session,
+        }
+    }
+
+    fn control(&self, mapping_id: MappingId, value: ControlValue) {
         let mapping = match self.mappings.get(mapping_id.index() as usize) {
             None => return,
             Some(m) => m,
@@ -45,6 +53,7 @@ impl MainProcessor {
 
 #[derive(Debug)]
 pub enum MainProcessorTask {
+    UpdateMappings(Vec<MainProcessorMapping>),
     Control {
         mapping_id: MappingId,
         value: ControlValue,

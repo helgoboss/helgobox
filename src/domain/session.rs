@@ -57,7 +57,10 @@ pub struct Session {
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
-    main_processor: MainProcessor,
+    main_processor_channel: (
+        crossbeam_channel::Sender<MainProcessorTask>,
+        crossbeam_channel::Receiver<MainProcessorTask>,
+    ),
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
 }
 
@@ -65,7 +68,10 @@ impl Session {
     pub fn new(
         context: SessionContext,
         real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
-        main_processor_receiver: crossbeam_channel::Receiver<MainProcessorTask>,
+        main_processor_channel: (
+            crossbeam_channel::Sender<MainProcessorTask>,
+            crossbeam_channel::Receiver<MainProcessorTask>,
+        ),
     ) -> Session {
         Self {
             let_matched_events_through: prop(false),
@@ -79,82 +85,77 @@ impl Session {
             context,
             mapping_models: vec![],
             mapping_list_changed_subject: Default::default(),
+            main_processor_channel,
             real_time_processor_sender,
-            main_processor: MainProcessor::new(main_processor_receiver),
         }
     }
 
     /// Connects the dots.
     pub fn activate(shared_session: SharedSession) {
-        {
-            let session = shared_session.borrow();
-            // Whenever anything in the mapping changes, including the mappings itself, resync
-            // mappings to processors.
-            Session::when_async(
-                // Initial sync
-                observable::of(())
-                    // Future syncs
-                    .merge(Session::mapping_list_or_any_mapping_changed(
-                        shared_session.clone(),
-                    ))
-                    .merge(TargetModel::potential_global_change_events()),
-                &shared_session,
-                move |s| {
-                    // TODO-medium This is pretty much stuff to do when doing slider changes.
-                    //  A debounce is in order!
-                    s.borrow_mut().sync_mappings_to_processors();
-                },
-            );
-            // Whenever additional settings are changed, resync them to the processors.
-            Session::when_sync(
-                // Initial sync
-                observable::of(())
-                    // Future syncs
-                    .merge(session.let_matched_events_through.changed())
-                    .merge(session.let_unmatched_events_through.changed())
-                    .merge(session.midi_control_input.changed()),
-                &shared_session,
-                move |s| {
-                    s.borrow().sync_settings_to_real_time_processor();
-                },
-            );
-            // Enable source learning
-            Session::when_async(
-                session.mapping_which_learns_source.changed(),
-                &shared_session,
-                move |s| {
-                    let session = s.borrow();
-                    let task = match session.mapping_which_learns_source.get_ref() {
-                        None => RealTimeProcessorTask::StopLearnSource,
-                        Some(_) => RealTimeProcessorTask::StartLearnSource,
-                    };
-                    session.real_time_processor_sender.send(task);
-                },
-            );
-            // Enable target learning
-            Session::when_async_with_item(
-                Session::target_touched_observables(shared_session.clone()).switch_on_next(),
-                &shared_session,
-                move |s, t| {
-                    s.borrow_mut().learn_target(t.as_ref());
-                },
-            );
-        }
-        // Call main processor regularly so that it can process control tasks.
-        // TODO-medium We should try to find a way to do this without having to borrow the session!
-        //  Because this interferes with target learning (if done via when_sync_with_item). In order
-        //  to achieve this, we would need  to give this closure or a dedicated control
-        //  surface ownership of the main processor and  do the synchronization stuff  via
-        //  sender. It's not an interthread communication,  but at least an async one, so a
-        //  channel is maybe not that bad! It's maybe even cleaner.  A bit like with an actor
-        //  system. An actor also receives stuff only via messages and  therefore doesn't
-        //  need to worry at all about mutable access.
-        Reaper::get().main_thread_idle().subscribe(move |_| {
-            shared_session.borrow().main_processor.idle();
-        });
+        let session = shared_session.borrow();
+        // Register the main processor. We instantiate it as control surface because it must be
+        // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
+        // callback is not suited.
+        Reaper::get()
+            .medium_session()
+            .plugin_register_add_csurf_inst(MainProcessor::new(
+                session.main_processor_channel.1.clone(),
+                shared_session.clone(),
+            ));
+        // Whenever anything in the mapping changes, including the mappings itself, resync
+        // mappings to processors.
+        Session::when_async(
+            // Initial sync
+            observable::of(())
+                // Future syncs
+                .merge(Session::mapping_list_or_any_mapping_changed(
+                    shared_session.clone(),
+                ))
+                .merge(TargetModel::potential_global_change_events()),
+            &shared_session,
+            move |s| {
+                // TODO-medium This is pretty much stuff to do when doing slider changes.
+                //  A debounce is in order!
+                s.borrow_mut().sync_mappings_to_processors();
+            },
+        );
+        // Whenever additional settings are changed, resync them to the processors.
+        Session::when_sync(
+            // Initial sync
+            observable::of(())
+                // Future syncs
+                .merge(session.let_matched_events_through.changed())
+                .merge(session.let_unmatched_events_through.changed())
+                .merge(session.midi_control_input.changed()),
+            &shared_session,
+            move |s| {
+                s.borrow().sync_settings_to_real_time_processor();
+            },
+        );
+        // Enable source learning
+        Session::when_async(
+            session.mapping_which_learns_source.changed(),
+            &shared_session,
+            move |s| {
+                let session = s.borrow();
+                let task = match session.mapping_which_learns_source.get_ref() {
+                    None => RealTimeProcessorTask::StopLearnSource,
+                    Some(_) => RealTimeProcessorTask::StartLearnSource,
+                };
+                session.real_time_processor_sender.send(task);
+            },
+        );
+        // Enable target learning
+        Session::when_async_with_item(
+            Session::target_touched_observables(shared_session.clone()).switch_on_next(),
+            &shared_session,
+            move |s, t| {
+                s.borrow_mut().learn_target(t.as_ref());
+            },
+        );
     }
 
-    fn learn_source(&mut self, source: &MidiSource) {
+    pub fn learn_source(&mut self, source: &MidiSource) {
         if let Some(mapping) = self.mapping_which_learns_source.replace(None) {
             mapping.borrow_mut().source_model.apply_from_source(source);
         }
@@ -377,7 +378,9 @@ impl Session {
             .enumerate()
             .map(|(i, m)| m.splinter(MappingId::new(i as _)))
             .unzip();
-        self.main_processor.update_mappings(main_mappings);
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::UpdateMappings(main_mappings));
         self.real_time_processor_sender
             .send(RealTimeProcessorTask::UpdateMappings(real_time_mappings));
     }
@@ -460,4 +463,4 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
 /// behavior. It will let us know immediately when we violated that safety rule.
 /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
 /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
-pub type SharedSession = Rc<debug_cell::RefCell<Session>>;
+pub type SharedSession = Rc<RefCell<Session>>;
