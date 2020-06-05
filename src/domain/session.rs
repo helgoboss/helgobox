@@ -7,6 +7,7 @@ use crate::domain::{
     ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, ReaperTarget,
     SessionContext, SharedMapping, TargetModel,
 };
+use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper};
@@ -90,7 +91,9 @@ impl Session {
             // Whenever anything in the mapping changes, including the mappings itself, resync
             // mappings to processors.
             Session::when_async(
+                // Initial sync
                 observable::of(())
+                    // Future syncs
                     .merge(Session::mapping_list_or_any_mapping_changed(
                         shared_session.clone(),
                     ))
@@ -104,13 +107,28 @@ impl Session {
             );
             // Whenever additional settings are changed, resync them to the processors.
             Session::when_sync(
+                // Initial sync
                 observable::of(())
+                    // Future syncs
                     .merge(session.let_matched_events_through.changed())
                     .merge(session.let_unmatched_events_through.changed())
                     .merge(session.midi_control_input.changed()),
                 &shared_session,
                 move |s| {
                     s.borrow().sync_settings_to_real_time_processor();
+                },
+            );
+            // Enable source learning
+            Session::when_async(
+                session.mapping_which_learns_source.changed(),
+                &shared_session,
+                move |s| {
+                    let session = s.borrow();
+                    let task = match session.mapping_which_learns_source.get_ref() {
+                        None => RealTimeProcessorTask::StopLearnSource,
+                        Some(_) => RealTimeProcessorTask::StartLearnSource,
+                    };
+                    session.real_time_processor_sender.send(task);
                 },
             );
             // Enable target learning
@@ -134,6 +152,12 @@ impl Session {
         Reaper::get().main_thread_idle().subscribe(move |_| {
             shared_session.borrow().main_processor.idle();
         });
+    }
+
+    fn learn_source(&mut self, source: &MidiSource) {
+        if let Some(mapping) = self.mapping_which_learns_source.replace(None) {
+            mapping.borrow_mut().source_model.apply_from_source(source);
+        }
     }
 
     fn learn_target(&mut self, target: &ReaperTarget) {
@@ -284,6 +308,7 @@ impl Session {
             )
     }
 
+    /// Omits observables that omit touched targets as long as target learn is enabled.
     fn target_touched_observables(
         shared_session: SharedSession,
     ) -> impl Event<LocalBoxOp<'static, Rc<ReaperTarget>, ()>> {

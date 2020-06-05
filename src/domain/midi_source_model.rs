@@ -55,6 +55,49 @@ impl MidiSourceModel {
             .merge(self.is_14_bit.changed())
     }
 
+    pub fn apply_from_source(&mut self, source: &MidiSource) {
+        use MidiSource::*;
+        self.r#type.set(MidiSourceType::from_source(source));
+        self.channel.set(source.channel());
+        match source {
+            NoteVelocity { key_number, .. } | PolyphonicKeyPressureAmount { key_number, .. } => {
+                self.midi_message_number.set(key_number.map(Into::into));
+            }
+            ControlChangeValue {
+                controller_number,
+                custom_character,
+                ..
+            } => {
+                self.is_14_bit.set(Some(false));
+                self.midi_message_number
+                    .set(controller_number.map(Into::into));
+                self.custom_character.set(*custom_character);
+            }
+            ControlChange14BitValue {
+                msb_controller_number,
+                ..
+            } => {
+                self.is_14_bit.set(Some(true));
+                self.midi_message_number
+                    .set(msb_controller_number.map(Into::into));
+            }
+            ParameterNumberValue {
+                number,
+                is_14_bit,
+                is_registered,
+                ..
+            } => {
+                self.parameter_number_message_number.set(*number);
+                self.is_14_bit.set(*is_14_bit);
+                self.is_registered.set(*is_registered);
+            }
+            ClockTransport { message } => {
+                self.midi_clock_transport_message.set(*message);
+            }
+            _ => {}
+        }
+    }
+
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         // TODO-low use cached
         self.create_source().format_control_value(value)
@@ -267,6 +310,23 @@ pub enum MidiSourceType {
 }
 
 impl MidiSourceType {
+    pub fn from_source(source: &MidiSource) -> MidiSourceType {
+        use MidiSource::*;
+        match source {
+            NoteVelocity { .. } => MidiSourceType::NoteVelocity,
+            NoteKeyNumber { .. } => MidiSourceType::NoteKeyNumber,
+            PolyphonicKeyPressureAmount { .. } => MidiSourceType::PolyphonicKeyPressureAmount,
+            ControlChangeValue { .. } => MidiSourceType::ControlChangeValue,
+            ProgramChangeNumber { .. } => MidiSourceType::ProgramChangeNumber,
+            ChannelPressureAmount { .. } => MidiSourceType::ChannelPressureAmount,
+            PitchBendChangeValue { .. } => MidiSourceType::PitchBendChangeValue,
+            ControlChange14BitValue { .. } => MidiSourceType::ControlChangeValue,
+            ParameterNumberValue { .. } => MidiSourceType::ParameterNumberValue,
+            ClockTempo => MidiSourceType::ClockTempo,
+            ClockTransport { .. } => MidiSourceType::ClockTransport,
+        }
+    }
+
     pub fn number_label(&self) -> &'static str {
         use MidiSourceType::*;
         match self {

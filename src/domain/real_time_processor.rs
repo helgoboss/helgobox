@@ -1,5 +1,7 @@
 use crate::core::MovingAverageCalculator;
-use crate::domain::{MainProcessorTask, MidiControlInput, RealTimeProcessorMapping};
+use crate::domain::{
+    MainProcessorTask, MidiControlInput, MidiSourceScanner, RealTimeProcessorMapping,
+};
 use helgoboss_learn::{Bpm, MidiSourceValue};
 use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, MessageMainCategory,
@@ -15,9 +17,14 @@ use vst::plugin::HostCallback;
 
 const BULK_SIZE: usize = 1;
 
+pub(crate) enum State {
+    Controlling,
+    LearningSource,
+}
+
 pub struct RealTimeProcessor {
     // Synced processing settings
-    // TODO-high We need to make one initial sync!!!
+    pub(crate) state: State,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) mappings: Vec<RealTimeProcessorMapping>,
     pub(crate) let_matched_events_through: bool,
@@ -32,6 +39,8 @@ pub struct RealTimeProcessor {
     pub(crate) cc_14_bit_scanner: ControlChange14BitMessageScanner,
     // For detecting play state changes
     pub(crate) was_playing_in_last_cycle: bool,
+    // For source learning
+    pub(crate) source_scanner: MidiSourceScanner,
     // For MIDI timing clock calculations
     pub(crate) sample_rate: Hz,
     pub(crate) sample_counter: u64,
@@ -46,6 +55,7 @@ impl RealTimeProcessor {
         host_callback: HostCallback,
     ) -> RealTimeProcessor {
         RealTimeProcessor {
+            state: State::Controlling,
             receiver,
             main_processor_sender: main_processor_sender,
             mappings: vec![],
@@ -56,6 +66,7 @@ impl RealTimeProcessor {
             midi_control_input: MidiControlInput::FxInput,
             host: host_callback,
             was_playing_in_last_cycle: false,
+            source_scanner: Default::default(),
             sample_rate: Hz::new(1.0),
             sample_counter: 0,
             previous_midi_clock_timestamp_in_samples: 0,
@@ -103,6 +114,13 @@ impl RealTimeProcessor {
                 }
                 UpdateSampleRate(sample_rate) => {
                     self.sample_rate = sample_rate;
+                }
+                StartLearnSource => {
+                    self.state = State::LearningSource;
+                    self.source_scanner.reset();
+                }
+                StopLearnSource => {
+                    self.state = State::Controlling;
                 }
             }
         }
@@ -182,52 +200,84 @@ impl RealTimeProcessor {
         self.process_incoming_midi_normal_plain(msg);
     }
 
-    fn process_incoming_midi_normal_nrpn(&self, msg: ParameterNumberMessage) {
-        let matched = self.process(MidiSourceValue::<RawShortMessage>::ParameterNumber(msg));
-        if self.midi_control_input != MidiControlInput::FxInput {
-            return;
-        }
-        if (matched && self.let_matched_events_through)
-            || (!matched && self.let_unmatched_events_through)
-        {
-            for m in msg
-                .to_short_messages::<RawShortMessage>()
-                .into_iter()
-                .flatten()
-            {
-                self.forward_midi(*m);
+    fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage) {
+        let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
+        match self.state {
+            State::Controlling => {
+                let matched = self.control(source_value);
+                if self.midi_control_input != MidiControlInput::FxInput {
+                    return;
+                }
+                if (matched && self.let_matched_events_through)
+                    || (!matched && self.let_unmatched_events_through)
+                {
+                    for m in msg
+                        .to_short_messages::<RawShortMessage>()
+                        .into_iter()
+                        .flatten()
+                    {
+                        self.forward_midi(*m);
+                    }
+                }
+            }
+            State::LearningSource => {
+                self.learn(source_value);
             }
         }
     }
 
-    fn process_incoming_midi_normal_cc14(&self, msg: ControlChange14BitMessage) {
-        let matched = self.process(MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg));
-        if self.midi_control_input != MidiControlInput::FxInput {
-            return;
+    fn learn(&mut self, value: MidiSourceValue<impl ShortMessage>) {
+        if let Some(source) = self.source_scanner.feed(value) {
+            let task = MainProcessorTask::LearnSource(source);
+            self.main_processor_sender.send(task);
+            self.state = State::Controlling;
         }
-        if (matched && self.let_matched_events_through)
-            || (!matched && self.let_unmatched_events_through)
-        {
-            for m in msg.to_short_messages::<RawShortMessage>().into_iter() {
-                self.forward_midi(*m);
+    }
+
+    fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
+        let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
+        match self.state {
+            State::Controlling => {
+                let matched = self.control(source_value);
+                if self.midi_control_input != MidiControlInput::FxInput {
+                    return;
+                }
+                if (matched && self.let_matched_events_through)
+                    || (!matched && self.let_unmatched_events_through)
+                {
+                    for m in msg.to_short_messages::<RawShortMessage>().into_iter() {
+                        self.forward_midi(*m);
+                    }
+                }
+            }
+            State::LearningSource => {
+                self.learn(source_value);
             }
         }
     }
 
-    fn process_incoming_midi_normal_plain(&self, msg: impl ShortMessage + Copy) {
-        if self.is_consumed(msg) {
-            return;
-        }
-        let matched = self.process(MidiSourceValue::Plain(msg));
-        if matched {
-            self.process_matched_short(msg);
-        } else {
-            self.process_unmatched_short(msg);
+    fn process_incoming_midi_normal_plain(&mut self, msg: impl ShortMessage + Copy) {
+        let source_value = MidiSourceValue::Plain(msg);
+        match self.state {
+            State::Controlling => {
+                if self.is_consumed(msg) {
+                    return;
+                }
+                let matched = self.control(source_value);
+                if matched {
+                    self.process_matched_short(msg);
+                } else {
+                    self.process_unmatched_short(msg);
+                }
+            }
+            State::LearningSource => {
+                self.learn(source_value);
+            }
         }
     }
 
     /// Returns whether this source value matched one of the mappings.
-    fn process(&self, value: MidiSourceValue<impl ShortMessage>) -> bool {
+    fn control(&self, value: MidiSourceValue<impl ShortMessage>) -> bool {
         let mut matched = false;
         for m in &self.mappings {
             if let Some(control_value) = m.source.control(&value) {
@@ -286,7 +336,7 @@ impl RealTimeProcessor {
                     if self.bpm_calculator.value_count_so_far() % 24 == 0 {
                         let source_value =
                             MidiSourceValue::<RawShortMessage>::Tempo(Bpm::new(moving_avg));
-                        self.process(source_value);
+                        self.control(source_value);
                     }
                 }
             }
@@ -328,4 +378,6 @@ pub enum RealTimeProcessorTask {
         midi_control_input: MidiControlInput,
     },
     UpdateSampleRate(Hz),
+    StartLearnSource,
+    StopLearnSource,
 }

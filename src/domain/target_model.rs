@@ -97,8 +97,9 @@ impl TargetModel {
 
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &SessionContext) {
         use ReaperTarget::*;
+        self.r#type.set(TargetType::from_target(target));
         if let Some(track) = target.track() {
-            self.track.set(virtualize(track.clone(), context));
+            self.track.set(virtualize_track(track.clone(), context));
         }
         if let Some(fx) = target.fx() {
             self.fx_index.set(Some(fx.index()));
@@ -112,50 +113,13 @@ impl TargetModel {
                 action,
                 invocation_type,
             } => {
-                self.r#type.set(TargetType::Action);
                 self.command_id.set(Some(action.command_id()));
                 self.action_invocation_type.set(*invocation_type);
             }
             FxParameter { param } => {
-                self.r#type.set(TargetType::FxParameter);
                 self.param_index.set(param.index());
             }
-            TrackVolume { .. } => {
-                self.r#type.set(TargetType::TrackVolume);
-            }
-            TrackSendVolume { .. } => {
-                self.r#type.set(TargetType::TrackSendVolume);
-            }
-            TrackPan { .. } => {
-                self.r#type.set(TargetType::TrackPan);
-            }
-            TrackArm { .. } => {
-                self.r#type.set(TargetType::TrackArm);
-            }
-            TrackSelection { .. } => {
-                self.r#type.set(TargetType::TrackSelection);
-            }
-            TrackMute { .. } => {
-                self.r#type.set(TargetType::TrackMute);
-            }
-            TrackSolo { .. } => {
-                self.r#type.set(TargetType::TrackSolo);
-            }
-            TrackSendPan { .. } => {
-                self.r#type.set(TargetType::TrackSendPan);
-            }
-            Tempo { .. } => {
-                self.r#type.set(TargetType::Tempo);
-            }
-            Playrate { .. } => {
-                self.r#type.set(TargetType::Playrate);
-            }
-            FxEnable { .. } => {
-                self.r#type.set(TargetType::FxEnable);
-            }
-            FxPreset { .. } => {
-                self.r#type.set(TargetType::FxPreset);
-            }
+            _ => {}
         };
     }
 
@@ -616,7 +580,29 @@ pub enum ActionInvocationType {
     Relative = 2,
 }
 
-fn virtualize(track: Track, context: &SessionContext) -> VirtualTrack {
+impl TargetType {
+    pub fn from_target(target: &ReaperTarget) -> TargetType {
+        use ReaperTarget::*;
+        match target {
+            Action { .. } => TargetType::Action,
+            FxParameter { .. } => TargetType::FxParameter,
+            TrackVolume { .. } => TargetType::TrackVolume,
+            TrackSendVolume { .. } => TargetType::TrackSendVolume,
+            TrackPan { .. } => TargetType::TrackPan,
+            TrackArm { .. } => TargetType::TrackArm,
+            TrackSelection { .. } => TargetType::TrackSelection,
+            TrackMute { .. } => TargetType::TrackMute,
+            TrackSolo { .. } => TargetType::TrackSolo,
+            TrackSendPan { .. } => TargetType::TrackSendPan,
+            Tempo { .. } => TargetType::Tempo,
+            Playrate { .. } => TargetType::Playrate,
+            FxEnable { .. } => TargetType::FxEnable,
+            FxPreset { .. } => TargetType::FxPreset,
+        }
+    }
+}
+
+fn virtualize_track(track: Track, context: &SessionContext) -> VirtualTrack {
     match context.track() {
         Some(t) if *t == track => VirtualTrack::This,
         _ => VirtualTrack::Particular(track),

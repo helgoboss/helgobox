@@ -30,3 +30,6 @@ pub use target_model::*;
 
 mod aliases;
 pub use aliases::*;
+
+mod midi_source_scanner;
+pub use midi_source_scanner::*;

@@ -1,5 +1,5 @@
 use crate::domain::{MainProcessorMapping, MappingId, Mode, ReaperTarget};
-use helgoboss_learn::ControlValue;
+use helgoboss_learn::{ControlValue, MidiSource};
 
 const BULK_SIZE: usize = 30;
 
@@ -29,6 +29,7 @@ impl MainProcessor {
                 Control { mapping_id, value } => {
                     self.process(mapping_id, value);
                 }
+                LearnSource(source) => todo!(),
             }
         }
     }
@@ -48,4 +49,5 @@ pub enum MainProcessorTask {
         mapping_id: MappingId,
         value: ControlValue,
     },
+    LearnSource(MidiSource),
 }
