@@ -6,10 +6,10 @@ pub struct MidiSourceScanner {}
 
 impl MidiSourceScanner {
     pub fn feed(&mut self, source_value: MidiSourceValue<impl ShortMessage>) -> Option<MidiSource> {
-        todo!()
+        MidiSource::from_source_value(source_value)
     }
 
     pub fn reset(&mut self) {
-        todo!()
+        // TODO
     }
 }
