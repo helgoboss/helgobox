@@ -2,7 +2,7 @@ use crate::core::MovingAverageCalculator;
 use crate::domain::{
     MainProcessorTask, MidiControlInput, MidiSourceScanner, RealTimeProcessorMapping,
 };
-use helgoboss_learn::{Bpm, MidiSourceValue};
+use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, MessageMainCategory,
     ParameterNumberMessage, ParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -17,6 +17,7 @@ use vst::plugin::HostCallback;
 
 const BULK_SIZE: usize = 1;
 
+#[derive(PartialEq)]
 pub(crate) enum State {
     Controlling,
     LearningSource,
@@ -75,11 +76,7 @@ impl RealTimeProcessor {
     }
 
     // TODO-medium Use better data type for frame_offset as soon as we know the value range
-    pub fn process_incoming_midi_from_fx_input(
-        &mut self,
-        frame_offset: i32,
-        msg: impl ShortMessage + Copy,
-    ) {
+    pub fn process_incoming_midi_from_fx_input(&mut self, frame_offset: i32, msg: RawShortMessage) {
         if self.midi_control_input == MidiControlInput::FxInput {
             let transport_is_starting = !self.was_playing_in_last_cycle && self.is_now_playing();
             if transport_is_starting && msg.r#type() == ShortMessageType::NoteOff {
@@ -131,9 +128,13 @@ impl RealTimeProcessor {
         if let MidiControlInput::Device(dev) = self.midi_control_input {
             dev.with_midi_input(|mi| {
                 for evt in mi.get_read_buf().enum_items(0) {
-                    self.process_incoming_midi(evt.frame_offset() as _, evt.message());
+                    self.process_incoming_midi(evt.frame_offset() as _, evt.message().to_other());
                 }
             });
+        }
+        // Poll source scanner if we are learning a source currently
+        if self.state == State::LearningSource {
+            self.poll_source_scanner()
         }
     }
 
@@ -151,7 +152,7 @@ impl RealTimeProcessor {
         }
     }
 
-    fn process_incoming_midi(&mut self, frame_offset: i32, msg: impl ShortMessage + Copy) {
+    fn process_incoming_midi(&mut self, frame_offset: i32, msg: RawShortMessage) {
         use ShortMessageType::*;
         match msg.r#type() {
             NoteOff
@@ -183,12 +184,12 @@ impl RealTimeProcessor {
             }
             TimingClock => {
                 // Timing clock messages are treated special (calculates BPM).
-                self.process_incoming_midi_timing_clock(frame_offset, msg);
+                self.process_incoming_midi_timing_clock(frame_offset);
             }
         };
     }
 
-    fn process_incoming_midi_normal(&mut self, msg: impl ShortMessage + Copy) {
+    fn process_incoming_midi_normal(&mut self, msg: RawShortMessage) {
         // TODO-low This is probably unnecessary optimization, but we could switch off NRPN/CC14
         //  scanning if there's no such source.
         if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
@@ -221,17 +222,27 @@ impl RealTimeProcessor {
                 }
             }
             State::LearningSource => {
-                self.learn(source_value);
+                self.feed_source_scanner(source_value);
             }
         }
     }
 
-    fn learn(&mut self, value: MidiSourceValue<impl ShortMessage>) {
-        if let Some(source) = self.source_scanner.feed(value) {
-            let task = MainProcessorTask::LearnSource(source);
-            self.main_processor_sender.send(task);
-            self.state = State::Controlling;
+    fn poll_source_scanner(&mut self) {
+        if let Some(source) = self.source_scanner.poll() {
+            self.learn(source);
         }
+    }
+
+    fn feed_source_scanner(&mut self, value: MidiSourceValue<RawShortMessage>) {
+        if let Some(source) = self.source_scanner.feed(value) {
+            self.learn(source);
+        }
+    }
+
+    fn learn(&mut self, source: MidiSource) {
+        self.main_processor_sender
+            .send(MainProcessorTask::LearnSource(source));
+        self.state = State::Controlling;
     }
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
@@ -251,12 +262,12 @@ impl RealTimeProcessor {
                 }
             }
             State::LearningSource => {
-                self.learn(source_value);
+                self.feed_source_scanner(source_value);
             }
         }
     }
 
-    fn process_incoming_midi_normal_plain(&mut self, msg: impl ShortMessage + Copy) {
+    fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage) {
         let source_value = MidiSourceValue::Plain(msg);
         match self.state {
             State::Controlling => {
@@ -271,13 +282,13 @@ impl RealTimeProcessor {
                 }
             }
             State::LearningSource => {
-                self.learn(source_value);
+                self.feed_source_scanner(source_value);
             }
         }
     }
 
     /// Returns whether this source value matched one of the mappings.
-    fn control(&self, value: MidiSourceValue<impl ShortMessage>) -> bool {
+    fn control(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
         let mut matched = false;
         for m in &self.mappings {
             if let Some(control_value) = m.source.control(&value) {
@@ -292,7 +303,7 @@ impl RealTimeProcessor {
         matched
     }
 
-    fn process_matched_short(&self, msg: impl ShortMessage) {
+    fn process_matched_short(&self, msg: RawShortMessage) {
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -302,7 +313,7 @@ impl RealTimeProcessor {
         self.forward_midi(msg);
     }
 
-    fn process_unmatched_short(&self, msg: impl ShortMessage) {
+    fn process_unmatched_short(&self, msg: RawShortMessage) {
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -312,11 +323,11 @@ impl RealTimeProcessor {
         self.forward_midi(msg);
     }
 
-    fn is_consumed(&self, msg: impl ShortMessage) -> bool {
+    fn is_consumed(&self, msg: RawShortMessage) -> bool {
         self.mappings.iter().any(|m| m.source.consumes(&msg))
     }
 
-    fn process_incoming_midi_timing_clock(&mut self, frame_offset: i32, msg: impl ShortMessage) {
+    fn process_incoming_midi_timing_clock(&mut self, frame_offset: i32) {
         // Frame offset is given in 1/1024000 of a second, *not* sample frames!
         let offset_in_secs = frame_offset as f64 / 1024000.0;
         let offset_in_samples = (offset_in_secs * self.sample_rate.get()).round() as u64;
@@ -344,7 +355,7 @@ impl RealTimeProcessor {
         self.previous_midi_clock_timestamp_in_samples = timestamp_in_samples;
     }
 
-    fn forward_midi(&self, msg: impl ShortMessage) {
+    fn forward_midi(&self, msg: RawShortMessage) {
         let bytes = msg.to_bytes();
         let mut event = MidiEvent {
             event_type: EventType::Midi,
