@@ -1110,7 +1110,7 @@ dependencies = [
 [[package]]
 name = "rxrust"
 version = "0.8.3"
-source = "git+https://github.com/helgoboss/rxRust?branch=reaper-rs#e5aab649e92427f401dd68d55daceed9611d0aaf"
+source = "git+https://github.com/helgoboss/rxRust?branch=reaper-rs#b108fc755b62ecce737887a02e3d9b1cbf19afd5"
 dependencies = [
  "futures-preview",
  "futures-timer",

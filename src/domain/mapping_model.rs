@@ -1,8 +1,8 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    MainProcessorMapping, MidiSourceModel, ModeModel, ProcessorMapping, RealTimeProcessorMapping,
-    ReaperTarget, SessionContext, SharedMapping, TargetCharacter, TargetModel,
-    TargetModelWithContext,
+    MainProcessorControlMapping, MidiSourceModel, ModeModel, ProcessorMapping,
+    RealTimeProcessorControlMapping, ReaperTarget, SessionContext, SharedMapping, TargetCharacter,
+    TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, Target, UnitValue};
 use reaper_high::Fx;
@@ -69,12 +69,13 @@ impl MappingModel {
             .set(self.with_context(context).preferred_step_size_interval())
     }
 
-    pub fn control_relevant_prop_changed(&self) -> impl UnitEvent {
+    pub fn changed_processing_relevant(&self) -> impl UnitEvent {
         self.source_model
             .changed()
             .merge(self.mode_model.changed())
             .merge(self.target_model.changed())
             .merge(self.control_is_enabled.changed())
+            .merge(self.feedback_is_enabled.changed())
     }
 
     pub fn target_value_changed(
@@ -110,18 +111,21 @@ impl<'a> MappingModelWithContext<'a> {
     ///
     /// Returns `None` if a target cannot be built because there's insufficient data available.
     /// Also returns `None` if a target condition (e.g. "track selected" or "FX focused") is not
-    /// satisfied) or control is disabled for this mapping.
+    /// satisfied).
     pub fn create_processor_mapping(&self) -> Option<ProcessorMapping> {
-        if !self.mapping.control_is_enabled.get() {
-            return None;
-        }
         let target = self.target_with_context().create_target().ok()?;
         if !self.mapping.target_model.conditions_are_met(&target) {
             return None;
         }
         let source = self.mapping.source_model.create_source();
         let mode = self.mapping.mode_model.create_mode(&target);
-        Some(ProcessorMapping::new(source, mode, target))
+        Some(ProcessorMapping::new(
+            source,
+            mode,
+            target,
+            self.mapping.control_is_enabled.get(),
+            self.mapping.feedback_is_enabled.get(),
+        ))
     }
 
     pub fn target_should_be_hit_with_increments(&self) -> bool {

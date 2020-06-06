@@ -1,6 +1,7 @@
 use crate::core::MovingAverageCalculator;
 use crate::domain::{
-    MainProcessorTask, MidiControlInput, MidiSourceScanner, RealTimeProcessorMapping,
+    MainProcessorTask, MidiControlInput, MidiFeedbackOutput, MidiSourceScanner,
+    RealTimeProcessorControlMapping,
 };
 use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -9,25 +10,27 @@ use helgoboss_midi::{
     ShortMessageFactory, ShortMessageType, U7,
 };
 use reaper_high::Reaper;
-use reaper_medium::Hz;
+use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
+use std::convert::{TryFrom, TryInto};
 use std::ptr::null_mut;
 use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
 use vst::host::Host;
 use vst::plugin::HostCallback;
 
-const BULK_SIZE: usize = 1;
+const BULK_SIZE: usize = 100;
 
 #[derive(PartialEq)]
-pub(crate) enum State {
+pub(crate) enum ControlState {
     Controlling,
     LearningSource,
 }
 
 pub struct RealTimeProcessor {
     // Synced processing settings
-    pub(crate) state: State,
+    pub(crate) control_state: ControlState,
     pub(crate) midi_control_input: MidiControlInput,
-    pub(crate) mappings: Vec<RealTimeProcessorMapping>,
+    pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
+    pub(crate) control_mappings: Vec<RealTimeProcessorControlMapping>,
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
@@ -56,15 +59,16 @@ impl RealTimeProcessor {
         host_callback: HostCallback,
     ) -> RealTimeProcessor {
         RealTimeProcessor {
-            state: State::Controlling,
+            control_state: ControlState::Controlling,
             receiver,
             main_processor_sender: main_processor_sender,
-            mappings: vec![],
+            control_mappings: vec![],
             let_matched_events_through: false,
             let_unmatched_events_through: false,
             nrpn_scanner: Default::default(),
             cc_14_bit_scanner: Default::default(),
             midi_control_input: MidiControlInput::FxInput,
+            midi_feedback_output: None,
             host: host_callback,
             was_playing_in_last_cycle: false,
             source_scanner: Default::default(),
@@ -87,7 +91,12 @@ impl RealTimeProcessor {
                 self.process_unmatched_short(msg);
                 return;
             }
-            self.process_incoming_midi(frame_offset, msg);
+            self.process_incoming_midi(
+                MidiFrameOffset::new(
+                    u32::try_from(frame_offset).expect("negative MIDI frame offset"),
+                ),
+                msg,
+            );
         }
     }
 
@@ -99,25 +108,30 @@ impl RealTimeProcessor {
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use RealTimeProcessorTask::*;
             match task {
-                UpdateMappings(mappings) => self.mappings = mappings,
+                UpdateMappings(mappings) => self.control_mappings = mappings,
                 UpdateSettings {
                     let_matched_events_through,
                     let_unmatched_events_through,
                     midi_control_input,
+                    midi_feedback_output,
                 } => {
                     self.let_matched_events_through = let_matched_events_through;
                     self.let_unmatched_events_through = let_unmatched_events_through;
                     self.midi_control_input = midi_control_input;
+                    self.midi_feedback_output = midi_feedback_output;
                 }
                 UpdateSampleRate(sample_rate) => {
                     self.sample_rate = sample_rate;
                 }
                 StartLearnSource => {
-                    self.state = State::LearningSource;
+                    self.control_state = ControlState::LearningSource;
                     self.source_scanner.reset();
                 }
                 StopLearnSource => {
-                    self.state = State::Controlling;
+                    self.control_state = ControlState::Controlling;
+                }
+                Feedback(source_value) => {
+                    self.feedback(source_value);
                 }
             }
         }
@@ -128,12 +142,12 @@ impl RealTimeProcessor {
         if let MidiControlInput::Device(dev) = self.midi_control_input {
             dev.with_midi_input(|mi| {
                 for evt in mi.get_read_buf().enum_items(0) {
-                    self.process_incoming_midi(evt.frame_offset() as _, evt.message().to_other());
+                    self.process_incoming_midi(evt.frame_offset(), evt.message().to_other());
                 }
             });
         }
         // Poll source scanner if we are learning a source currently
-        if self.state == State::LearningSource {
+        if self.control_state == ControlState::LearningSource {
             self.poll_source_scanner()
         }
     }
@@ -152,7 +166,7 @@ impl RealTimeProcessor {
         }
     }
 
-    fn process_incoming_midi(&mut self, frame_offset: i32, msg: RawShortMessage) {
+    fn process_incoming_midi(&mut self, frame_offset: MidiFrameOffset, msg: RawShortMessage) {
         use ShortMessageType::*;
         match msg.r#type() {
             NoteOff
@@ -203,8 +217,8 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        match self.state {
-            State::Controlling => {
+        match self.control_state {
+            ControlState::Controlling => {
                 let matched = self.control(source_value);
                 if self.midi_control_input != MidiControlInput::FxInput {
                     return;
@@ -221,7 +235,7 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            State::LearningSource => {
+            ControlState::LearningSource => {
                 self.feed_source_scanner(source_value);
             }
         }
@@ -242,13 +256,13 @@ impl RealTimeProcessor {
     fn learn(&mut self, source: MidiSource) {
         self.main_processor_sender
             .send(MainProcessorTask::LearnSource(source));
-        self.state = State::Controlling;
+        self.control_state = ControlState::Controlling;
     }
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        match self.state {
-            State::Controlling => {
+        match self.control_state {
+            ControlState::Controlling => {
                 let matched = self.control(source_value);
                 if self.midi_control_input != MidiControlInput::FxInput {
                     return;
@@ -261,7 +275,7 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            State::LearningSource => {
+            ControlState::LearningSource => {
                 self.feed_source_scanner(source_value);
             }
         }
@@ -269,8 +283,8 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage) {
         let source_value = MidiSourceValue::Plain(msg);
-        match self.state {
-            State::Controlling => {
+        match self.control_state {
+            ControlState::Controlling => {
                 if self.is_consumed(msg) {
                     return;
                 }
@@ -281,7 +295,7 @@ impl RealTimeProcessor {
                     self.process_unmatched_short(msg);
                 }
             }
-            State::LearningSource => {
+            ControlState::LearningSource => {
                 self.feed_source_scanner(source_value);
             }
         }
@@ -290,7 +304,7 @@ impl RealTimeProcessor {
     /// Returns whether this source value matched one of the mappings.
     fn control(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
         let mut matched = false;
-        for m in &self.mappings {
+        for m in &self.control_mappings {
             if let Some(control_value) = m.source.control(&value) {
                 let main_processor_task = MainProcessorTask::Control {
                     mapping_id: m.mapping_id,
@@ -324,12 +338,14 @@ impl RealTimeProcessor {
     }
 
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
-        self.mappings.iter().any(|m| m.source.consumes(&msg))
+        self.control_mappings
+            .iter()
+            .any(|m| m.source.consumes(&msg))
     }
 
-    fn process_incoming_midi_timing_clock(&mut self, frame_offset: i32) {
+    fn process_incoming_midi_timing_clock(&mut self, frame_offset: MidiFrameOffset) {
         // Frame offset is given in 1/1024000 of a second, *not* sample frames!
-        let offset_in_secs = frame_offset as f64 / 1024000.0;
+        let offset_in_secs = frame_offset.get() as f64 / 1024000.0;
         let offset_in_samples = (offset_in_secs * self.sample_rate.get()).round() as u64;
         let timestamp_in_samples = self.sample_counter + offset_in_samples;
         if self.previous_midi_clock_timestamp_in_samples > 0
@@ -353,6 +369,25 @@ impl RealTimeProcessor {
             }
         }
         self.previous_midi_clock_timestamp_in_samples = timestamp_in_samples;
+    }
+
+    fn feedback(&self, value: MidiSourceValue<RawShortMessage>) {
+        if let Some(output) = self.midi_feedback_output {
+            let shorts = value.to_short_messages();
+            if shorts[0].is_none() {
+                return;
+            }
+            match output {
+                MidiFeedbackOutput::FxOutput => {
+                    todo!("feedback to FX output not yet supported");
+                }
+                MidiFeedbackOutput::Device(dev) => dev.with_midi_output(|mo| {
+                    for short in shorts.into_iter().flatten() {
+                        mo.send(*short, SendMidiTime::Instantly);
+                    }
+                }),
+            };
+        }
     }
 
     fn forward_midi(&self, msg: RawShortMessage) {
@@ -382,13 +417,16 @@ impl RealTimeProcessor {
 
 #[derive(Debug)]
 pub enum RealTimeProcessorTask {
-    UpdateMappings(Vec<RealTimeProcessorMapping>),
+    UpdateMappings(Vec<RealTimeProcessorControlMapping>),
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
         midi_control_input: MidiControlInput,
+        midi_feedback_output: Option<MidiFeedbackOutput>,
     },
     UpdateSampleRate(Hz),
+    // TODO-medium Is it better for performance to push a vector (smallvec) here?
+    Feedback(MidiSourceValue<RawShortMessage>),
     StartLearnSource,
     StopLearnSource,
 }

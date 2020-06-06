@@ -35,7 +35,7 @@ pub struct ModeModel {
 }
 
 /// Represents a value transformation done via EEL scripting language.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EelTransformation {}
 
 impl EelTransformation {
@@ -54,7 +54,7 @@ impl Transformation for EelTransformation {
 }
 
 // Represents a learn mode
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Mode {
     Absolute(AbsoluteMode<EelTransformation>),
     Relative(RelativeMode),
@@ -72,6 +72,15 @@ impl Mode {
             Toggle(m) => m
                 .control(value.as_absolute().ok()?, target)
                 .map(ControlValue::Absolute),
+        }
+    }
+
+    pub fn feedback(&self, value: UnitValue) -> UnitValue {
+        use Mode::*;
+        match self {
+            Absolute(m) => m.feedback(value),
+            Relative(m) => m.feedback(value),
+            Toggle(m) => m.feedback(value),
         }
     }
 }
