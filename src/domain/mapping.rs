@@ -58,7 +58,7 @@ impl ProcessorMapping {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct MappingId {
     index: u16,
 }

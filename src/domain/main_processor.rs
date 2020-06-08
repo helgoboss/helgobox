@@ -1,5 +1,5 @@
 use crate::domain::{
-    MainProcessorControlMapping, MainProcessorFeedbackMapping, MappingId, Mode,
+    FeedbackBuffer, MainProcessorControlMapping, MainProcessorFeedbackMapping, MappingId, Mode,
     RealTimeProcessorTask, ReaperTarget, SharedSession,
 };
 use helgoboss_learn::{ControlValue, MidiSource, Target};
@@ -11,7 +11,7 @@ const BULK_SIZE: usize = 30;
 #[derive(Debug)]
 pub struct MainProcessor {
     control_mappings: Vec<MainProcessorControlMapping>,
-    feedback_mappings: Vec<MainProcessorFeedbackMapping>,
+    feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: Vec<SubscriptionGuard<Box<dyn SubscriptionLike>>>,
     self_sender: crossbeam_channel::Sender<MainProcessorTask>,
     receiver: crossbeam_channel::Receiver<MainProcessorTask>,
@@ -21,6 +21,7 @@ pub struct MainProcessor {
 
 impl ControlSurface for MainProcessor {
     fn run(&mut self) {
+        // Process tasks
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use MainProcessorTask::*;
             match task {
@@ -30,34 +31,24 @@ impl ControlSurface for MainProcessor {
                 } => {
                     self.control_mappings = control_mappings;
                     self.feedback_subscriptions = self.subscribe_to_feedback(&feedback_mappings);
-                    self.feedback_mappings = feedback_mappings;
-                    // TODO-high CONTINUE Feedback:
-                    // - Clear vector with previous RAII subscriptions
-                    // - For each feedback mapping, subscribe to ReaperTarget::value_changed().
-                    // - Add subscription to the RAII subscription vector
-                    // - The closure captures the main processor sender and the mapping ID, nothing
-                    //   more!
-                    // - It sends a Feedback(mapping_id) task to the main processor (itself). It
-                    //   doesn't process immediately because a queried target value might not be the
-                    //   latest.
-                    // - The main processor, when receiving that Feedback task, starts a 10ms
-                    //   timeout (if not already started) and throws the mapping ID in the buffer
-                    //   set.
-                    // - As soon as the timeout is reached (idle calls), the main processor resets
-                    //   the timer, clears the set, queries the target value for each buffered
-                    //   mapping ID and calculates the MidiSourceValue
-                    // - This whole vector will be sent to the real-time processor. This one picks
-                    //   it up and simply sends it to the feedback device.
+                    self.feedback_buffer.update_mappings(feedback_mappings);
                 }
                 Control { mapping_id, value } => {
                     self.control(mapping_id, value);
                 }
                 Feedback(mapping_id) => {
-                    self.feedback(mapping_id);
+                    self.feedback_buffer.buffer_mapping_id(mapping_id);
                 }
                 LearnSource(source) => {
                     self.session.borrow_mut().learn_source(&source);
                 }
+            }
+        }
+        // Send feedback as soon as buffered long enough
+        if let Some(source_values) = self.feedback_buffer.poll() {
+            for v in source_values {
+                self.real_time_processor_sender
+                    .send(RealTimeProcessorTask::Feedback(v));
             }
         }
     }
@@ -75,7 +66,7 @@ impl MainProcessor {
             receiver,
             real_time_processor_sender,
             control_mappings: vec![],
-            feedback_mappings: vec![],
+            feedback_buffer: Default::default(),
             feedback_subscriptions: vec![],
             session,
         }
@@ -87,17 +78,6 @@ impl MainProcessor {
             Some(m) => m,
         };
         mapping.control(value);
-    }
-
-    fn feedback(&self, mapping_id: MappingId) {
-        let mapping = match self.feedback_mappings.get(mapping_id.index() as usize) {
-            None => return,
-            Some(m) => m,
-        };
-        if let Some(source_value) = mapping.feedback() {
-            self.real_time_processor_sender
-                .send(RealTimeProcessorTask::Feedback(source_value));
-        }
     }
 
     fn subscribe_to_feedback(

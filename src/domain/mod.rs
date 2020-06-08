@@ -10,6 +10,9 @@ pub use main_processor::*;
 mod session_context;
 pub use session_context::*;
 
+mod feedback_buffer;
+pub use feedback_buffer::*;
+
 mod midi_source_model;
 pub use midi_source_model::*;
 
