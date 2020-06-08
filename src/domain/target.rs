@@ -31,6 +31,7 @@ pub enum ReaperTarget {
     Action {
         action: Action,
         invocation_type: ActionInvocationType,
+        project: Project,
     },
     FxParameter {
         param: FxParameter,
@@ -135,6 +136,7 @@ impl ReaperTarget {
                 Action {
                     action: (*action).clone(),
                     invocation_type: ActionInvocationType::Trigger,
+                    project: reaper.current_project(),
                 }
                 .into()
             }))
@@ -169,6 +171,7 @@ impl ReaperTarget {
             Action {
                 action,
                 invocation_type,
+                ..
             } => match action.character() {
                 ActionCharacter::Toggle => Trigger,
                 ActionCharacter::Trigger => Switch,
@@ -389,9 +392,27 @@ impl ReaperTarget {
             Action {
                 action,
                 invocation_type,
-            } => {
-                // TODO-high implement
-            }
+                project,
+            } => match value {
+                Absolute(v) => match invocation_type {
+                    ActionInvocationType::Trigger => {
+                        if !v.is_zero() {
+                            action.invoke_as_trigger(Some(*project));
+                        }
+                    }
+                    ActionInvocationType::Absolute => action.invoke(v.get(), false, Some(*project)),
+                    ActionInvocationType::Relative => {
+                        return Err("relative invocation type can't take absolute values");
+                    }
+                },
+                Relative(i) => {
+                    if let ActionInvocationType::Relative = invocation_type {
+                        action.invoke(i.get() as f64, true, Some(*project));
+                    } else {
+                        return Err("relative values need relative invocation type");
+                    }
+                }
+            },
             FxParameter { param } => {
                 // TODO-high How about values > 1.0?
                 let fx_value = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
@@ -484,6 +505,7 @@ impl ReaperTarget {
             Action {
                 action,
                 invocation_type,
+                ..
             } => {
                 let action = action.clone();
                 // TODO-medium It's not cool that reaper-rs exposes some events as Rc<T>

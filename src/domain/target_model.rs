@@ -22,7 +22,7 @@ pub struct TargetModel {
     // For all targets
     pub r#type: Prop<TargetType>,
     // For action targets only
-    pub command_id: Prop<Option<CommandId>>,
+    pub action: Prop<Option<Action>>,
     pub action_invocation_type: Prop<ActionInvocationType>,
     // For track targets
     pub track: Prop<VirtualTrack>,
@@ -43,7 +43,7 @@ impl Default for TargetModel {
     fn default() -> Self {
         Self {
             r#type: prop(TargetType::FxParameter),
-            command_id: prop(None),
+            action: prop(None),
             action_invocation_type: prop(ActionInvocationType::Trigger),
             track: prop(VirtualTrack::This),
             enable_only_if_track_selected: prop(false),
@@ -76,25 +76,6 @@ impl TargetModel {
             .merge(reaper.fx_removed().map_to(()))
     }
 
-    /// A bit like cloning the given model but invokes listeners.
-    // TODO-low Not used?
-    pub fn apply_from(&mut self, other: TargetModel) {
-        self.r#type.apply_from(other.r#type);
-        self.command_id.apply_from(other.command_id);
-        self.action_invocation_type
-            .apply_from(other.action_invocation_type);
-        self.track.apply_from(other.track);
-        self.enable_only_if_track_selected
-            .apply_from(other.enable_only_if_track_selected);
-        self.fx_index.apply_from(other.fx_index);
-        self.is_input_fx.apply_from(other.is_input_fx);
-        self.enable_only_if_fx_has_focus
-            .apply_from(other.enable_only_if_fx_has_focus);
-        self.param_index.apply_from(other.param_index);
-        self.send_index.apply_from(other.send_index);
-        self.select_exclusively.apply_from(other.select_exclusively);
-    }
-
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &SessionContext) {
         use ReaperTarget::*;
         self.r#type.set(TargetType::from_target(target));
@@ -112,8 +93,9 @@ impl TargetModel {
             Action {
                 action,
                 invocation_type,
+                ..
             } => {
-                self.command_id.set(Some(action.command_id()));
+                self.action.set(Some(action.clone()));
                 self.action_invocation_type.set(*invocation_type);
             }
             FxParameter { param } => {
@@ -127,7 +109,7 @@ impl TargetModel {
     pub fn changed(&self) -> impl UnitEvent {
         self.r#type
             .changed()
-            .merge(self.command_id.changed())
+            .merge(self.action.changed())
             .merge(self.action_invocation_type.changed())
             .merge(self.track.changed())
             .merge(self.enable_only_if_track_selected.changed())
@@ -196,24 +178,24 @@ impl TargetModel {
     }
 
     fn command_id_label(&self) -> Cow<str> {
-        match self.command_id.get() {
+        match self.action.get_ref() {
             None => "-".into(),
-            Some(id) => id.to_string().into(),
+            Some(action) => {
+                if action.is_available() {
+                    action.command_id().to_string().into()
+                } else {
+                    "<Not present>".into()
+                }
+            }
         }
     }
 
-    fn action(&self) -> Result<Action, &'static str> {
-        self.command_id
-            .get()
-            .ok_or("command ID not set")
-            .and_then(|id| {
-                let action = Reaper::get().main_section().action_by_command_id(id);
-                if action.is_available() {
-                    Ok(action)
-                } else {
-                    Err("action not available")
-                }
-            })
+    pub fn action(&self) -> Result<Action, &'static str> {
+        let action = self.action.get_ref().as_ref().ok_or("action not set")?;
+        if !action.is_available() {
+            return Err("action not available");
+        }
+        Ok(action.clone())
     }
 
     fn track_label(&self) -> String {
@@ -295,6 +277,7 @@ impl<'a> TargetModelWithContext<'a> {
             Action => ReaperTarget::Action {
                 action: self.target.action()?,
                 invocation_type: self.target.action_invocation_type.get(),
+                project: self.project(),
             },
             FxParameter => ReaperTarget::FxParameter {
                 param: self.fx_param()?,

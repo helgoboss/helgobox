@@ -1,9 +1,10 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
 use crate::domain::{ActionInvocationType, SessionContext, TargetModel, TargetType, VirtualTrack};
-use reaper_high::{Guid, Project, Reaper, Track};
-use reaper_medium::ReaperString;
+use reaper_high::{Action, Guid, Project, Reaper, Track};
+use reaper_medium::{CommandId, ReaperString};
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -61,8 +62,17 @@ impl TargetModelData {
         let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
             r#type: model.r#type.get(),
-            // TODO-high
-            command_name: None,
+            command_name: model
+                .action
+                .get_ref()
+                .as_ref()
+                .map(|a| match a.command_name() {
+                    // Built-in actions don't have a command name but a persistent command ID.
+                    // Use command ID as string.
+                    None => a.command_id().to_string(),
+                    // ReaScripts and custom actions have a command name as persistent identifier.
+                    Some(name) => name.into_string(),
+                }),
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
@@ -84,8 +94,22 @@ impl TargetModelData {
         context: &SessionContext,
     ) -> Result<(), &'static str> {
         model.r#type.set(self.r#type);
-        // TODO-high
-        model.command_id.set(None);
+        let reaper = Reaper::get();
+        let action = match self.command_name.as_ref() {
+            None => None,
+            Some(command_name) => match command_name.parse::<u32>() {
+                // Could parse this as command ID integer. This is a built-in action.
+                Ok(command_id_int) => {
+                    let command_id = command_id_int
+                        .try_into()
+                        .map_err(|_| "invalid command ID")?;
+                    Some(reaper.main_section().action_by_command_id(command_id))
+                }
+                // Couldn't parse this as integer. This is a ReaScript or custom action.
+                Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
+            },
+        };
+        model.action.set(action);
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version
             if invoke_relative {
