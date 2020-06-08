@@ -12,9 +12,10 @@ use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
-use reaper_medium::{Hz, TypeSpecificPluginContext};
+use reaper_medium::{Hz, MidiFrameOffset, TypeSpecificPluginContext};
 use rxrust::prelude::*;
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -164,8 +165,11 @@ impl Plugin for RealearnPlugin {
                     .expect("received invalid MIDI message");
                     // This is called in real-time audio thread, so we can just call the real-time
                     // processor.
+                    let offset = MidiFrameOffset::new(
+                        u32::try_from(me.delta_frames).expect("negative MIDI frame offset"),
+                    );
                     self.real_time_processor
-                        .process_incoming_midi_from_fx_input(me.delta_frames, msg);
+                        .process_incoming_midi_from_fx_input(offset, msg);
                 }
                 _ => (),
             }

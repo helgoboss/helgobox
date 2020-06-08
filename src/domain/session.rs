@@ -63,6 +63,7 @@ pub struct Session {
         crossbeam_channel::Receiver<MainProcessorTask>,
     ),
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+    party_is_over_subject: LocalSubject<'static, (), ()>,
 }
 
 impl Session {
@@ -89,6 +90,7 @@ impl Session {
             mapping_subscriptions: vec![],
             main_processor_channel,
             real_time_processor_sender,
+            party_is_over_subject: Default::default(),
         }
     }
 
@@ -432,7 +434,12 @@ impl Session {
         shared_session: &SharedSession,
         reaction: impl Fn(SharedSession, I) + 'static + Copy,
     ) {
-        when_async_with_item(event, observable::never(), shared_session, reaction);
+        when_async_with_item(
+            event,
+            shared_session.borrow().party_is_over(),
+            shared_session,
+            reaction,
+        );
     }
 
     fn when_sync(
@@ -440,8 +447,12 @@ impl Session {
         shared_session: &SharedSession,
         reaction: impl Fn(SharedSession) + 'static + Copy,
     ) {
-        // TODO-high We really should provide an "until". At least "session destroyed".
-        when_sync(event, observable::never(), shared_session, reaction);
+        when_sync(
+            event,
+            shared_session.borrow().party_is_over(),
+            shared_session,
+            reaction,
+        );
     }
 
     fn when_async(
@@ -449,7 +460,22 @@ impl Session {
         shared_session: &SharedSession,
         reaction: impl Fn(SharedSession) + 'static + Copy,
     ) {
-        when_async(event, observable::never(), shared_session, reaction);
+        when_async(
+            event,
+            shared_session.borrow().party_is_over(),
+            shared_session,
+            reaction,
+        );
+    }
+
+    fn party_is_over(&self) -> impl UnitEvent {
+        self.party_is_over_subject.clone()
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        self.party_is_over_subject.next(())
     }
 }
 

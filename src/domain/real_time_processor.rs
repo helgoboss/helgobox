@@ -75,8 +75,11 @@ impl RealTimeProcessor {
         }
     }
 
-    // TODO-medium Use better data type for frame_offset as soon as we know the value range
-    pub fn process_incoming_midi_from_fx_input(&mut self, frame_offset: i32, msg: RawShortMessage) {
+    pub fn process_incoming_midi_from_fx_input(
+        &mut self,
+        frame_offset: MidiFrameOffset,
+        msg: RawShortMessage,
+    ) {
         if self.midi_control_input == MidiControlInput::FxInput {
             let transport_is_starting = !self.was_playing_in_last_cycle && self.is_now_playing();
             if transport_is_starting && msg.r#type() == ShortMessageType::NoteOff {
@@ -87,12 +90,7 @@ impl RealTimeProcessor {
                 self.process_unmatched_short(msg);
                 return;
             }
-            self.process_incoming_midi(
-                MidiFrameOffset::new(
-                    u32::try_from(frame_offset).expect("negative MIDI frame offset"),
-                ),
-                msg,
-            );
+            self.process_incoming_midi(frame_offset, msg);
         }
     }
 

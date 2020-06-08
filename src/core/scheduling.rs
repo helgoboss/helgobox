@@ -13,12 +13,12 @@ pub fn when_sync<E, U, R: 'static>(
     until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>) + Copy + 'static,
-) {
+) -> SubscriptionWrapper<LocalSubscription> {
     let weak_receiver = Rc::downgrade(receiver);
     trigger.take_until(until).subscribe(move |v| {
         let receiver = weak_receiver.upgrade().expect("receiver is gone");
         (reaction)(receiver);
-    });
+    })
 }
 
 pub fn when_sync_with_item<E, U, R: 'static>(
@@ -26,12 +26,12 @@ pub fn when_sync_with_item<E, U, R: 'static>(
     until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>, E) + Copy + 'static,
-) {
+) -> SubscriptionWrapper<LocalSubscription> {
     let weak_receiver = Rc::downgrade(receiver);
     trigger.take_until(until).subscribe(move |v| {
         let receiver = weak_receiver.upgrade().expect("receiver is gone");
         (reaction)(receiver, v);
-    });
+    })
 }
 
 /// Executes the given reaction whenever the specified event is raised.
@@ -49,7 +49,7 @@ pub fn when_async<E, U, R: 'static>(
     until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>) + Copy + 'static,
-) {
+) -> SubscriptionWrapper<LocalSubscription> {
     let weak_receiver = Rc::downgrade(receiver);
     trigger
         .take_until(until)
@@ -61,7 +61,7 @@ pub fn when_async<E, U, R: 'static>(
                 let receiver = weak_receiver.upgrade().expect("receiver is gone");
                 (reaction)(receiver);
             });
-        });
+        })
 }
 
 pub fn when_async_with_item<E: 'static, U, R: 'static>(
@@ -69,7 +69,7 @@ pub fn when_async_with_item<E: 'static, U, R: 'static>(
     until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>, E) + Copy + 'static,
-) {
+) -> SubscriptionWrapper<LocalSubscription> {
     let weak_receiver = Rc::downgrade(receiver);
     trigger.take_until(until).subscribe(move |v| {
         let weak_receiver = weak_receiver.clone();
@@ -77,5 +77,5 @@ pub fn when_async_with_item<E: 'static, U, R: 'static>(
             let receiver = weak_receiver.upgrade().expect("receiver is gone");
             (reaction)(receiver, v);
         });
-    });
+    })
 }
