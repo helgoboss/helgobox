@@ -36,3 +36,6 @@ pub use aliases::*;
 
 mod midi_source_scanner;
 pub use midi_source_scanner::*;
+
+mod midi_clock_calculator;
+pub use midi_clock_calculator::*;

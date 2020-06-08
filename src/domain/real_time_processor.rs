@@ -1,7 +1,7 @@
 use crate::core::MovingAverageCalculator;
 use crate::domain::{
-    MainProcessorTask, MappingId, MidiControlInput, MidiFeedbackOutput, MidiSourceScanner,
-    RealTimeProcessorControlMapping,
+    MainProcessorTask, MappingId, MidiClockCalculator, MidiControlInput, MidiFeedbackOutput,
+    MidiSourceScanner, RealTimeProcessorControlMapping,
 };
 use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -47,11 +47,8 @@ pub struct RealTimeProcessor {
     pub(crate) was_playing_in_last_cycle: bool,
     // For source learning
     pub(crate) source_scanner: MidiSourceScanner,
-    // For MIDI timing clock calculations TODO-low factor out
-    pub(crate) sample_rate: Hz,
-    pub(crate) sample_counter: u64,
-    pub(crate) previous_midi_clock_timestamp_in_samples: u64,
-    pub(crate) bpm_calculator: MovingAverageCalculator,
+    // For MIDI timing clock calculations
+    pub(crate) midi_clock_calculator: MidiClockCalculator,
 }
 
 impl RealTimeProcessor {
@@ -74,10 +71,7 @@ impl RealTimeProcessor {
             host: host_callback,
             was_playing_in_last_cycle: false,
             source_scanner: Default::default(),
-            sample_rate: Hz::new(1.0),
-            sample_counter: 0,
-            previous_midi_clock_timestamp_in_samples: 0,
-            bpm_calculator: Default::default(),
+            midi_clock_calculator: Default::default(),
         }
     }
 
@@ -104,8 +98,9 @@ impl RealTimeProcessor {
 
     /// Should be called regularly in real-time audio thread.
     pub fn idle(&mut self, sample_count: usize) {
-        // Increase our sample counter
-        self.sample_counter += sample_count as u64;
+        // Increase MIDI clock calculator's sample counter
+        self.midi_clock_calculator
+            .increase_sample_counter_by(sample_count as u64);
         // Process tasks sent from other thread (probably main thread)
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use RealTimeProcessorTask::*;
@@ -147,7 +142,7 @@ impl RealTimeProcessor {
                         Reaper::get().logger(),
                         "Real-time processor: Updating sample rate"
                     );
-                    self.sample_rate = sample_rate;
+                    self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource => {
                     self.control_state = ControlState::LearningSource;
@@ -224,7 +219,10 @@ impl RealTimeProcessor {
             }
             TimingClock => {
                 // Timing clock messages are treated special (calculates BPM).
-                self.process_incoming_midi_timing_clock(frame_offset);
+                if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
+                    let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
+                    self.control(source_value);
+                }
             }
         };
     }
@@ -365,34 +363,6 @@ impl RealTimeProcessor {
 
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
         self.mappings.values().any(|m| m.consumes(msg))
-    }
-
-    fn process_incoming_midi_timing_clock(&mut self, frame_offset: MidiFrameOffset) {
-        // Frame offset is given in 1/1024000 of a second, *not* sample frames!
-        let offset_in_secs = frame_offset.get() as f64 / 1024000.0;
-        let offset_in_samples = (offset_in_secs * self.sample_rate.get()).round() as u64;
-        let timestamp_in_samples = self.sample_counter + offset_in_samples;
-        if self.previous_midi_clock_timestamp_in_samples > 0
-            && timestamp_in_samples > self.previous_midi_clock_timestamp_in_samples
-        {
-            let difference_in_samples =
-                timestamp_in_samples - self.previous_midi_clock_timestamp_in_samples;
-            let difference_in_secs = difference_in_samples as f64 / self.sample_rate.get();
-            let num_ticks_per_sec = 1.0 / difference_in_secs;
-            let num_beats_per_sec = num_ticks_per_sec / 24.0;
-            let num_beats_per_min = num_beats_per_sec * 60.0;
-            if num_beats_per_min <= 300.0 {
-                self.bpm_calculator.feed(num_beats_per_min);
-                if let Some(moving_avg) = self.bpm_calculator.moving_average() {
-                    if self.bpm_calculator.value_count_so_far() % 24 == 0 {
-                        let source_value =
-                            MidiSourceValue::<RawShortMessage>::Tempo(Bpm::new(moving_avg));
-                        self.control(source_value);
-                    }
-                }
-            }
-        }
-        self.previous_midi_clock_timestamp_in_samples = timestamp_in_samples;
     }
 
     fn feedback(&self, value: MidiSourceValue<RawShortMessage>) {
