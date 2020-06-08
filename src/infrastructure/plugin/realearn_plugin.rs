@@ -187,6 +187,13 @@ impl Plugin for RealearnPlugin {
         self.real_time_processor_sender
             .send(RealTimeProcessorTask::UpdateSampleRate(Hz::new(rate as _)));
     }
+
+    fn resume(&mut self) {
+        // REAPER usually suspends and resumes whenever starting to play.
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::FeedbackAll);
+    }
 }
 
 impl RealearnPlugin {
