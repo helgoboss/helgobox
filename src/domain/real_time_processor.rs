@@ -144,10 +144,14 @@ impl RealTimeProcessor {
                 }
                 StartLearnSource => {
                     self.control_state = ControlState::LearningSource;
+                    self.nrpn_scanner.reset();
+                    self.cc_14_bit_scanner.reset();
                     self.source_scanner.reset();
                 }
                 StopLearnSource => {
                     self.control_state = ControlState::Controlling;
+                    self.nrpn_scanner.reset();
+                    self.cc_14_bit_scanner.reset();
                 }
                 Feedback(source_value) => {
                     self.feedback(source_value);
