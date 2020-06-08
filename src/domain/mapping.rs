@@ -2,9 +2,11 @@ use crate::domain::{Mode, ReaperTarget};
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
 use helgoboss_midi::RawShortMessage;
 use rx_util::BoxedUnitEvent;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct ProcessorMapping {
+    id: MappingId,
     source: MidiSource,
     mode: Mode,
     target: ReaperTarget,
@@ -14,6 +16,7 @@ pub struct ProcessorMapping {
 
 impl ProcessorMapping {
     pub fn new(
+        id: MappingId,
         source: MidiSource,
         mode: Mode,
         target: ReaperTarget,
@@ -21,6 +24,7 @@ impl ProcessorMapping {
         feedback_is_enabled: bool,
     ) -> ProcessorMapping {
         ProcessorMapping {
+            id,
             source,
             mode,
             target,
@@ -29,24 +33,32 @@ impl ProcessorMapping {
         }
     }
 
-    pub fn for_control(
-        &self,
-        mapping_id: MappingId,
-    ) -> (RealTimeProcessorControlMapping, MainProcessorControlMapping) {
-        let real_time_mapping =
-            RealTimeProcessorControlMapping::new(mapping_id, self.source.clone());
-        let main_mapping =
-            MainProcessorControlMapping::new(mapping_id, self.mode.clone(), self.target.clone());
-        (real_time_mapping, main_mapping)
+    pub fn id(&self) -> &MappingId {
+        &self.id
     }
 
-    pub fn for_feedback(&self, mapping_id: MappingId) -> MainProcessorFeedbackMapping {
-        MainProcessorFeedbackMapping::new(
-            mapping_id,
-            self.source.clone(),
-            self.mode.clone(),
-            self.target.clone(),
-        )
+    pub fn for_control(
+        &self,
+    ) -> Option<(RealTimeProcessorControlMapping, MainProcessorControlMapping)> {
+        if !self.control_is_enabled {
+            return None;
+        }
+        let real_time_mapping = RealTimeProcessorControlMapping::new(self.id, self.source.clone());
+        let main_mapping =
+            MainProcessorControlMapping::new(self.id, self.mode.clone(), self.target.clone());
+        Some((real_time_mapping, main_mapping))
+    }
+
+    pub fn for_feedback(self) -> Option<MainProcessorFeedbackMapping> {
+        if !self.feedback_is_enabled {
+            return None;
+        }
+        Some(MainProcessorFeedbackMapping::new(
+            self.id,
+            self.source,
+            self.mode,
+            self.target,
+        ))
     }
 
     pub fn control_is_enabled(&self) -> bool {
@@ -60,51 +72,58 @@ impl ProcessorMapping {
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct MappingId {
-    index: u16,
+    uuid: Uuid,
 }
 
 impl MappingId {
-    pub fn new(index: u16) -> MappingId {
-        MappingId { index }
-    }
-
-    pub fn index(self) -> u16 {
-        self.index
+    pub fn random() -> MappingId {
+        MappingId {
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
-// TODO Maybe make fields private as soon as API clear
 #[derive(Debug)]
 pub struct RealTimeProcessorControlMapping {
-    pub mapping_id: MappingId,
-    pub source: MidiSource,
+    id: MappingId,
+    source: MidiSource,
 }
 
 impl RealTimeProcessorControlMapping {
     pub fn new(mapping_id: MappingId, source: MidiSource) -> RealTimeProcessorControlMapping {
-        RealTimeProcessorControlMapping { source, mapping_id }
+        RealTimeProcessorControlMapping {
+            source,
+            id: mapping_id,
+        }
+    }
+
+    pub fn id(&self) -> MappingId {
+        self.id
+    }
+
+    pub fn control(&self, value: &MidiSourceValue<RawShortMessage>) -> Option<ControlValue> {
+        self.source.control(value)
+    }
+
+    pub fn consumes(&self, msg: RawShortMessage) -> bool {
+        self.source.consumes(&msg)
     }
 }
 
 #[derive(Debug)]
 pub struct MainProcessorControlMapping {
-    // TODO-medium Not used yet
-    mapping_id: MappingId,
+    id: MappingId,
     mode: Mode,
     target: ReaperTarget,
 }
 
 impl MainProcessorControlMapping {
-    pub fn new(
-        mapping_id: MappingId,
-        mode: Mode,
-        target: ReaperTarget,
-    ) -> MainProcessorControlMapping {
-        MainProcessorControlMapping {
-            mapping_id,
-            mode,
-            target,
-        }
+    pub fn new(id: MappingId, mode: Mode, target: ReaperTarget) -> MainProcessorControlMapping {
+        MainProcessorControlMapping { id, mode, target }
+    }
+
+    pub fn id(&self) -> MappingId {
+        self.id
     }
 
     pub fn control(&self, value: ControlValue) {
@@ -116,7 +135,7 @@ impl MainProcessorControlMapping {
 
 #[derive(Debug)]
 pub struct MainProcessorFeedbackMapping {
-    mapping_id: MappingId,
+    id: MappingId,
     source: MidiSource,
     mode: Mode,
     target: ReaperTarget,
@@ -124,21 +143,21 @@ pub struct MainProcessorFeedbackMapping {
 
 impl MainProcessorFeedbackMapping {
     pub fn new(
-        mapping_id: MappingId,
+        id: MappingId,
         source: MidiSource,
         mode: Mode,
         target: ReaperTarget,
     ) -> MainProcessorFeedbackMapping {
         MainProcessorFeedbackMapping {
-            mapping_id,
+            id,
             source,
             mode,
             target,
         }
     }
 
-    pub fn mapping_id(&self) -> MappingId {
-        self.mapping_id
+    pub fn id(&self) -> MappingId {
+        self.id
     }
 
     pub fn target_value_changed(&self) -> BoxedUnitEvent {

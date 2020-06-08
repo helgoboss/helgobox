@@ -1,6 +1,6 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    MainProcessorControlMapping, MidiSourceModel, ModeModel, ProcessorMapping,
+    MainProcessorControlMapping, MappingId, MidiSourceModel, ModeModel, ProcessorMapping,
     RealTimeProcessorControlMapping, ReaperTarget, SessionContext, SharedMapping, TargetCharacter,
     TargetModel, TargetModelWithContext,
 };
@@ -9,10 +9,12 @@ use reaper_high::Fx;
 use rx_util::{BoxedUnitEvent, UnitEvent};
 use rxrust::prelude::ops::box_it::{BoxObservable, LocalBoxOp};
 use rxrust::prelude::*;
+use uuid::Uuid;
 
 /// A model for creating mappings (a combination of source, mode and target).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct MappingModel {
+    id: MappingId,
     pub name: Prop<String>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
@@ -21,9 +23,24 @@ pub struct MappingModel {
     pub target_model: TargetModel,
 }
 
+impl Clone for MappingModel {
+    fn clone(&self) -> Self {
+        Self {
+            id: MappingId::random(),
+            name: self.name.clone(),
+            control_is_enabled: self.control_is_enabled.clone(),
+            feedback_is_enabled: self.feedback_is_enabled.clone(),
+            source_model: self.source_model.clone(),
+            mode_model: self.mode_model.clone(),
+            target_model: self.target_model.clone(),
+        }
+    }
+}
+
 impl Default for MappingModel {
     fn default() -> Self {
         Self {
+            id: MappingId::random(),
             name: Default::default(),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
@@ -50,6 +67,10 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
+    pub fn id(&self) -> &MappingId {
+        &self.id
+    }
+
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
@@ -111,8 +132,13 @@ impl<'a> MappingModelWithContext<'a> {
     ///
     /// Returns `None` if a target cannot be built because there's insufficient data available.
     /// Also returns `None` if a target condition (e.g. "track selected" or "FX focused") is not
-    /// satisfied).
+    /// satisfied) or if neither control nor feedback is enabled.
     pub fn create_processor_mapping(&self) -> Option<ProcessorMapping> {
+        let control_is_enabled = self.mapping.control_is_enabled.get();
+        let feedback_is_enabled = self.mapping.feedback_is_enabled.get();
+        if !control_is_enabled && !feedback_is_enabled {
+            return None;
+        }
         let target = self.target_with_context().create_target().ok()?;
         if !self.mapping.target_model.conditions_are_met(&target) {
             return None;
@@ -120,11 +146,12 @@ impl<'a> MappingModelWithContext<'a> {
         let source = self.mapping.source_model.create_source();
         let mode = self.mapping.mode_model.create_mode(&target);
         Some(ProcessorMapping::new(
+            self.mapping.id,
             source,
             mode,
             target,
-            self.mapping.control_is_enabled.get(),
-            self.mapping.feedback_is_enabled.get(),
+            control_is_enabled,
+            feedback_is_enabled,
         ))
     }
 

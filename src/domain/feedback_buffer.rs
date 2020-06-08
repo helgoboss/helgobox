@@ -1,7 +1,7 @@
 use crate::domain::{MainProcessorFeedbackMapping, MappingId};
 use helgoboss_learn::MidiSourceValue;
 use helgoboss_midi::RawShortMessage;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 const BUFFER_DURATION: Duration = Duration::from_millis(10);
@@ -9,7 +9,7 @@ const BUFFER_DURATION: Duration = Duration::from_millis(10);
 #[derive(Debug)]
 pub struct FeedbackBuffer {
     last_buffer_start: Instant,
-    mappings: Vec<MainProcessorFeedbackMapping>,
+    mappings: HashMap<MappingId, MainProcessorFeedbackMapping>,
     buffered_mapping_ids: HashSet<MappingId>,
 }
 
@@ -17,7 +17,7 @@ impl Default for FeedbackBuffer {
     fn default() -> Self {
         Self {
             last_buffer_start: Instant::now(),
-            mappings: vec![],
+            mappings: Default::default(),
             buffered_mapping_ids: Default::default(),
         }
     }
@@ -29,8 +29,33 @@ impl FeedbackBuffer {
         mappings: Vec<MainProcessorFeedbackMapping>,
     ) -> Vec<MidiSourceValue<RawShortMessage>> {
         self.reset();
-        self.mappings = mappings;
-        self.mappings.iter().filter_map(|m| m.feedback()).collect()
+        self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
+        self.feedback_all()
+    }
+
+    pub fn feedback_all(&self) -> Vec<MidiSourceValue<RawShortMessage>> {
+        self.mappings
+            .values()
+            .filter_map(|m| m.feedback())
+            .collect()
+    }
+
+    pub fn update_mapping(
+        &mut self,
+        id: MappingId,
+        mapping: Option<MainProcessorFeedbackMapping>,
+    ) -> Option<MidiSourceValue<RawShortMessage>> {
+        match mapping {
+            None => {
+                self.mappings.remove(&id);
+                None
+            }
+            Some(m) => {
+                let feedback = m.feedback();
+                self.mappings.insert(id, m);
+                feedback
+            }
+        }
     }
 
     pub fn buffer_feedback_for_mapping(&mut self, mapping_id: MappingId) {
@@ -45,7 +70,7 @@ impl FeedbackBuffer {
             .buffered_mapping_ids
             .iter()
             .filter_map(|mapping_id| {
-                let mapping = self.mappings.get(mapping_id.index() as usize)?;
+                let mapping = self.mappings.get(mapping_id)?;
                 mapping.feedback()
             })
             .collect();

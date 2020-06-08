@@ -3,9 +3,9 @@ use crate::core::{
     prop, when_async, when_async_with_item, when_sync, when_sync_with_item, AsyncNotifier, Prop,
 };
 use crate::domain::{
-    share_mapping, MainProcessor, MainProcessorControlMapping, MainProcessorTask, MappingId,
-    MappingModel, ProcessorMapping, RealTimeProcessorControlMapping, RealTimeProcessorTask,
-    ReaperTarget, SessionContext, SharedMapping, TargetModel,
+    share_mapping, MainProcessor, MainProcessorControlMapping, MainProcessorFeedbackMapping,
+    MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorControlMapping,
+    RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
@@ -57,6 +57,7 @@ pub struct Session {
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
+    mapping_subscriptions: Vec<SubscriptionGuard<Box<dyn SubscriptionLike>>>,
     main_processor_channel: (
         crossbeam_channel::Sender<MainProcessorTask>,
         crossbeam_channel::Receiver<MainProcessorTask>,
@@ -85,6 +86,7 @@ impl Session {
             context,
             mapping_models: vec![],
             mapping_list_changed_subject: Default::default(),
+            mapping_subscriptions: vec![],
             main_processor_channel,
             real_time_processor_sender,
         }
@@ -112,14 +114,11 @@ impl Session {
                 // Future syncs
                 .merge(session.midi_feedback_output.changed())
                 .merge(session.mapping_list_changed())
-                .merge(Session::any_mapping_changed(shared_session.clone()))
                 .merge(TargetModel::potential_global_change_events()),
             &shared_session,
             move |s| {
-                // TODO-medium This is pretty much stuff to do when doing slider changes.
-                //  A debounce is in order! Alternatively or additionally we could also send changes
-                //  for single  mappings  only (more promising).
-                s.borrow_mut().sync_mappings_to_processors();
+                Session::resubscribe_to_mappings_in_current_list(&s);
+                s.borrow_mut().sync_all_mappings_to_processors();
             },
         );
         // Whenever additional settings are changed, resync them to the processors.
@@ -162,6 +161,26 @@ impl Session {
         if let Some(mapping) = self.mapping_which_learns_source.replace(None) {
             mapping.borrow_mut().source_model.apply_from_source(source);
         }
+    }
+
+    fn resubscribe_to_mappings_in_current_list(shared_session: &SharedSession) {
+        let mut s = shared_session.borrow_mut();
+        s.mapping_subscriptions = s
+            .mapping_models
+            .iter()
+            .map(move |shared_mapping| {
+                let m = shared_mapping.borrow();
+                let trigger: BoxedUnitEvent = m.changed_processing_relevant().box_it();
+                let shared_session = shared_session.clone();
+                let shared_mapping = shared_mapping.clone();
+                trigger
+                    .subscribe(move |_| {
+                        let m = shared_mapping.borrow();
+                        shared_session.borrow().sync_mapping_to_processor(&m)
+                    })
+                    .unsubscribe_when_dropped()
+            })
+            .collect();
     }
 
     fn learn_target(&mut self, target: &ReaperTarget) {
@@ -298,20 +317,6 @@ impl Session {
         self.mapping_list_changed_subject.clone()
     }
 
-    /// Fires whenever any mapping in the _current_ list has changed.
-    ///
-    /// For getting a continuous event stream that just keeps delivering mapping changes
-    /// even if the list changes, use `mapping_list_or_any_mapping_changed()`.
-    fn any_mapping_in_current_list_changed(&self) -> impl UnitEvent {
-        self.mapping_models
-            .iter()
-            .map(|m| m.borrow().changed_processing_relevant())
-            .fold(
-                observable::empty().box_it(),
-                |prev: BoxedUnitEvent, current| prev.merge(current).box_it(),
-            )
-    }
-
     /// Omits observables that omit touched targets as long as target learn is enabled.
     fn target_touched_observables(
         shared_session: SharedSession,
@@ -329,21 +334,6 @@ impl Session {
         })
     }
 
-    fn any_mapping_changed(shared_session: SharedSession) -> impl UnitEvent {
-        let trigger = {
-            let session = shared_session.borrow();
-            // We want to be notified of mapping changes starting when subscribed ...
-            observable::of(())
-                // ... and whenever the mapping list changes
-                .merge(session.mapping_list_changed())
-        };
-        let observables = trigger.map(move |_| {
-            let session = shared_session.borrow();
-            session.any_mapping_in_current_list_changed()
-        });
-        observables.switch_on_next()
-    }
-
     pub fn set_mappings(&mut self, mappings: impl Iterator<Item = MappingModel>) {
         self.mapping_models = mappings.map(share_mapping).collect();
         self.notify_mapping_list_changed();
@@ -355,7 +345,9 @@ impl Session {
     }
 
     pub fn send_feedback(&self) {
-        todo!()
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::FeedbackAll);
     }
 
     fn notify_mapping_list_changed(&mut self) {
@@ -372,42 +364,61 @@ impl Session {
         self.real_time_processor_sender.send(task);
     }
 
-    fn sync_mappings_to_processors(&mut self) {
+    fn sync_mapping_to_processor(&self, m: &MappingModel) {
+        let processor_mapping = m.with_context(&self.context).create_processor_mapping();
+        let control_mapping = processor_mapping.as_ref().and_then(|m| m.for_control());
+        let (real_time_control_mapping, main_control_mapping) = match control_mapping {
+            None => (None, None),
+            Some((r, m)) => (Some(r), Some(m)),
+        };
+        let feedback_mapping = if self.midi_feedback_output.get().is_some() {
+            processor_mapping.and_then(|m| m.for_feedback())
+        } else {
+            None
+        };
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::UpdateMapping {
+                id: *m.id(),
+                control_mapping: main_control_mapping,
+                feedback_mapping,
+            });
+        self.real_time_processor_sender
+            .send(RealTimeProcessorTask::UpdateMapping {
+                id: *m.id(),
+                mapping: real_time_control_mapping,
+            });
+    }
+
+    fn sync_all_mappings_to_processors(&self) {
         let processor_mappings: Vec<_> = self
             .mappings()
             .filter_map(|m| {
-                let m = m.borrow();
-                if !m.control_is_enabled.get() && !m.feedback_is_enabled.get() {
-                    return None;
-                }
-                m.with_context(&self.context).create_processor_mapping()
+                m.borrow()
+                    .with_context(&self.context)
+                    .create_processor_mapping()
             })
             .collect();
-        let (real_time_control_mappings, main_control_mappings): (Vec<_>, Vec<_>) =
-            processor_mappings
-                .iter()
-                .filter(|m| m.control_is_enabled())
-                .enumerate()
-                .map(|(i, m)| m.for_control(MappingId::new(i as _)))
-                .unzip();
-        let feedback_mappings: Vec<_> = if self.midi_feedback_output.get().is_none() {
+        let (real_time_control_mappings, main_control_mappings) = processor_mappings
+            .iter()
+            .filter_map(|m| m.for_control())
+            .unzip();
+        let feedback_mappings = if self.midi_feedback_output.get().is_none() {
             Vec::new()
         } else {
             processor_mappings
-                .iter()
-                .filter(|m| m.feedback_is_enabled())
-                .enumerate()
-                .map(|(i, m)| m.for_feedback(MappingId::new(i as _)))
+                .into_iter()
+                .filter_map(|m| m.for_feedback())
                 .collect()
         };
         self.main_processor_channel
             .0
-            .send(MainProcessorTask::UpdateMappings {
+            .send(MainProcessorTask::UpdateAllMappings {
                 control_mappings: main_control_mappings,
                 feedback_mappings,
             });
         self.real_time_processor_sender
-            .send(RealTimeProcessorTask::UpdateMappings(
+            .send(RealTimeProcessorTask::UpdateAllMappings(
                 real_time_control_mappings,
             ));
     }

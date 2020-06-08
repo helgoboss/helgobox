@@ -37,6 +37,8 @@ enum-iterator = "0.6.0"
 num_enum = "0.5.0"
 scopeguard = "1.1.0"
 crossbeam-channel = "0.4"
+uuid = { version = "0.8.1", features = ["v4"] }
+slog = "2.5.2"
 
 [build-dependencies]
 bindgen = "0.52.0"

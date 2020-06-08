@@ -1,6 +1,6 @@
 use crate::core::MovingAverageCalculator;
 use crate::domain::{
-    MainProcessorTask, MidiControlInput, MidiFeedbackOutput, MidiSourceScanner,
+    MainProcessorTask, MappingId, MidiControlInput, MidiFeedbackOutput, MidiSourceScanner,
     RealTimeProcessorControlMapping,
 };
 use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
@@ -11,6 +11,8 @@ use helgoboss_midi::{
 };
 use reaper_high::Reaper;
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
+use slog::debug;
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ptr::null_mut;
 use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
@@ -30,7 +32,7 @@ pub struct RealTimeProcessor {
     pub(crate) control_state: ControlState,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
-    pub(crate) control_mappings: Vec<RealTimeProcessorControlMapping>,
+    pub(crate) mappings: HashMap<MappingId, RealTimeProcessorControlMapping>,
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
@@ -45,7 +47,7 @@ pub struct RealTimeProcessor {
     pub(crate) was_playing_in_last_cycle: bool,
     // For source learning
     pub(crate) source_scanner: MidiSourceScanner,
-    // For MIDI timing clock calculations
+    // For MIDI timing clock calculations TODO-low factor out
     pub(crate) sample_rate: Hz,
     pub(crate) sample_counter: u64,
     pub(crate) previous_midi_clock_timestamp_in_samples: u64,
@@ -62,7 +64,7 @@ impl RealTimeProcessor {
             control_state: ControlState::Controlling,
             receiver,
             main_processor_sender: main_processor_sender,
-            control_mappings: vec![],
+            mappings: Default::default(),
             let_matched_events_through: false,
             let_unmatched_events_through: false,
             nrpn_scanner: Default::default(),
@@ -108,19 +110,43 @@ impl RealTimeProcessor {
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use RealTimeProcessorTask::*;
             match task {
-                UpdateMappings(mappings) => self.control_mappings = mappings,
+                UpdateAllMappings(mappings) => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Updating all mappings"
+                    );
+                    self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
+                }
+                UpdateMapping { id, mapping } => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Updating mapping {:?}...", id
+                    );
+                    match mapping {
+                        None => self.mappings.remove(&id),
+                        Some(m) => self.mappings.insert(id, m),
+                    };
+                }
                 UpdateSettings {
                     let_matched_events_through,
                     let_unmatched_events_through,
                     midi_control_input,
                     midi_feedback_output,
                 } => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Updating settings"
+                    );
                     self.let_matched_events_through = let_matched_events_through;
                     self.let_unmatched_events_through = let_unmatched_events_through;
                     self.midi_control_input = midi_control_input;
                     self.midi_feedback_output = midi_feedback_output;
                 }
                 UpdateSampleRate(sample_rate) => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Updating sample rate"
+                    );
                     self.sample_rate = sample_rate;
                 }
                 StartLearnSource => {
@@ -304,10 +330,10 @@ impl RealTimeProcessor {
     /// Returns whether this source value matched one of the mappings.
     fn control(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
         let mut matched = false;
-        for m in &self.control_mappings {
-            if let Some(control_value) = m.source.control(&value) {
+        for m in self.mappings.values() {
+            if let Some(control_value) = m.control(&value) {
                 let main_processor_task = MainProcessorTask::Control {
-                    mapping_id: m.mapping_id,
+                    mapping_id: m.id(),
                     value: control_value,
                 };
                 self.main_processor_sender.send(main_processor_task);
@@ -338,9 +364,7 @@ impl RealTimeProcessor {
     }
 
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
-        self.control_mappings
-            .iter()
-            .any(|m| m.source.consumes(&msg))
+        self.mappings.values().any(|m| m.consumes(msg))
     }
 
     fn process_incoming_midi_timing_clock(&mut self, frame_offset: MidiFrameOffset) {
@@ -417,7 +441,11 @@ impl RealTimeProcessor {
 
 #[derive(Debug)]
 pub enum RealTimeProcessorTask {
-    UpdateMappings(Vec<RealTimeProcessorControlMapping>),
+    UpdateAllMappings(Vec<RealTimeProcessorControlMapping>),
+    UpdateMapping {
+        id: MappingId,
+        mapping: Option<RealTimeProcessorControlMapping>,
+    },
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
@@ -425,7 +453,7 @@ pub enum RealTimeProcessorTask {
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
     UpdateSampleRate(Hz),
-    // TODO-medium Is it better for performance to push a vector (smallvec) here?
+    // TODO-low Is it better for performance to push a vector (smallvec) here?
     Feedback(MidiSourceValue<RawShortMessage>),
     StartLearnSource,
     StopLearnSource,
