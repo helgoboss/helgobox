@@ -10,7 +10,7 @@ const BUFFER_DURATION: Duration = Duration::from_millis(10);
 pub struct FeedbackBuffer {
     last_buffer_start: Instant,
     mappings: Vec<MainProcessorFeedbackMapping>,
-    mapping_ids: HashSet<MappingId>,
+    buffered_mapping_ids: HashSet<MappingId>,
 }
 
 impl Default for FeedbackBuffer {
@@ -18,19 +18,23 @@ impl Default for FeedbackBuffer {
         Self {
             last_buffer_start: Instant::now(),
             mappings: vec![],
-            mapping_ids: Default::default(),
+            buffered_mapping_ids: Default::default(),
         }
     }
 }
 
 impl FeedbackBuffer {
-    pub fn update_mappings(&mut self, mappings: Vec<MainProcessorFeedbackMapping>) {
+    pub fn update_mappings(
+        &mut self,
+        mappings: Vec<MainProcessorFeedbackMapping>,
+    ) -> Vec<MidiSourceValue<RawShortMessage>> {
         self.reset();
         self.mappings = mappings;
+        self.mappings.iter().filter_map(|m| m.feedback()).collect()
     }
 
-    pub fn buffer_mapping_id(&mut self, mapping_id: MappingId) {
-        self.mapping_ids.insert(mapping_id);
+    pub fn buffer_feedback_for_mapping(&mut self, mapping_id: MappingId) {
+        self.buffered_mapping_ids.insert(mapping_id);
     }
 
     pub fn poll(&mut self) -> Option<Vec<MidiSourceValue<RawShortMessage>>> {
@@ -38,7 +42,7 @@ impl FeedbackBuffer {
             return None;
         }
         let source_values: Vec<_> = self
-            .mapping_ids
+            .buffered_mapping_ids
             .iter()
             .filter_map(|mapping_id| {
                 let mapping = self.mappings.get(mapping_id.index() as usize)?;
@@ -50,7 +54,7 @@ impl FeedbackBuffer {
     }
 
     fn reset(&mut self) {
-        self.mapping_ids.clear();
+        self.buffered_mapping_ids.clear();
         self.last_buffer_start = Instant::now();
     }
 }

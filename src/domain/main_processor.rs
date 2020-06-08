@@ -2,7 +2,8 @@ use crate::domain::{
     FeedbackBuffer, MainProcessorControlMapping, MainProcessorFeedbackMapping, MappingId, Mode,
     RealTimeProcessorTask, ReaperTarget, SharedSession,
 };
-use helgoboss_learn::{ControlValue, MidiSource, Target};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
+use helgoboss_midi::RawShortMessage;
 use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
 
@@ -31,13 +32,14 @@ impl ControlSurface for MainProcessor {
                 } => {
                     self.control_mappings = control_mappings;
                     self.feedback_subscriptions = self.subscribe_to_feedback(&feedback_mappings);
-                    self.feedback_buffer.update_mappings(feedback_mappings);
+                    let source_values = self.feedback_buffer.update_mappings(feedback_mappings);
+                    self.send_feedback(source_values);
                 }
                 Control { mapping_id, value } => {
                     self.control(mapping_id, value);
                 }
                 Feedback(mapping_id) => {
-                    self.feedback_buffer.buffer_mapping_id(mapping_id);
+                    self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
                 }
                 LearnSource(source) => {
                     self.session.borrow_mut().learn_source(&source);
@@ -46,10 +48,7 @@ impl ControlSurface for MainProcessor {
         }
         // Send feedback as soon as buffered long enough
         if let Some(source_values) = self.feedback_buffer.poll() {
-            for v in source_values {
-                self.real_time_processor_sender
-                    .send(RealTimeProcessorTask::Feedback(v));
-            }
+            self.send_feedback(source_values);
         }
     }
 }
@@ -78,6 +77,13 @@ impl MainProcessor {
             Some(m) => m,
         };
         mapping.control(value);
+    }
+
+    fn send_feedback(&self, source_values: Vec<MidiSourceValue<RawShortMessage>>) {
+        for v in source_values {
+            self.real_time_processor_sender
+                .send(RealTimeProcessorTask::Feedback(v));
+        }
     }
 
     fn subscribe_to_feedback(
