@@ -21,9 +21,14 @@ impl Notifier for AsyncNotifier {
     type Subject = LocalPropSubject<'static>;
 
     fn notify(subject: &mut Self::Subject) {
-        let mut subject = subject.clone();
-        Reaper::get().do_later_in_main_thread_asap(move || {
-            subject.next(());
-        });
+        #[cfg(test)]
+        subject.next(());
+        #[cfg(not(test))]
+        {
+            let mut subject = subject.clone();
+            Reaper::get().do_later_in_main_thread_asap(move || {
+                subject.next(());
+            });
+        }
     }
 }
