@@ -224,7 +224,7 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
-        if self.session.borrow().is_in_input_fx_chain() {
+        if self.session.borrow().containing_fx_is_in_input_fx_chain() {
             b.disable();
             b.check();
         } else {

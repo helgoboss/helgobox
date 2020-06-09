@@ -10,7 +10,7 @@ use crate::domain::{
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
-use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper};
+use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper, Track};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
     BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, SyncNotifier,
@@ -43,7 +43,7 @@ pub enum MidiFeedbackOutput {
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
-// TODO Probably belongs in application layer.
+// TODO-low Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
     pub let_matched_events_through: Prop<bool>,
@@ -108,14 +108,23 @@ impl Session {
                 session.real_time_processor_sender.clone(),
                 shared_session.clone(),
             ));
-        // Whenever anything in the mapping changes, including the mappings itself, resync
-        // mappings to processors.
+        // Whenever anything in the mapping list changes, resync all mappings to processors.
+        // When one of the mapping changes, sync just that.
         Session::when_async(
             // Initial sync
             observable::of(())
                 // Future syncs
-                .merge(session.midi_feedback_output.changed())
+                // When the mapping list changes.
                 .merge(session.mapping_list_changed())
+                // There are several global conditions which affect whether feedback will be sent
+                // or not. If not, the main processor will not get any mappings from us, because
+                // it's unnecessary. It only ever gets the mappings it needs, that's the principle.
+                // However, when anything about those conditions changes, we need to sync again.
+                .merge(session.midi_feedback_output.changed())
+                .merge(session.containing_fx_enabled_or_disabled())
+                .merge(session.containing_track_armed_or_disarmed())
+                .merge(session.send_feedback_only_if_armed.changed())
+                // When target conditions change.
                 .merge(TargetModel::potential_global_change_events()),
             &shared_session,
             move |s| {
@@ -123,14 +132,15 @@ impl Session {
                 s.borrow_mut().sync_all_mappings_to_processors();
             },
         );
-        // Whenever additional settings are changed, resync them to the processors.
+        // Keep syncing some general settings to real-time processor.
         Session::when_sync(
             // Initial sync
             observable::of(())
                 // Future syncs
                 .merge(session.let_matched_events_through.changed())
                 .merge(session.let_unmatched_events_through.changed())
-                .merge(session.midi_control_input.changed()),
+                .merge(session.midi_control_input.changed())
+                .merge(session.midi_feedback_output.changed()),
             &shared_session,
             move |s| {
                 s.borrow().sync_settings_to_real_time_processor();
@@ -178,7 +188,7 @@ impl Session {
                 trigger
                     .subscribe(move |_| {
                         let m = shared_mapping.borrow();
-                        shared_session.borrow().sync_mapping_to_processor(&m)
+                        shared_session.borrow().sync_mapping_to_processors(&m)
                     })
                     .unsubscribe_when_dropped()
             })
@@ -308,8 +318,24 @@ impl Session {
             .any(|m| m.as_ptr() == mapping as _)
     }
 
-    pub fn is_in_input_fx_chain(&self) -> bool {
+    pub fn containing_fx_is_in_input_fx_chain(&self) -> bool {
         self.context.containing_fx().is_input_fx()
+    }
+
+    fn containing_fx_enabled_or_disabled(&self) -> impl UnitEvent {
+        let containing_fx = self.context.containing_fx().clone();
+        Reaper::get()
+            .fx_enabled_changed()
+            .filter(move |fx| *fx == containing_fx)
+            .map_to(())
+    }
+
+    fn containing_track_armed_or_disarmed(&self) -> impl UnitEvent {
+        let containing_track = self.context.containing_fx().track().clone();
+        Reaper::get()
+            .track_arm_changed()
+            .filter(move |t| *t == containing_track)
+            .map_to(())
     }
 
     /// Fires if a mapping has been added, removed or changed its position in the list.
@@ -366,14 +392,14 @@ impl Session {
         self.real_time_processor_sender.send(task);
     }
 
-    fn sync_mapping_to_processor(&self, m: &MappingModel) {
+    fn sync_mapping_to_processors(&self, m: &MappingModel) {
         let processor_mapping = m.with_context(&self.context).create_processor_mapping();
         let control_mapping = processor_mapping.as_ref().and_then(|m| m.for_control());
         let (real_time_control_mapping, main_control_mapping) = match control_mapping {
             None => (None, None),
             Some((r, m)) => (Some(r), Some(m)),
         };
-        let feedback_mapping = if self.midi_feedback_output.get().is_some() {
+        let feedback_mapping = if self.feedback_is_effectively_enabled() {
             processor_mapping.and_then(|m| m.for_feedback())
         } else {
             None
@@ -392,6 +418,22 @@ impl Session {
             });
     }
 
+    fn feedback_is_effectively_enabled(&self) -> bool {
+        self.midi_feedback_output.get().is_some()
+            && self.context.containing_fx().is_enabled()
+            && self.track_arm_conditions_are_met()
+    }
+
+    fn track_arm_conditions_are_met(&self) -> bool {
+        if !self.containing_fx_is_in_input_fx_chain() && !self.send_feedback_only_if_armed.get() {
+            return true;
+        }
+        match self.context.track() {
+            None => true,
+            Some(t) => t.is_available() && t.is_armed(false),
+        }
+    }
+
     fn sync_all_mappings_to_processors(&self) {
         let processor_mappings: Vec<_> = self
             .mappings()
@@ -405,13 +447,13 @@ impl Session {
             .iter()
             .filter_map(|m| m.for_control())
             .unzip();
-        let feedback_mappings = if self.midi_feedback_output.get().is_none() {
-            Vec::new()
-        } else {
+        let feedback_mappings = if self.feedback_is_effectively_enabled() {
             processor_mappings
                 .into_iter()
                 .filter_map(|m| m.for_feedback())
                 .collect()
+        } else {
+            Vec::new()
         };
         self.main_processor_channel
             .0
