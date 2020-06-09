@@ -10,7 +10,7 @@ use crate::domain::{
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
-use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Reaper, Track};
+use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Project, Reaper, Track};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
     BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, SyncNotifier,
@@ -110,6 +110,7 @@ impl Session {
             ));
         // Whenever anything in the mapping list changes, resync all mappings to processors.
         // When one of the mapping changes, sync just that.
+        let project = session.context.project();
         Session::when_async(
             // Initial sync
             observable::of(())
@@ -130,6 +131,7 @@ impl Session {
             move |s| {
                 Session::resubscribe_to_mappings_in_current_list(&s);
                 s.borrow_mut().sync_all_mappings_to_processors();
+                mark_dirty_if_not_loading(project);
             },
         );
         // Keep syncing some general settings to real-time processor.
@@ -144,6 +146,7 @@ impl Session {
             &shared_session,
             move |s| {
                 s.borrow().sync_settings_to_real_time_processor();
+                mark_dirty_if_not_loading(project);
             },
         );
         // Enable source learning
@@ -177,6 +180,7 @@ impl Session {
 
     fn resubscribe_to_mappings_in_current_list(shared_session: &SharedSession) {
         let mut s = shared_session.borrow_mut();
+        let project = s.context.project();
         s.mapping_subscriptions = s
             .mapping_models
             .iter()
@@ -188,7 +192,8 @@ impl Session {
                 trigger
                     .subscribe(move |_| {
                         let m = shared_mapping.borrow();
-                        shared_session.borrow().sync_mapping_to_processors(&m)
+                        shared_session.borrow().sync_mapping_to_processors(&m);
+                        mark_dirty_if_not_loading(project);
                     })
                     .unsubscribe_when_dropped()
             })
@@ -526,6 +531,17 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
         Some(m) if m.as_ptr() == mapping.as_ptr() => prop.set(None),
         _ => prop.set(Some(mapping.clone())),
     };
+}
+
+fn mark_dirty_if_not_loading(project: Project) {
+    // TODO-low This check is not very effective. Probably because ReaLearn defers loading until
+    //  everything is there. That means we mark dirty too often now (on project load already).
+    if Reaper::get()
+        .currently_loading_or_saving_project()
+        .is_none()
+    {
+        project.mark_as_dirty();
+    }
 }
 
 /// # Design
