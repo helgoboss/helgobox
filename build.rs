@@ -8,6 +8,27 @@ fn main() {
     embed_dialog_resources();
     #[cfg(not(target_os = "windows"))]
     compile_dialogs();
+
+    // WDL EEL
+    compile_eel();
+}
+
+fn compile_eel() {
+    let mut build = cc::Build::new();
+    let mut build = build
+        .warnings(false)
+        .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
+        .file("lib/WDL/WDL/eel2/nseel-compiler.c")
+        .file("lib/WDL/WDL/eel2/nseel-caltab.c")
+        .file("lib/WDL/WDL/eel2/nseel-eval.c")
+        .file("lib/WDL/WDL/eel2/nseel-lextab.c")
+        .file("lib/WDL/WDL/eel2/nseel-ram.c")
+        .file("lib/WDL/WDL/eel2/nseel-yylex.c");
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    build.object("lib/WDL/WDL/eel2/asm-nseel-x64.obj");
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    build.object("lib/WDL/WDL/eel2/asm-nseel-x64.obj");
+    build.compile("wdl-eel");
 }
 
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
@@ -72,6 +93,7 @@ fn generate_bindings() {
         .raw_line("#![allow(dead_code)]")
         // ReaLearn UI
         .whitelist_var("ID_.*")
+        .whitelist_function("NSEEL_.*")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

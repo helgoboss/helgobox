@@ -25,6 +25,9 @@ pub use mapping_model::*;
 mod mapping;
 pub use mapping::*;
 
+mod eel_transformation;
+pub use eel_transformation::*;
+
 mod target;
 pub use target::*;
 

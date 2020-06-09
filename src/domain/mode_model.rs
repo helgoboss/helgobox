@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::ReaperTarget;
+use crate::domain::{EelTransformation, ReaperTarget, ResultVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -32,25 +32,6 @@ pub struct ModeModel {
     // For relative mode
     pub step_size_interval: Prop<Interval<UnitValue>>,
     pub rotate: Prop<bool>,
-}
-
-/// Represents a value transformation done via EEL scripting language.
-#[derive(Clone, Debug)]
-pub struct EelTransformation {}
-
-impl EelTransformation {
-    // Compiles the given script and creates an appropriate transformation.
-    fn compile(eel_script: &str) -> Option<EelTransformation> {
-        // TODO
-        None
-    }
-}
-
-impl Transformation for EelTransformation {
-    fn transform(&self, input_value: UnitValue) -> Result<UnitValue, ()> {
-        // TODO
-        Err(())
-    }
 }
 
 // Represents a learn mode
@@ -187,10 +168,14 @@ impl ModeModel {
                 ignore_out_of_range_source_values: self.ignore_out_of_range_source_values.get(),
                 control_transformation: EelTransformation::compile(
                     self.eel_control_transformation.get_ref(),
-                ),
+                    ResultVariable::Y,
+                )
+                .ok(),
                 feedback_transformation: EelTransformation::compile(
                     self.eel_feedback_transformation.get_ref(),
-                ),
+                    ResultVariable::X,
+                )
+                .ok(),
             }),
             Relative => Mode::Relative(RelativeMode {
                 source_value_interval: self.source_value_interval.get(),
