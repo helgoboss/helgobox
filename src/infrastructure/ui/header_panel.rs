@@ -1,5 +1,5 @@
 use crate::application::SessionData;
-use crate::core::{when_sync, when_sync_with_item, Prop};
+use crate::core::{when, when_sync, Prop};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
@@ -45,21 +45,21 @@ impl HeaderPanel {
         } else {
             // Start learning
             learning.set(true);
-            when_sync_with_item(
+            when(
                 self.session
                     .borrow()
                     .midi_source_touched()
                     .take_until(learning.changed_to(false))
+                    .take_until(self.view.closed())
                     .take(1),
-                self.view.closed(),
-                &self.main_panel,
-                |main_panel, source| {
-                    main_panel.source_filter.borrow_mut().set(Some(source));
-                },
-                |main_panel| {
-                    main_panel.is_learning_source_filter.borrow_mut().set(false);
-                },
-            );
+            )
+            .with(&self.main_panel)
+            .finally(|main_panel| {
+                main_panel.is_learning_source_filter.borrow_mut().set(false);
+            })
+            .do_sync(|main_panel, source| {
+                main_panel.source_filter.borrow_mut().set(Some(source));
+            });
         }
     }
 
@@ -71,22 +71,22 @@ impl HeaderPanel {
         } else {
             // Start learning
             learning.set(true);
-            when_sync_with_item(
+            when(
                 ReaperTarget::touched()
                     .take_until(learning.changed_to(false))
+                    .take_until(self.view.closed())
                     .take(1),
-                self.view.closed(),
-                &self.main_panel,
-                |main_panel, target| {
-                    main_panel
-                        .target_filter
-                        .borrow_mut()
-                        .set(Some((*target).clone()));
-                },
-                |main_panel| {
-                    main_panel.is_learning_target_filter.borrow_mut().set(false);
-                },
-            );
+            )
+            .with(&self.main_panel)
+            .finally(|main_panel| {
+                main_panel.is_learning_target_filter.borrow_mut().set(false);
+            })
+            .do_sync(|main_panel, target| {
+                main_panel
+                    .target_filter
+                    .borrow_mut()
+                    .set(Some((*target).clone()));
+            });
         }
     }
 

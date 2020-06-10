@@ -2,11 +2,125 @@ use reaper_high::Reaper;
 use rx_util::{Event, SharedEvent, SharedItemEvent, SharedPayload};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
-use std::rc::Rc;
+use std::marker::PhantomData;
+use std::rc::{Rc, Weak};
 use std::time::Duration;
 
-// TODO-medium We should remove duplicate code here without changing the public interface!
-//  The best would be to have one singler builder for all of this! Code that speaks.
+pub fn when<Item, Trigger>(trigger: Trigger) -> ReactionBuilderStepOne<Item, Trigger>
+where
+    Trigger: Event<Item>,
+{
+    ReactionBuilderStepOne {
+        trigger,
+        p: PhantomData,
+    }
+}
+
+pub struct ReactionBuilderStepOne<Item, Trigger> {
+    trigger: Trigger,
+    p: PhantomData<Item>,
+}
+
+impl<Item, Trigger> ReactionBuilderStepOne<Item, Trigger>
+where
+    Trigger: Event<Item>,
+{
+    pub fn with<Receiver>(
+        self,
+        receiver: &Rc<Receiver>,
+    ) -> ReactionBuilderStepTwo<Item, Trigger, Receiver>
+    where
+        Receiver: 'static,
+    {
+        ReactionBuilderStepTwo {
+            parent: self,
+            weak_receiver: Rc::downgrade(receiver),
+        }
+    }
+}
+
+pub struct ReactionBuilderStepTwo<Item, Trigger, Receiver> {
+    parent: ReactionBuilderStepOne<Item, Trigger>,
+    weak_receiver: Weak<Receiver>,
+}
+
+impl<Item, Trigger, Receiver> ReactionBuilderStepTwo<Item, Trigger, Receiver>
+where
+    Trigger: Event<Item>,
+    Receiver: 'static,
+{
+    pub fn finally<Finalizer>(
+        self,
+        finalizer: Finalizer,
+    ) -> ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer>
+    where
+        Finalizer: Fn(Rc<Receiver>) + Copy + 'static,
+    {
+        ReactionBuilderStepThree {
+            parent: self,
+            finalizer,
+        }
+    }
+}
+
+pub struct ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer> {
+    parent: ReactionBuilderStepTwo<Item, Trigger, Receiver>,
+    finalizer: Finalizer,
+}
+
+impl<Item, Trigger, Receiver, Finalizer>
+    ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer>
+where
+    Trigger: Event<Item>,
+    Receiver: 'static,
+    Finalizer: Fn(Rc<Receiver>) + Copy + 'static,
+{
+    pub fn do_sync(
+        self,
+        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+    ) -> SubscriptionWrapper<LocalSubscription> {
+        let weak_receiver_one = self.parent.weak_receiver;
+        let weak_receiver_two = weak_receiver_one.clone();
+        let finalizer = self.finalizer;
+        self.parent
+            .parent
+            .trigger
+            .finalize(move || {
+                let receiver = weak_receiver_one.upgrade().expect("receiver gone");
+                (finalizer)(receiver);
+            })
+            .subscribe(move |item| {
+                let receiver = weak_receiver_two.upgrade().expect("receiver gone");
+                (reaction)(receiver, item);
+            })
+    }
+
+    pub fn do_async(
+        self,
+        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+    ) -> SubscriptionWrapper<LocalSubscription>
+    where
+        Item: 'static,
+    {
+        let weak_receiver_one = self.parent.weak_receiver;
+        let weak_receiver_two = weak_receiver_one.clone();
+        let finalizer = self.finalizer;
+        self.parent
+            .parent
+            .trigger
+            .finalize(move || {
+                let receiver = weak_receiver_one.upgrade().expect("receiver gone");
+                (finalizer)(receiver);
+            })
+            .subscribe(move |item| {
+                let weak_receiver = weak_receiver_two.clone();
+                Reaper::get().do_later_in_main_thread_asap(move || {
+                    let receiver = weak_receiver.upgrade().expect("receiver gone");
+                    (reaction)(receiver, item);
+                });
+            })
+    }
+}
 
 /// Executes the given reaction synchronously whenever the specified event is raised.
 pub fn when_sync<E, U, R: 'static>(
@@ -20,28 +134,6 @@ pub fn when_sync<E, U, R: 'static>(
         let receiver = weak_receiver.upgrade().expect("receiver is gone");
         (reaction)(receiver);
     })
-}
-
-pub fn when_sync_with_item<E, U, R: 'static>(
-    trigger: impl Event<E>,
-    // TODO-medium until is not necessary. We can just add it to the trigger on client side
-    until: impl Event<U>,
-    receiver: &Rc<R>,
-    reaction: impl Fn(Rc<R>, E) + Copy + 'static,
-    complete: impl Fn(Rc<R>) + Copy + 'static,
-) -> SubscriptionWrapper<LocalSubscription> {
-    let weak_receiver = Rc::downgrade(receiver);
-    let weak_receiver_2 = weak_receiver.clone();
-    trigger.take_until(until).subscribe_complete(
-        move |v| {
-            let receiver = weak_receiver.upgrade().expect("receiver is gone");
-            (reaction)(receiver, v);
-        },
-        move || {
-            let receiver = weak_receiver_2.upgrade().expect("receiver is gone");
-            (complete)(receiver);
-        },
-    )
 }
 
 /// Executes the given reaction whenever the specified event is raised.
