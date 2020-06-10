@@ -28,8 +28,8 @@ pub use mapping::*;
 mod eel_transformation;
 pub use eel_transformation::*;
 
-mod target;
-pub use target::*;
+mod reaper_target;
+pub use reaper_target::*;
 
 mod target_model;
 pub use target_model::*;

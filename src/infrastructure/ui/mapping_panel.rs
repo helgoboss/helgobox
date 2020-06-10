@@ -238,7 +238,9 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn open_target(&self) {
-        // TODO-high Do later, not so important
+        if let Some(t) = self.real_target() {
+            Reaper::get().do_later_in_main_thread_asap(move || t.open());
+        }
     }
 
     fn pick_action(&self) {

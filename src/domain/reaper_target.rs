@@ -164,6 +164,32 @@ impl ReaperTarget {
             )
     }
 
+    pub fn open(&self) {
+        if let ReaperTarget::Action {
+            action, project, ..
+        } = self
+        {
+            // Just open action window
+            Reaper::get()
+                .main_section()
+                .action_by_command_id(CommandId::new(40605))
+                .invoke_as_trigger(Some(*project));
+            return;
+        }
+        if let Some(fx) = self.fx() {
+            fx.show_in_floating_window();
+            return;
+        }
+        if let Some(track) = self.track() {
+            track.select_exclusively();
+            // Scroll to track
+            Reaper::get()
+                .main_section()
+                .action_by_command_id(CommandId::new(40913))
+                .invoke_as_trigger(Some(track.project()));
+        }
+    }
+
     pub fn character(&self) -> TargetCharacter {
         use ReaperTarget::*;
         use TargetCharacter::*;
