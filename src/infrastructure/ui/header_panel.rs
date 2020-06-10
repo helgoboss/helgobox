@@ -1,8 +1,9 @@
 use crate::application::SessionData;
-use crate::core::when_sync;
-use crate::domain::SharedSession;
+use crate::core::{when_sync, when_sync_with_item};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
+use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::ui::MainPanel;
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
@@ -22,32 +23,57 @@ use swell_ui::{Clipboard, SharedView, View, ViewContext, Window};
 pub struct HeaderPanel {
     view: ViewContext,
     session: SharedSession,
+    main_panel: SharedView<MainPanel>,
 }
 
 impl HeaderPanel {
-    pub fn new(session: SharedSession) -> HeaderPanel {
+    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
             session,
+            main_panel,
         }
     }
 }
 
 impl HeaderPanel {
-    fn learn_source_filter(&self) {
-        // TODO
+    fn toggle_learn_source_filter(&self) {
+        // TODO-high
     }
 
-    fn learn_target_filter(&self) {
-        // TODO
+    fn toggle_learn_target_filter(&self) {
+        let mut learning = self.main_panel.is_learning_target_filter.borrow_mut();
+        if learning.get() {
+            // Stop learning
+            learning.set(false);
+        } else {
+            // Start learning
+            learning.set(true);
+            when_sync_with_item(
+                ReaperTarget::touched()
+                    .take_until(learning.changed_to(false))
+                    .take(1),
+                self.view.closed(),
+                &self.main_panel,
+                |main_panel, target| {
+                    main_panel
+                        .target_filter
+                        .borrow_mut()
+                        .set(Some((*target).clone()));
+                },
+                |main_panel| {
+                    main_panel.is_learning_target_filter.borrow_mut().set(false);
+                },
+            );
+        }
     }
 
     fn clear_source_filter(&self) {
-        // TODO
+        // TODO-high
     }
 
     fn clear_target_filter(&self) {
-        // TODO
+        self.main_panel.target_filter.borrow_mut().set(None);
     }
 
     fn update_let_matched_events_through(&self) {
@@ -244,7 +270,18 @@ impl HeaderPanel {
     }
 
     fn invalidate_target_filter_buttons(&self) {
-        // TODO
+        let learn_button_text = if self.main_panel.is_learning_target_filter.borrow().get() {
+            "Stop"
+        } else {
+            "Learn target filter"
+        };
+        self.view
+            .require_control(root::ID_FILTER_BY_TARGET_BUTTON)
+            .set_text(learn_button_text);
+        let clear_button_enabled = self.main_panel.target_filter.borrow().get_ref().is_some();
+        self.view
+            .require_control(root::ID_CLEAR_TARGET_FILTER_BUTTON)
+            .set_enabled(clear_button_enabled);
     }
 
     pub fn import_from_clipboard(&self) {
@@ -292,6 +329,16 @@ impl HeaderPanel {
         self.when(session.midi_feedback_output.changed(), |view| {
             view.invalidate_midi_feedback_output_combo_box()
         });
+        self.when(
+            self.main_panel
+                .is_learning_target_filter
+                .borrow()
+                .changed()
+                .merge(self.main_panel.target_filter.borrow().changed()),
+            |view| {
+                view.invalidate_target_filter_buttons();
+            },
+        );
         // TODO sourceFilterListening, targetFilterListening,
     }
 
@@ -323,8 +370,8 @@ impl View for HeaderPanel {
         use root::*;
         match resource_id {
             ID_ADD_MAPPING_BUTTON => self.session.borrow_mut().add_default_mapping(),
-            ID_FILTER_BY_SOURCE_BUTTON => self.learn_source_filter(),
-            ID_FILTER_BY_TARGET_BUTTON => self.learn_target_filter(),
+            ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
+            ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
             ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
             ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
             ID_IMPORT_BUTTON => self.import_from_clipboard(),

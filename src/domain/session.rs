@@ -1,7 +1,5 @@
 use super::MidiSourceModel;
-use crate::core::{
-    prop, when_async, when_async_with_item, when_sync, when_sync_with_item, AsyncNotifier, Prop,
-};
+use crate::core::{prop, when_async, when_async_with_item, when_sync, AsyncNotifier, Prop};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorControlMapping, MainProcessorFeedbackMapping,
     MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorControlMapping,
@@ -13,8 +11,7 @@ use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Project, Reaper, Track};
 use reaper_medium::MidiInputDeviceId;
 use rx_util::{
-    BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, SyncNotifier,
-    UnitEvent,
+    BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, UnitEvent,
 };
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
@@ -361,6 +358,7 @@ impl Session {
     }
 
     /// Omits observables that omit touched targets as long as target learn is enabled.
+    // TODO-low Why not handle this in a more simple way? Like learning target filter.
     fn target_touched_observables(
         shared_session: SharedSession,
     ) -> impl Event<LocalBoxOp<'static, Rc<ReaperTarget>, ()>> {
@@ -394,7 +392,7 @@ impl Session {
     }
 
     fn notify_mapping_list_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.mapping_list_changed_subject);
+        AsyncNotifier::notify(&mut self.mapping_list_changed_subject, &());
     }
 
     fn sync_settings_to_real_time_processor(&self) {

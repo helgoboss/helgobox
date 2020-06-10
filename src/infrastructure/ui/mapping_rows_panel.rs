@@ -139,7 +139,7 @@ impl MappingRowsPanel {
     }
 
     fn filtered_mapping_count(&self) -> usize {
-        // TODO
+        // TODO-high
         self.session.borrow().mapping_count()
     }
 

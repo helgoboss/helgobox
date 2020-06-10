@@ -26,12 +26,20 @@ pub fn when_sync_with_item<E, U, R: 'static>(
     until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>, E) + Copy + 'static,
+    complete: impl Fn(Rc<R>) + Copy + 'static,
 ) -> SubscriptionWrapper<LocalSubscription> {
     let weak_receiver = Rc::downgrade(receiver);
-    trigger.take_until(until).subscribe(move |v| {
-        let receiver = weak_receiver.upgrade().expect("receiver is gone");
-        (reaction)(receiver, v);
-    })
+    let weak_receiver_2 = weak_receiver.clone();
+    trigger.take_until(until).subscribe_complete(
+        move |v| {
+            let receiver = weak_receiver.upgrade().expect("receiver is gone");
+            (reaction)(receiver, v);
+        },
+        move || {
+            let receiver = weak_receiver_2.upgrade().expect("receiver is gone");
+            (complete)(receiver);
+        },
+    )
 }
 
 /// Executes the given reaction whenever the specified event is raised.

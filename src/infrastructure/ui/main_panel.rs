@@ -1,5 +1,6 @@
-use crate::domain::SharedSession;
+use crate::core::{prop, Prop};
 use crate::domain::{MappingModel, Session};
+use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
 use c_str_macro::c_str;
@@ -17,6 +18,8 @@ pub struct MainPanel {
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
+    pub target_filter: RefCell<Prop<Option<ReaperTarget>>>,
+    pub is_learning_target_filter: RefCell<Prop<bool>>,
 }
 
 struct ActiveData {
@@ -31,6 +34,8 @@ impl Default for MainPanel {
             view: Default::default(),
             active_data: LazyCell::new(),
             dimensions: None.into(),
+            target_filter: prop(None).into(),
+            is_learning_target_filter: prop(false).into(),
         }
     }
 }
@@ -44,7 +49,7 @@ impl MainPanel {
         // Finally, the session is available. First, save its reference and create sub panels.
         let active_data = ActiveData {
             session: session.clone(),
-            header_panel: HeaderPanel::new(session.clone()).into(),
+            header_panel: HeaderPanel::new(session.clone(), self.clone()).into(),
             mapping_rows_panel: MappingRowsPanel::new(session.clone(), self.clone()).into(),
         };
         self.active_data.fill(active_data);
