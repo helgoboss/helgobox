@@ -6,6 +6,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 // TODO-medium We should remove duplicate code here without changing the public interface!
+//  The best would be to have one singler builder for all of this! Code that speaks.
 
 /// Executes the given reaction synchronously whenever the specified event is raised.
 pub fn when_sync<E, U, R: 'static>(
@@ -23,6 +24,7 @@ pub fn when_sync<E, U, R: 'static>(
 
 pub fn when_sync_with_item<E, U, R: 'static>(
     trigger: impl Event<E>,
+    // TODO-medium until is not necessary. We can just add it to the trigger on client side
     until: impl Event<U>,
     receiver: &Rc<R>,
     reaction: impl Fn(Rc<R>, E) + Copy + 'static,

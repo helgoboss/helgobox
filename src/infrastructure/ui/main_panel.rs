@@ -4,6 +4,7 @@ use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
 use c_str_macro::c_str;
+use helgoboss_learn::MidiSource;
 use lazycell::LazyCell;
 use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
@@ -15,11 +16,13 @@ use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 /// The complete ReaLearn panel containing everything.
 // TODO Maybe call this SessionPanel
 pub struct MainPanel {
+    pub target_filter: RefCell<Prop<Option<ReaperTarget>>>,
+    pub is_learning_target_filter: RefCell<Prop<bool>>,
+    pub source_filter: RefCell<Prop<Option<MidiSource>>>,
+    pub is_learning_source_filter: RefCell<Prop<bool>>,
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
-    pub target_filter: RefCell<Prop<Option<ReaperTarget>>>,
-    pub is_learning_target_filter: RefCell<Prop<bool>>,
 }
 
 struct ActiveData {
@@ -36,6 +39,8 @@ impl Default for MainPanel {
             dimensions: None.into(),
             target_filter: prop(None).into(),
             is_learning_target_filter: prop(false).into(),
+            source_filter: prop(None).into(),
+            is_learning_source_filter: prop(false).into(),
         }
     }
 }

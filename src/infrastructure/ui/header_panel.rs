@@ -1,5 +1,5 @@
 use crate::application::SessionData;
-use crate::core::{when_sync, when_sync_with_item};
+use crate::core::{when_sync, when_sync_with_item, Prop};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
@@ -38,7 +38,29 @@ impl HeaderPanel {
 
 impl HeaderPanel {
     fn toggle_learn_source_filter(&self) {
-        // TODO-high
+        let mut learning = self.main_panel.is_learning_source_filter.borrow_mut();
+        if learning.get() {
+            // Stop learning
+            learning.set(false);
+        } else {
+            // Start learning
+            learning.set(true);
+            when_sync_with_item(
+                self.session
+                    .borrow()
+                    .midi_source_touched()
+                    .take_until(learning.changed_to(false))
+                    .take(1),
+                self.view.closed(),
+                &self.main_panel,
+                |main_panel, source| {
+                    main_panel.source_filter.borrow_mut().set(Some(source));
+                },
+                |main_panel| {
+                    main_panel.is_learning_source_filter.borrow_mut().set(false);
+                },
+            );
+        }
     }
 
     fn toggle_learn_target_filter(&self) {
@@ -69,7 +91,7 @@ impl HeaderPanel {
     }
 
     fn clear_source_filter(&self) {
-        // TODO-high
+        self.main_panel.source_filter.borrow_mut().set(None);
     }
 
     fn clear_target_filter(&self) {
@@ -266,22 +288,40 @@ impl HeaderPanel {
     }
 
     fn invalidate_source_filter_buttons(&self) {
-        // TODO
+        self.invalidate_filter_buttons(
+            self.main_panel.is_learning_source_filter.borrow().get(),
+            self.main_panel.source_filter.borrow().get_ref().is_some(),
+            "Learn source filter",
+            root::ID_FILTER_BY_SOURCE_BUTTON,
+            root::ID_CLEAR_SOURCE_FILTER_BUTTON,
+        );
     }
 
     fn invalidate_target_filter_buttons(&self) {
-        let learn_button_text = if self.main_panel.is_learning_target_filter.borrow().get() {
-            "Stop"
-        } else {
-            "Learn target filter"
-        };
+        self.invalidate_filter_buttons(
+            self.main_panel.is_learning_target_filter.borrow().get(),
+            self.main_panel.target_filter.borrow().get_ref().is_some(),
+            "Learn target filter",
+            root::ID_FILTER_BY_TARGET_BUTTON,
+            root::ID_CLEAR_TARGET_FILTER_BUTTON,
+        );
+    }
+
+    fn invalidate_filter_buttons(
+        &self,
+        is_learning: bool,
+        is_set: bool,
+        learn_text: &str,
+        learn_button_id: u32,
+        clear_button_id: u32,
+    ) {
+        let learn_button_text = if is_learning { "Stop" } else { learn_text };
         self.view
-            .require_control(root::ID_FILTER_BY_TARGET_BUTTON)
+            .require_control(learn_button_id)
             .set_text(learn_button_text);
-        let clear_button_enabled = self.main_panel.target_filter.borrow().get_ref().is_some();
         self.view
-            .require_control(root::ID_CLEAR_TARGET_FILTER_BUTTON)
-            .set_enabled(clear_button_enabled);
+            .require_control(clear_button_id)
+            .set_enabled(is_set);
     }
 
     pub fn import_from_clipboard(&self) {
@@ -339,7 +379,16 @@ impl HeaderPanel {
                 view.invalidate_target_filter_buttons();
             },
         );
-        // TODO sourceFilterListening, targetFilterListening,
+        self.when(
+            self.main_panel
+                .is_learning_source_filter
+                .borrow()
+                .changed()
+                .merge(self.main_panel.source_filter.borrow().changed()),
+            |view| {
+                view.invalidate_source_filter_buttons();
+            },
+        );
     }
 
     fn when(

@@ -143,12 +143,20 @@ impl RealTimeProcessor {
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Start learn source"
+                    );
                     self.control_state = ControlState::LearningSource;
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                     self.source_scanner.reset();
                 }
                 StopLearnSource => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Stop learn source"
+                    );
                     self.control_state = ControlState::Controlling;
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
@@ -269,17 +277,17 @@ impl RealTimeProcessor {
 
     fn poll_source_scanner(&mut self) {
         if let Some(source) = self.source_scanner.poll() {
-            self.learn(source);
+            self.learn_source(source);
         }
     }
 
     fn feed_source_scanner(&mut self, value: MidiSourceValue<RawShortMessage>) {
         if let Some(source) = self.source_scanner.feed(value) {
-            self.learn(source);
+            self.learn_source(source);
         }
     }
 
-    fn learn(&mut self, source: MidiSource) {
+    fn learn_source(&mut self, source: MidiSource) {
         self.main_processor_sender
             .send(MainProcessorTask::LearnSource(source));
         self.control_state = ControlState::Controlling;

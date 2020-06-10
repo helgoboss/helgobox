@@ -81,7 +81,7 @@ impl ControlSurface for MainProcessor {
                 }
                 FeedbackAll => self.send_feedback(self.feedback_buffer.feedback_all()),
                 LearnSource(source) => {
-                    self.session.borrow_mut().learn_source(&source);
+                    self.session.borrow_mut().learn_source(source);
                 }
             }
         }

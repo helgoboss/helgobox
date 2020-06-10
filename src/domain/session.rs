@@ -54,6 +54,7 @@ pub struct Session {
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
+    midi_source_touched_subject: LocalSubject<'static, MidiSource, ()>,
     mapping_subscriptions: Vec<SubscriptionGuard<Box<dyn SubscriptionLike>>>,
     main_processor_channel: (
         crossbeam_channel::Sender<MainProcessorTask>,
@@ -84,6 +85,7 @@ impl Session {
             context,
             mapping_models: vec![],
             mapping_list_changed_subject: Default::default(),
+            midi_source_touched_subject: Default::default(),
             mapping_subscriptions: vec![],
             main_processor_channel,
             real_time_processor_sender,
@@ -147,16 +149,40 @@ impl Session {
             },
         );
         // Enable source learning
+        // TODO-low This could be handled by normal methods instead of observables, like source
+        //  filter learning.
         Session::when_async(
+            // TODO-low Listen to values instead of change event only. Filter Some only and
+            // flatten.
             session.mapping_which_learns_source.changed(),
             &shared_session,
             move |s| {
+                let shared_session = s.clone();
                 let session = s.borrow();
-                let task = match session.mapping_which_learns_source.get_ref() {
-                    None => RealTimeProcessorTask::StopLearnSource,
-                    Some(_) => RealTimeProcessorTask::StartLearnSource,
-                };
-                session.real_time_processor_sender.send(task);
+                if session.mapping_which_learns_source.get_ref().is_none() {
+                    return;
+                }
+                Session::when_async_with_item(
+                    session
+                        .midi_source_touched()
+                        .take_until(session.mapping_which_learns_source.changed_to(None))
+                        .take(1)
+                        .finalize(move || {
+                            let shared_session = shared_session.clone();
+                            Reaper::get().do_later_in_main_thread_asap(move || {
+                                shared_session
+                                    .borrow_mut()
+                                    .mapping_which_learns_source
+                                    .set(None)
+                            });
+                        }),
+                    &s,
+                    move |session, source| {
+                        if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
+                            m.borrow_mut().source_model.apply_from_source(&source);
+                        }
+                    },
+                );
             },
         );
         // Enable target learning
@@ -169,10 +195,18 @@ impl Session {
         );
     }
 
-    pub fn learn_source(&mut self, source: &MidiSource) {
-        if let Some(mapping) = self.mapping_which_learns_source.replace(None) {
-            mapping.borrow_mut().source_model.apply_from_source(source);
-        }
+    pub fn learn_source(&mut self, source: MidiSource) {
+        self.midi_source_touched_subject.next(source);
+    }
+
+    pub fn midi_source_touched(&self) -> impl Event<MidiSource> {
+        // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
+        self.real_time_processor_sender
+            .send(RealTimeProcessorTask::StartLearnSource);
+        let rt_sender = self.real_time_processor_sender.clone();
+        self.midi_source_touched_subject.clone().finalize(move || {
+            rt_sender.send(RealTimeProcessorTask::StopLearnSource);
+        })
     }
 
     fn resubscribe_to_mappings_in_current_list(shared_session: &SharedSession) {

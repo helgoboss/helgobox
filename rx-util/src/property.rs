@@ -169,7 +169,7 @@ where
 
     pub fn changed_to(&self, value: T) -> impl LocalObservable<'a, Item = (), Err = ()>
     where
-        T: Copy + 'static,
+        T: Clone + 'static,
     {
         self.value_subject
             .clone()
