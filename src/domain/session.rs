@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::core::{prop, when_async, when_async_with_item, when_sync, AsyncNotifier, Prop};
+use crate::core::{prop, when, when_async, when_sync, AsyncNotifier, Prop};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorControlMapping, MainProcessorFeedbackMapping,
     MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorControlMapping,
@@ -157,42 +157,36 @@ impl Session {
             session.mapping_which_learns_source.changed(),
             &shared_session,
             move |s| {
-                let shared_session = s.clone();
                 let session = s.borrow();
                 if session.mapping_which_learns_source.get_ref().is_none() {
                     return;
                 }
-                Session::when_async_with_item(
+                when(
                     session
                         .midi_source_touched()
                         .take_until(session.mapping_which_learns_source.changed_to(None))
-                        .take(1)
-                        .finalize(move || {
-                            let shared_session = shared_session.clone();
-                            Reaper::get().do_later_in_main_thread_asap(move || {
-                                shared_session
-                                    .borrow_mut()
-                                    .mapping_which_learns_source
-                                    .set(None)
-                            });
-                        }),
-                    &s,
-                    move |session, source| {
-                        if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
-                            m.borrow_mut().source_model.apply_from_source(&source);
-                        }
-                    },
-                );
+                        .take_until(session.party_is_over())
+                        .take(1),
+                )
+                .with(&s)
+                .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
+                .do_async(|session, source| {
+                    if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
+                        m.borrow_mut().source_model.apply_from_source(&source);
+                    }
+                });
             },
         );
         // Enable target learning
-        Session::when_async_with_item(
-            Session::target_touched_observables(shared_session.clone()).switch_on_next(),
-            &shared_session,
-            move |s, t| {
-                s.borrow_mut().learn_target(t.as_ref());
-            },
-        );
+        when(
+            Session::target_touched_observables(shared_session.clone())
+                .switch_on_next()
+                .take_until(session.party_is_over()),
+        )
+        .with(&shared_session)
+        .do_async(|session, target| {
+            session.borrow_mut().learn_target(target.as_ref());
+        });
     }
 
     pub fn learn_source(&mut self, source: MidiSource) {
@@ -516,19 +510,6 @@ impl Session {
 
     fn generate_name_for_new_mapping(&self) -> String {
         format!("{}", self.mapping_models.len() + 1)
-    }
-
-    fn when_async_with_item<I: 'static>(
-        event: impl Event<I>,
-        shared_session: &SharedSession,
-        reaction: impl Fn(SharedSession, I) + 'static + Copy,
-    ) {
-        when_async_with_item(
-            event,
-            shared_session.borrow().party_is_over(),
-            shared_session,
-            reaction,
-        );
     }
 
     fn when_sync(

@@ -61,6 +61,51 @@ where
             finalizer,
         }
     }
+
+    pub fn do_sync(
+        self,
+        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+    ) -> SubscriptionWrapper<impl SubscriptionLike> {
+        Self::do_sync_internal(self.weak_receiver, self.parent.trigger, reaction)
+    }
+
+    pub fn do_async(
+        self,
+        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+    ) -> SubscriptionWrapper<impl SubscriptionLike>
+    where
+        Item: 'static,
+    {
+        Self::do_async_internal(self.weak_receiver, self.parent.trigger, reaction)
+    }
+
+    fn do_sync_internal(
+        weak_receiver: Weak<Receiver>,
+        trigger: impl Event<Item>,
+        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+    ) -> SubscriptionWrapper<impl SubscriptionLike> {
+        trigger.subscribe(move |item| {
+            let receiver = weak_receiver.upgrade().expect("receiver gone");
+            (reaction)(receiver, item);
+        })
+    }
+
+    fn do_async_internal(
+        weak_receiver: Weak<Receiver>,
+        trigger: impl Event<Item>,
+        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+    ) -> SubscriptionWrapper<impl SubscriptionLike>
+    where
+        Item: 'static,
+    {
+        trigger.subscribe(move |item| {
+            let weak_receiver = weak_receiver.clone();
+            Reaper::get().do_later_in_main_thread_asap(move || {
+                let receiver = weak_receiver.upgrade().expect("receiver gone");
+                (reaction)(receiver, item);
+            });
+        })
+    }
 }
 
 pub struct ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer> {
@@ -78,47 +123,39 @@ where
     pub fn do_sync(
         self,
         reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
-    ) -> SubscriptionWrapper<LocalSubscription> {
-        let weak_receiver_one = self.parent.weak_receiver;
-        let weak_receiver_two = weak_receiver_one.clone();
+    ) -> SubscriptionWrapper<impl SubscriptionLike> {
+        let weak_receiver = self.parent.weak_receiver.clone();
         let finalizer = self.finalizer;
-        self.parent
-            .parent
-            .trigger
-            .finalize(move || {
-                let receiver = weak_receiver_one.upgrade().expect("receiver gone");
+        ReactionBuilderStepTwo::<Item, Trigger, Receiver>::do_sync_internal(
+            self.parent.weak_receiver,
+            self.parent.parent.trigger.finalize(move || {
+                let receiver = weak_receiver.upgrade().expect("receiver gone");
                 (finalizer)(receiver);
-            })
-            .subscribe(move |item| {
-                let receiver = weak_receiver_two.upgrade().expect("receiver gone");
-                (reaction)(receiver, item);
-            })
+            }),
+            reaction,
+        )
     }
 
     pub fn do_async(
         self,
         reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
-    ) -> SubscriptionWrapper<LocalSubscription>
+    ) -> SubscriptionWrapper<impl SubscriptionLike>
     where
         Item: 'static,
     {
-        let weak_receiver_one = self.parent.weak_receiver;
-        let weak_receiver_two = weak_receiver_one.clone();
+        let weak_receiver = self.parent.weak_receiver.clone();
         let finalizer = self.finalizer;
-        self.parent
-            .parent
-            .trigger
-            .finalize(move || {
-                let receiver = weak_receiver_one.upgrade().expect("receiver gone");
-                (finalizer)(receiver);
-            })
-            .subscribe(move |item| {
-                let weak_receiver = weak_receiver_two.clone();
+        ReactionBuilderStepTwo::<Item, Trigger, Receiver>::do_async_internal(
+            self.parent.weak_receiver,
+            self.parent.parent.trigger.finalize(move || {
+                let weak_receiver = weak_receiver.clone();
                 Reaper::get().do_later_in_main_thread_asap(move || {
                     let receiver = weak_receiver.upgrade().expect("receiver gone");
-                    (reaction)(receiver, item);
+                    (finalizer)(receiver);
                 });
-            })
+            }),
+            reaction,
+        )
     }
 }
 
@@ -164,20 +201,4 @@ pub fn when_async<E, U, R: 'static>(
                 (reaction)(receiver);
             });
         })
-}
-
-pub fn when_async_with_item<E: 'static, U, R: 'static>(
-    trigger: impl Event<E>,
-    until: impl Event<U>,
-    receiver: &Rc<R>,
-    reaction: impl Fn(Rc<R>, E) + Copy + 'static,
-) -> SubscriptionWrapper<LocalSubscription> {
-    let weak_receiver = Rc::downgrade(receiver);
-    trigger.take_until(until).subscribe(move |v| {
-        let weak_receiver = weak_receiver.clone();
-        Reaper::get().do_later_in_main_thread_asap(move || {
-            let receiver = weak_receiver.upgrade().expect("receiver is gone");
-            (reaction)(receiver, v);
-        });
-    })
 }
