@@ -1,4 +1,4 @@
-use crate::core::when_sync;
+use crate::core::when;
 use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::common::bindings::root;
@@ -251,7 +251,9 @@ impl MappingRowPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_sync(event, self.closed_or_mapping_will_change(), &self, reaction);
+        when(event.take_until(self.closed_or_mapping_will_change()))
+            .with(&self)
+            .do_sync(move |panel, _| reaction(panel));
     }
 }
 

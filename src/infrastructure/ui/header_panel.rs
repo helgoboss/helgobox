@@ -1,5 +1,5 @@
 use crate::application::SessionData;
-use crate::core::{when, when_sync, Prop};
+use crate::core::{when, Prop};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
@@ -396,7 +396,9 @@ impl HeaderPanel {
         event: impl UnitEvent,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
-        when_sync(event, self.view.closed(), &self, reaction);
+        when(event.take_until(self.view.closed()))
+            .with(&self)
+            .do_sync(move |panel, _| reaction(panel));
     }
 }
 

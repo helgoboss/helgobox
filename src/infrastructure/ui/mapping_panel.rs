@@ -1,4 +1,4 @@
-use crate::core::{when_async, when_sync};
+use crate::core::when;
 use crate::domain::SharedSession;
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
@@ -208,30 +208,35 @@ impl MappingPanel {
             .merge(self.party_is_over_subject.borrow().clone())
     }
 
-    fn when(
+    fn when_do_sync(
         self: &SharedView<Self>,
         event: impl UnitEvent,
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) {
-        when_sync(event, self.party_is_over(), self, move |view| {
-            let view_mirror = view.clone();
-            view_mirror.is_in_reaction.set(true);
-            scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
-            view.with_immutable(reaction);
-        });
+        when(event.take_until(self.party_is_over()))
+            .with(self)
+            .do_sync(decorate_reaction(reaction));
     }
 
-    fn when_async(
+    fn when_do_async(
         self: &SharedView<Self>,
         event: impl UnitEvent,
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) {
-        when_async(event, self.party_is_over(), self, move |view| {
-            let view_mirror = view.clone();
-            view_mirror.is_in_reaction.set(true);
-            scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
-            view.with_immutable(reaction);
-        });
+        when(event.take_until(self.party_is_over()))
+            .with(self)
+            .do_async(decorate_reaction(reaction));
+    }
+}
+
+fn decorate_reaction(
+    reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
+) -> impl Fn(Rc<MappingPanel>, ()) + Copy {
+    move |view, _| {
+        let view_mirror = view.clone();
+        view_mirror.is_in_reaction.set(true);
+        scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
+        view.with_immutable(reaction);
     }
 }
 
@@ -1293,15 +1298,15 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_session_listeners(&self) {
         self.panel
-            .when(self.session.mapping_which_learns_source.changed(), |view| {
+            .when_do_sync(self.session.mapping_which_learns_source.changed(), |view| {
                 view.invalidate_source_learn_button();
             });
         self.panel
-            .when(self.session.mapping_which_learns_target.changed(), |view| {
+            .when_do_sync(self.session.mapping_which_learns_target.changed(), |view| {
                 view.invalidate_target_learn_button();
             });
         let reaper = Reaper::get();
-        self.panel.when(
+        self.panel.when_do_sync(
             reaper
                 // Because we want to display new tracks in combo box as soon as they appear.
                 .track_added()
@@ -1325,51 +1330,54 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn register_mapping_listeners(&self) {
-        self.panel.when(self.mapping.name.changed(), |view| {
-            view.invalidate_window_title();
-            view.invalidate_mapping_name_edit_control();
-        });
         self.panel
-            .when(self.mapping.control_is_enabled.changed(), |view| {
+            .when_do_sync(self.mapping.name.changed(), |view| {
+                view.invalidate_window_title();
+                view.invalidate_mapping_name_edit_control();
+            });
+        self.panel
+            .when_do_sync(self.mapping.control_is_enabled.changed(), |view| {
                 view.invalidate_mapping_control_enabled_check_box();
             });
         self.panel
-            .when(self.mapping.feedback_is_enabled.changed(), |view| {
+            .when_do_sync(self.mapping.feedback_is_enabled.changed(), |view| {
                 view.invalidate_mapping_feedback_enabled_check_box();
             });
     }
 
     fn register_source_listeners(&self) {
         let source = self.source;
-        self.panel.when(source.r#type.changed(), |view| {
+        self.panel.when_do_sync(source.r#type.changed(), |view| {
             view.invalidate_source_type_combo_box();
             view.invalidate_source_control_appearance();
             view.invalidate_mode_controls();
         });
-        self.panel.when(source.channel.changed(), |view| {
+        self.panel.when_do_sync(source.channel.changed(), |view| {
             view.invalidate_source_channel_combo_box();
         });
-        self.panel.when(source.is_14_bit.changed(), |view| {
+        self.panel.when_do_sync(source.is_14_bit.changed(), |view| {
             view.invalidate_source_14_bit_check_box();
             view.invalidate_mode_controls();
             view.invalidate_source_control_appearance();
         });
         self.panel
-            .when(source.midi_message_number.changed(), |view| {
+            .when_do_sync(source.midi_message_number.changed(), |view| {
                 view.invalidate_source_midi_message_number_controls();
             });
         self.panel
-            .when(source.parameter_number_message_number.changed(), |view| {
+            .when_do_sync(source.parameter_number_message_number.changed(), |view| {
                 view.invalidate_source_parameter_number_message_number_controls();
             });
-        self.panel.when(source.is_registered.changed(), |view| {
-            view.invalidate_source_is_registered_check_box();
-        });
-        self.panel.when(source.custom_character.changed(), |view| {
-            view.invalidate_source_character_combo_box();
-        });
         self.panel
-            .when(source.midi_clock_transport_message.changed(), |view| {
+            .when_do_sync(source.is_registered.changed(), |view| {
+                view.invalidate_source_is_registered_check_box();
+            });
+        self.panel
+            .when_do_sync(source.custom_character.changed(), |view| {
+                view.invalidate_source_character_combo_box();
+            });
+        self.panel
+            .when_do_sync(source.midi_clock_transport_message.changed(), |view| {
                 view.invalidate_source_midi_clock_transport_message_type_combo_box();
             });
     }
@@ -1737,21 +1745,22 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.shared_mapping.clone(),
             self.session.context().clone(),
         );
-        self.panel.when_async(target_value_changed, |view| {
+
+        self.panel.when_do_async(target_value_changed, |view| {
             view.invalidate_target_value_controls();
         });
-        self.panel.when(target.r#type.changed(), |view| {
+        self.panel.when_do_sync(target.r#type.changed(), |view| {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
         });
-        self.panel.when(target.track.changed(), |view| {
+        self.panel.when_do_sync(target.track.changed(), |view| {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
         });
         // TODO-high ReaLearn C++ had additional ugly code to keep the FX synced on fxAdded,
         //  fxRemoved  and fxReordered. See how it behaves in ReaLearn RS (uses other techniques)
         //  and - if still relevant - write hopefully not so ugly code to handle that.
-        self.panel.when(
+        self.panel.when_do_sync(
             target
                 .fx_index
                 .changed()
@@ -1763,15 +1772,16 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
-        self.panel.when(target.param_index.changed(), |view| {
-            view.invalidate_target_value_controls();
-            view.invalidate_mode_controls();
-        });
-        self.panel.when(target.action.changed(), |view| {
+        self.panel
+            .when_do_sync(target.param_index.changed(), |view| {
+                view.invalidate_target_value_controls();
+                view.invalidate_mode_controls();
+            });
+        self.panel.when_do_sync(target.action.changed(), |view| {
             view.invalidate_target_line_two();
         });
         self.panel
-            .when(target.action_invocation_type.changed(), |view| {
+            .when_do_sync(target.action_invocation_type.changed(), |view| {
                 view.invalidate_target_line_three();
                 view.invalidate_mode_controls();
             });
@@ -1779,48 +1789,51 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_mode_listeners(&self) {
         let mode = self.mode;
-        self.panel.when(mode.r#type.changed(), |view| {
+        self.panel.when_do_sync(mode.r#type.changed(), |view| {
             view.invalidate_mode_control_appearance();
         });
         self.panel
-            .when(mode.target_value_interval.changed(), |view| {
+            .when_do_sync(mode.target_value_interval.changed(), |view| {
                 view.invalidate_mode_min_target_value_controls();
                 view.invalidate_mode_max_target_value_controls();
             });
         self.panel
-            .when(mode.source_value_interval.changed(), |view| {
+            .when_do_sync(mode.source_value_interval.changed(), |view| {
                 view.invalidate_mode_source_value_controls();
             });
-        self.panel.when(mode.jump_interval.changed(), |view| {
-            view.invalidate_mode_min_jump_controls();
-            view.invalidate_mode_max_jump_controls();
-        });
-        self.panel.when(mode.step_size_interval.changed(), |view| {
-            view.invalidate_mode_step_size_controls();
-        });
         self.panel
-            .when(mode.ignore_out_of_range_source_values.changed(), |view| {
+            .when_do_sync(mode.jump_interval.changed(), |view| {
+                view.invalidate_mode_min_jump_controls();
+                view.invalidate_mode_max_jump_controls();
+            });
+        self.panel
+            .when_do_sync(mode.step_size_interval.changed(), |view| {
+                view.invalidate_mode_step_size_controls();
+            });
+        self.panel
+            .when_do_sync(mode.ignore_out_of_range_source_values.changed(), |view| {
                 view.invalidate_mode_ignore_out_of_range_check_box();
             });
-        self.panel.when(mode.round_target_value.changed(), |view| {
-            view.invalidate_mode_round_target_value_check_box();
-        });
         self.panel
-            .when(mode.approach_target_value.changed(), |view| {
+            .when_do_sync(mode.round_target_value.changed(), |view| {
+                view.invalidate_mode_round_target_value_check_box();
+            });
+        self.panel
+            .when_do_sync(mode.approach_target_value.changed(), |view| {
                 view.invalidate_mode_approach_check_box();
             });
-        self.panel.when(mode.rotate.changed(), |view| {
+        self.panel.when_do_sync(mode.rotate.changed(), |view| {
             view.invalidate_mode_rotate_check_box();
         });
-        self.panel.when(mode.reverse.changed(), |view| {
+        self.panel.when_do_sync(mode.reverse.changed(), |view| {
             view.invalidate_mode_reverse_check_box();
         });
         self.panel
-            .when(mode.eel_control_transformation.changed(), |view| {
+            .when_do_sync(mode.eel_control_transformation.changed(), |view| {
                 view.invalidate_mode_eel_control_transformation_edit_control();
             });
         self.panel
-            .when(mode.eel_feedback_transformation.changed(), |view| {
+            .when_do_sync(mode.eel_feedback_transformation.changed(), |view| {
                 view.invalidate_mode_eel_feedback_transformation_edit_control();
             });
     }

@@ -1,5 +1,5 @@
 use super::MidiSourceModel;
-use crate::core::{prop, when, when_async, when_sync, AsyncNotifier, Prop};
+use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     share_mapping, MainProcessor, MainProcessorControlMapping, MainProcessorFeedbackMapping,
     MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorControlMapping,
@@ -110,7 +110,7 @@ impl Session {
         // Whenever anything in the mapping list changes, resync all mappings to processors.
         // When one of the mapping changes, sync just that.
         let project = session.context.project();
-        Session::when_async(
+        when(
             // Initial sync
             observable::of(())
                 // Future syncs
@@ -125,58 +125,63 @@ impl Session {
                 .merge(session.containing_track_armed_or_disarmed())
                 .merge(session.send_feedback_only_if_armed.changed())
                 // When target conditions change.
-                .merge(TargetModel::potential_global_change_events()),
-            &shared_session,
-            move |s| {
-                Session::resubscribe_to_mappings_in_current_list(&s);
-                s.borrow_mut().sync_all_mappings_to_processors();
-                mark_dirty_if_not_loading(project);
-            },
-        );
+                .merge(TargetModel::potential_global_change_events())
+                .take_until(session.party_is_over()),
+        )
+        .with(&shared_session)
+        .do_async(move |s, _| {
+            Session::resubscribe_to_mappings_in_current_list(&s);
+            s.borrow_mut().sync_all_mappings_to_processors();
+            mark_dirty_if_not_loading(project);
+        });
         // Keep syncing some general settings to real-time processor.
-        Session::when_sync(
+        when(
             // Initial sync
             observable::of(())
                 // Future syncs
                 .merge(session.let_matched_events_through.changed())
                 .merge(session.let_unmatched_events_through.changed())
                 .merge(session.midi_control_input.changed())
-                .merge(session.midi_feedback_output.changed()),
-            &shared_session,
-            move |s| {
-                s.borrow().sync_settings_to_real_time_processor();
-                mark_dirty_if_not_loading(project);
-            },
-        );
+                .merge(session.midi_feedback_output.changed())
+                .take_until(session.party_is_over()),
+        )
+        .with(&shared_session)
+        .do_sync(move |s, _| {
+            s.borrow().sync_settings_to_real_time_processor();
+            mark_dirty_if_not_loading(project);
+        });
         // Enable source learning
         // TODO-low This could be handled by normal methods instead of observables, like source
         //  filter learning.
-        Session::when_async(
+        when(
             // TODO-low Listen to values instead of change event only. Filter Some only and
             // flatten.
-            session.mapping_which_learns_source.changed(),
-            &shared_session,
-            move |s| {
-                let session = s.borrow();
-                if session.mapping_which_learns_source.get_ref().is_none() {
-                    return;
+            session
+                .mapping_which_learns_source
+                .changed()
+                .take_until(session.party_is_over()),
+        )
+        .with(&shared_session)
+        .do_async(move |s, _| {
+            let session = s.borrow();
+            if session.mapping_which_learns_source.get_ref().is_none() {
+                return;
+            }
+            when(
+                session
+                    .midi_source_touched()
+                    .take_until(session.mapping_which_learns_source.changed_to(None))
+                    .take_until(session.party_is_over())
+                    .take(1),
+            )
+            .with(&s)
+            .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
+            .do_async(|session, source| {
+                if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
+                    m.borrow_mut().source_model.apply_from_source(&source);
                 }
-                when(
-                    session
-                        .midi_source_touched()
-                        .take_until(session.mapping_which_learns_source.changed_to(None))
-                        .take_until(session.party_is_over())
-                        .take(1),
-                )
-                .with(&s)
-                .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-                .do_async(|session, source| {
-                    if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
-                        m.borrow_mut().source_model.apply_from_source(&source);
-                    }
-                });
-            },
-        );
+            });
+        });
         // Enable target learning
         when(
             Session::target_touched_observables(shared_session.clone())
@@ -510,32 +515,6 @@ impl Session {
 
     fn generate_name_for_new_mapping(&self) -> String {
         format!("{}", self.mapping_models.len() + 1)
-    }
-
-    fn when_sync(
-        event: impl UnitEvent,
-        shared_session: &SharedSession,
-        reaction: impl Fn(SharedSession) + 'static + Copy,
-    ) {
-        when_sync(
-            event,
-            shared_session.borrow().party_is_over(),
-            shared_session,
-            reaction,
-        );
-    }
-
-    fn when_async(
-        event: impl UnitEvent,
-        shared_session: &SharedSession,
-        reaction: impl Fn(SharedSession) + 'static + Copy,
-    ) {
-        when_async(
-            event,
-            shared_session.borrow().party_is_over(),
-            shared_session,
-            reaction,
-        );
     }
 
     fn party_is_over(&self) -> impl UnitEvent {
