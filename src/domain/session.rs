@@ -323,6 +323,16 @@ impl Session {
             .any(|m| m.as_ptr() == mapping as _)
     }
 
+    pub fn index_of_mapping(&self, mapping: *const MappingModel) -> Option<usize> {
+        self.mapping_models
+            .iter()
+            .position(|m| m.as_ptr() == mapping as _)
+    }
+
+    pub fn show_in_floating_window(&self) {
+        self.context().containing_fx().show_in_floating_window();
+    }
+
     pub fn containing_fx_is_in_input_fx_chain(&self) -> bool {
         self.context.containing_fx().is_input_fx()
     }

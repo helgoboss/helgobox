@@ -12,7 +12,7 @@ use crate::domain::SharedSession;
 use crate::domain::{MappingModel, Session, SharedMapping};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{
-    MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
+    MainPanel, MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
 use std::cmp;
@@ -23,14 +23,15 @@ use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 pub struct MappingRowsPanel {
     view: ViewContext,
     session: SharedSession,
+    main_panel: SharedView<MainPanel>,
     rows: Vec<SharedView<MappingRowPanel>>,
     mapping_panel_manager: SharedMappingPanelManager,
     scroll_position: Cell<usize>,
 }
 
 impl MappingRowsPanel {
-    pub fn new(session: SharedSession) -> MappingRowsPanel {
-        let mapping_panel_manager = MappingPanelManager::new(session.clone());
+    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> MappingRowsPanel {
+        let mapping_panel_manager = MappingPanelManager::new(session.clone(), main_panel.clone());
         let mapping_panel_manager = Rc::new(RefCell::new(mapping_panel_manager));
         MappingRowsPanel {
             view: Default::default(),
@@ -44,7 +45,20 @@ impl MappingRowsPanel {
             session,
             mapping_panel_manager,
             scroll_position: 0.into(),
+            main_panel,
         }
+    }
+
+    pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
+        let session = self.session.borrow();
+        let index = match session.index_of_mapping(mapping) {
+            None => return,
+            Some(i) => i,
+        };
+        if !self.is_open() {
+            session.show_in_floating_window();
+        }
+        self.scroll(index);
     }
 
     fn open_mapping_rows(&self, window: Window) {

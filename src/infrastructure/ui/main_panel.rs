@@ -1,5 +1,5 @@
-use crate::domain::Session;
 use crate::domain::SharedSession;
+use crate::domain::{MappingModel, Session};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
 use c_str_macro::c_str;
@@ -40,12 +40,12 @@ impl MainPanel {
         Default::default()
     }
 
-    pub fn notify_session_is_available(&self, session: SharedSession) {
+    pub fn notify_session_is_available(self: Rc<Self>, session: SharedSession) {
         // Finally, the session is available. First, save its reference and create sub panels.
         let active_data = ActiveData {
             session: session.clone(),
             header_panel: HeaderPanel::new(session.clone()).into(),
-            mapping_rows_panel: MappingRowsPanel::new(session.clone()).into(),
+            mapping_rows_panel: MappingRowsPanel::new(session.clone(), self.clone()).into(),
         };
         self.active_data.fill(active_data);
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
@@ -69,6 +69,12 @@ impl MainPanel {
             self.dimensions.replace(None);
         }
         self.open(parent_window)
+    }
+
+    pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
+        if let Some(data) = self.active_data.borrow() {
+            data.mapping_rows_panel.scroll_to_mapping(mapping);
+        }
     }
 
     fn open_sub_panels(&self, window: Window) {

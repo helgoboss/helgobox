@@ -1,6 +1,6 @@
 use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
-use crate::infrastructure::ui::MappingPanel;
+use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -12,13 +12,15 @@ const MAX_PANEL_COUNT: u32 = 4;
 /// Responsible for managing the currently open top-level mapping panels.
 pub struct MappingPanelManager {
     session: SharedSession,
+    main_panel: SharedView<MainPanel>,
     open_panels: Vec<SharedView<MappingPanel>>,
 }
 
 impl MappingPanelManager {
-    pub fn new(session: SharedSession) -> MappingPanelManager {
+    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> MappingPanelManager {
         Self {
             session,
+            main_panel,
             open_panels: Default::default(),
         }
     }
@@ -83,7 +85,10 @@ impl MappingPanelManager {
     }
 
     fn create_new_panel(&mut self) -> SharedView<MappingPanel> {
-        let panel = SharedView::new(MappingPanel::new(self.session.clone()));
+        let panel = SharedView::new(MappingPanel::new(
+            self.session.clone(),
+            self.main_panel.clone(),
+        ));
         let panel_clone_1 = panel.clone();
         let panel_clone_2 = panel.clone();
         self.open_panels.push(panel);

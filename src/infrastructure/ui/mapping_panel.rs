@@ -7,6 +7,7 @@ use crate::domain::{
     TargetType, VirtualTrack,
 };
 use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::ui::{MainPanel, MappingRowsPanel};
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -38,6 +39,7 @@ pub struct MappingPanel {
     view: ViewContext,
     session: SharedSession,
     mapping: RefCell<Option<SharedMapping>>,
+    main_panel: SharedView<MainPanel>,
     is_in_reaction: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
     // Fires when a mapping is about to change or the panel is hidden.
@@ -79,11 +81,12 @@ struct Sliders {
 }
 
 impl MappingPanel {
-    pub fn new(session: SharedSession) -> MappingPanel {
+    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session,
             mapping: None.into(),
+            main_panel,
             is_in_reaction: false.into(),
             sliders: None.into(),
             party_is_over_subject: Default::default(),
@@ -99,6 +102,10 @@ impl MappingPanel {
             None => null(),
             Some(m) => m.as_ptr() as _,
         }
+    }
+
+    pub fn scroll_to_mapping_in_main_panel(&self) {
+        self.main_panel.scroll_to_mapping(self.mapping_ptr());
     }
 
     pub fn hide(&self) {
@@ -1896,12 +1903,20 @@ impl View for MappingPanel {
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        if matches!(resource_id, root::ID_OK | raw::IDCANCEL) {
-            self.hide();
-            return;
+        use root::*;
+        match resource_id {
+            // IDCANCEL is escape button
+            ID_OK | raw::IDCANCEL => {
+                self.hide();
+                return;
+            }
+            ID_MAPPING_FIND_IN_LIST_BUTTON => {
+                self.scroll_to_mapping_in_main_panel();
+                return;
+            }
+            _ => {}
         }
         self.with_mutable(|p| {
-            use root::*;
             match resource_id {
                 // Mapping
                 ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => p.update_mapping_control_enabled(),
