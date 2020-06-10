@@ -16,6 +16,7 @@ pub mod root {
     pub const ID_MAIN_DIALOG: u32 = 111;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
+    pub const ID_TARGET_PICK_ACTION_BUTTON: u32 = 40000;
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
     pub const ID_MAPPING_ROW_EDIT_BUTTON: u32 = 40001;
     pub const ID_SETTINGS_REVERSE_CHECK_BOX: u32 = 40001;
@@ -115,6 +116,7 @@ pub mod root {
     pub const ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX: u32 = 40073;
     pub const ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT: u32 = 40074;
     pub const ID_OK: u32 = 40075;
+    pub const ID_TARGET_ACTION_LABEL_TEXT: u32 = 40076;
     pub type INT_PTR = isize;
     pub mod std {
         #[allow(unused_imports)]

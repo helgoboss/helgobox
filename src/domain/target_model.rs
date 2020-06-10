@@ -202,7 +202,7 @@ impl TargetModel {
         self.track.get_ref().to_string()
     }
 
-    fn action_name_label(&self) -> Cow<str> {
+    pub fn action_name_label(&self) -> Cow<str> {
         match self.action().ok() {
             None => "-".into(),
             Some(a) => a.name().into_string().into(),

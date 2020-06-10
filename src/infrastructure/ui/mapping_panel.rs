@@ -14,9 +14,12 @@ use helgoboss_learn::{
     UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper, Track};
+use reaper_high::{Action, MidiInputDevice, MidiOutputDevice, Reaper, Track};
 use reaper_low::{raw, Swell};
-use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
+use reaper_medium::{
+    InitialAction, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, PromptForActionResult,
+    ReaperString, SectionId,
+};
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -236,6 +239,55 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target(&self) {
         // TODO-high Do later, not so important
+    }
+
+    fn pick_action(&self) {
+        let reaper = Reaper::get().medium_reaper();
+        use InitialAction::*;
+        let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
+            None => NoneSelected,
+            Some(a) => Selected(a.command_id()),
+        };
+        // TODO-low Add this to reaper-high with rxRust
+        if reaper.low().pointers().PromptForAction.is_none() {
+            reaper.show_message_box(
+                "Please update to REAPER >= 6.12 in order to pick actions!",
+                "ReaLearn",
+                MessageBoxType::Okay,
+            );
+            return;
+        }
+        reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+        let shared_mapping = self.shared_mapping.clone();
+        Reaper::get()
+            .main_thread_idle()
+            .take_until(self.panel.party_is_over())
+            .map(|_| {
+                Reaper::get()
+                    .medium_reaper()
+                    .prompt_for_action_poll(SectionId::new(0))
+            })
+            .filter(|r| *r != PromptForActionResult::NoneSelected)
+            .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
+            .subscribe_complete(
+                move |r| {
+                    if let PromptForActionResult::Selected(command_id) = r {
+                        let action = Reaper::get()
+                            .main_section()
+                            .action_by_command_id(command_id);
+                        shared_mapping
+                            .borrow_mut()
+                            .target_model
+                            .action
+                            .set(Some(action));
+                    }
+                },
+                || {
+                    Reaper::get()
+                        .medium_reaper()
+                        .prompt_for_action_finish(SectionId::new(0));
+                },
+            );
     }
 
     fn toggle_learn_source(&mut self) {
@@ -644,7 +696,7 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_target_track_or_command(&mut self) -> Result<(), &'static str> {
+    fn update_target_track(&mut self) -> Result<(), &'static str> {
         let data = self
             .view
             .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX)
@@ -665,8 +717,6 @@ impl<'a> MutableMappingPanel<'a> {
                 ),
             };
             target.track.set(track);
-        } else if target.r#type.get() == TargetType::Action {
-            // TODO Do as soon as we are sure about the action picker
         }
         Ok(())
     }
@@ -703,7 +753,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_value_from_edit_control(&mut self) {
-        // TODO Do later, not so important
+        // TODO-high Do later, not so important
     }
 }
 
@@ -756,7 +806,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_controls(&self) {
         self.invalidate_source_control_appearance();
         self.invalidate_source_type_combo_box();
-        self.invalidate_learn_source_button();
+        self.invalidate_source_learn_button();
         self.invalidate_source_channel_combo_box();
         self.invalidate_source_14_bit_check_box();
         self.invalidate_source_is_registered_check_box();
@@ -834,7 +884,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .select_combo_box_item(self.source.r#type.get().into());
     }
 
-    fn invalidate_learn_source_button(&self) {
+    fn invalidate_source_learn_button(&self) {
         self.invalidate_learn_button(
             self.session.mapping_is_learning_source(self.mapping_ptr),
             root::ID_SOURCE_LEARN_BUTTON,
@@ -923,13 +973,13 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_controls(&self) {
         self.invalidate_target_type_combo_box();
-        self.invalidate_target_track_or_action_combo_box();
+        self.invalidate_target_line_two();
         self.invalidate_target_line_three();
         self.invalidate_target_only_if_fx_has_focus_check_box();
         self.invalidate_target_only_if_track_is_selected_check_box();
         self.invalidate_target_fx_param_combo_box();
         self.invalidate_target_value_controls();
-        self.invalidate_learn_target_button();
+        self.invalidate_target_learn_button();
     }
 
     fn invalidate_target_type_combo_box(&self) {
@@ -938,7 +988,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .select_combo_box_item(self.target.r#type.get().into());
     }
 
-    fn invalidate_target_track_or_action_combo_box(&self) {
+    fn invalidate_target_line_two(&self) {
+        let pick_button = self
+            .view
+            .require_control(root::ID_TARGET_PICK_ACTION_BUTTON);
+        let action_label = self.view.require_control(root::ID_TARGET_ACTION_LABEL_TEXT);
         let combo = self
             .view
             .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX);
@@ -947,21 +1001,26 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_TRACK_OR_CMD_LABEL_TEXT);
         let target = self.target;
         if target.supports_track() {
-            combo.show();
             label.show();
+            combo.show();
+            action_label.hide();
+            pick_button.hide();
+            label.set_text("Track");
             self.fill_target_track_combo_box(label, combo);
             self.set_target_track_combo_box_value(combo);
-        } else if target.r#type.get() == TargetType::Action {
-            combo.show();
+        } else if self.target.r#type.get() == TargetType::Action {
             label.show();
-            // TODO Later find a good solution for choosing actions, preferably one which doesn't
-            //  need filling a combo box with thousands of actions
-            combo.clear_combo_box();
-        // self.fill_target_action_combo_box();
-        // self.set_target_action_combo_box_value();
+            action_label.show();
+            pick_button.show();
+            combo.hide();
+            label.set_text("Action");
+            let action_name = self.target.action_name_label().to_string();
+            action_label.set_text(action_name);
         } else {
             label.hide();
             combo.hide();
+            action_label.hide();
+            pick_button.hide();
         }
     }
 
@@ -1203,7 +1262,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_learn_target_button(&self) {
+    fn invalidate_target_learn_button(&self) {
         self.invalidate_learn_button(
             self.session.mapping_is_learning_target(self.mapping_ptr),
             root::ID_TARGET_LEARN_BUTTON,
@@ -1221,11 +1280,11 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn register_session_listeners(&self) {
         self.panel
             .when(self.session.mapping_which_learns_source.changed(), |view| {
-                view.invalidate_learn_source_button();
+                view.invalidate_source_learn_button();
             });
         self.panel
             .when(self.session.mapping_which_learns_target.changed(), |view| {
-                view.invalidate_learn_target_button();
+                view.invalidate_target_learn_button();
             });
         let reaper = Reaper::get();
         self.panel.when(
@@ -1240,7 +1299,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 // Because we want to see any possible effective `ReaperTarget` change immediately.
                 .merge(TargetModel::potential_global_change_events()),
             |view| {
-                // TODO The C++ code yields here (when FX changed):
+                // TODO-medium The C++ code yields here (when FX changed):
                 //  Yield. Because the model might also listen to such events and we want the model
                 // to digest it *before* the  UI. It happened that this UI handler
                 // is called *before* the model handler in some cases. Then it is super
@@ -1328,7 +1387,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_control_labels(&self) {
-        // TODO Instead of always constructing the TargetWithContext object, we could provide
+        // TODO-low Instead of always constructing the TargetWithContext object, we could provide
         //  a use_target_with_context(|t| t) function.
         let step_label = if self
             .mapping
@@ -1694,6 +1753,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             view.invalidate_target_value_controls();
             view.invalidate_mode_controls();
         });
+        self.panel.when(target.action.changed(), |view| {
+            view.invalidate_target_line_two();
+        });
         self.panel
             .when(target.action_invocation_type.changed(), |view| {
                 view.invalidate_target_line_three();
@@ -1856,6 +1918,7 @@ impl View for MappingPanel {
                 ID_TARGET_TRACK_SELECTED_CHECK_BOX => p.update_target_only_if_track_is_selected(),
                 ID_TARGET_LEARN_BUTTON => p.toggle_learn_target(),
                 ID_TARGET_OPEN_BUTTON => p.open_target(),
+                ID_TARGET_PICK_ACTION_BUTTON => p.pick_action(),
                 _ => unreachable!(),
             }
         });
@@ -1878,7 +1941,7 @@ impl View for MappingPanel {
                 // Target
                 ID_TARGET_TYPE_COMBO_BOX => p.update_target_type(),
                 ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
-                    p.update_target_track_or_command();
+                    p.update_target_track();
                 }
                 ID_TARGET_FX_OR_SEND_COMBO_BOX => {
                     p.update_target_from_combo_box_three();
