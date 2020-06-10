@@ -753,7 +753,12 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_value_from_edit_control(&mut self) {
-        // TODO-high Do later, not so important
+        if let Some(t) = self.real_target() {
+            let value = self
+                .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
+                .unwrap_or(UnitValue::MIN);
+            t.control(ControlValue::Absolute(value));
+        }
     }
 }
 
