@@ -238,14 +238,21 @@ impl MappingRowsPanel {
         true
     }
 
+    fn invalidate_all_controls(&self) {
+        self.invalidate_mapping_rows();
+        self.mapping_panel_manager
+            .borrow_mut()
+            .close_orphan_panels();
+        self.invalidate_scroll_info();
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
+        self.when(session.everything_changed(), |view| {
+            view.invalidate_all_controls();
+        });
         self.when(session.mapping_list_changed(), |view| {
-            view.invalidate_mapping_rows();
-            view.mapping_panel_manager
-                .borrow_mut()
-                .close_orphan_panels();
-            view.invalidate_scroll_info();
+            view.invalidate_all_controls();
         });
         self.when(
             self.main_panel

@@ -50,13 +50,17 @@ impl MappingModelData {
         model: &mut MappingModel,
         context: &SessionContext,
     ) -> Result<(), &'static str> {
-        model.name.set(self.name.clone());
+        model.name.set_without_notification(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());
         self.target
             .apply_to_model(model.target_model.borrow_mut(), context);
-        model.control_is_enabled.set(self.control_is_enabled);
-        model.feedback_is_enabled.set(self.feedback_is_enabled);
+        model
+            .control_is_enabled
+            .set_without_notification(self.control_is_enabled);
+        model
+            .feedback_is_enabled
+            .set_without_notification(self.feedback_is_enabled);
         Ok(())
     }
 }

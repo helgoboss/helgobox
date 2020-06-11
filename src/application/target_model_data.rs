@@ -93,7 +93,7 @@ impl TargetModelData {
         model: &mut TargetModel,
         context: &SessionContext,
     ) -> Result<(), &'static str> {
-        model.r#type.set(self.r#type);
+        model.r#type.set_without_notification(self.r#type);
         let reaper = Reaper::get();
         let action = match self.command_name.as_ref() {
             None => None,
@@ -109,7 +109,7 @@ impl TargetModelData {
                 Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
             },
         };
-        model.action.set(action);
+        model.action.set_without_notification(action);
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version
             if invoke_relative {
@@ -120,20 +120,24 @@ impl TargetModelData {
         } else {
             self.invocation_type
         };
-        model.action_invocation_type.set(invocation_type);
+        model
+            .action_invocation_type
+            .set_without_notification(invocation_type);
         let track = deserialize_track(&self.track_guid, &self.track_name, context.project())?;
-        model.track.set(track);
+        model.track.set_without_notification(track);
         model
             .enable_only_if_track_selected
-            .set(self.enable_only_if_track_is_selected);
-        model.fx_index.set(self.fx_index);
-        model.is_input_fx.set(self.is_input_fx);
+            .set_without_notification(self.enable_only_if_track_is_selected);
+        model.fx_index.set_without_notification(self.fx_index);
+        model.is_input_fx.set_without_notification(self.is_input_fx);
         model
             .enable_only_if_fx_has_focus
-            .set(self.enable_only_if_fx_has_focus);
-        model.send_index.set(self.send_index);
-        model.param_index.set(self.param_index);
-        model.select_exclusively.set(self.select_exclusively);
+            .set_without_notification(self.enable_only_if_fx_has_focus);
+        model.send_index.set_without_notification(self.send_index);
+        model.param_index.set_without_notification(self.param_index);
+        model
+            .select_exclusively
+            .set_without_notification(self.select_exclusively);
         Ok(())
     }
 }

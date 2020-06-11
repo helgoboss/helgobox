@@ -120,13 +120,17 @@ where
     /// might be changed into another one before. Observers are notified only if the given value
     /// is different from the current value.
     pub fn set(&mut self, value: T) {
+        self.set_without_notification(value);
+        N::notify(&mut self.subject, &());
+        N2::notify(&mut self.value_subject, &self.value);
+    }
+
+    pub fn set_without_notification(&mut self, value: T) {
         let transformed_value = (self.transformer)(value);
         if transformed_value == self.value {
             return;
         }
         self.value = transformed_value;
-        N::notify(&mut self.subject, &());
-        N2::notify(&mut self.value_subject, &self.value);
     }
 
     /// Like `set` but returns old value.

@@ -90,6 +90,13 @@ impl MappingModel {
             .set(self.with_context(context).preferred_step_size_interval())
     }
 
+    /// Fires whenever a property has changed that doesn't have an effect on control/feedback
+    /// processing.
+    pub fn changed_non_processing_relevant(&self) -> impl UnitEvent {
+        self.name.changed()
+    }
+
+    /// Fires whenever a property has changed that has an effect on control/feedback processing.
     pub fn changed_processing_relevant(&self) -> impl UnitEvent {
         self.source_model
             .changed()
@@ -98,6 +105,8 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
     }
+
+    pub fn adjust_mode_if_necessary(&self) {}
 
     pub fn target_value_changed(
         mapping: SharedMapping,

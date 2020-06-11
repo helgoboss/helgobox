@@ -15,6 +15,7 @@ use rx_util::{
 };
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
+use slog::debug;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -53,9 +54,10 @@ pub struct Session {
     pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
     context: SessionContext,
     mapping_models: Vec<SharedMapping>,
+    everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
     midi_source_touched_subject: LocalSubject<'static, MidiSource, ()>,
-    mapping_subscriptions: Vec<SubscriptionGuard<Box<dyn SubscriptionLike>>>,
+    mapping_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
     main_processor_channel: (
         crossbeam_channel::Sender<MainProcessorTask>,
         crossbeam_channel::Receiver<MainProcessorTask>,
@@ -84,6 +86,7 @@ impl Session {
             mapping_which_learns_target: prop(None),
             context,
             mapping_models: vec![],
+            everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
             midi_source_touched_subject: Default::default(),
             mapping_subscriptions: vec![],
@@ -94,6 +97,7 @@ impl Session {
     }
 
     /// Connects the dots.
+    // TODO-low Too large. Split this into several methods.
     pub fn activate(shared_session: SharedSession) {
         let session = shared_session.borrow();
         // Register the main processor. We instantiate it as control surface because it must be
@@ -109,7 +113,6 @@ impl Session {
             ));
         // Whenever anything in the mapping list changes, resync all mappings to processors.
         // When one of the mapping changes, sync just that.
-        let project = session.context.project();
         when(
             // Initial sync
             observable::of(())
@@ -126,29 +129,36 @@ impl Session {
                 .merge(session.send_feedback_only_if_armed.changed())
                 // When target conditions change.
                 .merge(TargetModel::potential_global_change_events())
+                // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(session.party_is_over()),
         )
         .with(&shared_session)
-        .do_async(move |s, _| {
-            Session::resubscribe_to_mappings_in_current_list(&s);
-            s.borrow_mut().sync_all_mappings_to_processors();
-            mark_dirty_if_not_loading(project);
+        .do_async(move |shared_session, _| {
+            Session::resubscribe_to_mappings_in_current_list(&shared_session);
+            let s = shared_session.borrow_mut();
+            s.sync_all_mappings_to_processors();
+        });
+        // Marking project as dirty if certain things are changed. Should only contain events that
+        // are triggered by the user.
+        when(
+            session
+                .settings_changed()
+                .merge(session.mapping_list_changed()),
+        )
+        .with(&shared_session)
+        .do_sync(move |s, _| {
+            s.borrow().mark_project_as_dirty();
         });
         // Keep syncing some general settings to real-time processor.
         when(
             // Initial sync
             observable::of(())
                 // Future syncs
-                .merge(session.let_matched_events_through.changed())
-                .merge(session.let_unmatched_events_through.changed())
-                .merge(session.midi_control_input.changed())
-                .merge(session.midi_feedback_output.changed())
-                .take_until(session.party_is_over()),
+                .merge(session.settings_changed()),
         )
         .with(&shared_session)
         .do_sync(move |s, _| {
             s.borrow().sync_settings_to_real_time_processor();
-            mark_dirty_if_not_loading(project);
         });
         // Enable source learning
         // TODO-low This could be handled by normal methods instead of observables, like source
@@ -156,10 +166,7 @@ impl Session {
         when(
             // TODO-low Listen to values instead of change event only. Filter Some only and
             // flatten.
-            session
-                .mapping_which_learns_source
-                .changed()
-                .take_until(session.party_is_over()),
+            session.mapping_which_learns_source.changed(),
         )
         .with(&shared_session)
         .do_async(move |s, _| {
@@ -171,7 +178,6 @@ impl Session {
                 session
                     .midi_source_touched()
                     .take_until(session.mapping_which_learns_source.changed_to(None))
-                    .take_until(session.party_is_over())
                     .take(1),
             )
             .with(&s)
@@ -186,12 +192,22 @@ impl Session {
         when(
             Session::target_touched_observables(shared_session.clone())
                 .switch_on_next()
+                // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(session.party_is_over()),
         )
         .with(&shared_session)
         .do_async(|session, target| {
             session.borrow_mut().learn_target(target.as_ref());
         });
+    }
+
+    /// Settings are all the things displayed in the ReaLearn header panel.
+    fn settings_changed(&self) -> impl UnitEvent {
+        self.let_matched_events_through
+            .changed()
+            .merge(self.let_unmatched_events_through.changed())
+            .merge(self.midi_control_input.changed())
+            .merge(self.midi_feedback_output.changed())
     }
 
     pub fn learn_source(&mut self, source: MidiSource) {
@@ -209,23 +225,31 @@ impl Session {
     }
 
     fn resubscribe_to_mappings_in_current_list(shared_session: &SharedSession) {
-        let mut s = shared_session.borrow_mut();
-        let project = s.context.project();
-        s.mapping_subscriptions = s
+        let mut session = shared_session.borrow_mut();
+        session.mapping_subscriptions = session
             .mapping_models
             .iter()
-            .map(move |shared_mapping| {
-                let m = shared_mapping.borrow();
-                let trigger: BoxedUnitEvent = m.changed_processing_relevant().box_it();
-                let shared_session = shared_session.clone();
+            .map(|shared_mapping| {
+                // We don't need to take until "party is over" because if the session disappears,
+                // we know the mappings disappear as well.
+                let mapping = shared_mapping.borrow();
                 let shared_mapping = shared_mapping.clone();
-                trigger
-                    .subscribe(move |_| {
-                        let m = shared_mapping.borrow();
-                        shared_session.borrow().sync_mapping_to_processors(&m);
-                        mark_dirty_if_not_loading(project);
-                    })
-                    .unsubscribe_when_dropped()
+                let subscription_1 = when(mapping.changed_processing_relevant())
+                    .with(shared_session)
+                    .do_sync(move |session, _| {
+                        let session = session.borrow();
+                        session.sync_mapping_to_processors(&shared_mapping.borrow());
+                        session.mark_project_as_dirty();
+                    });
+                let subscription_2 = when(mapping.changed_non_processing_relevant())
+                    .with(shared_session)
+                    .do_sync(|session, _| {
+                        session.borrow().mark_project_as_dirty();
+                    });
+                let mut sub = LocalSubscription::default();
+                sub.add(subscription_1);
+                sub.add(subscription_2);
+                SubscriptionGuard(sub)
             })
             .collect();
     }
@@ -383,9 +407,14 @@ impl Session {
             .map_to(())
     }
 
+    /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
+    pub fn everything_changed(&self) -> impl UnitEvent {
+        self.everything_changed_subject.clone()
+    }
+
     /// Fires if a mapping has been added, removed or changed its position in the list.
     ///
-    /// Doesn't fire if a mapping in the list has changed.
+    /// Doesn't fire if a mapping in the list or if the complete list has changed.
     pub fn mapping_list_changed(&self) -> impl UnitEvent {
         self.mapping_list_changed_subject.clone()
     }
@@ -408,9 +437,11 @@ impl Session {
         })
     }
 
-    pub fn set_mappings(&mut self, mappings: impl Iterator<Item = MappingModel>) {
+    pub fn set_mappings_without_notification(
+        &mut self,
+        mappings: impl Iterator<Item = MappingModel>,
+    ) {
         self.mapping_models = mappings.map(share_mapping).collect();
-        self.notify_mapping_list_changed();
     }
 
     fn add_mapping(&mut self, mapping: MappingModel) {
@@ -424,6 +455,9 @@ impl Session {
             .send(MainProcessorTask::FeedbackAll);
     }
 
+    /// Notifies listeners async that something in the mapping list has changed.
+    ///
+    /// Shouldn't be used if the complete list has changed.
     fn notify_mapping_list_changed(&mut self) {
         AsyncNotifier::notify(&mut self.mapping_list_changed_subject, &());
     }
@@ -520,6 +554,22 @@ impl Session {
     fn party_is_over(&self) -> impl UnitEvent {
         self.party_is_over_subject.clone()
     }
+
+    /// Shouldn't be called on load (project load, undo, redo, preset change).
+    pub fn mark_project_as_dirty(&self) {
+        debug!(Reaper::get().logger(), "Marking project as dirty");
+        self.context.project().mark_as_dirty();
+    }
+
+    /// Does a full resync and notifies the UI async.
+    ///
+    /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
+    /// (project load, undo, redo, preset change).
+    pub fn notify_everything_has_changed(&mut self) {
+        self.sync_all_mappings_to_processors();
+        self.sync_settings_to_real_time_processor();
+        AsyncNotifier::notify(&mut self.everything_changed_subject, &());
+    }
 }
 
 impl Drop for Session {
@@ -533,17 +583,6 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
         Some(m) if m.as_ptr() == mapping.as_ptr() => prop.set(None),
         _ => prop.set(Some(mapping.clone())),
     };
-}
-
-fn mark_dirty_if_not_loading(project: Project) {
-    // TODO-low This check is not very effective. Probably because ReaLearn defers loading until
-    //  everything is there. That means we mark dirty too often now (on project load already).
-    if Reaper::get()
-        .currently_loading_or_saving_project()
-        .is_none()
-    {
-        project.mark_as_dirty();
-    }
 }
 
 /// # Design

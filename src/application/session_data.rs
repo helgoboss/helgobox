@@ -67,6 +67,7 @@ impl SessionData {
         }
     }
 
+    // Doesn't notify listeners but triggers a full resync at the end.
     pub fn apply_to_model(&self, session: &mut Session) -> Result<(), &'static str> {
         // Validation
         let control_input = match self.control_device_id.as_ref() {
@@ -94,18 +95,25 @@ impl SessionData {
         // Mutation
         session
             .let_matched_events_through
-            .set(self.let_matched_events_through);
+            .set_without_notification(self.let_matched_events_through);
         session
             .let_unmatched_events_through
-            .set(self.let_unmatched_events_through);
+            .set_without_notification(self.let_unmatched_events_through);
         session.always_auto_detect.set(self.always_auto_detect_mode);
         session
             .send_feedback_only_if_armed
-            .set(self.send_feedback_only_if_armed);
-        session.midi_control_input.set(control_input);
-        session.midi_feedback_output.set(feedback_output);
+            .set_without_notification(self.send_feedback_only_if_armed);
+        session
+            .midi_control_input
+            .set_without_notification(control_input);
+        session
+            .midi_feedback_output
+            .set_without_notification(feedback_output);
         let session_context = session.context().clone();
-        session.set_mappings(self.mappings.iter().map(|m| m.to_model(&session_context)));
+        session.set_mappings_without_notification(
+            self.mappings.iter().map(|m| m.to_model(&session_context)),
+        );
+        session.notify_everything_has_changed();
         Ok(())
     }
 }

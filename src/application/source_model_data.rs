@@ -55,20 +55,28 @@ impl SourceModelData {
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
     pub fn apply_to_model(&self, model: &mut MidiSourceModel) -> Result<(), &'static str> {
         if self.r#type == MidiSourceType::ParameterNumberValue {
-            model.parameter_number_message_number.set(self.number)
+            model
+                .parameter_number_message_number
+                .set_without_notification(self.number)
         } else {
             let number: Option<U7> = match self.number {
                 None => None,
                 Some(v) => Some(v.try_into().map_err(|_| "MIDI message number too high")?),
             };
-            model.midi_message_number.set(number);
+            model.midi_message_number.set_without_notification(number);
         };
-        model.r#type.set(self.r#type);
-        model.channel.set(self.channel);
-        model.custom_character.set(self.character);
-        model.is_registered.set(self.is_registered);
-        model.is_14_bit.set(self.is_14_bit);
-        model.midi_clock_transport_message.set(self.message);
+        model.r#type.set_without_notification(self.r#type);
+        model.channel.set_without_notification(self.channel);
+        model
+            .custom_character
+            .set_without_notification(self.character);
+        model
+            .is_registered
+            .set_without_notification(self.is_registered);
+        model.is_14_bit.set_without_notification(self.is_14_bit);
+        model
+            .midi_clock_transport_message
+            .set_without_notification(self.message);
         Ok(())
     }
 }

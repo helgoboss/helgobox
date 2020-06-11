@@ -54,7 +54,7 @@ where
         finalizer: Finalizer,
     ) -> ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer>
     where
-        Finalizer: Fn(Rc<Receiver>) + Copy + 'static,
+        Finalizer: Fn(Rc<Receiver>) + 'static,
     {
         ReactionBuilderStepThree {
             parent: self,
@@ -65,7 +65,7 @@ where
     /// Executes the given reaction synchronously whenever the specified event is raised.
     pub fn do_sync(
         self,
-        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+        reaction: impl Fn(Rc<Receiver>, Item) + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike> {
         Self::do_sync_internal(self.weak_receiver, self.parent.trigger, reaction)
     }
@@ -80,6 +80,8 @@ where
     /// operator would require them to be shared, too. But `delay()` doesn't work anyway right
     /// now (https://github.com/rxRust/rxRust/issues/106). So there's no reason to change all the
     /// trigger/until subjects/properties into shared ones.
+    // TODO-low The Copy bound on reaction might turn out a bit restrictive in future. Maybe we want
+    //  to allow captures that don't implement Copy, just Clone?
     pub fn do_async(
         self,
         reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
@@ -93,7 +95,7 @@ where
     fn do_sync_internal(
         weak_receiver: Weak<Receiver>,
         trigger: impl Event<Item>,
-        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+        reaction: impl Fn(Rc<Receiver>, Item) + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike> {
         trigger.subscribe(move |item| {
             let receiver = weak_receiver.upgrade().expect("receiver gone");

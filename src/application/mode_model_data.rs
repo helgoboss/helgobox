@@ -71,32 +71,40 @@ impl ModeModelData {
     }
 
     pub fn apply_to_model(&self, model: &mut ModeModel) -> Result<(), &'static str> {
-        model.r#type.set(self.r#type);
+        model.r#type.set_without_notification(self.r#type);
         model
             .source_value_interval
-            .set(Interval::new(self.min_source_value, self.max_source_value));
+            .set_without_notification(Interval::new(self.min_source_value, self.max_source_value));
         model
             .target_value_interval
-            .set(Interval::new(self.min_target_value, self.max_target_value));
+            .set_without_notification(Interval::new(self.min_target_value, self.max_target_value));
         model
             .step_size_interval
-            .set(Interval::new(self.min_step_size, self.max_step_size));
+            .set_without_notification(Interval::new(self.min_step_size, self.max_step_size));
         model
             .jump_interval
-            .set(Interval::new(self.min_target_jump, self.max_target_jump));
+            .set_without_notification(Interval::new(self.min_target_jump, self.max_target_jump));
         model
             .eel_control_transformation
-            .set(self.eel_control_transformation.clone());
+            .set_without_notification(self.eel_control_transformation.clone());
         model
             .eel_feedback_transformation
-            .set(self.eel_feedback_transformation.clone());
-        model.reverse.set(self.reverse_is_enabled);
+            .set_without_notification(self.eel_feedback_transformation.clone());
+        model
+            .reverse
+            .set_without_notification(self.reverse_is_enabled);
         model
             .ignore_out_of_range_source_values
-            .set(self.ignore_out_of_range_source_values_is_enabled);
-        model.round_target_value.set(self.round_target_value);
-        model.approach_target_value.set(self.scale_mode_enabled);
-        model.rotate.set(self.rotate_is_enabled);
+            .set_without_notification(self.ignore_out_of_range_source_values_is_enabled);
+        model
+            .round_target_value
+            .set_without_notification(self.round_target_value);
+        model
+            .approach_target_value
+            .set_without_notification(self.scale_mode_enabled);
+        model
+            .rotate
+            .set_without_notification(self.rotate_is_enabled);
         Ok(())
     }
 }

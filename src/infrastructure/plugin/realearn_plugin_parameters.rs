@@ -74,6 +74,7 @@ impl PluginParameters for RealearnPluginParameters {
         };
         let session_data: SessionData =
             serde_json::from_slice(data).expect("couldn't deserialize session data");
-        session_data.apply_to_model(session.borrow_mut().deref_mut());
+        let mut session = session.borrow_mut();
+        session_data.apply_to_model(&mut session);
     }
 }

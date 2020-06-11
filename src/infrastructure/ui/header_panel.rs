@@ -321,7 +321,9 @@ impl HeaderPanel {
         let json = clipboard.read_text().expect("couldn't read from clipboard");
         let session_data: SessionData =
             serde_json::from_str(json.as_str()).expect("invalid session data");
-        session_data.apply_to_model(self.session.borrow_mut().deref_mut());
+        let mut session = self.session.borrow_mut();
+        session_data.apply_to_model(&mut session);
+        session.mark_project_as_dirty();
     }
 
     pub fn export_to_clipboard(&self) {
@@ -334,6 +336,9 @@ impl HeaderPanel {
 
     fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
+        self.when(session.everything_changed(), |view| {
+            view.invalidate_all_controls();
+        });
         self.when(session.let_matched_events_through.changed(), |view| {
             view.invalidate_let_matched_events_through_check_box()
         });
