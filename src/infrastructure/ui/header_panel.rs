@@ -90,14 +90,6 @@ impl HeaderPanel {
         }
     }
 
-    fn clear_source_filter(&self) {
-        self.main_panel.source_filter.borrow_mut().set(None);
-    }
-
-    fn clear_target_filter(&self) {
-        self.main_panel.target_filter.borrow_mut().set(None);
-    }
-
     fn update_let_matched_events_through(&self) {
         self.session.borrow_mut().let_matched_events_through.set(
             self.view
@@ -423,8 +415,8 @@ impl View for HeaderPanel {
             ID_ADD_MAPPING_BUTTON => self.session.borrow_mut().add_default_mapping(),
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
-            ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
-            ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
+            ID_CLEAR_SOURCE_FILTER_BUTTON => self.main_panel.clear_source_filter(),
+            ID_CLEAR_TARGET_FILTER_BUTTON => self.main_panel.clear_target_filter(),
             ID_IMPORT_BUTTON => self.import_from_clipboard(),
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session.borrow().send_feedback(),

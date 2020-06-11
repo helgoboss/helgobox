@@ -64,6 +64,19 @@ impl MainPanel {
         }
     }
 
+    pub fn clear_filters(&self) {
+        self.clear_source_filter();
+        self.clear_target_filter();
+    }
+
+    pub fn clear_source_filter(&self) {
+        self.source_filter.borrow_mut().set(None)
+    }
+
+    pub fn clear_target_filter(&self) {
+        self.target_filter.borrow_mut().set(None)
+    }
+
     pub fn dimensions(&self) -> Dimensions<Pixels> {
         self.dimensions
             .get()
