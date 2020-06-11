@@ -118,7 +118,9 @@ impl Session {
             observable::of(())
                 // Future syncs
                 // When the mapping list changes.
-                .merge(session.mapping_list_changed()),
+                .merge(session.mapping_list_changed())
+                // When auto-detect is off, we can save some mapping descriptions
+                .merge(session.always_auto_detect.changed()),
         )
         .with(&shared_session)
         .do_async(|shared_session, _| {
@@ -247,36 +249,42 @@ impl Session {
                 // we know the mappings disappear as well.
                 let mapping = shared_mapping.borrow();
                 let shared_mapping_clone = shared_mapping.clone();
-                let subscription_1 = when(mapping.changed_processing_relevant())
-                    .with(shared_session)
-                    .do_sync(move |session, _| {
-                        let session = session.borrow();
-                        session.sync_mapping_to_processors(&shared_mapping_clone.borrow());
-                        session.mark_project_as_dirty();
+                let mut all_subscriptions = LocalSubscription::default();
+                {
+                    let subscription_1 = when(mapping.changed_processing_relevant())
+                        .with(shared_session)
+                        .do_sync(move |session, _| {
+                            let session = session.borrow();
+                            session.sync_mapping_to_processors(&shared_mapping_clone.borrow());
+                            session.mark_project_as_dirty();
+                        });
+                    all_subscriptions.add(subscription_1);
+                }
+                {
+                    let subscription_2 = when(mapping.changed_non_processing_relevant())
+                        .with(shared_session)
+                        .do_sync(|session, _| {
+                            session.borrow().mark_project_as_dirty();
+                        });
+                    all_subscriptions.add(subscription_2);
+                }
+                if self.always_auto_detect.get() {
+                    let session_context = self.context().clone();
+                    let subscription_3 = when(
+                        mapping
+                            .source_model
+                            .changed()
+                            .merge(mapping.target_model.changed()),
+                    )
+                    .with(shared_mapping)
+                    .do_sync(move |mapping, _| {
+                        mapping
+                            .borrow_mut()
+                            .adjust_mode_if_necessary(&session_context);
                     });
-                let subscription_2 = when(mapping.changed_non_processing_relevant())
-                    .with(shared_session)
-                    .do_sync(|session, _| {
-                        session.borrow().mark_project_as_dirty();
-                    });
-                let session_context = self.context().clone();
-                let subscription_3 = when(
-                    mapping
-                        .source_model
-                        .changed()
-                        .merge(mapping.target_model.changed()),
-                )
-                .with(shared_mapping)
-                .do_sync(move |mapping, _| {
-                    mapping
-                        .borrow_mut()
-                        .adjust_mode_if_necessary(&session_context);
-                });
-                let mut sub = LocalSubscription::default();
-                sub.add(subscription_1);
-                sub.add(subscription_2);
-                sub.add(subscription_3);
-                SubscriptionGuard(sub)
+                    all_subscriptions.add(subscription_3);
+                }
+                SubscriptionGuard(all_subscriptions)
             })
             .collect();
     }
