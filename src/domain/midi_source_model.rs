@@ -113,6 +113,11 @@ impl MidiSourceModel {
         self.create_source().parse_control_value(text)
     }
 
+    pub fn character(&self) -> SourceCharacter {
+        // TODO-low use cached
+        self.create_source().character()
+    }
+
     /// Creates a source reflecting this model's current values
     pub fn create_source(&self) -> MidiSource {
         use MidiSourceType::*;

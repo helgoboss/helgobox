@@ -323,6 +323,7 @@ impl HeaderPanel {
             serde_json::from_str(json.as_str()).expect("invalid session data");
         let mut session = self.session.borrow_mut();
         session_data.apply_to_model(&mut session);
+        session.notify_everything_has_changed(&self.session);
         session.mark_project_as_dirty();
     }
 

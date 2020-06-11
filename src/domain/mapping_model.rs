@@ -1,10 +1,10 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    MainProcessorControlMapping, MappingId, MidiSourceModel, ModeModel, ProcessorMapping,
+    MainProcessorControlMapping, MappingId, MidiSourceModel, ModeModel, ModeType, ProcessorMapping,
     RealTimeProcessorControlMapping, ReaperTarget, SessionContext, SharedMapping, TargetCharacter,
     TargetModel, TargetModelWithContext,
 };
-use helgoboss_learn::{Interval, Target, UnitValue};
+use helgoboss_learn::{Interval, SourceCharacter, Target, UnitValue};
 use reaper_high::Fx;
 use rx_util::{BoxedUnitEvent, UnitEvent};
 use rxrust::prelude::ops::box_it::{BoxObservable, LocalBoxOp};
@@ -78,6 +78,16 @@ impl MappingModel {
         }
     }
 
+    pub fn adjust_mode_if_necessary(&mut self, context: &SessionContext) {
+        let with_context = self.with_context(context);
+        if with_context.mode_makes_sense().contains(&false) {
+            if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
+                self.mode_model.r#type.set(preferred_mode_type);
+                self.set_preferred_mode_values(context);
+            }
+        }
+    }
+
     pub fn reset_mode(&mut self, context: &SessionContext) {
         self.mode_model.reset_within_type();
         self.set_preferred_mode_values(context);
@@ -105,8 +115,6 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
     }
-
-    pub fn adjust_mode_if_necessary(&self) {}
 
     pub fn target_value_changed(
         mapping: SharedMapping,
@@ -162,6 +170,57 @@ impl<'a> MappingModelWithContext<'a> {
             control_is_enabled,
             feedback_is_enabled,
         ))
+    }
+
+    // TODO-high Should become part of Mode
+    pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
+        use ModeType::*;
+        use SourceCharacter::*;
+        let mode_type = self.mapping.mode_model.r#type.get();
+        let result = match self.mapping.source_model.character() {
+            Range => mode_type == Absolute,
+            Switch => {
+                let target = self.target_with_context().create_target()?;
+                match mode_type {
+                    Absolute | Toggle => !target.wants_increments(),
+                    Relative => {
+                        if target.wants_increments() {
+                            true
+                        } else {
+                            match target.character() {
+                                TargetCharacter::Discrete | TargetCharacter::Continuous => true,
+                                TargetCharacter::Trigger | TargetCharacter::Switch => false,
+                            }
+                        }
+                    }
+                }
+            }
+            Encoder1 | Encoder2 | Encoder3 => mode_type == Relative,
+        };
+        Ok(result)
+    }
+
+    // TODO-high Should become part of Mode
+    pub fn preferred_mode_type(&self) -> Result<ModeType, &'static str> {
+        use ModeType::*;
+        use SourceCharacter::*;
+        let result = match self.mapping.source_model.character() {
+            Range => Absolute,
+            Switch => {
+                let target = self.target_with_context().create_target()?;
+                if target.wants_increments() {
+                    Relative
+                } else {
+                    match target.character() {
+                        TargetCharacter::Trigger | TargetCharacter::Continuous => Absolute,
+                        TargetCharacter::Switch => Toggle,
+                        TargetCharacter::Discrete => Relative,
+                    }
+                }
+            }
+            Encoder1 | Encoder2 | Encoder3 => Relative,
+        };
+        Ok(result)
     }
 
     pub fn target_should_be_hit_with_increments(&self) -> bool {

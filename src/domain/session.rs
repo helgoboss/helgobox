@@ -50,6 +50,7 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    // We want that learn works independently of the UI, so they are session properties.
     pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
     pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
     context: SessionContext,
@@ -111,8 +112,23 @@ impl Session {
                 session.real_time_processor_sender.clone(),
                 shared_session.clone(),
             ));
-        // Whenever anything in the mapping list changes, resync all mappings to processors.
-        // When one of the mapping changes, sync just that.
+        // Whenever something in the mapping list changes, resubscribe to mappings themselves.
+        when(
+            // Initial sync
+            observable::of(())
+                // Future syncs
+                // When the mapping list changes.
+                .merge(session.mapping_list_changed()),
+        )
+        .with(&shared_session)
+        .do_async(|shared_session, _| {
+            Self::resubscribe_to_mappings_in_current_list(
+                &mut shared_session.borrow_mut(),
+                &shared_session,
+            );
+        });
+        // Whenever anything in the mapping list changes and other things, resync all mappings to
+        // processors.
         when(
             // Initial sync
             observable::of(())
@@ -133,10 +149,8 @@ impl Session {
                 .take_until(session.party_is_over()),
         )
         .with(&shared_session)
-        .do_async(move |shared_session, _| {
-            Session::resubscribe_to_mappings_in_current_list(&shared_session);
-            let s = shared_session.borrow_mut();
-            s.sync_all_mappings_to_processors();
+        .do_async(move |session, _| {
+            session.borrow_mut().sync_all_mappings_to_processors();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
@@ -224,21 +238,20 @@ impl Session {
         })
     }
 
-    fn resubscribe_to_mappings_in_current_list(shared_session: &SharedSession) {
-        let mut session = shared_session.borrow_mut();
-        session.mapping_subscriptions = session
+    fn resubscribe_to_mappings_in_current_list(&mut self, shared_session: &SharedSession) {
+        self.mapping_subscriptions = self
             .mapping_models
             .iter()
             .map(|shared_mapping| {
                 // We don't need to take until "party is over" because if the session disappears,
                 // we know the mappings disappear as well.
                 let mapping = shared_mapping.borrow();
-                let shared_mapping = shared_mapping.clone();
+                let shared_mapping_clone = shared_mapping.clone();
                 let subscription_1 = when(mapping.changed_processing_relevant())
                     .with(shared_session)
                     .do_sync(move |session, _| {
                         let session = session.borrow();
-                        session.sync_mapping_to_processors(&shared_mapping.borrow());
+                        session.sync_mapping_to_processors(&shared_mapping_clone.borrow());
                         session.mark_project_as_dirty();
                     });
                 let subscription_2 = when(mapping.changed_non_processing_relevant())
@@ -246,9 +259,23 @@ impl Session {
                     .do_sync(|session, _| {
                         session.borrow().mark_project_as_dirty();
                     });
+                let session_context = self.context().clone();
+                let subscription_3 = when(
+                    mapping
+                        .source_model
+                        .changed()
+                        .merge(mapping.target_model.changed()),
+                )
+                .with(shared_mapping)
+                .do_sync(move |mapping, _| {
+                    mapping
+                        .borrow_mut()
+                        .adjust_mode_if_necessary(&session_context);
+                });
                 let mut sub = LocalSubscription::default();
                 sub.add(subscription_1);
                 sub.add(subscription_2);
+                sub.add(subscription_3);
                 SubscriptionGuard(sub)
             })
             .collect();
@@ -408,6 +435,8 @@ impl Session {
     }
 
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
+    ///
+    /// The session itself shouldn't subscribe to this.
     pub fn everything_changed(&self) -> impl UnitEvent {
         self.everything_changed_subject.clone()
     }
@@ -565,9 +594,11 @@ impl Session {
     ///
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
-    pub fn notify_everything_has_changed(&mut self) {
+    pub fn notify_everything_has_changed(&mut self, shared_session: &SharedSession) {
+        self.resubscribe_to_mappings_in_current_list(shared_session);
         self.sync_all_mappings_to_processors();
         self.sync_settings_to_real_time_processor();
+        // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
 }

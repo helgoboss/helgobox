@@ -1790,7 +1790,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn register_mode_listeners(&self) {
         let mode = self.mode;
         self.panel.when_do_sync(mode.r#type.changed(), |view| {
-            view.invalidate_mode_control_appearance();
+            view.invalidate_mode_controls();
         });
         self.panel
             .when_do_sync(mode.target_value_interval.changed(), |view| {

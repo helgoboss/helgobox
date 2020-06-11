@@ -67,7 +67,7 @@ impl SessionData {
         }
     }
 
-    // Doesn't notify listeners but triggers a full resync at the end.
+    // Doesn't notify listeners! Consumers must inform session that everything has changed.
     pub fn apply_to_model(&self, session: &mut Session) -> Result<(), &'static str> {
         // Validation
         let control_input = match self.control_device_id.as_ref() {
@@ -113,7 +113,6 @@ impl SessionData {
         session.set_mappings_without_notification(
             self.mappings.iter().map(|m| m.to_model(&session_context)),
         );
-        session.notify_everything_has_changed();
         Ok(())
     }
 }

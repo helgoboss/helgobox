@@ -62,7 +62,7 @@ impl PluginParameters for RealearnPluginParameters {
         if data == NOT_READY_YET.as_bytes() {
             return;
         }
-        let session = match self.session.borrow() {
+        let shared_session = match self.session.borrow() {
             None => {
                 self.data_to_be_loaded
                     .write()
@@ -74,7 +74,8 @@ impl PluginParameters for RealearnPluginParameters {
         };
         let session_data: SessionData =
             serde_json::from_slice(data).expect("couldn't deserialize session data");
-        let mut session = session.borrow_mut();
+        let mut session = shared_session.borrow_mut();
         session_data.apply_to_model(&mut session);
+        session.notify_everything_has_changed(shared_session);
     }
 }
