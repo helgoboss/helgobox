@@ -38,6 +38,9 @@ jobs:
           profile: minimal
           toolchain: nightly-2020-05-15
           override: true
+      - name: Compile EEL assembler code
+        working-directory: lib/WDL/WDL/eel2
+        run: make asm-nseel-x64.o
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:

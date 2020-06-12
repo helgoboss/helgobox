@@ -2,11 +2,12 @@
 
 ## Build
 
-On Linux we need PHP in order to translate the dialog resource file to C++:
+On Linux we need PHP in order to translate the dialog resource file to C++. For EEL on Linux, we also need nasm.
 
 ```sh
-sudo apt install php -y
+sudo apt install php nasm -y
 ```
+
 
 ## Design
 

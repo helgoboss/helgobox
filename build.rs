@@ -14,8 +14,29 @@ fn main() {
 }
 
 fn compile_eel() {
-    let mut build = cc::Build::new();
-    let mut build = build
+    let asm_object_file = if cfg!(target_os = "windows") {
+        if cfg!(target_arch = "x86_64") {
+            "lib/WDL/WDL/eel2/asm-nseel-x64.obj"
+        } else {
+            todo!()
+        }
+    } else if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "x86_64") {
+            "lib/WDL/WDL/eel2/asm-nseel-x64-macho.o"
+        } else {
+            todo!()
+        }
+    } else if cfg!(target_os = "linux") {
+        if cfg!(target_arch = "x86_64") {
+            // Must have been generated via before via `make asm-nseel-x64.o`.
+            "lib/WDL/WDL/eel2/asm-nseel-x64.o"
+        } else {
+            todo!()
+        }
+    } else {
+        todo!()
+    };
+    cc::Build::new()
         .warnings(false)
         .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
         .file("lib/WDL/WDL/eel2/nseel-compiler.c")
@@ -23,14 +44,9 @@ fn compile_eel() {
         .file("lib/WDL/WDL/eel2/nseel-eval.c")
         .file("lib/WDL/WDL/eel2/nseel-lextab.c")
         .file("lib/WDL/WDL/eel2/nseel-ram.c")
-        .file("lib/WDL/WDL/eel2/nseel-yylex.c");
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    build.object("lib/WDL/WDL/eel2/asm-nseel-x64.obj");
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    build.object("lib/WDL/WDL/eel2/asm-nseel-x64.obj");
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    build.object("lib/WDL/WDL/eel2/asm-nseel-x64-macho.o");
-    build.compile("wdl-eel");
+        .file("lib/WDL/WDL/eel2/nseel-yylex.c")
+        .object(asm_object_file)
+        .compile("wdl-eel");
 }
 
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
@@ -55,8 +71,14 @@ fn compile_dialogs() {
     );
     assert!(result.status.success(), "PHP dialog translator failed");
     // Compile the resulting C++ file
+    let stdlib = if cfg!(target_os = "macos") {
+        Some("c++")
+    } else {
+        None
+    };
     cc::Build::new()
         .cpp(true)
+        .cpp_set_stdlib(stdlib)
         .warnings(false)
         .file("src/infrastructure/common/dialogs.cpp")
         .compile("dialogs");
