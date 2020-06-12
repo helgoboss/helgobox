@@ -172,7 +172,6 @@ impl<'a> MappingModelWithContext<'a> {
         ))
     }
 
-    // TODO-high Should become part of Mode
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
         use ModeType::*;
         use SourceCharacter::*;
@@ -200,7 +199,6 @@ impl<'a> MappingModelWithContext<'a> {
         Ok(result)
     }
 
-    // TODO-high Should become part of Mode
     pub fn preferred_mode_type(&self) -> Result<ModeType, &'static str> {
         use ModeType::*;
         use SourceCharacter::*;

@@ -11,7 +11,7 @@ use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
-use reaper_low::{reaper_vst_plugin, PluginContext, Swell};
+use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MidiFrameOffset, TypeSpecificPluginContext};
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -201,8 +201,7 @@ impl RealearnPlugin {
         Reaper::guarded(|| {
             // Done once for all ReaLearn instances
             let context =
-                PluginContext::from_vst_plugin(&self.host, reaper_vst_plugin::static_context())
-                    .unwrap();
+                PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
             Swell::make_available_globally(Swell::load(context));
             Reaper::setup_with_defaults(context, "info@helgoboss.org");
             let reaper = Reaper::get();

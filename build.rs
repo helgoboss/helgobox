@@ -4,9 +4,9 @@ fn main() {
     generate_bindings();
 
     // Dialogs
-    #[cfg(target_os = "windows")]
+    #[cfg(target_family = "windows")]
     embed_dialog_resources();
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_family = "unix")]
     compile_dialogs();
 
     // WDL EEL
@@ -28,11 +28,13 @@ fn compile_eel() {
     build.object("lib/WDL/WDL/eel2/asm-nseel-x64.obj");
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     build.object("lib/WDL/WDL/eel2/asm-nseel-x64.obj");
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    build.object("lib/WDL/WDL/eel2/asm-nseel-x64-macho.o");
     build.compile("wdl-eel");
 }
 
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_family = "unix")]
 fn compile_dialogs() {
     // Make RC file SWELL-compatible.
     // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
@@ -61,7 +63,7 @@ fn compile_dialogs() {
 }
 
 /// On Windows we can directly embed the dialog resource file produced by ResEdit.
-#[cfg(target_os = "windows")]
+#[cfg(target_family = "windows")]
 fn embed_dialog_resources() {
     let target = std::env::var("TARGET").unwrap();
     if let Some(tool) = cc::windows_registry::find_tool(target.as_str(), "cl.exe") {
