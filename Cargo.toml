@@ -16,9 +16,9 @@ members = [
 generate = []
 
 [dependencies]
-reaper-high = { path = "../reaper-rs/main/high", features = ["serde"] }
-reaper-medium= { path = "../reaper-rs/main/medium", features = ["serde"] }
-reaper-low = { version = "0.1.0", path = "../reaper-rs/main/low" }
+reaper-high = { git = "https://github.com/helgoboss/reaper-rs", features = ["serde"] }
+reaper-medium= { git = "https://github.com/helgoboss/reaper-rs", features = ["serde"] }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi", branch = "master", features = ["serde", "serde_repr"] }

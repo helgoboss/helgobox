@@ -3,4 +3,4 @@
 	url = https://github.com/justinfrankel/WDL.git
 [submodule "helgoboss-learn"]
 	path = helgoboss-learn
-	url = https://github.com/helgoboss/helgoboss-learn-rs.git
+	url = https://github.com/helgoboss/helgoboss-learn.git
