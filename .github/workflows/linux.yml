@@ -9,23 +9,6 @@ on:
 name: Linux
 
 jobs:
-  check:
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2020-05-15
-          override: true
-      - name: cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -38,6 +21,8 @@ jobs:
           profile: minimal
           toolchain: nightly-2020-05-15
           override: true
+      - name: Set up NASM
+        uses: ilammy/setup-nasm@v1.0.0
       - name: Compile EEL assembler code
         working-directory: lib/WDL/WDL/eel2
         run: make asm-nseel-x64.o
