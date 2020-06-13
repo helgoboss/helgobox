@@ -316,8 +316,10 @@ impl View for MappingRowsPanel {
         match self.scroll_pos(code) {
             None => false,
             Some(scroll_pos) => {
-                // TODO In the original ReaLearn we debounce this by 50ms. This is not yet possible
-                // with rxRust.
+                // TODO-low In the original ReaLearn we debounce this by 50ms. This is not yet
+                // possible with rxRust. It's possible to implement this without Rx though. But
+                // right now it doesn't seem to be even necessary. We could also just update
+                // a few controls when thumb tracking, not everything. Probably even better!
                 self.scroll(scroll_pos);
                 true
             }

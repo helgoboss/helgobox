@@ -5,6 +5,7 @@ use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::MainPanel;
 use c_str_macro::c_str;
+use clipboard::{ClipboardContext, ClipboardProvider};
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
@@ -17,7 +18,7 @@ use std::iter;
 use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
 use std::time::Duration;
-use swell_ui::{Clipboard, SharedView, View, ViewContext, Window};
+use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct HeaderPanel {
@@ -317,8 +318,11 @@ impl HeaderPanel {
     }
 
     pub fn import_from_clipboard(&self) {
-        let clipboard = Clipboard::new();
-        let json = clipboard.read_text().expect("couldn't read from clipboard");
+        let mut clipboard: ClipboardContext =
+            ClipboardProvider::new().expect("couldn't create clipboard");
+        let json = clipboard
+            .get_contents()
+            .expect("couldn't read from clipboard");
         let session_data: SessionData =
             serde_json::from_str(json.as_str()).expect("invalid session data");
         let mut session = self.session.borrow_mut();
@@ -331,8 +335,9 @@ impl HeaderPanel {
         let session_data = SessionData::from_model(self.session.borrow().deref());
         let json =
             serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
-        let clipboard = Clipboard::new();
-        clipboard.write_text(json.as_str());
+        let mut clipboard: ClipboardContext =
+            ClipboardProvider::new().expect("couldn't create clipboard");
+        clipboard.set_contents(json);
     }
 
     fn register_listeners(self: SharedView<Self>) {

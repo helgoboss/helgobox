@@ -9,7 +9,7 @@ build = "build.rs"
 generate = []
 
 [dependencies]
-reaper-low = { git = "https://github.com/helgoboss/reaper-rs" }
+reaper-low = { path = "../reaper-rs/main/low" }
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 rx-util = { path = "../rx-util" }
 scopeguard = "1.1.0"

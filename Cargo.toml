@@ -11,14 +11,19 @@ members = [
     "rx-util",
     "helgoboss-learn"
 ]
+exclude = [
+    "reaper-rs/main/low",
+    "reaper-rs/main/medium",
+    "reaper-rs/main/high"
+]
 
 [features]
 generate = []
 
 [dependencies]
-reaper-high = { git = "https://github.com/helgoboss/reaper-rs", features = ["serde"] }
-reaper-medium= { git = "https://github.com/helgoboss/reaper-rs", features = ["serde"] }
-reaper-low = { git = "https://github.com/helgoboss/reaper-rs" }
+reaper-high = { path = "reaper-rs/main/high", features = ["serde"] }
+reaper-medium= { path = "reaper-rs/main/medium", features = ["serde"] }
+reaper-low = { path = "reaper-rs/main/low" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi", branch = "master", features = ["serde", "serde_repr"] }
@@ -39,6 +44,7 @@ scopeguard = "1.1.0"
 crossbeam-channel = "0.4"
 uuid = { version = "0.8.1", features = ["v4"] }
 slog = "2.5.2"
+clipboard = "0.5.0"
 
 [build-dependencies]
 bindgen = "0.52.0"
