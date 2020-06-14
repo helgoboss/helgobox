@@ -39,16 +39,18 @@ impl Window {
     }
 
     pub fn set_checked(self, is_checked: bool) {
-        Swell::get().SendMessage(
-            self.raw,
-            raw::BM_SETCHECK,
-            if is_checked {
-                raw::BST_CHECKED
-            } else {
-                raw::BST_UNCHECKED
-            } as usize,
-            0,
-        );
+        unsafe {
+            Swell::get().SendMessage(
+                self.raw,
+                raw::BM_SETCHECK,
+                if is_checked {
+                    raw::BST_CHECKED
+                } else {
+                    raw::BST_UNCHECKED
+                } as usize,
+                0,
+            );
+        }
     }
 
     pub fn check(self) {
@@ -60,7 +62,8 @@ impl Window {
     }
 
     pub fn is_checked(self) -> bool {
-        Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) == raw::BST_CHECKED as isize
+        let result = unsafe { Swell::get().SendMessage(self.raw, raw::BM_GETCHECK, 0, 0) };
+        result == raw::BST_CHECKED as isize
     }
 
     pub fn fill_combo_box_with_data_vec<I: Display>(self, items: Vec<(isize, I)>) {
@@ -117,7 +120,9 @@ impl Window {
     }
 
     pub fn init_combo_box_storage(self, item_count: usize, item_size: usize) {
-        Swell::get().SendMessage(self.raw, raw::CB_INITSTORAGE, item_count, item_size as _);
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::CB_INITSTORAGE, item_count, item_size as _);
+        }
     }
 
     pub fn insert_combo_box_item_with_data<'a>(
@@ -131,7 +136,8 @@ impl Window {
     }
 
     pub fn selected_combo_box_item_index(self) -> usize {
-        Swell::get().SendMessage(self.raw, raw::CB_GETCURSEL, 0, 0) as usize
+        let result = unsafe { Swell::get().SendMessage(self.raw, raw::CB_GETCURSEL, 0, 0) };
+        result as usize
     }
 
     pub fn selected_combo_box_item_data(self) -> isize {
@@ -140,32 +146,42 @@ impl Window {
     }
 
     pub fn insert_combo_box_item<'a>(self, index: usize, label: impl Into<SwellStringArg<'a>>) {
-        Swell::get().SendMessage(
-            self.raw,
-            raw::CB_INSERTSTRING,
-            index,
-            label.into().as_lparam(),
-        );
+        unsafe {
+            Swell::get().SendMessage(
+                self.raw,
+                raw::CB_INSERTSTRING,
+                index,
+                label.into().as_lparam(),
+            );
+        }
     }
 
     pub fn add_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {
-        Swell::get().SendMessage(self.raw, raw::CB_ADDSTRING, 0, label.into().as_lparam());
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::CB_ADDSTRING, 0, label.into().as_lparam());
+        }
     }
 
     pub fn set_combo_box_item_data(self, index: usize, data: isize) {
-        Swell::get().SendMessage(self.raw, raw::CB_SETITEMDATA, index, data);
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::CB_SETITEMDATA, index, data);
+        }
     }
 
     pub fn combo_box_item_data(self, index: usize) -> isize {
-        Swell::get().SendMessage(self.raw, raw::CB_GETITEMDATA, index, 0)
+        unsafe { Swell::get().SendMessage(self.raw, raw::CB_GETITEMDATA, index, 0) }
     }
 
     pub fn clear_combo_box(self) {
-        Swell::get().SendMessage(self.raw, raw::CB_RESETCONTENT, 0, 0);
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::CB_RESETCONTENT, 0, 0);
+        }
     }
 
     pub fn select_combo_box_item(self, index: usize) {
-        Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
+        }
     }
 
     pub fn select_combo_box_item_by_data(self, item_data: isize) -> Result<(), ()> {
@@ -182,11 +198,14 @@ impl Window {
     }
 
     pub fn combo_box_item_count(self) -> usize {
-        Swell::get().SendMessage(self.raw, raw::CB_GETCOUNT, 0, 0) as _
+        let result = unsafe { Swell::get().SendMessage(self.raw, raw::CB_GETCOUNT, 0, 0) };
+        result as _
     }
 
     pub fn close(self) {
-        Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
+        }
     }
 
     pub fn has_focus(&self) -> bool {
@@ -194,7 +213,9 @@ impl Window {
     }
 
     pub fn set_slider_range(&self, min: u32, max: u32) {
-        Swell::get().SendMessage(self.raw, raw::TBM_SETRANGE, 0, make_long(min, max));
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::TBM_SETRANGE, 0, make_long(min, max));
+        }
     }
 
     pub fn set_slider_value(&self, value: u32) {
@@ -202,11 +223,14 @@ impl Window {
             // No need to set value if this is the slider which we are currently tracking.
             return;
         }
-        Swell::get().SendMessage(self.raw, raw::TBM_SETPOS, 1, value as _);
+        unsafe {
+            Swell::get().SendMessage(self.raw, raw::TBM_SETPOS, 1, value as _);
+        }
     }
 
     pub fn slider_value(&self) -> u32 {
-        Swell::get().SendMessage(self.raw, raw::TBM_GETPOS, 0, 0) as _
+        let result = unsafe { Swell::get().SendMessage(self.raw, raw::TBM_GETPOS, 0, 0) };
+        result as _
     }
 
     pub fn text(self) -> Result<String, &'static str> {
