@@ -1,4 +1,5 @@
 use crate::Window;
+use reaper_low::Swell;
 
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -41,22 +42,35 @@ impl<T> Point<T> {
     }
 }
 
-impl Point<DialogUnits> {
-    /// A value used for calculating window size and spacing from dialog units.
-    ///
-    /// Might have to be chosen a bit differently on each OS.
-    const UI_SCALE_FACTOR: f64 = 3.5;
+fn effective_scale_factor() -> f64 {
+    #[cfg(target_os = "linux")]
+    {
+        let scaling_256 = Swell::get().SWELL_GetScaling256();
+        let hidpi_factor = scaling_256 as f64 / 256.0;
+        1.9 * hidpi_factor
+    }
+    #[cfg(target_os = "macos")]
+    {
+        1.7
+    }
+    #[cfg(target_os = "windows")]
+    {
+        1.7
+    }
+}
 
+impl Point<DialogUnits> {
     /// Converts this dialog unit point to pixels.
     ///
     /// The Window struct contains a method which can do this including Windows HiDPI information.
     pub fn in_pixels(&self) -> Point<Pixels> {
-        // TODO On Windows this works differently. See original ReaLearn. But on the other hand
+        // TODO-low On Windows this works differently. See original ReaLearn. But on the other hand
         //  ... this is only for the first short render before the optimal size is calculated.
         //  So as long as it works, this heuristic is okay.
+        let scale_factor = effective_scale_factor();
         Point {
-            x: Pixels((Self::UI_SCALE_FACTOR * self.x.get() as f64) as _),
-            y: Pixels((Self::UI_SCALE_FACTOR * self.y.get() as f64) as _),
+            x: Pixels((scale_factor * self.x.get() as f64) as _),
+            y: Pixels((scale_factor * self.y.get() as f64) as _),
         }
     }
 }
