@@ -19,6 +19,7 @@ use slog::debug;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
+use wrap_debug::WrapDebug;
 
 /// MIDI source which provides ReaLearn control data.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -36,6 +37,10 @@ pub enum MidiFeedbackOutput {
     FxOutput,
     /// Routes feedback messages directly to a MIDI output device.
     Device(MidiOutputDevice),
+}
+
+pub trait SessionUi {
+    fn show_mapping(&self, mapping: *const MappingModel);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -65,6 +70,7 @@ pub struct Session {
     ),
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
+    ui: WrapDebug<Box<dyn SessionUi>>,
 }
 
 impl Session {
@@ -75,6 +81,7 @@ impl Session {
             crossbeam_channel::Sender<MainProcessorTask>,
             crossbeam_channel::Receiver<MainProcessorTask>,
         ),
+        ui: impl SessionUi + 'static,
     ) -> Session {
         Self {
             let_matched_events_through: prop(false),
@@ -94,6 +101,7 @@ impl Session {
             main_processor_channel,
             real_time_processor_sender,
             party_is_over_subject: Default::default(),
+            ui: WrapDebug(Box::new(ui)),
         }
     }
 
@@ -309,18 +317,22 @@ impl Session {
         &self.context
     }
 
-    pub fn add_default_mapping(&mut self) {
+    pub fn add_default_mapping(&mut self) -> SharedMapping {
         let mut mapping = MappingModel::default();
         mapping.name.set(self.generate_name_for_new_mapping());
-        self.add_mapping(mapping);
+        self.add_mapping(mapping)
     }
 
     pub fn mapping_count(&self) -> usize {
         self.mapping_models.len()
     }
 
-    pub fn mapping_by_index(&self, index: usize) -> Option<SharedMapping> {
-        self.mapping_models.get(index).map(|m| m.clone())
+    pub fn find_mapping_by_index(&self, index: usize) -> Option<&SharedMapping> {
+        self.mapping_models.get(index)
+    }
+
+    pub fn find_mapping_by_address(&self, mapping: *const MappingModel) -> Option<&SharedMapping> {
+        self.mappings().find(|m| m.as_ptr() == mapping as _)
     }
 
     pub fn mappings(&self) -> impl Iterator<Item = &SharedMapping> {
@@ -481,15 +493,41 @@ impl Session {
         self.mapping_models = mappings.map(share_mapping).collect();
     }
 
-    fn add_mapping(&mut self, mapping: MappingModel) {
-        self.mapping_models.push(share_mapping(mapping));
+    fn add_mapping(&mut self, mapping: MappingModel) -> SharedMapping {
+        let shared_mapping = share_mapping(mapping);
+        self.mapping_models.push(shared_mapping.clone());
         self.notify_mapping_list_changed();
+        shared_mapping
     }
 
     pub fn send_feedback(&self) {
         self.main_processor_channel
             .0
             .send(MainProcessorTask::FeedbackAll);
+    }
+
+    pub fn find_mapping_with_target(&self, target: &ReaperTarget) -> Option<&SharedMapping> {
+        self.mappings()
+            .find(|m| m.borrow().with_context(&self.context).has_target(target))
+    }
+
+    pub fn toggle_learn_source_for_target(&mut self, target: &ReaperTarget) -> SharedMapping {
+        let mapping = match self.find_mapping_with_target(target) {
+            None => {
+                let m = self.add_default_mapping();
+                m.borrow_mut()
+                    .target_model
+                    .apply_from_target(target, &self.context);
+                m
+            }
+            Some(m) => m.clone(),
+        };
+        self.toggle_learn_source(&mapping);
+        mapping
+    }
+
+    pub fn show_mapping(&self, mapping: *const MappingModel) {
+        self.ui.show_mapping(mapping);
     }
 
     /// Notifies listeners async that something in the mapping list has changed.

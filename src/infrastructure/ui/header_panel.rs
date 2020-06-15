@@ -426,7 +426,9 @@ impl View for HeaderPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            ID_ADD_MAPPING_BUTTON => self.session.borrow_mut().add_default_mapping(),
+            ID_ADD_MAPPING_BUTTON => {
+                self.session.borrow_mut().add_default_mapping();
+            }
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
             ID_CLEAR_SOURCE_FILTER_BUTTON => self.main_state.borrow_mut().clear_source_filter(),

@@ -54,7 +54,7 @@ impl PluginParameters for RealearnPluginParameters {
             }
             Some(s) => s,
         };
-        let session_data = SessionData::from_model(session.borrow().deref());
+        let session_data = SessionData::from_model(&session.borrow());
         serde_json::to_vec(&session_data).expect("couldn't serialize session data")
     }
 

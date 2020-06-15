@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::{MappingModel, Session};
+use crate::domain::{MappingModel, Session, SessionUi};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
@@ -86,6 +86,12 @@ impl MainPanel {
         }
     }
 
+    pub fn edit_mapping(&self, mapping: *const MappingModel) {
+        if let Some(data) = self.active_data.borrow() {
+            data.mapping_rows_panel.edit_mapping(mapping);
+        }
+    }
+
     fn open_sub_panels(&self, window: Window) {
         if let Some(data) = self.active_data.borrow() {
             data.header_panel.clone().open(window);
@@ -121,5 +127,11 @@ impl View for MainPanel {
         // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
         self.open_sub_panels(window);
         true
+    }
+}
+
+impl SessionUi for SharedView<MainPanel> {
+    fn show_mapping(&self, mapping: *const MappingModel) {
+        self.edit_mapping(mapping);
     }
 }

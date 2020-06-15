@@ -4,7 +4,7 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::domain::{MainProcessorTask, SharedSession};
+use crate::domain::{session_manager, MainProcessorTask, SharedSession};
 use crate::domain::{RealTimeProcessor, RealTimeProcessorTask, Session, SessionContext};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
@@ -57,11 +57,17 @@ pub struct RealearnPlugin {
 
 impl Default for RealearnPlugin {
     fn default() -> Self {
+        RealearnPlugin::new(Default::default())
+    }
+}
+
+impl Plugin for RealearnPlugin {
+    fn new(host: HostCallback) -> Self {
         let (real_time_processor_sender, real_time_processor_receiver) =
             crossbeam_channel::unbounded();
         let (main_processor_sender, main_processor_receiver) = crossbeam_channel::unbounded();
         Self {
-            host: Default::default(),
+            host,
             session: Rc::new(LazyCell::new()),
             main_panel: Default::default(),
             reaper_guard: None,
@@ -71,22 +77,8 @@ impl Default for RealearnPlugin {
             real_time_processor: RealTimeProcessor::new(
                 real_time_processor_receiver,
                 main_processor_sender,
-                HostCallback::default(),
-            ),
-        }
-    }
-}
-
-impl Plugin for RealearnPlugin {
-    fn new(host: HostCallback) -> Self {
-        let default = RealearnPlugin::default();
-        Self {
-            host,
-            real_time_processor: RealTimeProcessor {
                 host,
-                ..default.real_time_processor
-            },
-            ..default
+            ),
         }
     }
 
@@ -199,13 +191,11 @@ impl Plugin for RealearnPlugin {
 impl RealearnPlugin {
     fn ensure_reaper_setup(&mut self) -> Arc<ReaperGuard> {
         Reaper::guarded(|| {
-            // Done once for all ReaLearn instances
             let context =
                 PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
             Swell::make_available_globally(Swell::load(context));
             Reaper::setup_with_defaults(context, "info@helgoboss.org");
-            let reaper = Reaper::get();
-            reaper.activate();
+            session_manager::register_global_learn_action();
         })
     }
 
@@ -223,8 +213,14 @@ impl RealearnPlugin {
         let main_processor_channel = self.main_processor_channel.clone();
         Reaper::get().do_later_in_main_thread_asap(move || {
             let session_context = SessionContext::from_host(&host);
-            let session = Session::new(session_context, real_time_sender, main_processor_channel);
+            let session = Session::new(
+                session_context,
+                real_time_sender,
+                main_processor_channel,
+                main_panel.clone(),
+            );
             let shared_session = Rc::new(RefCell::new(session));
+            session_manager::register_session(shared_session.clone());
             Session::activate(shared_session.clone());
             main_panel.notify_session_is_available(shared_session.clone());
             plugin_parameters.notify_session_is_available(shared_session.clone());
@@ -242,6 +238,16 @@ impl RealearnPlugin {
                 true
             }
             _ => false,
+        }
+    }
+}
+
+impl Drop for RealearnPlugin {
+    fn drop(&mut self) {
+        println!("dropping plugin");
+        if let Some(session) = self.session.borrow() {
+            println!("unregistering session");
+            session_manager::unregister_session(session.as_ptr());
         }
     }
 }

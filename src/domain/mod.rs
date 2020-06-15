@@ -1,6 +1,8 @@
 mod session;
 pub use session::*;
 
+pub mod session_manager;
+
 mod real_time_processor;
 pub use real_time_processor::*;
 

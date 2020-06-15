@@ -199,6 +199,13 @@ impl<'a> MappingModelWithContext<'a> {
         Ok(result)
     }
 
+    pub fn has_target(&self, target: &ReaperTarget) -> bool {
+        match self.target_with_context().create_target() {
+            Ok(t) => t == *target,
+            Err(_) => false,
+        }
+    }
+
     pub fn preferred_mode_type(&self) -> Result<ModeType, &'static str> {
         use ModeType::*;
         use SourceCharacter::*;

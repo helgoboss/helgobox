@@ -67,6 +67,12 @@ impl MappingRowsPanel {
         self.scroll(index);
     }
 
+    pub fn edit_mapping(&self, mapping: *const MappingModel) {
+        if let Some(m) = self.session.borrow().find_mapping_by_address(mapping) {
+            self.mapping_panel_manager.borrow_mut().edit_mapping(m);
+        }
+    }
+
     fn open_mapping_rows(&self, window: Window) {
         for row in self.rows.iter() {
             row.clone().open(window);
@@ -199,18 +205,15 @@ impl MappingRowsPanel {
             if row_index >= self.rows.len() {
                 break;
             }
-            let mapping = self
-                .session
-                .borrow()
-                .mapping_by_index(i)
-                .expect("impossible");
-            if !self.mapping_matches_filter(&mapping) {
+            let session = self.session.borrow();
+            let mapping = session.find_mapping_by_index(i).expect("impossible");
+            if !self.mapping_matches_filter(mapping) {
                 continue;
             }
             self.rows
                 .get(row_index)
                 .expect("impossible")
-                .set_mapping(Some(mapping));
+                .set_mapping(Some(mapping.clone()));
             row_index += 1;
         }
         // If there are unused rows, clear them

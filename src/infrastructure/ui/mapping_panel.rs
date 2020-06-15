@@ -40,7 +40,7 @@ pub struct MappingPanel {
     session: SharedSession,
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<MainPanel>,
-    is_in_reaction: Cell<bool>,
+    is_invoked_programmatically: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -56,7 +56,7 @@ struct ImmutableMappingPanel<'a> {
     mode: &'a ModeModel,
     target: &'a TargetModel,
     view: &'a ViewContext,
-    is_in_reaction: &'a Cell<bool>,
+    is_invoked_programatically: &'a Cell<bool>,
     panel: &'a SharedView<MappingPanel>,
 }
 
@@ -87,7 +87,7 @@ impl MappingPanel {
             session,
             mapping: None.into(),
             main_panel,
-            is_in_reaction: false.into(),
+            is_invoked_programmatically: false.into(),
             sliders: None.into(),
             party_is_over_subject: Default::default(),
         }
@@ -118,16 +118,28 @@ impl MappingPanel {
     }
 
     pub fn show(self: SharedView<Self>, mapping: SharedMapping) {
-        self.stop_party();
-        self.mapping.replace(Some(mapping));
-        self.clone().start_party();
-        self.bring_to_foreground();
+        self.invoke_programmatically(|| {
+            self.stop_party();
+            self.mapping.replace(Some(mapping));
+            self.clone().start_party();
+            self.bring_to_foreground();
+        });
     }
 
     pub fn bring_to_foreground(&self) {
         let window = self.view.require_window();
         window.hide();
         window.show();
+    }
+
+    /// If you know a function in this view can be invoked by something else than the dialog
+    /// process, wrap your function body with this. Basically all pub functions!
+    ///
+    /// This prevents edit control text change events fired by windows to be processed.
+    fn invoke_programmatically(&self, f: impl FnOnce()) {
+        self.is_invoked_programmatically.set(true);
+        scopeguard::defer! { self.is_invoked_programmatically.set(false); }
+        f();
     }
 
     /// Unregisters listeners.
@@ -158,7 +170,7 @@ impl MappingPanel {
             mode: &mapping.mode_model,
             target: &mapping.target_model,
             view: &self.view,
-            is_in_reaction: &self.is_in_reaction,
+            is_invoked_programatically: &self.is_invoked_programmatically,
             panel: &self,
         };
         op(&p)
@@ -179,8 +191,8 @@ impl MappingPanel {
         op(&mut p)
     }
 
-    fn is_in_reaction(&self) -> bool {
-        self.is_in_reaction.get()
+    fn is_invoked_programmatically(&self) -> bool {
+        self.is_invoked_programmatically.get()
     }
 
     fn memorize_all_slider_controls(&self) {
@@ -237,8 +249,8 @@ fn decorate_reaction(
 ) -> impl Fn(Rc<MappingPanel>, ()) + Copy {
     move |view, _| {
         let view_mirror = view.clone();
-        view_mirror.is_in_reaction.set(true);
-        scopeguard::defer! { view_mirror.is_in_reaction.set(false); }
+        view_mirror.is_invoked_programmatically.set(true);
+        scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
         view.with_immutable(reaction);
     }
 }
@@ -2020,7 +2032,7 @@ impl View for MappingPanel {
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
-        if self.is_in_reaction() {
+        if self.is_invoked_programmatically() {
             // We don't want to continue if the edit control change was not caused by the user.
             // Although the edit control text is changed programmatically, it also triggers the
             // change handler. Ignore it! Most of those events are filtered out already
@@ -2080,9 +2092,9 @@ impl View for MappingPanel {
         // This is also called when the window is hidden.
         self.with_immutable(|p| {
             // The edit control which is currently edited by the user doesn't get invalidated during
-            // `edit_control_changed()`, for good reasons. As soon as the edit control loses focus,
-            // we should invalidate it. This is especially important if the user entered
-            // an invalid value. Because we are lazy and edit controls are not
+            // `edit_control_changed()`, for good reasons. But as soon as the edit control loses
+            // focus, we should invalidate it. This is especially important if the user
+            // entered an invalid value. Because we are lazy and edit controls are not
             // manipulated very frequently, we just invalidate all controls.
             p.invalidate_all_controls();
         });
