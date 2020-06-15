@@ -153,13 +153,17 @@ impl MappingPanel {
             p.fill_all_controls();
             p.invalidate_all_controls();
             p.register_listeners();
-        });
+        })
+        .expect("mapping must be filled at this point");
     }
 
-    fn with_immutable<R>(self: SharedView<Self>, op: impl Fn(&ImmutableMappingPanel) -> R) -> R {
+    fn with_immutable<R>(
+        self: SharedView<Self>,
+        op: impl Fn(&ImmutableMappingPanel) -> R,
+    ) -> Result<R, &'static str> {
         let session = self.session.borrow();
         let shared_mapping = self.mapping.borrow();
-        let shared_mapping = shared_mapping.as_ref().expect("mapping not filled");
+        let shared_mapping = shared_mapping.as_ref().ok_or("mapping not filled")?;
         let mapping = shared_mapping.borrow();
         let p = ImmutableMappingPanel {
             session: &session,
@@ -173,7 +177,7 @@ impl MappingPanel {
             is_invoked_programatically: &self.is_invoked_programmatically,
             panel: &self,
         };
-        op(&p)
+        Ok(op(&p))
     }
 
     fn with_mutable<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
@@ -251,7 +255,9 @@ fn decorate_reaction(
         let view_mirror = view.clone();
         view_mirror.is_invoked_programmatically.set(true);
         scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
-        view.with_immutable(reaction);
+        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+        // so what.
+        let _ = view.with_immutable(reaction);
     }
 }
 
@@ -2090,12 +2096,13 @@ impl View for MappingPanel {
 
     fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
         // This is also called when the window is hidden.
-        self.with_immutable(|p| {
-            // The edit control which is currently edited by the user doesn't get invalidated during
-            // `edit_control_changed()`, for good reasons. But as soon as the edit control loses
-            // focus, we should invalidate it. This is especially important if the user
-            // entered an invalid value. Because we are lazy and edit controls are not
-            // manipulated very frequently, we just invalidate all controls.
+        // The edit control which is currently edited by the user doesn't get invalidated during
+        // `edit_control_changed()`, for good reasons. But as soon as the edit control loses
+        // focus, we should invalidate it. This is especially important if the user
+        // entered an invalid value. Because we are lazy and edit controls are not
+        // manipulated very frequently, we just invalidate all controls.
+        // If this fails (because the mapping is not filled anymore), it's not a problem.
+        let _ = self.with_immutable(|p| {
             p.invalidate_all_controls();
         });
         false
