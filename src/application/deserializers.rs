@@ -1,12 +1,15 @@
 use serde::{Deserialize, Deserializer};
+use std::convert::TryFrom;
 
 /// Behaves like the built-in deserializer for `Option` but also accepts `-1` as `None`.
+///
+/// Also accepts decimal numbers.
 ///
 /// Based on this: https://stackoverflow.com/a/56384732/5418870
 pub fn none_if_minus_one<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
-    T: Deserialize<'de>,
+    T: Deserialize<'de> + TryFrom<u64>,
 {
     // we define a local enum type inside of the function
     // because it is untagged, serde will deserialize as the first variant
@@ -14,20 +17,23 @@ where
     #[derive(Deserialize)]
     #[serde(untagged)]
     enum MaybeMinusOne<U> {
-        // if it can be parsed as Option<T>, it will be
+        // If it can be parsed as Option<T>, it's perfect.
         TargetValue(Option<U>),
-        // otherwise try parsing as integer
-        IncompatibleInteger(i8),
+        // Otherwise try parsing as decimal number.
+        DecimalNumber(f64),
     }
 
     let value: MaybeMinusOne<T> = Deserialize::deserialize(deserializer)?;
     match value {
         MaybeMinusOne::TargetValue(v) => Ok(v),
-        MaybeMinusOne::IncompatibleInteger(i) => {
-            if i == -1 {
+        MaybeMinusOne::DecimalNumber(n) => {
+            if n == -1.0 {
                 Ok(None)
             } else {
-                Err(serde::de::Error::custom("invalid number"))
+                match T::try_from(n as u64) {
+                    Ok(t) => Ok(Some(t)),
+                    Err(_) => Err(serde::de::Error::custom("invalid number")),
+                }
             }
         }
     }
