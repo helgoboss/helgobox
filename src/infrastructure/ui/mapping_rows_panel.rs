@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use c_str_macro::c_str;
 use helgoboss_midi::Channel;
@@ -12,26 +12,31 @@ use crate::domain::{MappingModel, Session, SharedMapping};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{
-    MainPanel, MappingPanel, MappingPanelManager, MappingRowPanel, SharedMappingPanelManager,
+    MainPanel, MappingPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
+    SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
 use std::cmp;
 use std::collections::HashMap;
 use std::ops::DerefMut;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 pub struct MappingRowsPanel {
     view: ViewContext,
     session: SharedSession,
-    main_panel: SharedView<MainPanel>,
+    main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
     mapping_panel_manager: SharedMappingPanelManager,
     scroll_position: Cell<usize>,
 }
 
 impl MappingRowsPanel {
-    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> MappingRowsPanel {
-        let mapping_panel_manager = MappingPanelManager::new(session.clone(), main_panel.clone());
+    pub fn new(
+        session: SharedSession,
+        main_panel: WeakView<MainPanel>,
+        main_state: SharedMainState,
+    ) -> MappingRowsPanel {
+        let mapping_panel_manager = MappingPanelManager::new(session.clone(), main_panel);
         let mapping_panel_manager = Rc::new(RefCell::new(mapping_panel_manager));
         MappingRowsPanel {
             view: Default::default(),
@@ -45,7 +50,7 @@ impl MappingRowsPanel {
             session,
             mapping_panel_manager,
             scroll_position: 0.into(),
-            main_panel,
+            main_state,
         }
     }
 
@@ -55,7 +60,7 @@ impl MappingRowsPanel {
             None => return,
             Some(i) => i,
         };
-        self.main_panel.clear_filters();
+        self.main_state.borrow_mut().clear_filters();
         if !self.is_open() {
             session.show_in_floating_window();
         }
@@ -141,10 +146,10 @@ impl MappingRowsPanel {
 
     fn filtered_mapping_count(&self) -> usize {
         let session = self.session.borrow();
-        // TODO-low Not cool to always reach deep into main panel to acquire the filters.
-        let source_filter = self.main_panel.source_filter.borrow();
-        let target_filter = self.main_panel.target_filter.borrow();
-        if source_filter.get_ref().is_none() && target_filter.get_ref().is_none() {
+        let main_state = self.main_state.borrow();
+        if main_state.source_filter.get_ref().is_none()
+            && main_state.target_filter.get_ref().is_none()
+        {
             return session.mapping_count();
         }
         session
@@ -215,13 +220,14 @@ impl MappingRowsPanel {
     }
 
     fn mapping_matches_filter(&self, mapping: &SharedMapping) -> bool {
-        if let Some(filter_source) = self.main_panel.source_filter.borrow().get_ref() {
+        let main_state = self.main_state.borrow();
+        if let Some(filter_source) = main_state.source_filter.get_ref() {
             let mapping_source = mapping.borrow().source_model.create_source();
             if mapping_source != *filter_source {
                 return false;
             }
         }
-        if let Some(filter_target) = self.main_panel.target_filter.borrow().get_ref() {
+        if let Some(filter_target) = main_state.target_filter.get_ref() {
             let mapping_target = match mapping
                 .borrow()
                 .target_model
@@ -248,6 +254,7 @@ impl MappingRowsPanel {
 
     fn register_listeners(self: SharedView<Self>) {
         let session = self.session.borrow();
+        let main_state = self.main_state.borrow();
         self.when(session.everything_changed(), |view| {
             view.invalidate_all_controls();
         });
@@ -255,11 +262,10 @@ impl MappingRowsPanel {
             view.invalidate_all_controls();
         });
         self.when(
-            self.main_panel
+            main_state
                 .source_filter
-                .borrow()
                 .changed()
-                .merge(self.main_panel.target_filter.borrow().changed()),
+                .merge(main_state.target_filter.changed()),
             |view| {
                 view.scroll_position.set(0);
                 view.invalidate_mapping_rows();

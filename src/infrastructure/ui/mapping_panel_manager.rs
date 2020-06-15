@@ -5,19 +5,19 @@ use reaper_high::Reaper;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use swell_ui::{SharedView, View, Window};
+use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
 
 /// Responsible for managing the currently open top-level mapping panels.
 pub struct MappingPanelManager {
     session: SharedSession,
-    main_panel: SharedView<MainPanel>,
+    main_panel: WeakView<MainPanel>,
     open_panels: Vec<SharedView<MappingPanel>>,
 }
 
 impl MappingPanelManager {
-    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> MappingPanelManager {
+    pub fn new(session: SharedSession, main_panel: WeakView<MainPanel>) -> MappingPanelManager {
         Self {
             session,
             main_panel,

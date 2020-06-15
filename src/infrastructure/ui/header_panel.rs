@@ -3,7 +3,7 @@ use crate::core::{when, Prop};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::MainPanel;
+use crate::infrastructure::ui::{MainPanel, SharedMainState};
 use c_str_macro::c_str;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use helgoboss_midi::Channel;
@@ -24,22 +24,23 @@ use swell_ui::{SharedView, View, ViewContext, Window};
 pub struct HeaderPanel {
     view: ViewContext,
     session: SharedSession,
-    main_panel: SharedView<MainPanel>,
+    main_state: SharedMainState,
 }
 
 impl HeaderPanel {
-    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> HeaderPanel {
+    pub fn new(session: SharedSession, main_state: SharedMainState) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
             session,
-            main_panel,
+            main_state,
         }
     }
 }
 
 impl HeaderPanel {
     fn toggle_learn_source_filter(&self) {
-        let mut learning = self.main_panel.is_learning_source_filter.borrow_mut();
+        let mut main_state = self.main_state.borrow_mut();
+        let mut learning = &mut main_state.is_learning_source_filter;
         if learning.get() {
             // Stop learning
             learning.set(false);
@@ -54,18 +55,19 @@ impl HeaderPanel {
                     .take_until(self.view.closed())
                     .take(1),
             )
-            .with(&self.main_panel)
-            .finally(|main_panel| {
-                main_panel.is_learning_source_filter.borrow_mut().set(false);
+            .with(&self.main_state)
+            .finally(|main_state| {
+                main_state.borrow_mut().is_learning_source_filter.set(false);
             })
-            .do_sync(|main_panel, source| {
-                main_panel.source_filter.borrow_mut().set(Some(source));
+            .do_sync(|main_state, source| {
+                main_state.borrow_mut().source_filter.set(Some(source));
             });
         }
     }
 
     fn toggle_learn_target_filter(&self) {
-        let mut learning = self.main_panel.is_learning_target_filter.borrow_mut();
+        let mut main_state = self.main_state.borrow_mut();
+        let mut learning = &mut main_state.is_learning_target_filter;
         if learning.get() {
             // Stop learning
             learning.set(false);
@@ -78,14 +80,14 @@ impl HeaderPanel {
                     .take_until(self.view.closed())
                     .take(1),
             )
-            .with(&self.main_panel)
-            .finally(|main_panel| {
-                main_panel.is_learning_target_filter.borrow_mut().set(false);
+            .with(&self.main_state)
+            .finally(|main_state| {
+                main_state.borrow_mut().is_learning_target_filter.set(false);
             })
-            .do_sync(|main_panel, target| {
-                main_panel
-                    .target_filter
+            .do_sync(|main_state, target| {
+                main_state
                     .borrow_mut()
+                    .target_filter
                     .set(Some((*target).clone()));
             });
         }
@@ -281,9 +283,10 @@ impl HeaderPanel {
     }
 
     fn invalidate_source_filter_buttons(&self) {
+        let main_state = self.main_state.borrow();
         self.invalidate_filter_buttons(
-            self.main_panel.is_learning_source_filter.borrow().get(),
-            self.main_panel.source_filter.borrow().get_ref().is_some(),
+            main_state.is_learning_source_filter.get(),
+            main_state.source_filter.get_ref().is_some(),
             "Learn source filter",
             root::ID_FILTER_BY_SOURCE_BUTTON,
             root::ID_CLEAR_SOURCE_FILTER_BUTTON,
@@ -291,9 +294,10 @@ impl HeaderPanel {
     }
 
     fn invalidate_target_filter_buttons(&self) {
+        let main_state = self.main_state.borrow();
         self.invalidate_filter_buttons(
-            self.main_panel.is_learning_target_filter.borrow().get(),
-            self.main_panel.target_filter.borrow().get_ref().is_some(),
+            main_state.is_learning_target_filter.get(),
+            main_state.target_filter.get_ref().is_some(),
             "Learn target filter",
             root::ID_FILTER_BY_TARGET_BUTTON,
             root::ID_CLEAR_TARGET_FILTER_BUTTON,
@@ -372,22 +376,21 @@ impl HeaderPanel {
         self.when(session.midi_feedback_output.changed(), |view| {
             view.invalidate_midi_feedback_output_combo_box()
         });
+        let main_state = self.main_state.borrow();
         self.when(
-            self.main_panel
+            main_state
                 .is_learning_target_filter
-                .borrow()
                 .changed()
-                .merge(self.main_panel.target_filter.borrow().changed()),
+                .merge(main_state.target_filter.changed()),
             |view| {
                 view.invalidate_target_filter_buttons();
             },
         );
         self.when(
-            self.main_panel
+            main_state
                 .is_learning_source_filter
-                .borrow()
                 .changed()
-                .merge(self.main_panel.source_filter.borrow().changed()),
+                .merge(main_state.source_filter.changed()),
             |view| {
                 view.invalidate_source_filter_buttons();
             },
@@ -426,8 +429,8 @@ impl View for HeaderPanel {
             ID_ADD_MAPPING_BUTTON => self.session.borrow_mut().add_default_mapping(),
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
-            ID_CLEAR_SOURCE_FILTER_BUTTON => self.main_panel.clear_source_filter(),
-            ID_CLEAR_TARGET_FILTER_BUTTON => self.main_panel.clear_target_filter(),
+            ID_CLEAR_SOURCE_FILTER_BUTTON => self.main_state.borrow_mut().clear_source_filter(),
+            ID_CLEAR_TARGET_FILTER_BUTTON => self.main_state.borrow_mut().clear_target_filter(),
             ID_IMPORT_BUTTON => self.import_from_clipboard(),
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session.borrow().send_feedback(),

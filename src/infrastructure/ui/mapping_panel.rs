@@ -32,14 +32,14 @@ use std::ptr::null;
 use std::rc::{Rc, Weak};
 use std::str::FromStr;
 use std::time::Duration;
-use swell_ui::{SharedView, View, ViewContext, Window};
+use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct MappingPanel {
     view: ViewContext,
     session: SharedSession,
     mapping: RefCell<Option<SharedMapping>>,
-    main_panel: SharedView<MainPanel>,
+    main_panel: WeakView<MainPanel>,
     is_in_reaction: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
     // Fires when a mapping is about to change or the panel is hidden.
@@ -81,7 +81,7 @@ struct Sliders {
 }
 
 impl MappingPanel {
-    pub fn new(session: SharedSession, main_panel: SharedView<MainPanel>) -> MappingPanel {
+    pub fn new(session: SharedSession, main_panel: WeakView<MainPanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session,
@@ -105,7 +105,10 @@ impl MappingPanel {
     }
 
     pub fn scroll_to_mapping_in_main_panel(&self) {
-        self.main_panel.scroll_to_mapping(self.mapping_ptr());
+        self.main_panel
+            .upgrade()
+            .expect("main view gone")
+            .scroll_to_mapping(self.mapping_ptr());
     }
 
     pub fn hide(&self) {

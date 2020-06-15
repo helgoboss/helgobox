@@ -2,7 +2,7 @@ use crate::core::{prop, Prop};
 use crate::domain::{MappingModel, Session};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel};
+use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
 use c_str_macro::c_str;
 use helgoboss_learn::MidiSource;
 use lazycell::LazyCell;
@@ -16,13 +16,10 @@ use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 /// The complete ReaLearn panel containing everything.
 // TODO Maybe call this SessionPanel
 pub struct MainPanel {
-    pub target_filter: RefCell<Prop<Option<ReaperTarget>>>,
-    pub is_learning_target_filter: RefCell<Prop<bool>>,
-    pub source_filter: RefCell<Prop<Option<MidiSource>>>,
-    pub is_learning_source_filter: RefCell<Prop<bool>>,
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
+    state: SharedMainState,
 }
 
 struct ActiveData {
@@ -37,10 +34,7 @@ impl Default for MainPanel {
             view: Default::default(),
             active_data: LazyCell::new(),
             dimensions: None.into(),
-            target_filter: prop(None).into(),
-            is_learning_target_filter: prop(false).into(),
-            source_filter: prop(None).into(),
-            is_learning_source_filter: prop(false).into(),
+            state: Default::default(),
         }
     }
 }
@@ -54,27 +48,19 @@ impl MainPanel {
         // Finally, the session is available. First, save its reference and create sub panels.
         let active_data = ActiveData {
             session: session.clone(),
-            header_panel: HeaderPanel::new(session.clone(), self.clone()).into(),
-            mapping_rows_panel: MappingRowsPanel::new(session.clone(), self.clone()).into(),
+            header_panel: HeaderPanel::new(session.clone(), self.state.clone()).into(),
+            mapping_rows_panel: MappingRowsPanel::new(
+                session.clone(),
+                Rc::downgrade(&self),
+                self.state.clone(),
+            )
+            .into(),
         };
         self.active_data.fill(active_data);
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
         if let Some(window) = self.view.window() {
             self.open_sub_panels(window);
         }
-    }
-
-    pub fn clear_filters(&self) {
-        self.clear_source_filter();
-        self.clear_target_filter();
-    }
-
-    pub fn clear_source_filter(&self) {
-        self.source_filter.borrow_mut().set(None)
-    }
-
-    pub fn clear_target_filter(&self) {
-        self.target_filter.borrow_mut().set(None)
     }
 
     pub fn dimensions(&self) -> Dimensions<Pixels> {
