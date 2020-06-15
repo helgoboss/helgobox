@@ -72,6 +72,13 @@ impl PluginParameters for RealearnPluginParameters {
             }
             Some(s) => s,
         };
+        let left_json_object_brace = data
+            .iter()
+            .position(|b| *b == 0x7b)
+            .expect("couldn't find left JSON brace in bank data");
+        // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find start
+        // of JSON data.
+        let data = &data[left_json_object_brace..];
         let session_data: SessionData =
             serde_json::from_slice(data).expect("couldn't deserialize session data");
         let mut session = shared_session.borrow_mut();
