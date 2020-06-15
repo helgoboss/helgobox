@@ -244,7 +244,7 @@ impl ReaperTarget {
             | TrackMute { .. }
             | TrackSelection { .. }
             | TrackSolo { .. } => format_as_on_off(value).to_string(),
-            FxPreset { fx } => match unit_value_to_preset_index(fx, value) {
+            FxPreset { fx } => match convert_unit_value_to_preset_index(fx, value) {
                 None => "<No preset>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
@@ -266,11 +266,12 @@ impl ReaperTarget {
 
     /// This converts the given normalized value to a discrete value.
     ///
-    /// Should be used for discrete targets only, e.g. FX preset. This target reports a step size
-    /// which is 1.0 divided by the number of presets (because step sizes are reported as normalized
-    /// values). If we want to display an increment or a particular value for this target, we
-    /// don't show normalized values of course but a discrete number of presets, by using this
-    /// function.
+    /// Used for displaying discrete target values in edit fields.
+    /// Must be implemented for discrete targets only which don't support parsing according to
+    /// `can_parse_values()`, e.g. FX preset. This target reports a step size. If we want to
+    /// display an increment or a particular value in an edit field, we don't show normalized
+    /// values of course but a discrete number, by using this function. Should be the reverse of
+    /// `convert_discrete_value_to_unit_value()` because latter is used for parsing.
     ///
     /// In case the target wants increments, this takes 63 as the highest possible value.
     ///
@@ -285,16 +286,50 @@ impl ReaperTarget {
             // Relative MIDI controllers support a maximum of 63 steps.
             return Ok((input.get() * 63.0).round() as _);
         }
-        // Example (target step size = 0.10):
-        // - 0    => 0
-        // - 0.05 => 1
-        // - 0.10 => 1
-        // - 0.15 => 2
-        // - 0.20 => 2
-        // TODO This is maybe wrong for preset target because it has 0 as special value (no preset)
-        //  and is otherwise shifted
-        let target_step_size = self.step_size().ok_or("target doesn't report step size")?;
-        Ok((input.get() / target_step_size.get()).round() as _)
+        use ReaperTarget::*;
+        let result = match self {
+            FxPreset { fx } => convert_unit_value_to_preset_index(fx, input)
+                .map(|i| i + 1)
+                .unwrap_or(0),
+            FxParameter { param } => {
+                // Example (target step size = 0.10):
+                // - 0    => 0
+                // - 0.05 => 1
+                // - 0.10 => 1
+                // - 0.15 => 2
+                // - 0.20 => 2
+                let step_size = param.step_size().ok_or("not supported")?;
+                (input.get() / step_size).round() as _
+            }
+            _ => return Err("not supported"),
+        };
+        Ok(result)
+    }
+
+    /// Like `convert_unit_value_to_discrete_value()` but in the other direction.
+    ///
+    /// Used for parsing discrete values of discrete targets that can't do real parsing according to
+    /// `can_parse_values()`.
+    pub fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+    ) -> Result<UnitValue, &'static str> {
+        if self.wants_increments() {
+            return (value as f64 / 63.0).try_into();
+        }
+        use ReaperTarget::*;
+        let result = match self {
+            FxPreset { fx } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                convert_preset_index_to_unit_value(fx, index)
+            }
+            FxParameter { param } => {
+                let step_size = param.step_size().ok_or("not supported")?;
+                (value as f64 * step_size).try_into()?
+            }
+            _ => return Err("not supported"),
+        };
+        Ok(result)
     }
 
     /// Meaning: not just percentages.
@@ -321,26 +356,6 @@ impl ReaperTarget {
             Tempo { .. } => parse_from_bpm(text),
             _ => parse_from_percentage(text),
         }
-    }
-
-    /// Like `convert_ùnit_value_to_discrete_value()` but in the other direction.
-    pub fn convert_discrete_value_to_unit_value(
-        &self,
-        value: u32,
-    ) -> Result<UnitValue, &'static str> {
-        if self.wants_increments() {
-            return (value as f64 / 63.0).try_into();
-        }
-        // Example (target step size = 0.10):
-        // - 0    => 0
-        // - 0.05 => 1
-        // - 0.10 => 1
-        // - 0.15 => 2
-        // - 0.20 => 2
-        // TODO This is maybe wrong for preset target because it has 0 as special value (no preset)
-        //  and is otherwise shifted
-        let target_step_size = self.step_size().ok_or("target doesn't report step size")?;
-        (value as f64 * target_step_size.get()).try_into()
     }
 
     pub fn unit(&self) -> &'static str {
@@ -514,7 +529,7 @@ impl ReaperTarget {
                 }
             }
             FxPreset { fx } => {
-                let preset_index = unit_value_to_preset_index(fx, value.as_absolute()?);
+                let preset_index = convert_unit_value_to_preset_index(fx, value.as_absolute()?);
                 let preset_ref = match preset_index {
                     None => FxPresetRef::FactoryPreset,
                     Some(i) => FxPresetRef::Preset(i),
@@ -636,7 +651,7 @@ impl Target for ReaperTarget {
     fn current_value(&self) -> UnitValue {
         use ReaperTarget::*;
         match self {
-            Action { action, .. } => bool_to_unit_value(action.is_on()),
+            Action { action, .. } => convert_bool_to_unit_value(action.is_on()),
             // TODO This will panic if the "soft" normalized value is > 1
             FxParameter { param } => UnitValue::new(param.normalized_value().get()),
             // TODO This will panic if the "soft" normalized value is > 1
@@ -644,15 +659,15 @@ impl Target for ReaperTarget {
             // TODO This will panic if the "soft" normalized value is > 1
             TrackSendVolume { send } => UnitValue::new(send.volume().soft_normalized_value()),
             TrackPan { track } => UnitValue::new(track.pan().normalized_value()),
-            TrackArm { track } => bool_to_unit_value(track.is_armed(false)),
-            TrackSelection { track, .. } => bool_to_unit_value(track.is_selected()),
-            TrackMute { track } => bool_to_unit_value(track.is_muted()),
-            TrackSolo { track } => bool_to_unit_value(track.is_solo()),
+            TrackArm { track } => convert_bool_to_unit_value(track.is_armed(false)),
+            TrackSelection { track, .. } => convert_bool_to_unit_value(track.is_selected()),
+            TrackMute { track } => convert_bool_to_unit_value(track.is_muted()),
+            TrackSolo { track } => convert_bool_to_unit_value(track.is_solo()),
             TrackSendPan { send } => UnitValue::new(send.pan().normalized_value()),
             Tempo { project } => UnitValue::new(project.tempo().normalized_value()),
             Playrate { project } => UnitValue::new(project.play_rate().normalized_value().get()),
-            FxEnable { fx } => bool_to_unit_value(fx.is_enabled()),
-            FxPreset { fx } => preset_index_to_unit_value(fx, fx.preset_index()),
+            FxEnable { fx } => convert_bool_to_unit_value(fx.is_enabled()),
+            FxPreset { fx } => convert_preset_index_to_unit_value(fx, fx.preset_index()),
         }
     }
 
@@ -660,13 +675,19 @@ impl Target for ReaperTarget {
         use ReaperTarget::*;
         match self {
             FxParameter { param } => param.step_size().map(UnitValue::new),
-            Tempo { .. } => {
-                let span = Bpm::MAX.get() - Bpm::MIN.get();
-                Some(UnitValue::new(1.0 / span))
-            }
-            FxPreset { fx } => {
-                // `+ 1` because "no preset" is also a possible value
-                Some(UnitValue::new(1.0 / (fx.preset_count() + 1) as f64))
+            Tempo { .. } | FxPreset { .. } => {
+                // n is the number of possible values.
+                let n = match self {
+                    // 1 bpm to 960 bpm are 960 possible values.
+                    Tempo { .. } => 960,
+                    // `+ 1` because "<no preset>" is also a possible value.
+                    FxPreset { fx } => fx.preset_count() + 1,
+                    _ => unreachable!(),
+                };
+                // Dividing 1.0 by n would divide the unit interval (0..=1) into n same-sized
+                // sub intervals, which means we would have n + 1 possible values. We want to
+                // represent just n values, so we need n - 1 same-sized sub intervals.
+                Some(UnitValue::new(1.0 / (n - 1) as f64))
             }
             _ => None,
         }
@@ -724,31 +745,44 @@ fn format_as_on_off(value: UnitValue) -> &'static str {
     if value.is_one() { "On" } else { "Off" }
 }
 
-fn bool_to_unit_value(on: bool) -> UnitValue {
+fn convert_bool_to_unit_value(on: bool) -> UnitValue {
     if on { UnitValue::MAX } else { UnitValue::MIN }
 }
 
-fn unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
-    // 0 corresponds to "no preset"
+fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
+    // Example: <no preset> + 4 presets
     if value.is_zero() {
+        // 0.00 => <no preset>
         None
     } else {
-        let preset_count = fx.preset_count();
-        let step_size = 1.0 / preset_count as f64;
-        let shifted_value = (value.get() - step_size).max(0.0);
-        Some((shifted_value * preset_count as f64).round() as u32)
+        // 0.25 => 0
+        // 0.50 => 1
+        // 0.75 => 2
+        // 1.00 => 3
+
+        // Example: value = 0.75
+        let preset_count = fx.preset_count(); // 4
+        let step_size = 1.0 / preset_count as f64; // 0.25
+        let zero_based_value = (value.get() - step_size).max(0.0); // 0.5
+        Some((zero_based_value * preset_count as f64).round() as u32) // 2
     }
 }
 
-fn preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
-    // 0 corresponds to "no preset"
+fn convert_preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
+    // Example: <no preset> + 4 presets
     match index {
+        // <no preset> => 0.00
         None => UnitValue::MIN,
+        // 0 => 0.25
+        // 1 => 0.50
+        // 2 => 0.75
+        // 3 => 1.00
         Some(i) => {
-            let preset_count = fx.preset_count();
-            let shifted_value = i as f64 / preset_count as f64;
-            let step_size = 1.0 / preset_count as f64;
-            let value = (shifted_value + step_size).min(1.0);
+            // Example: i = 2
+            let preset_count = fx.preset_count(); // 4
+            let zero_based_value = i as f64 / preset_count as f64; // 0.5
+            let step_size = 1.0 / preset_count as f64; // 0.25
+            let value = (zero_based_value + step_size).min(1.0); // 0.75
             UnitValue::new(value)
         }
     }
