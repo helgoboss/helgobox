@@ -17,6 +17,7 @@ pub struct ModeModelData {
     eel_control_transformation: String,
     eel_feedback_transformation: String,
     reverse_is_enabled: bool,
+    throttle: bool,
     ignore_out_of_range_source_values_is_enabled: bool,
     round_target_value: bool,
     scale_mode_enabled: bool,
@@ -38,6 +39,7 @@ impl Default for ModeModelData {
             eel_control_transformation: "".to_string(),
             eel_feedback_transformation: "".to_string(),
             reverse_is_enabled: false,
+            throttle: false,
             ignore_out_of_range_source_values_is_enabled: false,
             round_target_value: false,
             scale_mode_enabled: false,
@@ -61,6 +63,7 @@ impl ModeModelData {
             eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
             eel_feedback_transformation: model.eel_feedback_transformation.get_ref().clone(),
             reverse_is_enabled: model.reverse.get(),
+            throttle: model.throttle.get(),
             ignore_out_of_range_source_values_is_enabled: model
                 .ignore_out_of_range_source_values
                 .get(),
@@ -93,6 +96,7 @@ impl ModeModelData {
         model
             .reverse
             .set_without_notification(self.reverse_is_enabled);
+        model.throttle.set_without_notification(self.throttle);
         model
             .ignore_out_of_range_source_values
             .set_without_notification(self.ignore_out_of_range_source_values_is_enabled);

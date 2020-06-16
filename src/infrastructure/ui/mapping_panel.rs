@@ -473,6 +473,14 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mode_throttle(&mut self) {
+        self.mapping.mode_model.throttle.set(
+            self.view
+                .require_control(root::ID_MODE_THROTTLE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
     fn reset_mode(&mut self) {
         self.mapping.reset_mode(self.session.context());
     }
@@ -585,8 +593,9 @@ impl<'a> MutableMappingPanel<'a> {
             .target_should_be_hit_with_increments()
         {
             let text = self.view.require_control(edit_control_id).text().ok()?;
-            self.real_target()?
-                .convert_discrete_value_to_unit_value(text.parse().ok()?)
+            self.mapping
+                .mode_model
+                .convert_positive_factor_to_unit_value(text.parse().ok()?)
                 .ok()
         } else {
             self.get_value_from_target_edit_control(edit_control_id)
@@ -1414,6 +1423,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_round_target_value_check_box();
         self.invalidate_mode_approach_check_box();
         self.invalidate_mode_reverse_check_box();
+        self.invalidate_mode_throttle_check_box();
         self.invalidate_mode_eel_control_transformation_edit_control();
         self.invalidate_mode_eel_feedback_transformation_edit_control();
     }
@@ -1437,7 +1447,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .with_context(self.session.context())
             .target_should_be_hit_with_increments()
         {
-            "Step count"
+            if self.mapping.mode_model.throttle.get() {
+                "Slowness"
+            } else {
+                "Speed"
+            }
         } else {
             "Step size"
         };
@@ -1458,11 +1472,19 @@ impl<'a> ImmutableMappingPanel<'a> {
             &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
         );
         self.show_if(
+            mode.supports_throttle(
+                self.mapping
+                    .with_context(self.session.context())
+                    .target_should_be_hit_with_increments(),
+            ),
+            &[root::ID_MODE_THROTTLE_CHECK_BOX],
+        );
+        self.show_if(
             mode.supports_approach_target_value(),
             &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
         );
         self.show_if(
-            mode.supports_rotate_is_enabled(),
+            mode.supports_rotate(),
             &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
         );
         self.show_if(
@@ -1687,10 +1709,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     .target_should_be_hit_with_increments();
                 let is_discrete = target.character() == TargetCharacter::Discrete;
                 if send_increments || is_discrete {
-                    let edit_text = target
-                        .convert_unit_value_to_discrete_value(value)
-                        .map(|v| v.to_string())
-                        .unwrap_or("".to_string());
+                    let edit_text = self
+                        .mapping
+                        .mode_model
+                        .convert_unit_value_to_positive_factor(value)
+                        .to_string();
                     if send_increments {
                         // "count {x}"
                         (edit_text, "x".to_string())
@@ -1746,6 +1769,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
             .set_checked(self.mode.reverse.get());
+    }
+
+    fn invalidate_mode_throttle_check_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_THROTTLE_CHECK_BOX)
+            .set_checked(self.mode.throttle.get());
     }
 
     fn invalidate_mode_eel_control_transformation_edit_control(&self) {
@@ -1848,6 +1877,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         });
         self.panel.when_do_sync(mode.reverse.changed(), |view| {
             view.invalidate_mode_reverse_check_box();
+        });
+        self.panel.when_do_sync(mode.throttle.changed(), |view| {
+            view.invalidate_mode_controls();
         });
         self.panel
             .when_do_sync(mode.eel_control_transformation.changed(), |view| {
@@ -1967,6 +1999,7 @@ impl View for MappingPanel {
             }
             ID_SETTINGS_SCALE_MODE_CHECK_BOX => self.write(|p| p.update_mode_approach()),
             ID_SETTINGS_REVERSE_CHECK_BOX => self.write(|p| p.update_mode_reverse()),
+            ID_MODE_THROTTLE_CHECK_BOX => self.write(|p| p.update_mode_throttle()),
             ID_SETTINGS_RESET_BUTTON => self.write(|p| p.reset_mode()),
             // Target
             ID_TARGET_INPUT_FX_CHECK_BOX => self.write(|p| p.update_target_is_input_fx()),

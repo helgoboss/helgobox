@@ -3,7 +3,7 @@ use crate::domain::{EelTransformation, ReaperTarget, ResultVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, ControlValue, DiscreteValue, Interval,
+    full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, DiscreteValue, Interval,
     MidiClockTransportMessage, MidiSource, RelativeMode, SourceCharacter, Target, ToggleMode,
     Transformation, UnitValue,
 };
@@ -32,6 +32,7 @@ pub struct ModeModel {
     // For relative mode
     pub step_size_interval: Prop<Interval<UnitValue>>,
     pub rotate: Prop<bool>,
+    pub throttle: Prop<bool>,
 }
 
 // Represents a learn mode
@@ -102,6 +103,7 @@ impl Default for ModeModel {
             eel_feedback_transformation: prop(String::new()),
             step_size_interval: prop(Self::default_step_size_interval()),
             rotate: prop(false),
+            throttle: prop(false),
         }
     }
 }
@@ -144,6 +146,7 @@ impl ModeModel {
             .merge(self.target_value_interval.changed())
             .merge(self.source_value_interval.changed())
             .merge(self.reverse.changed())
+            .merge(self.throttle.changed())
             .merge(self.jump_interval.changed())
             .merge(self.ignore_out_of_range_source_values.changed())
             .merge(self.round_target_value.changed())
@@ -180,8 +183,8 @@ impl ModeModel {
             Relative => Mode::Relative(RelativeMode {
                 source_value_interval: self.source_value_interval.get(),
                 step_count_interval: Interval::new(
-                    make_discrete(self.step_size_interval.get_ref().min(), target),
-                    make_discrete(self.step_size_interval.get_ref().max(), target),
+                    self.convert_to_step_count(self.step_size_interval.get_ref().min()),
+                    self.convert_to_step_count(self.step_size_interval.get_ref().max()),
                 ),
                 step_size_interval: self.step_size_interval.get(),
                 target_value_interval: self.target_value_interval.get(),
@@ -194,9 +197,41 @@ impl ModeModel {
         }
     }
 
+    pub fn convert_positive_factor_to_unit_value(
+        &self,
+        factor: u32,
+    ) -> Result<UnitValue, &'static str> {
+        if factor < 1 || factor > 100 {
+            return Err("invalid step count");
+        }
+        // 1 to 100
+        let values_count = 100;
+        Ok(UnitValue::new(factor as f64 / (values_count - 1) as f64))
+    }
+
+    pub fn convert_unit_value_to_positive_factor(&self, unit_value: UnitValue) -> u32 {
+        self.convert_to_step_count(unit_value).get().abs() as _
+    }
+
+    fn convert_to_step_count(&self, value: UnitValue) -> DiscreteIncrement {
+        let inc = value.map_from_unit_interval_to_discrete_increment(&Interval::new(
+            DiscreteIncrement::new(1),
+            DiscreteIncrement::new(100),
+        ));
+        if self.throttle.get() {
+            inc.inverse()
+        } else {
+            inc
+        }
+    }
+
     pub fn supports_reverse(&self) -> bool {
         use ModeType::*;
         matches!(self.r#type.get(), Absolute | Relative)
+    }
+
+    pub fn supports_throttle(&self, target_should_be_hit_with_increments: bool) -> bool {
+        self.r#type.get() == ModeType::Relative && target_should_be_hit_with_increments
     }
 
     pub fn supports_ignore_out_of_range_source_values(&self) -> bool {
@@ -227,14 +262,7 @@ impl ModeModel {
         self.r#type.get() == ModeType::Relative
     }
 
-    pub fn supports_rotate_is_enabled(&self) -> bool {
+    pub fn supports_rotate(&self) -> bool {
         self.r#type.get() == ModeType::Relative
     }
-}
-
-fn make_discrete(value: UnitValue, target: &ReaperTarget) -> DiscreteValue {
-    let discrete = target
-        .convert_unit_value_to_discrete_value(value)
-        .unwrap_or(1);
-    DiscreteValue::new(discrete)
 }
