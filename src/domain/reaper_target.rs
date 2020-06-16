@@ -438,7 +438,7 @@ impl ReaperTarget {
                 Absolute(v) => match invocation_type {
                     ActionInvocationType::Trigger => {
                         if !v.is_zero() {
-                            action.invoke_as_trigger(Some(*project));
+                            action.invoke(v.get(), false, Some(*project));
                         }
                     }
                     ActionInvocationType::Absolute => action.invoke(v.get(), false, Some(*project)),
