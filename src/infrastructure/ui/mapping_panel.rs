@@ -149,7 +149,7 @@ impl MappingPanel {
 
     /// Invalidates everything and registers listeners.
     fn start_party(self: SharedView<Self>) {
-        self.with_immutable(|p| {
+        self.read(|p| {
             p.fill_all_controls();
             p.invalidate_all_controls();
             p.register_listeners();
@@ -157,7 +157,7 @@ impl MappingPanel {
         .expect("mapping must be filled at this point");
     }
 
-    fn with_immutable<R>(
+    fn read<R>(
         self: SharedView<Self>,
         op: impl Fn(&ImmutableMappingPanel) -> R,
     ) -> Result<R, &'static str> {
@@ -180,7 +180,7 @@ impl MappingPanel {
         Ok(op(&p))
     }
 
-    fn with_mutable<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
+    fn write<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
         let mut session = self.session.borrow_mut();
         let mut shared_mapping = self.mapping.borrow_mut();
         let mut shared_mapping = shared_mapping.as_mut().expect("mapping not filled");
@@ -257,7 +257,7 @@ fn decorate_reaction(
         scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
         // If the reaction can't be displayed anymore because the mapping is not filled anymore,
         // so what.
-        let _ = view.with_immutable(reaction);
+        let _ = view.read(reaction);
     }
 }
 
@@ -1939,109 +1939,110 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            // IDCANCEL is escape button
-            ID_OK | raw::IDCANCEL => {
-                self.hide();
-                return;
+            // Mapping
+            ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => {
+                self.write(|p| p.update_mapping_control_enabled())
+            }
+            ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => {
+                self.write(|p| p.update_mapping_feedback_enabled())
             }
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
                 self.scroll_to_mapping_in_main_panel();
-                return;
             }
-            _ => {}
+            // IDCANCEL is escape button
+            ID_OK | raw::IDCANCEL => {
+                self.hide();
+            }
+            // Source
+            ID_SOURCE_LEARN_BUTTON => self.write(|p| p.toggle_learn_source()),
+            ID_SOURCE_RPN_CHECK_BOX => self.write(|p| p.update_source_is_registered()),
+            ID_SOURCE_14_BIT_CHECK_BOX => self.write(|p| p.update_source_is_14_bit()),
+            // Mode
+            ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
+            ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX => {
+                self.write(|p| p.update_mode_ignore_out_of_range_values())
+            }
+            ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX => {
+                self.write(|p| p.update_mode_round_target_value())
+            }
+            ID_SETTINGS_SCALE_MODE_CHECK_BOX => self.write(|p| p.update_mode_approach()),
+            ID_SETTINGS_REVERSE_CHECK_BOX => self.write(|p| p.update_mode_reverse()),
+            ID_SETTINGS_RESET_BUTTON => self.write(|p| p.reset_mode()),
+            // Target
+            ID_TARGET_INPUT_FX_CHECK_BOX => self.write(|p| p.update_target_is_input_fx()),
+            ID_TARGET_FX_FOCUS_CHECK_BOX => self.write(|p| p.update_target_only_if_fx_has_focus()),
+            ID_TARGET_TRACK_SELECTED_CHECK_BOX => {
+                self.write(|p| p.update_target_only_if_track_is_selected())
+            }
+            ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
+            ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
+            ID_TARGET_PICK_ACTION_BUTTON => self.write(|p| p.pick_action()),
+            _ => unreachable!(),
         }
-        self.with_mutable(|p| {
-            match resource_id {
-                // Mapping
-                ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => p.update_mapping_control_enabled(),
-                ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => p.update_mapping_feedback_enabled(),
-                // Source
-                ID_SOURCE_LEARN_BUTTON => p.toggle_learn_source(),
-                ID_SOURCE_RPN_CHECK_BOX => p.update_source_is_registered(),
-                ID_SOURCE_14_BIT_CHECK_BOX => p.update_source_is_14_bit(),
-                // Mode
-                ID_SETTINGS_ROTATE_CHECK_BOX => p.update_mode_rotate(),
-                ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX => {
-                    p.update_mode_ignore_out_of_range_values()
-                }
-                ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX => p.update_mode_round_target_value(),
-                ID_SETTINGS_SCALE_MODE_CHECK_BOX => p.update_mode_approach(),
-                ID_SETTINGS_REVERSE_CHECK_BOX => p.update_mode_reverse(),
-                ID_SETTINGS_RESET_BUTTON => p.reset_mode(),
-                // Target
-                ID_TARGET_INPUT_FX_CHECK_BOX => p.update_target_is_input_fx(),
-                ID_TARGET_FX_FOCUS_CHECK_BOX => p.update_target_only_if_fx_has_focus(),
-                ID_TARGET_TRACK_SELECTED_CHECK_BOX => p.update_target_only_if_track_is_selected(),
-                ID_TARGET_LEARN_BUTTON => p.toggle_learn_target(),
-                ID_TARGET_OPEN_BUTTON => p.open_target(),
-                ID_TARGET_PICK_ACTION_BUTTON => p.pick_action(),
-                _ => unreachable!(),
-            }
-        });
     }
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
-        self.with_mutable(|p| {
-            use root::*;
-            match resource_id {
-                // Source
-                ID_SOURCE_CHANNEL_COMBO_BOX => p.update_source_channel(),
-                ID_SOURCE_NUMBER_COMBO_BOX => p.update_source_midi_message_number(),
-                ID_SOURCE_CHARACTER_COMBO_BOX => p.update_source_character(),
-                ID_SOURCE_TYPE_COMBO_BOX => p.update_source_type(),
-                ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
-                    p.update_source_midi_clock_transport_message_type()
-                }
-                // Mode
-                ID_SETTINGS_MODE_COMBO_BOX => p.update_mode_type(),
-                // Target
-                ID_TARGET_TYPE_COMBO_BOX => p.update_target_type(),
-                ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
-                    p.update_target_track();
-                }
-                ID_TARGET_FX_OR_SEND_COMBO_BOX => {
-                    p.update_target_from_combo_box_three();
-                }
-                ID_TARGET_FX_PARAMETER_COMBO_BOX => p.update_target_fx_parameter(),
-                _ => unreachable!(),
+        use root::*;
+        match resource_id {
+            // Source
+            ID_SOURCE_CHANNEL_COMBO_BOX => self.write(|p| p.update_source_channel()),
+            ID_SOURCE_NUMBER_COMBO_BOX => self.write(|p| p.update_source_midi_message_number()),
+            ID_SOURCE_CHARACTER_COMBO_BOX => self.write(|p| p.update_source_character()),
+            ID_SOURCE_TYPE_COMBO_BOX => self.write(|p| p.update_source_type()),
+            ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
+                self.write(|p| p.update_source_midi_clock_transport_message_type())
             }
-        });
+            // Mode
+            ID_SETTINGS_MODE_COMBO_BOX => self.write(|p| p.update_mode_type()),
+            // Target
+            ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
+            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
+                self.write(|p| p.update_target_track());
+            }
+            ID_TARGET_FX_OR_SEND_COMBO_BOX => {
+                self.write(|p| p.update_target_from_combo_box_three());
+            }
+            ID_TARGET_FX_PARAMETER_COMBO_BOX => self.write(|p| p.update_target_fx_parameter()),
+            _ => unreachable!(),
+        }
     }
 
     fn slider_moved(self: SharedView<Self>, slider: Window) {
         use root::*;
-        let sliders = self.sliders.borrow();
+        let cloned_self = self.clone();
+        let sliders = cloned_self.sliders.borrow();
         let sliders = sliders.as_ref().expect("sliders not set");
         match slider {
-            s if s == sliders.target_value => {
-                self.clone()
-                    .with_immutable(|p| p.update_target_value_from_slider(s));
-                return;
+            // Mode
+            s if s == sliders.mode_min_target_value => {
+                self.write(|p| p.update_mode_min_target_value_from_slider(s));
             }
-            _ => {}
+            s if s == sliders.mode_max_target_value => {
+                self.write(|p| p.update_mode_max_target_value_from_slider(s));
+            }
+            s if s == sliders.mode_min_source_value => {
+                self.write(|p| p.update_mode_min_source_value_from_slider(s));
+            }
+            s if s == sliders.mode_max_source_value => {
+                self.write(|p| p.update_mode_max_source_value_from_slider(s));
+            }
+            s if s == sliders.mode_min_step_size => {
+                self.write(|p| p.update_mode_min_step_size_from_slider(s));
+            }
+            s if s == sliders.mode_max_step_size => {
+                self.write(|p| p.update_mode_max_step_size_from_slider(s));
+            }
+            s if s == sliders.mode_min_jump => {
+                self.write(|p| p.update_mode_min_jump_from_slider(s));
+            }
+            s if s == sliders.mode_max_jump => {
+                self.write(|p| p.update_mode_max_jump_from_slider(s));
+            }
+            s if s == sliders.target_value => {
+                self.read(|p| p.update_target_value_from_slider(s));
+            }
+            _ => unreachable!(),
         };
-        self.clone().with_mutable(|p| {
-            match slider {
-                // Mode
-                s if s == sliders.mode_min_target_value => {
-                    p.update_mode_min_target_value_from_slider(s)
-                }
-                s if s == sliders.mode_max_target_value => {
-                    p.update_mode_max_target_value_from_slider(s)
-                }
-                s if s == sliders.mode_min_source_value => {
-                    p.update_mode_min_source_value_from_slider(s)
-                }
-                s if s == sliders.mode_max_source_value => {
-                    p.update_mode_max_source_value_from_slider(s)
-                }
-                s if s == sliders.mode_min_step_size => p.update_mode_min_step_size_from_slider(s),
-                s if s == sliders.mode_max_step_size => p.update_mode_max_step_size_from_slider(s),
-                s if s == sliders.mode_min_jump => p.update_mode_min_jump_from_slider(s),
-                s if s == sliders.mode_max_jump => p.update_mode_max_jump_from_slider(s),
-                _ => unreachable!(),
-            };
-        });
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
@@ -2053,52 +2054,55 @@ impl View for MappingPanel {
             // dialog proc is not reentered - we are just reacting (async) to a change.
             return false;
         }
-        self.with_mutable(|p| {
-            use root::*;
-            match resource_id {
-                // Mapping
-                ID_MAPPING_NAME_EDIT_CONTROL => {
-                    let _ = p.update_mapping_name();
-                }
-                // Source
-                ID_SOURCE_NUMBER_EDIT_CONTROL => p.update_source_parameter_number_message_number(),
-                // Mode
-                ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
-                    p.update_mode_min_target_value_from_edit_control()
-                }
-                ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
-                    p.update_mode_max_target_value_from_edit_control()
-                }
-                ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
-                    p.update_mode_min_jump_from_edit_control()
-                }
-                ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
-                    p.update_mode_max_jump_from_edit_control()
-                }
-                ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
-                    p.update_mode_min_source_value_from_edit_control()
-                }
-                ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
-                    p.update_mode_max_source_value_from_edit_control()
-                }
-                ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
-                    p.update_mode_min_step_size_from_edit_control()
-                }
-                ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
-                    p.update_mode_max_step_size_from_edit_control()
-                }
-                ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
-                    p.update_mode_eel_control_transformation()
-                }
-                ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
-                    p.update_mode_eel_feedback_transformation()
-                }
-                // Target
-                ID_TARGET_VALUE_EDIT_CONTROL => p.update_target_value_from_edit_control(),
-                _ => return false,
+
+        use root::*;
+        match resource_id {
+            // Mapping
+            ID_MAPPING_NAME_EDIT_CONTROL => {
+                let _ = self.write(|p| p.update_mapping_name());
             }
-            true
-        })
+            // Source
+            ID_SOURCE_NUMBER_EDIT_CONTROL => {
+                self.write(|p| p.update_source_parameter_number_message_number());
+            }
+            // Mode
+            ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_target_value_from_edit_control());
+            }
+            ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_target_value_from_edit_control());
+            }
+            ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_jump_from_edit_control());
+            }
+            ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_jump_from_edit_control());
+            }
+            ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_source_value_from_edit_control());
+            }
+            ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_source_value_from_edit_control());
+            }
+            ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_step_size_from_edit_control());
+            }
+            ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_step_size_from_edit_control());
+            }
+            ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_eel_control_transformation());
+            }
+            ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_eel_feedback_transformation());
+            }
+            // Target
+            ID_TARGET_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_target_value_from_edit_control());
+            }
+            _ => return false,
+        };
+        true
     }
 
     fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
@@ -2109,7 +2113,7 @@ impl View for MappingPanel {
         // entered an invalid value. Because we are lazy and edit controls are not
         // manipulated very frequently, we just invalidate all controls.
         // If this fails (because the mapping is not filled anymore), it's not a problem.
-        let _ = self.with_immutable(|p| {
+        let _ = self.read(|p| {
             p.invalidate_all_controls();
         });
         false
