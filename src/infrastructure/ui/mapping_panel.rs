@@ -683,12 +683,6 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
-    fn update_target_value_from_slider(&mut self, slider: Window) {
-        if let Some(t) = self.real_target() {
-            t.control(ControlValue::Absolute(slider.slider_unit_value()));
-        }
-    }
-
     fn update_target_is_input_fx(&mut self) {
         self.mapping.target_model.is_input_fx.set(
             self.view
@@ -822,6 +816,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_window()
             .set_text(format!("Edit mapping {}", self.mapping.name.get_ref()));
+    }
+
+    fn update_target_value_from_slider(&self, slider: Window) {
+        if let Some(t) = self.real_target() {
+            t.control(ControlValue::Absolute(slider.slider_unit_value()));
+        }
     }
 
     fn invalidate_mapping_name_edit_control(&self) {
@@ -2009,10 +2009,18 @@ impl View for MappingPanel {
     }
 
     fn slider_moved(self: SharedView<Self>, slider: Window) {
-        self.with_mutable(|p| {
-            use root::*;
-            let sliders = p.panel.sliders.borrow();
-            let sliders = sliders.as_ref().expect("sliders not set");
+        use root::*;
+        let sliders = self.sliders.borrow();
+        let sliders = sliders.as_ref().expect("sliders not set");
+        match slider {
+            s if s == sliders.target_value => {
+                self.clone()
+                    .with_immutable(|p| p.update_target_value_from_slider(s));
+                return;
+            }
+            _ => {}
+        };
+        self.clone().with_mutable(|p| {
             match slider {
                 // Mode
                 s if s == sliders.mode_min_target_value => {
@@ -2031,7 +2039,6 @@ impl View for MappingPanel {
                 s if s == sliders.mode_max_step_size => p.update_mode_max_step_size_from_slider(s),
                 s if s == sliders.mode_min_jump => p.update_mode_min_jump_from_slider(s),
                 s if s == sliders.mode_max_jump => p.update_mode_max_jump_from_slider(s),
-                s if s == sliders.target_value => p.update_target_value_from_slider(s),
                 _ => unreachable!(),
             };
         });
