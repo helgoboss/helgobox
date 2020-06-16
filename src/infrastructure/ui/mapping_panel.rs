@@ -1450,7 +1450,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let (session, mapping, mode, target) = (self.session, self.mapping, self.mode, self.target);
         let target_with_context = target.with_context(session.context());
         self.show_if(
-            mode.supports_round_target_value() && target_with_context.is_known_to_can_be_discrete(),
+            mode.supports_round_target_value() && target_with_context.is_known_to_be_roundable(),
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
         );
         self.show_if(

@@ -633,6 +633,7 @@ dependencies = [
  "derive_more",
  "enum-iterator",
  "helgoboss-midi",
+ "lazycell",
  "num",
  "num_enum 0.5.0",
  "serde",

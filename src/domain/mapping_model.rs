@@ -181,9 +181,9 @@ impl<'a> MappingModelWithContext<'a> {
             Switch => {
                 let target = self.target_with_context().create_target()?;
                 match mode_type {
-                    Absolute | Toggle => !target.wants_increments(),
+                    Absolute | Toggle => !target.control_type().is_relative(),
                     Relative => {
-                        if target.wants_increments() {
+                        if target.control_type().is_relative() {
                             true
                         } else {
                             match target.character() {
@@ -213,7 +213,7 @@ impl<'a> MappingModelWithContext<'a> {
             Range => Absolute,
             Switch => {
                 let target = self.target_with_context().create_target()?;
-                if target.wants_increments() {
+                if target.control_type().is_relative() {
                     Relative
                 } else {
                     match target.character() {
@@ -243,7 +243,7 @@ impl<'a> MappingModelWithContext<'a> {
 
     fn target_step_size(&self) -> Option<UnitValue> {
         let target = self.target_with_context().create_target().ok()?;
-        target.step_size()
+        target.control_type().step_size()
     }
 
     fn target_with_context(&self) -> TargetModelWithContext<'_> {

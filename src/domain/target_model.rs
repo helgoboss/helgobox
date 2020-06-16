@@ -359,14 +359,14 @@ impl<'a> TargetModelWithContext<'a> {
     pub fn is_known_to_want_increments(&self) -> bool {
         // TODO-low use cached
         self.create_target()
-            .map(|t| t.wants_increments())
+            .map(|t| t.control_type().is_relative())
             .unwrap_or(false)
     }
 
-    pub fn is_known_to_can_be_discrete(&self) -> bool {
+    pub fn is_known_to_be_roundable(&self) -> bool {
         // TODO-low use cached
         self.create_target()
-            .map(|t| t.can_be_discrete())
+            .map(|t| t.is_roundable())
             .unwrap_or(false)
     }
     // Returns an error if the FX doesn't exist.

@@ -1,5 +1,5 @@
 use crate::domain::ActionInvocationType;
-use helgoboss_learn::{ControlValue, Target, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
     Tempo, Track, TrackSend, Volume,
@@ -222,8 +222,8 @@ impl ReaperTarget {
         }
     }
 
-    pub fn can_be_discrete(&self) -> bool {
-        self.character() != TargetCharacter::Discrete && self.step_size().is_some()
+    pub fn is_roundable(&self) -> bool {
+        matches!(self.control_type(), ControlType::AbsoluteContinuousRoundable { .. })
     }
 
     /// Formats the value completely (including a possible unit).
@@ -282,7 +282,7 @@ impl ReaperTarget {
         &self,
         input: UnitValue,
     ) -> Result<u32, &'static str> {
-        if self.wants_increments() {
+        if self.control_type().is_relative() {
             // Relative MIDI controllers support a maximum of 63 steps.
             return Ok((input.get() * 63.0).round() as _);
         }
@@ -314,7 +314,7 @@ impl ReaperTarget {
         &self,
         value: u32,
     ) -> Result<UnitValue, &'static str> {
-        if self.wants_increments() {
+        if self.control_type().is_relative() {
             return (value as f64 / 63.0).try_into();
         }
         use ReaperTarget::*;
@@ -671,36 +671,37 @@ impl Target for ReaperTarget {
         }
     }
 
-    fn step_size(&self) -> Option<UnitValue> {
+    fn control_type(&self) -> ControlType {
         use ReaperTarget::*;
         match self {
-            FxParameter { param } => param.step_size().map(UnitValue::new),
-            Tempo { .. } | FxPreset { .. } => {
-                // n is the number of possible values.
-                let n = match self {
-                    // 1 bpm to 960 bpm are 960 possible values.
-                    Tempo { .. } => 960,
-                    // `+ 1` because "<no preset>" is also a possible value.
-                    FxPreset { fx } => fx.preset_count() + 1,
-                    _ => unreachable!(),
-                };
-                // Dividing 1.0 by n would divide the unit interval (0..=1) into n same-sized
-                // sub intervals, which means we would have n + 1 possible values. We want to
-                // represent just n values, so we need n - 1 same-sized sub intervals.
-                Some(UnitValue::new(1.0 / (n - 1) as f64))
-            }
-            _ => None,
-        }
-    }
-
-    fn wants_increments(&self) -> bool {
-        match self {
-            ReaperTarget::Action {
+            Action {
                 invocation_type, ..
-            } if *invocation_type == ActionInvocationType::Relative => true,
-            _ => false,
+            } if *invocation_type == ActionInvocationType::Relative => ControlType::Relative,
+            FxParameter { param } => match param.step_size() {
+                None => ControlType::AbsoluteContinuous,
+                Some(step_size) => ControlType::AbsoluteDiscrete {
+                    atomic_step_size: UnitValue::new(step_size),
+                },
+            },
+            // 1 bpm to 960 bpm are 960 possible values.
+            Tempo { .. } => ControlType::AbsoluteContinuousRoundable {
+                rounding_step_size: convert_count_to_step_size(960),
+            },
+            // `+ 1` because "<no preset>" is also a possible value.
+            FxPreset { fx } => ControlType::AbsoluteDiscrete {
+                atomic_step_size: convert_count_to_step_size(fx.preset_count() + 1),
+            },
+            _ => ControlType::AbsoluteContinuous,
         }
     }
+}
+
+/// Converts a number of possible values to a step size.
+fn convert_count_to_step_size(n: u32) -> UnitValue {
+    // Dividing 1.0 by n would divide the unit interval (0..=1) into n same-sized
+    // sub intervals, which means we would have n + 1 possible values. We want to
+    // represent just n values, so we need n - 1 same-sized sub intervals.
+    UnitValue::new(1.0 / (n - 1) as f64)
 }
 
 fn format_as_playback_speed_factor_without_unit(value: UnitValue) -> String {
