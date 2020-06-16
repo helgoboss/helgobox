@@ -74,7 +74,11 @@ impl ControlSurface for MainProcessor {
                     self.send_feedback(source_value);
                 }
                 Control { mapping_id, value } => {
-                    self.control(mapping_id, value);
+                    let mut mapping = match self.control_mappings.get_mut(&mapping_id) {
+                        None => return,
+                        Some(m) => m,
+                    };
+                    mapping.control(value);
                 }
                 Feedback(mapping_id) => {
                     self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
@@ -108,14 +112,6 @@ impl MainProcessor {
             feedback_subscriptions: Default::default(),
             session,
         }
-    }
-
-    fn control(&self, mapping_id: MappingId, value: ControlValue) {
-        let mapping = match self.control_mappings.get(&mapping_id) {
-            None => return,
-            Some(m) => m,
-        };
-        mapping.control(value);
     }
 
     fn send_feedback(

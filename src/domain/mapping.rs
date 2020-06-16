@@ -126,7 +126,7 @@ impl MainProcessorControlMapping {
         self.id
     }
 
-    pub fn control(&self, value: ControlValue) {
+    pub fn control(&mut self, value: ControlValue) {
         if let Some(final_value) = self.mode.control(value, &self.target) {
             self.target.control(final_value);
         }

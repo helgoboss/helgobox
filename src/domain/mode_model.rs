@@ -44,7 +44,7 @@ pub enum Mode {
 }
 
 impl Mode {
-    pub fn control(&self, value: ControlValue, target: &impl Target) -> Option<ControlValue> {
+    pub fn control(&mut self, value: ControlValue, target: &impl Target) -> Option<ControlValue> {
         use Mode::*;
         match self {
             Absolute(m) => m
@@ -190,6 +190,7 @@ impl ModeModel {
                 target_value_interval: self.target_value_interval.get(),
                 reverse: self.reverse.get(),
                 rotate: self.rotate.get(),
+                increment_counter: 0,
             }),
             Toggle => Mode::Toggle(ToggleMode {
                 target_value_interval: self.target_value_interval.get(),
