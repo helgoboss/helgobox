@@ -10,11 +10,11 @@ use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use std::cell::{Cell, RefCell};
 use std::ptr::null_mut;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
-// TODO Maybe call this SessionPanel
+// TODO-low Maybe call this SessionPanel
 pub struct MainPanel {
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
@@ -130,8 +130,10 @@ impl View for MainPanel {
     }
 }
 
-impl SessionUi for SharedView<MainPanel> {
+impl SessionUi for Weak<MainPanel> {
     fn show_mapping(&self, mapping: *const MappingModel) {
-        self.edit_mapping(mapping);
+        self.upgrade()
+            .expect("main panel not existing anymore")
+            .edit_mapping(mapping);
     }
 }

@@ -219,7 +219,11 @@ impl RealearnPlugin {
                 session_context,
                 real_time_sender,
                 main_processor_channel,
-                main_panel.clone(),
+                // It's important that we use a weak pointer here. Otherwise the session keeps a
+                // strong reference to the UI and the UI keeps strong references to the session.
+                // This results in UI stuff not being dropped when the plug-in is removed. It
+                // doesn't result in a crash, but there's no cleanup.
+                Rc::downgrade(&main_panel),
             );
             let shared_session = Rc::new(RefCell::new(session));
             session_manager::register_session(shared_session.clone());

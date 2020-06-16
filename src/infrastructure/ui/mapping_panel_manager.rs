@@ -2,6 +2,7 @@ use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
 use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use reaper_high::Reaper;
+use slog::debug;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -104,6 +105,7 @@ impl MappingPanelManager {
 
 impl Drop for MappingPanelManager {
     fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping mapping panel manager");
         // Those are (intentionally) REAPER child windows, not ReaLearn child windows. So we need to
         // close them manually as soon as ReaLearn is unloaded.
         self.close_all();
