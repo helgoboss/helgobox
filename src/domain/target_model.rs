@@ -4,7 +4,7 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_high::{Action, Fx, FxParameter, Project, Reaper, Track, TrackSend};
+use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::{CommandId, MasterTrackBehavior, TrackLocation};
 use rx_util::{Event, UnitEvent};
@@ -19,23 +19,28 @@ use std::rc::Rc;
 /// A model for creating targets
 #[derive(Clone, Debug)]
 pub struct TargetModel {
-    // For all targets
+    // # For all targets
     pub r#type: Prop<TargetType>,
-    // For action targets only
+    // # For action targets only
+    // TODO-low Maybe replace Action with just command ID and/or command name
     pub action: Prop<Option<Action>>,
     pub action_invocation_type: Prop<ActionInvocationType>,
-    // For track targets
+    // # For track targets
+    // TODO-low Maybe replace VirtualTrack::Particular(track) with Particular(GUID)
     pub track: Prop<VirtualTrack>,
     pub enable_only_if_track_selected: Prop<bool>,
-    // For track FX targets
+    // # For track FX targets
+    // Used for getting FX by index, e.g. when track is "<Selected>"
     pub fx_index: Prop<Option<u32>>,
+    // Used for tracking particular FX by GUID
+    pub fx_guid: Prop<Option<Guid>>,
     pub is_input_fx: Prop<bool>,
     pub enable_only_if_fx_has_focus: Prop<bool>,
-    // For track FX parameter targets
+    // # For track FX parameter targets
     pub param_index: Prop<u32>,
-    // For track send targets
+    // # For track send targets
     pub send_index: Prop<Option<u32>>,
-    // For track selection targets
+    // # For track selection targets
     pub select_exclusively: Prop<bool>,
 }
 
@@ -49,6 +54,7 @@ impl Default for TargetModel {
             enable_only_if_track_selected: prop(false),
             fx_index: prop(None),
             is_input_fx: prop(false),
+            fx_guid: prop(None),
             enable_only_if_fx_has_focus: prop(false),
             param_index: prop(0),
             send_index: prop(None),
@@ -58,6 +64,30 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
+    pub fn set_fx_index_and_memorize_guid(
+        &mut self,
+        context: &SessionContext,
+        fx_index: Option<u32>,
+    ) {
+        self.fx_index.set(fx_index);
+        let fx_guid = fx_index.and_then(|fx_index| {
+            let track = self.track.get_ref();
+            let is_input_fx = self.is_input_fx.get();
+            let fx = get_guid_based_fx_at_index(context, track, is_input_fx, fx_index).ok()?;
+            fx.guid()
+        });
+        self.fx_guid.set(fx_guid);
+    }
+
+    pub fn invalidate_fx_index(&mut self, context: &SessionContext) {
+        if !self.supports_fx() {
+            return;
+        }
+        if let Ok(fx) = self.with_context(context).fx() {
+            self.fx_index.set(Some(fx.index()));
+        }
+    }
+
     /// Notifies about other events which can affect the resulting `ReaperTarget`.
     ///
     /// The resulting `ReaperTarget` doesn't change only if one of our the model properties changes.
@@ -341,22 +371,30 @@ impl<'a> TargetModelWithContext<'a> {
     }
     // Returns an error if the FX doesn't exist.
     pub fn fx(&self) -> Result<Fx, &'static str> {
+        // Actually it's not that important whether we create an index-based or GUID-based FX.
+        // The session listeners will recreate and resync the FX whenever something has
+        // changed anyway.
+        let track = self.target.track.get_ref();
+        let is_input_fx = self.target.is_input_fx.get();
         let fx_index = self.target.fx_index.get().ok_or("FX index not set")?;
-        let track = self.effective_track()?;
-        let fx_chain = if self.target.is_input_fx.get() {
-            track.input_fx_chain()
+        if *track == VirtualTrack::Selected {
+            // When the target relates to the selected track, GUID-based FX doesn't make sense.
+            get_index_based_fx(&self.context, track, is_input_fx, fx_index)
         } else {
-            track.normal_fx_chain()
-        };
-        if *self.target.track.get_ref() == VirtualTrack::Selected {
-            let fx = fx_chain.fx_by_index_untracked(fx_index);
-            if !fx.is_available() {
-                return Err("no FX at that index in currently selected track");
-            } else {
-                Ok(fx)
+            let guid = self.target.fx_guid.get_ref().as_ref();
+            match guid {
+                None => get_index_based_fx(&self.context, track, is_input_fx, fx_index),
+                Some(guid) => {
+                    // Track by GUID because target relates to a very particular FX
+                    get_guid_based_fx_by_guid_with_index_hint(
+                        &self.context,
+                        track,
+                        is_input_fx,
+                        guid,
+                        fx_index,
+                    )
+                }
             }
-        } else {
-            fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
         }
     }
 
@@ -366,16 +404,7 @@ impl<'a> TargetModelWithContext<'a> {
 
     // TODO-low Consider returning a Cow
     pub fn effective_track(&self) -> Result<Track, &'static str> {
-        use VirtualTrack::*;
-        match self.target.track.get_ref() {
-            This => Ok(self.context.containing_fx().track().clone()),
-            Selected => self
-                .project()
-                .first_selected_track(IncludeMasterTrack)
-                .ok_or("no track selected"),
-            Master => Ok(self.project().master_track()),
-            Particular(track) => Ok(track.clone()),
-        }
+        get_effective_track(&self.context, self.target.track.get_ref())
     }
 
     // Returns an error if that send (or track) doesn't exist.
@@ -412,6 +441,77 @@ impl<'a> TargetModelWithContext<'a> {
 
     fn fx_param_label(&self) -> Cow<str> {
         get_fx_param_label(self.fx_param().ok().as_ref(), self.target.param_index.get())
+    }
+}
+
+pub fn get_fx_chain(
+    context: &SessionContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+) -> Result<FxChain, &'static str> {
+    let track = get_effective_track(context, track)?;
+    let result = if is_input_fx {
+        track.input_fx_chain()
+    } else {
+        track.normal_fx_chain()
+    };
+    Ok(result)
+}
+
+pub fn get_index_based_fx(
+    context: &SessionContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    let fx = fx_chain.fx_by_index_untracked(fx_index);
+    if !fx.is_available() {
+        return Err("no FX at that index");
+    }
+    Ok(fx)
+}
+
+pub fn get_guid_based_fx_at_index(
+    context: &SessionContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
+}
+
+pub fn get_guid_based_fx_by_guid_with_index_hint(
+    context: &SessionContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+    guid: &Guid,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    let fx = fx_chain.fx_by_guid_and_index(guid, fx_index);
+    // is_available() also invalidates the index if necessary
+    // TODO-low This is too implicit.
+    if !fx.is_available() {
+        return Err("no FX with that GUID");
+    }
+    Ok(fx)
+}
+
+pub fn get_effective_track(
+    context: &SessionContext,
+    track: &VirtualTrack,
+) -> Result<Track, &'static str> {
+    use VirtualTrack::*;
+    match track {
+        This => Ok(context.containing_fx().track().clone()),
+        Selected => context
+            .project()
+            .first_selected_track(IncludeMasterTrack)
+            .ok_or("no track selected"),
+        Master => Ok(context.project().master_track()),
+        Particular(track) => Ok(track.clone()),
     }
 }
 

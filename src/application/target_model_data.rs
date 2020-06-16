@@ -1,6 +1,9 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use crate::domain::{ActionInvocationType, SessionContext, TargetModel, TargetType, VirtualTrack};
+use crate::domain::{
+    get_guid_based_fx_at_index, ActionInvocationType, SessionContext, TargetModel, TargetType,
+    VirtualTrack,
+};
 use reaper_high::{Action, Guid, Project, Reaper, Track};
 use reaper_medium::{CommandId, ReaperString};
 use serde::{Deserialize, Serialize};
@@ -123,12 +126,23 @@ impl TargetModelData {
         model
             .action_invocation_type
             .set_without_notification(invocation_type);
-        let track = deserialize_track(&self.track_guid, &self.track_name, context.project())?;
-        model.track.set_without_notification(track);
+        let virtual_track =
+            deserialize_track(&self.track_guid, &self.track_name, context.project())?;
+        model.track.set_without_notification(virtual_track.clone());
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
+        // At loading time, we can reliably identify an FX using its index because the FX can't
+        // be moved around while the project is not loaded.
         model.fx_index.set_without_notification(self.fx_index);
+        // Therefore we just query the GUID from the FX at the given index.
+        let fx_guid = self.fx_index.and_then(|fx_index| {
+            let fx =
+                get_guid_based_fx_at_index(context, &virtual_track, self.is_input_fx, fx_index)
+                    .ok()?;
+            fx.guid()
+        });
+        model.fx_guid.set(fx_guid);
         model.is_input_fx.set_without_notification(self.is_input_fx);
         model
             .enable_only_if_fx_has_focus

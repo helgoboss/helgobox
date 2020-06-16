@@ -59,10 +59,10 @@ fn get_containing_fx(host: &HostCallback) -> Fx {
             .expect("couldn't find containing FX")
     } else if let Some(take) = unsafe { vst_context.request_containing_take(aeffect) } {
         let take = Take::new(take);
-        // TODO Fix this!
+        // TODO-medium Support usage as take FX
         take.fx_chain().fx_by_index_untracked(0)
     } else {
-        // TODO Fix this!
+        // TODO-medium Support usage as monitoring FX
         reaper.monitoring_fx_chain().fx_by_index_untracked(0)
     }
 }

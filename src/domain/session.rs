@@ -184,6 +184,13 @@ impl Session {
         .do_sync(move |s, _| {
             s.borrow().sync_settings_to_real_time_processor();
         });
+        // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
+        // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
+        when(Reaper::get().fx_reordered())
+            .with(&shared_session)
+            .do_sync(move |s, _| {
+                s.borrow().invalidate_fx_indexes_of_mapping_targets();
+            });
         // Enable source learning
         // TODO-low This could be handled by normal methods instead of observables, like source
         //  filter learning.
@@ -225,6 +232,14 @@ impl Session {
         });
     }
 
+    fn invalidate_fx_indexes_of_mapping_targets(&self) {
+        for m in self.mappings() {
+            m.borrow_mut()
+                .target_model
+                .invalidate_fx_index(&self.context);
+        }
+    }
+
     /// Settings are all the things displayed in the ReaLearn header panel.
     fn settings_changed(&self) -> impl UnitEvent {
         self.let_matched_events_through
@@ -258,27 +273,30 @@ impl Session {
                 let mapping = shared_mapping.borrow();
                 let shared_mapping_clone = shared_mapping.clone();
                 let mut all_subscriptions = LocalSubscription::default();
+                // Keep syncing to processors
                 {
-                    let subscription_1 = when(mapping.changed_processing_relevant())
+                    let subscription = when(mapping.changed_processing_relevant())
                         .with(shared_session)
                         .do_sync(move |session, _| {
                             let session = session.borrow();
                             session.sync_mapping_to_processors(&shared_mapping_clone.borrow());
                             session.mark_project_as_dirty();
                         });
-                    all_subscriptions.add(subscription_1);
+                    all_subscriptions.add(subscription);
                 }
+                // Keep marking project as dirty
                 {
-                    let subscription_2 = when(mapping.changed_non_processing_relevant())
+                    let subscription = when(mapping.changed_non_processing_relevant())
                         .with(shared_session)
                         .do_sync(|session, _| {
                             session.borrow().mark_project_as_dirty();
                         });
-                    all_subscriptions.add(subscription_2);
+                    all_subscriptions.add(subscription);
                 }
+                // Keep auto-detecting mode settings
                 if self.always_auto_detect.get() {
                     let session_context = self.context().clone();
-                    let subscription_3 = when(
+                    let subscription = when(
                         mapping
                             .source_model
                             .changed()
@@ -290,7 +308,7 @@ impl Session {
                             .borrow_mut()
                             .adjust_mode_if_necessary(&session_context);
                     });
-                    all_subscriptions.add(subscription_3);
+                    all_subscriptions.add(subscription);
                 }
                 SubscriptionGuard(all_subscriptions)
             })

@@ -764,7 +764,7 @@ impl<'a> MutableMappingPanel<'a> {
         if target.supports_fx() {
             let data = combo.selected_combo_box_item_data();
             let fx_index = if data == -1 { None } else { Some(data as u32) };
-            target.fx_index.set(fx_index);
+            target.set_fx_index_and_memorize_guid(self.session.context(), fx_index);
         } else if target.supports_send() {
             let data = combo.selected_combo_box_item_data();
             let send_index = if data == -1 { None } else { Some(data as u32) };
