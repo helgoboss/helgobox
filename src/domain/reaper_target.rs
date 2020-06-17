@@ -701,6 +701,9 @@ fn convert_count_to_step_size(n: u32) -> UnitValue {
     // Dividing 1.0 by n would divide the unit interval (0..=1) into n same-sized
     // sub intervals, which means we would have n + 1 possible values. We want to
     // represent just n values, so we need n - 1 same-sized sub intervals.
+    if n == 1 {
+        return UnitValue::MAX;
+    }
     UnitValue::new(1.0 / (n - 1) as f64)
 }
 

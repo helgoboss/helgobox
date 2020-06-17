@@ -1,5 +1,5 @@
 use crate::domain::{ModeModel, ModeType};
-use helgoboss_learn::{Interval, UnitValue};
+use helgoboss_learn::{Interval, SymmetricUnitValue, UnitValue};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -12,12 +12,11 @@ pub struct ModeModelData {
     max_target_value: UnitValue,
     min_target_jump: UnitValue,
     max_target_jump: UnitValue,
-    min_step_size: UnitValue,
-    max_step_size: UnitValue,
+    min_step_size: SymmetricUnitValue,
+    max_step_size: SymmetricUnitValue,
     eel_control_transformation: String,
     eel_feedback_transformation: String,
     reverse_is_enabled: bool,
-    throttle: bool,
     ignore_out_of_range_source_values_is_enabled: bool,
     round_target_value: bool,
     scale_mode_enabled: bool,
@@ -34,12 +33,11 @@ impl Default for ModeModelData {
             max_target_value: UnitValue::MAX,
             min_target_jump: UnitValue::MIN,
             max_target_jump: UnitValue::MAX,
-            min_step_size: UnitValue::new(0.01),
-            max_step_size: UnitValue::new(0.01),
+            min_step_size: SymmetricUnitValue::new(0.01),
+            max_step_size: SymmetricUnitValue::new(0.01),
             eel_control_transformation: "".to_string(),
             eel_feedback_transformation: "".to_string(),
             reverse_is_enabled: false,
-            throttle: false,
             ignore_out_of_range_source_values_is_enabled: false,
             round_target_value: false,
             scale_mode_enabled: false,
@@ -52,18 +50,17 @@ impl ModeModelData {
     pub fn from_model(model: &ModeModel) -> Self {
         Self {
             r#type: model.r#type.get(),
-            min_source_value: model.source_value_interval.get_ref().min(),
-            max_source_value: model.source_value_interval.get_ref().max(),
-            min_target_value: model.target_value_interval.get_ref().min(),
-            max_target_value: model.target_value_interval.get_ref().max(),
-            min_target_jump: model.jump_interval.get_ref().min(),
-            max_target_jump: model.jump_interval.get_ref().max(),
-            min_step_size: model.step_size_interval.get_ref().min(),
-            max_step_size: model.step_size_interval.get_ref().max(),
+            min_source_value: model.source_value_interval.get_ref().min_val(),
+            max_source_value: model.source_value_interval.get_ref().max_val(),
+            min_target_value: model.target_value_interval.get_ref().min_val(),
+            max_target_value: model.target_value_interval.get_ref().max_val(),
+            min_target_jump: model.jump_interval.get_ref().min_val(),
+            max_target_jump: model.jump_interval.get_ref().max_val(),
+            min_step_size: model.step_interval.get_ref().min_val(),
+            max_step_size: model.step_interval.get_ref().max_val(),
             eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
             eel_feedback_transformation: model.eel_feedback_transformation.get_ref().clone(),
             reverse_is_enabled: model.reverse.get(),
-            throttle: model.throttle.get(),
             ignore_out_of_range_source_values_is_enabled: model
                 .ignore_out_of_range_source_values
                 .get(),
@@ -82,7 +79,7 @@ impl ModeModelData {
             .target_value_interval
             .set_without_notification(Interval::new(self.min_target_value, self.max_target_value));
         model
-            .step_size_interval
+            .step_interval
             .set_without_notification(Interval::new(self.min_step_size, self.max_step_size));
         model
             .jump_interval
@@ -96,7 +93,6 @@ impl ModeModelData {
         model
             .reverse
             .set_without_notification(self.reverse_is_enabled);
-        model.throttle.set_without_notification(self.throttle);
         model
             .ignore_out_of_range_source_values
             .set_without_notification(self.ignore_out_of_range_source_values_is_enabled);

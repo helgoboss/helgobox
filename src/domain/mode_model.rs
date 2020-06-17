@@ -4,8 +4,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, DiscreteValue, Interval,
-    MidiClockTransportMessage, MidiSource, RelativeMode, SourceCharacter, Target, ToggleMode,
-    Transformation, UnitValue,
+    MidiClockTransportMessage, MidiSource, RelativeMode, SourceCharacter, SymmetricUnitValue,
+    Target, ToggleMode, Transformation, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -30,9 +30,10 @@ pub struct ModeModel {
     pub eel_control_transformation: Prop<String>,
     pub eel_feedback_transformation: Prop<String>,
     // For relative mode
-    pub step_size_interval: Prop<Interval<UnitValue>>,
+    // Depending on the target character, this is either a step count or a step size. If it's a
+    // step count, negative values represent fractions (a slow-down).
+    pub step_interval: Prop<Interval<SymmetricUnitValue>>,
     pub rotate: Prop<bool>,
-    pub throttle: Prop<bool>,
 }
 
 // Represents a learn mode
@@ -101,9 +102,8 @@ impl Default for ModeModel {
             approach_target_value: prop(false),
             eel_control_transformation: prop(String::new()),
             eel_feedback_transformation: prop(String::new()),
-            step_size_interval: prop(Self::default_step_size_interval()),
+            step_interval: prop(Self::default_step_size_interval()),
             rotate: prop(false),
-            throttle: prop(false),
         }
     }
 }
@@ -113,8 +113,8 @@ impl ModeModel {
         Interval::new(DiscreteValue::new(1), DiscreteValue::new(1))
     }
 
-    pub fn default_step_size_interval() -> Interval<UnitValue> {
-        Interval::new(UnitValue::new(0.01), UnitValue::new(0.01))
+    pub fn default_step_size_interval() -> Interval<SymmetricUnitValue> {
+        Interval::new(SymmetricUnitValue::new(0.01), SymmetricUnitValue::new(0.01))
     }
 
     /// This doesn't reset the mode type, just all the values.
@@ -136,7 +136,7 @@ impl ModeModel {
             .set(def.approach_target_value.get());
         self.rotate.set(def.rotate.get());
         self.reverse.set(def.reverse.get());
-        self.step_size_interval.set(def.step_size_interval.get());
+        self.step_interval.set(def.step_interval.get());
     }
 
     /// Fires whenever one of the properties of this model has changed
@@ -146,14 +146,13 @@ impl ModeModel {
             .merge(self.target_value_interval.changed())
             .merge(self.source_value_interval.changed())
             .merge(self.reverse.changed())
-            .merge(self.throttle.changed())
             .merge(self.jump_interval.changed())
             .merge(self.ignore_out_of_range_source_values.changed())
             .merge(self.round_target_value.changed())
             .merge(self.approach_target_value.changed())
             .merge(self.eel_control_transformation.changed())
             .merge(self.eel_feedback_transformation.changed())
-            .merge(self.step_size_interval.changed())
+            .merge(self.step_interval.changed())
             .merge(self.rotate.changed())
     }
 
@@ -183,10 +182,10 @@ impl ModeModel {
             Relative => Mode::Relative(RelativeMode {
                 source_value_interval: self.source_value_interval.get(),
                 step_count_interval: Interval::new(
-                    self.convert_to_step_count(self.step_size_interval.get_ref().min()),
-                    self.convert_to_step_count(self.step_size_interval.get_ref().max()),
+                    convert_to_step_count(self.step_interval.get_ref().min_val()),
+                    convert_to_step_count(self.step_interval.get_ref().max_val()),
                 ),
-                step_size_interval: self.step_size_interval.get(),
+                step_size_interval: self.positive_step_size_interval(),
                 target_value_interval: self.target_value_interval.get(),
                 reverse: self.reverse.get(),
                 rotate: self.rotate.get(),
@@ -198,41 +197,9 @@ impl ModeModel {
         }
     }
 
-    pub fn convert_positive_factor_to_unit_value(
-        &self,
-        factor: u32,
-    ) -> Result<UnitValue, &'static str> {
-        if factor < 1 || factor > 100 {
-            return Err("invalid step count");
-        }
-        // 1 to 100
-        let values_count = 100;
-        Ok(UnitValue::new(factor as f64 / (values_count - 1) as f64))
-    }
-
-    pub fn convert_unit_value_to_positive_factor(&self, unit_value: UnitValue) -> u32 {
-        self.convert_to_step_count(unit_value).get().abs() as _
-    }
-
-    fn convert_to_step_count(&self, value: UnitValue) -> DiscreteIncrement {
-        let inc = value.map_from_unit_interval_to_discrete_increment(&Interval::new(
-            DiscreteIncrement::new(1),
-            DiscreteIncrement::new(100),
-        ));
-        if self.throttle.get() {
-            inc.inverse()
-        } else {
-            inc
-        }
-    }
-
     pub fn supports_reverse(&self) -> bool {
         use ModeType::*;
         matches!(self.r#type.get(), Absolute | Relative)
-    }
-
-    pub fn supports_throttle(&self, target_should_be_hit_with_increments: bool) -> bool {
-        self.r#type.get() == ModeType::Relative && target_should_be_hit_with_increments
     }
 
     pub fn supports_ignore_out_of_range_source_values(&self) -> bool {
@@ -266,4 +233,37 @@ impl ModeModel {
     pub fn supports_rotate(&self) -> bool {
         self.r#type.get() == ModeType::Relative
     }
+
+    fn positive_step_size_interval(&self) -> Interval<UnitValue> {
+        Interval::new_auto(
+            self.step_interval.get_ref().min_val().abs(),
+            self.step_interval.get_ref().max_val().abs(),
+        )
+    }
+}
+
+pub fn convert_factor_to_unit_value(factor: i32) -> Result<SymmetricUnitValue, &'static str> {
+    if factor < -100 || factor > 100 {
+        return Err("invalid factor");
+    }
+    let result = if factor == 0 {
+        0.01
+    } else {
+        factor as f64 / 100.0
+    };
+    Ok(SymmetricUnitValue::new(result))
+}
+
+pub fn convert_unit_value_to_factor(value: SymmetricUnitValue) -> i32 {
+    // -1.00 => -100
+    // -0.01 =>   -1
+    //  0.00 =>    1
+    //  0.01 =>    1
+    //  1.00 =>  100
+    let tmp = (value.get() * 100.0).round() as i32;
+    if tmp == 0 { 1 } else { tmp }
+}
+
+fn convert_to_step_count(value: SymmetricUnitValue) -> DiscreteIncrement {
+    DiscreteIncrement::new(convert_unit_value_to_factor(value))
 }

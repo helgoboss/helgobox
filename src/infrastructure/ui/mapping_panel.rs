@@ -1,5 +1,5 @@
 use crate::core::when;
-use crate::domain::SharedSession;
+use crate::domain::{convert_factor_to_unit_value, convert_unit_value_to_factor, SharedSession};
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
     MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
@@ -11,8 +11,8 @@ use crate::infrastructure::ui::{MainPanel, MappingRowsPanel};
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter, Target,
-    UnitValue,
+    ControlValue, DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter,
+    SymmetricUnitValue, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{Action, MidiInputDevice, MidiOutputDevice, Reaper, Track};
@@ -473,14 +473,6 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_mode_throttle(&mut self) {
-        self.mapping.mode_model.throttle.set(
-            self.view
-                .require_control(root::ID_MODE_THROTTLE_CHECK_BOX)
-                .is_checked(),
-        );
-    }
-
     fn reset_mode(&mut self) {
         self.mapping.reset_mode(self.session.context());
     }
@@ -579,36 +571,33 @@ impl<'a> MutableMappingPanel<'a> {
     fn update_mode_min_step_size_from_edit_control(&mut self) {
         let value = self
             .get_value_from_step_size_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-            .unwrap_or(UnitValue::MIN);
+            .unwrap_or(UnitValue::MIN.to_symmetric());
         self.mapping
             .mode_model
-            .step_size_interval
+            .step_interval
             .set_with(|prev| prev.with_min(value));
     }
 
-    fn get_value_from_step_size_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
-        if self
-            .mapping
-            .with_context(self.session.context())
-            .target_should_be_hit_with_increments()
-        {
+    fn get_value_from_step_size_edit_control(
+        &self,
+        edit_control_id: u32,
+    ) -> Option<SymmetricUnitValue> {
+        if self.mapping_uses_step_counts() {
             let text = self.view.require_control(edit_control_id).text().ok()?;
-            self.mapping
-                .mode_model
-                .convert_positive_factor_to_unit_value(text.parse().ok()?)
-                .ok()
+            convert_factor_to_unit_value(text.parse().ok()?).ok()
         } else {
             self.get_value_from_target_edit_control(edit_control_id)
+                .map(|v| v.to_symmetric())
         }
     }
 
     fn update_mode_max_step_size_from_edit_control(&mut self) {
         let value = self
             .get_value_from_step_size_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-            .unwrap_or(UnitValue::MAX);
+            .unwrap_or(SymmetricUnitValue::MAX);
         self.mapping
             .mode_model
-            .step_size_interval
+            .step_interval
             .set_with(|prev| prev.with_max(value));
     }
 
@@ -665,17 +654,29 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_step_size_from_slider(&mut self, slider: Window) {
-        self.mapping
-            .mode_model
-            .step_size_interval
-            .set_with(|prev| prev.with_min(slider.slider_unit_value()));
+        let step_counts = self.mapping_uses_step_counts();
+        let prop = &mut self.mapping.mode_model.step_interval;
+        if step_counts {
+            prop.set_with(|prev| prev.with_min(slider.slider_symmetric_unit_value()));
+        } else {
+            prop.set_with(|prev| prev.with_min(slider.slider_unit_value().to_symmetric()));
+        }
     }
 
     fn update_mode_max_step_size_from_slider(&mut self, slider: Window) {
+        let step_counts = self.mapping_uses_step_counts();
+        let prop = &mut self.mapping.mode_model.step_interval;
+        if step_counts {
+            prop.set_with(|prev| prev.with_max(slider.slider_symmetric_unit_value()));
+        } else {
+            prop.set_with(|prev| prev.with_max(slider.slider_unit_value().to_symmetric()));
+        }
+    }
+
+    fn mapping_uses_step_counts(&self) -> bool {
         self.mapping
-            .mode_model
-            .step_size_interval
-            .set_with(|prev| prev.with_max(slider.slider_unit_value()));
+            .with_context(self.session.context())
+            .uses_step_counts()
     }
 
     fn update_mode_min_jump_from_slider(&mut self, slider: Window) {
@@ -739,11 +740,9 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX)
             .selected_combo_box_item_data();
-        let mut target = &mut self.mapping.target_model;
-        if target.supports_track() {
+        if self.mapping.target_model.supports_track() {
             use VirtualTrack::*;
-            let target_with_context = target.with_context(self.session.context());
-            let project = target_with_context.project();
+            let project = self.target_with_context().project();
             let track = match data {
                 -3 => This,
                 -2 => Selected,
@@ -754,9 +753,15 @@ impl<'a> MutableMappingPanel<'a> {
                         .ok_or("track not existing")?,
                 ),
             };
-            target.track.set(track);
+            self.mapping.target_model.track.set(track);
         }
         Ok(())
+    }
+
+    fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
+        self.mapping
+            .target_model
+            .with_context(self.session.context())
     }
 
     fn update_target_from_combo_box_three(&mut self) -> Result<(), &'static str> {
@@ -1080,10 +1085,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             (-2isize, VirtualTrack::Selected),
             (-1isize, VirtualTrack::Master),
         ];
-        let target = self.target;
-        let session = self.session;
-        let target_with_context = target.with_context(session.context());
-        let project = target_with_context.project();
+        let project = self.target_with_context().project();
         v.extend(
             project
                 .tracks()
@@ -1091,6 +1093,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .map(|(i, track)| (i as isize, VirtualTrack::Particular(track))),
         );
         combo.fill_combo_box_with_data_vec(v);
+    }
+
+    fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
+        self.mapping
+            .target_model
+            .with_context(self.session.context())
     }
 
     fn set_target_track_combo_box_value(&self, combo: Window) {
@@ -1142,10 +1150,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_target_send_combo_box(&self, label: Window, combo: Window) {
         label.set_text("Send");
-        let target = self.target;
-        let session = self.session;
-        let target_with_context = target.with_context(session.context());
-        let track = match target_with_context.effective_track().ok() {
+        let track = match self.target_with_context().effective_track().ok() {
             None => {
                 combo.clear_combo_box();
                 return;
@@ -1181,10 +1186,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn fill_target_fx_param_combo_box(&self, combo: Window) {
-        let target = self.target;
-        let session = self.session;
-        let target_with_context = target.with_context(session.context());
-        let fx = match target_with_context.fx().ok() {
+        let fx = match self.target_with_context().fx().ok() {
             None => {
                 combo.clear_combo_box();
                 return;
@@ -1216,17 +1218,14 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_target_fx_combo_box(&self, label: Window, combo: Window) {
         label.set_text("FX");
-        let target = self.target;
-        let session = self.session;
-        let target_with_context = target.with_context(session.context());
-        let track = match target_with_context.effective_track().ok() {
+        let track = match self.target_with_context().effective_track().ok() {
             None => {
                 combo.clear_combo_box();
                 return;
             }
             Some(t) => t,
         };
-        let fx_chain = if target.is_input_fx.get() {
+        let fx_chain = if self.target.is_input_fx.get() {
             track.input_fx_chain()
         } else {
             track.normal_fx_chain()
@@ -1423,7 +1422,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_round_target_value_check_box();
         self.invalidate_mode_approach_check_box();
         self.invalidate_mode_reverse_check_box();
-        self.invalidate_mode_throttle_check_box();
         self.invalidate_mode_eel_control_transformation_edit_control();
         self.invalidate_mode_eel_feedback_transformation_edit_control();
     }
@@ -1439,19 +1437,15 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_control_visibilities();
     }
 
-    fn invalidate_mode_control_labels(&self) {
-        // TODO-low Instead of always constructing the TargetWithContext object, we could provide
-        //  a use_target_with_context(|t| t) function.
-        let step_label = if self
-            .mapping
+    fn mapping_uses_step_counts(&self) -> bool {
+        self.mapping
             .with_context(self.session.context())
-            .target_should_be_hit_with_increments()
-        {
-            if self.mapping.mode_model.throttle.get() {
-                "Slowness"
-            } else {
-                "Speed"
-            }
+            .uses_step_counts()
+    }
+
+    fn invalidate_mode_control_labels(&self) {
+        let step_label = if self.mapping_uses_step_counts() {
+            "Speed"
         } else {
             "Step size"
         };
@@ -1461,23 +1455,15 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_control_visibilities(&self) {
-        let (session, mapping, mode, target) = (self.session, self.mapping, self.mode, self.target);
-        let target_with_context = target.with_context(session.context());
+        let mode = self.mode;
         self.show_if(
-            mode.supports_round_target_value() && target_with_context.is_known_to_be_roundable(),
+            mode.supports_round_target_value()
+                && self.target_with_context().is_known_to_be_roundable(),
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
         );
         self.show_if(
             mode.supports_reverse(),
             &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
-        );
-        self.show_if(
-            mode.supports_throttle(
-                self.mapping
-                    .with_context(self.session.context())
-                    .target_should_be_hit_with_increments(),
-            ),
-            &[root::ID_MODE_THROTTLE_CHECK_BOX],
         );
         self.show_if(
             mode.supports_approach_target_value(),
@@ -1503,12 +1489,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
             ],
         );
-        let show_value_text = mapping
-            .with_context(session.context())
-            .target_should_be_hit_with_increments()
-            || !target_with_context.is_known_to_be_discrete();
         self.show_if(
-            mode.supports_step_size() && show_value_text,
+            mode.supports_step_size(),
             &[
                 root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
                 root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
@@ -1560,7 +1542,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
-            self.mode.source_value_interval.get_ref().min(),
+            self.mode.source_value_interval.get_ref().min_val(),
         );
     }
 
@@ -1568,7 +1550,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
-            self.mode.source_value_interval.get_ref().max(),
+            self.mode.source_value_interval.get_ref().max_val(),
         );
     }
 
@@ -1595,7 +1577,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
-            self.mode.target_value_interval.get_ref().min(),
+            self.mode.target_value_interval.get_ref().min_val(),
         );
     }
 
@@ -1604,7 +1586,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
-            self.mode.target_value_interval.get_ref().max(),
+            self.mode.target_value_interval.get_ref().max_val(),
         );
     }
 
@@ -1658,7 +1640,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-            self.mode.jump_interval.get_ref().min(),
+            self.mode.jump_interval.get_ref().min_val(),
         );
     }
 
@@ -1667,7 +1649,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-            self.mode.jump_interval.get_ref().max(),
+            self.mode.jump_interval.get_ref().max_val(),
         );
     }
 
@@ -1681,7 +1663,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-            self.mode.step_size_interval.get_ref().min(),
+            self.mode.step_interval.get_ref().min_val(),
         );
     }
 
@@ -1690,7 +1672,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-            self.mode.step_size_interval.get_ref().max(),
+            self.mode.step_interval.get_ref().max_val(),
         );
     }
 
@@ -1699,40 +1681,45 @@ impl<'a> ImmutableMappingPanel<'a> {
         slider_control_id: u32,
         edit_control_id: u32,
         value_text_control_id: u32,
-        value: UnitValue,
+        value: SymmetricUnitValue,
     ) {
-        let (session, mapping) = (self.session, self.mapping);
-        let (edit_text, value_text) = match &self.real_target() {
+        let (val, edit_text, value_text) = match &self.real_target() {
             Some(target) => {
-                let send_increments = mapping
-                    .with_context(session.context())
-                    .target_should_be_hit_with_increments();
-                let is_discrete = target.character() == TargetCharacter::Discrete;
-                if send_increments || is_discrete {
-                    let edit_text = self
-                        .mapping
-                        .mode_model
-                        .convert_unit_value_to_positive_factor(value)
-                        .to_string();
-                    if send_increments {
-                        // "count {x}"
-                        (edit_text, "x".to_string())
-                    } else {
-                        // "count"
-                        (edit_text, "".to_string())
-                    }
+                if self.mapping_uses_step_counts() {
+                    let edit_text = convert_unit_value_to_factor(value).to_string();
+                    let val = PositiveOrSymmetricUnitValue::Symmetric(value);
+                    // "count {x}"
+                    (val, edit_text, "x".to_string())
                 } else {
                     // "{size} {unit}"
-                    let edit_text = target.format_value_without_unit(value);
-                    let value_text = self.get_text_right_to_target_edit_control(target, value);
-                    (edit_text, value_text)
+                    let pos_value = value.clamp_to_positive_unit_interval();
+                    let edit_text = target.format_value_without_unit(pos_value);
+                    let value_text = self.get_text_right_to_target_edit_control(target, pos_value);
+                    (
+                        PositiveOrSymmetricUnitValue::Positive(pos_value),
+                        edit_text,
+                        value_text,
+                    )
                 }
             }
-            None => ("".to_string(), "".to_string()),
+            None => (
+                PositiveOrSymmetricUnitValue::Positive(UnitValue::MIN),
+                "".to_string(),
+                "".to_string(),
+            ),
         };
-        self.view
-            .require_control(slider_control_id)
-            .set_slider_unit_value(value);
+        match val {
+            PositiveOrSymmetricUnitValue::Positive(v) => {
+                self.view
+                    .require_control(slider_control_id)
+                    .set_slider_unit_value(v);
+            }
+            PositiveOrSymmetricUnitValue::Symmetric(v) => {
+                self.view
+                    .require_control(slider_control_id)
+                    .set_slider_symmetric_unit_value(v);
+            }
+        }
         self.view
             .require_control(edit_control_id)
             .set_text_if_not_focused(edit_text);
@@ -1769,12 +1756,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
             .set_checked(self.mode.reverse.get());
-    }
-
-    fn invalidate_mode_throttle_check_box(&self) {
-        self.view
-            .require_control(root::ID_MODE_THROTTLE_CHECK_BOX)
-            .set_checked(self.mode.throttle.get());
     }
 
     fn invalidate_mode_eel_control_transformation_edit_control(&self) {
@@ -1857,7 +1838,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_max_jump_controls();
             });
         self.panel
-            .when_do_sync(mode.step_size_interval.changed(), |view| {
+            .when_do_sync(mode.step_interval.changed(), |view| {
                 view.invalidate_mode_step_size_controls();
             });
         self.panel
@@ -1877,9 +1858,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         });
         self.panel.when_do_sync(mode.reverse.changed(), |view| {
             view.invalidate_mode_reverse_check_box();
-        });
-        self.panel.when_do_sync(mode.throttle.changed(), |view| {
-            view.invalidate_mode_controls();
         });
         self.panel
             .when_do_sync(mode.eel_control_transformation.changed(), |view| {
@@ -1938,10 +1916,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn real_target(&self) -> Option<ReaperTarget> {
-        self.target
-            .with_context(self.session.context())
-            .create_target()
-            .ok()
+        self.target_with_context().create_target().ok()
     }
 }
 
@@ -1999,7 +1974,6 @@ impl View for MappingPanel {
             }
             ID_SETTINGS_SCALE_MODE_CHECK_BOX => self.write(|p| p.update_mode_approach()),
             ID_SETTINGS_REVERSE_CHECK_BOX => self.write(|p| p.update_mode_reverse()),
-            ID_MODE_THROTTLE_CHECK_BOX => self.write(|p| p.update_mode_throttle()),
             ID_SETTINGS_RESET_BUTTON => self.write(|p| p.reset_mode()),
             // Target
             ID_TARGET_INPUT_FX_CHECK_BOX => self.write(|p| p.update_target_is_input_fx()),
@@ -2155,7 +2129,9 @@ impl View for MappingPanel {
 
 trait WindowExt {
     fn slider_unit_value(&self) -> UnitValue;
+    fn slider_symmetric_unit_value(&self) -> SymmetricUnitValue;
     fn set_slider_unit_value(&self, value: UnitValue);
+    fn set_slider_symmetric_unit_value(&self, value: SymmetricUnitValue);
 }
 
 impl WindowExt for Window {
@@ -2164,11 +2140,23 @@ impl WindowExt for Window {
         UnitValue::new(discrete_value as f64 / 100.0)
     }
 
+    fn slider_symmetric_unit_value(&self) -> SymmetricUnitValue {
+        self.slider_unit_value().map_to_symmetric_unit_interval()
+    }
+
     fn set_slider_unit_value(&self, value: UnitValue) {
         // TODO-low Refactor that map_to_interval stuff to be more generic and less boilerplate
-        let slider_interval = Interval::new(DiscreteValue::new(0), DiscreteValue::new(100));
-        self.set_slider_range(slider_interval.min().get(), slider_interval.max().get());
-        let discrete_value = value.map_from_unit_interval_to_discrete(&slider_interval);
-        self.set_slider_value(discrete_value.get());
+        self.set_slider_range(0, 100);
+        let val = (value.get() * 100.0).round() as u32;
+        self.set_slider_value(val);
     }
+
+    fn set_slider_symmetric_unit_value(&self, value: SymmetricUnitValue) {
+        self.set_slider_unit_value(value.map_to_positive_unit_interval());
+    }
+}
+
+enum PositiveOrSymmetricUnitValue {
+    Positive(UnitValue),
+    Symmetric(SymmetricUnitValue),
 }

@@ -110,4 +110,3 @@
 #define ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT  40074
 #define ID_OK                                   40075
 #define ID_TARGET_ACTION_LABEL_TEXT             40076
-#define ID_MODE_THROTTLE_CHECK_BOX              40077

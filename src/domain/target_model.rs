@@ -356,7 +356,7 @@ impl<'a> TargetModelWithContext<'a> {
             .unwrap_or(false)
     }
 
-    pub fn is_known_to_want_increments(&self) -> bool {
+    pub fn is_known_to_be_relative(&self) -> bool {
         // TODO-low use cached
         self.create_target()
             .map(|t| t.control_type().is_relative())

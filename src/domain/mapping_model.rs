@@ -1,10 +1,10 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    MainProcessorControlMapping, MappingId, MidiSourceModel, ModeModel, ModeType, ProcessorMapping,
-    RealTimeProcessorControlMapping, ReaperTarget, SessionContext, SharedMapping, TargetCharacter,
-    TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, MainProcessorControlMapping, MappingId, MidiSourceModel,
+    ModeModel, ModeType, ProcessorMapping, RealTimeProcessorControlMapping, ReaperTarget,
+    SessionContext, SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext,
 };
-use helgoboss_learn::{Interval, SourceCharacter, Target, UnitValue};
+use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 use reaper_high::Fx;
 use rx_util::{BoxedUnitEvent, UnitEvent};
 use rxrust::prelude::ops::box_it::{BoxObservable, LocalBoxOp};
@@ -96,8 +96,8 @@ impl MappingModel {
     // Changes mode settings if there are some preferred ones for a certain source or target.
     pub fn set_preferred_mode_values(&mut self, context: &SessionContext) {
         self.mode_model
-            .step_size_interval
-            .set(self.with_context(context).preferred_step_size_interval())
+            .step_interval
+            .set(self.with_context(context).preferred_step_interval())
     }
 
     /// Fires whenever a property has changed that doesn't have an effect on control/feedback
@@ -228,16 +228,22 @@ impl<'a> MappingModelWithContext<'a> {
         Ok(result)
     }
 
-    pub fn target_should_be_hit_with_increments(&self) -> bool {
+    pub fn uses_step_counts(&self) -> bool {
         let target = self.target_with_context();
-        target.is_known_to_want_increments()
-            || (self.mapping.source_model.emits_increments() && target.is_known_to_be_discrete())
+        target.is_known_to_be_relative() || target.is_known_to_be_discrete()
     }
 
-    fn preferred_step_size_interval(&self) -> Interval<UnitValue> {
-        match self.target_step_size() {
-            Some(step_size) => Interval::new(step_size, step_size),
-            None => ModeModel::default_step_size_interval(),
+    fn preferred_step_interval(&self) -> Interval<SymmetricUnitValue> {
+        if self.uses_step_counts() {
+            let one_step = convert_factor_to_unit_value(1).expect("impossible");
+            Interval::new(one_step, one_step)
+        } else {
+            match self.target_step_size() {
+                Some(step_size) => {
+                    Interval::new(step_size.to_symmetric(), step_size.to_symmetric())
+                }
+                None => ModeModel::default_step_size_interval(),
+            }
         }
     }
 
