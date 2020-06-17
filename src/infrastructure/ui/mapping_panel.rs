@@ -501,13 +501,13 @@ impl<'a> MutableMappingPanel<'a> {
     fn get_value_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         let target = self.real_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
-        if target.character() == TargetCharacter::Discrete {
-            target
-                .convert_discrete_value_to_unit_value(text.parse().ok()?)
-                .ok()
-        } else {
-            target.parse_unit_value(text.as_str()).ok()
-        }
+        target.parse_as_value(text.as_str()).ok()
+    }
+
+    fn get_step_size_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
+        let target = self.real_target()?;
+        let text = self.view.require_control(edit_control_id).text().ok()?;
+        target.parse_as_step_size(text.as_str()).ok()
     }
 
     fn update_mode_max_target_value_from_edit_control(&mut self) {
@@ -586,7 +586,7 @@ impl<'a> MutableMappingPanel<'a> {
             let text = self.view.require_control(edit_control_id).text().ok()?;
             convert_factor_to_unit_value(text.parse().ok()?).ok()
         } else {
-            self.get_value_from_target_edit_control(edit_control_id)
+            self.get_step_size_from_target_edit_control(edit_control_id)
                 .map(|v| v.to_symmetric())
         }
     }
@@ -1623,15 +1623,31 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(value_text);
     }
 
+    fn get_text_right_to_step_size_edit_control(
+        &self,
+        t: &ReaperTarget,
+        step_size: UnitValue,
+    ) -> String {
+        if t.hide_formatted_step_size() {
+            t.step_size_unit().to_string()
+        } else {
+            format!(
+                "{}  {}",
+                t.step_size_unit(),
+                t.format_step_size_without_unit(step_size)
+            )
+        }
+    }
+
     fn get_text_right_to_target_edit_control(&self, t: &ReaperTarget, value: UnitValue) -> String {
-        if t.can_parse_values() {
-            t.unit().to_string()
+        if t.hide_formatted_value() {
+            t.value_unit().to_string()
         } else if t.character() == TargetCharacter::Discrete {
             // Please note that discrete FX parameters can only show their *current* value,
             // unless they implement the REAPER VST extension functions.
             t.format_value(value)
         } else {
-            format!("{}  {}", t.unit(), t.format_value(value))
+            format!("{}  {}", t.value_unit(), t.format_value(value))
         }
     }
 
@@ -1693,8 +1709,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 } else {
                     // "{size} {unit}"
                     let pos_value = value.clamp_to_positive_unit_interval();
-                    let edit_text = target.format_value_without_unit(pos_value);
-                    let value_text = self.get_text_right_to_target_edit_control(target, pos_value);
+                    let edit_text = target.format_step_size_without_unit(pos_value);
+                    let value_text =
+                        self.get_text_right_to_step_size_edit_control(target, pos_value);
                     (
                         PositiveOrSymmetricUnitValue::Positive(pos_value),
                         edit_text,
