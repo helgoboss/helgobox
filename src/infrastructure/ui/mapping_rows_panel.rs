@@ -298,6 +298,7 @@ impl View for MappingRowsPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
+        #[cfg(target_family = "unix")]
         unsafe {
             Reaper::get()
                 .medium_reaper()
@@ -313,6 +314,7 @@ impl View for MappingRowsPanel {
     }
 
     fn closed(self: SharedView<Self>, window: Window) {
+        #[cfg(target_family = "unix")]
         unsafe {
             Reaper::get()
                 .medium_reaper()
