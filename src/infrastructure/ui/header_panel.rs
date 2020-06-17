@@ -52,8 +52,7 @@ impl HeaderPanel {
                     .borrow()
                     .midi_source_touched()
                     .take_until(learning.changed_to(false))
-                    .take_until(self.view.closed())
-                    .take(1),
+                    .take_until(self.view.closed()),
             )
             .with(&self.main_state)
             .finally(|main_state| {

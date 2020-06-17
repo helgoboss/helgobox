@@ -290,7 +290,6 @@ impl RealTimeProcessor {
     fn learn_source(&mut self, source: MidiSource) {
         self.main_processor_sender
             .send(MainProcessorTask::LearnSource(source));
-        self.control_state = ControlState::Controlling;
     }
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
