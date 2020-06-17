@@ -1,5 +1,5 @@
 use crate::domain::ActionInvocationType;
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, Interval, Target, UnitValue};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
     Tempo, Track, TrackSend, Volume,
@@ -237,30 +237,44 @@ impl ReaperTarget {
                     .format_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
                     .into_string()
             }
-            TrackVolume { .. } | TrackSendVolume { .. } => format_as_db(value),
-            TrackPan { .. } | TrackSendPan { .. } => format_as_pan(value),
+            TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db(value),
+            TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
             FxEnable { .. }
             | TrackArm { .. }
             | TrackMute { .. }
             | TrackSelection { .. }
-            | TrackSolo { .. } => format_as_on_off(value).to_string(),
+            | TrackSolo { .. } => format_value_as_on_off(value).to_string(),
             FxPreset { fx } => match convert_unit_value_to_preset_index(fx, value) {
                 None => "<No preset>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
-            _ => format!("{} {}", self.format_value_without_unit(value), self.unit()),
+            _ => format!(
+                "{} {}",
+                self.format_value_without_unit(value),
+                self.value_unit()
+            ),
         }
     }
 
-    /// Formats the value without unit.
+    /// Formats the given value without unit.
     pub fn format_value_without_unit(&self, value: UnitValue) -> String {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => format_as_db_without_unit(value),
-            TrackPan { .. } | TrackSendPan { .. } => format_as_pan(value),
-            Tempo { .. } => format_as_bpm_without_unit(value),
-            Playrate { .. } => format_as_playback_speed_factor_without_unit(value),
+            TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db_without_unit(value),
+            TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
+            Tempo { .. } => format_value_as_bpm_without_unit(value),
+            Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
             _ => format_as_percentage_without_unit(value),
+        }
+    }
+
+    /// Formats the given step size without unit.
+    pub fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+        use ReaperTarget::*;
+        match self {
+            Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
+            Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
+            _ => format_as_percentage_without_unit(step_size),
         }
     }
 
@@ -332,8 +346,24 @@ impl ReaperTarget {
         Ok(result)
     }
 
-    /// Meaning: not just percentages.
-    pub fn can_parse_values(&self) -> bool {
+    /// If this returns true, a value will not be printed (e.g. because it's already in the edit
+    /// field).
+    pub fn hide_formatted_value(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackSendPan { .. }
+            | Playrate { .. }
+            | Tempo { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// If this returns true, a step size will not be printed (e.g. because it's already in the
+    /// edit field).
+    pub fn hide_formatted_step_size(&self) -> bool {
         use ReaperTarget::*;
         match self {
             TrackVolume { .. }
@@ -347,21 +377,53 @@ impl ReaperTarget {
     }
 
     /// Parses the given text as a target value and returns it as unit value.
-    pub fn parse_unit_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    pub fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => parse_from_db(text),
-            TrackPan { .. } | TrackSendPan { .. } => parse_from_pan(text),
-            Playrate { .. } => parse_from_playback_speed_factor(text),
-            Tempo { .. } => parse_from_bpm(text),
+            TrackVolume { .. } | TrackSendVolume { .. } => parse_value_from_db(text),
+            TrackPan { .. } | TrackSendPan { .. } => parse_value_from_pan(text),
+            Playrate { .. } => parse_value_from_playback_speed_factor(text),
+            Tempo { .. } => parse_value_from_bpm(text),
+            FxPreset { .. } => self.parse_value_from_discrete_value(text),
+            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
+                self.parse_value_from_discrete_value(text)
+            }
             _ => parse_from_percentage(text),
         }
     }
 
-    pub fn unit(&self) -> &'static str {
+    /// Parses the given text as a target step size and returns it as unit value.
+    pub fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+        use ReaperTarget::*;
+        match self {
+            Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
+            Tempo { .. } => parse_step_size_from_bpm(text),
+            FxPreset { .. } => self.parse_value_from_discrete_value(text),
+            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
+                self.parse_value_from_discrete_value(text)
+            }
+            _ => parse_from_percentage(text),
+        }
+    }
+
+    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
+    }
+
+    pub fn value_unit(&self) -> &'static str {
         use ReaperTarget::*;
         match self {
             TrackVolume { .. } | TrackSendVolume { .. } => "dB",
+            TrackPan { .. } | TrackSendPan { .. } => "",
+            Tempo { .. } => "bpm",
+            Playrate { .. } => "x",
+            _ => "%",
+        }
+    }
+
+    pub fn step_size_unit(&self) -> &'static str {
+        use ReaperTarget::*;
+        match self {
             TrackPan { .. } | TrackSendPan { .. } => "",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
@@ -683,9 +745,11 @@ impl Target for ReaperTarget {
                     atomic_step_size: UnitValue::new(step_size),
                 },
             },
-            // 1 bpm to 960 bpm are 960 possible values.
             Tempo { .. } => ControlType::AbsoluteContinuousRoundable {
-                rounding_step_size: convert_count_to_step_size(960),
+                rounding_step_size: UnitValue::new(1.0 / bpm_span()),
+            },
+            Playrate { .. } => ControlType::AbsoluteContinuousRoundable {
+                rounding_step_size: UnitValue::new(1.0 / (playback_speed_factor_span() * 100.0)),
             },
             // `+ 1` because "<no preset>" is also a possible value.
             FxPreset { fx } => ControlType::AbsoluteDiscrete {
@@ -707,14 +771,41 @@ fn convert_count_to_step_size(n: u32) -> UnitValue {
     UnitValue::new(1.0 / (n - 1) as f64)
 }
 
-fn format_as_playback_speed_factor_without_unit(value: UnitValue) -> String {
+fn format_value_as_playback_speed_factor_without_unit(value: UnitValue) -> String {
     let play_rate = PlayRate::from_normalized_value(NormalizedPlayRate::new(value.get()));
-    format!("{:.2}", play_rate.playback_speed_factor().get())
+    format_playback_speed(play_rate.playback_speed_factor().get())
 }
 
-fn format_as_bpm_without_unit(value: UnitValue) -> String {
+fn format_playback_speed(speed: f64) -> String {
+    format!("{:.4}", speed)
+}
+
+fn format_step_size_as_playback_speed_factor_without_unit(value: UnitValue) -> String {
+    // 0.0 => 0.0x
+    // 1.0 => 3.75x
+    let speed_increment = value.get() * playback_speed_factor_span();
+    format_playback_speed(speed_increment)
+}
+
+fn format_value_as_bpm_without_unit(value: UnitValue) -> String {
     let tempo = Tempo::from_normalized_value(value.get());
-    format!("{:.4}", tempo.bpm().get())
+    format_bpm(tempo.bpm().get())
+}
+
+fn format_step_size_as_bpm_without_unit(value: UnitValue) -> String {
+    // 0.0 => 0.0 bpm
+    // 1.0 => 959.0 bpm
+    let bpm_increment = value.get() * bpm_span();
+    format_bpm(bpm_increment)
+}
+
+// Should be 959.0
+fn bpm_span() -> f64 {
+    Bpm::MAX.get() - Bpm::MIN.get()
+}
+
+fn format_bpm(bpm: f64) -> String {
+    format!("{:.4}", bpm)
 }
 
 fn format_as_percentage_without_unit(value: UnitValue) -> String {
@@ -728,7 +819,7 @@ fn format_as_percentage_without_unit(value: UnitValue) -> String {
     }
 }
 
-fn format_as_db_without_unit(value: UnitValue) -> String {
+fn format_value_as_db_without_unit(value: UnitValue) -> String {
     let db = Volume::from_soft_normalized_value(value.get()).db();
     if db == Db::MINUS_INF {
         "-inf".to_string()
@@ -737,15 +828,22 @@ fn format_as_db_without_unit(value: UnitValue) -> String {
     }
 }
 
-fn format_as_db(value: UnitValue) -> String {
+fn positive_volumes_interval() -> Interval<UnitValue> {
+    Interval::new(
+        UnitValue::new(Volume::from_db(Db::ZERO_DB).soft_normalized_value()),
+        UnitValue::new(Volume::from_db(Db::TWELVE_DB).soft_normalized_value()),
+    )
+}
+
+fn format_value_as_db(value: UnitValue) -> String {
     Volume::from_soft_normalized_value(value.get()).to_string()
 }
 
-fn format_as_pan(value: UnitValue) -> String {
+fn format_value_as_pan(value: UnitValue) -> String {
     Pan::from_normalized_value(value.get()).to_string()
 }
 
-fn format_as_on_off(value: UnitValue) -> &'static str {
+fn format_value_as_on_off(value: UnitValue) -> &'static str {
     if value.is_one() { "On" } else { "Off" }
 }
 
@@ -797,18 +895,18 @@ fn parse_from_percentage(text: &str) -> Result<UnitValue, &'static str> {
     (percentage / 100.0).try_into()
 }
 
-fn parse_from_db(text: &str) -> Result<UnitValue, &'static str> {
+fn parse_value_from_db(text: &str) -> Result<UnitValue, &'static str> {
     let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
     let db: Db = decimal.try_into().map_err(|_| "not in dB range")?;
     Volume::from_db(db).soft_normalized_value().try_into()
 }
 
-fn parse_from_pan(text: &str) -> Result<UnitValue, &'static str> {
+fn parse_value_from_pan(text: &str) -> Result<UnitValue, &'static str> {
     let pan: Pan = text.parse()?;
     pan.normalized_value().try_into()
 }
 
-fn parse_from_playback_speed_factor(text: &str) -> Result<UnitValue, &'static str> {
+fn parse_value_from_playback_speed_factor(text: &str) -> Result<UnitValue, &'static str> {
     let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
     let factor: PlaybackSpeedFactor = decimal.try_into().map_err(|_| "not in play rate range")?;
     PlayRate::from_playback_speed_factor(factor)
@@ -817,8 +915,35 @@ fn parse_from_playback_speed_factor(text: &str) -> Result<UnitValue, &'static st
         .try_into()
 }
 
-fn parse_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
+fn parse_step_size_from_playback_speed_factor(text: &str) -> Result<UnitValue, &'static str> {
+    // 0.0x => 0.0
+    // 3.75x => 1.0
+    let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
+    let span = playback_speed_factor_span();
+    if decimal < 0.0 || decimal > span {
+        return Err("not in playback speed factor increment range");
+    }
+    Ok(UnitValue::new(decimal / span))
+}
+
+/// Should be 3.75
+fn playback_speed_factor_span() -> f64 {
+    PlaybackSpeedFactor::MAX.get() - PlaybackSpeedFactor::MIN.get()
+}
+
+fn parse_value_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
     let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
     let bpm: Bpm = decimal.try_into().map_err(|_| "not in BPM range")?;
     Tempo::from_bpm(bpm).normalized_value().try_into()
+}
+
+fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
+    // 0.0 bpm => 0.0
+    // 959.0 bpm => 1.0
+    let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
+    let span = bpm_span();
+    if decimal < 0.0 || decimal > span {
+        return Err("not in BPM increment range");
+    }
+    Ok(UnitValue::new(decimal / span))
 }

@@ -30,8 +30,22 @@ pub struct ModeModel {
     pub eel_control_transformation: Prop<String>,
     pub eel_feedback_transformation: Prop<String>,
     // For relative mode
-    // Depending on the target character, this is either a step count or a step size. If it's a
-    // step count, negative values represent fractions (a slow-down).
+    /// Depending on the target character, this is either a step count or a step size.
+    ///
+    /// A step count is a coefficient which multiplies the atomic step size. E.g. a step count of 2
+    /// can be read as 2 * step_size which means double speed. When the step count is negative,
+    /// it's interpreted as a fraction of 1. E.g. a step count of -2 is 1/2 * step_size which
+    /// means half speed. The increment is fired only every nth time, which results in a
+    /// slow-down, or in other words, less sensitivity.
+    ///
+    /// A step size is the positive, absolute size of an increment. 0.0 represents no increment,
+    /// 1.0 represents an increment over the whole value range (not very useful).
+    ///
+    /// It's an interval. When using rotary encoders, the most important value is the interval
+    /// minimum. There are some controllers which deliver higher increments if turned faster. This
+    /// is where the maximum comes in. The maximum is also important if using the relative mode
+    /// with buttons. The harder you press the button, the higher the increment. It's limited
+    /// by the maximum value.
     pub step_interval: Prop<Interval<SymmetricUnitValue>>,
     pub rotate: Prop<bool>,
 }
