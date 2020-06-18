@@ -1107,7 +1107,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             This => -3,
             Selected => -2,
             Master => -1,
-            Particular(t) => t.index().expect("we know it's not the master track") as _,
+            Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
         };
         combo.select_combo_box_item_by_data(data);
     }
@@ -1805,9 +1805,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
         });
-        // TODO-high ReaLearn C++ had additional ugly code to keep the FX synced on fxAdded,
-        //  fxRemoved  and fxReordered. See how it behaves in ReaLearn RS (uses other techniques)
-        //  and - if still relevant - write hopefully not so ugly code to handle that.
         self.panel.when_do_sync(
             target
                 .fx_index

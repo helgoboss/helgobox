@@ -22,7 +22,7 @@ impl SessionContext {
     }
 
     pub fn track(&self) -> Option<&Track> {
-        Some(self.containing_fx.track())
+        self.containing_fx.track()
     }
 
     pub fn project(&self) -> Project {
@@ -45,7 +45,7 @@ fn get_containing_fx(host: &HostCallback) -> Fx {
     if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
         let project = unsafe { vst_context.request_containing_project(aeffect) };
         let track = Track::new(track, Some(project));
-        // TODO Use REAPER 6.11 API addition instead, if available
+        // TODO-low Use REAPER 6.11 API addition instead, if available
         track
             .normal_fx_chain()
             .fxs()

@@ -51,7 +51,9 @@ pub fn register_global_learn_action() {
         "realearnLearnSourceForLastTouchedTarget",
         "ReaLearn: Learn source for last touched target",
         move || {
-            let target = last_touched_target.borrow();
+            // We borrow this only very shortly so that the mutable borrow when touching the
+            // target can't interfere.
+            let target = last_touched_target.borrow().clone();
             let target = match target.as_ref() {
                 None => return,
                 Some(t) => t,

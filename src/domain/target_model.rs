@@ -504,15 +504,22 @@ pub fn get_effective_track(
     track: &VirtualTrack,
 ) -> Result<Track, &'static str> {
     use VirtualTrack::*;
-    match track {
-        This => Ok(context.containing_fx().track().clone()),
+    let track = match track {
+        This => context
+            .containing_fx()
+            .track()
+            .map(|t| t.clone())
+            // If this is monitoring FX, we want this to resolve to the master track since
+            // in most functions, monitoring FX chain is the "input FX chain" of the master track.
+            .unwrap_or_else(|| context.project().master_track()),
         Selected => context
             .project()
             .first_selected_track(IncludeMasterTrack)
-            .ok_or("no track selected"),
-        Master => Ok(context.project().master_track()),
-        Particular(track) => Ok(track.clone()),
-    }
+            .ok_or("no track selected")?,
+        Master => context.project().master_track(),
+        Particular(track) => track.clone(),
+    };
+    Ok(track)
 }
 
 impl<'a> Display for TargetModelWithContext<'a> {

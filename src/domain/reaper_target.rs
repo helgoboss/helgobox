@@ -232,7 +232,8 @@ impl ReaperTarget {
         match self {
             Action { .. } => "".to_string(),
             FxParameter { param } => {
-                // TODO This doesn't take into account that ReaperNormalizedFxParamValue can be > 1.
+                // TODO-medium This doesn't take into account that ReaperNormalizedFxParamValue can
+                // be > 1.
                 param
                     .format_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
                     .into_string()
@@ -452,7 +453,7 @@ impl ReaperTarget {
     pub fn track(&self) -> Option<&Track> {
         use ReaperTarget::*;
         let track = match self {
-            FxParameter { param } => param.fx().track(),
+            FxParameter { param } => param.fx().track()?,
             TrackVolume { track } => track,
             TrackSendVolume { send } => send.source_track(),
             TrackPan { track } => track,
@@ -461,8 +462,8 @@ impl ReaperTarget {
             TrackMute { track } => track,
             TrackSolo { track } => track,
             TrackSendPan { send } => send.source_track(),
-            FxEnable { fx } => fx.track(),
-            FxPreset { fx } => fx.track(),
+            FxEnable { fx } => fx.track()?,
+            FxPreset { fx } => fx.track()?,
             _ => return None,
         };
         Some(track)
@@ -714,11 +715,11 @@ impl Target for ReaperTarget {
         use ReaperTarget::*;
         match self {
             Action { action, .. } => convert_bool_to_unit_value(action.is_on()),
-            // TODO This will panic if the "soft" normalized value is > 1
+            // TODO-medium This will panic if the "soft" normalized value is > 1
             FxParameter { param } => UnitValue::new(param.normalized_value().get()),
-            // TODO This will panic if the "soft" normalized value is > 1
+            // TODO-medium This will panic if the "soft" normalized value is > 1
             TrackVolume { track } => UnitValue::new(track.volume().soft_normalized_value()),
-            // TODO This will panic if the "soft" normalized value is > 1
+            // TODO-medium This will panic if the "soft" normalized value is > 1
             TrackSendVolume { send } => UnitValue::new(send.volume().soft_normalized_value()),
             TrackPan { track } => UnitValue::new(track.pan().normalized_value()),
             TrackArm { track } => convert_bool_to_unit_value(track.is_armed(false)),

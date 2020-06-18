@@ -464,12 +464,16 @@ impl Session {
             .map_to(())
     }
 
-    fn containing_track_armed_or_disarmed(&self) -> impl UnitEvent {
-        let containing_track = self.context.containing_fx().track().clone();
-        Reaper::get()
-            .track_arm_changed()
-            .filter(move |t| *t == containing_track)
-            .map_to(())
+    fn containing_track_armed_or_disarmed(&self) -> BoxedUnitEvent {
+        if let Some(track) = self.context.containing_fx().track().map(|t| t.clone()) {
+            Reaper::get()
+                .track_arm_changed()
+                .filter(move |t| *t == track)
+                .map_to(())
+                .box_it()
+        } else {
+            observable::never().box_it()
+        }
     }
 
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.

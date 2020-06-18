@@ -164,7 +164,7 @@ impl MappingRowsPanel {
             .count()
     }
 
-    // TODO Document all those scrolling functions. It needs explanation.
+    // TODO-low Document all those scrolling functions. It needs explanation.
     fn scroll_pos(&self, code: u32) -> Option<usize> {
         let mut si = raw::SCROLLINFO {
             cbSize: std::mem::size_of::<raw::SCROLLINFO>() as _,

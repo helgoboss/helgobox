@@ -74,7 +74,9 @@ impl MainPanel {
         {
             // On Windows, the first time opening the dialog window is just to determine the best
             // dimensions based on HiDPI settings.
-            // TODO If we skip this, the dimensions would be saved. Wouldn't that be better?
+            // TODO-low If we skip this, the dimensions would be saved. Wouldn't that be better?
+            //  I guess if there are multiple screens, keeping this line is better. Then it's a
+            //  matter of reopening the GUI to improve scaling. Test it!
             self.dimensions.replace(None);
         }
         self.open(parent_window)
