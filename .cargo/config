@@ -1,0 +1,10 @@
+# `+crt-static` enables static linking to C runtime.
+#
+# In MSVC this would be: "C/C++ => Code Generation => Multithreaded (/MT) instead of Multithreaded-DLL (/MD)"".
+# That links the Visual C++ Redistributable stuff statically. So no missing "msvcr*.dll".
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-Ctarget-feature=+crt-static"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-Ctarget-feature=+crt-static"]
