@@ -392,7 +392,8 @@ impl<'a> TargetModelWithContext<'a> {
     pub fn fx(&self) -> Result<Fx, &'static str> {
         // Actually it's not that important whether we create an index-based or GUID-based FX.
         // The session listeners will recreate and resync the FX whenever something has
-        // changed anyway.
+        // changed anyway. But for monitoring FX it could still be good (which we don't get notified
+        // about unfortunately).
         let track = self.target.track.get_ref();
         let is_input_fx = self.target.is_input_fx.get();
         let fx_index = self.target.fx_index.get().ok_or("FX index not set")?;
@@ -412,6 +413,9 @@ impl<'a> TargetModelWithContext<'a> {
                         guid,
                         fx_index,
                     )
+                    // Fall back to index-based (otherwise this could have the unpleasant effect
+                    // that mapping panel FX menu doesn't find any FX anymore.
+                    .or_else(|_| get_index_based_fx(&self.context, track, is_input_fx, fx_index))
                 }
             }
         }
