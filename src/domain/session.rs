@@ -1,9 +1,9 @@
 use super::MidiSourceModel;
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    share_mapping, MainProcessor, MainProcessorControlMapping, MainProcessorFeedbackMapping,
-    MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorControlMapping,
-    RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping, TargetModel,
+    share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
+    ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, ReaperTarget,
+    SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
@@ -587,27 +587,23 @@ impl Session {
 
     fn sync_mapping_to_processors(&self, m: &MappingModel) {
         let processor_mapping = m.with_context(&self.context).create_processor_mapping();
-        let control_mapping = processor_mapping.as_ref().and_then(|m| m.for_control());
-        let (real_time_control_mapping, main_control_mapping) = match control_mapping {
+        let splintered = processor_mapping
+            .as_ref()
+            .map(|m| m.splinter(self.feedback_is_effectively_enabled()));
+        let (real_time_mapping, main_mapping) = match splintered {
             None => (None, None),
-            Some((r, m)) => (Some(r), Some(m)),
-        };
-        let feedback_mapping = if self.feedback_is_effectively_enabled() {
-            processor_mapping.and_then(|m| m.for_feedback())
-        } else {
-            None
+            Some((r, m)) => (r, Some(m)),
         };
         self.main_processor_channel
             .0
-            .send(MainProcessorTask::UpdateMapping {
+            .send(MainProcessorTask::UpdateSingleMapping {
                 id: *m.id(),
-                control_mapping: main_control_mapping,
-                feedback_mapping,
+                mapping: main_mapping,
             });
         self.real_time_processor_sender
-            .send(RealTimeProcessorTask::UpdateMapping {
+            .send(RealTimeProcessorTask::UpdateSingleMapping {
                 id: *m.id(),
-                mapping: real_time_control_mapping,
+                mapping: real_time_mapping,
             });
     }
 
@@ -631,28 +627,25 @@ impl Session {
         let splintered = self.splinter();
         self.main_processor_channel
             .0
-            .send(MainProcessorTask::UpdateAllMappings {
-                control_mappings: splintered.main_control,
-                feedback_mappings: splintered.main_feedback,
-            });
+            .send(MainProcessorTask::UpdateAllMappings(splintered.main));
     }
 
     fn sync_all_mappings_to_all_processors(&self) {
         let splintered = self.splinter();
         self.main_processor_channel
             .0
-            .send(MainProcessorTask::UpdateAllMappings {
-                control_mappings: splintered.main_control,
-                feedback_mappings: splintered.main_feedback,
-            });
+            .send(MainProcessorTask::UpdateAllMappings(splintered.main));
         self.real_time_processor_sender
             .send(RealTimeProcessorTask::UpdateAllMappings(
-                splintered.real_time_control,
+                splintered.real_time,
             ));
     }
 
+    /// Splits mappings into different lists so they can be distributed to different processors.
     fn splinter(&self) -> SplinteredProcessorMappings {
-        let processor_mappings: Vec<_> = self
+        // At first we want a clean representation of each relevant mapping, without all the
+        // property stuff and so on.
+        let mappings: Vec<_> = self
             .mappings()
             .filter_map(|m| {
                 m.borrow()
@@ -660,22 +653,15 @@ impl Session {
                     .create_processor_mapping()
             })
             .collect();
-        let (real_time_control, main_control) = processor_mappings
+        // Then we need to splinter each of it.
+        let feedback_is_globally_enabled = self.feedback_is_effectively_enabled();
+        let (real_time_control, main_control): (Vec<_>, Vec<_>) = mappings
             .iter()
-            .filter_map(|m| m.for_control())
+            .map(|m| m.splinter(feedback_is_globally_enabled))
             .unzip();
-        let main_feedback = if self.feedback_is_effectively_enabled() {
-            processor_mappings
-                .into_iter()
-                .filter_map(|m| m.for_feedback())
-                .collect()
-        } else {
-            Vec::new()
-        };
         SplinteredProcessorMappings {
-            real_time_control,
-            main_control,
-            main_feedback,
+            real_time: real_time_control.into_iter().flatten().collect(),
+            main: main_control,
         }
     }
 
@@ -707,9 +693,8 @@ impl Session {
 }
 
 struct SplinteredProcessorMappings {
-    real_time_control: Vec<RealTimeProcessorControlMapping>,
-    main_control: Vec<MainProcessorControlMapping>,
-    main_feedback: Vec<MainProcessorFeedbackMapping>,
+    real_time: Vec<RealTimeProcessorMapping>,
+    main: Vec<MainProcessorMapping>,
 }
 
 impl Drop for Session {

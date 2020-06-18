@@ -1,6 +1,6 @@
 use crate::domain::{
-    FeedbackBuffer, MainProcessorControlMapping, MainProcessorFeedbackMapping, MappingId, Mode,
-    RealTimeProcessorTask, ReaperTarget, SharedSession,
+    FeedbackBuffer, MainProcessorMapping, MappingId, Mode, RealTimeProcessorTask, ReaperTarget,
+    SharedSession,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
@@ -18,7 +18,7 @@ type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
 #[derive(Debug)]
 pub struct MainProcessor {
-    control_mappings: HashMap<MappingId, MainProcessorControlMapping>,
+    mappings: HashMap<MappingId, MainProcessorMapping>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
     self_sender: crossbeam_channel::Sender<MainProcessorTask>,
@@ -33,64 +33,81 @@ impl ControlSurface for MainProcessor {
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use MainProcessorTask::*;
             match task {
-                UpdateAllMappings {
-                    control_mappings,
-                    feedback_mappings,
-                } => {
+                UpdateAllMappings(mappings) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating all mappings..."
                     );
-                    self.control_mappings =
-                        control_mappings.into_iter().map(|m| (m.id(), m)).collect();
-                    resubscribe_to_feedback_all(
-                        &mut self.feedback_subscriptions,
-                        &feedback_mappings,
-                        self.self_sender.clone(),
-                    );
-                    let source_values = self.feedback_buffer.update_mappings(feedback_mappings);
-                    self.send_feedback(source_values);
+                    // Resubscribe to target value changes for feedback
+                    self.feedback_subscriptions.clear();
+                    for m in mappings.iter().filter(|m| m.feedback_is_enabled()) {
+                        let subscription =
+                            send_feedback_when_target_value_changed(self.self_sender.clone(), m);
+                        self.feedback_subscriptions.insert(m.id(), subscription);
+                    }
+                    // Also send feedback instantly to reflect this change in mappings.
+                    self.feedback_buffer.reset();
+                    self.send_feedback(self.feedback_all());
+                    // Put into hash map in order to quickly look up mappings by ID
+                    self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
                 }
-                UpdateMapping {
-                    id,
-                    control_mapping,
-                    feedback_mapping,
-                } => {
+                UpdateSingleMapping { id, mapping } => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating mapping {:?}...", id
                     );
-                    match control_mapping {
-                        None => self.control_mappings.remove(&id),
-                        Some(m) => self.control_mappings.insert(id, m),
-                    };
-                    resubscribe_to_feedback(
-                        &mut self.feedback_subscriptions,
-                        id,
-                        feedback_mapping.as_ref(),
-                        self.self_sender.clone(),
-                    );
-                    let source_value = self.feedback_buffer.update_mapping(id, feedback_mapping);
-                    self.send_feedback(source_value);
+                    match mapping {
+                        None => {
+                            // This mapping is gone for good.
+                            self.mappings.remove(&id);
+                            // TODO-medium We could send a null-feedback here to switch off lights.
+                        }
+                        Some(m) => {
+                            // Resubscribe to or unsubscribe from feedback
+                            if m.feedback_is_enabled() {
+                                // Resubscribe
+                                let subscription = send_feedback_when_target_value_changed(
+                                    self.self_sender.clone(),
+                                    &m,
+                                );
+                                self.feedback_subscriptions.insert(m.id(), subscription);
+                            } else {
+                                // If the feedback was enabled before, this will unsubscribe.
+                                self.feedback_subscriptions.remove(&m.id());
+                            }
+                            // Send feedback if enabled
+                            self.send_feedback(m.feedback_if_enabled());
+                            // Update hash map entry
+                            self.mappings.insert(id, m);
+                        }
+                    }
                 }
                 Control { mapping_id, value } => {
-                    let mut mapping = match self.control_mappings.get_mut(&mapping_id) {
+                    let mut mapping = match self.mappings.get_mut(&mapping_id) {
                         None => return,
                         Some(m) => m,
                     };
-                    mapping.control(value);
+                    // Most of the time, the main processor won't even receive a control instruction
+                    // (from the real-time processor) for a mapping for which control is disabled,
+                    // because the real-time processor only ever gets mappings for which control
+                    // is enabled. Anyway, here we do a second check.
+                    mapping.control_if_enabled(value);
                 }
                 Feedback(mapping_id) => {
                     self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
                 }
-                FeedbackAll => self.send_feedback(self.feedback_buffer.feedback_all()),
+                FeedbackAll => self.send_feedback(self.feedback_all()),
                 LearnSource(source) => {
                     self.session.borrow_mut().learn_source(source);
                 }
             }
         }
         // Send feedback as soon as buffered long enough
-        if let Some(source_values) = self.feedback_buffer.poll() {
+        if let Some(mapping_ids) = self.feedback_buffer.poll() {
+            let source_values = mapping_ids.iter().filter_map(|mapping_id| {
+                let mapping = self.mappings.get(mapping_id)?;
+                mapping.feedback_if_enabled()
+            });
             self.send_feedback(source_values);
         }
     }
@@ -107,7 +124,7 @@ impl MainProcessor {
             self_sender,
             receiver,
             real_time_processor_sender,
-            control_mappings: Default::default(),
+            mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
             session,
@@ -123,11 +140,18 @@ impl MainProcessor {
                 .send(RealTimeProcessorTask::Feedback(v));
         }
     }
+
+    fn feedback_all(&self) -> Vec<MidiSourceValue<RawShortMessage>> {
+        self.mappings
+            .values()
+            .filter_map(|m| m.feedback_if_enabled())
+            .collect()
+    }
 }
 
 fn send_feedback_when_target_value_changed(
     self_sender: Sender<MainProcessorTask>,
-    m: &MainProcessorFeedbackMapping,
+    m: &MainProcessorMapping,
 ) -> FeedbackSubscriptionGuard {
     let mapping_id = m.id();
     m.target_value_changed()
@@ -137,44 +161,12 @@ fn send_feedback_when_target_value_changed(
         .unsubscribe_when_dropped()
 }
 
-fn resubscribe_to_feedback(
-    subscriptions: &mut FeedbackSubscriptions,
-    id: MappingId,
-    mapping: Option<&MainProcessorFeedbackMapping>,
-    self_sender: crossbeam_channel::Sender<MainProcessorTask>,
-) {
-    match mapping {
-        None => {
-            subscriptions.remove(&id);
-        }
-        Some(m) => {
-            let subscription = send_feedback_when_target_value_changed(self_sender, m);
-            subscriptions.insert(m.id(), subscription);
-        }
-    }
-}
-
-fn resubscribe_to_feedback_all(
-    subscriptions: &mut FeedbackSubscriptions,
-    feedback_mappings: &Vec<MainProcessorFeedbackMapping>,
-    self_sender: crossbeam_channel::Sender<MainProcessorTask>,
-) {
-    subscriptions.clear();
-    for m in feedback_mappings {
-        resubscribe_to_feedback(subscriptions, m.id(), Some(m), self_sender.clone());
-    }
-}
-
 #[derive(Debug)]
 pub enum MainProcessorTask {
-    UpdateAllMappings {
-        control_mappings: Vec<MainProcessorControlMapping>,
-        feedback_mappings: Vec<MainProcessorFeedbackMapping>,
-    },
-    UpdateMapping {
+    UpdateAllMappings(Vec<MainProcessorMapping>),
+    UpdateSingleMapping {
         id: MappingId,
-        control_mapping: Option<MainProcessorControlMapping>,
-        feedback_mapping: Option<MainProcessorFeedbackMapping>,
+        mapping: Option<MainProcessorMapping>,
     },
     Feedback(MappingId),
     FeedbackAll,

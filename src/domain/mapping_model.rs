@@ -1,8 +1,8 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, MainProcessorControlMapping, MappingId, MidiSourceModel,
-    ModeModel, ModeType, ProcessorMapping, RealTimeProcessorControlMapping, ReaperTarget,
-    SessionContext, SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, MainProcessorMapping, MappingId, MidiSourceModel, ModeModel,
+    ModeType, ProcessorMapping, RealTimeProcessorMapping, ReaperTarget, SessionContext,
+    SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 use reaper_high::Fx;

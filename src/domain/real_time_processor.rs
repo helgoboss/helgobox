@@ -1,7 +1,7 @@
 use crate::core::MovingAverageCalculator;
 use crate::domain::{
     MainProcessorTask, MappingId, MidiClockCalculator, MidiControlInput, MidiFeedbackOutput,
-    MidiSourceScanner, RealTimeProcessorControlMapping,
+    MidiSourceScanner, RealTimeProcessorMapping,
 };
 use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -32,7 +32,7 @@ pub struct RealTimeProcessor {
     pub(crate) control_state: ControlState,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
-    pub(crate) mappings: HashMap<MappingId, RealTimeProcessorControlMapping>,
+    pub(crate) mappings: HashMap<MappingId, RealTimeProcessorMapping>,
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
@@ -110,7 +110,7 @@ impl RealTimeProcessor {
                     );
                     self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
                 }
-                UpdateMapping { id, mapping } => {
+                UpdateSingleMapping { id, mapping } => {
                     debug!(
                         Reaper::get().logger(),
                         "Real-time processor: Updating mapping {:?}...", id
@@ -420,10 +420,10 @@ impl RealTimeProcessor {
 
 #[derive(Debug)]
 pub enum RealTimeProcessorTask {
-    UpdateAllMappings(Vec<RealTimeProcessorControlMapping>),
-    UpdateMapping {
+    UpdateAllMappings(Vec<RealTimeProcessorMapping>),
+    UpdateSingleMapping {
         id: MappingId,
-        mapping: Option<RealTimeProcessorControlMapping>,
+        mapping: Option<RealTimeProcessorMapping>,
     },
     UpdateSettings {
         let_matched_events_through: bool,
