@@ -48,6 +48,7 @@ impl HeaderPanel {
         } else {
             // Start learning
             learning.set(true);
+            let session = self.session.clone();
             when(
                 self.session
                     .borrow()
@@ -59,7 +60,14 @@ impl HeaderPanel {
             .finally(|main_state| {
                 main_state.borrow_mut().is_learning_source_filter.set(false);
             })
-            .do_sync(|main_state, source| {
+            .do_async(move |main_state, source| {
+                // Never display empty list (too easy to happen with MIDI sources - if some
+                // exotic MIDI message gets sent).
+                let list_would_be_empty =
+                    session.borrow().find_mapping_with_source(&source).is_none();
+                if list_would_be_empty {
+                    return;
+                }
                 main_state.borrow_mut().source_filter.set(Some(source));
             });
         }

@@ -80,11 +80,9 @@ where
     /// operator would require them to be shared, too. But `delay()` doesn't work anyway right
     /// now (https://github.com/rxRust/rxRust/issues/106). So there's no reason to change all the
     /// trigger/until subjects/properties into shared ones.
-    // TODO-low The Copy bound on reaction might turn out a bit restrictive in future. Maybe we want
-    //  to allow captures that don't implement Copy, just Clone?
     pub fn do_async(
         self,
-        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+        reaction: impl Fn(Rc<Receiver>, Item) + Clone + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike>
     where
         Item: 'static,
@@ -106,13 +104,14 @@ where
     fn do_async_internal(
         weak_receiver: Weak<Receiver>,
         trigger: impl Event<Item>,
-        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+        reaction: impl Fn(Rc<Receiver>, Item) + Clone + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike>
     where
         Item: 'static,
     {
         trigger.subscribe(move |item| {
             let weak_receiver = weak_receiver.clone();
+            let reaction = reaction.clone();
             Reaper::get().do_later_in_main_thread_asap(move || {
                 let receiver = weak_receiver.upgrade().expect("receiver gone");
                 (reaction)(receiver, item);
@@ -131,11 +130,11 @@ impl<Item, Trigger, Receiver, Finalizer>
 where
     Trigger: Event<Item>,
     Receiver: 'static,
-    Finalizer: Fn(Rc<Receiver>) + Copy + 'static,
+    Finalizer: Fn(Rc<Receiver>) + Clone + 'static,
 {
     pub fn do_sync(
         self,
-        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+        reaction: impl Fn(Rc<Receiver>, Item) + Clone + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike> {
         let weak_receiver = self.parent.weak_receiver.clone();
         let finalizer = self.finalizer;
@@ -151,7 +150,7 @@ where
 
     pub fn do_async(
         self,
-        reaction: impl Fn(Rc<Receiver>, Item) + Copy + 'static,
+        reaction: impl Fn(Rc<Receiver>, Item) + Clone + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike>
     where
         Item: 'static,
@@ -162,6 +161,7 @@ where
             self.parent.weak_receiver,
             self.parent.parent.trigger.finalize(move || {
                 let weak_receiver = weak_receiver.clone();
+                let finalizer = finalizer.clone();
                 Reaper::get().do_later_in_main_thread_asap(move || {
                     let receiver = weak_receiver.upgrade().expect("receiver gone");
                     (finalizer)(receiver);

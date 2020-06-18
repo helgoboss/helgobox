@@ -4,7 +4,9 @@ use crate::domain::{
     ModeType, ProcessorMapping, RealTimeProcessorMapping, ReaperTarget, SessionContext,
     SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext,
 };
-use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
+use helgoboss_learn::{
+    Interval, MidiSource, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
+};
 use reaper_high::Fx;
 use rx_util::{BoxedUnitEvent, UnitEvent};
 use rxrust::prelude::ops::box_it::{BoxObservable, LocalBoxOp};
@@ -76,6 +78,10 @@ impl MappingModel {
             mapping: self,
             context,
         }
+    }
+
+    pub fn has_source(&self, source: &MidiSource) -> bool {
+        self.source_model.create_source() == *source
     }
 
     pub fn adjust_mode_if_necessary(&mut self, context: &SessionContext) {

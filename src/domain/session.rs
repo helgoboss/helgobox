@@ -548,6 +548,10 @@ impl Session {
             .send(MainProcessorTask::FeedbackAll);
     }
 
+    pub fn find_mapping_with_source(&self, source: &MidiSource) -> Option<&SharedMapping> {
+        self.mappings().find(|m| m.borrow().has_source(source))
+    }
+
     pub fn find_mapping_with_target(&self, target: &ReaperTarget) -> Option<&SharedMapping> {
         self.mappings()
             .find(|m| m.borrow().with_context(&self.context).has_target(target))
