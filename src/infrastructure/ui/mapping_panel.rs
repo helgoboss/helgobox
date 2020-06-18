@@ -41,6 +41,7 @@ pub struct MappingPanel {
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<MainPanel>,
     is_invoked_programmatically: Cell<bool>,
+    target_value_change_subscription: RefCell<Box<dyn SubscriptionLike>>,
     sliders: RefCell<Option<Sliders>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -88,6 +89,7 @@ impl MappingPanel {
             mapping: None.into(),
             main_panel,
             is_invoked_programmatically: false.into(),
+            target_value_change_subscription: RefCell::new(Box::new(LocalSubscription::default())),
             sliders: None.into(),
             party_is_over_subject: Default::default(),
         }
@@ -241,10 +243,10 @@ impl MappingPanel {
         self: &SharedView<Self>,
         event: impl UnitEvent,
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
-    ) {
+    ) -> SubscriptionWrapper<impl SubscriptionLike> {
         when(event.take_until(self.party_is_over()))
             .with(self)
-            .do_async(decorate_reaction(reaction));
+            .do_async(decorate_reaction(reaction))
     }
 }
 
@@ -1790,14 +1792,31 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_target_listeners(&self) {
         let target = self.target;
-        let target_value_changed = MappingModel::target_value_changed(
-            self.shared_mapping.clone(),
-            self.session.context().clone(),
+        // Display target value changes in real-time!
+        self.panel.when_do_async(
+            // We want to subscribe to target value changes when subscribed for the first time ...
+            observable::of(())
+                // ... and resubscribe whenever the target model changes
+                .merge(target.changed())
+                // ... and some other events occur that might change the target "value producer"
+                // (e.g. volume of track 2) in some way.
+                .merge(TargetModel::potential_static_change_events())
+                .merge(TargetModel::potential_dynamic_change_events()),
+            |view| {
+                // Okay. Time to resubscribe. First: Unsubscribe from previous!
+                let mut existing_subscription =
+                    view.panel.target_value_change_subscription.borrow_mut();
+                existing_subscription.unsubscribe();
+                // Now resubscribe if information in model is enough to create actual target.
+                if let Ok(t) = view.target_with_context().create_target() {
+                    let new_subscription =
+                        view.panel.when_do_async(t.value_changed(), |inner_view| {
+                            inner_view.invalidate_target_value_controls();
+                        });
+                    *existing_subscription = Box::new(new_subscription.into_inner());
+                };
+            },
         );
-
-        self.panel.when_do_async(target_value_changed, |view| {
-            view.invalidate_target_value_controls();
-        });
         self.panel.when_do_sync(target.r#type.changed(), |view| {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();

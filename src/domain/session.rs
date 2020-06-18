@@ -330,7 +330,7 @@ impl Session {
                     });
                     all_subscriptions.add(subscription);
                 }
-                SubscriptionGuard(all_subscriptions)
+                SubscriptionGuard::new(all_subscriptions)
             })
             .collect();
     }

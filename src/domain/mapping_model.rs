@@ -115,39 +115,6 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
     }
-
-    pub fn target_value_changed(
-        mapping: SharedMapping,
-        context: SessionContext,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> {
-        let trigger = {
-            let m = mapping.borrow();
-            // We want to subscribe to target value changes when subscribed for the first time ...
-            observable::of(())
-                // ... and resubscribe whenever the target model changes
-                .merge(m.target_model.changed())
-                // ... and some other events occur that might change the target "value emitter"
-                // (e.g. track) in some way
-                .merge(TargetModel::potential_static_change_events())
-            // This basically means to resubscribe whenever something about the track selections
-            // changes. This is not trivial. If the track selection itself was caused
-            // programmatically (e.g. by "Selected track" target), this synchronously fires
-            // the track selection event which mutably borrows the corresponding subject.
-            // If we would synchronously resubscribe via `value_changed()` as a reaction to this
-            // event, this would also demand (read-only) access to the subject: BOOM. Of course
-            // this is dangerous. That's why we should resubscribe asynchronously!
-            // TODO-high Add this again and resubscribe async!
-            // .merge(TargetModel::potential_dynamic_change_events())
-        };
-        let observables = trigger.map(move |_| {
-            let mapping = mapping.borrow();
-            match mapping.target_model.with_context(&context).create_target() {
-                Ok(t) => t.value_changed(),
-                Err(_) => observable::empty().box_it(),
-            }
-        });
-        observables.switch_on_next()
-    }
 }
 
 pub struct MappingModelWithContext<'a> {
