@@ -19,6 +19,17 @@
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false
+        },
+        {
+            "name": "(Windows) Start 32-bit",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "C:\\REAPER32\\reaper.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false
         }
     ]
 }

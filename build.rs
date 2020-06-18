@@ -1,4 +1,7 @@
 fn main() {
+    // Build info
+    built::write_built_file().expect("Failed to acquire build-time information");
+
     // Bindings
     #[cfg(feature = "generate")]
     generate_bindings();
@@ -28,8 +31,10 @@ fn compile_eel() {
         }
     } else if cfg!(target_os = "linux") {
         if cfg!(target_arch = "x86_64") {
-            // Must have been generated via before via `make asm-nseel-x64.o`.
-            "lib/WDL/WDL/eel2/asm-nseel-x64.o"
+            // Must have been generated before via `make asm-nseel-x64.o`.
+            let path = "lib/WDL/WDL/eel2/asm-nseel-x64.o";
+            // TODO-high Generate in "lib/WDL/WDL/eel2" via "make asm-nseel-x64.o"
+            path
         } else {
             todo!()
         }

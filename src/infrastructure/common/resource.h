@@ -8,6 +8,7 @@
 #define ID_MAPPING_ROWS_DIALOG                  108
 #define ID_MAIN_DIALOG                          111
 #define ID_ADD_MAPPING_BUTTON                   40000
+#define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_TARGET_PICK_ACTION_BUTTON            40000
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001

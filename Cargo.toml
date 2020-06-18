@@ -1,6 +1,6 @@
 [package]
 name = "realearn-rs"
-version = "0.1.0"
+version = "0.1.0-pre1"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -48,8 +48,10 @@ slog = "2.5.2"
 clipboard = "0.5.0"
 once_cell = "1.4.0"
 wrap-debug = "0.1.1"
+chrono = "0.4.11"
 
 [build-dependencies]
+built = { version = "0.4.2", features = ["git2", "chrono"] }
 bindgen = "0.52.0"
 cc = "1.0.50"
 embed-resource = "1.3"

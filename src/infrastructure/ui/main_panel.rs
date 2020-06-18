@@ -100,6 +100,33 @@ impl MainPanel {
             data.mapping_rows_panel.clone().open(window);
         }
     }
+
+    fn invalidate_version_text(&self) {
+        use crate::infrastructure::common::built_info::*;
+        let dirty_mark = if GIT_DIRTY.contains(&true) {
+            "-dirty"
+        } else {
+            ""
+        };
+        let date_info = if let Ok(d) = chrono::DateTime::parse_from_rfc2822(BUILT_TIME_UTC) {
+            d.format("%Y-%m-%d %H:%M:%S UTC").to_string()
+        } else {
+            BUILT_TIME_UTC.to_string()
+        };
+        let debug_mark = if PROFILE == "debug" { "-debug" } else { "" };
+        let version_text = format!(
+            "ReaLearn v{}/{}{} rev {}{} ({})",
+            PKG_VERSION,
+            CFG_TARGET_ARCH,
+            debug_mark,
+            GIT_VERSION.unwrap_or("unknown"),
+            dirty_mark,
+            date_info
+        );
+        self.view
+            .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
+            .set_text(version_text);
+    }
 }
 
 impl View for MainPanel {
@@ -128,6 +155,7 @@ impl View for MainPanel {
         }
         // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
         self.open_sub_panels(window);
+        self.invalidate_version_text();
         true
     }
 }
