@@ -137,30 +137,46 @@ impl Session {
                 &shared_session,
             );
         });
-        // Whenever anything in the mapping list changes and other things, resync all mappings to
-        // processors.
+        // Whenever anything in the mapping list changes and other things which affect all
+        // processor (including the real-time processor which takes care of sources only), resync
+        // all mappings to *all* processors.
         when(
             // Initial sync
             observable::of(())
                 // Future syncs
                 // When the mapping list changes.
                 .merge(session.mapping_list_changed())
-                // There are several global conditions which affect whether feedback will be sent
-                // or not. If not, the main processor will not get any mappings from us, because
-                // it's unnecessary. It only ever gets the mappings it needs, that's the principle.
-                // However, when anything about those conditions changes, we need to sync again.
-                .merge(session.midi_feedback_output.changed())
-                .merge(session.containing_fx_enabled_or_disabled())
-                .merge(session.containing_track_armed_or_disarmed())
-                .merge(session.send_feedback_only_if_armed.changed())
-                // When target conditions change.
-                .merge(TargetModel::potential_global_change_events())
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(session.party_is_over()),
         )
         .with(&shared_session)
         .do_async(move |session, _| {
-            session.borrow_mut().sync_all_mappings_to_processors();
+            session.borrow_mut().sync_all_mappings_to_all_processors();
+        });
+        // Whenever anything changes that just affects the main processor mappings, resync all
+        // mappings to the main processor. E.g. we don't want to resync to the real-time processor
+        // just because another track has been selected. First, it would reset any source state
+        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
+        when(
+            // There are several global conditions which affect whether feedback will be sent
+            // or not. If not, the main processor will not get any mappings from us, because
+            // it's unnecessary. It only ever gets the mappings it needs, that's the principle.
+            // However, when anything about those conditions changes, we need to sync again.
+            session
+                .midi_feedback_output
+                .changed()
+                .merge(session.containing_fx_enabled_or_disabled())
+                .merge(session.containing_track_armed_or_disarmed())
+                .merge(session.send_feedback_only_if_armed.changed())
+                // When target conditions change.
+                .merge(TargetModel::potential_static_change_events())
+                .merge(TargetModel::potential_dynamic_change_events())
+                // We have this explicit stop criteria because we listen to global REAPER events.
+                .take_until(session.party_is_over()),
+        )
+        .with(&shared_session)
+        .do_async(move |session, _| {
+            session.borrow_mut().sync_all_mappings_to_main_processor();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
@@ -611,7 +627,31 @@ impl Session {
         }
     }
 
-    fn sync_all_mappings_to_processors(&self) {
+    fn sync_all_mappings_to_main_processor(&self) {
+        let splintered = self.splinter();
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::UpdateAllMappings {
+                control_mappings: splintered.main_control,
+                feedback_mappings: splintered.main_feedback,
+            });
+    }
+
+    fn sync_all_mappings_to_all_processors(&self) {
+        let splintered = self.splinter();
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::UpdateAllMappings {
+                control_mappings: splintered.main_control,
+                feedback_mappings: splintered.main_feedback,
+            });
+        self.real_time_processor_sender
+            .send(RealTimeProcessorTask::UpdateAllMappings(
+                splintered.real_time_control,
+            ));
+    }
+
+    fn splinter(&self) -> SplinteredProcessorMappings {
         let processor_mappings: Vec<_> = self
             .mappings()
             .filter_map(|m| {
@@ -620,11 +660,11 @@ impl Session {
                     .create_processor_mapping()
             })
             .collect();
-        let (real_time_control_mappings, main_control_mappings) = processor_mappings
+        let (real_time_control, main_control) = processor_mappings
             .iter()
             .filter_map(|m| m.for_control())
             .unzip();
-        let feedback_mappings = if self.feedback_is_effectively_enabled() {
+        let main_feedback = if self.feedback_is_effectively_enabled() {
             processor_mappings
                 .into_iter()
                 .filter_map(|m| m.for_feedback())
@@ -632,16 +672,11 @@ impl Session {
         } else {
             Vec::new()
         };
-        self.main_processor_channel
-            .0
-            .send(MainProcessorTask::UpdateAllMappings {
-                control_mappings: main_control_mappings,
-                feedback_mappings,
-            });
-        self.real_time_processor_sender
-            .send(RealTimeProcessorTask::UpdateAllMappings(
-                real_time_control_mappings,
-            ));
+        SplinteredProcessorMappings {
+            real_time_control,
+            main_control,
+            main_feedback,
+        }
     }
 
     fn generate_name_for_new_mapping(&self) -> String {
@@ -664,11 +699,17 @@ impl Session {
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self, shared_session: &SharedSession) {
         self.resubscribe_to_mappings_in_current_list(shared_session);
-        self.sync_all_mappings_to_processors();
+        self.sync_all_mappings_to_all_processors();
         self.sync_settings_to_real_time_processor();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
+}
+
+struct SplinteredProcessorMappings {
+    real_time_control: Vec<RealTimeProcessorControlMapping>,
+    main_control: Vec<MainProcessorControlMapping>,
+    main_feedback: Vec<MainProcessorFeedbackMapping>,
 }
 
 impl Drop for Session {

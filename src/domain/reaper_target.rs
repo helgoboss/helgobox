@@ -5,7 +5,7 @@ use reaper_high::{
     Tempo, Track, TrackSend, Volume,
 };
 use reaper_medium::{
-    Bpm, CommandId, Db, FxPresetRef, NormalizedPlayRate, PlaybackSpeedFactor,
+    Bpm, CommandId, Db, FxPresetRef, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
     ReaperNormalizedFxParamValue, UndoBehavior,
 };
 use rx_util::{BoxedUnitEvent, Event, UnitEvent};
@@ -72,6 +72,9 @@ pub enum ReaperTarget {
     },
     FxPreset {
         fx: Fx,
+    },
+    SelectedTrack {
+        project: Project,
     },
 }
 
@@ -224,6 +227,7 @@ impl ReaperTarget {
             Playrate { .. } => Continuous,
             FxEnable { .. } => Switch,
             FxPreset { .. } => Discrete,
+            SelectedTrack { .. } => Discrete,
         }
     }
 
@@ -252,6 +256,10 @@ impl ReaperTarget {
             | TrackSolo { .. } => format_value_as_on_off(value).to_string(),
             FxPreset { fx } => match convert_unit_value_to_preset_index(fx, value) {
                 None => "<No preset>".to_string(),
+                Some(i) => (i + 1).to_string(),
+            },
+            SelectedTrack { project } => match convert_unit_value_to_track_index(*project, value) {
+                None => "<Master track>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
             _ => format!(
@@ -311,6 +319,9 @@ impl ReaperTarget {
             FxPreset { fx } => convert_unit_value_to_preset_index(fx, input)
                 .map(|i| i + 1)
                 .unwrap_or(0),
+            SelectedTrack { project } => convert_unit_value_to_track_index(*project, input)
+                .map(|i| i + 1)
+                .unwrap_or(0),
             FxParameter { param } => {
                 // Example (target step size = 0.10):
                 // - 0    => 0
@@ -342,6 +353,10 @@ impl ReaperTarget {
             FxPreset { fx } => {
                 let index = if value == 0 { None } else { Some(value - 1) };
                 convert_preset_index_to_unit_value(fx, index)
+            }
+            SelectedTrack { project } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                convert_track_index_to_unit_value(*project, index)
             }
             FxParameter { param } => {
                 let step_size = param.step_size().ok_or("not supported")?;
@@ -390,7 +405,7 @@ impl ReaperTarget {
             TrackPan { .. } | TrackSendPan { .. } => parse_value_from_pan(text),
             Playrate { .. } => parse_value_from_playback_speed_factor(text),
             Tempo { .. } => parse_value_from_bpm(text),
-            FxPreset { .. } => self.parse_value_from_discrete_value(text),
+            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
@@ -404,7 +419,7 @@ impl ReaperTarget {
         match self {
             Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
             Tempo { .. } => parse_step_size_from_bpm(text),
-            FxPreset { .. } => self.parse_value_from_discrete_value(text),
+            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
@@ -449,7 +464,7 @@ impl ReaperTarget {
             | TrackMute { track }
             | TrackSolo { track } => track.project(),
             TrackSendPan { send } | TrackSendVolume { send } => send.source_track().project(),
-            Tempo { project } | Playrate { project } => *project,
+            Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
             FxEnable { fx } | FxPreset { fx } => fx.project()?,
         };
         Some(project)
@@ -604,6 +619,14 @@ impl ReaperTarget {
                 };
                 fx.activate_preset(preset_ref);
             }
+            SelectedTrack { project } => {
+                let track_index = convert_unit_value_to_track_index(*project, value.as_absolute()?);
+                let track = match track_index {
+                    None => project.master_track(),
+                    Some(i) => project.track_by_index(i).ok_or("track not available")?,
+                };
+                track.select_exclusively();
+            }
         };
         Ok(())
     }
@@ -715,6 +738,14 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
+            SelectedTrack { project } => {
+                let project = *project;
+                Reaper::get()
+                    .track_selected_changed()
+                    .filter(move |t| t.project() == project)
+                    .map_to(())
+                    .box_it()
+            }
         }
     }
 }
@@ -740,6 +771,12 @@ impl Target for ReaperTarget {
             Playrate { project } => UnitValue::new(project.play_rate().normalized_value().get()),
             FxEnable { fx } => convert_bool_to_unit_value(fx.is_enabled()),
             FxPreset { fx } => convert_preset_index_to_unit_value(fx, fx.preset_index()),
+            SelectedTrack { project } => convert_track_index_to_unit_value(
+                *project,
+                project
+                    .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
+                    .and_then(|t| t.index()),
+            ),
         }
     }
 
@@ -764,6 +801,10 @@ impl Target for ReaperTarget {
             // `+ 1` because "<no preset>" is also a possible value.
             FxPreset { fx } => ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(fx.preset_count() + 1),
+            },
+            // `+ 1` because "<Master track>" is also a possible value.
+            SelectedTrack { project } => ControlType::AbsoluteDiscrete {
+                atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
             },
             _ => ControlType::AbsoluteContinuous,
         }
@@ -862,6 +903,14 @@ fn convert_bool_to_unit_value(on: bool) -> UnitValue {
 }
 
 fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
+    convert_unit_to_discrete_value_with_none(value, fx.preset_count())
+}
+
+fn convert_unit_value_to_track_index(project: Project, value: UnitValue) -> Option<u32> {
+    convert_unit_to_discrete_value_with_none(value, project.track_count())
+}
+
+fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Option<u32> {
     // Example: <no preset> + 4 presets
     if value.is_zero() {
         // 0.00 => <no preset>
@@ -873,16 +922,23 @@ fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> 
         // 1.00 => 3
 
         // Example: value = 0.75
-        let preset_count = fx.preset_count(); // 4
-        let step_size = 1.0 / preset_count as f64; // 0.25
+        let step_size = 1.0 / count as f64; // 0.25
         let zero_based_value = (value.get() - step_size).max(0.0); // 0.5
-        Some((zero_based_value * preset_count as f64).round() as u32) // 2
+        Some((zero_based_value * count as f64).round() as u32) // 2
     }
 }
 
+fn convert_track_index_to_unit_value(project: Project, index: Option<u32>) -> UnitValue {
+    convert_discrete_to_unit_value_with_none(index, project.track_count())
+}
+
 fn convert_preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
+    convert_discrete_to_unit_value_with_none(index, fx.preset_count())
+}
+
+fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> UnitValue {
     // Example: <no preset> + 4 presets
-    match index {
+    match value {
         // <no preset> => 0.00
         None => UnitValue::MIN,
         // 0 => 0.25
@@ -891,9 +947,8 @@ fn convert_preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue 
         // 3 => 1.00
         Some(i) => {
             // Example: i = 2
-            let preset_count = fx.preset_count(); // 4
-            let zero_based_value = i as f64 / preset_count as f64; // 0.5
-            let step_size = 1.0 / preset_count as f64; // 0.25
+            let zero_based_value = i as f64 / count as f64; // 0.5
+            let step_size = 1.0 / count as f64; // 0.25
             let value = (zero_based_value + step_size).min(1.0); // 0.75
             UnitValue::new(value)
         }
