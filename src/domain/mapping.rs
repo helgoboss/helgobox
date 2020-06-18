@@ -1,4 +1,4 @@
-use crate::domain::{Mode, ReaperTarget};
+use crate::domain::{MainProcessorTargetUpdate, Mode, ReaperTarget};
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
 use helgoboss_midi::RawShortMessage;
 use rx_util::BoxedUnitEvent;
@@ -139,6 +139,21 @@ impl MainProcessorMapping {
 
     pub fn id(&self) -> MappingId {
         self.id
+    }
+
+    pub fn update_from_target(&mut self, update: MainProcessorTargetUpdate) {
+        self.target = update.target;
+        self.control_is_enabled = update.control_is_enabled;
+        self.feedback_is_enabled = update.feedback_is_enabled;
+    }
+
+    pub fn into_target_update(self) -> MainProcessorTargetUpdate {
+        MainProcessorTargetUpdate {
+            id: self.id(),
+            target: self.target,
+            control_is_enabled: self.control_is_enabled,
+            feedback_is_enabled: self.feedback_is_enabled,
+        }
     }
 
     pub fn control_is_enabled(&self) -> bool {

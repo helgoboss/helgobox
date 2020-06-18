@@ -9,9 +9,10 @@ use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
 use slog::debug;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 
-const BULK_SIZE: usize = 30;
+const BULK_SIZE: usize = 32;
 
 type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
 type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
@@ -30,7 +31,12 @@ pub struct MainProcessor {
 impl ControlSurface for MainProcessor {
     fn run(&mut self) {
         // Process tasks
-        for task in self.receiver.try_iter().take(BULK_SIZE) {
+        // We could also iterate directly while keeping the receiver open. But that would (for good
+        // reason) prevent us from calling other methods that mutably borrow self. To at least avoid
+        // heap allocations, we use a smallvec.
+        let tasks: SmallVec<[MainProcessorTask; BULK_SIZE]> =
+            self.receiver.try_iter().take(BULK_SIZE).collect();
+        for task in tasks {
             use MainProcessorTask::*;
             match task {
                 UpdateAllMappings(mappings) => {
@@ -38,18 +44,21 @@ impl ControlSurface for MainProcessor {
                         Reaper::get().logger(),
                         "Main processor: Updating all mappings..."
                     );
-                    // Resubscribe to target value changes for feedback
-                    self.feedback_subscriptions.clear();
-                    for m in mappings.iter().filter(|m| m.feedback_is_enabled()) {
-                        let subscription =
-                            send_feedback_when_target_value_changed(self.self_sender.clone(), m);
-                        self.feedback_subscriptions.insert(m.id(), subscription);
-                    }
-                    // Also send feedback instantly to reflect this change in mappings.
-                    self.feedback_buffer.reset();
-                    self.send_feedback(self.feedback_all());
                     // Put into hash map in order to quickly look up mappings by ID
                     self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
+                    self.process_batch_mapping_update();
+                }
+                UpdateAllTargets(targets) => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Main processor: Updating all targets..."
+                    );
+                    for t in targets.into_iter() {
+                        if let Some(m) = self.mappings.get_mut(&t.id) {
+                            m.update_from_target(t);
+                        }
+                    }
+                    self.process_batch_mapping_update();
                 }
                 UpdateSingleMapping { id, mapping } => {
                     debug!(
@@ -83,15 +92,23 @@ impl ControlSurface for MainProcessor {
                     }
                 }
                 Control { mapping_id, value } => {
-                    let mut mapping = match self.mappings.get_mut(&mapping_id) {
-                        None => return,
-                        Some(m) => m,
+                    if let Some(m) = self.mappings.get_mut(&mapping_id) {
+                        // Most of the time, the main processor won't even receive a control
+                        // instruction (from the real-time processor) for a
+                        // mapping for which control is disabled,
+                        // because the real-time processor only ever gets mappings for which control
+                        // is enabled. But if control is (temporarily) disabled because a target
+                        // condition is (temporarily) not met (e.g. "track must be selected"), the
+                        // real-time processor won't know about it (there's no resync to the
+                        // real-time processor in this case in order too not
+                        // reset source state like long/short press just
+                        // because of a selection change). If we want the
+                        // real-time processor to know about it (e.g. in order to reduce
+                        // the amount of sources it has to process), we would need to build a more
+                        // advanced syncing mechanism that uses diffs and retains sources.
+                        // TODO-low Optimize if it causes performance issues, which I don't think.
+                        m.control_if_enabled(value);
                     };
-                    // Most of the time, the main processor won't even receive a control instruction
-                    // (from the real-time processor) for a mapping for which control is disabled,
-                    // because the real-time processor only ever gets mappings for which control
-                    // is enabled. Anyway, here we do a second check.
-                    mapping.control_if_enabled(value);
                 }
                 Feedback(mapping_id) => {
                     self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
@@ -147,6 +164,18 @@ impl MainProcessor {
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
     }
+
+    fn process_batch_mapping_update(&mut self) {
+        // Resubscribe to target value changes for feedback
+        self.feedback_subscriptions.clear();
+        for m in self.mappings.values().filter(|m| m.feedback_is_enabled()) {
+            let subscription = send_feedback_when_target_value_changed(self.self_sender.clone(), m);
+            self.feedback_subscriptions.insert(m.id(), subscription);
+        }
+        // Also send feedback instantly to reflect this change in mappings.
+        self.feedback_buffer.reset();
+        self.send_feedback(self.feedback_all());
+    }
 }
 
 fn send_feedback_when_target_value_changed(
@@ -168,6 +197,13 @@ pub enum MainProcessorTask {
         id: MappingId,
         mapping: Option<MainProcessorMapping>,
     },
+    /// Use this whenever existing modes should not be overwritten.
+    ///
+    /// This is always the case when syncing as a result of ReaLearn control processing (e.g.
+    /// when a selected track changes because a controller knob has been moved). Syncing the modes
+    /// in such cases would reset all mutable mode state (e.g. throttling counter). Clearly
+    /// undesired.
+    UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
     Feedback(MappingId),
     FeedbackAll,
     Control {
@@ -175,4 +211,12 @@ pub enum MainProcessorTask {
         value: ControlValue,
     },
     LearnSource(MidiSource),
+}
+
+#[derive(Debug)]
+pub struct MainProcessorTargetUpdate {
+    pub id: MappingId,
+    pub target: ReaperTarget,
+    pub control_is_enabled: bool,
+    pub feedback_is_enabled: bool,
 }

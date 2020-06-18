@@ -1,9 +1,9 @@
 use super::MidiSourceModel;
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTask, MappingId, MappingModel,
-    ProcessorMapping, RealTimeProcessorMapping, RealTimeProcessorTask, ReaperTarget,
-    SessionContext, SharedMapping, TargetModel,
+    share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate,
+    MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorMapping,
+    RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
@@ -153,15 +153,18 @@ impl Session {
         .do_async(move |session, _| {
             session.borrow_mut().sync_all_mappings_to_all_processors();
         });
-        // Whenever anything changes that just affects the main processor mappings, resync all
-        // mappings to the main processor. E.g. we don't want to resync to the real-time processor
+        // Whenever anything changes that just affects the main processor targets, resync all
+        // targets to the main processor. We don't want to resync to the real-time processor
         // just because another track has been selected. First, it would reset any source state
         // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
+        // We also don't want to resync modes to the main processor. First, it would reset any
+        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
         when(
             // There are several global conditions which affect whether feedback will be sent
-            // or not. If not, the main processor will not get any mappings from us, because
-            // it's unnecessary. It only ever gets the mappings it needs, that's the principle.
-            // However, when anything about those conditions changes, we need to sync again.
+            // or not. And also what produces the feedback values (e.g. when there's a target
+            // which uses <Selected track>, then a track selection change changes the feedback
+            // value producer ... so the main processor needs to unsubscribe from the old producer
+            // and subscribe to the new one).
             session
                 .midi_feedback_output
                 .changed()
@@ -176,7 +179,7 @@ impl Session {
         )
         .with(&shared_session)
         .do_async(move |session, _| {
-            session.borrow_mut().sync_all_mappings_to_main_processor();
+            session.borrow_mut().sync_all_targets_to_main_processor();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
@@ -295,7 +298,8 @@ impl Session {
                         .with(shared_session)
                         .do_sync(move |session, _| {
                             let session = session.borrow();
-                            session.sync_mapping_to_processors(&shared_mapping_clone.borrow());
+                            session
+                                .sync_single_mapping_to_processors(&shared_mapping_clone.borrow());
                             session.mark_project_as_dirty();
                         });
                     all_subscriptions.add(subscription);
@@ -585,7 +589,7 @@ impl Session {
         self.real_time_processor_sender.send(task);
     }
 
-    fn sync_mapping_to_processors(&self, m: &MappingModel) {
+    fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
         let processor_mapping = m.with_context(&self.context).create_processor_mapping();
         let splintered = processor_mapping
             .as_ref()
@@ -623,15 +627,20 @@ impl Session {
         }
     }
 
-    fn sync_all_mappings_to_main_processor(&self) {
-        let splintered = self.splinter();
+    fn sync_all_targets_to_main_processor(&self) {
+        let splintered = self.create_and_splinter_mappings();
+        let main_processor_targets = splintered
+            .main
+            .into_iter()
+            .map(|m| m.into_target_update())
+            .collect();
         self.main_processor_channel
             .0
-            .send(MainProcessorTask::UpdateAllMappings(splintered.main));
+            .send(MainProcessorTask::UpdateAllTargets(main_processor_targets));
     }
 
     fn sync_all_mappings_to_all_processors(&self) {
-        let splintered = self.splinter();
+        let splintered = self.create_and_splinter_mappings();
         self.main_processor_channel
             .0
             .send(MainProcessorTask::UpdateAllMappings(splintered.main));
@@ -641,8 +650,9 @@ impl Session {
             ));
     }
 
-    /// Splits mappings into different lists so they can be distributed to different processors.
-    fn splinter(&self) -> SplinteredProcessorMappings {
+    /// Creates mappings from mapping models and splits them into different lists so they can be
+    /// distributed to different processors.
+    fn create_and_splinter_mappings(&self) -> SplinteredProcessorMappings {
         // At first we want a clean representation of each relevant mapping, without all the
         // property stuff and so on.
         let mappings: Vec<_> = self
