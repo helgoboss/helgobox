@@ -12,7 +12,7 @@ use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
-use reaper_medium::{Hz, MidiFrameOffset, TypeSpecificPluginContext};
+use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset, TypeSpecificPluginContext};
 use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::convert::TryFrom;
@@ -214,7 +214,17 @@ impl RealearnPlugin {
         let real_time_sender = self.real_time_processor_sender.clone();
         let main_processor_channel = self.main_processor_channel.clone();
         Reaper::get().do_later_in_main_thread_asap(move || {
-            let session_context = SessionContext::from_host(&host);
+            let session_context = match SessionContext::from_host(&host) {
+                Ok(c) => c,
+                Err(msg) => {
+                    Reaper::get().medium_reaper().show_message_box(
+                        msg,
+                        "ReaLearn",
+                        MessageBoxType::Okay,
+                    );
+                    return;
+                }
+            };
             let session = Session::new(
                 session_context,
                 real_time_sender,
