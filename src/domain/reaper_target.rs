@@ -92,6 +92,11 @@ impl ReaperTarget {
             )
             .merge(
                 reaper
+                    .fx_preset_changed()
+                    .map(move |fx| FxPreset { fx }.into()),
+            )
+            .merge(
+                reaper
                     .track_volume_touched()
                     .map(move |track| TrackVolume { track }.into()),
             )
@@ -702,9 +707,13 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
-            FxPreset { .. } => {
-                // REAPER doesn't notify us when a preset is changed.
-                observable::empty().box_it()
+            FxPreset { fx } => {
+                let fx = fx.clone();
+                Reaper::get()
+                    .fx_preset_changed()
+                    .filter(move |f| f == &fx)
+                    .map_to(())
+                    .box_it()
             }
         }
     }
