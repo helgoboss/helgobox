@@ -9,9 +9,10 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 use helgoboss_midi::Channel;
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::Swell;
-use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
+use reaper_medium::{MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
+use serde_json::Error;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
 use std::iter;
@@ -326,8 +327,17 @@ impl HeaderPanel {
         let json = clipboard
             .get_contents()
             .expect("couldn't read from clipboard");
-        let session_data: SessionData =
-            serde_json::from_str(json.as_str()).expect("invalid session data");
+        let session_data: SessionData = match serde_json::from_str(json.as_str()) {
+            Ok(d) => d,
+            Err(e) => {
+                Reaper::get().medium_reaper().show_message_box(
+                    format!("Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}", e),
+                    "ReaLearn",
+                    MessageBoxType::Okay,
+                );
+                return;
+            }
+        };
         let mut session = self.session.borrow_mut();
         session_data.apply_to_model(&mut session);
         session.notify_everything_has_changed(&self.session);
