@@ -40,7 +40,7 @@ impl MappingRowsPanel {
         let mapping_panel_manager = Rc::new(RefCell::new(mapping_panel_manager));
         MappingRowsPanel {
             view: Default::default(),
-            rows: (0..5)
+            rows: (0..6)
                 .map(|i| {
                     let panel =
                         MappingRowPanel::new(session.clone(), i, mapping_panel_manager.clone());
