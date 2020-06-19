@@ -852,6 +852,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX);
         cb.set_checked(self.mapping.control_is_enabled.get());
+        #[cfg(not(target_os = "linux"))]
         cb.set_text("🡺 Control enabled");
     }
 
@@ -860,6 +861,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX);
         cb.set_checked(self.mapping.feedback_is_enabled.get());
+        #[cfg(not(target_os = "linux"))]
         cb.set_text("🡸 Feedback enabled");
     }
 

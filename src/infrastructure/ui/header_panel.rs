@@ -329,27 +329,23 @@ impl HeaderPanel {
             .set_enabled(is_set);
     }
 
-    pub fn import_from_clipboard(&self) {
+    pub fn import_from_clipboard(&self) -> Result<(), String> {
         let mut clipboard: ClipboardContext =
-            ClipboardProvider::new().expect("couldn't create clipboard");
+            ClipboardProvider::new().map_err(|_| "Couldn't obtain clipboard.".to_string())?;
         let json = clipboard
             .get_contents()
-            .expect("couldn't read from clipboard");
-        let session_data: SessionData = match serde_json::from_str(json.as_str()) {
-            Ok(d) => d,
-            Err(e) => {
-                Reaper::get().medium_reaper().show_message_box(
-                    format!("Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}", e),
-                    "ReaLearn",
-                    MessageBoxType::Okay,
-                );
-                return;
-            }
-        };
+            .map_err(|_| "Couldn't read from clipboard.".to_string())?;
+        let session_data: SessionData = serde_json::from_str(json.as_str()).map_err(|e| {
+            format!(
+                "Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}",
+                e
+            )
+        })?;
         let mut session = self.session.borrow_mut();
         session_data.apply_to_model(&mut session);
         session.notify_everything_has_changed(&self.session);
         session.mark_project_as_dirty();
+        Ok(())
     }
 
     pub fn export_to_clipboard(&self) {
@@ -450,7 +446,15 @@ impl View for HeaderPanel {
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
             ID_CLEAR_SOURCE_FILTER_BUTTON => self.main_state.borrow_mut().clear_source_filter(),
             ID_CLEAR_TARGET_FILTER_BUTTON => self.main_state.borrow_mut().clear_target_filter(),
-            ID_IMPORT_BUTTON => self.import_from_clipboard(),
+            ID_IMPORT_BUTTON => {
+                if let Err(msg) = self.import_from_clipboard() {
+                    Reaper::get().medium_reaper().show_message_box(
+                        msg,
+                        "ReaLearn",
+                        MessageBoxType::Okay,
+                    );
+                }
+            }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session.borrow().send_feedback(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),

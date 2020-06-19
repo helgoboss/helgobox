@@ -119,15 +119,21 @@ impl MappingRowPanel {
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
-        self.view
-            .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-            .set_checked(mapping.control_is_enabled.get());
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX);
+        cb.set_checked(mapping.control_is_enabled.get());
+        #[cfg(not(target_os = "linux"))]
+        cb.set_text("🡺");
     }
 
     fn invalidate_feedback_check_box(&self, mapping: &MappingModel) {
-        self.view
-            .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-            .set_checked(mapping.feedback_is_enabled.get());
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX);
+        cb.set_checked(mapping.feedback_is_enabled.get());
+        #[cfg(not(target_os = "linux"))]
+        cb.set_text("🡸");
     }
 
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
