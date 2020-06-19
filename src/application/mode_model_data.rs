@@ -1,6 +1,7 @@
 use crate::domain::{ModeModel, ModeType};
 use helgoboss_learn::{Interval, SymmetricUnitValue, UnitValue};
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -14,6 +15,8 @@ pub struct ModeModelData {
     max_target_jump: UnitValue,
     min_step_size: SymmetricUnitValue,
     max_step_size: SymmetricUnitValue,
+    min_press_millis: u64,
+    max_press_millis: u64,
     eel_control_transformation: String,
     eel_feedback_transformation: String,
     reverse_is_enabled: bool,
@@ -35,6 +38,8 @@ impl Default for ModeModelData {
             max_target_jump: UnitValue::MAX,
             min_step_size: SymmetricUnitValue::new(0.01),
             max_step_size: SymmetricUnitValue::new(0.01),
+            min_press_millis: 0,
+            max_press_millis: 0,
             eel_control_transformation: "".to_string(),
             eel_feedback_transformation: "".to_string(),
             reverse_is_enabled: false,
@@ -58,6 +63,16 @@ impl ModeModelData {
             max_target_jump: model.jump_interval.get_ref().max_val(),
             min_step_size: model.step_interval.get_ref().min_val(),
             max_step_size: model.step_interval.get_ref().max_val(),
+            min_press_millis: model
+                .press_duration_interval
+                .get_ref()
+                .min_val()
+                .as_millis() as _,
+            max_press_millis: model
+                .press_duration_interval
+                .get_ref()
+                .max_val()
+                .as_millis() as _,
             eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
             eel_feedback_transformation: model.eel_feedback_transformation.get_ref().clone(),
             reverse_is_enabled: model.reverse.get(),
@@ -81,6 +96,12 @@ impl ModeModelData {
         model
             .step_interval
             .set_without_notification(Interval::new(self.min_step_size, self.max_step_size));
+        model
+            .press_duration_interval
+            .set_without_notification(Interval::new(
+                Duration::from_millis(self.min_press_millis),
+                Duration::from_millis(self.max_press_millis),
+            ));
         model
             .jump_interval
             .set_without_notification(Interval::new(self.min_target_jump, self.max_target_jump));

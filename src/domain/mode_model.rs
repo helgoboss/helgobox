@@ -4,14 +4,15 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, DiscreteValue, Interval,
-    MidiClockTransportMessage, MidiSource, RelativeMode, SourceCharacter, SymmetricUnitValue,
-    Target, ToggleMode, Transformation, UnitValue,
+    MidiClockTransportMessage, MidiSource, PressDurationProcessor, RelativeMode, SourceCharacter,
+    SymmetricUnitValue, Target, ToggleMode, Transformation, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde_repr::*;
+use std::time::Duration;
 
 /// A model for creating modes
 #[derive(Clone, Debug)]
@@ -22,6 +23,8 @@ pub struct ModeModel {
     // For absolute and relative mode
     pub source_value_interval: Prop<Interval<UnitValue>>,
     pub reverse: Prop<bool>,
+    // For absolute and toggle mode
+    pub press_duration_interval: Prop<Interval<Duration>>,
     // For absolute mode
     pub jump_interval: Prop<Interval<UnitValue>>,
     pub ignore_out_of_range_source_values: Prop<bool>,
@@ -110,6 +113,10 @@ impl Default for ModeModel {
             target_value_interval: prop(full_unit_interval()),
             source_value_interval: prop(full_unit_interval()),
             reverse: prop(false),
+            press_duration_interval: prop(Interval::new(
+                Duration::from_millis(0),
+                Duration::from_millis(0),
+            )),
             jump_interval: prop(full_unit_interval()),
             ignore_out_of_range_source_values: prop(false),
             round_target_value: prop(false),
@@ -151,6 +158,8 @@ impl ModeModel {
         self.rotate.set(def.rotate.get());
         self.reverse.set(def.reverse.get());
         self.step_interval.set(def.step_interval.get());
+        self.press_duration_interval
+            .set(def.press_duration_interval.get());
     }
 
     /// Fires whenever one of the properties of this model has changed
@@ -168,6 +177,7 @@ impl ModeModel {
             .merge(self.eel_feedback_transformation.changed())
             .merge(self.step_interval.changed())
             .merge(self.rotate.changed())
+            .merge(self.press_duration_interval.changed())
     }
 
     /// Creates a mode reflecting this model's current values
@@ -178,6 +188,9 @@ impl ModeModel {
                 source_value_interval: self.source_value_interval.get(),
                 target_value_interval: self.target_value_interval.get(),
                 jump_interval: self.jump_interval.get(),
+                press_duration_processor: PressDurationProcessor::new(
+                    self.press_duration_interval.get(),
+                ),
                 approach_target_value: self.approach_target_value.get(),
                 reverse_target_value: self.reverse.get(),
                 round_target_value: self.round_target_value.get(),
@@ -207,8 +220,16 @@ impl ModeModel {
             }),
             Toggle => Mode::Toggle(ToggleMode {
                 target_value_interval: self.target_value_interval.get(),
+                press_duration_processor: PressDurationProcessor::new(
+                    self.press_duration_interval.get(),
+                ),
             }),
         }
+    }
+
+    pub fn supports_press_duration(&self) -> bool {
+        use ModeType::*;
+        matches!(self.r#type.get(), Absolute | Toggle)
     }
 
     pub fn supports_reverse(&self) -> bool {
@@ -240,7 +261,7 @@ impl ModeModel {
         self.r#type.get() == ModeType::Absolute
     }
 
-    pub fn supports_step_size(&self) -> bool {
+    pub fn supports_steps(&self) -> bool {
         self.r#type.get() == ModeType::Relative
     }
 

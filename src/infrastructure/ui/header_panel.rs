@@ -225,6 +225,13 @@ impl HeaderPanel {
         self.main_state.borrow_mut().search_expression.set(text);
     }
 
+    fn invalidate_search_expression(&self) {
+        let main_state = self.main_state.borrow();
+        self.view
+            .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
+            .set_text(main_state.search_expression.get_ref().as_str())
+    }
+
     fn update_midi_control_input(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
         let value = match b.selected_combo_box_item_data() {
@@ -440,6 +447,7 @@ impl View for HeaderPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.invalidate_all_controls();
+        self.invalidate_search_expression();
         self.register_listeners();
         true
     }
