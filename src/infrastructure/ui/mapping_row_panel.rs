@@ -118,22 +118,29 @@ impl MappingRowPanel {
             .set_text(text);
     }
 
+    fn use_arrow_characters(&self) {
+        self.view
+            .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+            .set_text("🡺");
+        self.view
+            .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+            .set_text("🡸");
+        self.view.require_control(root::ID_UP_BUTTON).set_text("🡹");
+        self.view
+            .require_control(root::ID_DOWN_BUTTON)
+            .set_text("🡻");
+    }
+
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
-        let cb = self
-            .view
-            .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX);
-        cb.set_checked(mapping.control_is_enabled.get());
-        #[cfg(not(target_os = "linux"))]
-        cb.set_text("🡺");
+        self.view
+            .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+            .set_checked(mapping.control_is_enabled.get());
     }
 
     fn invalidate_feedback_check_box(&self, mapping: &MappingModel) {
-        let cb = self
-            .view
-            .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX);
-        cb.set_checked(mapping.feedback_is_enabled.get());
-        #[cfg(not(target_os = "linux"))]
-        cb.set_text("🡸");
+        self.view
+            .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+            .set_checked(mapping.feedback_is_enabled.get());
     }
 
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
@@ -274,6 +281,8 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.move_to(Point::new(DialogUnits(0), DialogUnits(self.row_index * 48)));
+        #[cfg(not(target_os = "linux"))]
+        self.use_arrow_characters();
         window.hide();
         false
     }
