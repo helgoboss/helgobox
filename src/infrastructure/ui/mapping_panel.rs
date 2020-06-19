@@ -848,15 +848,19 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mapping_control_enabled_check_box(&self) {
-        self.view
-            .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
-            .set_checked(self.mapping.control_is_enabled.get());
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX);
+        cb.set_checked(self.mapping.control_is_enabled.get());
+        cb.set_text("🡺 Control enabled");
     }
 
     fn invalidate_mapping_feedback_enabled_check_box(&self) {
-        self.view
-            .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
-            .set_checked(self.mapping.feedback_is_enabled.get());
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX);
+        cb.set_checked(self.mapping.feedback_is_enabled.get());
+        cb.set_text("🡸 Feedback enabled");
     }
 
     fn invalidate_source_controls(&self) {
