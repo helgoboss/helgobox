@@ -217,6 +217,14 @@ impl HeaderPanel {
         };
     }
 
+    fn update_search_expression(&self) {
+        let ec = self
+            .view
+            .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL);
+        let text = ec.text().unwrap_or("".to_string());
+        self.main_state.borrow_mut().search_expression.set(text);
+    }
+
     fn update_midi_control_input(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
         let value = match b.selected_combo_box_item_data() {
@@ -472,6 +480,15 @@ impl View for HeaderPanel {
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
             _ => unreachable!(),
         }
+    }
+
+    fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+        use root::*;
+        match resource_id {
+            ID_HEADER_SEARCH_EDIT_CONTROL => self.update_search_expression(),
+            _ => unreachable!(),
+        }
+        true
     }
 }
 

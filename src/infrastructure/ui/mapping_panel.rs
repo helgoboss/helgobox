@@ -2101,7 +2101,6 @@ impl View for MappingPanel {
             // dialog proc is not reentered - we are just reacting (async) to a change.
             return false;
         }
-
         use root::*;
         match resource_id {
             // Mapping

@@ -155,6 +155,7 @@ impl MappingRowsPanel {
         let main_state = self.main_state.borrow();
         if main_state.source_filter.get_ref().is_none()
             && main_state.target_filter.get_ref().is_none()
+            && main_state.search_expression.get_ref().trim().is_empty()
         {
             return session.mapping_count();
         }
@@ -244,6 +245,18 @@ impl MappingRowsPanel {
                 return false;
             }
         }
+        let search_expression = main_state.search_expression.get_ref().trim().to_lowercase();
+        if !search_expression.is_empty() {
+            if !mapping
+                .borrow()
+                .name
+                .get_ref()
+                .to_lowercase()
+                .contains(&search_expression)
+            {
+                return false;
+            }
+        }
         true
     }
 
@@ -268,7 +281,8 @@ impl MappingRowsPanel {
             main_state
                 .source_filter
                 .changed()
-                .merge(main_state.target_filter.changed()),
+                .merge(main_state.target_filter.changed())
+                .merge(main_state.search_expression.changed()),
             |view| {
                 view.scroll_position.set(0);
                 view.invalidate_mapping_rows();
@@ -305,7 +319,7 @@ impl View for MappingRowsPanel {
                 .low()
                 .InitializeCoolSB(window.raw() as _);
         }
-        window.move_to(Point::new(DialogUnits(0), DialogUnits(78)));
+        window.move_to(Point::new(DialogUnits(0), DialogUnits(100)));
         self.open_mapping_rows(window);
         self.invalidate_mapping_rows();
         self.invalidate_scroll_info();

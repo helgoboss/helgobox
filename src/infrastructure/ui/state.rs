@@ -12,6 +12,7 @@ pub struct MainState {
     pub is_learning_target_filter: Prop<bool>,
     pub source_filter: Prop<Option<MidiSource>>,
     pub is_learning_source_filter: Prop<bool>,
+    pub search_expression: Prop<String>,
 }
 
 impl MainState {
