@@ -1,4 +1,3 @@
-use crate::win_bindings::root;
 use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
@@ -313,14 +312,14 @@ impl Window {
         let point = point.into();
         #[cfg(target_family = "windows")]
         {
-            let mut rect = root::tagRECT {
+            let mut rect = winapi::shared::windef::RECT {
                 left: 0,
                 top: 0,
                 right: point.x.as_raw(),
                 bottom: point.y.as_raw(),
             };
             unsafe {
-                root::MapDialogRect(self.raw as _, &mut rect as _);
+                winapi::um::winuser::MapDialogRect(self.raw as _, &mut rect as _);
             }
             Point {
                 x: Pixels(rect.right as u32),

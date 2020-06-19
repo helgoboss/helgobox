@@ -2,8 +2,6 @@
 mod macros;
 pub use macros::*;
 
-mod win_bindings;
-
 mod view_manager;
 pub use view_manager::*;
 
