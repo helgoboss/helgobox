@@ -12,7 +12,7 @@ use wish_tree::*;
 fn main() {
     let dest_dir = PathBuf::from("target");
     #[cfg(target_os = "macos")]
-    package_for_macos();
+    package_for_macos(&dest_dir);
     #[cfg(target_os = "linux")]
     package_for_linux(&dest_dir);
     #[cfg(target_os = "windows")]
@@ -20,7 +20,7 @@ fn main() {
 }
 
 #[cfg(target_os = "macos")]
-fn package_for_macos() {
+fn package_for_macos(dest_dir: &Path) {
     let dist = reaper_dir_tree(dir! {
         "ReaLearn.vst" => dir! {
             "Contents" => dir! {

@@ -17,6 +17,7 @@ cargo install --force cargo-make
 cargo make dist
 ```
 
+`rustup default nightly-2020-05-15`
 
 ## Design
 
