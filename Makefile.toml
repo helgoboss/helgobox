@@ -4,6 +4,11 @@ default_to_workspace = false
 [env]
 MACOSX_DEPLOYMENT_TARGET = "10.7"
 
+[tasks.build-release]
+# We don't want to build with "--all-features". If we would do, it would always regenerate the bindings, which is an
+# optional step. The build must work also without regenerating bindings.
+args = ["build", "--release"]
+
 [tasks.dist]
 script_runner = "@rust"
 script = { file = "dist.rs" }

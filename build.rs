@@ -76,14 +76,9 @@ fn compile_dialogs() {
     );
     assert!(result.status.success(), "PHP dialog translator failed");
     // Compile the resulting C++ file
-    let stdlib = if cfg!(target_os = "macos") {
-        Some("c++")
-    } else {
-        None
-    };
     cc::Build::new()
         .cpp(true)
-        .cpp_set_stdlib(stdlib)
+        .cpp_set_stdlib(determine_cpp_stdlib())
         .warnings(false)
         .file("src/infrastructure/common/dialogs.cpp")
         .compile("dialogs");
@@ -106,7 +101,7 @@ fn embed_dialog_resources() {
 fn generate_bindings() {
     // Tell cargo to invalidate the built crate whenever the wrapper changes
     println!("cargo:rerun-if-changed=src/infrastructure/common/wrapper.hpp");
-    let bindings = bindgen::Builder::default()
+    let mut builder = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
         .header("src/infrastructure/common/wrapper.hpp")
@@ -125,7 +120,11 @@ fn generate_bindings() {
         .whitelist_function("NSEEL_.*")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks));
+    if let Some(stdlib) = determine_cpp_stdlib() {
+        builder = builder.clang_arg(format!("-stdlib=lib{}", stdlib));
+    }
+    let bindings = builder
         // Finish the builder and generate the bindings.
         .generate()
         // Unwrap the Result and panic on failure.
@@ -139,4 +138,12 @@ fn generate_bindings() {
                 .join("bindings.rs"),
         )
         .expect("Couldn't write bindings!");
+}
+
+fn determine_cpp_stdlib() -> Option<&'static str> {
+    if cfg!(target_os = "macos") {
+        Some("c++")
+    } else {
+        None
+    }
 }

@@ -16,6 +16,12 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
+      # TODO Put this into cargo make
+      - name: Set up dependencies
+        run: sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
+      - name: Compile EEL assembler code
+        working-directory: lib/WDL/WDL/eel2
+        run: make asm-nseel-x64.o
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
