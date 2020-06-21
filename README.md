@@ -1,5 +1,7 @@
 # ReaLearn
 
+TODO! This README is just a draft!
+
 ## Build
 
 On Linux we need PHP in order to translate the dialog resource file to C++. For EEL on Linux, we also need nasm. For
@@ -8,6 +10,11 @@ doing our own implementation via SWELL in commit `c3e28e92b75`).
 
 ```sh
 sudo apt install php nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev -y
+```
+
+```
+cargo install --force cargo-make
+cargo make dist
 ```
 
 

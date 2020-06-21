@@ -27,7 +27,7 @@ jobs:
           command: check
 
   test:
-    name: Test Suite
+    name: Test
     runs-on: macos-latest
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7
@@ -51,7 +51,30 @@ jobs:
         with:
           command: test
           args: -- --nocapture
+
+  dist:
+    name: Build distribution
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2020-05-15
+          override: true
+      - name: Install cargo-make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --debug cargo-make
+      - name: cargo make dist
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: dist
       - uses: actions/upload-artifact@v2
         with:
-          name: test-plug-ins
-          path: target/debug/*.dylib
+          name: plug-ins
+          path: target/*.zip

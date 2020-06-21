@@ -1,6 +1,7 @@
 [submodule "lib/WDL"]
 	path = lib/WDL
 	url = https://github.com/justinfrankel/WDL.git
+	ignore = untracked
 [submodule "helgoboss-learn"]
 	path = helgoboss-learn
 	url = https://github.com/helgoboss/helgoboss-learn.git

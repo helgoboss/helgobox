@@ -119,15 +119,15 @@ pub mod root {
     pub const ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT: u32 = 40074;
     pub const ID_OK: u32 = 40075;
     pub const ID_TARGET_ACTION_LABEL_TEXT: u32 = 40076;
-    pub type INT_PTR = isize;
+    pub const ID_CMD: u32 = 236;
+    pub const ID_PSRESTARTWINDOWS: u32 = 2;
+    pub const ID_PSREBOOTSYSTEM: u32 = 3;
+    pub const ID_DEFAULTINST: i32 = -2;
     pub mod std {
         #[allow(unused_imports)]
         use self::super::super::root;
     }
-    pub mod __gnu_cxx {
-        #[allow(unused_imports)]
-        use self::super::super::root;
-    }
+    pub type INT_PTR = ::std::os::raw::c_longlong;
     pub type EEL_F = f64;
     extern "C" {
         pub fn NSEEL_HOSTSTUB_EnterMutex();

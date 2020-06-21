@@ -1157,7 +1157,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "realearn-rs"
+name = "realearn"
 version = "0.1.0-pre1"
 dependencies = [
  "bindgen",

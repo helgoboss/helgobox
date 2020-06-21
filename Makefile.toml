@@ -1,0 +1,10 @@
+[config]
+default_to_workspace = false
+
+[env]
+MACOSX_DEPLOYMENT_TARGET = "10.7"
+
+[tasks.dist]
+script_runner = "@rust"
+script = { file = "dist.rs" }
+dependencies = ["build-release"]
