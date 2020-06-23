@@ -390,6 +390,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
+name = "downcast-rs"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52ba6eb47c2131e784a38b726eb54c1e1484904f013e576a25354d0124161af6"
+
+[[package]]
 name = "embed-resource"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1197,6 +1203,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#710a7a9a92de7336279649aa9a94370f25acf3b9"
 dependencies = [
  "c_str_macro",
  "crossbeam-channel",
@@ -1217,10 +1224,12 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#710a7a9a92de7336279649aa9a94370f25acf3b9"
 dependencies = [
  "c_str_macro",
  "cc",
  "derive_more",
+ "downcast-rs",
  "vst",
  "winapi",
 ]
@@ -1228,6 +1237,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#710a7a9a92de7336279649aa9a94370f25acf3b9"
 dependencies = [
  "darling",
  "quote",
@@ -1237,6 +1247,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#710a7a9a92de7336279649aa9a94370f25acf3b9"
 dependencies = [
  "c_str_macro",
  "derive_more",

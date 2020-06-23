@@ -114,12 +114,12 @@ impl Session {
         // callback is not suited.
         Reaper::get()
             .medium_session()
-            .plugin_register_add_csurf_inst(MainProcessor::new(
+            .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
                 session.main_processor_channel.0.clone(),
                 session.main_processor_channel.1.clone(),
                 session.real_time_processor_sender.clone(),
                 shared_session.clone(),
-            ));
+            )));
         // Whenever something in the mapping list changes, resubscribe to mappings themselves.
         when(
             // Initial sync

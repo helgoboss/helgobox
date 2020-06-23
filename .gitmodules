@@ -5,6 +5,3 @@
 [submodule "helgoboss-learn"]
 	path = helgoboss-learn
 	url = https://github.com/helgoboss/helgoboss-learn.git
-[submodule "reaper-rs"]
-	path = reaper-rs
-	url = git@github.com:helgoboss/reaper-rs.git
