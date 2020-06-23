@@ -7,6 +7,7 @@ use crate::domain::{
     TargetType, VirtualTrack,
 };
 use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::{MainPanel, MappingRowsPanel};
 use c_str_macro::c_str;
 use enum_iterator::IntoEnumIterator;
@@ -888,8 +889,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX);
         cb.set_checked(self.mapping.control_is_enabled.get());
-        #[cfg(not(target_os = "linux"))]
-        cb.set_text("🡺 Control enabled");
+        cb.set_text(format!("{} Control enabled", symbols::ARROW_RIGHT_SYMBOL));
     }
 
     fn invalidate_mapping_feedback_enabled_check_box(&self) {
@@ -897,8 +897,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX);
         cb.set_checked(self.mapping.feedback_is_enabled.get());
-        #[cfg(not(target_os = "linux"))]
-        cb.set_text("🡸 Feedback enabled");
+        cb.set_text(format!("{} Feedback enabled", symbols::ARROW_LEFT_SYMBOL));
     }
 
     fn invalidate_source_controls(&self) {

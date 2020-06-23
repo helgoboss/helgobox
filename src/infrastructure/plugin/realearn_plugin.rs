@@ -260,9 +260,7 @@ impl RealearnPlugin {
 
 impl Drop for RealearnPlugin {
     fn drop(&mut self) {
-        println!("dropping plugin");
         if let Some(session) = self.session.borrow() {
-            println!("unregistering session");
             session_manager::unregister_session(session.as_ptr());
         }
     }

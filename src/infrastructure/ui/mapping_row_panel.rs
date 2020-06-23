@@ -5,6 +5,7 @@ use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
+use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::MappingPanelManager;
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
@@ -121,14 +122,16 @@ impl MappingRowPanel {
     fn use_arrow_characters(&self) {
         self.view
             .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-            .set_text("🡺");
+            .set_text(symbols::ARROW_RIGHT_SYMBOL.to_string());
         self.view
             .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-            .set_text("🡸");
-        self.view.require_control(root::ID_UP_BUTTON).set_text("🡹");
+            .set_text(symbols::ARROW_LEFT_SYMBOL.to_string());
+        self.view
+            .require_control(root::ID_UP_BUTTON)
+            .set_text(symbols::ARROW_UP_SYMBOL.to_string());
         self.view
             .require_control(root::ID_DOWN_BUTTON)
-            .set_text("🡻");
+            .set_text(symbols::ARROW_DOWN_SYMBOL.to_string());
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
@@ -281,7 +284,6 @@ impl View for MappingRowPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.move_to(Point::new(DialogUnits(0), DialogUnits(self.row_index * 48)));
-        #[cfg(not(target_os = "linux"))]
         self.use_arrow_characters();
         window.hide();
         false
