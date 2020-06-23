@@ -19,29 +19,29 @@ fn main() {
 fn compile_eel() {
     let asm_object_file = if cfg!(target_os = "windows") {
         if cfg!(target_arch = "x86_64") {
-            "lib/WDL/WDL/eel2/asm-nseel-x64.obj"
+            Some("lib/WDL/WDL/eel2/asm-nseel-x64.obj")
         } else {
-            todo!()
+            None
         }
     } else if cfg!(target_os = "macos") {
         if cfg!(target_arch = "x86_64") {
-            "lib/WDL/WDL/eel2/asm-nseel-x64-macho.o"
+            Some("lib/WDL/WDL/eel2/asm-nseel-x64-macho.o")
         } else {
-            todo!()
+            None
         }
     } else if cfg!(target_os = "linux") {
         if cfg!(target_arch = "x86_64") {
             // Must have been generated before via `make asm-nseel-x64.o`.
-            let path = "lib/WDL/WDL/eel2/asm-nseel-x64.o";
             // TODO-high Generate in "lib/WDL/WDL/eel2" via "make asm-nseel-x64.o"
-            path
+            Some("lib/WDL/WDL/eel2/asm-nseel-x64.o")
         } else {
-            todo!()
+            None
         }
     } else {
-        todo!()
+        None
     };
-    cc::Build::new()
+    let mut build = cc::Build::new();
+    build
         .warnings(false)
         .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
         .file("lib/WDL/WDL/eel2/nseel-compiler.c")
@@ -49,9 +49,11 @@ fn compile_eel() {
         .file("lib/WDL/WDL/eel2/nseel-eval.c")
         .file("lib/WDL/WDL/eel2/nseel-lextab.c")
         .file("lib/WDL/WDL/eel2/nseel-ram.c")
-        .file("lib/WDL/WDL/eel2/nseel-yylex.c")
-        .object(asm_object_file)
-        .compile("wdl-eel");
+        .file("lib/WDL/WDL/eel2/nseel-yylex.c");
+    if let Some(f) = asm_object_file {
+        build.object(f);
+    }
+    build.compile("wdl-eel");
 }
 
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
