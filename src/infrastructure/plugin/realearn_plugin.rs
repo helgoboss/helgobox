@@ -108,6 +108,7 @@ impl Plugin for RealearnPlugin {
     fn can_do(&self, can_do: CanDo) -> Supported {
         use CanDo::*;
         use Supported::*;
+        #[allow(overflowing_literals)]
         match can_do {
             SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent => Supported::Yes,
             // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
