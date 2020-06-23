@@ -1,6 +1,6 @@
 //! ```cargo
 //! [dependencies]
-//! wish-tree = { git = "https://github.com/helgoboss/wish-tree", rev = "fd17fbc09d97"}
+//! wish-tree = { git = "https://github.com/helgoboss/wish-tree", rev = "e2ad6df8e313e46b87"}
 //! chrono = "0.4"
 //! ```
 extern crate chrono;

@@ -76,5 +76,5 @@ jobs:
           args: dist
       - uses: actions/upload-artifact@v2
         with:
-          name: plug-ins
+          name: realearn-macos-64-bit
           path: target/*.zip

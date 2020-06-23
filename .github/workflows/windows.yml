@@ -48,8 +48,8 @@ jobs:
           command: test
           args: -- --nocapture
 
-  dist:
-    name: Build distribution
+  dist64:
+    name: Build 64-bit distribution
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
@@ -58,7 +58,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-05-15
+          toolchain: nightly-2020-05-15-x86_64-pc-windows-msvc
           override: true
       - name: Install cargo-make
         uses: actions-rs/cargo@v1
@@ -72,5 +72,32 @@ jobs:
           args: dist
       - uses: actions/upload-artifact@v2
         with:
-          name: plug-ins
+          name: realearn-windows-64-bit
+          path: target/*.zip
+
+  dist32:
+    name: Build 32-bit distribution
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2020-05-15-i686-pc-windows-msvc
+          override: true
+      - name: Install cargo-make
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: --debug cargo-make
+      - name: cargo make dist
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: dist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: realearn-windows-32-bit
           path: target/*.zip
