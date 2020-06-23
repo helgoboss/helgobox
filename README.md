@@ -1,6 +1,6 @@
 # ReaLearn
 
-TODO! This README is just a draft!
+__This README is just a draft! Will be improved soon.__
 
 ## Build
 
