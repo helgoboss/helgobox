@@ -119,7 +119,9 @@ impl MainPanel {
             PKG_VERSION,
             CFG_TARGET_ARCH,
             debug_mark,
-            GIT_VERSION.unwrap_or("unknown"),
+            GIT_COMMIT_HASH
+                .map(|h| h[0..6].to_string())
+                .unwrap_or("unknown".to_string()),
             dirty_mark,
             date_info
         );
