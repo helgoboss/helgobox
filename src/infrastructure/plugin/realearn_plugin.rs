@@ -202,7 +202,7 @@ impl RealearnPlugin {
         })
     }
 
-    /// At this point, REAPER cannot reliably give use yet the containing FX. As a
+    /// At this point, REAPER cannot reliably give us yet the containing FX. As a
     /// consequence we also don't have a session yet, because creating an incomplete session
     /// pushes the problem of not knowing the containing FX into the application logic, which
     /// we for sure don't want. In the next main loop cycle, it should be possible to

@@ -59,36 +59,3 @@ jobs:
         with:
           command: test
           args: -- --nocapture
-
-  dist:
-    name: Build distribution
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      # TODO Put this into cargo make
-      - name: Set up dependencies
-        run: sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
-      - name: Compile EEL assembler code
-        working-directory: lib/WDL/WDL/eel2
-        run: make asm-nseel-x64.o
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2020-05-15
-          override: true
-      - name: Install cargo-make
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: --debug cargo-make
-      - name: cargo make dist
-        uses: actions-rs/cargo@v1
-        with:
-          command: make
-          args: dist
-      - uses: actions/upload-artifact@v2
-        with:
-          name: realearn-linux-64-bit
-          path: target/*.tar.gz
