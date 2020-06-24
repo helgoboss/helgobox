@@ -27,7 +27,7 @@ jobs:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only
     steps:
       - name: Checkout
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
         with:
           submodules: recursive
       - name: Install Rust
