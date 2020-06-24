@@ -12,11 +12,6 @@ doing our own implementation via SWELL in commit `c3e28e92b75`).
 sudo apt install php nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev -y
 ```
 
-```
-cargo install --force cargo-make
-cargo make dist
-```
-
 `rustup default nightly-2020-05-15`
 
 ## Design
