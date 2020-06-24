@@ -12,20 +12,24 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        artifact: [windows-x86_64, macos-x86_64, linux-x86_64]
+        artifact: [windows-x86_64, windows-i686, macos-x86_64, linux-x86_64]
         include:
           - artifact: windows-x86_64
             os: windows-latest
             toolchain-suffix: x86_64-pc-windows-msvc
             lib-file-name: realearn.dll
+          - artifact: windows-i686
+            os: windows-latest
+            toolchain-suffix: i686-pc-windows-msvc
+            lib-file-name: realearn.dll
           - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
-            lib-file-name: realearn.dylib
+            lib-file-name: librealearn.dylib
           - artifact: linux-x86_64
             os: ubuntu-latest
             toolchain-suffix: x86_64-unknown-linux-gnu
-            lib-file-name: realearn.so
+            lib-file-name: librealearn.so
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only
     steps:
@@ -50,7 +54,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.run}}
+          name: ${{ matrix.artifact }}
           path: target/release/${{ matrix.lib-file-name }}
 
   create-release:
@@ -70,13 +74,43 @@ jobs:
           prerelease: ${{ contains(github.ref, 'pre') }}
       - name: Download artifacts from build job
         uses: actions/download-artifact@v2
-      - name: Upload release artifacts
+      - name: Upload windows-x86_64 release artifact
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./windows-x86_64/realearn.dll
           asset_name: realearn-${{ github.ref }}-windows-x86_64.dll
+          asset_content_type: application/octet-stream
+      - name: Upload windows-i686 release artifact
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./windows-i686/realearn.dll
+          asset_name: realearn-${{ github.ref }}-windows-i686.dll
+          asset_content_type: application/octet-stream
+      - name: Upload macos-x86_64 release artifact
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./macos-x86_64/librealearn.dylib
+          asset_name: realearn-${{ github.ref }}-macos-x86_64.vst.dylib
+          asset_content_type: application/octet-stream
+      - name: Upload linux-x86_64 release artifact
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-x86_64/librealearn.so
+          asset_name: realearn-${{ github.ref }}-linux-x86_64.so
           asset_content_type: application/octet-stream
