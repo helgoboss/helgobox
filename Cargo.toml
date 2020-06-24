@@ -63,3 +63,7 @@ embed-resource = "1.3"
 [lib]
 name = "realearn"
 crate-type = ["cdylib"]
+
+[profile.release]
+# This is important for having line numbers in bug reports.
+debug = true
