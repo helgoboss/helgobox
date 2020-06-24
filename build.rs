@@ -1,18 +1,21 @@
+use std::path::PathBuf;
+use std::process::Command;
+
 fn main() {
-    // Build info
+    // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
-    // Bindings
+    // Optionally generate bindings
     #[cfg(feature = "generate")]
     generate_bindings();
 
-    // Dialogs
+    // Embed or compile dialogs
     #[cfg(target_family = "windows")]
     embed_dialog_resources();
     #[cfg(target_family = "unix")]
     compile_dialogs();
 
-    // WDL EEL
+    // Compile WDL EEL
     compile_eel();
 }
 
@@ -31,8 +34,12 @@ fn compile_eel() {
         }
     } else if cfg!(target_os = "linux") {
         if cfg!(target_arch = "x86_64") {
-            // Must have been generated before via `make asm-nseel-x64.o`.
-            // TODO-high Generate in "lib/WDL/WDL/eel2" via "make asm-nseel-x64.o"
+            // Generate asm-nseel-x64.o
+            Command::new("make")
+                .current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib/WDL/WDL/eel2"))
+                .arg("asm-nseel-x64.o")
+                .output()
+                .expect("Failed to generate asm-nseel-x64.o. Maybe 'nasm' is not installed.");
             Some("lib/WDL/WDL/eel2/asm-nseel-x64.o")
         } else {
             None
@@ -132,7 +139,7 @@ fn generate_bindings() {
         // Unwrap the Result and panic on failure.
         .expect("Unable to generate bindings");
     // Write the bindings to the bindings.rs file.
-    let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let out_path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     bindings
         .write_to_file(
             out_path

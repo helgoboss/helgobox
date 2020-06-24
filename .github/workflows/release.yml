@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        artifact: [windows-x86_64, macos-x86_64]
+        artifact: [windows-x86_64, macos-x86_64, linux-x86_64]
         include:
           - artifact: windows-x86_64
             os: windows-latest
@@ -22,6 +22,10 @@ jobs:
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: realearn.dylib
+          - artifact: linux-x86_64
+            os: ubuntu-latest
+            toolchain-suffix: x86_64-unknown-linux-gnu
+            lib-file-name: realearn.so
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only
     steps:
@@ -35,6 +39,9 @@ jobs:
           profile: minimal
           toolchain: nightly-2020-05-15-${{ matrix.toolchain-suffix }}
           override: true
+      - name: Install native Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
@@ -45,44 +52,6 @@ jobs:
         with:
           name: ${{ matrix.run}}
           path: target/release/${{ matrix.lib-file-name }}
-
-#   build-linux-release-artifacts:
-#     name: Build Linux release artifacts
-#     strategy:
-#       matrix:
-#         run:
-#           - os: ubuntu-latest
-#             toolchain-suffix: x86_64-unknown-linux-gnu
-#             lib-file-name: realearn.so
-#             artifact-name: linux-x86_64
-#     runs-on: ${{ matrix.run.os }}
-#     steps:
-#       - name: Checkout
-#       - uses: actions/checkout@v2
-#         with:
-#           submodules: recursive
-#       # TODO Put this into build.rs, then we don't need an extra Linux job
-#       - name: Set up dependencies
-#         run: sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
-#       - name: Compile EEL assembler code
-#         working-directory: lib/WDL/WDL/eel2
-#         run: make asm-nseel-x64.o
-#       - name: Install Rust
-#         uses: actions-rs/toolchain@v1
-#         with:
-#           profile: minimal
-#           toolchain: nightly-2020-05-15-${{ matrix.run.toolchain-suffix }}
-#           override: true
-#       - name: Build release
-#         uses: actions-rs/cargo@v1
-#         with:
-#           command: build
-#           args: --release
-#       - name: Upload artifact
-#         uses: actions/upload-artifact@v2
-#         with:
-#           name: ${{ matrix.run.artifact-name}}
-#           path: target/release/${{ matrix.run.lib-file-name }}
 
   create-release:
     name: Publish release
@@ -100,7 +69,7 @@ jobs:
           draft: true
           prerelease: ${{ contains(github.ref, 'pre') }}
       - name: Download artifacts from build job
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v2
       - name: Upload release artifacts
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
