@@ -75,7 +75,6 @@ jobs:
       - name: Download artifacts from build job
         uses: actions/download-artifact@v2
       - name: Upload windows-x86_64 release artifact
-        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,7 +84,6 @@ jobs:
           asset_name: realearn-${{ github.ref }}-windows-x86_64.dll
           asset_content_type: application/octet-stream
       - name: Upload windows-i686 release artifact
-        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -95,7 +93,6 @@ jobs:
           asset_name: realearn-${{ github.ref }}-windows-i686.dll
           asset_content_type: application/octet-stream
       - name: Upload macos-x86_64 release artifact
-        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -105,7 +102,6 @@ jobs:
           asset_name: realearn-${{ github.ref }}-macos-x86_64.vst.dylib
           asset_content_type: application/octet-stream
       - name: Upload linux-x86_64 release artifact
-        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
