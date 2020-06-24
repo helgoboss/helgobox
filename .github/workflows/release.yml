@@ -1,7 +1,7 @@
 on:
-  push:
-    tags:
-      - 'v*'
+  create:
+    ref_type: tag
+    ref: 'v*'
 
 name: Create release
 
