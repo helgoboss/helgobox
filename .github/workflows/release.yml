@@ -1,28 +1,27 @@
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'v*'
 
-name: Create Release
+name: Create release
 
 jobs:
 
   build-release-artifacts:
-    name: Build Windows and macOS release artifacts
+    name: Build release artifacts
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        run: [windows-x86_64, macos-x86_64]
+        artifact: [windows-x86_64, macos-x86_64]
         include:
-          - run: windows-x86_64
+          - artifact: windows-x86_64
             os: windows-latest
             toolchain-suffix: x86_64-pc-windows-msvc
             lib-file-name: realearn.dll
-          - run: macos-x86_64
+          - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: realearn.dylib
-    runs-on: ${{ matrix.os }}
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only
     steps:
