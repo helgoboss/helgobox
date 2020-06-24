@@ -62,19 +62,19 @@ jobs:
     needs: build-release-artifacts
     runs-on: ubuntu-latest
     steps:
+      - name: Get tag name
+        id: get_tag_name
+        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
       - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
+          tag_name: ${{ steps.get_tag_name.outputs.TAG_NAME }}
+          release_name: ${{ steps.get_tag_name.outputs.TAG_NAME }}
           draft: true
           prerelease: ${{ contains(github.ref, 'pre') }}
-      - name: Get tag name
-        id: get_tag_name
-        run: echo ::set-output name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
       - name: Download artifacts from build job
         uses: actions/download-artifact@v2
       - name: Upload windows-x86_64 release artifact
@@ -84,7 +84,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./windows-x86_64/realearn.dll
-          asset_name: realearn-${{ steps.get_tag_name.outputs.TAG_NAME }}-windows-x86_64.dll
+          asset_name: realearn-windows-x86_64.dll
           asset_content_type: application/octet-stream
       - name: Upload windows-i686 release artifact
         uses: actions/upload-release-asset@v1
@@ -93,7 +93,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./windows-i686/realearn.dll
-          asset_name: realearn-${{ steps.get_tag_name.outputs.TAG_NAME }}-windows-i686.dll
+          asset_name: realearn-windows-i686.dll
           asset_content_type: application/octet-stream
       - name: Upload macos-x86_64 release artifact
         uses: actions/upload-release-asset@v1
@@ -102,7 +102,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macos-x86_64/librealearn.dylib
-          asset_name: realearn-${{ steps.get_tag_name.outputs.TAG_NAME }}-macos-x86_64.vst.dylib
+          asset_name: realearn-macos-x86_64.vst.dylib
           asset_content_type: application/octet-stream
       - name: Upload linux-x86_64 release artifact
         uses: actions/upload-release-asset@v1
@@ -111,5 +111,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./linux-x86_64/librealearn.so
-          asset_name: realearn-${{ steps.get_tag_name.outputs.TAG_NAME }}-linux-x86_64.so
+          asset_name: realearn-linux-x86_64.so
           asset_content_type: application/octet-stream
