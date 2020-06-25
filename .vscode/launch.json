@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Linux",
+            "name": "Portable Linux",
             "type": "lldb",
             "request": "launch",
             "program": "/home/helgoboss/Downloads/reaper_linux_x86_64/REAPER/reaper",
@@ -10,7 +10,7 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "Windows 64-bit",
+            "name": "Portable Windows 64-bit",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "C:\\REAPER\\reaper.exe",
@@ -21,7 +21,7 @@
             "externalConsole": false
         },
         {
-            "name": "Windows 32-bit",
+            "name": "Portable Windows 32-bit",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "C:\\REAPER32\\reaper.exe",
@@ -32,7 +32,18 @@
             "externalConsole": false
         },
         {
-            "name": "Windows 64-bit Bridge",
+            "name": "Global Windows 64-bit",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "C:\\Program Files\\REAPER (x64)\\reaper.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false
+        },
+        {
+            "name": "Windows attach",
             "type": "cppvsdbg",
             "request": "attach",
             "processId": "${command:pickProcess}",

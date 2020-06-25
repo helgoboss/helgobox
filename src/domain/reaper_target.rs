@@ -10,8 +10,9 @@ use reaper_medium::{
 };
 use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
+use slog::warn;
 use std::cmp;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
