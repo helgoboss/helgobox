@@ -567,6 +567,7 @@ impl Session {
     }
 
     pub fn log_debug_info(&self) {
+        self.log_debug_info_internal();
         session_manager::log_debug_info();
         self.main_processor_channel
             .0
@@ -575,15 +576,17 @@ impl Session {
             .send(RealTimeProcessorTask::LogDebugInfo);
     }
 
-    fn log_debug_info_internal_detailed(&self) {
+    fn log_debug_info_internal(&self) {
         info!(
             Reaper::get().logger(),
             "\n\
             # Session\n\
             \n\
-            {:#?}
+            - Mapping model count: {}\n\
+            - Mapping subscription count: {}\n\
             ",
-            self,
+            self.mapping_models.len(),
+            self.mapping_subscriptions.len(),
         );
     }
 
