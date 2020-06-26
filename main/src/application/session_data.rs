@@ -17,9 +17,11 @@ pub struct SessionData {
     let_unmatched_events_through: bool,
     always_auto_detect_mode: bool,
     send_feedback_only_if_armed: bool,
-    // None = FxInput
+    /// `None` means "<FX input>"
     control_device_id: Option<String>,
-    // None = None
+    /// 
+    /// - `None` means "\<None>"
+    /// - `Some("fx-output")` means "\<FX output>"
     feedback_device_id: Option<String>,
     mappings: Vec<MappingModelData>,
 }
@@ -57,7 +59,7 @@ impl SessionData {
                 use MidiFeedbackOutput::*;
                 session.midi_feedback_output.get().map(|o| match o {
                     Device(dev) => dev.id().to_string(),
-                    FxOutput => todo!("feedback to FX output not yet supported"),
+                    FxOutput => "fx-output".to_string(),
                 })
             },
             mappings: session
@@ -84,12 +86,16 @@ impl SessionData {
         };
         let feedback_output = match self.feedback_device_id.as_ref() {
             None => None,
-            Some(dev_id_string) => {
-                let raw_dev_id: u8 = dev_id_string
-                    .parse()
-                    .map_err(|_| "MIDI output device ID must be a number")?;
-                let dev_id = MidiOutputDeviceId::new(raw_dev_id);
-                Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(dev_id)))
+            Some(id) => {
+                if id == "fx-output" {
+                    Some(MidiFeedbackOutput::FxOutput)
+                } else {
+                    let raw_dev_id: u8 = id
+                        .parse()
+                        .map_err(|_| "MIDI output device ID must be a number")?;
+                    let dev_id = MidiOutputDeviceId::new(raw_dev_id);
+                    Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(dev_id)))
+                }
             }
         };
         // Mutation

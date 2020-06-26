@@ -6,3 +6,7 @@ members = [
     # Will probably excluded from the workspace in future
     "main/lib/helgoboss-learn"
 ]
+
+[profile.release]
+# This is important for having line numbers in bug reports.
+debug = true

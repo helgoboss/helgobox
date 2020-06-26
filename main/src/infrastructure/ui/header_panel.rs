@@ -189,7 +189,12 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
         b.fill_combo_box_with_data_small(
-            iter::once((-1isize, "<None>".to_string())).chain(
+            vec![
+                (-2isize, "<FX output>".to_string()),
+                (-1isize, "<None>".to_string()),
+            ]
+            .into_iter()
+            .chain(
                 Reaper::get()
                     .midi_output_devices()
                     .map(|dev| (dev.id().get() as isize, get_midi_output_device_label(dev))),
@@ -207,7 +212,9 @@ impl HeaderPanel {
                 b.select_combo_box_item_by_data(-1);
             }
             Some(o) => match o {
-                FxOutput => todo!("feedback to FX output not yet supported"),
+                FxOutput => {
+                    b.select_combo_box_item_by_data(-2);
+                }
                 Device(dev) => b
                     .select_combo_box_item_by_data(dev.id().get() as _)
                     .unwrap_or_else(|_| {
@@ -255,7 +262,8 @@ impl HeaderPanel {
                 let dev = Reaper::get().midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
                 Some(MidiFeedbackOutput::Device(dev))
             }
-            _ => todo!("feedback to FX output not yet supported"),
+            -2 => Some(MidiFeedbackOutput::FxOutput),
+            _ => unreachable!(),
         };
         self.session.borrow_mut().midi_feedback_output.set(value);
     }

@@ -382,13 +382,17 @@ impl RealTimeProcessor {
             }
             match output {
                 MidiFeedbackOutput::FxOutput => {
-                    todo!("feedback to FX output not yet supported");
-                }
-                MidiFeedbackOutput::Device(dev) => dev.with_midi_output(|mo| {
                     for short in shorts.into_iter().flatten() {
-                        mo.send(*short, SendMidiTime::Instantly);
+                        self.forward_midi(*short);
                     }
-                }),
+                }
+                MidiFeedbackOutput::Device(dev) => {
+                    dev.with_midi_output(|mo| {
+                        for short in shorts.into_iter().flatten() {
+                            mo.send(*short, SendMidiTime::Instantly);
+                        }
+                    });
+                }
             };
         }
     }
