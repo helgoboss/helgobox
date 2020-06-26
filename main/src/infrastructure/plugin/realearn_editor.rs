@@ -4,7 +4,9 @@ use std::cell::RefCell;
 
 use crate::domain::SharedSession;
 use lazycell::LazyCell;
+use reaper_high::Reaper;
 use reaper_low::raw::HWND;
+use slog::debug;
 use std::borrow::Borrow;
 use std::future::Future;
 use std::os::raw::c_void;
@@ -44,5 +46,11 @@ impl Editor for RealearnEditor {
 
     fn is_open(&mut self) -> bool {
         self.main_panel.is_open()
+    }
+}
+
+impl Drop for RealearnEditor {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping editor...");
     }
 }

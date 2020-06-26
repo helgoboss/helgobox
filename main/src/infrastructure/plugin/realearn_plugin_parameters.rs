@@ -3,6 +3,8 @@ use crate::core::SendOrSyncWhatever;
 use crate::domain::Session;
 use crate::domain::SharedSession;
 use lazycell::{AtomicLazyCell, LazyCell};
+use reaper_high::Reaper;
+use slog::debug;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
@@ -37,6 +39,12 @@ impl RealearnPluginParameters {
             self.load_bank_data(data);
             *guard = None;
         }
+    }
+}
+
+impl Drop for RealearnPluginParameters {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping plug-in parameters...");
     }
 }
 

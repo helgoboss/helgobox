@@ -27,6 +27,10 @@ impl FeedbackBuffer {
         self.last_buffer_start = Instant::now();
     }
 
+    pub fn len(&self) -> usize {
+        self.buffered_mapping_ids.len()
+    }
+
     pub fn buffer_feedback_for_mapping(&mut self, mapping_id: MappingId) {
         self.buffered_mapping_ids.insert(mapping_id);
     }

@@ -8,7 +8,7 @@ use helgoboss_midi::RawShortMessage;
 use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, info};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
@@ -113,7 +113,12 @@ impl ControlSurface for MainProcessor {
                 Feedback(mapping_id) => {
                     self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
                 }
-                FeedbackAll => self.send_feedback(self.feedback_all()),
+                FeedbackAll => {
+                    self.send_feedback(self.feedback_all());
+                }
+                LogDebugInfo => {
+                    self.log_debug_info();
+                }
                 LearnSource(source) => {
                     self.session.borrow_mut().learn_source(source);
                 }
@@ -176,6 +181,25 @@ impl MainProcessor {
         self.feedback_buffer.reset();
         self.send_feedback(self.feedback_all());
     }
+
+    fn log_debug_info(&self) {
+        info!(
+            Reaper::get().logger(),
+            "\n\
+                        # Main processor\n\
+                        \n\
+                        - Feedback subscription count: {} \n\
+                        - Feedback buffer length: {} \n\
+                        - Main processor task queue length: {} \n\
+                        - Mapping count: {} \n\
+                        ",
+            // self.mappings.values(),
+            self.feedback_subscriptions.len(),
+            self.feedback_buffer.len(),
+            self.receiver.len(),
+            self.mappings.len(),
+        );
+    }
 }
 
 fn send_feedback_when_target_value_changed(
@@ -206,6 +230,7 @@ pub enum MainProcessorTask {
     UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
     Feedback(MappingId),
     FeedbackAll,
+    LogDebugInfo,
     Control {
         mapping_id: MappingId,
         value: ControlValue,

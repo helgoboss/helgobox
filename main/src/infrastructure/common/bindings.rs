@@ -58,6 +58,7 @@ pub mod root {
     pub const ID_HEADER_SEARCH_EDIT_CONTROL: u32 = 40014;
     pub const ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL: u32 = 40014;
     pub const ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL: u32 = 40015;
+    pub const ID_LOG_BUTTON: u32 = 40016;
     pub const ID_TARGET_FX_FOCUS_CHECK_BOX: u32 = 40016;
     pub const ID_SETTINGS_ROTATE_CHECK_BOX: u32 = 40017;
     pub const ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL: u32 = 40018;
@@ -119,15 +120,15 @@ pub mod root {
     pub const ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT: u32 = 40074;
     pub const ID_OK: u32 = 40075;
     pub const ID_TARGET_ACTION_LABEL_TEXT: u32 = 40076;
-    pub type INT_PTR = isize;
+    pub const ID_CMD: u32 = 236;
+    pub const ID_PSRESTARTWINDOWS: u32 = 2;
+    pub const ID_PSREBOOTSYSTEM: u32 = 3;
+    pub const ID_DEFAULTINST: i32 = -2;
     pub mod std {
         #[allow(unused_imports)]
         use self::super::super::root;
     }
-    pub mod __gnu_cxx {
-        #[allow(unused_imports)]
-        use self::super::super::root;
-    }
+    pub type INT_PTR = ::std::os::raw::c_longlong;
     pub type EEL_F = f64;
     extern "C" {
         pub fn NSEEL_HOSTSTUB_EnterMutex();

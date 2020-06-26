@@ -3,7 +3,7 @@ use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 use reaper_medium::MessageBoxType;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, info};
 use std::cell::{Ref, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::Mutex;
@@ -14,6 +14,18 @@ static mut SESSIONS: Lazy<RefCell<Vec<SharedSession>>> = Lazy::new(|| RefCell::n
 fn sessions() -> &'static RefCell<Vec<SharedSession>> {
     Reaper::get().require_main_thread();
     unsafe { &SESSIONS }
+}
+
+pub fn log_debug_info() {
+    info!(
+        Reaper::get().logger(),
+        "\n\
+        # Session manager\n\
+        \n\
+        - Session count: {}
+        ",
+        sessions().borrow().len()
+    );
 }
 
 pub fn register_session(session: SharedSession) {
@@ -33,7 +45,7 @@ pub fn unregister_session(session: *const Session) {
     sessions.retain(|s| s.as_ptr() != session as _);
     debug!(
         Reaper::get().logger(),
-        "Session unregistered. Session count: {}",
+        "Session unregistered. Remaining count of managed sessions: {}",
         sessions.len()
     );
 }

@@ -11,7 +11,7 @@ use helgoboss_midi::{
 };
 use reaper_high::Reaper;
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
-use slog::debug;
+use slog::{debug, info};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ptr::null_mut;
@@ -21,7 +21,7 @@ use vst::plugin::HostCallback;
 
 const BULK_SIZE: usize = 100;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub(crate) enum ControlState {
     Controlling,
     LearningSource,
@@ -164,6 +164,9 @@ impl RealTimeProcessor {
                 Feedback(source_value) => {
                     self.feedback(source_value);
                 }
+                LogDebugInfo => {
+                    self.log_debug_info();
+                }
             }
         }
         // Get current time information so we can detect changes in play state reliably
@@ -181,6 +184,23 @@ impl RealTimeProcessor {
         if self.control_state == ControlState::LearningSource {
             self.poll_source_scanner()
         }
+    }
+
+    fn log_debug_info(&self) {
+        info!(
+            Reaper::get().logger(),
+            "\n\
+                        # Real-time processor\n\
+                        \n\
+                        - Control state: {:?} \n\
+                        - Task queue length: {} \n\
+                        - Mapping count: {} \n\
+                        ",
+            // self.mappings.values(),
+            self.control_state,
+            self.receiver.len(),
+            self.mappings.len(),
+        );
     }
 
     fn is_now_playing(&self) -> bool {
@@ -435,6 +455,7 @@ pub enum RealTimeProcessorTask {
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
+    LogDebugInfo,
     UpdateSampleRate(Hz),
     // TODO-low Is it better for performance to push a vector (smallvec) here?
     Feedback(MidiSourceValue<RawShortMessage>),

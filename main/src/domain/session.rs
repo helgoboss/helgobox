@@ -1,7 +1,7 @@
 use super::MidiSourceModel;
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate,
+    session_manager, share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate,
     MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorMapping,
     RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping, TargetModel,
 };
@@ -15,7 +15,7 @@ use rx_util::{
 };
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, info};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -548,6 +548,27 @@ impl Session {
             .send(MainProcessorTask::FeedbackAll);
     }
 
+    pub fn log_debug_info(&self) {
+        session_manager::log_debug_info();
+        self.main_processor_channel
+            .0
+            .send(MainProcessorTask::LogDebugInfo);
+        self.real_time_processor_sender
+            .send(RealTimeProcessorTask::LogDebugInfo);
+    }
+
+    fn log_debug_info_internal_detailed(&self) {
+        info!(
+            Reaper::get().logger(),
+            "\n\
+            # Session\n\
+            \n\
+            {:#?}
+            ",
+            self,
+        );
+    }
+
     pub fn find_mapping_with_source(&self, source: &MidiSource) -> Option<&SharedMapping> {
         self.mappings().find(|m| m.borrow().has_source(source))
     }
@@ -713,6 +734,7 @@ struct SplinteredProcessorMappings {
 
 impl Drop for Session {
     fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping session...");
         self.party_is_over_subject.next(())
     }
 }
