@@ -191,8 +191,8 @@ impl HeaderPanel {
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
         b.fill_combo_box_with_data_small(
             vec![
-                (-2isize, "<FX output>".to_string()),
                 (-1isize, "<None>".to_string()),
+                (-2isize, "<FX output>".to_string()),
             ]
             .into_iter()
             .chain(
