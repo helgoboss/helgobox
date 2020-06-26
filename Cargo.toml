@@ -10,7 +10,7 @@ license = "LGPL-3.0"
 members = [
     "swell-ui",
     "rx-util",
-    "helgoboss-learn"
+    "lib/helgoboss-learn"
 ]
 exclude = [
     "reaper-rs/main/low",
@@ -31,7 +31,8 @@ reaper-low = { path = "../reaper-rs/main/low" }
 swell-ui = { path = "swell-ui" }
 rx-util = { path = "rx-util" }
 helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi", branch = "master", features = ["serde", "serde_repr"] }
-helgoboss-learn = { path = "helgoboss-learn", features = ["serde", "serde_repr"] }
+# In future (when helgoboss-learn has matured), this will become a crates.io dependency
+helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr"] }
 c_str_macro = "1.0.2"
 vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
