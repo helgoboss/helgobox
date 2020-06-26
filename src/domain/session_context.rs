@@ -46,6 +46,9 @@ fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
     let fx = if let Some(track) = unsafe { vst_context.request_containing_track(aeffect) } {
         let project = unsafe { vst_context.request_containing_project(aeffect) };
         let track = Track::new(track, Some(project));
+        // We could use the following but it only works for REAPER v6.11+, so let's rely on our own
+        // technique for now.
+        // let location = unsafe { vst_context.request_containing_fx_location(aeffect) };
         find_realearn_fx_waiting_for_session(&track.normal_fx_chain())
             .or_else(|| find_realearn_fx_waiting_for_session(&track.input_fx_chain()))
             .ok_or("couldn't find containing FX on track FX chains")?

@@ -254,11 +254,13 @@ impl Window {
     }
 
     pub fn parent(self) -> Option<Window> {
-        Window::new(Swell::get().GetParent(self.raw))
+        Window::new(unsafe { Swell::get().GetParent(self.raw) })
     }
 
     pub fn set_visible(self, is_shown: bool) {
-        Swell::get().ShowWindow(self.raw, if is_shown { raw::SW_SHOW } else { raw::SW_HIDE });
+        unsafe {
+            Swell::get().ShowWindow(self.raw, if is_shown { raw::SW_SHOW } else { raw::SW_HIDE });
+        }
     }
 
     pub fn show(self) {
@@ -270,7 +272,9 @@ impl Window {
     }
 
     pub fn set_enabled(self, is_enabled: bool) {
-        Swell::get().EnableWindow(self.raw, is_enabled.into());
+        unsafe {
+            Swell::get().EnableWindow(self.raw, is_enabled.into());
+        }
     }
 
     pub fn enable(self) {
@@ -282,20 +286,24 @@ impl Window {
     }
 
     pub fn destroy(self) {
-        Swell::get().DestroyWindow(self.raw);
+        unsafe {
+            Swell::get().DestroyWindow(self.raw);
+        }
     }
 
     pub fn move_to(self, point: Point<DialogUnits>) {
         let point: Point<_> = self.convert_to_pixels(point);
-        Swell::get().SetWindowPos(
-            self.raw,
-            null_mut(),
-            point.x.as_raw(),
-            point.y.as_raw(),
-            0,
-            0,
-            raw::SWP_NOSIZE,
-        );
+        unsafe {
+            Swell::get().SetWindowPos(
+                self.raw,
+                null_mut(),
+                point.x.as_raw(),
+                point.y.as_raw(),
+                0,
+                0,
+                raw::SWP_NOSIZE as _,
+            );
+        }
     }
 
     /// Converts the given dialog unit point or dimensions to a pixels point or dimensions by using
