@@ -5,9 +5,9 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 
 use super::RealearnEditor;
 use crate::domain::{
-    session_manager, MainProcessorTask, RealTimeProcessorFrequentTask, SharedSession,
+    session_manager, ControlMainTask, FeedbackRealTimeTask, NormalMainTask, SharedSession,
 };
-use crate::domain::{RealTimeProcessor, RealTimeProcessorTask, Session, SessionContext};
+use crate::domain::{NormalRealTimeTask, RealTimeProcessor, Session, SessionContext};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
@@ -46,14 +46,16 @@ pub struct RealearnPlugin {
     // This will be set on `init()`.
     reaper_guard: Option<Arc<ReaperGuard>>,
     // Will be cloned to session as soon as it gets created.
-    main_processor_channel: (
-        crossbeam_channel::Sender<MainProcessorTask>,
-        crossbeam_channel::Receiver<MainProcessorTask>,
+    normal_main_task_channel: (
+        crossbeam_channel::Sender<NormalMainTask>,
+        crossbeam_channel::Receiver<NormalMainTask>,
     ),
     // Will be cloned to session as soon as it gets created.
-    real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+    control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     // Will be cloned to session as soon as it gets created.
-    real_time_processor_frequent_sender: crossbeam_channel::Sender<RealTimeProcessorFrequentTask>,
+    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+    // Will be cloned to session as soon as it gets created.
+    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // without detour.
@@ -69,26 +71,29 @@ impl Default for RealearnPlugin {
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
         // TODO-low Unbounded? Brave.
-        let (real_time_processor_sender, real_time_processor_receiver) =
+        let (normal_real_time_task_sender, normal_real_time_task_receiver) =
             crossbeam_channel::unbounded();
-        let (real_time_processor_frequent_sender, real_time_processor_frequent_receiver) =
+        let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
             crossbeam_channel::unbounded();
-        let (main_processor_sender, main_processor_receiver) = crossbeam_channel::unbounded();
+        let (normal_main_task_sender, normal_main_task_receiver) = crossbeam_channel::unbounded();
+        let (control_main_task_sender, control_main_task_receiver) = crossbeam_channel::unbounded();
         Self {
             host,
             session: Rc::new(LazyCell::new()),
             main_panel: Default::default(),
             reaper_guard: None,
             plugin_parameters: Default::default(),
-            real_time_processor_sender,
-            real_time_processor_frequent_sender,
-            main_processor_channel: (main_processor_sender.clone(), main_processor_receiver),
+            normal_real_time_task_sender,
+            feedback_real_time_task_sender,
+            normal_main_task_channel: (normal_main_task_sender.clone(), normal_main_task_receiver),
             real_time_processor: RealTimeProcessor::new(
-                real_time_processor_receiver,
-                real_time_processor_frequent_receiver,
-                main_processor_sender,
+                normal_real_time_task_receiver,
+                feedback_real_time_task_receiver,
+                normal_main_task_sender,
+                control_main_task_sender,
                 host,
             ),
+            control_main_task_receiver,
         }
     }
 
@@ -189,15 +194,15 @@ impl Plugin for RealearnPlugin {
     fn set_sample_rate(&mut self, rate: f32) {
         // This is called in main thread, so we need to send it to the real-time processor via
         // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
-        self.real_time_processor_sender
-            .send(RealTimeProcessorTask::UpdateSampleRate(Hz::new(rate as _)));
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
     }
 
     fn resume(&mut self) {
         // REAPER usually suspends and resumes whenever starting to play.
-        self.main_processor_channel
+        self.normal_main_task_channel
             .0
-            .send(MainProcessorTask::FeedbackAll);
+            .send(NormalMainTask::FeedbackAll);
     }
 }
 
@@ -222,9 +227,10 @@ impl RealearnPlugin {
         let session_container = self.session.clone();
         let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
-        let real_time_sender = self.real_time_processor_sender.clone();
-        let real_time_frequent_sender = self.real_time_processor_frequent_sender.clone();
-        let main_processor_channel = self.main_processor_channel.clone();
+        let normal_real_time_task_sender = self.normal_real_time_task_sender.clone();
+        let feedback_real_time_task_sender = self.feedback_real_time_task_sender.clone();
+        let normal_main_task_channel = self.normal_main_task_channel.clone();
+        let control_main_task_receiver = self.control_main_task_receiver.clone();
         Reaper::get().do_later_in_main_thread_asap(move || {
             let session_context = match SessionContext::from_host(&host) {
                 Ok(c) => c,
@@ -239,9 +245,10 @@ impl RealearnPlugin {
             };
             let session = Session::new(
                 session_context,
-                real_time_sender,
-                real_time_frequent_sender,
-                main_processor_channel,
+                normal_real_time_task_sender,
+                feedback_real_time_task_sender,
+                normal_main_task_channel,
+                control_main_task_receiver,
                 // It's important that we use a weak pointer here. Otherwise the session keeps a
                 // strong reference to the UI and the UI keeps strong references to the session.
                 // This results in UI stuff not being dropped when the plug-in is removed. It

@@ -1,10 +1,10 @@
 use super::MidiSourceModel;
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    session_manager, share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate,
-    MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorFrequentTask,
-    RealTimeProcessorMapping, RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping,
-    TargetModel,
+    session_manager, share_mapping, ControlMainTask, FeedbackMainTask, FeedbackRealTimeTask,
+    MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate, MappingId, MappingModel,
+    NormalMainTask, NormalRealTimeTask, ProcessorMapping, RealTimeProcessorMapping, ReaperTarget,
+    SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
@@ -68,12 +68,13 @@ pub struct Session {
     // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
     // will stay around as a ghost after the plug-in is removed.
     main_processor_registration: Option<RegistrationHandle<MainProcessor>>,
-    main_processor_channel: (
-        crossbeam_channel::Sender<MainProcessorTask>,
-        crossbeam_channel::Receiver<MainProcessorTask>,
+    normal_main_task_channel: (
+        crossbeam_channel::Sender<NormalMainTask>,
+        crossbeam_channel::Receiver<NormalMainTask>,
     ),
-    real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
-    real_time_processor_frequent_sender: crossbeam_channel::Sender<RealTimeProcessorFrequentTask>,
+    control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
 }
@@ -81,14 +82,13 @@ pub struct Session {
 impl Session {
     pub fn new(
         context: SessionContext,
-        real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
-        real_time_processor_frequent_sender: crossbeam_channel::Sender<
-            RealTimeProcessorFrequentTask,
-        >,
-        main_processor_channel: (
-            crossbeam_channel::Sender<MainProcessorTask>,
-            crossbeam_channel::Receiver<MainProcessorTask>,
+        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+        normal_main_task_channel: (
+            crossbeam_channel::Sender<NormalMainTask>,
+            crossbeam_channel::Receiver<NormalMainTask>,
         ),
+        control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         ui: impl SessionUi + 'static,
     ) -> Session {
         Self {
@@ -107,9 +107,10 @@ impl Session {
             midi_source_touched_subject: Default::default(),
             mapping_subscriptions: vec![],
             main_processor_registration: None,
-            main_processor_channel,
-            real_time_processor_sender,
-            real_time_processor_frequent_sender,
+            normal_main_task_channel,
+            control_main_task_receiver,
+            normal_real_time_task_sender,
+            feedback_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
         }
@@ -126,9 +127,9 @@ impl Session {
             let reg = Reaper::get()
                 .medium_session()
                 .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
-                    session.main_processor_channel.0.clone(),
-                    session.main_processor_channel.1.clone(),
-                    session.real_time_processor_frequent_sender.clone(),
+                    session.normal_main_task_channel.1.clone(),
+                    session.control_main_task_receiver.clone(),
+                    session.feedback_real_time_task_sender.clone(),
                     Rc::downgrade(&shared_session),
                 )))
                 .expect("couldn't register local control surface");
@@ -296,11 +297,11 @@ impl Session {
 
     pub fn midi_source_touched(&self) -> impl Event<MidiSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
-        self.real_time_processor_sender
-            .send(RealTimeProcessorTask::StartLearnSource);
-        let rt_sender = self.real_time_processor_sender.clone();
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::StartLearnSource);
+        let rt_sender = self.normal_real_time_task_sender.clone();
         self.midi_source_touched_subject.clone().finalize(move || {
-            rt_sender.send(RealTimeProcessorTask::StopLearnSource);
+            rt_sender.send(NormalRealTimeTask::StopLearnSource);
         })
     }
 
@@ -567,19 +568,19 @@ impl Session {
     }
 
     pub fn send_feedback(&self) {
-        self.main_processor_channel
+        self.normal_main_task_channel
             .0
-            .send(MainProcessorTask::FeedbackAll);
+            .send(NormalMainTask::FeedbackAll);
     }
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
         session_manager::log_debug_info();
-        self.main_processor_channel
+        self.normal_main_task_channel
             .0
-            .send(MainProcessorTask::LogDebugInfo);
-        self.real_time_processor_sender
-            .send(RealTimeProcessorTask::LogDebugInfo);
+            .send(NormalMainTask::LogDebugInfo);
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::LogDebugInfo);
     }
 
     fn log_debug_info_internal(&self) {
@@ -632,13 +633,13 @@ impl Session {
     }
 
     fn sync_settings_to_real_time_processor(&self) {
-        let task = RealTimeProcessorTask::UpdateSettings {
+        let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
             midi_control_input: self.midi_control_input.get(),
             midi_feedback_output: self.midi_feedback_output.get(),
         };
-        self.real_time_processor_sender.send(task);
+        self.normal_real_time_task_sender.send(task);
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
@@ -650,14 +651,14 @@ impl Session {
             None => (None, None),
             Some((r, m)) => (r, Some(m)),
         };
-        self.main_processor_channel
+        self.normal_main_task_channel
             .0
-            .send(MainProcessorTask::UpdateSingleMapping {
+            .send(NormalMainTask::UpdateSingleMapping {
                 id: *m.id(),
                 mapping: main_mapping,
             });
-        self.real_time_processor_sender
-            .send(RealTimeProcessorTask::UpdateSingleMapping {
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateSingleMapping {
                 id: *m.id(),
                 mapping: real_time_mapping,
             });
@@ -686,20 +687,18 @@ impl Session {
             .into_iter()
             .map(|m| m.into_target_update())
             .collect();
-        self.main_processor_channel
+        self.normal_main_task_channel
             .0
-            .send(MainProcessorTask::UpdateAllTargets(main_processor_targets));
+            .send(NormalMainTask::UpdateAllTargets(main_processor_targets));
     }
 
     fn sync_all_mappings_to_all_processors(&self) {
         let splintered = self.create_and_splinter_mappings();
-        self.main_processor_channel
+        self.normal_main_task_channel
             .0
-            .send(MainProcessorTask::UpdateAllMappings(splintered.main));
-        self.real_time_processor_sender
-            .send(RealTimeProcessorTask::UpdateAllMappings(
-                splintered.real_time,
-            ));
+            .send(NormalMainTask::UpdateAllMappings(splintered.main));
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateAllMappings(splintered.real_time));
     }
 
     /// Creates mappings from mapping models and splits them into different lists so they can be

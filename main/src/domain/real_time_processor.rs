@@ -1,7 +1,7 @@
 use crate::core::MovingAverageCalculator;
 use crate::domain::{
-    MainProcessorTask, MappingId, MidiClockCalculator, MidiControlInput, MidiFeedbackOutput,
-    MidiSourceScanner, RealTimeProcessorMapping,
+    ControlMainTask, FeedbackMainTask, MappingId, MidiClockCalculator, MidiControlInput,
+    MidiFeedbackOutput, MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
 };
 use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -20,7 +20,7 @@ use vst::host::Host;
 use vst::plugin::HostCallback;
 
 const NORMAL_BULK_SIZE: usize = 100;
-const FREQUENT_BULK_SIZE: usize = 100;
+const FEEDBACK_BULK_SIZE: usize = 100;
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum ControlState {
@@ -37,9 +37,10 @@ pub struct RealTimeProcessor {
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
-    pub(crate) normal_receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
-    pub(crate) frequent_receiver: crossbeam_channel::Receiver<RealTimeProcessorFrequentTask>,
-    pub(crate) main_processor_sender: crossbeam_channel::Sender<MainProcessorTask>,
+    pub(crate) normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
+    pub(crate) feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
+    pub(crate) normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
+    pub(crate) control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     // Host communication
     pub(crate) host: HostCallback,
     // Scanners for more complex MIDI message types
@@ -55,16 +56,18 @@ pub struct RealTimeProcessor {
 
 impl RealTimeProcessor {
     pub fn new(
-        normal_receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
-        frequent_receiver: crossbeam_channel::Receiver<RealTimeProcessorFrequentTask>,
-        main_processor_sender: crossbeam_channel::Sender<MainProcessorTask>,
+        normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
+        feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
+        normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
+        control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
         host_callback: HostCallback,
     ) -> RealTimeProcessor {
         RealTimeProcessor {
             control_state: ControlState::Controlling,
-            normal_receiver,
-            frequent_receiver,
-            main_processor_sender: main_processor_sender,
+            normal_task_receiver,
+            feedback_task_receiver,
+            normal_main_task_sender,
+            control_main_task_sender,
             mappings: Default::default(),
             let_matched_events_through: false,
             let_unmatched_events_through: false,
@@ -104,9 +107,9 @@ impl RealTimeProcessor {
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
         // Process occasional tasks sent from other thread (probably main thread)
-        let normal_task_count = self.normal_receiver.len();
-        for task in self.normal_receiver.try_iter().take(NORMAL_BULK_SIZE) {
-            use RealTimeProcessorTask::*;
+        let normal_task_count = self.normal_task_receiver.len();
+        for task in self.normal_task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
+            use NormalRealTimeTask::*;
             match task {
                 UpdateAllMappings(mappings) => {
                     debug!(
@@ -171,9 +174,13 @@ impl RealTimeProcessor {
                 }
             }
         }
-        // Process frequent tasks sent from other thread (probably main thread)
-        for task in self.frequent_receiver.try_iter().take(FREQUENT_BULK_SIZE) {
-            use RealTimeProcessorFrequentTask::*;
+        // Process (frequent) feedback tasks sent from other thread (probably main thread)
+        for task in self
+            .feedback_task_receiver
+            .try_iter()
+            .take(FEEDBACK_BULK_SIZE)
+        {
+            use FeedbackRealTimeTask::*;
             match task {
                 Feedback(source_value) => {
                     self.feedback(source_value);
@@ -206,13 +213,13 @@ impl RealTimeProcessor {
             - State: {:?} \n\
             - Mapping count: {} \n\
             - Normal task count: {} \n\
-            - Frequent task count: {} \n\
+            - Feedback task count: {} \n\
             ",
             // self.mappings.values(),
             self.control_state,
             self.mappings.len(),
             task_count,
-            self.frequent_receiver.len(),
+            self.feedback_task_receiver.len(),
         );
     }
 
@@ -321,8 +328,8 @@ impl RealTimeProcessor {
     }
 
     fn learn_source(&mut self, source: MidiSource) {
-        self.main_processor_sender
-            .send(MainProcessorTask::LearnSource(source));
+        self.normal_main_task_sender
+            .send(NormalMainTask::LearnSource(source));
     }
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
@@ -372,11 +379,11 @@ impl RealTimeProcessor {
         let mut matched = false;
         for m in self.mappings.values() {
             if let Some(control_value) = m.control(&value) {
-                let main_processor_task = MainProcessorTask::Control {
+                let task = ControlMainTask::Control {
                     mapping_id: m.id(),
                     value: control_value,
                 };
-                self.main_processor_sender.send(main_processor_task);
+                self.control_main_task_sender.send(task);
                 matched = true;
             }
         }
@@ -457,7 +464,7 @@ impl RealTimeProcessor {
 
 /// A task which is sent from time to time.
 #[derive(Debug)]
-pub enum RealTimeProcessorTask {
+pub enum NormalRealTimeTask {
     UpdateAllMappings(Vec<RealTimeProcessorMapping>),
     UpdateSingleMapping {
         id: MappingId,
@@ -475,9 +482,9 @@ pub enum RealTimeProcessorTask {
     StopLearnSource,
 }
 
-/// A task which is potentially sent very frequently.
+/// A feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
-pub enum RealTimeProcessorFrequentTask {
+pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
     Feedback(MidiSourceValue<RawShortMessage>),
 }

@@ -1,6 +1,6 @@
 use crate::domain::{
-    FeedbackBuffer, MainProcessorMapping, MappingId, Mode, RealTimeProcessorFrequentTask,
-    RealTimeProcessorTask, ReaperTarget, WeakSession,
+    FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingId, Mode,
+    NormalRealTimeTask, ReaperTarget, WeakSession,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
@@ -12,7 +12,9 @@ use slog::{debug, info};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-const BULK_SIZE: usize = 32;
+const NORMAL_TASK_BULK_SIZE: usize = 32;
+const FEEDBACK_TASK_BULK_SIZE: usize = 32;
+const CONTROL_TASK_BULK_SIZE: usize = 32;
 
 type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
 type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
@@ -22,23 +24,28 @@ pub struct MainProcessor {
     mappings: HashMap<MappingId, MainProcessorMapping>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
-    self_sender: crossbeam_channel::Sender<MainProcessorTask>,
-    receiver: crossbeam_channel::Receiver<MainProcessorTask>,
-    real_time_processor_frequent_sender: crossbeam_channel::Sender<RealTimeProcessorFrequentTask>,
+    self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
+    normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+    feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
+    control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     session: WeakSession,
 }
 
 impl ControlSurface for MainProcessor {
     fn run(&mut self) {
-        // Process tasks
-        // We could also iterate directly while keeping the receiver open. But that would (for good
-        // reason) prevent us from calling other methods that mutably borrow self. To at least avoid
-        // heap allocations, we use a smallvec.
-        let tasks: SmallVec<[MainProcessorTask; BULK_SIZE]> =
-            self.receiver.try_iter().take(BULK_SIZE).collect();
-        let task_count = tasks.len();
-        for task in tasks {
-            use MainProcessorTask::*;
+        // Process normal tasks
+        // We could also iterate directly while keeping the receiver open. But that would (for
+        // good reason) prevent us from calling other methods that mutably borrow
+        // self. To at least avoid heap allocations, we use a smallvec.
+        let normal_tasks: SmallVec<[NormalMainTask; NORMAL_TASK_BULK_SIZE]> = self
+            .normal_task_receiver
+            .try_iter()
+            .take(NORMAL_TASK_BULK_SIZE)
+            .collect();
+        let normal_task_count = normal_tasks.len();
+        for task in normal_tasks {
+            use NormalMainTask::*;
             match task {
                 UpdateAllMappings(mappings) => {
                     debug!(
@@ -70,14 +77,15 @@ impl ControlSurface for MainProcessor {
                         None => {
                             // This mapping is gone for good.
                             self.mappings.remove(&id);
-                            // TODO-medium We could send a null-feedback here to switch off lights.
+                            // TODO-medium We could send a null-feedback here to switch off
+                            // lights.
                         }
                         Some(m) => {
                             // Resubscribe to or unsubscribe from feedback
                             if m.feedback_is_enabled() {
                                 // Resubscribe
                                 let subscription = send_feedback_when_target_value_changed(
-                                    self.self_sender.clone(),
+                                    self.self_feedback_sender.clone(),
                                     &m,
                                 );
                                 self.feedback_subscriptions.insert(m.id(), subscription);
@@ -92,6 +100,30 @@ impl ControlSurface for MainProcessor {
                         }
                     }
                 }
+                FeedbackAll => {
+                    self.send_feedback(self.feedback_all());
+                }
+                LogDebugInfo => {
+                    self.log_debug_info(normal_task_count);
+                }
+                LearnSource(source) => {
+                    self.session
+                        .upgrade()
+                        .expect("session not existing anymore")
+                        .borrow_mut()
+                        .learn_source(source);
+                }
+            }
+        }
+        // Process feedback tasks
+        let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
+            .control_task_receiver
+            .try_iter()
+            .take(CONTROL_TASK_BULK_SIZE)
+            .collect();
+        for task in control_tasks {
+            use ControlMainTask::*;
+            match task {
                 Control { mapping_id, value } => {
                     if let Some(m) = self.mappings.get_mut(&mapping_id) {
                         // Most of the time, the main processor won't even receive a control
@@ -111,21 +143,19 @@ impl ControlSurface for MainProcessor {
                         m.control_if_enabled(value);
                     };
                 }
+            }
+        }
+        // Process feedback tasks
+        let feedback_tasks: SmallVec<[FeedbackMainTask; FEEDBACK_TASK_BULK_SIZE]> = self
+            .feedback_task_receiver
+            .try_iter()
+            .take(FEEDBACK_TASK_BULK_SIZE)
+            .collect();
+        for task in feedback_tasks {
+            use FeedbackMainTask::*;
+            match task {
                 Feedback(mapping_id) => {
                     self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
-                }
-                FeedbackAll => {
-                    self.send_feedback(self.feedback_all());
-                }
-                LogDebugInfo => {
-                    self.log_debug_info(task_count);
-                }
-                LearnSource(source) => {
-                    self.session
-                        .upgrade()
-                        .expect("session not existing anymore")
-                        .borrow_mut()
-                        .learn_source(source);
                 }
             }
         }
@@ -142,17 +172,18 @@ impl ControlSurface for MainProcessor {
 
 impl MainProcessor {
     pub fn new(
-        self_sender: crossbeam_channel::Sender<MainProcessorTask>,
-        receiver: crossbeam_channel::Receiver<MainProcessorTask>,
-        real_time_processor_frequent_sender: crossbeam_channel::Sender<
-            RealTimeProcessorFrequentTask,
-        >,
+        normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+        control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         session: WeakSession,
     ) -> MainProcessor {
+        let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
         MainProcessor {
-            self_sender,
-            receiver,
-            real_time_processor_frequent_sender,
+            self_feedback_sender,
+            normal_task_receiver,
+            feedback_task_receiver,
+            control_task_receiver,
+            feedback_real_time_task_sender,
             mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
@@ -165,8 +196,8 @@ impl MainProcessor {
         source_values: impl IntoIterator<Item = MidiSourceValue<RawShortMessage>>,
     ) {
         for v in source_values.into_iter() {
-            self.real_time_processor_frequent_sender
-                .send(RealTimeProcessorFrequentTask::Feedback(v));
+            self.feedback_real_time_task_sender
+                .send(FeedbackRealTimeTask::Feedback(v));
         }
     }
 
@@ -181,7 +212,8 @@ impl MainProcessor {
         // Resubscribe to target value changes for feedback
         self.feedback_subscriptions.clear();
         for m in self.mappings.values().filter(|m| m.feedback_is_enabled()) {
-            let subscription = send_feedback_when_target_value_changed(self.self_sender.clone(), m);
+            let subscription =
+                send_feedback_when_target_value_changed(self.self_feedback_sender.clone(), m);
             self.feedback_subscriptions.insert(m.id(), subscription);
         }
         // Also send feedback instantly to reflect this change in mappings.
@@ -195,34 +227,39 @@ impl MainProcessor {
             "\n\
                         # Main processor\n\
                         \n\
+                        - Mapping count: {} \n\
                         - Feedback subscription count: {} \n\
                         - Feedback buffer length: {} \n\
-                        - Task count: {} \n\
-                        - Mapping count: {} \n\
+                        - Normal task count: {} \n\
+                        - Control task count: {} \n\
+                        - Feedback task count: {} \n\
                         ",
             // self.mappings.values(),
+            self.mappings.len(),
             self.feedback_subscriptions.len(),
             self.feedback_buffer.len(),
             task_count,
-            self.mappings.len(),
+            self.control_task_receiver.len(),
+            self.feedback_task_receiver.len(),
         );
     }
 }
 
 fn send_feedback_when_target_value_changed(
-    self_sender: Sender<MainProcessorTask>,
+    self_sender: Sender<FeedbackMainTask>,
     m: &MainProcessorMapping,
 ) -> FeedbackSubscriptionGuard {
     let mapping_id = m.id();
     m.target_value_changed()
         .subscribe(move |_| {
-            self_sender.send(MainProcessorTask::Feedback(mapping_id));
+            self_sender.send(FeedbackMainTask::Feedback(mapping_id));
         })
         .unsubscribe_when_dropped()
 }
 
+/// A task which is sent from time to time.
 #[derive(Debug)]
-pub enum MainProcessorTask {
+pub enum NormalMainTask {
     UpdateAllMappings(Vec<MainProcessorMapping>),
     UpdateSingleMapping {
         id: MappingId,
@@ -235,14 +272,23 @@ pub enum MainProcessorTask {
     /// in such cases would reset all mutable mode state (e.g. throttling counter). Clearly
     /// undesired.
     UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
-    Feedback(MappingId),
     FeedbackAll,
     LogDebugInfo,
+    LearnSource(MidiSource),
+}
+
+/// A feedback-related task (which is potentially sent very frequently).
+#[derive(Debug)]
+pub enum FeedbackMainTask {
+    Feedback(MappingId),
+}
+
+/// A control-related task (which is potentially sent very frequently).
+pub enum ControlMainTask {
     Control {
         mapping_id: MappingId,
         value: ControlValue,
     },
-    LearnSource(MidiSource),
 }
 
 #[derive(Debug)]
