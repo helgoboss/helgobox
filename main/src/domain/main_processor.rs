@@ -36,6 +36,7 @@ impl ControlSurface for MainProcessor {
         // heap allocations, we use a smallvec.
         let tasks: SmallVec<[MainProcessorTask; BULK_SIZE]> =
             self.receiver.try_iter().take(BULK_SIZE).collect();
+        let task_count = tasks.len();
         for task in tasks {
             use MainProcessorTask::*;
             match task {
@@ -117,7 +118,7 @@ impl ControlSurface for MainProcessor {
                     self.send_feedback(self.feedback_all());
                 }
                 LogDebugInfo => {
-                    self.log_debug_info();
+                    self.log_debug_info(task_count);
                 }
                 LearnSource(source) => {
                     self.session
@@ -186,7 +187,7 @@ impl MainProcessor {
         self.send_feedback(self.feedback_all());
     }
 
-    fn log_debug_info(&self) {
+    fn log_debug_info(&self, task_count: usize) {
         info!(
             Reaper::get().logger(),
             "\n\
@@ -194,13 +195,13 @@ impl MainProcessor {
                         \n\
                         - Feedback subscription count: {} \n\
                         - Feedback buffer length: {} \n\
-                        - Main processor task queue length: {} \n\
+                        - Task count: {} \n\
                         - Mapping count: {} \n\
                         ",
             // self.mappings.values(),
             self.feedback_subscriptions.len(),
             self.feedback_buffer.len(),
-            self.receiver.len(),
+            task_count,
             self.mappings.len(),
         );
     }

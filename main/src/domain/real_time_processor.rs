@@ -100,6 +100,7 @@ impl RealTimeProcessor {
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
         // Process tasks sent from other thread (probably main thread)
+        let task_count = self.receiver.len();
         for task in self.receiver.try_iter().take(BULK_SIZE) {
             use RealTimeProcessorTask::*;
             match task {
@@ -165,7 +166,7 @@ impl RealTimeProcessor {
                     self.feedback(source_value);
                 }
                 LogDebugInfo => {
-                    self.log_debug_info();
+                    self.log_debug_info(task_count);
                 }
             }
         }
@@ -186,19 +187,19 @@ impl RealTimeProcessor {
         }
     }
 
-    fn log_debug_info(&self) {
+    fn log_debug_info(&self, task_count: usize) {
         info!(
             Reaper::get().logger(),
             "\n\
                         # Real-time processor\n\
                         \n\
                         - Control state: {:?} \n\
-                        - Task queue length: {} \n\
+                        - Task count: {} \n\
                         - Mapping count: {} \n\
                         ",
             // self.mappings.values(),
             self.control_state,
-            self.receiver.len(),
+            task_count,
             self.mappings.len(),
         );
     }
