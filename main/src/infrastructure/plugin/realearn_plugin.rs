@@ -4,7 +4,9 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::domain::{session_manager, MainProcessorTask, SharedSession};
+use crate::domain::{
+    session_manager, MainProcessorTask, RealTimeProcessorFrequentTask, SharedSession,
+};
 use crate::domain::{RealTimeProcessor, RealTimeProcessorTask, Session, SessionContext};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
@@ -50,6 +52,8 @@ pub struct RealearnPlugin {
     ),
     // Will be cloned to session as soon as it gets created.
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+    // Will be cloned to session as soon as it gets created.
+    real_time_processor_frequent_sender: crossbeam_channel::Sender<RealTimeProcessorFrequentTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // without detour.
@@ -64,7 +68,10 @@ impl Default for RealearnPlugin {
 
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
+        // TODO-low Unbounded? Brave.
         let (real_time_processor_sender, real_time_processor_receiver) =
+            crossbeam_channel::unbounded();
+        let (real_time_processor_frequent_sender, real_time_processor_frequent_receiver) =
             crossbeam_channel::unbounded();
         let (main_processor_sender, main_processor_receiver) = crossbeam_channel::unbounded();
         Self {
@@ -74,9 +81,11 @@ impl Plugin for RealearnPlugin {
             reaper_guard: None,
             plugin_parameters: Default::default(),
             real_time_processor_sender,
+            real_time_processor_frequent_sender,
             main_processor_channel: (main_processor_sender.clone(), main_processor_receiver),
             real_time_processor: RealTimeProcessor::new(
                 real_time_processor_receiver,
+                real_time_processor_frequent_receiver,
                 main_processor_sender,
                 host,
             ),
@@ -214,6 +223,7 @@ impl RealearnPlugin {
         let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
         let real_time_sender = self.real_time_processor_sender.clone();
+        let real_time_frequent_sender = self.real_time_processor_frequent_sender.clone();
         let main_processor_channel = self.main_processor_channel.clone();
         Reaper::get().do_later_in_main_thread_asap(move || {
             let session_context = match SessionContext::from_host(&host) {
@@ -230,6 +240,7 @@ impl RealearnPlugin {
             let session = Session::new(
                 session_context,
                 real_time_sender,
+                real_time_frequent_sender,
                 main_processor_channel,
                 // It's important that we use a weak pointer here. Otherwise the session keeps a
                 // strong reference to the UI and the UI keeps strong references to the session.

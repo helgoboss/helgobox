@@ -1,6 +1,6 @@
 use crate::domain::{
-    FeedbackBuffer, MainProcessorMapping, MappingId, Mode, RealTimeProcessorTask, ReaperTarget,
-    WeakSession,
+    FeedbackBuffer, MainProcessorMapping, MappingId, Mode, RealTimeProcessorFrequentTask,
+    RealTimeProcessorTask, ReaperTarget, WeakSession,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
@@ -24,7 +24,7 @@ pub struct MainProcessor {
     feedback_subscriptions: FeedbackSubscriptions,
     self_sender: crossbeam_channel::Sender<MainProcessorTask>,
     receiver: crossbeam_channel::Receiver<MainProcessorTask>,
-    real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+    real_time_processor_frequent_sender: crossbeam_channel::Sender<RealTimeProcessorFrequentTask>,
     session: WeakSession,
 }
 
@@ -144,13 +144,15 @@ impl MainProcessor {
     pub fn new(
         self_sender: crossbeam_channel::Sender<MainProcessorTask>,
         receiver: crossbeam_channel::Receiver<MainProcessorTask>,
-        real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+        real_time_processor_frequent_sender: crossbeam_channel::Sender<
+            RealTimeProcessorFrequentTask,
+        >,
         session: WeakSession,
     ) -> MainProcessor {
         MainProcessor {
             self_sender,
             receiver,
-            real_time_processor_sender,
+            real_time_processor_frequent_sender,
             mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
@@ -163,8 +165,8 @@ impl MainProcessor {
         source_values: impl IntoIterator<Item = MidiSourceValue<RawShortMessage>>,
     ) {
         for v in source_values.into_iter() {
-            self.real_time_processor_sender
-                .send(RealTimeProcessorTask::Feedback(v));
+            self.real_time_processor_frequent_sender
+                .send(RealTimeProcessorFrequentTask::Feedback(v));
         }
     }
 

@@ -19,7 +19,8 @@ use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
 use vst::host::Host;
 use vst::plugin::HostCallback;
 
-const BULK_SIZE: usize = 100;
+const NORMAL_BULK_SIZE: usize = 100;
+const FREQUENT_BULK_SIZE: usize = 100;
 
 #[derive(PartialEq, Debug)]
 pub(crate) enum ControlState {
@@ -36,7 +37,8 @@ pub struct RealTimeProcessor {
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
-    pub(crate) receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
+    pub(crate) normal_receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
+    pub(crate) frequent_receiver: crossbeam_channel::Receiver<RealTimeProcessorFrequentTask>,
     pub(crate) main_processor_sender: crossbeam_channel::Sender<MainProcessorTask>,
     // Host communication
     pub(crate) host: HostCallback,
@@ -53,13 +55,15 @@ pub struct RealTimeProcessor {
 
 impl RealTimeProcessor {
     pub fn new(
-        receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
+        normal_receiver: crossbeam_channel::Receiver<RealTimeProcessorTask>,
+        frequent_receiver: crossbeam_channel::Receiver<RealTimeProcessorFrequentTask>,
         main_processor_sender: crossbeam_channel::Sender<MainProcessorTask>,
         host_callback: HostCallback,
     ) -> RealTimeProcessor {
         RealTimeProcessor {
             control_state: ControlState::Controlling,
-            receiver,
+            normal_receiver,
+            frequent_receiver,
             main_processor_sender: main_processor_sender,
             mappings: Default::default(),
             let_matched_events_through: false,
@@ -99,9 +103,9 @@ impl RealTimeProcessor {
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
-        // Process tasks sent from other thread (probably main thread)
-        let task_count = self.receiver.len();
-        for task in self.receiver.try_iter().take(BULK_SIZE) {
+        // Process occasional tasks sent from other thread (probably main thread)
+        let normal_task_count = self.normal_receiver.len();
+        for task in self.normal_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             use RealTimeProcessorTask::*;
             match task {
                 UpdateAllMappings(mappings) => {
@@ -162,11 +166,17 @@ impl RealTimeProcessor {
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                 }
+                LogDebugInfo => {
+                    self.log_debug_info(normal_task_count);
+                }
+            }
+        }
+        // Process frequent tasks sent from other thread (probably main thread)
+        for task in self.frequent_receiver.try_iter().take(FREQUENT_BULK_SIZE) {
+            use RealTimeProcessorFrequentTask::*;
+            match task {
                 Feedback(source_value) => {
                     self.feedback(source_value);
-                }
-                LogDebugInfo => {
-                    self.log_debug_info(task_count);
                 }
             }
         }
@@ -191,16 +201,18 @@ impl RealTimeProcessor {
         info!(
             Reaper::get().logger(),
             "\n\
-                        # Real-time processor\n\
-                        \n\
-                        - Control state: {:?} \n\
-                        - Task count: {} \n\
-                        - Mapping count: {} \n\
-                        ",
+            # Real-time processor\n\
+            \n\
+            - State: {:?} \n\
+            - Mapping count: {} \n\
+            - Normal task count: {} \n\
+            - Frequent task count: {} \n\
+            ",
             // self.mappings.values(),
             self.control_state,
-            task_count,
             self.mappings.len(),
+            task_count,
+            self.frequent_receiver.len(),
         );
     }
 
@@ -443,6 +455,7 @@ impl RealTimeProcessor {
     }
 }
 
+/// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum RealTimeProcessorTask {
     UpdateAllMappings(Vec<RealTimeProcessorMapping>),
@@ -458,10 +471,15 @@ pub enum RealTimeProcessorTask {
     },
     LogDebugInfo,
     UpdateSampleRate(Hz),
-    // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(MidiSourceValue<RawShortMessage>),
     StartLearnSource,
     StopLearnSource,
+}
+
+/// A task which is potentially sent very frequently.
+#[derive(Debug)]
+pub enum RealTimeProcessorFrequentTask {
+    // TODO-low Is it better for performance to push a vector (smallvec) here?
+    Feedback(MidiSourceValue<RawShortMessage>),
 }
 
 impl Drop for RealTimeProcessor {

@@ -2,8 +2,9 @@ use super::MidiSourceModel;
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     session_manager, share_mapping, MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate,
-    MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorMapping,
-    RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping, TargetModel,
+    MainProcessorTask, MappingId, MappingModel, ProcessorMapping, RealTimeProcessorFrequentTask,
+    RealTimeProcessorMapping, RealTimeProcessorTask, ReaperTarget, SessionContext, SharedMapping,
+    TargetModel,
 };
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
@@ -72,6 +73,7 @@ pub struct Session {
         crossbeam_channel::Receiver<MainProcessorTask>,
     ),
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+    real_time_processor_frequent_sender: crossbeam_channel::Sender<RealTimeProcessorFrequentTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
 }
@@ -80,6 +82,9 @@ impl Session {
     pub fn new(
         context: SessionContext,
         real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
+        real_time_processor_frequent_sender: crossbeam_channel::Sender<
+            RealTimeProcessorFrequentTask,
+        >,
         main_processor_channel: (
             crossbeam_channel::Sender<MainProcessorTask>,
             crossbeam_channel::Receiver<MainProcessorTask>,
@@ -104,6 +109,7 @@ impl Session {
             main_processor_registration: None,
             main_processor_channel,
             real_time_processor_sender,
+            real_time_processor_frequent_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
         }
@@ -122,7 +128,7 @@ impl Session {
                 .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
                     session.main_processor_channel.0.clone(),
                     session.main_processor_channel.1.clone(),
-                    session.real_time_processor_sender.clone(),
+                    session.real_time_processor_frequent_sender.clone(),
                     Rc::downgrade(&shared_session),
                 )))
                 .expect("couldn't register local control surface");
