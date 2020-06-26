@@ -8,6 +8,7 @@ use helgoboss_learn::MidiSource;
 use lazycell::LazyCell;
 use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
+use slog::debug;
 use std::cell::{Cell, RefCell};
 use std::ptr::null_mut;
 use std::rc::{Rc, Weak};
@@ -167,5 +168,11 @@ impl SessionUi for Weak<MainPanel> {
         self.upgrade()
             .expect("main panel not existing anymore")
             .edit_mapping(mapping);
+    }
+}
+
+impl Drop for MainPanel {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping main panel...");
     }
 }

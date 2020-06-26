@@ -42,7 +42,7 @@ pub struct MappingPanel {
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<MainPanel>,
     is_invoked_programmatically: Cell<bool>,
-    target_value_change_subscription: RefCell<Box<dyn SubscriptionLike>>,
+    target_value_change_subscription: RefCell<SubscriptionGuard<Box<dyn SubscriptionLike>>>,
     sliders: RefCell<Option<Sliders>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -90,7 +90,9 @@ impl MappingPanel {
             mapping: None.into(),
             main_panel,
             is_invoked_programmatically: false.into(),
-            target_value_change_subscription: RefCell::new(Box::new(LocalSubscription::default())),
+            target_value_change_subscription: RefCell::new(SubscriptionGuard::new(Box::new(
+                LocalSubscription::default(),
+            ))),
             sliders: None.into(),
             party_is_over_subject: Default::default(),
         }
@@ -1877,17 +1879,17 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(TargetModel::potential_static_change_events())
                 .merge(TargetModel::potential_dynamic_change_events()),
             |view| {
-                // Okay. Time to resubscribe. First: Unsubscribe from previous!
+                // Okay. Time to resubscribe.
                 let mut existing_subscription =
                     view.panel.target_value_change_subscription.borrow_mut();
-                existing_subscription.unsubscribe();
-                // Now resubscribe if information in model is enough to create actual target.
+                // Resubscribe if information in model is enough to create actual target.
                 if let Ok(t) = view.target_with_context().create_target() {
                     let new_subscription =
                         view.panel.when_do_async(t.value_changed(), |inner_view| {
                             inner_view.invalidate_target_value_controls();
                         });
-                    *existing_subscription = Box::new(new_subscription.into_inner());
+                    *existing_subscription =
+                        SubscriptionGuard::new(Box::new(new_subscription.into_inner()));
                 };
             },
         );

@@ -8,6 +8,7 @@ use std::cell::{Ref, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::Mutex;
 
+// TODO-low Use weak session in order to avoid memory leaks
 static mut SESSIONS: Lazy<RefCell<Vec<SharedSession>>> = Lazy::new(|| RefCell::new(vec![]));
 
 /// Panics if not in main thread.

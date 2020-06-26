@@ -462,3 +462,9 @@ pub enum RealTimeProcessorTask {
     StartLearnSource,
     StopLearnSource,
 }
+
+impl Drop for RealTimeProcessor {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping real-time processor...");
+    }
+}

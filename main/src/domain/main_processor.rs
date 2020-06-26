@@ -1,6 +1,6 @@
 use crate::domain::{
     FeedbackBuffer, MainProcessorMapping, MappingId, Mode, RealTimeProcessorTask, ReaperTarget,
-    SharedSession,
+    WeakSession,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
@@ -25,7 +25,7 @@ pub struct MainProcessor {
     self_sender: crossbeam_channel::Sender<MainProcessorTask>,
     receiver: crossbeam_channel::Receiver<MainProcessorTask>,
     real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
-    session: SharedSession,
+    session: WeakSession,
 }
 
 impl ControlSurface for MainProcessor {
@@ -120,7 +120,11 @@ impl ControlSurface for MainProcessor {
                     self.log_debug_info();
                 }
                 LearnSource(source) => {
-                    self.session.borrow_mut().learn_source(source);
+                    self.session
+                        .upgrade()
+                        .expect("session not existing anymore")
+                        .borrow_mut()
+                        .learn_source(source);
                 }
             }
         }
@@ -140,7 +144,7 @@ impl MainProcessor {
         self_sender: crossbeam_channel::Sender<MainProcessorTask>,
         receiver: crossbeam_channel::Receiver<MainProcessorTask>,
         real_time_processor_sender: crossbeam_channel::Sender<RealTimeProcessorTask>,
-        session: SharedSession,
+        session: WeakSession,
     ) -> MainProcessor {
         MainProcessor {
             self_sender,
@@ -244,4 +248,10 @@ pub struct MainProcessorTargetUpdate {
     pub target: ReaperTarget,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
+}
+
+impl Drop for MainProcessor {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping main processor...");
+    }
 }

@@ -14,7 +14,7 @@ use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset, TypeSpecificPluginContext};
 use rxrust::prelude::*;
-use slog::{debug, warn};
+use slog::debug;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::ffi::CStr;
@@ -265,19 +265,11 @@ impl Drop for RealearnPlugin {
         debug!(Reaper::get().logger(), "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
             session_manager::unregister_session(session.as_ptr());
-            let session_referee_count = Rc::strong_count(session);
-            if session_referee_count > 0 {
-                warn!(
-                    Reaper::get().logger(),
-                    "{} pointers are still referring to this session. It's probably going to stick around!",
-                    session_referee_count
-                );
-            } else {
-                debug!(
-                    Reaper::get().logger(),
-                    "Everything clean, no more references to this session."
-                );
-            }
+            debug!(
+                Reaper::get().logger(),
+                "{} pointers are still referring to this session",
+                Rc::strong_count(session)
+            );
         }
     }
 }

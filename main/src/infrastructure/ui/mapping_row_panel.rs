@@ -10,6 +10,7 @@ use crate::infrastructure::ui::MappingPanelManager;
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
+use slog::debug;
 use std::cell::{Ref, RefCell};
 use std::ops::Deref;
 use std::rc::Rc;
@@ -303,5 +304,11 @@ impl View for MappingRowPanel {
             root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
             _ => unreachable!(),
         }
+    }
+}
+
+impl Drop for MappingRowPanel {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping mapping row panel...");
     }
 }

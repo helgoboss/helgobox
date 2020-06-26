@@ -105,7 +105,7 @@ impl MappingPanelManager {
 
 impl Drop for MappingPanelManager {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping mapping panel manager");
+        debug!(Reaper::get().logger(), "Dropping mapping panel manager...");
         // Those are (intentionally) REAPER child windows, not ReaLearn child windows. So we need to
         // close them manually as soon as ReaLearn is unloaded.
         self.close_all();

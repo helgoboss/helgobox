@@ -13,6 +13,7 @@ use reaper_medium::{MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, Reape
 use rx_util::{LocalProp, UnitEvent};
 use rxrust::prelude::*;
 use serde_json::Error;
+use slog::debug;
 use std::cell::{Cell, Ref, RefCell};
 use std::ffi::CString;
 use std::iter;
@@ -524,4 +525,10 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
         name.to_str(),
         if connected { "" } else { " <not present>" }
     )
+}
+
+impl Drop for HeaderPanel {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping header panel...");
+    }
 }

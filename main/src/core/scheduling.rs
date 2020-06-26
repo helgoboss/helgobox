@@ -2,6 +2,7 @@ use reaper_high::Reaper;
 use rx_util::{Event, SharedEvent, SharedItemEvent, SharedPayload};
 use rxrust::prelude::*;
 use rxrust::scheduler::Schedulers;
+use slog::debug;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
@@ -96,8 +97,9 @@ where
         reaction: impl Fn(Rc<Receiver>, Item) + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike> {
         trigger.subscribe(move |item| {
-            let receiver = weak_receiver.upgrade().expect("receiver gone");
-            (reaction)(receiver, item);
+            if let Some(receiver) = upgrade(&weak_receiver) {
+                (reaction)(receiver, item);
+            }
         })
     }
 
@@ -113,8 +115,9 @@ where
             let weak_receiver = weak_receiver.clone();
             let reaction = reaction.clone();
             Reaper::get().do_later_in_main_thread_asap(move || {
-                let receiver = weak_receiver.upgrade().expect("receiver gone");
-                (reaction)(receiver, item);
+                if let Some(receiver) = upgrade(&weak_receiver) {
+                    (reaction)(receiver, item);
+                }
             });
         })
     }
@@ -141,8 +144,9 @@ where
         ReactionBuilderStepTwo::<Item, Trigger, Receiver>::do_sync_internal(
             self.parent.weak_receiver,
             self.parent.parent.trigger.finalize(move || {
-                let receiver = weak_receiver.upgrade().expect("receiver gone");
-                (finalizer)(receiver);
+                if let Some(receiver) = upgrade(&weak_receiver) {
+                    (finalizer)(receiver);
+                }
             }),
             reaction,
         )
@@ -163,11 +167,20 @@ where
                 let weak_receiver = weak_receiver.clone();
                 let finalizer = finalizer.clone();
                 Reaper::get().do_later_in_main_thread_asap(move || {
-                    let receiver = weak_receiver.upgrade().expect("receiver gone");
-                    (finalizer)(receiver);
+                    if let Some(receiver) = upgrade(&weak_receiver) {
+                        (finalizer)(receiver);
+                    }
                 });
             }),
             reaction,
         )
     }
+}
+
+fn upgrade<T>(weak_receiver: &Weak<T>) -> Option<Rc<T>> {
+    let shared_receiver = weak_receiver.upgrade();
+    if shared_receiver.is_none() {
+        debug!(Reaper::get().logger(), "Receiver gone");
+    }
+    shared_receiver
 }

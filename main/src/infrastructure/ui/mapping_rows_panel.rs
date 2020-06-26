@@ -16,6 +16,7 @@ use crate::infrastructure::ui::{
     SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
+use slog::debug;
 use std::cmp;
 use std::collections::HashMap;
 use std::ops::DerefMut;
@@ -360,5 +361,11 @@ impl View for MappingRowsPanel {
         let new_scroll_pos = self.scroll_pos(code).expect("impossible");
         self.scroll(new_scroll_pos);
         true
+    }
+}
+
+impl Drop for MappingRowsPanel {
+    fn drop(&mut self) {
+        debug!(Reaper::get().logger(), "Dropping mapping rows panel...");
     }
 }

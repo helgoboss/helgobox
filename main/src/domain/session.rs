@@ -9,7 +9,7 @@ use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use lazycell::LazyCell;
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Project, Reaper, Track};
-use reaper_medium::MidiInputDeviceId;
+use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
 use rx_util::{
     BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, UnitEvent,
 };
@@ -18,7 +18,7 @@ use rxrust::prelude::*;
 use slog::{debug, info};
 use std::cell::RefCell;
 use std::fmt::Debug;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
 /// MIDI source which provides ReaLearn control data.
@@ -64,6 +64,9 @@ pub struct Session {
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
     midi_source_touched_subject: LocalSubject<'static, MidiSource, ()>,
     mapping_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
+    // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
+    // will stay around as a ghost after the plug-in is removed.
+    main_processor_registration: Option<RegistrationHandle<MainProcessor>>,
     main_processor_channel: (
         crossbeam_channel::Sender<MainProcessorTask>,
         crossbeam_channel::Receiver<MainProcessorTask>,
@@ -98,6 +101,7 @@ impl Session {
             mapping_list_changed_subject: Default::default(),
             midi_source_touched_subject: Default::default(),
             mapping_subscriptions: vec![],
+            main_processor_registration: None,
             main_processor_channel,
             real_time_processor_sender,
             party_is_over_subject: Default::default(),
@@ -108,18 +112,23 @@ impl Session {
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(shared_session: SharedSession) {
+        {
+            let mut session = shared_session.borrow_mut();
+            // Register the main processor. We instantiate it as control surface because it must be
+            // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
+            // callback is not suited.
+            let reg = Reaper::get()
+                .medium_session()
+                .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
+                    session.main_processor_channel.0.clone(),
+                    session.main_processor_channel.1.clone(),
+                    session.real_time_processor_sender.clone(),
+                    Rc::downgrade(&shared_session),
+                )))
+                .expect("couldn't register local control surface");
+            session.main_processor_registration = Some(reg);
+        }
         let session = shared_session.borrow();
-        // Register the main processor. We instantiate it as control surface because it must be
-        // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
-        // callback is not suited.
-        Reaper::get()
-            .medium_session()
-            .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
-                session.main_processor_channel.0.clone(),
-                session.main_processor_channel.1.clone(),
-                session.real_time_processor_sender.clone(),
-                shared_session.clone(),
-            )));
         // Whenever something in the mapping list changes, resubscribe to mappings themselves.
         when(
             // Initial sync
@@ -145,9 +154,7 @@ impl Session {
             observable::of(())
                 // Future syncs
                 // When the mapping list changes.
-                .merge(session.mapping_list_changed())
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(session.party_is_over()),
+                .merge(session.mapping_list_changed()),
         )
         .with(&shared_session)
         .do_async(move |session, _| {
@@ -205,11 +212,16 @@ impl Session {
         });
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
         // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
-        when(Reaper::get().fx_reordered())
-            .with(&shared_session)
-            .do_sync(move |s, _| {
-                s.borrow().invalidate_fx_indexes_of_mapping_targets();
-            });
+        when(
+            Reaper::get()
+                .fx_reordered()
+                // We have this explicit stop criteria because we listen to global REAPER events.
+                .take_until(session.party_is_over()),
+        )
+        .with(&shared_session)
+        .do_sync(move |s, _| {
+            s.borrow().invalidate_fx_indexes_of_mapping_targets();
+        });
         // Enable source learning
         // TODO-low This could be handled by normal methods instead of observables, like source
         //  filter learning.
@@ -227,6 +239,9 @@ impl Session {
             when(
                 session
                     .midi_source_touched()
+                    // We have this explicit stop criteria because we listen to global REAPER
+                    // events.
+                    .take_until(session.party_is_over())
                     .take_until(session.mapping_which_learns_source.changed_to(None))
                     .take(1),
             )
@@ -240,7 +255,8 @@ impl Session {
         });
         // Enable target learning
         when(
-            Session::target_touched_observables(shared_session.clone())
+            session
+                .target_touched_observables(Rc::downgrade(&shared_session))
                 .switch_on_next()
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(session.party_is_over()),
@@ -512,14 +528,16 @@ impl Session {
 
     /// Omits observables that omit touched targets as long as target learn is enabled.
     // TODO-low Why not handle this in a more simple way? Like learning target filter.
+    //  That way we get rid of the switch_on_next() which is not part of the main rxRust
+    //  distribution  because we haven't fully implemented it yet.
     fn target_touched_observables(
-        shared_session: SharedSession,
+        &self,
+        weak_session: WeakSession,
     ) -> impl Event<LocalBoxOp<'static, Rc<ReaperTarget>, ()>> {
-        let trigger = {
-            let session = shared_session.borrow();
-            session.mapping_which_learns_target.changed()
-        };
-        trigger.map(move |_| {
+        self.mapping_which_learns_target.changed().map(move |_| {
+            let shared_session = weak_session
+                .upgrade()
+                .expect("session not existing anymore");
             let session = shared_session.borrow();
             match session.mapping_which_learns_target.get_ref() {
                 None => observable::empty().box_it(),
@@ -735,6 +753,13 @@ struct SplinteredProcessorMappings {
 impl Drop for Session {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping session...");
+        if let Some(reg) = self.main_processor_registration {
+            unsafe {
+                Reaper::get()
+                    .medium_session()
+                    .plugin_register_remove_csurf_inst(reg);
+            }
+        }
         self.party_is_over_subject.next(())
     }
 }
@@ -788,3 +813,4 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
 /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
 /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
 pub type SharedSession = Rc<RefCell<Session>>;
+pub type WeakSession = Weak<RefCell<Session>>;
