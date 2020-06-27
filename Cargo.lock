@@ -688,7 +688,7 @@ dependencies = [
 [[package]]
 name = "helgoboss-midi"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/helgoboss-midi#607283ee1a03c9172003fab20dbb839f4224e6d5"
+source = "git+https://github.com/helgoboss/helgoboss-midi#48f50b4a65bcc300f91940da650ab52990c786e7"
 dependencies = [
  "derive_more",
  "doc-comment",
@@ -1164,7 +1164,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "1.10.0-pre3"
+version = "1.10.0-pre4"
 dependencies = [
  "bindgen",
  "built",
@@ -1203,6 +1203,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#7eafc618f52ee0fea4545af19810314cca1a1e52"
 dependencies = [
  "c_str_macro",
  "crossbeam-channel",
@@ -1223,6 +1224,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#7eafc618f52ee0fea4545af19810314cca1a1e52"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -1235,6 +1237,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#7eafc618f52ee0fea4545af19810314cca1a1e52"
 dependencies = [
  "darling",
  "quote",
@@ -1244,6 +1247,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git#7eafc618f52ee0fea4545af19810314cca1a1e52"
 dependencies = [
  "c_str_macro",
  "derive_more",

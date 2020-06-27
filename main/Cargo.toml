@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "1.10.0-pre3"
+version = "1.10.0-pre4"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -10,12 +10,12 @@ license = "LGPL-3.0"
 generate = []
 
 [dependencies]
-#reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-#reaper-medium= { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-#reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-reaper-low = { path = "../../reaper-rs/main/low" }
+reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-medium= { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+#reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
+#reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
+#reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi", branch = "master", features = ["serde", "serde_repr"] }
