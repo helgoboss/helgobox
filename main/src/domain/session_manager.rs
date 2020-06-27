@@ -1,4 +1,4 @@
-use crate::domain::{ReaperTarget, Session, SharedSession};
+use crate::domain::{ReaperTarget, Session, SharedSession, WeakSession};
 use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 use reaper_medium::MessageBoxType;
@@ -8,11 +8,10 @@ use std::cell::{Ref, RefCell};
 use std::rc::{Rc, Weak};
 use std::sync::Mutex;
 
-// TODO-low Use weak session in order to avoid memory leaks
-static mut SESSIONS: Lazy<RefCell<Vec<SharedSession>>> = Lazy::new(|| RefCell::new(vec![]));
+static mut SESSIONS: Lazy<RefCell<Vec<WeakSession>>> = Lazy::new(|| RefCell::new(vec![]));
 
 /// Panics if not in main thread.
-fn sessions() -> &'static RefCell<Vec<SharedSession>> {
+fn sessions() -> &'static RefCell<Vec<WeakSession>> {
     Reaper::get().require_main_thread();
     unsafe { &SESSIONS }
 }
@@ -29,7 +28,7 @@ pub fn log_debug_info() {
     );
 }
 
-pub fn register_session(session: SharedSession) {
+pub fn register_session(session: WeakSession) {
     let mut sessions = sessions().borrow_mut();
     debug!(Reaper::get().logger(), "Registering new session...");
     unsafe { sessions.push(session) };
@@ -43,7 +42,14 @@ pub fn register_session(session: SharedSession) {
 pub fn unregister_session(session: *const Session) {
     let mut sessions = sessions().borrow_mut();
     debug!(Reaper::get().logger(), "Unregistering session...");
-    sessions.retain(|s| s.as_ptr() != session as _);
+    sessions.retain(|s| {
+        match s.upgrade() {
+            // Already gone, for whatever reason. Time to throw out!
+            None => false,
+            // Not gone yet.
+            Some(shared_session) => shared_session.as_ptr() != session as _,
+        }
+    });
     debug!(
         Reaper::get().logger(),
         "Session unregistered. Remaining count of managed sessions: {}",
@@ -123,10 +129,11 @@ fn find_first_session_in_current_project() -> Option<SharedSession> {
     })
 }
 
-fn find_session(predicate: impl FnMut(&&SharedSession) -> bool) -> Option<SharedSession> {
+fn find_session(predicate: impl FnMut(&SharedSession) -> bool) -> Option<SharedSession> {
     sessions()
         .borrow()
         .iter()
+        .filter_map(|s| s.upgrade())
         .find(predicate)
         .map(|s| s.clone())
 }

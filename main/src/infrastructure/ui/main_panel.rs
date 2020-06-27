@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::{MappingModel, Session, SessionUi};
+use crate::domain::{MappingModel, Session, SessionUi, WeakSession};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
@@ -24,7 +24,7 @@ pub struct MainPanel {
 }
 
 struct ActiveData {
-    session: SharedSession,
+    session: WeakSession,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
 }
@@ -45,13 +45,13 @@ impl MainPanel {
         Default::default()
     }
 
-    pub fn notify_session_is_available(self: Rc<Self>, session: SharedSession) {
+    pub fn notify_session_is_available(self: Rc<Self>, session: WeakSession) {
         // Finally, the session is available. First, save its reference and create sub panels.
         let active_data = ActiveData {
             session: session.clone(),
             header_panel: HeaderPanel::new(session.clone(), self.state.clone()).into(),
             mapping_rows_panel: MappingRowsPanel::new(
-                session.clone(),
+                session,
                 Rc::downgrade(&self),
                 self.state.clone(),
             )

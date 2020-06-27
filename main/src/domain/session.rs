@@ -779,6 +779,8 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
     };
 }
 
+/// Never store the strong reference to a session (except in the main owner RealearnPlugin)!
+///
 /// # Design
 ///
 /// ## Why `Rc<RefCell<Session>>`?
@@ -821,4 +823,7 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
 /// TODO-low We must take care, however, that REAPER will not crash as a result, that would be
 /// very  bad.  See https://github.com/RustAudio/vst-rs/issues/122
 pub type SharedSession = Rc<RefCell<Session>>;
+
+/// Always use this when storing a reference to a session. This avoids memory leaks and ghost
+/// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;

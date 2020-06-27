@@ -256,9 +256,10 @@ impl RealearnPlugin {
                 Rc::downgrade(&main_panel),
             );
             let shared_session = Rc::new(RefCell::new(session));
-            session_manager::register_session(shared_session.clone());
+            let weak_session = Rc::downgrade(&shared_session);
+            session_manager::register_session(weak_session.clone());
             Session::activate(shared_session.clone());
-            main_panel.notify_session_is_available(shared_session.clone());
+            main_panel.notify_session_is_available(weak_session.clone());
             plugin_parameters.notify_session_is_available(shared_session.clone());
             session_container.fill(shared_session);
         });

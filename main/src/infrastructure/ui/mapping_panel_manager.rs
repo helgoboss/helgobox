@@ -1,5 +1,5 @@
-use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
+use crate::domain::{SharedSession, WeakSession};
 use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use reaper_high::Reaper;
 use slog::debug;
@@ -12,13 +12,13 @@ const MAX_PANEL_COUNT: u32 = 4;
 
 /// Responsible for managing the currently open top-level mapping panels.
 pub struct MappingPanelManager {
-    session: SharedSession,
+    session: WeakSession,
     main_panel: WeakView<MainPanel>,
     open_panels: Vec<SharedView<MappingPanel>>,
 }
 
 impl MappingPanelManager {
-    pub fn new(session: SharedSession, main_panel: WeakView<MainPanel>) -> MappingPanelManager {
+    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> MappingPanelManager {
         Self {
             session,
             main_panel,
@@ -45,9 +45,10 @@ impl MappingPanelManager {
 
     /// Closes and removes panels of mappings which don't exist anymore.
     pub fn close_orphan_panels(&mut self) {
-        let session = self.session.clone();
-        self.open_panels.retain(move |p| {
-            if session.borrow().has_mapping(p.mapping_ptr()) {
+        let shared_session = self.session.upgrade().expect("session gone");
+        let session = shared_session.borrow();
+        self.open_panels.retain(|p| {
+            if session.has_mapping(p.mapping_ptr()) {
                 true
             } else {
                 p.close();

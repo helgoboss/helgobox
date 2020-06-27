@@ -1,6 +1,6 @@
 use crate::core::when;
-use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping};
+use crate::domain::{SharedSession, WeakSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
@@ -21,7 +21,7 @@ pub type SharedMappingPanelManager = Rc<RefCell<MappingPanelManager>>;
 /// Panel containing the summary data of one mapping and buttons such as "Remove".
 pub struct MappingRowPanel {
     view: ViewContext,
-    session: SharedSession,
+    session: WeakSession,
     row_index: u32,
     // We use virtual scrolling in order to be able to show a large amount of rows without any
     // performance issues. That means there's a fixed number of mapping rows and they just
@@ -36,7 +36,7 @@ pub struct MappingRowPanel {
 
 impl MappingRowPanel {
     pub fn new(
-        session: SharedSession,
+        session: WeakSession,
         row_index: u32,
         mapping_panel_manager: SharedMappingPanelManager,
     ) -> MappingRowPanel {
@@ -80,6 +80,10 @@ impl MappingRowPanel {
             .set_text(mapping.name.get_ref().as_str());
     }
 
+    fn session(&self) -> SharedSession {
+        self.session.upgrade().expect("session gone")
+    }
+
     fn invalidate_source_label(&self, mapping: &MappingModel) {
         self.view
             .require_window()
@@ -90,7 +94,7 @@ impl MappingRowPanel {
     fn invalidate_target_label(&self, mapping: &MappingModel) {
         let target_model_string = mapping
             .target_model
-            .with_context(self.session.borrow().context())
+            .with_context(self.session().borrow().context())
             .to_string();
         self.view
             .require_window()
@@ -99,7 +103,7 @@ impl MappingRowPanel {
     }
 
     fn invalidate_learn_source_button(&self, mapping: &MappingModel) {
-        let text = if self.session.borrow().mapping_is_learning_source(mapping) {
+        let text = if self.session().borrow().mapping_is_learning_source(mapping) {
             "Stop"
         } else {
             "Learn source"
@@ -110,7 +114,7 @@ impl MappingRowPanel {
     }
 
     fn invalidate_learn_target_button(&self, mapping: &MappingModel) {
-        let text = if self.session.borrow().mapping_is_learning_target(mapping) {
+        let text = if self.session().borrow().mapping_is_learning_target(mapping) {
             "Stop"
         } else {
             "Learn target"
@@ -171,13 +175,19 @@ impl MappingRowPanel {
             view.with_mapping(Self::invalidate_feedback_check_box);
         });
         self.when(
-            self.session.borrow().mapping_which_learns_source.changed(),
+            self.session()
+                .borrow()
+                .mapping_which_learns_source
+                .changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_source_button);
             },
         );
         self.when(
-            self.session.borrow().mapping_which_learns_target.changed(),
+            self.session()
+                .borrow()
+                .mapping_which_learns_target
+                .changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_target_button);
             },
@@ -212,37 +222,37 @@ impl MappingRowPanel {
     }
 
     fn move_mapping_up(&self) {
-        self.session
+        self.session()
             .borrow_mut()
             .move_mapping_up(self.require_mapping_address());
     }
 
     fn move_mapping_down(&self) {
-        self.session
+        self.session()
             .borrow_mut()
             .move_mapping_down(self.require_mapping_address());
     }
 
     fn remove_mapping(&self) {
-        self.session
+        self.session()
             .borrow_mut()
             .remove_mapping(self.require_mapping_address());
     }
 
     fn duplicate_mapping(&self) {
-        self.session
+        self.session()
             .borrow_mut()
             .duplicate_mapping(self.require_mapping_address());
     }
 
     fn toggle_learn_source(&self) {
-        self.session
+        self.session()
             .borrow_mut()
             .toggle_learn_source(self.require_mapping().deref());
     }
 
     fn toggle_learn_target(&self) {
-        self.session
+        self.session()
             .borrow_mut()
             .toggle_learn_target(self.require_mapping().deref());
     }

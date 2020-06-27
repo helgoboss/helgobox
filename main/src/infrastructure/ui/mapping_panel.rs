@@ -1,5 +1,7 @@
 use crate::core::when;
-use crate::domain::{convert_factor_to_unit_value, convert_unit_value_to_factor, SharedSession};
+use crate::domain::{
+    convert_factor_to_unit_value, convert_unit_value_to_factor, SharedSession, WeakSession,
+};
 use crate::domain::{
     get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
     MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
@@ -38,7 +40,7 @@ use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 pub struct MappingPanel {
     view: ViewContext,
-    session: SharedSession,
+    session: WeakSession,
     mapping: RefCell<Option<SharedMapping>>,
     main_panel: WeakView<MainPanel>,
     is_invoked_programmatically: Cell<bool>,
@@ -83,7 +85,7 @@ struct Sliders {
 }
 
 impl MappingPanel {
-    pub fn new(session: SharedSession, main_panel: WeakView<MainPanel>) -> MappingPanel {
+    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> MappingPanel {
         MappingPanel {
             view: Default::default(),
             session,
@@ -162,11 +164,16 @@ impl MappingPanel {
         .expect("mapping must be filled at this point");
     }
 
+    fn session(&self) -> SharedSession {
+        self.session.upgrade().expect("session gone")
+    }
+
     fn read<R>(
         self: SharedView<Self>,
         op: impl Fn(&ImmutableMappingPanel) -> R,
     ) -> Result<R, &'static str> {
-        let session = self.session.borrow();
+        let shared_session = self.session();
+        let session = shared_session.borrow();
         let shared_mapping = self.mapping.borrow();
         let shared_mapping = shared_mapping.as_ref().ok_or("mapping not filled")?;
         let mapping = shared_mapping.borrow();
@@ -186,7 +193,8 @@ impl MappingPanel {
     }
 
     fn write<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
-        let mut session = self.session.borrow_mut();
+        let shared_session = self.session();
+        let mut session = shared_session.borrow_mut();
         let mut shared_mapping = self.mapping.borrow_mut();
         let mut shared_mapping = shared_mapping.as_mut().expect("mapping not filled");
         let mut mapping = shared_mapping.borrow_mut();

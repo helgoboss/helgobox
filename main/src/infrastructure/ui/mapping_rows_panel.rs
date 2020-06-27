@@ -8,7 +8,7 @@ use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 
 use crate::core::when;
-use crate::domain::{MappingModel, Session, SharedMapping};
+use crate::domain::{MappingModel, Session, SharedMapping, WeakSession};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{
@@ -24,7 +24,7 @@ use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Wind
 
 pub struct MappingRowsPanel {
     view: ViewContext,
-    session: SharedSession,
+    session: WeakSession,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
     mapping_panel_manager: SharedMappingPanelManager,
@@ -33,7 +33,7 @@ pub struct MappingRowsPanel {
 
 impl MappingRowsPanel {
     pub fn new(
-        session: SharedSession,
+        session: WeakSession,
         main_panel: WeakView<MainPanel>,
         main_state: SharedMainState,
     ) -> MappingRowsPanel {
@@ -55,8 +55,13 @@ impl MappingRowsPanel {
         }
     }
 
+    fn session(&self) -> SharedSession {
+        self.session.upgrade().expect("session gone")
+    }
+
     pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
-        let session = self.session.borrow();
+        let shared_session = self.session();
+        let session = shared_session.borrow();
         let index = match session.index_of_mapping(mapping) {
             None => return,
             Some(i) => i,
@@ -69,7 +74,7 @@ impl MappingRowsPanel {
     }
 
     pub fn edit_mapping(&self, mapping: *const MappingModel) {
-        if let Some(m) = self.session.borrow().find_mapping_by_address(mapping) {
+        if let Some(m) = self.session().borrow().find_mapping_by_address(mapping) {
             self.mapping_panel_manager.borrow_mut().edit_mapping(m);
         }
     }
@@ -152,7 +157,8 @@ impl MappingRowsPanel {
     }
 
     fn filtered_mapping_count(&self) -> usize {
-        let session = self.session.borrow();
+        let shared_session = self.session();
+        let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
         if main_state.source_filter.get_ref().is_none()
             && main_state.target_filter.get_ref().is_none()
@@ -202,12 +208,13 @@ impl MappingRowsPanel {
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
-        let mapping_count = self.session.borrow().mapping_count();
+        let mapping_count = self.session().borrow().mapping_count();
         for i in (self.scroll_position.get()..mapping_count) {
             if row_index >= self.rows.len() {
                 break;
             }
-            let session = self.session.borrow();
+            let shared_session = self.session();
+            let session = shared_session.borrow();
             let mapping = session.find_mapping_by_index(i).expect("impossible");
             if !self.mapping_matches_filter(mapping) {
                 continue;
@@ -236,7 +243,7 @@ impl MappingRowsPanel {
             let mapping_target = match mapping
                 .borrow()
                 .target_model
-                .with_context(self.session.borrow().context())
+                .with_context(self.session().borrow().context())
                 .create_target()
             {
                 Ok(t) => t,
@@ -270,7 +277,8 @@ impl MappingRowsPanel {
     }
 
     fn register_listeners(self: SharedView<Self>) {
-        let session = self.session.borrow();
+        let shared_session = self.session();
+        let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
         self.when(session.everything_changed(), |view| {
             view.invalidate_all_controls();
