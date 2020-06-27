@@ -241,14 +241,12 @@ impl ReaperTarget {
         use ReaperTarget::*;
         match self {
             Action { .. } => "".to_string(),
-            FxParameter { param } => {
-                // TODO-medium This doesn't take into account that ReaperNormalizedFxParamValue can
-                // be > 1.
-                param
-                    .format_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
-                    .map(|s| s.into_string())
-                    .unwrap_or_else(|_| self.format_value_generic(value))
-            }
+            FxParameter { param } => param
+                // Even if a REAPER-normalized value can take numbers > 1.0, the usual value range
+                // is in fact normalized in the classical sense (unit interval).
+                .format_reaper_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
+                .map(|s| s.into_string())
+                .unwrap_or_else(|_| self.format_value_generic(value)),
             TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db(value),
             TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
             FxEnable { .. }
@@ -544,9 +542,10 @@ impl ReaperTarget {
                 }
             },
             FxParameter { param } => {
-                // TODO-high How about values > 1.0?
-                let fx_value = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
-                param.set_normalized_value(fx_value);
+                // It's okay to just convert this to a REAPER-normalized value. We don't support
+                // values above the maximum (or buggy plug-ins).
+                let v = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
+                param.set_reaper_normalized_value(v);
             }
             TrackVolume { track } => {
                 let volume = Volume::from_soft_normalized_value(value.as_absolute()?.get());
@@ -761,8 +760,26 @@ impl Target for ReaperTarget {
         use ReaperTarget::*;
         match self {
             Action { action, .. } => convert_bool_to_unit_value(action.is_on()),
-            // TODO-medium This will panic if the "soft" normalized value is > 1
-            FxParameter { param } => UnitValue::new(param.normalized_value().get()),
+            FxParameter { param } => {
+                let v = param
+                    .reaper_normalized_value()
+                    .expect("couldn't get FX param value")
+                    .get();
+                if !UnitValue::is_valid(v) {
+                    // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
+                    // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
+                    // know. In future, we might offer further customization possibilities here.
+                    // For now, we just report it as 1.0 and log a warning.
+                    warn!(
+                        Reaper::get().logger(),
+                        "FX parameter reported normalized value {:?}, which is > 1.0: {:?}",
+                        v,
+                        param
+                    );
+                    return UnitValue::MAX;
+                }
+                UnitValue::new(v)
+            }
             // TODO-medium This will panic if the "soft" normalized value is > 1
             TrackVolume { track } => UnitValue::new(track.volume().soft_normalized_value()),
             // TODO-medium This will panic if the "soft" normalized value is > 1
