@@ -28,14 +28,14 @@ where
 {
     pub fn with<Receiver>(
         self,
-        receiver: &Rc<Receiver>,
+        weak_receiver: Weak<Receiver>,
     ) -> ReactionBuilderStepTwo<Item, Trigger, Receiver>
     where
         Receiver: 'static,
     {
         ReactionBuilderStepTwo {
             parent: self,
-            weak_receiver: Rc::downgrade(receiver),
+            weak_receiver,
         }
     }
 }

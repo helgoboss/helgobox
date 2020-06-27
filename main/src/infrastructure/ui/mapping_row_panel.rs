@@ -279,7 +279,7 @@ impl MappingRowPanel {
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when(event.take_until(self.closed_or_mapping_will_change()))
-            .with(&self)
+            .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
     }
 }

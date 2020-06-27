@@ -118,40 +118,35 @@ impl Session {
 
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
-    pub fn activate(shared_session: SharedSession) {
-        {
-            let mut session = shared_session.borrow_mut();
-            // Register the main processor. We instantiate it as control surface because it must be
-            // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
-            // callback is not suited.
-            let reg = Reaper::get()
-                .medium_session()
-                .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
-                    session.normal_main_task_channel.1.clone(),
-                    session.control_main_task_receiver.clone(),
-                    session.feedback_real_time_task_sender.clone(),
-                    Rc::downgrade(&shared_session),
-                )))
-                .expect("couldn't register local control surface");
-            session.main_processor_registration = Some(reg);
-        }
-        let session = shared_session.borrow();
+    pub fn activate(&mut self, weak_session: WeakSession) {
+        // Register the main processor. We instantiate it as control surface because it must be
+        // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
+        // callback is not suited.
+        let reg = Reaper::get()
+            .medium_session()
+            .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
+                self.normal_main_task_channel.1.clone(),
+                self.control_main_task_receiver.clone(),
+                self.feedback_real_time_task_sender.clone(),
+                weak_session.clone(),
+            )))
+            .expect("couldn't register local control surface");
+        self.main_processor_registration = Some(reg);
         // Whenever something in the mapping list changes, resubscribe to mappings themselves.
         when(
             // Initial sync
             observable::of(())
                 // Future syncs
                 // When the mapping list changes.
-                .merge(session.mapping_list_changed())
+                .merge(self.mapping_list_changed())
                 // When auto-detect is off, we can save some mapping descriptions
-                .merge(session.always_auto_detect.changed()),
+                .merge(self.always_auto_detect.changed()),
         )
-        .with(&shared_session)
+        .with(weak_session.clone())
         .do_async(|shared_session, _| {
-            Self::resubscribe_to_mappings_in_current_list(
-                &mut shared_session.borrow_mut(),
-                &shared_session,
-            );
+            shared_session
+                .borrow_mut()
+                .resubscribe_to_mappings_in_current_list(Rc::downgrade(&shared_session));
         });
         // Whenever anything in the mapping list changes and other things which affect all
         // processor (including the real-time processor which takes care of sources only), resync
@@ -161,9 +156,9 @@ impl Session {
             observable::of(())
                 // Future syncs
                 // When the mapping list changes.
-                .merge(session.mapping_list_changed()),
+                .merge(self.mapping_list_changed()),
         )
-        .with(&shared_session)
+        .with(weak_session.clone())
         .do_async(move |session, _| {
             session.borrow_mut().sync_all_mappings_to_all_processors();
         });
@@ -179,42 +174,37 @@ impl Session {
             // which uses <Selected track>, then a track selection change changes the feedback
             // value producer ... so the main processor needs to unsubscribe from the old producer
             // and subscribe to the new one).
-            session
-                .midi_feedback_output
+            self.midi_feedback_output
                 .changed()
-                .merge(session.containing_fx_enabled_or_disabled())
-                .merge(session.containing_track_armed_or_disarmed())
-                .merge(session.send_feedback_only_if_armed.changed())
+                .merge(self.containing_fx_enabled_or_disabled())
+                .merge(self.containing_track_armed_or_disarmed())
+                .merge(self.send_feedback_only_if_armed.changed())
                 // When target conditions change.
                 .merge(TargetModel::potential_static_change_events())
                 .merge(TargetModel::potential_dynamic_change_events())
                 // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(session.party_is_over()),
+                .take_until(self.party_is_over()),
         )
-        .with(&shared_session)
+        .with(weak_session.clone())
         .do_async(move |session, _| {
             session.borrow_mut().sync_all_targets_to_main_processor();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
-        when(
-            session
-                .settings_changed()
-                .merge(session.mapping_list_changed()),
-        )
-        .with(&shared_session)
-        .do_sync(move |s, _| {
-            s.borrow().mark_project_as_dirty();
-        });
+        when(self.settings_changed().merge(self.mapping_list_changed()))
+            .with(weak_session.clone())
+            .do_sync(move |s, _| {
+                s.borrow().mark_project_as_dirty();
+            });
         // Keep syncing some general settings to real-time processor.
         when(
             // Initial sync
             observable::of(())
                 // Future syncs
-                .merge(session.settings_changed()),
+                .merge(self.settings_changed()),
         )
-        .with(&shared_session)
-        .do_sync(move |s, _| {
+        .with(weak_session.clone())
+        .do_async(move |s, _| {
             s.borrow().sync_settings_to_real_time_processor();
         });
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
@@ -223,9 +213,9 @@ impl Session {
             Reaper::get()
                 .fx_reordered()
                 // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(session.party_is_over()),
+                .take_until(self.party_is_over()),
         )
-        .with(&shared_session)
+        .with(weak_session.clone())
         .do_sync(move |s, _| {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
@@ -235,11 +225,11 @@ impl Session {
         when(
             // TODO-low Listen to values instead of change event only. Filter Some only and
             // flatten.
-            session.mapping_which_learns_source.changed(),
+            self.mapping_which_learns_source.changed(),
         )
-        .with(&shared_session)
-        .do_async(move |s, _| {
-            let session = s.borrow();
+        .with(weak_session.clone())
+        .do_async(move |shared_session, _| {
+            let session = shared_session.borrow();
             if session.mapping_which_learns_source.get_ref().is_none() {
                 return;
             }
@@ -252,7 +242,7 @@ impl Session {
                     .take_until(session.mapping_which_learns_source.changed_to(None))
                     .take(1),
             )
-            .with(&s)
+            .with(Rc::downgrade(&shared_session))
             .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
             .do_async(|session, source| {
                 if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
@@ -262,13 +252,12 @@ impl Session {
         });
         // Enable target learning
         when(
-            session
-                .target_touched_observables(Rc::downgrade(&shared_session))
+            self.target_touched_observables(weak_session.clone())
                 .switch_on_next()
                 // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(session.party_is_over()),
+                .take_until(self.party_is_over()),
         )
-        .with(&shared_session)
+        .with(weak_session.clone())
         .do_async(|session, target| {
             session.borrow_mut().learn_target(target.as_ref());
         });
@@ -305,7 +294,7 @@ impl Session {
         })
     }
 
-    fn resubscribe_to_mappings_in_current_list(&mut self, shared_session: &SharedSession) {
+    fn resubscribe_to_mappings_in_current_list(&mut self, weak_session: WeakSession) {
         self.mapping_subscriptions = self
             .mapping_models
             .iter()
@@ -318,7 +307,7 @@ impl Session {
                 // Keep syncing to processors
                 {
                     let subscription = when(mapping.changed_processing_relevant())
-                        .with(shared_session)
+                        .with(weak_session.clone())
                         .do_sync(move |session, _| {
                             let session = session.borrow();
                             session
@@ -330,7 +319,7 @@ impl Session {
                 // Keep marking project as dirty
                 {
                     let subscription = when(mapping.changed_non_processing_relevant())
-                        .with(shared_session)
+                        .with(weak_session.clone())
                         .do_sync(|session, _| {
                             session.borrow().mark_project_as_dirty();
                         });
@@ -345,7 +334,7 @@ impl Session {
                             .changed()
                             .merge(mapping.target_model.changed()),
                     )
-                    .with(shared_mapping)
+                    .with(Rc::downgrade(&shared_mapping))
                     .do_sync(move |mapping, _| {
                         mapping
                             .borrow_mut()
@@ -744,8 +733,8 @@ impl Session {
     ///
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
-    pub fn notify_everything_has_changed(&mut self, shared_session: &SharedSession) {
-        self.resubscribe_to_mappings_in_current_list(shared_session);
+    pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
+        self.resubscribe_to_mappings_in_current_list(weak_session);
         self.sync_all_mappings_to_all_processors();
         self.sync_settings_to_real_time_processor();
         // For UI

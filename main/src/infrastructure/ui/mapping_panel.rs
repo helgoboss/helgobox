@@ -246,7 +246,7 @@ impl MappingPanel {
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) {
         when(event.take_until(self.party_is_over()))
-            .with(self)
+            .with(Rc::downgrade(self))
             .do_sync(decorate_reaction(reaction));
     }
 
@@ -256,7 +256,7 @@ impl MappingPanel {
         reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
     ) -> SubscriptionWrapper<impl SubscriptionLike> {
         when(event.take_until(self.party_is_over()))
-            .with(self)
+            .with(Rc::downgrade(self))
             .do_async(decorate_reaction(reaction))
     }
 }

@@ -1,7 +1,7 @@
 use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
-use crate::domain::Session;
 use crate::domain::SharedSession;
+use crate::domain::{Session, WeakSession};
 use lazycell::{AtomicLazyCell, LazyCell};
 use reaper_high::Reaper;
 use slog::debug;
@@ -12,7 +12,7 @@ use std::sync::{Mutex, RwLock};
 use vst::plugin::PluginParameters;
 
 pub struct RealearnPluginParameters {
-    session: AtomicLazyCell<SendOrSyncWhatever<SharedSession>>,
+    session: AtomicLazyCell<SendOrSyncWhatever<WeakSession>>,
     // We may have to cache some data that the host wants us to load because we are not ready
     // for loading data as long as the session is not available.
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
@@ -28,7 +28,7 @@ impl Default for RealearnPluginParameters {
 }
 
 impl RealearnPluginParameters {
-    pub fn notify_session_is_available(&self, session: SharedSession) {
+    pub fn notify_session_is_available(&self, session: WeakSession) {
         // We will never access the session in another thread than the main thread because
         // REAPER calls the GetData/SetData functions in main thread only! So, Send or Sync,
         // whatever ... we don't care!
@@ -62,7 +62,8 @@ impl PluginParameters for RealearnPluginParameters {
             }
             Some(s) => s,
         };
-        let session_data = SessionData::from_model(&session.borrow());
+        let upgraded_session = session.upgrade().expect("session gone");
+        let session_data = SessionData::from_model(&upgraded_session.borrow());
         serde_json::to_vec(&session_data).expect("couldn't serialize session data")
     }
 
@@ -89,8 +90,9 @@ impl PluginParameters for RealearnPluginParameters {
         let data = &data[left_json_object_brace..];
         let session_data: SessionData =
             serde_json::from_slice(data).expect("couldn't deserialize session data");
-        let mut session = shared_session.borrow_mut();
+        let upgraded_session = shared_session.upgrade().expect("session gone");
+        let mut session = upgraded_session.borrow_mut();
         session_data.apply_to_model(&mut session);
-        session.notify_everything_has_changed(shared_session);
+        session.notify_everything_has_changed(shared_session.get().clone());
     }
 }

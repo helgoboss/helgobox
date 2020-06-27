@@ -62,7 +62,7 @@ impl HeaderPanel {
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )
-            .with(&self.session())
+            .with(self.session.clone())
             .finally(move |_| {
                 main_state_1
                     .borrow_mut()
@@ -97,7 +97,7 @@ impl HeaderPanel {
                     .take_until(self.view.closed())
                     .take(1),
             )
-            .with(&self.main_state)
+            .with(Rc::downgrade(&self.main_state))
             .finally(|main_state| {
                 main_state.borrow_mut().is_learning_target_filter.set(false);
             })
@@ -379,7 +379,7 @@ impl HeaderPanel {
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
         session_data.apply_to_model(&mut session);
-        session.notify_everything_has_changed(&shared_session);
+        session.notify_everything_has_changed(self.session.clone());
         session.mark_project_as_dirty();
         Ok(())
     }
@@ -454,7 +454,7 @@ impl HeaderPanel {
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when(event.take_until(self.view.closed()))
-            .with(&self)
+            .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
     }
 }
