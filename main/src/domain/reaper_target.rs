@@ -246,7 +246,8 @@ impl ReaperTarget {
                 // be > 1.
                 param
                     .format_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
-                    .into_string()
+                    .map(|s| s.into_string())
+                    .unwrap_or_else(|_| self.format_value_generic(value))
             }
             TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db(value),
             TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
@@ -263,12 +264,16 @@ impl ReaperTarget {
                 None => "<Master track>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
-            _ => format!(
-                "{} {}",
-                self.format_value_without_unit(value),
-                self.value_unit()
-            ),
+            _ => self.format_value_generic(value),
         }
+    }
+
+    fn format_value_generic(&self, value: UnitValue) -> String {
+        format!(
+            "{} {}",
+            self.format_value_without_unit(value),
+            self.value_unit()
+        )
     }
 
     /// Formats the given value without unit.
