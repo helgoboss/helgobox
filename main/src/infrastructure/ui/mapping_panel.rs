@@ -838,7 +838,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn update_target_fx_parameter(&mut self) {
         let data = self
             .view
-            .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX)
+            .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX)
             .selected_combo_box_item_data();
         let mut target = &mut self.mapping.target_model;
         target.param_index.set(data as _);
