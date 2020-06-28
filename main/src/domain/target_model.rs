@@ -130,6 +130,7 @@ impl TargetModel {
         }
         if let Some(fx) = target.fx() {
             self.fx_index.set(Some(fx.index()));
+            self.fx_guid.set(fx.guid());
             self.is_input_fx.set(fx.is_input_fx());
         }
         if let Some(send) = target.send() {

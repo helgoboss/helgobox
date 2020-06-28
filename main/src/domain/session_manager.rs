@@ -59,6 +59,10 @@ pub fn unregister_session(session: *const Session) {
 
 type SharedReaperTarget = Rc<RefCell<Option<ReaperTarget>>>;
 
+// TODO-medium I'm not sure if it's worth that constantly listening to target changes ...
+//  But right now the control surface calls next() on the subjects anyway. And this listener
+//  does nothing more than cloning the target and writing it to a variable. So maybe not so bad
+//  performance-wise.
 pub fn register_global_learn_action() {
     let last_touched_target: SharedReaperTarget = Rc::new(RefCell::new(None));
     let last_touched_target_clone = last_touched_target.clone();
