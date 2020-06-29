@@ -8,6 +8,7 @@ use crate::domain::{
     session_manager, ControlMainTask, FeedbackRealTimeTask, NormalMainTask, SharedSession,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor, Session, SessionContext};
+use crate::infrastructure::common::debug_util;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
@@ -214,6 +215,7 @@ impl RealearnPlugin {
             Swell::make_available_globally(Swell::load(context));
             Reaper::setup_with_defaults(context, "info@helgoboss.org");
             session_manager::register_global_learn_action();
+            debug_util::register_resolve_symbols_action();
         })
     }
 
