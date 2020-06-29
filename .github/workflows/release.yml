@@ -51,11 +51,17 @@ jobs:
         with:
           command: build
           args: --release
-      - name: Upload artifact
+      - name: Upload plug-in to artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
           path: target/release/${{ matrix.lib-file-name }}
+      - name: Upload Windows debug symbols to artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/release/*.pdb
 
   create-release:
     name: Publish release
