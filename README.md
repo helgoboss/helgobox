@@ -39,11 +39,11 @@ ReaLearn is fired up just like any other VST instrument in REAPER: By adding it 
 
 **Main panel (containing the list of mappings):**
 
-![Main panel](doc/images/screenshot-main-panel.png)
+<img alt="Main panel" src="doc/images/screenshot-main-panel.png" width="600">
 
 **Mapping panel (for editing one particular mapping):**
 
-![Mapping panel](doc/images/screenshot-mapping-panel.png)
+<img alt="Mapping panel" src="doc/images/screenshot-mapping-panel.png" width="600">
 
 ## Contribution
 
