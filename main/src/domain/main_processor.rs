@@ -3,14 +3,14 @@ use crate::domain::{
     NormalRealTimeTask, ReaperTarget, WeakSession,
 };
 use crossbeam_channel::Sender;
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target, UnitValue};
 use helgoboss_midi::RawShortMessage;
 use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
 use slog::{debug, info};
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
@@ -53,23 +53,38 @@ impl ControlSurface for MainProcessor {
                         Reaper::get().logger(),
                         "Main processor: Updating all mappings..."
                     );
+                    let mut unused_sources = self.currently_feedback_enabled_sources();
                     // Put into hash map in order to quickly look up mappings by ID
-                    self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
-                    self.handle_feedback_after_batch_mapping_update();
+                    self.mappings = mappings
+                        .into_iter()
+                        .map(|m| {
+                            if m.feedback_is_enabled() {
+                                // Mark source as used
+                                unused_sources.remove(m.source());
+                            }
+                            (m.id(), m)
+                        })
+                        .collect();
+                    self.handle_feedback_after_batch_mapping_update(&unused_sources);
                 }
                 UpdateAllTargets(updates) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating all targets..."
                     );
+                    let mut unused_sources = self.currently_feedback_enabled_sources();
                     for t in updates.into_iter() {
                         if let Some(m) = self.mappings.get_mut(&t.id) {
                             m.update_from_target(t);
+                            if m.feedback_is_enabled() {
+                                // Mark source as used
+                                unused_sources.remove(m.source());
+                            }
                         } else {
                             panic!("Couldn't find mapping while updating all targets");
                         }
                     }
-                    self.handle_feedback_after_batch_mapping_update();
+                    self.handle_feedback_after_batch_mapping_update(&unused_sources);
                 }
                 UpdateSingleMapping(mapping) => {
                     debug!(
@@ -77,11 +92,10 @@ impl ControlSurface for MainProcessor {
                         "Main processor: Updating mapping {:?}...",
                         mapping.id()
                     );
-                    // TODO-medium We could send a null-feedback to switch off
                     // (Re)subscribe to or unsubscribe from feedback
                     match mapping.target() {
-                        // (Re)subscribe
                         Some(target) if mapping.feedback_is_enabled() => {
+                            // (Re)subscribe
                             let subscription = send_feedback_when_target_value_changed(
                                 self.self_feedback_sender.clone(),
                                 mapping.id(),
@@ -89,14 +103,29 @@ impl ControlSurface for MainProcessor {
                             );
                             self.feedback_subscriptions
                                 .insert(mapping.id(), subscription);
+                            self.send_feedback(mapping.feedback_if_enabled());
                         }
-                        // Unsubscribe (if the feedback was enabled before)
                         _ => {
+                            // Unsubscribe (if the feedback was enabled before)
                             self.feedback_subscriptions.remove(&mapping.id());
+                            // Indicate via feedback that this source is not in use anymore. But
+                            // only if feedback was enabled before (otherwise this could overwrite
+                            // the feedback value of another enabled mapping which has the same
+                            // source).
+                            let was_previously_enabled = self
+                                .mappings
+                                .get(&mapping.id())
+                                .map(|m| m.feedback_is_enabled())
+                                .contains(&true);
+                            if was_previously_enabled {
+                                // We assume that there's no other enabled mapping with the same
+                                // source at this moment. It there is, it would be a weird setup
+                                // with two conflicting feedback value sources - this wouldn't work
+                                // well anyway.
+                                self.send_feedback(mapping.source().feedback(UnitValue::MIN));
+                            }
                         }
                     };
-                    // Send feedback if enabled
-                    self.send_feedback(mapping.feedback_if_enabled());
                     // Update hash map entry
                     self.mappings.insert(mapping.id(), mapping);
                 }
@@ -127,19 +156,13 @@ impl ControlSurface for MainProcessor {
                 Control { mapping_id, value } => {
                     if let Some(m) = self.mappings.get_mut(&mapping_id) {
                         // Most of the time, the main processor won't even receive a control
-                        // instruction (from the real-time processor) for a
-                        // mapping for which control is disabled,
-                        // because the real-time processor only ever gets mappings for which control
-                        // is enabled. But if control is (temporarily) disabled because a target
-                        // condition is (temporarily) not met (e.g. "track must be selected"), the
-                        // real-time processor won't know about it (there's no resync to the
-                        // real-time processor in this case in order too not
-                        // reset source state like long/short press just
-                        // because of a selection change). If we want the
-                        // real-time processor to know about it (e.g. in order to reduce
-                        // the amount of sources it has to process), we would need to build a more
-                        // advanced syncing mechanism that uses diffs and retains sources.
-                        // TODO-low Optimize if it causes performance issues, which I don't think.
+                        // instruction (from the real-time processor) for a mapping for which
+                        // control is disabled, because the real-time processor doesn't process
+                        // disabled mappings. But if control is (temporarily) disabled because a
+                        // target condition is (temporarily) not met (e.g. "track must be
+                        // selected") and the real-time processor doesn't yet know about it, there
+                        // might be a short amount of time where we still receive control
+                        // statements. We filter them here.
                         m.control_if_enabled(value);
                     };
                 }
@@ -208,23 +231,39 @@ impl MainProcessor {
             .collect()
     }
 
-    fn handle_feedback_after_batch_mapping_update(&mut self) {
-        // Resubscribe to target value changes for feedback
+    fn currently_feedback_enabled_sources(&self) -> HashSet<MidiSource> {
+        self.mappings
+            .values()
+            .filter(|m| m.feedback_is_enabled())
+            .map(|m| m.source().clone())
+            .collect()
+    }
+
+    fn handle_feedback_after_batch_mapping_update(
+        &mut self,
+        now_unused_sources: &HashSet<MidiSource>,
+    ) {
+        // Subscribe to target value changes for feedback. Before that, cancel all existing
+        // subscriptions.
         self.feedback_subscriptions.clear();
-        for m in self.mappings.values() {
-            match m.target() {
-                Some(target) if m.feedback_is_enabled() => {
-                    let subscription = send_feedback_when_target_value_changed(
-                        self.self_feedback_sender.clone(),
-                        m.id(),
-                        target,
-                    );
-                    self.feedback_subscriptions.insert(m.id(), subscription);
-                }
-                _ => {}
-            };
+        for m in self.mappings.values().filter(|m| m.feedback_is_enabled()) {
+            if let Some(target) = m.target() {
+                // Subscribe
+                let subscription = send_feedback_when_target_value_changed(
+                    self.self_feedback_sender.clone(),
+                    m.id(),
+                    target,
+                );
+                self.feedback_subscriptions.insert(m.id(), subscription);
+            }
         }
-        // Also send feedback instantly to reflect this change in mappings.
+        // Send feedback instantly to reflect this change in mappings.
+        // At first indicate via feedback the sources which are not in use anymore.
+        for s in now_unused_sources {
+            self.send_feedback(s.feedback(UnitValue::MIN));
+        }
+        // Then discard the current feedback buffer and send feedback for all new mappings which
+        // are enabled.
         self.feedback_buffer.reset();
         self.send_feedback(self.feedback_all());
     }

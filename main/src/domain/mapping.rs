@@ -1,5 +1,5 @@
 use crate::domain::{MainProcessorTargetUpdate, Mode, ReaperTarget};
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target, UnitValue};
 use helgoboss_midi::RawShortMessage;
 use rx_util::BoxedUnitEvent;
 use uuid::Uuid;
@@ -201,6 +201,10 @@ impl MainProcessorMapping {
         let target_value = target.current_value();
         let modified_value = self.mode.feedback(target_value);
         self.source.feedback(modified_value)
+    }
+
+    pub fn source(&self) -> &MidiSource {
+        &self.source
     }
 
     pub fn target(&self) -> Option<&ReaperTarget> {
