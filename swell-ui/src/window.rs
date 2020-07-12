@@ -218,7 +218,7 @@ impl Window {
     }
 
     pub fn set_slider_value(&self, value: u32) {
-        if self.has_focus() {
+        if self.has_focus() && (key_is_down(raw::VK_LBUTTON) || key_is_down(raw::VK_RBUTTON)) {
             // No need to set value if this is the slider which we are currently tracking.
             return;
         }
@@ -354,4 +354,8 @@ fn with_string_buffer<T>(
 
 fn make_long(lo: u32, hi: u32) -> isize {
     ((lo & 0xffff) | ((hi & 0xffff) << 16)) as _
+}
+
+fn key_is_down(key: u32) -> bool {
+    Swell::get().GetAsyncKeyState(key as _) & 0x8000 != 0
 }
