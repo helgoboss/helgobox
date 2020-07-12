@@ -131,29 +131,22 @@ pub struct MappingModelWithContext<'a> {
 impl<'a> MappingModelWithContext<'a> {
     /// Creates a mapping for usage in real-time and main processors.
     ///
-    /// Returns `None` if a target cannot be built because there's insufficient data available.
-    /// Also returns `None` if a target condition (e.g. "track selected" or "FX focused") is not
-    /// satisfied) or if neither control nor feedback is enabled.
-    pub fn create_processor_mapping(&self) -> Option<ProcessorMapping> {
-        let control_is_enabled = self.mapping.control_is_enabled.get();
-        let feedback_is_enabled = self.mapping.feedback_is_enabled.get();
-        if !control_is_enabled && !feedback_is_enabled {
-            return None;
-        }
-        let target = self.target_with_context().create_target().ok()?;
-        if !self.mapping.target_model.conditions_are_met(&target) {
-            return None;
-        }
-        let source = self.mapping.source_model.create_source();
-        let mode = self.mapping.mode_model.create_mode(&target);
-        Some(ProcessorMapping::new(
+    /// `control_is_enabled` and `feedback_is_enabled` won't just reflect the manual setting
+    /// but also the target condition (e.g. "track selected" or "FX focused").
+    pub fn create_processor_mapping(&self) -> ProcessorMapping {
+        let target = self.target_with_context().create_target().ok();
+        let target_conditions_are_met = match &target {
+            None => false,
+            Some(t) => self.mapping.target_model.conditions_are_met(t),
+        };
+        ProcessorMapping::new(
             self.mapping.id,
-            source,
-            mode,
+            self.mapping.source_model.create_source(),
+            self.mapping.mode_model.create_mode(),
             target,
-            control_is_enabled,
-            feedback_is_enabled,
-        ))
+            self.mapping.control_is_enabled.get() && target_conditions_are_met,
+            self.mapping.feedback_is_enabled.get() && target_conditions_are_met,
+        )
     }
 
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {

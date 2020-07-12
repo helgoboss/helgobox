@@ -181,7 +181,7 @@ impl ModeModel {
     }
 
     /// Creates a mode reflecting this model's current values
-    pub fn create_mode(&self, target: &ReaperTarget) -> Mode {
+    pub fn create_mode(&self) -> Mode {
         use ModeType::*;
         match self.r#type.get() {
             Absolute => Mode::Absolute(AbsoluteMode {

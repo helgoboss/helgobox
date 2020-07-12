@@ -9,7 +9,7 @@ pub struct ProcessorMapping {
     id: MappingId,
     source: MidiSource,
     mode: Mode,
-    target: ReaperTarget,
+    target: Option<ReaperTarget>,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
 }
@@ -19,7 +19,7 @@ impl ProcessorMapping {
         id: MappingId,
         source: MidiSource,
         mode: Mode,
-        target: ReaperTarget,
+        target: Option<ReaperTarget>,
         control_is_enabled: bool,
         feedback_is_enabled: bool,
     ) -> ProcessorMapping {
@@ -40,14 +40,9 @@ impl ProcessorMapping {
     pub fn splinter(
         &self,
         feedback_is_globally_enabled: bool,
-    ) -> (Option<RealTimeProcessorMapping>, MainProcessorMapping) {
-        // Real-time processor gets the mapping only if control is enabled.
-        let real_time_mapping = if self.control_is_enabled {
-            Some(RealTimeProcessorMapping::new(self.id, self.source.clone()))
-        } else {
-            None
-        };
-        // Main processor gets the mapping in any case.
+    ) -> (RealTimeProcessorMapping, MainProcessorMapping) {
+        let real_time_mapping =
+            RealTimeProcessorMapping::new(self.id, self.source.clone(), self.control_is_enabled);
         let main_mapping = MainProcessorMapping::new(
             self.id,
             self.source.clone(),
@@ -85,13 +80,19 @@ impl MappingId {
 pub struct RealTimeProcessorMapping {
     id: MappingId,
     source: MidiSource,
+    control_is_enabled: bool,
 }
 
 impl RealTimeProcessorMapping {
-    pub fn new(mapping_id: MappingId, source: MidiSource) -> RealTimeProcessorMapping {
+    pub fn new(
+        mapping_id: MappingId,
+        source: MidiSource,
+        control_is_enabled: bool,
+    ) -> RealTimeProcessorMapping {
         RealTimeProcessorMapping {
             source,
             id: mapping_id,
+            control_is_enabled,
         }
     }
 
@@ -106,6 +107,18 @@ impl RealTimeProcessorMapping {
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
         self.source.consumes(&msg)
     }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled
+    }
+
+    pub fn enable_control(&mut self) {
+        self.control_is_enabled = true;
+    }
+
+    pub fn disable_control(&mut self) {
+        self.control_is_enabled = false;
+    }
 }
 
 #[derive(Debug)]
@@ -113,7 +126,7 @@ pub struct MainProcessorMapping {
     id: MappingId,
     source: MidiSource,
     mode: Mode,
-    target: ReaperTarget,
+    target: Option<ReaperTarget>,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
 }
@@ -123,7 +136,7 @@ impl MainProcessorMapping {
         id: MappingId,
         source: MidiSource,
         mode: Mode,
-        target: ReaperTarget,
+        target: Option<ReaperTarget>,
         control: bool,
         feedback: bool,
     ) -> MainProcessorMapping {
@@ -147,7 +160,7 @@ impl MainProcessorMapping {
         self.feedback_is_enabled = update.feedback_is_enabled;
     }
 
-    pub fn into_target_update(self) -> MainProcessorTargetUpdate {
+    pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {
         MainProcessorTargetUpdate {
             id: self.id(),
             target: self.target,
@@ -168,8 +181,12 @@ impl MainProcessorMapping {
         if !self.control_is_enabled {
             return;
         }
-        if let Some(final_value) = self.mode.control(value, &self.target) {
-            self.target.control(final_value);
+        let target = match &self.target {
+            None => return,
+            Some(t) => t,
+        };
+        if let Some(final_value) = self.mode.control(value, target) {
+            target.control(final_value);
         }
     }
 
@@ -177,12 +194,16 @@ impl MainProcessorMapping {
         if !self.feedback_is_enabled {
             return None;
         }
-        let target_value = self.target.current_value();
+        let target = match &self.target {
+            None => return None,
+            Some(t) => t,
+        };
+        let target_value = target.current_value();
         let modified_value = self.mode.feedback(target_value);
         self.source.feedback(modified_value)
     }
 
-    pub fn target_value_changed(&self) -> BoxedUnitEvent {
-        self.target.value_changed()
+    pub fn target(&self) -> Option<&ReaperTarget> {
+        self.target.as_ref()
     }
 }

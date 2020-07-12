@@ -160,7 +160,7 @@ impl Session {
         )
         .with(weak_session.clone())
         .do_async(move |session, _| {
-            session.borrow_mut().sync_all_mappings_to_all_processors();
+            session.borrow_mut().sync_all_mappings_full();
         });
         // Whenever anything changes that just affects the main processor targets, resync all
         // targets to the main processor. We don't want to resync to the real-time processor
@@ -187,7 +187,7 @@ impl Session {
         )
         .with(weak_session.clone())
         .do_async(move |session, _| {
-            session.borrow_mut().sync_all_targets_to_main_processor();
+            session.borrow_mut().sync_all_mappings_light();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
@@ -633,24 +633,12 @@ impl Session {
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
         let processor_mapping = m.with_context(&self.context).create_processor_mapping();
-        let splintered = processor_mapping
-            .as_ref()
-            .map(|m| m.splinter(self.feedback_is_effectively_enabled()));
-        let (real_time_mapping, main_mapping) = match splintered {
-            None => (None, None),
-            Some((r, m)) => (r, Some(m)),
-        };
+        let splintered = processor_mapping.splinter(self.feedback_is_effectively_enabled());
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateSingleMapping {
-                id: *m.id(),
-                mapping: main_mapping,
-            });
+            .send(NormalMainTask::UpdateSingleMapping(splintered.1));
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleMapping {
-                id: *m.id(),
-                mapping: real_time_mapping,
-            });
+            .send(NormalRealTimeTask::UpdateSingleMapping(splintered.0));
     }
 
     fn feedback_is_effectively_enabled(&self) -> bool {
@@ -669,19 +657,33 @@ impl Session {
         }
     }
 
-    fn sync_all_targets_to_main_processor(&self) {
+    /// Just syncs mapping enabled/disabled states and targets.
+    ///
+    /// Usually invoked whenever target conditions have changed, e.g. track selection.
+    fn sync_all_mappings_light(&self) {
         let splintered = self.create_and_splinter_mappings();
-        let main_processor_targets = splintered
+        let main_target_updates = splintered
             .main
             .into_iter()
-            .map(|m| m.into_target_update())
+            .map(|m| m.into_main_processor_target_update())
             .collect();
+        let enabled_control_mappings = splintered
+            .real_time
+            .into_iter()
+            .filter(|m| m.control_is_enabled())
+            .map(|m| m.id())
+            .collect();
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::EnableMappingsExclusively(
+                enabled_control_mappings,
+            ));
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateAllTargets(main_processor_targets));
+            .send(NormalMainTask::UpdateAllTargets(main_target_updates));
     }
 
-    fn sync_all_mappings_to_all_processors(&self) {
+    /// Does a full mapping sync.
+    fn sync_all_mappings_full(&self) {
         let splintered = self.create_and_splinter_mappings();
         self.normal_main_task_channel
             .0
@@ -697,7 +699,7 @@ impl Session {
         // property stuff and so on.
         let mappings: Vec<_> = self
             .mappings()
-            .filter_map(|m| {
+            .map(|m| {
                 m.borrow()
                     .with_context(&self.context)
                     .create_processor_mapping()
@@ -705,14 +707,11 @@ impl Session {
             .collect();
         // Then we need to splinter each of it.
         let feedback_is_globally_enabled = self.feedback_is_effectively_enabled();
-        let (real_time_control, main_control): (Vec<_>, Vec<_>) = mappings
+        let (real_time, main): (Vec<_>, Vec<_>) = mappings
             .iter()
             .map(|m| m.splinter(feedback_is_globally_enabled))
             .unzip();
-        SplinteredProcessorMappings {
-            real_time: real_time_control.into_iter().flatten().collect(),
-            main: main_control,
-        }
+        SplinteredProcessorMappings { real_time, main }
     }
 
     fn generate_name_for_new_mapping(&self) -> String {
@@ -735,7 +734,7 @@ impl Session {
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
         self.resubscribe_to_mappings_in_current_list(weak_session);
-        self.sync_all_mappings_to_all_processors();
+        self.sync_all_mappings_full();
         self.sync_settings_to_real_time_processor();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());

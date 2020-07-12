@@ -21,6 +21,7 @@ type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
 #[derive(Debug)]
 pub struct MainProcessor {
+    /// Contains all mappings except those where the target could not be resolved.
     mappings: HashMap<MappingId, MainProcessorMapping>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
@@ -54,51 +55,50 @@ impl ControlSurface for MainProcessor {
                     );
                     // Put into hash map in order to quickly look up mappings by ID
                     self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
-                    self.process_batch_mapping_update();
+                    self.handle_feedback_after_batch_mapping_update();
                 }
-                UpdateAllTargets(targets) => {
+                UpdateAllTargets(updates) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating all targets..."
                     );
-                    for t in targets.into_iter() {
+                    for t in updates.into_iter() {
                         if let Some(m) = self.mappings.get_mut(&t.id) {
                             m.update_from_target(t);
+                        } else {
+                            panic!("Couldn't find mapping while updating all targets");
                         }
                     }
-                    self.process_batch_mapping_update();
+                    self.handle_feedback_after_batch_mapping_update();
                 }
-                UpdateSingleMapping { id, mapping } => {
+                UpdateSingleMapping(mapping) => {
                     debug!(
                         Reaper::get().logger(),
-                        "Main processor: Updating mapping {:?}...", id
+                        "Main processor: Updating mapping {:?}...",
+                        mapping.id()
                     );
-                    match mapping {
-                        None => {
-                            // This mapping is gone for good.
-                            self.mappings.remove(&id);
-                            // TODO-medium We could send a null-feedback here to switch off
-                            // lights.
+                    // TODO-medium We could send a null-feedback to switch off
+                    // (Re)subscribe to or unsubscribe from feedback
+                    match mapping.target() {
+                        // (Re)subscribe
+                        Some(target) if mapping.feedback_is_enabled() => {
+                            let subscription = send_feedback_when_target_value_changed(
+                                self.self_feedback_sender.clone(),
+                                mapping.id(),
+                                target,
+                            );
+                            self.feedback_subscriptions
+                                .insert(mapping.id(), subscription);
                         }
-                        Some(m) => {
-                            // Resubscribe to or unsubscribe from feedback
-                            if m.feedback_is_enabled() {
-                                // Resubscribe
-                                let subscription = send_feedback_when_target_value_changed(
-                                    self.self_feedback_sender.clone(),
-                                    &m,
-                                );
-                                self.feedback_subscriptions.insert(m.id(), subscription);
-                            } else {
-                                // If the feedback was enabled before, this will unsubscribe.
-                                self.feedback_subscriptions.remove(&m.id());
-                            }
-                            // Send feedback if enabled
-                            self.send_feedback(m.feedback_if_enabled());
-                            // Update hash map entry
-                            self.mappings.insert(id, m);
+                        // Unsubscribe (if the feedback was enabled before)
+                        _ => {
+                            self.feedback_subscriptions.remove(&mapping.id());
                         }
-                    }
+                    };
+                    // Send feedback if enabled
+                    self.send_feedback(mapping.feedback_if_enabled());
+                    // Update hash map entry
+                    self.mappings.insert(mapping.id(), mapping);
                 }
                 FeedbackAll => {
                     self.send_feedback(self.feedback_all());
@@ -208,13 +208,21 @@ impl MainProcessor {
             .collect()
     }
 
-    fn process_batch_mapping_update(&mut self) {
+    fn handle_feedback_after_batch_mapping_update(&mut self) {
         // Resubscribe to target value changes for feedback
         self.feedback_subscriptions.clear();
-        for m in self.mappings.values().filter(|m| m.feedback_is_enabled()) {
-            let subscription =
-                send_feedback_when_target_value_changed(self.self_feedback_sender.clone(), m);
-            self.feedback_subscriptions.insert(m.id(), subscription);
+        for m in self.mappings.values() {
+            match m.target() {
+                Some(target) if m.feedback_is_enabled() => {
+                    let subscription = send_feedback_when_target_value_changed(
+                        self.self_feedback_sender.clone(),
+                        m.id(),
+                        target,
+                    );
+                    self.feedback_subscriptions.insert(m.id(), subscription);
+                }
+                _ => {}
+            };
         }
         // Also send feedback instantly to reflect this change in mappings.
         self.feedback_buffer.reset();
@@ -227,7 +235,8 @@ impl MainProcessor {
             "\n\
                         # Main processor\n\
                         \n\
-                        - Mapping count: {} \n\
+                        - Total mapping count: {} \n\
+                        - Enabled mapping count: {} \n\
                         - Feedback subscription count: {} \n\
                         - Feedback buffer length: {} \n\
                         - Normal task count: {} \n\
@@ -236,6 +245,10 @@ impl MainProcessor {
                         ",
             // self.mappings.values(),
             self.mappings.len(),
+            self.mappings
+                .values()
+                .filter(|m| m.control_is_enabled() || m.feedback_is_enabled())
+                .count(),
             self.feedback_subscriptions.len(),
             self.feedback_buffer.len(),
             task_count,
@@ -247,10 +260,11 @@ impl MainProcessor {
 
 fn send_feedback_when_target_value_changed(
     self_sender: Sender<FeedbackMainTask>,
-    m: &MainProcessorMapping,
+    mapping_id: MappingId,
+    target: &ReaperTarget,
 ) -> FeedbackSubscriptionGuard {
-    let mapping_id = m.id();
-    m.target_value_changed()
+    target
+        .value_changed()
         .subscribe(move |_| {
             self_sender.send(FeedbackMainTask::Feedback(mapping_id));
         })
@@ -260,12 +274,14 @@ fn send_feedback_when_target_value_changed(
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalMainTask {
+    /// Clears all mappings and uses the passed ones.
     UpdateAllMappings(Vec<MainProcessorMapping>),
-    UpdateSingleMapping {
-        id: MappingId,
-        mapping: Option<MainProcessorMapping>,
-    },
-    /// Use this whenever existing modes should not be overwritten.
+    /// Replaces the given mapping.
+    UpdateSingleMapping(MainProcessorMapping),
+    /// Replaces the targets of all given mappings.
+    ///
+    /// Use this instead of `UpdateAllMappings` whenever existing modes should not be overwritten.
+    /// Attention: This never adds or removes any mappings.
     ///
     /// This is always the case when syncing as a result of ReaLearn control processing (e.g.
     /// when a selected track changes because a controller knob has been moved). Syncing the modes
@@ -294,7 +310,7 @@ pub enum ControlMainTask {
 #[derive(Debug)]
 pub struct MainProcessorTargetUpdate {
     pub id: MappingId,
-    pub target: ReaperTarget,
+    pub target: Option<ReaperTarget>,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
 }

@@ -60,4 +60,8 @@ impl MidiClockCalculator {
             None
         }
     }
+
+    pub fn current_sample_count(&self) -> u64 {
+        self.sample_counter
+    }
 }

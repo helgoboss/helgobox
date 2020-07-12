@@ -12,7 +12,7 @@ use helgoboss_midi::{
 use reaper_high::Reaper;
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::{debug, info};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::{TryFrom, TryInto};
 use std::ptr::null_mut;
 use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
@@ -118,15 +118,32 @@ impl RealTimeProcessor {
                     );
                     self.mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
                 }
-                UpdateSingleMapping { id, mapping } => {
+                UpdateSingleMapping(mapping) => {
                     debug!(
                         Reaper::get().logger(),
-                        "Real-time processor: Updating mapping {:?}...", id
+                        "Real-time processor: Updating mapping {:?}...",
+                        mapping.id()
                     );
-                    match mapping {
-                        None => self.mappings.remove(&id),
-                        Some(m) => self.mappings.insert(id, m),
-                    };
+                    self.mappings.insert(mapping.id(), mapping);
+                }
+                EnableMappingsExclusively(mappings_to_enable) => {
+                    // TODO-low We should use an own logger and always log the sample count
+                    //  automatically.
+                    // Also log sample count in order to be sure about invocation order
+                    // (timestamp is not accurate enough on e.g. selection changes).
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Enable {} mappings at {} samples...",
+                        mappings_to_enable.len(),
+                        self.midi_clock_calculator.current_sample_count()
+                    );
+                    for m in self.mappings.values_mut() {
+                        if mappings_to_enable.contains(&m.id()) {
+                            m.enable_control();
+                        } else {
+                            m.disable_control();
+                        }
+                    }
                 }
                 UpdateSettings {
                     let_matched_events_through,
@@ -211,13 +228,17 @@ impl RealTimeProcessor {
             # Real-time processor\n\
             \n\
             - State: {:?} \n\
-            - Mapping count: {} \n\
+            - Total mapping count: {} \n\
+            - Enabled mapping count: {} \n\
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
-            // self.mappings.values(),
             self.control_state,
             self.mappings.len(),
+            self.mappings
+                .values()
+                .filter(|m| m.control_is_enabled())
+                .count(),
             task_count,
             self.feedback_task_receiver.len(),
         );
@@ -377,7 +398,7 @@ impl RealTimeProcessor {
     /// Returns whether this source value matched one of the mappings.
     fn control(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
         let mut matched = false;
-        for m in self.mappings.values() {
+        for m in self.mappings.values().filter(|m| m.control_is_enabled()) {
             if let Some(control_value) = m.control(&value) {
                 let task = ControlMainTask::Control {
                     mapping_id: m.id(),
@@ -411,7 +432,9 @@ impl RealTimeProcessor {
     }
 
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
-        self.mappings.values().any(|m| m.consumes(msg))
+        self.mappings
+            .values()
+            .any(|m| m.control_is_enabled() && m.consumes(msg))
     }
 
     fn feedback(&self, value: MidiSourceValue<RawShortMessage>) {
@@ -466,16 +489,14 @@ impl RealTimeProcessor {
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
     UpdateAllMappings(Vec<RealTimeProcessorMapping>),
-    UpdateSingleMapping {
-        id: MappingId,
-        mapping: Option<RealTimeProcessorMapping>,
-    },
+    UpdateSingleMapping(RealTimeProcessorMapping),
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
+    EnableMappingsExclusively(HashSet<MappingId>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource,
