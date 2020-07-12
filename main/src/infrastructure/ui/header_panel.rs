@@ -70,13 +70,6 @@ impl HeaderPanel {
                     .set(false);
             })
             .do_async(move |session, source| {
-                // Never display empty list (too easy to happen with MIDI sources - if some
-                // exotic MIDI message gets sent).
-                let list_would_be_empty =
-                    session.borrow().find_mapping_with_source(&source).is_none();
-                if list_would_be_empty {
-                    return;
-                }
                 main_state_2.borrow_mut().source_filter.set(Some(source));
             });
         }
