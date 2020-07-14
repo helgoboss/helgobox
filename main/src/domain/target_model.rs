@@ -177,30 +177,31 @@ impl TargetModel {
 
     pub fn supports_track(&self) -> bool {
         use TargetType::*;
-        matches!(
-            self.r#type.get(),
-            FxParameter
-                | TrackVolume
-                | TrackSendVolume
-                | TrackPan
-                | TrackArm
-                | TrackSelection
-                | TrackMute
-                | TrackSolo
-                | TrackSendPan
-                | FxEnable
-                | FxPreset
-        )
+        match self.r#type.get() {
+            FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackArm | TrackSelection
+            | TrackMute | TrackSolo | TrackSendPan | FxEnable | FxPreset | AllTrackFxEnable => true,
+            Action | Tempo | Playrate | SelectedTrack => false,
+        }
     }
 
     pub fn supports_send(&self) -> bool {
         use TargetType::*;
-        matches!(self.r#type.get(), TrackSendVolume | TrackSendPan)
+        match self.r#type.get() {
+            TrackSendVolume | TrackSendPan => true,
+            FxParameter | TrackVolume | TrackPan | TrackArm | TrackSelection | TrackMute
+            | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate | SelectedTrack
+            | AllTrackFxEnable => false,
+        }
     }
 
     pub fn supports_fx(&self) -> bool {
         use TargetType::*;
-        matches!(self.r#type.get(), FxParameter | FxEnable | FxPreset)
+        match self.r#type.get() {
+            FxParameter | FxEnable | FxPreset => true,
+            TrackSendVolume | TrackSendPan | TrackVolume | TrackPan | TrackArm | TrackSelection
+            | TrackMute | TrackSolo | Action | Tempo | Playrate | SelectedTrack
+            | AllTrackFxEnable => false,
+        }
     }
 
     /// Returns whether all conditions for this target to be active are met.
@@ -364,6 +365,9 @@ impl<'a> TargetModelWithContext<'a> {
             FxPreset => ReaperTarget::FxPreset { fx: self.fx()? },
             SelectedTrack => ReaperTarget::SelectedTrack {
                 project: self.project(),
+            },
+            AllTrackFxEnable => ReaperTarget::AllTrackFxEnable {
+                track: self.effective_track()?,
             },
         };
         Ok(target)
@@ -597,6 +601,11 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 self.fx_label(),
             ),
             SelectedTrack => write!(f, "Selected track",),
+            AllTrackFxEnable => write!(
+                f,
+                "Track FX all enable\nTrack {}",
+                self.target.track_label()
+            ),
         }
     }
 }
@@ -671,6 +680,8 @@ pub enum TargetType {
     FxPreset = 13,
     #[display(fmt = "Selected track")]
     SelectedTrack = 14,
+    #[display(fmt = "Track FX all enable (no feedback)")]
+    AllTrackFxEnable = 15,
 }
 
 /// How to invoke an action target
@@ -716,6 +727,7 @@ impl TargetType {
             FxEnable { .. } => TargetType::FxEnable,
             FxPreset { .. } => TargetType::FxPreset,
             SelectedTrack { .. } => TargetType::SelectedTrack,
+            AllTrackFxEnable { .. } => TargetType::AllTrackFxEnable,
         }
     }
 }

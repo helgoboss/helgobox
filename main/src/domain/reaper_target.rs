@@ -77,6 +77,9 @@ pub enum ReaperTarget {
     SelectedTrack {
         project: Project,
     },
+    AllTrackFxEnable {
+        track: Track,
+    },
 }
 
 impl ReaperTarget {
@@ -229,6 +232,7 @@ impl ReaperTarget {
             FxEnable { .. } => Switch,
             FxPreset { .. } => Discrete,
             SelectedTrack { .. } => Discrete,
+            AllTrackFxEnable { .. } => Switch,
         }
     }
 
@@ -466,7 +470,8 @@ impl ReaperTarget {
             | TrackArm { track }
             | TrackSelection { track, .. }
             | TrackMute { track }
-            | TrackSolo { track } => track.project(),
+            | TrackSolo { track }
+            | AllTrackFxEnable { track } => track.project(),
             TrackSendPan { send } | TrackSendVolume { send } => send.source_track().project(),
             Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
             FxEnable { fx } | FxPreset { fx } => fx.project()?,
@@ -488,7 +493,8 @@ impl ReaperTarget {
             TrackSendPan { send } => send.source_track(),
             FxEnable { fx } => fx.track()?,
             FxPreset { fx } => fx.track()?,
-            _ => return None,
+            AllTrackFxEnable { track } => track,
+            Action { .. } | Tempo { .. } | Playrate { .. } | SelectedTrack { .. } => return None,
         };
         Some(track)
     }
@@ -499,7 +505,19 @@ impl ReaperTarget {
             FxParameter { param } => param.fx(),
             FxEnable { fx } => fx,
             FxPreset { fx } => fx,
-            _ => return None,
+            Action { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. } => return None,
         };
         Some(fx)
     }
@@ -508,7 +526,20 @@ impl ReaperTarget {
         use ReaperTarget::*;
         let send = match self {
             TrackSendPan { send } | TrackSendVolume { send } => send,
-            _ => return None,
+            FxParameter { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | Action { .. }
+            | TrackVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. } => return None,
         };
         Some(send)
     }
@@ -632,6 +663,13 @@ impl ReaperTarget {
                 };
                 track.select_exclusively();
             }
+            ReaperTarget::AllTrackFxEnable { track } => {
+                if value.as_absolute()?.is_zero() {
+                    track.disable_fx();
+                } else {
+                    track.enable_fx();
+                }
+            }
         };
         Ok(())
     }
@@ -751,6 +789,7 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
+            AllTrackFxEnable { .. } => observable::never().box_it(),
         }
     }
 }
@@ -800,6 +839,7 @@ impl Target for ReaperTarget {
                     .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
                     .and_then(|t| t.index()),
             ),
+            AllTrackFxEnable { track } => convert_bool_to_unit_value(track.fx_is_enabled()),
         }
     }
 
