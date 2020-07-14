@@ -17,8 +17,7 @@ fn sessions() -> &'static RefCell<Vec<WeakSession>> {
 }
 
 pub fn log_debug_info() {
-    info!(
-        Reaper::get().logger(),
+    let msg = format!(
         "\n\
         # Session manager\n\
         \n\
@@ -26,6 +25,7 @@ pub fn log_debug_info() {
         ",
         sessions().borrow().len()
     );
+    Reaper::get().show_console_msg(msg);
 }
 
 pub fn register_session(session: WeakSession) {

@@ -222,8 +222,7 @@ impl RealTimeProcessor {
     }
 
     fn log_debug_info(&self, task_count: usize) {
-        info!(
-            Reaper::get().logger(),
+        let msg = format!(
             "\n\
             # Real-time processor\n\
             \n\
@@ -242,6 +241,9 @@ impl RealTimeProcessor {
             task_count,
             self.feedback_task_receiver.len(),
         );
+        Reaper::get().do_in_main_thread_asap(move || {
+            Reaper::get().show_console_msg(msg);
+        });
     }
 
     fn is_now_playing(&self) -> bool {

@@ -573,8 +573,7 @@ impl Session {
     }
 
     fn log_debug_info_internal(&self) {
-        info!(
-            Reaper::get().logger(),
+        let msg = format!(
             "\n\
             # Session\n\
             \n\
@@ -584,6 +583,7 @@ impl Session {
             self.mapping_models.len(),
             self.mapping_subscriptions.len(),
         );
+        Reaper::get().show_console_msg(msg);
     }
 
     pub fn find_mapping_with_source(&self, source: &MidiSource) -> Option<&SharedMapping> {

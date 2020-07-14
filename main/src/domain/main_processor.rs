@@ -269,8 +269,7 @@ impl MainProcessor {
     }
 
     fn log_debug_info(&self, task_count: usize) {
-        info!(
-            Reaper::get().logger(),
+        let msg = format!(
             "\n\
                         # Main processor\n\
                         \n\
@@ -294,6 +293,7 @@ impl MainProcessor {
             self.control_task_receiver.len(),
             self.feedback_task_receiver.len(),
         );
+        Reaper::get().show_console_msg(msg);
     }
 }
 
