@@ -85,10 +85,10 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 ... the possibilities are endless. It's all up to you! Use your creativity.
 
 All of that makes ReaLearn especially well-suited for performers, people who use REAPER as a
-platform for live playing. It might be less interesting to people who use REAPER for arranging, mixing and mastering
-only. But even so, as long as you have some general-purpose MIDI controller and you want a
-fine-tuned mapping to DAW parameters of all sorts, give ReaLearn a try. It might be just what you
-need. More so if the controller supports feedback (e.g. motorized faders or LEDs).
+platform for live playing. It might be less interesting to people who use REAPER for arranging,
+mixing and mastering only. But even so, as long as you have some general-purpose MIDI controller and
+you want a fine-tuned mapping to DAW parameters of all sorts, give ReaLearn a try. It might be just
+what you need. More so if the controller supports feedback (e.g. motorized faders or LEDs).
 
 **Summary:** _ReaLearn is tailored to usage scenarios typically desired by performers._
 
@@ -316,20 +316,20 @@ So far we've covered the basics. Now let's look into everything in detail.
 - **Learn source filter:** If you work with many mappings and you have problems memorizing them, you
   will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI
   events and temporarily disable all target control. You can play around freely on your controller
-  without having to worry about messing up target parameters. Whenever ReaLearn detects a valid source, it will filter 
-  the mapping list by showing only mappings which have that source. This is a great way to find out what a specific
-  knob/fader/button etc. is mapped to. Please note that the list can end up empty (if no mapping has that source). 
-  As soon as you press _Stop_, the current filter setting will
-  get locked. This in turn is useful for temporarily focusing on mappings with a particular source.
-  When you are done and you want to see all mappings again, press the **X** button to the right.
-  _Tip:_ Before you freak out thinking that ReaLearn doesn't work anymore because it won't let you
-  control targets, have a quick look at this button. ReaLearn might still be in "learn source
-  filter" mode. Then just calm down and press _Stop_. It's easy to forget.
+  without having to worry about messing up target parameters. Whenever ReaLearn detects a valid
+  source, it will filter the mapping list by showing only mappings which have that source. This is a
+  great way to find out what a specific knob/fader/button etc. is mapped to. Please note that the
+  list can end up empty (if no mapping has that source). As soon as you press _Stop_, the current
+  filter setting will get locked. This in turn is useful for temporarily focusing on mappings with a
+  particular source. When you are done and you want to see all mappings again, press the **X**
+  button to the right. _Tip:_ Before you freak out thinking that ReaLearn doesn't work anymore
+  because it won't let you control targets, have a quick look at this button. ReaLearn might still
+  be in "learn source filter" mode. Then just calm down and press _Stop_. It's easy to forget.
 - **Learn target filter:** If you want to find out what mappings exist for a particular target,
   press this button and touch something in REAPER. As soon as you have touched a valid target, the
-  list will show all mappings with that target. Unlike _Learn source filter_, ReaLearn
-  will automatically stop learning as soon as a target was touched. Press the **X** button to remove
-  the filter and show all mappings again.
+  list will show all mappings with that target. Unlike _Learn source filter_, ReaLearn will
+  automatically stop learning as soon as a target was touched. Press the **X** button to remove the
+  filter and show all mappings again.
 - **Export to clipboard / Import to clipboard:** Pressing the export button copies a _complete_ dump
   of ReaLearn's current settings (including all mappings) to the clipboard. Pressing the import
   button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard. This
