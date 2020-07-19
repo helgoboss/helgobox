@@ -648,6 +648,11 @@ Steps through FX presets.
 
 Steps through tracks.
 
+##### Track FX all enable
+
+Enables all the track's FX instances if the incoming absolute control value is greater than
+0%, otherwise disables them.
+
 #### Mode
 
 As mentioned before, a mode is the glue between a source and a target. Modes share the following
