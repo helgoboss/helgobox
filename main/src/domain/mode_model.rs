@@ -57,8 +57,8 @@ pub struct ModeModel {
 #[derive(Clone, Debug)]
 pub enum Mode {
     Absolute(AbsoluteMode<EelTransformation>),
-    Relative(RelativeMode),
-    Toggle(ToggleMode),
+    Relative(RelativeMode<EelTransformation>),
+    Toggle(ToggleMode<EelTransformation>),
 }
 
 impl Mode {
@@ -217,12 +217,23 @@ impl ModeModel {
                 reverse: self.reverse.get(),
                 rotate: self.rotate.get(),
                 increment_counter: 0,
+                feedback_transformation: EelTransformation::compile(
+                    self.eel_feedback_transformation.get_ref(),
+                    ResultVariable::X,
+                )
+                .ok(),
             }),
             Toggle => Mode::Toggle(ToggleMode {
+                source_value_interval: self.source_value_interval.get(),
                 target_value_interval: self.target_value_interval.get(),
                 press_duration_processor: PressDurationProcessor::new(
                     self.press_duration_interval.get(),
                 ),
+                feedback_transformation: EelTransformation::compile(
+                    self.eel_feedback_transformation.get_ref(),
+                    ResultVariable::X,
+                )
+                .ok(),
             }),
         }
     }
@@ -250,7 +261,7 @@ impl ModeModel {
     }
 
     pub fn supports_eel_feedback_transformation(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        true
     }
 
     pub fn supports_round_target_value(&self) -> bool {
