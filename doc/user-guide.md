@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-07-12 (v1.10.0-pre6)</code></td>
+  <td><code>2020-07-29 (v1.10.0-pre7)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -312,6 +312,8 @@ So far we've covered the basics. Now let's look into everything in detail.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
   or motorized faders of your controller in sync with REAPER at all times. There might be situations
   where it doesn't work though. In this case you can send feedback manually using this button.
+- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+  investigating bugs or understanding how this plug-in works.
 - **Add mapping:** Inserts a default mapping at the end of the current mapping list.
 - **Learn source filter:** If you work with many mappings and you have problems memorizing them, you
   will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI
@@ -663,7 +665,8 @@ common settings and functions:
 - **Source Min/Max:** The observed range of absolute source control values. By restricting that
   range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only
   the upper half of a fader or only the lower velocity layer of a key press. In relative mode, this
-  only has an effect on absolute source control values, not on relative ones.
+  only has an effect on absolute source control values, not on relative ones. This range also 
+  determines the minimum and maximum feedback value.
 - **Target Min/Max:** The controlled range of absolute target values. This enables you to "squeeze"
   target values into a specific value range. E.g. if you set this to "-6 dB to 0 dB" for a _Track
   volume_ target, the volume will always stay within that dB range if controlled via this mapping.
@@ -730,7 +733,8 @@ ignored.
   control value (= output value) and `x` the incoming source control value (= input value). Both are
   64-bit floating point numbers between 0.0 (0%) and 1.0 (100%). The script can be much more
   complicated than the mentioned examples and make use of all built-in EEL2 language features. The
-  important thing is to assign the desired value to `y` at some point.
+  important thing is to assign the desired value to `y` at some point. Please note that the initial
+  value of `y` is the current target value, so you can even "go relative" in absolute mode.
 - **Feedback transformation (EEL):** This is like _Control transformation (EEL)_ but used for
   translating a target value back to a source value for feedback purposes. It usually makes most
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
@@ -787,6 +791,8 @@ you want the target value to decrease, you need to check the _Reverse_ checkbox.
   decrement but the target already reached its minimum value. If checked, the target value will jump
   to its maximum value instead. It works analogously if there's an incoming increment and the target
   already reached its maximum value.
+- **Feedback transformation (EEL):** This has the same effect like in absolute mode (feedback is
+  always absolute, never relative).
 
 ##### Toggle mode
 
@@ -797,6 +803,7 @@ control elements.
 - **Length Min/Max:** Just like in _Absolute mode_, this decides how long a button needs to be
   pressed to have an effect. Unlike in _Absolute mode_, here the achieved effect is not _triggering_
   but _toggling_ the target.
+- **Feedback transformation (EEL):** This has the same effect like in absolute mode.
 
 ## Automation and rendering
 

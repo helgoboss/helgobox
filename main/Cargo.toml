@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "1.10.0-pre6"
+version = "1.10.0-pre7"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
