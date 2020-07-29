@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use crate::domain::SharedSession;
 use lazycell::LazyCell;
 use reaper_high::Reaper;
+use reaper_low::firewall;
 use reaper_low::raw::HWND;
 use slog::debug;
 use std::borrow::Borrow;
@@ -26,7 +27,7 @@ impl RealearnEditor {
 
 impl Editor for RealearnEditor {
     fn size(&self) -> (i32, i32) {
-        self.main_panel.dimensions().to_vst()
+        firewall(|| self.main_panel.dimensions().to_vst()).unwrap_or_default()
     }
 
     fn position(&self) -> (i32, i32) {
@@ -34,18 +35,21 @@ impl Editor for RealearnEditor {
     }
 
     fn close(&mut self) {
-        self.main_panel.close()
+        firewall(|| self.main_panel.close());
     }
 
     fn open(&mut self, parent: *mut c_void) -> bool {
-        self.main_panel
-            .clone()
-            .open_with_resize(Window::new(parent as HWND).expect("no parent window"));
-        true
+        firewall(|| {
+            self.main_panel
+                .clone()
+                .open_with_resize(Window::new(parent as HWND).expect("no parent window"));
+            true
+        })
+        .unwrap_or(false)
     }
 
     fn is_open(&mut self) -> bool {
-        self.main_panel.is_open()
+        firewall(|| self.main_panel.is_open()).unwrap_or(false)
     }
 }
 

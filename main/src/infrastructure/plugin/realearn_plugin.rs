@@ -71,43 +71,54 @@ impl Default for RealearnPlugin {
 
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
-        // TODO-low Unbounded? Brave.
-        let (normal_real_time_task_sender, normal_real_time_task_receiver) =
-            crossbeam_channel::unbounded();
-        let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
-            crossbeam_channel::unbounded();
-        let (normal_main_task_sender, normal_main_task_receiver) = crossbeam_channel::unbounded();
-        let (control_main_task_sender, control_main_task_receiver) = crossbeam_channel::unbounded();
-        Self {
-            host,
-            session: Rc::new(LazyCell::new()),
-            main_panel: Default::default(),
-            reaper_guard: None,
-            plugin_parameters: Default::default(),
-            normal_real_time_task_sender,
-            feedback_real_time_task_sender,
-            normal_main_task_channel: (normal_main_task_sender.clone(), normal_main_task_receiver),
-            real_time_processor: RealTimeProcessor::new(
-                normal_real_time_task_receiver,
-                feedback_real_time_task_receiver,
-                normal_main_task_sender,
-                control_main_task_sender,
+        firewall(|| {
+            // TODO-low Unbounded? Brave.
+            let (normal_real_time_task_sender, normal_real_time_task_receiver) =
+                crossbeam_channel::unbounded();
+            let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
+                crossbeam_channel::unbounded();
+            let (normal_main_task_sender, normal_main_task_receiver) =
+                crossbeam_channel::unbounded();
+            let (control_main_task_sender, control_main_task_receiver) =
+                crossbeam_channel::unbounded();
+            Self {
                 host,
-            ),
-            control_main_task_receiver,
-        }
+                session: Rc::new(LazyCell::new()),
+                main_panel: Default::default(),
+                reaper_guard: None,
+                plugin_parameters: Default::default(),
+                normal_real_time_task_sender,
+                feedback_real_time_task_sender,
+                normal_main_task_channel: (
+                    normal_main_task_sender.clone(),
+                    normal_main_task_receiver,
+                ),
+                real_time_processor: RealTimeProcessor::new(
+                    normal_real_time_task_receiver,
+                    feedback_real_time_task_receiver,
+                    normal_main_task_sender,
+                    control_main_task_sender,
+                    host,
+                ),
+                control_main_task_receiver,
+            }
+        })
+        .unwrap_or_default()
     }
 
     fn get_info(&self) -> Info {
-        Info {
-            name: "ReaLearn".to_string(),
-            vendor: "Helgoboss".to_string(),
-            // In C++ this is the same like 'hbrl'
-            unique_id: 1751282284,
-            preset_chunks: true,
-            category: Category::Synth,
-            ..Default::default()
-        }
+        firewall(|| {
+            Info {
+                name: "ReaLearn".to_string(),
+                vendor: "Helgoboss".to_string(),
+                // In C++ this is the same like 'hbrl'
+                unique_id: 1751282284,
+                preset_chunks: true,
+                category: Category::Synth,
+                ..Default::default()
+            }
+        })
+        .unwrap_or_default()
     }
 
     fn init(&mut self) {
@@ -118,26 +129,33 @@ impl Plugin for RealearnPlugin {
     }
 
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
-        Some(Box::new(RealearnEditor::new(self.main_panel.clone())))
+        firewall(|| {
+            let boxed: Box<dyn Editor> = Box::new(RealearnEditor::new(self.main_panel.clone()));
+            Some(boxed)
+        })
+        .unwrap_or(None)
     }
 
     fn can_do(&self, can_do: CanDo) -> Supported {
-        use CanDo::*;
-        use Supported::*;
-        #[allow(overflowing_literals)]
-        match can_do {
-            SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent => Supported::Yes,
-            // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
-            // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
-            // to put controls into the plug-in window. SWELL assumes that the parent window for
-            // controls is also a SWELL window.
-            Other(s) => match s.as_str() {
-                "hasCockosViewAsConfig" => Custom(0xbeef_0000),
-                "hasCockosExtensions" => Custom(0xbeef_0000),
+        firewall(|| {
+            use CanDo::*;
+            use Supported::*;
+            #[allow(overflowing_literals)]
+            match can_do {
+                SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent => Supported::Yes,
+                // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
+                // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
+                // to put controls into the plug-in window. SWELL assumes that the parent window for
+                // controls is also a SWELL window.
+                Other(s) => match s.as_str() {
+                    "hasCockosViewAsConfig" => Custom(0xbeef_0000),
+                    "hasCockosExtensions" => Custom(0xbeef_0000),
+                    _ => Maybe,
+                },
                 _ => Maybe,
-            },
-            _ => Maybe,
-        }
+            }
+        })
+        .unwrap_or(Supported::No)
     }
 
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
@@ -145,65 +163,77 @@ impl Plugin for RealearnPlugin {
     }
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
-        let opcode = plugin::OpCode::from(index);
-        use plugin::OpCode::*;
-        match opcode {
-            // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
-            GetData if value != 0 => {
-                let param_name = unsafe { CStr::from_ptr(value as *const c_char) };
-                let param_name = match param_name.to_str() {
-                    Ok(n) => n,
-                    Err(_) => return 0,
-                };
-                let buffer =
-                    unsafe { std::slice::from_raw_parts_mut(ptr as *mut c_char, opt as _) };
-                let supported = self.get_named_config_param(param_name, buffer);
-                if supported { 0xf00d } else { 0 }
+        firewall(|| {
+            let opcode = plugin::OpCode::from(index);
+            use plugin::OpCode::*;
+            match opcode {
+                // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
+                GetData if value != 0 => {
+                    let param_name = unsafe { CStr::from_ptr(value as *const c_char) };
+                    let param_name = match param_name.to_str() {
+                        Ok(n) => n,
+                        Err(_) => return 0,
+                    };
+                    let buffer =
+                        unsafe { std::slice::from_raw_parts_mut(ptr as *mut c_char, opt as _) };
+                    let supported = self.get_named_config_param(param_name, buffer);
+                    if supported { 0xf00d } else { 0 }
+                }
+                _ => 0,
             }
-            _ => 0,
-        }
+        })
+        .unwrap_or(0)
     }
 
     fn process_events(&mut self, events: &Events) {
-        for e in events.events() {
-            match e {
-                Event::Midi(me) => {
-                    let msg = RawShortMessage::from_bytes((
-                        me.data[0],
-                        U7::new(me.data[1]),
-                        U7::new(me.data[2]),
-                    ))
-                    .expect("received invalid MIDI message");
-                    // This is called in real-time audio thread, so we can just call the real-time
-                    // processor.
-                    let offset = MidiFrameOffset::new(
-                        u32::try_from(me.delta_frames).expect("negative MIDI frame offset"),
-                    );
-                    self.real_time_processor
-                        .process_incoming_midi_from_fx_input(offset, msg);
+        firewall(|| {
+            for e in events.events() {
+                match e {
+                    Event::Midi(me) => {
+                        let msg = RawShortMessage::from_bytes((
+                            me.data[0],
+                            U7::new(me.data[1]),
+                            U7::new(me.data[2]),
+                        ))
+                        .expect("received invalid MIDI message");
+                        // This is called in real-time audio thread, so we can just call the
+                        // real-time processor.
+                        let offset = MidiFrameOffset::new(
+                            u32::try_from(me.delta_frames).expect("negative MIDI frame offset"),
+                        );
+                        self.real_time_processor
+                            .process_incoming_midi_from_fx_input(offset, msg);
+                    }
+                    _ => (),
                 }
-                _ => (),
             }
-        }
+        });
     }
 
     fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
-        // This is called in real-time audio thread, so we can just call the real-time processor.
-        self.real_time_processor.idle(buffer.samples());
+        firewall(|| {
+            // This is called in real-time audio thread, so we can just call the real-time
+            // processor.
+            self.real_time_processor.idle(buffer.samples());
+        });
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
-        // This is called in main thread, so we need to send it to the real-time processor via
-        // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+        firewall(|| {
+            // This is called in main thread, so we need to send it to the real-time processor via
+            // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
+            self.normal_real_time_task_sender
+                .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+        });
     }
 
     fn resume(&mut self) {
-        // REAPER usually suspends and resumes whenever starting to play.
-        self.normal_main_task_channel
-            .0
-            .send(NormalMainTask::FeedbackAll);
+        firewall(|| {
+            // REAPER usually suspends and resumes whenever starting to play.
+            self.normal_main_task_channel
+                .0
+                .send(NormalMainTask::FeedbackAll);
+        });
     }
 }
 

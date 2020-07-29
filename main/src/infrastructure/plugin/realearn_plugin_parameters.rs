@@ -4,6 +4,7 @@ use crate::domain::SharedSession;
 use crate::domain::{Session, WeakSession};
 use lazycell::{AtomicLazyCell, LazyCell};
 use reaper_high::Reaper;
+use reaper_low::firewall;
 use slog::debug;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
@@ -53,46 +54,51 @@ const NOT_READY_YET: &'static str = "not-ready-yet";
 
 impl PluginParameters for RealearnPluginParameters {
     fn get_bank_data(&self) -> Vec<u8> {
-        let session = match self.session.borrow() {
-            None => {
-                return match self.data_to_be_loaded.read().unwrap().as_ref() {
-                    None => NOT_READY_YET.to_string().into_bytes(),
-                    Some(d) => d.clone(),
-                };
-            }
-            Some(s) => s,
-        };
-        let upgraded_session = session.upgrade().expect("session gone");
-        let session_data = SessionData::from_model(&upgraded_session.borrow());
-        serde_json::to_vec(&session_data).expect("couldn't serialize session data")
+        firewall(|| {
+            let session = match self.session.borrow() {
+                None => {
+                    return match self.data_to_be_loaded.read().unwrap().as_ref() {
+                        None => NOT_READY_YET.to_string().into_bytes(),
+                        Some(d) => d.clone(),
+                    };
+                }
+                Some(s) => s,
+            };
+            let upgraded_session = session.upgrade().expect("session gone");
+            let session_data = SessionData::from_model(&upgraded_session.borrow());
+            serde_json::to_vec(&session_data).expect("couldn't serialize session data")
+        })
+        .unwrap_or_default()
     }
 
     fn load_bank_data(&self, data: &[u8]) {
-        if data == NOT_READY_YET.as_bytes() {
-            return;
-        }
-        let shared_session = match self.session.borrow() {
-            None => {
-                self.data_to_be_loaded
-                    .write()
-                    .unwrap()
-                    .replace(data.to_vec());
+        firewall(|| {
+            if data == NOT_READY_YET.as_bytes() {
                 return;
             }
-            Some(s) => s,
-        };
-        let left_json_object_brace = data
-            .iter()
-            .position(|b| *b == 0x7b)
-            .expect("couldn't find left JSON brace in bank data");
-        // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find start
-        // of JSON data.
-        let data = &data[left_json_object_brace..];
-        let session_data: SessionData =
-            serde_json::from_slice(data).expect("couldn't deserialize session data");
-        let upgraded_session = shared_session.upgrade().expect("session gone");
-        let mut session = upgraded_session.borrow_mut();
-        session_data.apply_to_model(&mut session);
-        session.notify_everything_has_changed(shared_session.get().clone());
+            let shared_session = match self.session.borrow() {
+                None => {
+                    self.data_to_be_loaded
+                        .write()
+                        .unwrap()
+                        .replace(data.to_vec());
+                    return;
+                }
+                Some(s) => s,
+            };
+            let left_json_object_brace = data
+                .iter()
+                .position(|b| *b == 0x7b)
+                .expect("couldn't find left JSON brace in bank data");
+            // ReaLearn C++ saved some IPlug binary data in front of the actual JSON object. Find
+            // start of JSON data.
+            let data = &data[left_json_object_brace..];
+            let session_data: SessionData =
+                serde_json::from_slice(data).expect("couldn't deserialize session data");
+            let upgraded_session = shared_session.upgrade().expect("session gone");
+            let mut session = upgraded_session.borrow_mut();
+            session_data.apply_to_model(&mut session);
+            session.notify_everything_has_changed(shared_session.get().clone());
+        });
     }
 }
