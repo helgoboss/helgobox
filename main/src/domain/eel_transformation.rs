@@ -15,7 +15,7 @@ struct EelUnit {
 }
 
 #[derive(Clone, Debug)]
-pub enum ResultVariable {
+pub enum OutputVariable {
     X,
     Y,
 }
@@ -25,14 +25,14 @@ pub enum ResultVariable {
 pub struct EelTransformation {
     // Rc because EelUnit is not cloneable
     eel_unit: Rc<EelUnit>,
-    result_var: ResultVariable,
+    output_var: OutputVariable,
 }
 
 impl EelTransformation {
     // Compiles the given script and creates an appropriate transformation.
     pub fn compile(
         eel_script: &str,
-        result_var: ResultVariable,
+        result_var: OutputVariable,
     ) -> Result<EelTransformation, String> {
         if eel_script.trim().is_empty() {
             return Err("script empty".to_string());
@@ -44,22 +44,23 @@ impl EelTransformation {
         let eel_unit = EelUnit { vm, program, x, y };
         Ok(EelTransformation {
             eel_unit: Rc::new(eel_unit),
-            result_var,
+            output_var: result_var,
         })
     }
 }
 
 impl Transformation for EelTransformation {
-    fn transform(&self, input_value: UnitValue) -> Result<UnitValue, ()> {
+    fn transform(&self, input_value: UnitValue, output_value: UnitValue) -> Result<UnitValue, ()> {
         let result = unsafe {
-            self.eel_unit.x.set(input_value.get());
-            self.eel_unit.y.set(input_value.get());
+            use OutputVariable::*;
+            let (input_var, output_var) = match self.output_var {
+                X => (&self.eel_unit.y, &self.eel_unit.x),
+                Y => (&self.eel_unit.x, &self.eel_unit.y),
+            };
+            input_var.set(input_value.get());
+            output_var.set(output_value.get());
             self.eel_unit.program.execute();
-            use ResultVariable::*;
-            match self.result_var {
-                X => self.eel_unit.x.get(),
-                Y => self.eel_unit.y.get(),
-            }
+            output_var.get()
         };
         result.try_into().map_err(|_| ())
     }

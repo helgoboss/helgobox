@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::{EelTransformation, ReaperTarget, ResultVariable};
+use crate::domain::{EelTransformation, OutputVariable, ReaperTarget};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -197,12 +197,12 @@ impl ModeModel {
                 ignore_out_of_range_source_values: self.ignore_out_of_range_source_values.get(),
                 control_transformation: EelTransformation::compile(
                     self.eel_control_transformation.get_ref(),
-                    ResultVariable::Y,
+                    OutputVariable::Y,
                 )
                 .ok(),
                 feedback_transformation: EelTransformation::compile(
                     self.eel_feedback_transformation.get_ref(),
-                    ResultVariable::X,
+                    OutputVariable::X,
                 )
                 .ok(),
             }),
@@ -219,7 +219,7 @@ impl ModeModel {
                 increment_counter: 0,
                 feedback_transformation: EelTransformation::compile(
                     self.eel_feedback_transformation.get_ref(),
-                    ResultVariable::X,
+                    OutputVariable::X,
                 )
                 .ok(),
             }),
@@ -231,7 +231,7 @@ impl ModeModel {
                 ),
                 feedback_transformation: EelTransformation::compile(
                     self.eel_feedback_transformation.get_ref(),
-                    ResultVariable::X,
+                    OutputVariable::X,
                 )
                 .ok(),
             }),
