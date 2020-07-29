@@ -735,6 +735,12 @@ impl TargetType {
 fn virtualize_track(track: Track, context: &SessionContext) -> VirtualTrack {
     match context.track() {
         Some(t) if *t == track => VirtualTrack::This,
-        _ => VirtualTrack::Particular(track),
+        _ => {
+            if track.is_master_track() {
+                VirtualTrack::Master
+            } else {
+                VirtualTrack::Particular(track)
+            }
+        }
     }
 }
