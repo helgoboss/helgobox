@@ -1,5 +1,5 @@
 use crate::application::MappingModelData;
-use crate::domain::{MappingModel, MidiControlInput, MidiFeedbackOutput, Session};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};

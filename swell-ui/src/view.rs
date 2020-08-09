@@ -2,11 +2,11 @@ use crate::{create_window, SharedView, Window};
 use reaper_low::raw;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
-use std::borrow::BorrowMut;
+
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::Debug;
-use std::rc::{Rc, Weak};
-use std::sync::{Arc, Mutex};
+
+
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///
@@ -74,7 +74,7 @@ pub trait View {
     /// WM_INITDIALOG.
     ///
     /// Should return `true` if keyboard focus is desired.
-    fn opened(self: SharedView<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, _window: Window) -> bool {
         false
     }
 
@@ -86,35 +86,35 @@ pub trait View {
     }
 
     /// WM_DESTROY.
-    fn closed(self: SharedView<Self>, window: Window) {}
+    fn closed(self: SharedView<Self>, _window: Window) {}
 
     /// WM_COMMAND, HIWORD(wparam) == 0.
-    fn button_clicked(self: SharedView<Self>, resource_id: u32) {}
+    fn button_clicked(self: SharedView<Self>, _resource_id: u32) {}
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
-    fn option_selected(self: SharedView<Self>, resource_id: u32) {}
+    fn option_selected(self: SharedView<Self>, _resource_id: u32) {}
 
     /// WM_VSCROLL, LOWORD(wparam).
     ///
     /// Should return `true` if processed.
-    fn scrolled_vertically(self: SharedView<Self>, code: u32) -> bool {
+    fn scrolled_vertically(self: SharedView<Self>, _code: u32) -> bool {
         false
     }
 
     /// WM_HSCROLL, lparam (!= 0).
-    fn slider_moved(self: SharedView<Self>, slider: Window) {}
+    fn slider_moved(self: SharedView<Self>, _slider: Window) {}
 
     /// WM_MOUSEWHEEL, HIWORD(wparam).
     ///
     /// Should return `true` if processed.
-    fn mouse_wheel_turned(self: SharedView<Self>, distance: i32) -> bool {
+    fn mouse_wheel_turned(self: SharedView<Self>, _distance: i32) -> bool {
         false
     }
 
     /// EN_CHANGE, LOWORD(wparam).
     ///
     /// Should return `true` if processed.
-    fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+    fn edit_control_changed(self: SharedView<Self>, _resource_id: u32) -> bool {
         false
     }
 
@@ -123,7 +123,7 @@ pub trait View {
     /// Should return `true` if processed.
     ///
     /// Currently not fired on Linux!
-    fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+    fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
         false
     }
 
@@ -134,10 +134,10 @@ pub trait View {
     /// methods should be called accordingly.
     fn process_raw(
         &self,
-        window: Window,
-        msg: raw::UINT,
-        wparam: raw::WPARAM,
-        lparam: raw::LPARAM,
+        _window: Window,
+        _msg: raw::UINT,
+        _wparam: raw::WPARAM,
+        _lparam: raw::LPARAM,
     ) -> Option<raw::INT_PTR> {
         None
     }

@@ -1,15 +1,15 @@
 use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
-use crate::domain::SharedSession;
-use crate::domain::{Session, WeakSession};
-use lazycell::{AtomicLazyCell, LazyCell};
+
+use crate::domain::{WeakSession};
+use lazycell::{AtomicLazyCell};
 use reaper_high::Reaper;
 use reaper_low::firewall;
 use slog::debug;
-use std::cell::RefCell;
-use std::ops::{Deref, DerefMut};
-use std::rc::Rc;
-use std::sync::{Mutex, RwLock};
+
+
+
+use std::sync::{RwLock};
 use vst::plugin::PluginParameters;
 
 pub struct RealearnPluginParameters {

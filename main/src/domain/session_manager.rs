@@ -3,10 +3,10 @@ use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 use reaper_medium::MessageBoxType;
 use rxrust::prelude::*;
-use slog::{debug, info};
-use std::cell::{Ref, RefCell};
-use std::rc::{Rc, Weak};
-use std::sync::Mutex;
+use slog::{debug};
+use std::cell::{RefCell};
+use std::rc::{Rc};
+
 
 static mut SESSIONS: Lazy<RefCell<Vec<WeakSession>>> = Lazy::new(|| RefCell::new(vec![]));
 

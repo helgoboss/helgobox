@@ -2,14 +2,14 @@
 use crate::{SharedView, View, WeakView, Window};
 use std::cell::{BorrowMutError, Cell, RefCell, RefMut};
 use std::collections::HashMap;
-use std::fmt::Debug;
+
 
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
 use std::os::raw::c_void;
 use std::panic::catch_unwind;
 use std::ptr::{null_mut, NonNull};
-use std::rc::{Rc, Weak};
+
 use std::sync::Once;
 
 /// Creates a window according to the given dialog resource.

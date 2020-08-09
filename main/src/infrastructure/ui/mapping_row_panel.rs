@@ -301,7 +301,7 @@ impl View for MappingRowPanel {
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        use root::*;
+        
         match resource_id {
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
             root::ID_UP_BUTTON => self.move_mapping_up(),

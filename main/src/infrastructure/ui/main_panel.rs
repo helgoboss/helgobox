@@ -1,16 +1,16 @@
-use crate::core::{prop, Prop};
-use crate::domain::{MappingModel, Session, SessionUi, WeakSession};
-use crate::domain::{ReaperTarget, SharedSession};
+
+use crate::domain::{MappingModel, SessionUi, WeakSession};
+
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
-use c_str_macro::c_str;
-use helgoboss_learn::MidiSource;
+
+
 use lazycell::LazyCell;
 use reaper_high::Reaper;
-use reaper_low::{raw, Swell};
+
 use slog::debug;
-use std::cell::{Cell, RefCell};
-use std::ptr::null_mut;
+use std::cell::{Cell};
+
 use std::rc::{Rc, Weak};
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 

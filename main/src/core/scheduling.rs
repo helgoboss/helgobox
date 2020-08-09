@@ -1,11 +1,11 @@
 use reaper_high::Reaper;
 use rx_util::{Event, SharedEvent, SharedItemEvent, SharedPayload};
 use rxrust::prelude::*;
-use rxrust::scheduler::Schedulers;
+
 use slog::debug;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
-use std::time::Duration;
+
 
 pub fn when<Item, Trigger>(trigger: Trigger) -> ReactionBuilderStepOne<Item, Trigger>
 where

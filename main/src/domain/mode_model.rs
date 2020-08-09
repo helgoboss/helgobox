@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::{EelTransformation, OutputVariable, ReaperTarget};
+use crate::domain::{EelTransformation, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -7,7 +7,7 @@ use helgoboss_learn::{
     MidiClockTransportMessage, MidiSource, PressDurationProcessor, RelativeMode, SourceCharacter,
     SymmetricUnitValue, Target, ToggleMode, Transformation, UnitValue,
 };
-use helgoboss_midi::{Channel, U14, U7};
+
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;

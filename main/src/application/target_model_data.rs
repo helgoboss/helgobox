@@ -4,8 +4,8 @@ use crate::domain::{
     get_guid_based_fx_at_index, ActionInvocationType, SessionContext, TargetModel, TargetType,
     VirtualTrack,
 };
-use reaper_high::{Action, Guid, Project, Reaper, Track};
-use reaper_medium::{CommandId, ReaperString};
+use reaper_high::{Guid, Project, Reaper, Track};
+
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
@@ -61,7 +61,7 @@ impl Default for TargetModelData {
 }
 
 impl TargetModelData {
-    pub fn from_model(model: &TargetModel, context: &SessionContext) -> Self {
+    pub fn from_model(model: &TargetModel, _context: &SessionContext) -> Self {
         let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
             r#type: model.r#type.get(),

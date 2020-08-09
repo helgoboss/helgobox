@@ -1,11 +1,11 @@
-use crate::domain::{MappingModel, SharedMapping};
-use crate::domain::{SharedSession, WeakSession};
+use crate::domain::{SharedMapping};
+use crate::domain::{WeakSession};
 use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use reaper_high::Reaper;
 use slog::debug;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
+
+
+
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;

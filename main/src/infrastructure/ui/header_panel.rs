@@ -1,25 +1,25 @@
 use crate::application::SessionData;
-use crate::core::{when, Prop};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session, WeakSession};
+use crate::core::{when};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput, WeakSession};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::{MainPanel, SharedMainState};
-use c_str_macro::c_str;
+use crate::infrastructure::ui::{SharedMainState};
+
 use clipboard::{ClipboardContext, ClipboardProvider};
-use helgoboss_midi::Channel;
+
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-use reaper_low::Swell;
+
 use reaper_medium::{MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
-use rx_util::{LocalProp, UnitEvent};
+use rx_util::{UnitEvent};
 use rxrust::prelude::*;
-use serde_json::Error;
+
 use slog::debug;
-use std::cell::{Cell, Ref, RefCell};
-use std::ffi::CString;
+
+
 use std::iter;
-use std::ops::{Deref, DerefMut};
-use std::rc::{Rc, Weak};
-use std::time::Duration;
+use std::ops::{Deref};
+use std::rc::{Rc};
+
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -46,7 +46,7 @@ impl HeaderPanel {
 
     fn toggle_learn_source_filter(&self) {
         let mut main_state = self.main_state.borrow_mut();
-        let mut learning = &mut main_state.is_learning_source_filter;
+        let learning = &mut main_state.is_learning_source_filter;
         if learning.get() {
             // Stop learning
             learning.set(false);
@@ -69,7 +69,7 @@ impl HeaderPanel {
                     .is_learning_source_filter
                     .set(false);
             })
-            .do_async(move |session, source| {
+            .do_async(move |_session, source| {
                 main_state_2.borrow_mut().source_filter.set(Some(source));
             });
         }
@@ -77,7 +77,7 @@ impl HeaderPanel {
 
     fn toggle_learn_target_filter(&self) {
         let mut main_state = self.main_state.borrow_mut();
-        let mut learning = &mut main_state.is_learning_target_filter;
+        let learning = &mut main_state.is_learning_target_filter;
         if learning.get() {
             // Stop learning
             learning.set(false);
@@ -461,7 +461,7 @@ impl View for HeaderPanel {
         &self.view
     }
 
-    fn opened(self: SharedView<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, _window: Window) -> bool {
         self.invalidate_all_controls();
         self.invalidate_search_expression();
         self.register_listeners();

@@ -10,30 +10,30 @@ use crate::domain::{
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::constants::symbols;
-use crate::infrastructure::ui::{MainPanel, MappingRowsPanel};
-use c_str_macro::c_str;
+use crate::infrastructure::ui::{MainPanel};
+
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DiscreteValue, Interval, MidiClockTransportMessage, SourceCharacter,
+    ControlValue, MidiClockTransportMessage, SourceCharacter,
     SymmetricUnitValue, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{Action, MidiInputDevice, MidiOutputDevice, Reaper, Track};
-use reaper_low::{raw, Swell};
+use reaper_low::{raw};
 use reaper_medium::{
     InitialAction, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, PromptForActionResult,
     ReaperString, SectionId,
 };
-use rx_util::{LocalProp, UnitEvent};
+use rx_util::{UnitEvent};
 use rxrust::prelude::*;
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::convert::{TryFrom, TryInto};
-use std::ffi::CString;
+use std::convert::{TryInto};
+
 use std::iter;
-use std::ops::Deref;
+
 use std::ptr::null;
-use std::rc::{Rc, Weak};
-use std::str::FromStr;
+use std::rc::{Rc};
+
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
@@ -196,7 +196,7 @@ impl MappingPanel {
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
         let mut shared_mapping = self.mapping.borrow_mut();
-        let mut shared_mapping = shared_mapping.as_mut().expect("mapping not filled");
+        let shared_mapping = shared_mapping.as_mut().expect("mapping not filled");
         let mut mapping = shared_mapping.borrow_mut();
         let mut p = MutableMappingPanel {
             session: &mut session,
@@ -755,7 +755,7 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_FX_FOCUS_CHECK_BOX)
             .is_checked();
-        let mut target = &mut self.mapping.target_model;
+        let target = &mut self.mapping.target_model;
         if target.supports_fx() {
             target.enable_only_if_fx_has_focus.set(is_checked);
         } else if target.r#type.get() == TargetType::TrackSelection {
@@ -817,7 +817,7 @@ impl<'a> MutableMappingPanel<'a> {
         let combo = self
             .view
             .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
-        let mut target = &mut self.mapping.target_model;
+        let target = &mut self.mapping.target_model;
         if target.supports_fx() {
             let data = combo.selected_combo_box_item_data();
             let fx_index = if data == -1 { None } else { Some(data as u32) };
@@ -840,7 +840,7 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX)
             .selected_combo_box_item_data();
-        let mut target = &mut self.mapping.target_model;
+        let target = &mut self.mapping.target_model;
         target.param_index.set(data as _);
     }
 
@@ -2051,7 +2051,7 @@ impl View for MappingPanel {
         &self.view
     }
 
-    fn opened(self: SharedView<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, _window: Window) -> bool {
         self.memorize_all_slider_controls();
         true
     }
@@ -2061,7 +2061,7 @@ impl View for MappingPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, window: Window) {
+    fn closed(self: SharedView<Self>, _window: Window) {
         self.sliders.replace(None);
     }
 
@@ -2137,7 +2137,7 @@ impl View for MappingPanel {
     }
 
     fn slider_moved(self: SharedView<Self>, slider: Window) {
-        use root::*;
+        
         let cloned_self = self.clone();
         let sliders = cloned_self.sliders.borrow();
         let sliders = sliders.as_ref().expect("sliders not set");
@@ -2233,7 +2233,7 @@ impl View for MappingPanel {
         true
     }
 
-    fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+    fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
         // This is also called when the window is hidden.
         // The edit control which is currently edited by the user doesn't get invalidated during
         // `edit_control_changed()`, for good reasons. But as soon as the edit control loses

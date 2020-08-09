@@ -1,5 +1,5 @@
-use reaper_high::{Fx, FxChain, Project, Reaper, Take, Track};
-use reaper_medium::{MessageBoxType, ReaperFunctionError, TypeSpecificPluginContext};
+use reaper_high::{Fx, FxChain, Project, Reaper, Track};
+use reaper_medium::{TypeSpecificPluginContext};
 use std::ptr::NonNull;
 use vst::plugin::HostCallback;
 
@@ -52,7 +52,7 @@ fn get_containing_fx(host: &HostCallback) -> Result<Fx, &'static str> {
         find_realearn_fx_waiting_for_session(&track.normal_fx_chain())
             .or_else(|| find_realearn_fx_waiting_for_session(&track.input_fx_chain()))
             .ok_or("couldn't find containing FX on track FX chains")?
-    } else if let Some(take) = unsafe { vst_context.request_containing_take(aeffect) } {
+    } else if let Some(_take) = unsafe { vst_context.request_containing_take(aeffect) } {
         return Err("ReaLearn as take FX is not supported yet");
     } else {
         find_realearn_fx_waiting_for_session(&reaper.monitoring_fx_chain())

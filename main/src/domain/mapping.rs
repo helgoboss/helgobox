@@ -1,7 +1,7 @@
 use crate::domain::{MainProcessorTargetUpdate, Mode, ReaperTarget};
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
 use helgoboss_midi::RawShortMessage;
-use rx_util::BoxedUnitEvent;
+
 use uuid::Uuid;
 
 #[derive(Debug)]

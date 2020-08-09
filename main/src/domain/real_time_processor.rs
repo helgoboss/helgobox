@@ -1,9 +1,9 @@
-use crate::core::MovingAverageCalculator;
+
 use crate::domain::{
-    ControlMainTask, FeedbackMainTask, MappingId, MidiClockCalculator, MidiControlInput,
+    ControlMainTask, MappingId, MidiClockCalculator, MidiControlInput,
     MidiFeedbackOutput, MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
 };
-use helgoboss_learn::{Bpm, MidiSource, MidiSourceValue};
+use helgoboss_learn::{MidiSource, MidiSourceValue};
 use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, MessageMainCategory,
     ParameterNumberMessage, ParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -11,9 +11,9 @@ use helgoboss_midi::{
 };
 use reaper_high::Reaper;
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
-use slog::{debug, info};
+use slog::{debug};
 use std::collections::{HashMap, HashSet};
-use std::convert::{TryFrom, TryInto};
+
 use std::ptr::null_mut;
 use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
 use vst::host::Host;
@@ -325,7 +325,7 @@ impl RealTimeProcessor {
                 {
                     for m in msg
                         .to_short_messages::<RawShortMessage>()
-                        .into_iter()
+                        .iter()
                         .flatten()
                     {
                         self.forward_midi(*m);
@@ -366,7 +366,7 @@ impl RealTimeProcessor {
                 if (matched && self.let_matched_events_through)
                     || (!matched && self.let_unmatched_events_through)
                 {
-                    for m in msg.to_short_messages::<RawShortMessage>().into_iter() {
+                    for m in msg.to_short_messages::<RawShortMessage>().iter() {
                         self.forward_midi(*m);
                     }
                 }
@@ -447,13 +447,13 @@ impl RealTimeProcessor {
             }
             match output {
                 MidiFeedbackOutput::FxOutput => {
-                    for short in shorts.into_iter().flatten() {
+                    for short in shorts.iter().flatten() {
                         self.forward_midi(*short);
                     }
                 }
                 MidiFeedbackOutput::Device(dev) => {
                     dev.with_midi_output(|mo| {
-                        for short in shorts.into_iter().flatten() {
+                        for short in shorts.iter().flatten() {
                             mo.send(*short, SendMidiTime::Instantly);
                         }
                     });

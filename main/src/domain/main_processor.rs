@@ -1,14 +1,13 @@
 use crate::domain::{
-    FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingId, Mode,
-    NormalRealTimeTask, ReaperTarget, WeakSession,
+    FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingId, ReaperTarget, WeakSession,
 };
 use crossbeam_channel::Sender;
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
 use helgoboss_midi::RawShortMessage;
 use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
-use slog::{debug, info};
+use slog::{debug};
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 

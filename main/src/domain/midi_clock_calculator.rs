@@ -1,6 +1,6 @@
 use crate::core::MovingAverageCalculator;
-use helgoboss_learn::{Bpm, MidiSourceValue};
-use helgoboss_midi::RawShortMessage;
+use helgoboss_learn::{Bpm};
+
 use reaper_medium::{Hz, MidiFrameOffset};
 
 pub struct MidiClockCalculator {

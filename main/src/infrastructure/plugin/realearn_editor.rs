@@ -1,18 +1,18 @@
-use crate::domain::Session;
-use crate::infrastructure::ui::MainPanel;
-use std::cell::RefCell;
 
-use crate::domain::SharedSession;
-use lazycell::LazyCell;
+use crate::infrastructure::ui::MainPanel;
+
+
+
+
 use reaper_high::Reaper;
 use reaper_low::firewall;
 use reaper_low::raw::HWND;
 use slog::debug;
-use std::borrow::Borrow;
-use std::future::Future;
+
+
 use std::os::raw::c_void;
-use std::rc::Rc;
-use swell_ui::{Pixels, SharedView, View, Window};
+
+use swell_ui::{SharedView, View, Window};
 use vst::editor::Editor;
 
 pub struct RealearnEditor {

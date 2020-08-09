@@ -1,8 +1,8 @@
 use crate::core::eel;
 use helgoboss_learn::{Transformation, UnitValue};
 use std::convert::TryInto;
-use std::ffi::CString;
-use std::os::raw::c_void;
+
+
 use std::rc::Rc;
 
 #[derive(Debug)]

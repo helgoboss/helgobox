@@ -1,4 +1,4 @@
-use super::MidiSourceModel;
+
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     session_manager, share_mapping, ControlMainTask, FeedbackMainTask, FeedbackRealTimeTask,
@@ -7,16 +7,16 @@ use crate::domain::{
     SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_learn::MidiSource;
-use helgoboss_midi::ShortMessage;
-use lazycell::LazyCell;
+
+
 use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Project, Reaper, Track};
-use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
+use reaper_medium::{RegistrationHandle};
 use rx_util::{
     BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, UnitEvent,
 };
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
-use slog::{debug, info};
+use slog::{debug};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::{Rc, Weak};
@@ -452,7 +452,7 @@ impl Session {
             .mapping_models
             .iter()
             .enumerate()
-            .find(|(i, m)| m.as_ptr() == mapping as _)
+            .find(|(_i, m)| m.as_ptr() == mapping as _)
             .ok_or("mapping not found")?;
         let duplicate = {
             let mapping = mapping.borrow();

@@ -1,25 +1,25 @@
 use std::cell::{Cell, RefCell};
-use std::rc::{Rc, Weak};
+use std::rc::{Rc};
 
-use c_str_macro::c_str;
-use helgoboss_midi::Channel;
+
+
 use reaper_high::Reaper;
-use reaper_low::{raw, Swell};
+use reaper_low::{raw};
 use rxrust::prelude::*;
 
 use crate::core::when;
-use crate::domain::{MappingModel, Session, SharedMapping, WeakSession};
-use crate::domain::{ReaperTarget, SharedSession};
+use crate::domain::{MappingModel, SharedMapping, WeakSession};
+use crate::domain::{SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{
-    MainPanel, MappingPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
+    MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
     SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
 use slog::debug;
 use std::cmp;
-use std::collections::HashMap;
-use std::ops::DerefMut;
+
+
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 pub struct MappingRowsPanel {
@@ -108,7 +108,7 @@ impl MappingRowsPanel {
     }
 
     fn show_or_hide_scroll_bar(&self, scroll_info: &raw::SCROLLINFO) {
-        let show = (scroll_info.nMax >= scroll_info.nPage as i32);
+        let show = scroll_info.nMax >= scroll_info.nPage as i32;
         unsafe {
             Reaper::get().medium_reaper().low().CoolSB_ShowScrollBar(
                 self.view.require_window().raw() as _,
@@ -209,7 +209,7 @@ impl MappingRowsPanel {
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
         let mapping_count = self.session().borrow().mapping_count();
-        for i in (self.scroll_position.get()..mapping_count) {
+        for i in self.scroll_position.get()..mapping_count {
             if row_index >= self.rows.len() {
                 break;
             }
@@ -226,7 +226,7 @@ impl MappingRowsPanel {
             row_index += 1;
         }
         // If there are unused rows, clear them
-        for i in (row_index..self.rows.len()) {
+        for i in row_index..self.rows.len() {
             self.rows.get(i).expect("impossible").set_mapping(None);
         }
     }
@@ -336,7 +336,7 @@ impl View for MappingRowsPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, window: Window) {
+    fn closed(self: SharedView<Self>, _window: Window) {
         #[cfg(target_family = "unix")]
         unsafe {
             Reaper::get()

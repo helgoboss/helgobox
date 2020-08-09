@@ -1,4 +1,4 @@
-use crate::{DialogUnits, Dimensions, Pixels, Point, SwellStringArg};
+use crate::{DialogUnits, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 use std::fmt::Display;

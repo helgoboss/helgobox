@@ -11,7 +11,7 @@ use rxrust::prelude::*;
 use serde::export::Formatter;
 use serde_repr::*;
 use std::borrow::Cow;
-use std::fmt::{format, Display};
+use std::fmt::{Display};
 
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]

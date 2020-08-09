@@ -11,8 +11,8 @@ use reaper_medium::{
 use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
 use slog::warn;
-use std::cmp;
-use std::convert::{TryFrom, TryInto};
+
+use std::convert::{TryInto};
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -178,7 +178,7 @@ impl ReaperTarget {
 
     pub fn open(&self) {
         if let ReaperTarget::Action {
-            action, project, ..
+            action: _, project, ..
         } = self
         {
             // Just open action window
@@ -208,7 +208,7 @@ impl ReaperTarget {
         match self {
             Action {
                 action,
-                invocation_type,
+                invocation_type: _,
                 ..
             } => match action.character() {
                 ActionCharacter::Toggle => Trigger,
@@ -679,7 +679,7 @@ impl ReaperTarget {
         match self {
             Action {
                 action,
-                invocation_type,
+                invocation_type: _,
                 ..
             } => {
                 let action = action.clone();

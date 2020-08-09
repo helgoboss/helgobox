@@ -1,4 +1,4 @@
-use c_str_macro::c_str;
+
 use vst::editor::Editor;
 use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
@@ -15,23 +15,23 @@ use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
-use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset, TypeSpecificPluginContext};
-use rxrust::prelude::*;
+use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset};
+
 use slog::debug;
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::ptr::NonNull;
+
 use std::rc::Rc;
-use std::str::Utf8Error;
+
 use std::sync::Arc;
-use std::time::Duration;
+
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
-use vst::event::{Event, MidiEvent};
+use vst::event::{Event};
 
 reaper_vst_plugin!();
 
