@@ -1,4 +1,5 @@
 use super::none_if_minus_one;
+use crate::core::toast;
 use crate::domain::{MidiSourceModel, MidiSourceType};
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -53,7 +54,7 @@ impl SourceModelData {
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
-    pub fn apply_to_model(&self, model: &mut MidiSourceModel) -> Result<(), &'static str> {
+    pub fn apply_to_model(&self, model: &mut MidiSourceModel) {
         if self.r#type == MidiSourceType::ParameterNumberValue {
             model
                 .parameter_number_message_number
@@ -61,7 +62,13 @@ impl SourceModelData {
         } else {
             let number: Option<U7> = match self.number {
                 None => None,
-                Some(v) => Some(v.try_into().map_err(|_| "MIDI message number too high")?),
+                Some(v) => match v.try_into() {
+                    Ok(number) => Some(number),
+                    Err(_) => {
+                        toast::warn("MIDI message number too high");
+                        None
+                    }
+                },
             };
             model.midi_message_number.set_without_notification(number);
         };
@@ -77,7 +84,6 @@ impl SourceModelData {
         model
             .midi_clock_transport_message
             .set_without_notification(self.message);
-        Ok(())
     }
 }
 
@@ -159,9 +165,8 @@ mod tests {
         };
         let mut model = MidiSourceModel::default();
         // When
-        let result = data.apply_to_model(&mut model);
+        data.apply_to_model(&mut model);
         // Then
-        assert!(result.is_ok());
         assert_eq!(model.r#type.get(), MidiSourceType::ParameterNumberValue);
         assert_eq!(model.channel.get(), Some(channel(8)));
         assert_eq!(model.midi_message_number.get(), None);
@@ -189,8 +194,7 @@ mod tests {
         };
         let mut model = MidiSourceModel::default();
         // When
-        let result = data.apply_to_model(&mut model);
-        assert!(result.is_ok());
+        data.apply_to_model(&mut model);
         // Then
         assert_eq!(model.r#type.get(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel.get(), None);

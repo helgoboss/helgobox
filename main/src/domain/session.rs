@@ -408,11 +408,13 @@ impl Session {
     }
 
     pub fn move_mapping_up(&mut self, mapping: *const MappingModel) {
-        self.swap_mappings(mapping, -1).unwrap();
+        // No problem if it doesn't work
+        let _ = self.swap_mappings(mapping, -1);
     }
 
     pub fn move_mapping_down(&mut self, mapping: *const MappingModel) {
-        self.swap_mappings(mapping, 1).unwrap();
+        // No problem if it doesn't work
+        let _ = self.swap_mappings(mapping, 1);
     }
 
     fn swap_mappings(

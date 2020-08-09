@@ -85,7 +85,7 @@ impl ModeModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut ModeModel) -> Result<(), &'static str> {
+    pub fn apply_to_model(&self, model: &mut ModeModel) {
         model.r#type.set_without_notification(self.r#type);
         model
             .source_value_interval
@@ -126,6 +126,5 @@ impl ModeModelData {
         model
             .rotate
             .set_without_notification(self.rotate_is_enabled);
-        Ok(())
     }
 }

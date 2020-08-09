@@ -41,31 +41,21 @@ impl MappingModelData {
 
     pub fn to_model(&self, context: &SessionContext) -> MappingModel {
         let mut model = MappingModel::default();
-        self.apply_to_model(&mut model, context).unwrap();
+        self.apply_to_model(&mut model, context);
         model
     }
 
-    fn apply_to_model(
-        &self,
-        model: &mut MappingModel,
-        context: &SessionContext,
-    ) -> Result<(), &'static str> {
+    fn apply_to_model(&self, model: &mut MappingModel, context: &SessionContext) {
         model.name.set_without_notification(self.name.clone());
-        self.source
-            .apply_to_model(model.source_model.borrow_mut())
-            .unwrap();
-        self.mode
-            .apply_to_model(model.mode_model.borrow_mut())
-            .unwrap();
+        self.source.apply_to_model(model.source_model.borrow_mut());
+        self.mode.apply_to_model(model.mode_model.borrow_mut());
         self.target
-            .apply_to_model(model.target_model.borrow_mut(), context)
-            .unwrap();
+            .apply_to_model(model.target_model.borrow_mut(), context);
         model
             .control_is_enabled
             .set_without_notification(self.control_is_enabled);
         model
             .feedback_is_enabled
             .set_without_notification(self.feedback_is_enabled);
-        Ok(())
     }
 }

@@ -357,7 +357,8 @@ impl<'a> MutableMappingPanel<'a> {
         let value = self
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
-            .text()?;
+            .text()
+            .unwrap_or_else(|_| "".to_string());
         self.mapping.name.set(value);
         Ok(())
     }

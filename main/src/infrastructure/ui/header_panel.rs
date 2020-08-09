@@ -1,5 +1,5 @@
 use crate::application::SessionData;
-use crate::core::when;
+use crate::core::{toast, when};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, WeakSession};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
@@ -370,7 +370,9 @@ impl HeaderPanel {
         })?;
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
-        session_data.apply_to_model(&mut session).unwrap();
+        if let Err(e) = session_data.apply_to_model(&mut session) {
+            toast::warn(e)
+        }
         session.notify_everything_has_changed(self.session.clone());
         session.mark_project_as_dirty();
         Ok(())
