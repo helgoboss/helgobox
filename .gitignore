@@ -118,3 +118,5 @@ modules.xml
 .history
 
 # End of https://www.gitignore.io/api/visualstudiocode
+
+**/*.rpp-bak
