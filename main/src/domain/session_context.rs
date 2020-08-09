@@ -1,5 +1,5 @@
 use reaper_high::{Fx, FxChain, Project, Reaper, Track};
-use reaper_medium::{TypeSpecificPluginContext};
+use reaper_medium::TypeSpecificPluginContext;
 use std::ptr::NonNull;
 use vst::plugin::HostCallback;
 

@@ -2,7 +2,6 @@ use crate::core::eel;
 use helgoboss_learn::{Transformation, UnitValue};
 use std::convert::TryInto;
 
-
 use std::rc::Rc;
 
 #[derive(Debug)]

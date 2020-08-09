@@ -1,14 +1,9 @@
-
 use crate::infrastructure::ui::MainPanel;
-
-
-
 
 use reaper_high::Reaper;
 use reaper_low::firewall;
 use reaper_low::raw::HWND;
 use slog::debug;
-
 
 use std::os::raw::c_void;
 
