@@ -250,16 +250,15 @@ impl MappingRowsPanel {
             }
         }
         let search_expression = main_state.search_expression.get_ref().trim().to_lowercase();
-        if !search_expression.is_empty() {
-            if !mapping
+        if !search_expression.is_empty()
+            && !mapping
                 .borrow()
                 .name
                 .get_ref()
                 .to_lowercase()
                 .contains(&search_expression)
-            {
-                return false;
-            }
+        {
+            return false;
         }
         true
     }

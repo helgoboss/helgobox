@@ -127,7 +127,7 @@ impl ControlSurface for MainProcessor {
                         }
                     };
                     // Update hash map entry
-                    self.mappings.insert(mapping.id(), mapping);
+                    self.mappings.insert(mapping.id(), *mapping);
                 }
                 FeedbackAll => {
                     self.send_feedback(self.feedback_all());
@@ -319,7 +319,8 @@ pub enum NormalMainTask {
     /// Clears all mappings and uses the passed ones.
     UpdateAllMappings(Vec<MainProcessorMapping>),
     /// Replaces the given mapping.
-    UpdateSingleMapping(MainProcessorMapping),
+    // Boxed because much larger struct size than other variants.
+    UpdateSingleMapping(Box<MainProcessorMapping>),
     /// Replaces the targets of all given mappings.
     ///
     /// Use this instead of `UpdateAllMappings` whenever existing modes should not be overwritten.

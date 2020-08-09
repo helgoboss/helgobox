@@ -133,6 +133,7 @@ fn guess_source(cc_state: &ControlChangeState) -> MidiSource {
 
 fn guess_custom_character(count: usize, values: &[U7; MAX_CC_MSG_COUNT]) -> SourceCharacter {
     use SourceCharacter::*;
+    #[allow(clippy::if_same_then_else)]
     if count == 1 {
         // Only one message received. Looks like a switch has been pressed and not released.
         Switch
@@ -148,7 +149,8 @@ fn guess_custom_character(count: usize, values: &[U7; MAX_CC_MSG_COUNT]) -> Sour
             if current_ord == Ordering::Equal {
                 // Same value twice. Not continuous so it's probably an encoder.
                 return guess_encoder_type(values);
-            } else if i > 1 && current_ord != prev_ord {
+            }
+            if i > 1 && current_ord != prev_ord {
                 // Direction changed. Not continuous so it's probably an encoder.
                 return guess_encoder_type(values);
             }

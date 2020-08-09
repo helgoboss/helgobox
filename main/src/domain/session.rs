@@ -252,7 +252,7 @@ impl Session {
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
         )
-        .with(weak_session.clone())
+        .with(weak_session)
         .do_async(|session, target| {
             session.borrow_mut().learn_target(target.as_ref());
         });
@@ -493,7 +493,7 @@ impl Session {
     }
 
     fn containing_track_armed_or_disarmed(&self) -> BoxedUnitEvent {
-        if let Some(track) = self.context.containing_fx().track().map(|t| t.clone()) {
+        if let Some(track) = self.context.containing_fx().track().cloned() {
             Reaper::get()
                 .track_arm_changed()
                 .filter(move |t| *t == track)
@@ -631,7 +631,7 @@ impl Session {
         let splintered = processor_mapping.splinter(self.feedback_is_effectively_enabled());
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateSingleMapping(splintered.1))
+            .send(NormalMainTask::UpdateSingleMapping(Box::new(splintered.1)))
             .unwrap();
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::UpdateSingleMapping(splintered.0))

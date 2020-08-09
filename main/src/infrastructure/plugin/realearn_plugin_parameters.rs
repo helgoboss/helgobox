@@ -49,7 +49,7 @@ impl Drop for RealearnPluginParameters {
 }
 
 /// This will be returned if ReaLearn cannot return reasonable bank data yet.
-const NOT_READY_YET: &'static str = "not-ready-yet";
+const NOT_READY_YET: &str = "not-ready-yet";
 
 impl PluginParameters for RealearnPluginParameters {
     fn get_bank_data(&self) -> Vec<u8> {

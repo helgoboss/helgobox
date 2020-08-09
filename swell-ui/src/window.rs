@@ -71,7 +71,7 @@ impl Window {
 
     // TODO-low Check if we can take the items by reference. Probably wouldn't make a big
     //  difference because moving is not a problem in all known cases.
-    pub fn fill_combo_box_with_data<'a, I: Display>(
+    pub fn fill_combo_box_with_data<I: Display>(
         self,
         items: impl Iterator<Item = (isize, I)> + ExactSizeIterator,
     ) {

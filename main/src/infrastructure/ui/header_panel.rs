@@ -232,7 +232,7 @@ impl HeaderPanel {
         let ec = self
             .view
             .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL);
-        let text = ec.text().unwrap_or("".to_string());
+        let text = ec.text().unwrap_or_else(|_| "".to_string());
         self.main_state.borrow_mut().search_expression.set(text);
     }
 

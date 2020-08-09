@@ -92,7 +92,7 @@ fn start_learning_source_for_target(target: &ReaperTarget) {
         // If not found, find the instance on the parameter's track (if there's one)
         .or_else(|| target.track().and_then(find_first_session_on_track))
         // If not found, find a random instance
-        .or_else(|| find_first_session_in_current_project());
+        .or_else(find_first_session_in_current_project);
     match session {
         None => {
             Reaper::get().medium_reaper().show_message_box(
@@ -138,5 +138,4 @@ fn find_session(predicate: impl FnMut(&SharedSession) -> bool) -> Option<SharedS
         .iter()
         .filter_map(|s| s.upgrade())
         .find(predicate)
-        .map(|s| s.clone())
 }

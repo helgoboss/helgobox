@@ -187,23 +187,20 @@ impl Plugin for RealearnPlugin {
     fn process_events(&mut self, events: &Events) {
         firewall(|| {
             for e in events.events() {
-                match e {
-                    Event::Midi(me) => {
-                        let msg = RawShortMessage::from_bytes((
-                            me.data[0],
-                            U7::new(me.data[1]),
-                            U7::new(me.data[2]),
-                        ))
-                        .expect("received invalid MIDI message");
-                        // This is called in real-time audio thread, so we can just call the
-                        // real-time processor.
-                        let offset = MidiFrameOffset::new(
-                            u32::try_from(me.delta_frames).expect("negative MIDI frame offset"),
-                        );
-                        self.real_time_processor
-                            .process_incoming_midi_from_fx_input(offset, msg);
-                    }
-                    _ => (),
+                if let Event::Midi(me) = e {
+                    let msg = RawShortMessage::from_bytes((
+                        me.data[0],
+                        U7::new(me.data[1]),
+                        U7::new(me.data[2]),
+                    ))
+                    .expect("received invalid MIDI message");
+                    // This is called in real-time audio thread, so we can just call the
+                    // real-time processor.
+                    let offset = MidiFrameOffset::new(
+                        u32::try_from(me.delta_frames).expect("negative MIDI frame offset"),
+                    );
+                    self.real_time_processor
+                        .process_incoming_midi_from_fx_input(offset, msg);
                 }
             }
         });
@@ -297,7 +294,7 @@ impl RealearnPlugin {
                 session_manager::register_session(weak_session.clone());
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
-                plugin_parameters.notify_session_is_available(weak_session.clone());
+                plugin_parameters.notify_session_is_available(weak_session);
                 // RealearnPlugin is the main owner of the session. Everywhere else the session is
                 // just temporarily upgraded, never stored as Rc, only as Weak.
                 session_container.fill(shared_session).unwrap();
@@ -306,7 +303,7 @@ impl RealearnPlugin {
     }
 
     fn get_named_config_param(&self, param_name: &str, buffer: &mut [c_char]) -> bool {
-        if buffer.len() < 1 {
+        if buffer.is_empty() {
             return false;
         }
         match param_name {

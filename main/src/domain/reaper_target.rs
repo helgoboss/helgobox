@@ -603,12 +603,10 @@ impl ReaperTarget {
             } => {
                 if value.as_absolute()?.is_zero() {
                     track.unselect();
+                } else if *select_exclusively {
+                    track.select_exclusively();
                 } else {
-                    if *select_exclusively {
-                        track.select_exclusively();
-                    } else {
-                        track.select();
-                    }
+                    track.select();
                 }
                 track.scroll_mixer();
             }
@@ -951,7 +949,7 @@ fn format_value_as_pan(value: UnitValue) -> String {
 }
 
 fn format_value_as_on_off(value: UnitValue) -> &'static str {
-    if value.is_one() { "On" } else { "Off" }
+    if value.is_zero() { "Off" } else { "On" }
 }
 
 fn convert_bool_to_unit_value(on: bool) -> UnitValue {

@@ -118,7 +118,7 @@ impl MainPanel {
             debug_mark,
             GIT_COMMIT_HASH
                 .map(|h| h[0..6].to_string())
-                .unwrap_or("unknown".to_string()),
+                .unwrap_or_else(|| "unknown".to_string()),
             dirty_mark,
             date_info
         );

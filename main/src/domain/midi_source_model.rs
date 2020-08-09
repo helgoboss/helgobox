@@ -224,7 +224,7 @@ impl MidiSourceModel {
             ClockTransport => {
                 format!("MIDI clock\n{}", self.midi_clock_transport_message.get()).into()
             }
-            t @ _ => t.to_string().into(),
+            t => t.to_string().into(),
         }
     }
 

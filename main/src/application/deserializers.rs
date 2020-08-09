@@ -27,7 +27,7 @@ where
     match value {
         MaybeMinusOne::TargetValue(v) => Ok(v),
         MaybeMinusOne::DecimalNumber(n) => {
-            if n == -1.0 {
+            if (n - -1.0).abs() < f64::EPSILON {
                 Ok(None)
             } else {
                 match T::try_from(n as u64) {

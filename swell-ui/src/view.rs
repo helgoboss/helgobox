@@ -163,7 +163,9 @@ pub trait View {
 
     /// Closes this view.
     fn close(&self) {
-        self.view_context().window.get().map(Window::destroy);
+        if let Some(window) = self.view_context().window.get() {
+            window.destroy();
+        }
     }
 
     /// Returns whether this view is currently open.

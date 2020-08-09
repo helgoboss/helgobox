@@ -8,7 +8,7 @@ pub struct SessionContext {
     containing_fx: Fx,
 }
 
-pub const WAITING_FOR_SESSION_PARAM_NAME: &'static str = "realearn/waiting-for-session";
+pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
 
 impl SessionContext {
     pub fn from_host(host: &HostCallback) -> Result<SessionContext, &'static str> {
@@ -29,7 +29,7 @@ impl SessionContext {
     pub fn project(&self) -> Project {
         self.containing_fx
             .project()
-            .unwrap_or(Reaper::get().current_project())
+            .unwrap_or_else(|| Reaper::get().current_project())
     }
 }
 

@@ -580,7 +580,7 @@ impl<'a> MutableMappingPanel<'a> {
         if self.mapping.mode_model.supports_press_duration() {
             let value = self
                 .get_value_from_duration_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or(Duration::from_millis(0));
+                .unwrap_or_else(|| Duration::from_millis(0));
             self.mapping
                 .mode_model
                 .press_duration_interval
@@ -588,7 +588,7 @@ impl<'a> MutableMappingPanel<'a> {
         } else {
             let value = self
                 .get_value_from_step_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or(UnitValue::MIN.to_symmetric());
+                .unwrap_or_else(|| UnitValue::MIN.to_symmetric());
             self.mapping
                 .mode_model
                 .step_interval
@@ -615,7 +615,7 @@ impl<'a> MutableMappingPanel<'a> {
         if self.mapping.mode_model.supports_press_duration() {
             let value = self
                 .get_value_from_duration_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or(Duration::from_millis(0));
+                .unwrap_or_else(|| Duration::from_millis(0));
             self.mapping
                 .mode_model
                 .press_duration_interval
@@ -636,7 +636,7 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
             .text()
-            .unwrap_or("".to_string());
+            .unwrap_or_else(|_| "".to_string());
         self.mapping
             .mode_model
             .eel_control_transformation
@@ -648,7 +648,7 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
             .text()
-            .unwrap_or("".to_string());
+            .unwrap_or_else(|_| "".to_string());
         self.mapping
             .mode_model
             .eel_feedback_transformation
@@ -1282,7 +1282,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let fxs = fx_chain
             .fxs()
             .enumerate()
-            .map(|(i, fx)| (i as isize, get_fx_label(Some(&fx), Some(i as u32))).to_owned());
+            .map(|(i, fx)| (i as isize, get_fx_label(Some(&fx), Some(i as u32))));
         combo.fill_combo_box_with_data_small(fxs);
     }
 
@@ -1610,7 +1610,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let formatted_value = self
             .source
             .format_control_value(ControlValue::Absolute(value))
-            .unwrap_or("".to_string());
+            .unwrap_or_else(|_| "".to_string());
         self.view
             .require_control(edit_control_id)
             .set_text_if_not_focused(formatted_value);
@@ -1650,7 +1650,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     target
                         .convert_unit_value_to_discrete_value(value)
                         .map(|v| v.to_string())
-                        .unwrap_or("".to_string())
+                        .unwrap_or_else(|_| "".to_string())
                 } else {
                     target.format_value_without_unit(value)
                 };

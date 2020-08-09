@@ -71,10 +71,7 @@ impl MappingPanelManager {
     }
 
     fn find_free_panel(&self) -> Option<SharedView<MappingPanel>> {
-        self.open_panels
-            .iter()
-            .find(|p| p.is_free())
-            .map(|p| p.clone())
+        self.open_panels.iter().find(|p| p.is_free()).cloned()
     }
 
     fn create_new_panel_if_not_exhausted(&mut self) -> Option<SharedView<MappingPanel>> {

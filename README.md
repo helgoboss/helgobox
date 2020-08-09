@@ -189,8 +189,6 @@ would be nice to have an integration test running directly in REAPER, similar to
 
 Some short-term goals:
 
-- Remove compile warnings (at the moment, compiling ReaLearn yields lots of warnings)
-- Write a basic user guide
 - Provide a documentation of ReaLearn's internal design (contributors should know about that)
 
 ## Links

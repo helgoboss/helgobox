@@ -450,7 +450,7 @@ impl<'a> TargetModelWithContext<'a> {
         if !param.is_available() {
             return Err("parameter doesn't exist");
         }
-        return Ok(param);
+        Ok(param)
     }
 
     fn track_send_label(&self) -> Cow<str> {
@@ -533,7 +533,7 @@ pub fn get_effective_track(
         This => context
             .containing_fx()
             .track()
-            .map(|t| t.clone())
+            .cloned()
             // If this is monitoring FX, we want this to resolve to the master track since
             // in most functions, monitoring FX chain is the "input FX chain" of the master track.
             .unwrap_or_else(|| context.project().master_track()),

@@ -39,7 +39,7 @@ fn resolve_symbols_from_text(text: &str) -> Result<(), &'static str> {
     Ok(())
 }
 
-fn resolve_multiple_symbols(addresses: &Vec<isize>) {
+fn resolve_multiple_symbols(addresses: &[isize]) {
     Reaper::get().show_console_msg(format!(
         "Attempting to resolve symbols for {} addresses...\n\n",
         addresses.len()
