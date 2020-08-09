@@ -41,7 +41,7 @@ impl MappingModelData {
 
     pub fn to_model(&self, context: &SessionContext) -> MappingModel {
         let mut model = MappingModel::default();
-        self.apply_to_model(&mut model, context);
+        self.apply_to_model(&mut model, context).unwrap();
         model
     }
 
@@ -51,10 +51,15 @@ impl MappingModelData {
         context: &SessionContext,
     ) -> Result<(), &'static str> {
         model.name.set_without_notification(self.name.clone());
-        self.source.apply_to_model(model.source_model.borrow_mut());
-        self.mode.apply_to_model(model.mode_model.borrow_mut());
+        self.source
+            .apply_to_model(model.source_model.borrow_mut())
+            .unwrap();
+        self.mode
+            .apply_to_model(model.mode_model.borrow_mut())
+            .unwrap();
         self.target
-            .apply_to_model(model.target_model.borrow_mut(), context);
+            .apply_to_model(model.target_model.borrow_mut(), context)
+            .unwrap();
         model
             .control_is_enabled
             .set_without_notification(self.control_is_enabled);

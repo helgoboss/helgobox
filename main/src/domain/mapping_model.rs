@@ -1,17 +1,12 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, MainProcessorMapping, MappingId, MidiSourceModel, ModeModel,
-    ModeType, ProcessorMapping, RealTimeProcessorMapping, ReaperTarget, SessionContext,
-    SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, MappingId, MidiSourceModel, ModeModel, ModeType,
+    ProcessorMapping, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
+    TargetModelWithContext,
 };
-use helgoboss_learn::{
-    Interval, MidiSource, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
-};
+use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
-use rx_util::{UnitEvent};
-
-use rxrust::prelude::*;
-
+use rx_util::UnitEvent;
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Debug)]
@@ -69,19 +64,11 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
-    pub fn id(&self) -> &MappingId {
-        &self.id
-    }
-
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
             context,
         }
-    }
-
-    pub fn has_source(&self, source: &MidiSource) -> bool {
-        self.source_model.create_source() == *source
     }
 
     pub fn adjust_mode_if_necessary(&mut self, context: &SessionContext) {

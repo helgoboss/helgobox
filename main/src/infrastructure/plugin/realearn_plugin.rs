@@ -1,4 +1,3 @@
-
 use vst::editor::Editor;
 use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
@@ -13,7 +12,7 @@ use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginPar
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
-use reaper_high::{Fx, Project, Reaper, ReaperGuard, Take, Track};
+use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset};
 
@@ -31,7 +30,7 @@ use std::sync::Arc;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
-use vst::event::{Event};
+use vst::event::Event;
 
 reaper_vst_plugin!();
 
@@ -222,7 +221,9 @@ impl Plugin for RealearnPlugin {
         firewall(|| {
             // This is called in main thread, so we need to send it to the real-time processor via
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
-            self.normal_real_time_task_sender
+            // If task queue is full, don't spam user with error messages.
+            let _ = self
+                .normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
     }
@@ -230,7 +231,9 @@ impl Plugin for RealearnPlugin {
     fn resume(&mut self) {
         firewall(|| {
             // REAPER usually suspends and resumes whenever starting to play.
-            self.normal_main_task_channel
+            // If task queue is full, don't spam user with error messages.
+            let _ = self
+                .normal_main_task_channel
                 .0
                 .send(NormalMainTask::FeedbackAll);
         });
@@ -263,40 +266,43 @@ impl RealearnPlugin {
         let feedback_real_time_task_sender = self.feedback_real_time_task_sender.clone();
         let normal_main_task_channel = self.normal_main_task_channel.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
-        Reaper::get().do_later_in_main_thread_asap(move || {
-            let session_context = match SessionContext::from_host(&host) {
-                Ok(c) => c,
-                Err(msg) => {
-                    Reaper::get().medium_reaper().show_message_box(
-                        msg,
-                        "ReaLearn",
-                        MessageBoxType::Okay,
-                    );
-                    return;
-                }
-            };
-            let session = Session::new(
-                session_context,
-                normal_real_time_task_sender,
-                feedback_real_time_task_sender,
-                normal_main_task_channel,
-                control_main_task_receiver,
-                // It's important that we use a weak pointer here. Otherwise the session keeps a
-                // strong reference to the UI and the UI keeps strong references to the session.
-                // This results in UI stuff not being dropped when the plug-in is removed. It
-                // doesn't result in a crash, but there's no cleanup.
-                Rc::downgrade(&main_panel),
-            );
-            let shared_session = Rc::new(RefCell::new(session));
-            let weak_session = Rc::downgrade(&shared_session);
-            session_manager::register_session(weak_session.clone());
-            shared_session.borrow_mut().activate(weak_session.clone());
-            main_panel.notify_session_is_available(weak_session.clone());
-            plugin_parameters.notify_session_is_available(weak_session.clone());
-            // RealearnPlugin is the main owner of the session. Everywhere else the session is
-            // just temporarily upgraded, never stored as Rc, only as Weak.
-            session_container.fill(shared_session);
-        });
+        Reaper::get()
+            .do_later_in_main_thread_asap(move || {
+                let session_context = match SessionContext::from_host(&host) {
+                    Ok(c) => c,
+                    Err(msg) => {
+                        Reaper::get().medium_reaper().show_message_box(
+                            msg,
+                            "ReaLearn",
+                            MessageBoxType::Okay,
+                        );
+                        return;
+                    }
+                };
+                let session = Session::new(
+                    session_context,
+                    normal_real_time_task_sender,
+                    feedback_real_time_task_sender,
+                    normal_main_task_channel,
+                    control_main_task_receiver,
+                    // It's important that we use a weak pointer here. Otherwise the session keeps
+                    // a strong reference to the UI and the UI keeps strong
+                    // references to the session. This results in UI stuff not
+                    // being dropped when the plug-in is removed. It
+                    // doesn't result in a crash, but there's no cleanup.
+                    Rc::downgrade(&main_panel),
+                );
+                let shared_session = Rc::new(RefCell::new(session));
+                let weak_session = Rc::downgrade(&shared_session);
+                session_manager::register_session(weak_session.clone());
+                shared_session.borrow_mut().activate(weak_session.clone());
+                main_panel.notify_session_is_available(weak_session.clone());
+                plugin_parameters.notify_session_is_available(weak_session.clone());
+                // RealearnPlugin is the main owner of the session. Everywhere else the session is
+                // just temporarily upgraded, never stored as Rc, only as Weak.
+                session_container.fill(shared_session).unwrap();
+            })
+            .unwrap();
     }
 
     fn get_named_config_param(&self, param_name: &str, buffer: &mut [c_char]) -> bool {

@@ -1,22 +1,17 @@
-
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    session_manager, share_mapping, ControlMainTask, FeedbackMainTask, FeedbackRealTimeTask,
-    MainProcessor, MainProcessorMapping, MainProcessorTargetUpdate, MappingId, MappingModel,
-    NormalMainTask, NormalRealTimeTask, ProcessorMapping, RealTimeProcessorMapping, ReaperTarget,
-    SessionContext, SharedMapping, TargetModel,
+    session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask, MainProcessor,
+    MainProcessorMapping, MappingModel, NormalMainTask, NormalRealTimeTask,
+    RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping, TargetModel,
 };
 use helgoboss_learn::MidiSource;
 
-
-use reaper_high::{Fx, MidiInputDevice, MidiOutputDevice, Project, Reaper, Track};
-use reaper_medium::{RegistrationHandle};
-use rx_util::{
-    BoxedUnitEvent, Event, Notifier, SharedEvent, SharedItemEvent, SharedPayload, UnitEvent,
-};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
+use reaper_medium::RegistrationHandle;
+use rx_util::{BoxedUnitEvent, Event, Notifier, SharedPayload, UnitEvent};
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
-use slog::{debug};
+use slog::debug;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::{Rc, Weak};
@@ -287,10 +282,11 @@ impl Session {
     pub fn midi_source_touched(&self) -> impl Event<MidiSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource);
+            .send(NormalRealTimeTask::StartLearnSource)
+            .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         self.midi_source_touched_subject.clone().finalize(move || {
-            rt_sender.send(NormalRealTimeTask::StopLearnSource);
+            rt_sender.send(NormalRealTimeTask::StopLearnSource).unwrap();
         })
     }
 
@@ -412,11 +408,11 @@ impl Session {
     }
 
     pub fn move_mapping_up(&mut self, mapping: *const MappingModel) {
-        self.swap_mappings(mapping, -1);
+        self.swap_mappings(mapping, -1).unwrap();
     }
 
     pub fn move_mapping_down(&mut self, mapping: *const MappingModel) {
-        self.swap_mappings(mapping, 1);
+        self.swap_mappings(mapping, 1).unwrap();
     }
 
     fn swap_mappings(
@@ -559,7 +555,8 @@ impl Session {
     pub fn send_feedback(&self) {
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::FeedbackAll);
+            .send(NormalMainTask::FeedbackAll)
+            .unwrap();
     }
 
     pub fn log_debug_info(&self) {
@@ -567,9 +564,11 @@ impl Session {
         session_manager::log_debug_info();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::LogDebugInfo);
+            .send(NormalMainTask::LogDebugInfo)
+            .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::LogDebugInfo);
+            .send(NormalRealTimeTask::LogDebugInfo)
+            .unwrap();
     }
 
     fn log_debug_info_internal(&self) {
@@ -584,10 +583,6 @@ impl Session {
             self.mapping_subscriptions.len(),
         );
         Reaper::get().show_console_msg(msg);
-    }
-
-    pub fn find_mapping_with_source(&self, source: &MidiSource) -> Option<&SharedMapping> {
-        self.mappings().find(|m| m.borrow().has_source(source))
     }
 
     pub fn find_mapping_with_target(&self, target: &ReaperTarget) -> Option<&SharedMapping> {
@@ -628,7 +623,7 @@ impl Session {
             midi_control_input: self.midi_control_input.get(),
             midi_feedback_output: self.midi_feedback_output.get(),
         };
-        self.normal_real_time_task_sender.send(task);
+        self.normal_real_time_task_sender.send(task).unwrap();
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
@@ -636,9 +631,11 @@ impl Session {
         let splintered = processor_mapping.splinter(self.feedback_is_effectively_enabled());
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateSingleMapping(splintered.1));
+            .send(NormalMainTask::UpdateSingleMapping(splintered.1))
+            .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleMapping(splintered.0));
+            .send(NormalRealTimeTask::UpdateSingleMapping(splintered.0))
+            .unwrap();
     }
 
     fn feedback_is_effectively_enabled(&self) -> bool {
@@ -676,10 +673,12 @@ impl Session {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::EnableMappingsExclusively(
                 enabled_control_mappings,
-            ));
+            ))
+            .unwrap();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateAllTargets(main_target_updates));
+            .send(NormalMainTask::UpdateAllTargets(main_target_updates))
+            .unwrap();
     }
 
     /// Does a full mapping sync.
@@ -687,9 +686,11 @@ impl Session {
         let splintered = self.create_and_splinter_mappings();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateAllMappings(splintered.main));
+            .send(NormalMainTask::UpdateAllMappings(splintered.main))
+            .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateAllMappings(splintered.real_time));
+            .send(NormalRealTimeTask::UpdateAllMappings(splintered.real_time))
+            .unwrap();
     }
 
     /// Creates mappings from mapping models and splits them into different lists so they can be
@@ -751,7 +752,9 @@ impl Drop for Session {
         debug!(Reaper::get().logger(), "Dropping session...");
         if let Some(reg) = self.main_processor_registration {
             unsafe {
-                Reaper::get()
+                // We can throw the unregistered control surface immediately because we are sure
+                // that we are currently not in a control surface call.
+                let _ = Reaper::get()
                     .medium_session()
                     .plugin_register_remove_csurf_inst(reg);
             }

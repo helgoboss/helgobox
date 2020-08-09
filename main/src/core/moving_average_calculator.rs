@@ -25,11 +25,6 @@ impl MovingAverageCalculator {
     pub fn value_count_so_far(&self) -> u64 {
         self.value_count_so_far
     }
-
-    pub fn reset(&mut self) {
-        self.value_count_so_far = 0;
-        self.moving_average = 0.0;
-    }
 }
 
 fn calc_ma(previous_avg: f64, value_count_so_far: u64, new_value: f64) -> f64 {

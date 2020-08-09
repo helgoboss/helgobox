@@ -1,5 +1,6 @@
 use crate::domain::{
-    FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingId, ReaperTarget, WeakSession,
+    FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingId, ReaperTarget,
+    WeakSession,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
@@ -7,7 +8,7 @@ use helgoboss_midi::RawShortMessage;
 use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
-use slog::{debug};
+use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
@@ -219,7 +220,8 @@ impl MainProcessor {
     ) {
         for v in source_values.into_iter() {
             self.feedback_real_time_task_sender
-                .send(FeedbackRealTimeTask::Feedback(v));
+                .send(FeedbackRealTimeTask::Feedback(v))
+                .unwrap();
         }
     }
 
@@ -304,7 +306,9 @@ fn send_feedback_when_target_value_changed(
     target
         .value_changed()
         .subscribe(move |_| {
-            self_sender.send(FeedbackMainTask::Feedback(mapping_id));
+            self_sender
+                .send(FeedbackMainTask::Feedback(mapping_id))
+                .unwrap();
         })
         .unsubscribe_when_dropped()
 }

@@ -19,7 +19,7 @@ pub struct SessionData {
     send_feedback_only_if_armed: bool,
     /// `None` means "<FX input>"
     control_device_id: Option<String>,
-    /// 
+    ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
     feedback_device_id: Option<String>,
@@ -69,7 +69,13 @@ impl SessionData {
         }
     }
 
-    // Doesn't notify listeners! Consumers must inform session that everything has changed.
+    /// Applies this session data to the given session.
+    ///
+    /// Doesn't notify listeners! Consumers must inform session that everything has changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns and error if this session data is invalid.
     pub fn apply_to_model(&self, session: &mut Session) -> Result<(), &'static str> {
         // Validation
         let control_input = match self.control_device_id.as_ref() {

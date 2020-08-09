@@ -2,19 +2,17 @@ use crate::core::{prop, Prop};
 use crate::domain::{ReaperTarget, SessionContext, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{Target};
+use helgoboss_learn::Target;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
-use reaper_medium::{TrackLocation};
+use reaper_medium::TrackLocation;
 use rx_util::{Event, UnitEvent};
 
-use rxrust::prelude::*;
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-
 
 /// A model for creating targets
 #[derive(Clone, Debug)]
@@ -287,7 +285,6 @@ pub fn get_fx_label(fx: Option<&Fx>, index: Option<u32>) -> Cow<'static, str> {
 }
 
 pub fn get_track_label(track: &Track) -> String {
-    
     match track.location() {
         TrackLocation::MasterTrack => "<Master track>".into(),
         TrackLocation::NormalTrack(i) => {

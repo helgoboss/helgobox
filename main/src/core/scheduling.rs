@@ -1,11 +1,10 @@
 use reaper_high::Reaper;
-use rx_util::{Event, SharedEvent, SharedItemEvent, SharedPayload};
+use rx_util::{Event, SharedPayload};
 use rxrust::prelude::*;
 
 use slog::debug;
 use std::marker::PhantomData;
 use std::rc::{Rc, Weak};
-
 
 pub fn when<Item, Trigger>(trigger: Trigger) -> ReactionBuilderStepOne<Item, Trigger>
 where
@@ -114,11 +113,13 @@ where
         trigger.subscribe(move |item| {
             let weak_receiver = weak_receiver.clone();
             let reaction = reaction.clone();
-            Reaper::get().do_later_in_main_thread_asap(move || {
-                if let Some(receiver) = upgrade(&weak_receiver) {
-                    (reaction)(receiver, item);
-                }
-            });
+            Reaper::get()
+                .do_later_in_main_thread_asap(move || {
+                    if let Some(receiver) = upgrade(&weak_receiver) {
+                        (reaction)(receiver, item);
+                    }
+                })
+                .unwrap();
         })
     }
 }
@@ -166,11 +167,13 @@ where
             self.parent.parent.trigger.finalize(move || {
                 let weak_receiver = weak_receiver.clone();
                 let finalizer = finalizer.clone();
-                Reaper::get().do_later_in_main_thread_asap(move || {
-                    if let Some(receiver) = upgrade(&weak_receiver) {
-                        (finalizer)(receiver);
-                    }
-                });
+                Reaper::get()
+                    .do_later_in_main_thread_asap(move || {
+                        if let Some(receiver) = upgrade(&weak_receiver) {
+                            (finalizer)(receiver);
+                        }
+                    })
+                    .unwrap();
             }),
             reaction,
         )

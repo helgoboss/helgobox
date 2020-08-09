@@ -1,5 +1,5 @@
 use crate::domain::ActionInvocationType;
-use helgoboss_learn::{ControlType, ControlValue, Interval, Target, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
     Tempo, Track, TrackSend, Volume,
@@ -8,11 +8,11 @@ use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
     ReaperNormalizedFxParamValue, UndoBehavior,
 };
-use rx_util::{BoxedUnitEvent, Event, UnitEvent};
+use rx_util::{BoxedUnitEvent, Event};
 use rxrust::prelude::*;
 use slog::warn;
 
-use std::convert::{TryInto};
+use std::convert::TryInto;
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -576,7 +576,7 @@ impl ReaperTarget {
                 // It's okay to just convert this to a REAPER-normalized value. We don't support
                 // values above the maximum (or buggy plug-ins).
                 let v = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
-                param.set_reaper_normalized_value(v);
+                param.set_reaper_normalized_value(v).unwrap();
             }
             TrackVolume { track } => {
                 let volume = Volume::from_soft_normalized_value(value.as_absolute()?.get());
@@ -940,13 +940,6 @@ fn format_value_as_db_without_unit(value: UnitValue) -> String {
     } else {
         format!("{:.2}", db.get())
     }
-}
-
-fn positive_volumes_interval() -> Interval<UnitValue> {
-    Interval::new(
-        UnitValue::new(Volume::from_db(Db::ZERO_DB).soft_normalized_value()),
-        UnitValue::new(Volume::from_db(Db::TWELVE_DB).soft_normalized_value()),
-    )
 }
 
 fn format_value_as_db(value: UnitValue) -> String {

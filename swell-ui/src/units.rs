@@ -1,6 +1,3 @@
-
-
-
 /// An abstract unit used for dialog dimensions, independent of HiDPI and stuff.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct DialogUnits(pub u32);
@@ -45,7 +42,7 @@ impl<T> Point<T> {
 fn effective_scale_factor() -> f64 {
     #[cfg(target_os = "linux")]
     {
-        let scaling_256 = Swell::get().SWELL_GetScaling256();
+        let scaling_256 = reaper_low::Swell::get().SWELL_GetScaling256();
         let hidpi_factor = scaling_256 as f64 / 256.0;
         1.9 * hidpi_factor
     }

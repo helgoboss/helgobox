@@ -33,10 +33,6 @@ impl ProcessorMapping {
         }
     }
 
-    pub fn id(&self) -> &MappingId {
-        &self.id
-    }
-
     pub fn splinter(
         &self,
         feedback_is_globally_enabled: bool,
@@ -52,14 +48,6 @@ impl ProcessorMapping {
             self.feedback_is_enabled && feedback_is_globally_enabled,
         );
         (real_time_mapping, main_mapping)
-    }
-
-    pub fn control_is_enabled(&self) -> bool {
-        self.control_is_enabled
-    }
-
-    pub fn feedback_is_enabled(&self) -> bool {
-        self.feedback_is_enabled
     }
 }
 
@@ -186,7 +174,7 @@ impl MainProcessorMapping {
             Some(t) => t,
         };
         if let Some(final_value) = self.mode.control(value, target) {
-            target.control(final_value);
+            target.control(final_value).unwrap();
         }
     }
 

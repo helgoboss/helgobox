@@ -3,14 +3,12 @@ use crate::domain::{EelTransformation, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, DiscreteValue, Interval,
-    MidiClockTransportMessage, MidiSource, PressDurationProcessor, RelativeMode, SourceCharacter,
-    SymmetricUnitValue, Target, ToggleMode, Transformation, UnitValue,
+    full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, Interval,
+    PressDurationProcessor, RelativeMode, SymmetricUnitValue, Target, ToggleMode, UnitValue,
 };
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use serde_repr::*;
 use std::time::Duration;
 
@@ -130,10 +128,6 @@ impl Default for ModeModel {
 }
 
 impl ModeModel {
-    pub fn default_step_count_interval() -> Interval<DiscreteValue> {
-        Interval::new(DiscreteValue::new(1), DiscreteValue::new(1))
-    }
-
     pub fn default_step_size_interval() -> Interval<SymmetricUnitValue> {
         Interval::new(SymmetricUnitValue::new(0.01), SymmetricUnitValue::new(0.01))
     }

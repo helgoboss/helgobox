@@ -183,10 +183,10 @@ impl Window {
         }
     }
 
-    pub fn select_combo_box_item_by_data(self, item_data: isize) -> Result<(), ()> {
+    pub fn select_combo_box_item_by_data(self, item_data: isize) -> Result<(), &'static str> {
         let item_index = (0..self.combo_box_item_count())
             .find(|index| self.combo_box_item_data(*index) == item_data)
-            .ok_or(())?;
+            .ok_or("couldn't find combo box item by item data")?;
         self.select_combo_box_item(item_index);
         Ok(())
     }

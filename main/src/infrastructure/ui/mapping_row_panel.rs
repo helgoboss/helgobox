@@ -19,6 +19,7 @@ use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 pub type SharedMappingPanelManager = Rc<RefCell<MappingPanelManager>>;
 
 /// Panel containing the summary data of one mapping and buttons such as "Remove".
+#[derive(Debug)]
 pub struct MappingRowPanel {
     view: ViewContext,
     session: WeakSession,
@@ -242,7 +243,8 @@ impl MappingRowPanel {
     fn duplicate_mapping(&self) {
         self.session()
             .borrow_mut()
-            .duplicate_mapping(self.require_mapping_address());
+            .duplicate_mapping(self.require_mapping_address())
+            .unwrap();
     }
 
     fn toggle_learn_source(&self) {
@@ -301,7 +303,6 @@ impl View for MappingRowPanel {
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        
         match resource_id {
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
             root::ID_UP_BUTTON => self.move_mapping_up(),

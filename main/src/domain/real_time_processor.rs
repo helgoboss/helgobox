@@ -1,21 +1,19 @@
-
 use crate::domain::{
-    ControlMainTask, MappingId, MidiClockCalculator, MidiControlInput,
-    MidiFeedbackOutput, MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
+    ControlMainTask, MappingId, MidiClockCalculator, MidiControlInput, MidiFeedbackOutput,
+    MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
 };
 use helgoboss_learn::{MidiSource, MidiSourceValue};
 use helgoboss_midi::{
-    ControlChange14BitMessage, ControlChange14BitMessageScanner, MessageMainCategory,
-    ParameterNumberMessage, ParameterNumberMessageScanner, RawShortMessage, ShortMessage,
-    ShortMessageFactory, ShortMessageType, U7,
+    ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
+    ParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
 };
 use reaper_high::Reaper;
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
-use slog::{debug};
+use slog::debug;
 use std::collections::{HashMap, HashSet};
 
 use std::ptr::null_mut;
-use vst::api::{Event, EventType, Events, MidiEvent, TimeInfo};
+use vst::api::{EventType, Events, MidiEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
 
@@ -241,9 +239,11 @@ impl RealTimeProcessor {
             task_count,
             self.feedback_task_receiver.len(),
         );
-        Reaper::get().do_in_main_thread_asap(move || {
-            Reaper::get().show_console_msg(msg);
-        });
+        Reaper::get()
+            .do_in_main_thread_asap(move || {
+                Reaper::get().show_console_msg(msg);
+            })
+            .unwrap();
     }
 
     fn is_now_playing(&self) -> bool {
@@ -323,11 +323,7 @@ impl RealTimeProcessor {
                 if (matched && self.let_matched_events_through)
                     || (!matched && self.let_unmatched_events_through)
                 {
-                    for m in msg
-                        .to_short_messages::<RawShortMessage>()
-                        .iter()
-                        .flatten()
-                    {
+                    for m in msg.to_short_messages::<RawShortMessage>().iter().flatten() {
                         self.forward_midi(*m);
                     }
                 }
@@ -352,7 +348,8 @@ impl RealTimeProcessor {
 
     fn learn_source(&mut self, source: MidiSource) {
         self.normal_main_task_sender
-            .send(NormalMainTask::LearnSource(source));
+            .send(NormalMainTask::LearnSource(source))
+            .unwrap();
     }
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
@@ -406,7 +403,7 @@ impl RealTimeProcessor {
                     mapping_id: m.id(),
                     value: control_value,
                 };
-                self.control_main_task_sender.send(task);
+                self.control_main_task_sender.send(task).unwrap();
                 matched = true;
             }
         }

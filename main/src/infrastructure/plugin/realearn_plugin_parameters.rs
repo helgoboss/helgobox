@@ -1,15 +1,13 @@
 use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
 
-use crate::domain::{WeakSession};
-use lazycell::{AtomicLazyCell};
+use crate::domain::WeakSession;
+use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
 use reaper_low::firewall;
 use slog::debug;
 
-
-
-use std::sync::{RwLock};
+use std::sync::RwLock;
 use vst::plugin::PluginParameters;
 
 pub struct RealearnPluginParameters {
@@ -34,7 +32,8 @@ impl RealearnPluginParameters {
         // REAPER calls the GetData/SetData functions in main thread only! So, Send or Sync,
         // whatever ... we don't care!
         self.session
-            .fill(unsafe { SendOrSyncWhatever::new(session) });
+            .fill(unsafe { SendOrSyncWhatever::new(session) })
+            .unwrap();
         let mut guard = self.data_to_be_loaded.write().unwrap();
         if let Some(data) = guard.as_ref() {
             self.load_bank_data(data);
@@ -97,7 +96,7 @@ impl PluginParameters for RealearnPluginParameters {
                 serde_json::from_slice(data).expect("couldn't deserialize session data");
             let upgraded_session = shared_session.upgrade().expect("session gone");
             let mut session = upgraded_session.borrow_mut();
-            session_data.apply_to_model(&mut session);
+            session_data.apply_to_model(&mut session).unwrap();
             session.notify_everything_has_changed(shared_session.get().clone());
         });
     }

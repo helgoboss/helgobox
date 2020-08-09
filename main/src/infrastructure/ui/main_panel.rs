@@ -1,21 +1,20 @@
-
 use crate::domain::{MappingModel, SessionUi, WeakSession};
 
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
 
-
 use lazycell::LazyCell;
 use reaper_high::Reaper;
 
 use slog::debug;
-use std::cell::{Cell};
+use std::cell::Cell;
 
 use std::rc::{Rc, Weak};
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
 // TODO-low Maybe call this SessionPanel
+#[derive(Debug)]
 pub struct MainPanel {
     view: ViewContext,
     active_data: LazyCell<ActiveData>,
@@ -23,6 +22,7 @@ pub struct MainPanel {
     state: SharedMainState,
 }
 
+#[derive(Debug)]
 struct ActiveData {
     session: WeakSession,
     header_panel: SharedView<HeaderPanel>,
@@ -41,10 +41,6 @@ impl Default for MainPanel {
 }
 
 impl MainPanel {
-    pub fn new() -> MainPanel {
-        Default::default()
-    }
-
     pub fn notify_session_is_available(self: Rc<Self>, session: WeakSession) {
         // Finally, the session is available. First, save its reference and create sub panels.
         let active_data = ActiveData {
@@ -57,7 +53,7 @@ impl MainPanel {
             )
             .into(),
         };
-        self.active_data.fill(active_data);
+        self.active_data.fill(active_data).unwrap();
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
         if let Some(window) = self.view.window() {
             self.open_sub_panels(window);

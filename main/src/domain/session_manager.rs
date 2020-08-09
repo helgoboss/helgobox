@@ -3,10 +3,9 @@ use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 use reaper_medium::MessageBoxType;
 use rxrust::prelude::*;
-use slog::{debug};
-use std::cell::{RefCell};
-use std::rc::{Rc};
-
+use slog::debug;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 static mut SESSIONS: Lazy<RefCell<Vec<WeakSession>>> = Lazy::new(|| RefCell::new(vec![]));
 
@@ -31,7 +30,7 @@ pub fn log_debug_info() {
 pub fn register_session(session: WeakSession) {
     let mut sessions = sessions().borrow_mut();
     debug!(Reaper::get().logger(), "Registering new session...");
-    unsafe { sessions.push(session) };
+    sessions.push(session);
     debug!(
         Reaper::get().logger(),
         "Session registered. Session count: {}",

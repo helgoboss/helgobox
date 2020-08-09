@@ -68,7 +68,7 @@ fn compile_eel() {
 fn compile_dialogs() {
     // Make RC file SWELL-compatible.
     // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-    let mut modified_rc_content = std::fs::read_to_string("src/infrastructure/common/realearn.rc")
+    let modified_rc_content = std::fs::read_to_string("src/infrastructure/common/realearn.rc")
         .expect("couldn't read RC file")
         .replace("WS_CHILDWINDOW", "WS_CHILD");
     std::fs::write("../target/realearn.modified.rc", modified_rc_content)
@@ -82,7 +82,8 @@ fn compile_dialogs() {
     std::fs::copy(
         "../target/realearn.modified.rc_mac_dlg",
         "src/infrastructure/common/realearn.rc_mac_dlg",
-    );
+    )
+    .unwrap();
     assert!(result.status.success(), "PHP dialog translator failed");
     // Compile the resulting C++ file
     cc::Build::new()
@@ -149,6 +150,7 @@ fn generate_bindings() {
         .expect("Couldn't write bindings!");
 }
 
+#[cfg(any(feature = "generate", target_family = "unix"))]
 fn determine_cpp_stdlib() -> Option<&'static str> {
     if cfg!(target_os = "macos") {
         Some("c++")

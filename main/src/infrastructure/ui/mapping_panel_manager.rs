@@ -1,16 +1,15 @@
-use crate::domain::{SharedMapping};
-use crate::domain::{WeakSession};
+use crate::domain::SharedMapping;
+use crate::domain::WeakSession;
 use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use reaper_high::Reaper;
 use slog::debug;
-
-
 
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
 
 /// Responsible for managing the currently open top-level mapping panels.
+#[derive(Debug)]
 pub struct MappingPanelManager {
     session: WeakSession,
     main_panel: WeakView<MainPanel>,

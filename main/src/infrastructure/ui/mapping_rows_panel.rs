@@ -1,27 +1,23 @@
 use std::cell::{Cell, RefCell};
-use std::rc::{Rc};
-
-
+use std::rc::Rc;
 
 use reaper_high::Reaper;
-use reaper_low::{raw};
-use rxrust::prelude::*;
+use reaper_low::raw;
 
 use crate::core::when;
+use crate::domain::SharedSession;
 use crate::domain::{MappingModel, SharedMapping, WeakSession};
-use crate::domain::{SharedSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{
-    MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
-    SharedMappingPanelManager,
+    MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState, SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
 use slog::debug;
 use std::cmp;
 
-
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
+#[derive(Debug)]
 pub struct MappingRowsPanel {
     view: ViewContext,
     session: WeakSession,
@@ -336,7 +332,8 @@ impl View for MappingRowsPanel {
         true
     }
 
-    fn closed(self: SharedView<Self>, _window: Window) {
+    #[allow(unused_variables)]
+    fn closed(self: SharedView<Self>, window: Window) {
         #[cfg(target_family = "unix")]
         unsafe {
             Reaper::get()

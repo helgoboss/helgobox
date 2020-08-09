@@ -1,28 +1,27 @@
 use crate::application::SessionData;
-use crate::core::{when};
+use crate::core::when;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput, WeakSession};
 use crate::domain::{ReaperTarget, SharedSession};
 use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::{SharedMainState};
+use crate::infrastructure::ui::SharedMainState;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
 use reaper_medium::{MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
-use rx_util::{UnitEvent};
-use rxrust::prelude::*;
+use rx_util::UnitEvent;
 
 use slog::debug;
 
-
 use std::iter;
-use std::ops::{Deref};
-use std::rc::{Rc};
+use std::ops::Deref;
+use std::rc::Rc;
 
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
+#[derive(Debug)]
 pub struct HeaderPanel {
     view: ViewContext,
     session: WeakSession,
@@ -174,7 +173,7 @@ impl HeaderPanel {
         use MidiControlInput::*;
         match self.session().borrow().midi_control_input.get() {
             FxInput => {
-                b.select_combo_box_item_by_data(-1);
+                b.select_combo_box_item_by_data(-1).unwrap();
             }
             Device(dev) => b
                 .select_combo_box_item_by_data(dev.id().get() as _)
@@ -214,11 +213,11 @@ impl HeaderPanel {
         use MidiFeedbackOutput::*;
         match self.session().borrow().midi_feedback_output.get() {
             None => {
-                b.select_combo_box_item_by_data(-1);
+                b.select_combo_box_item_by_data(-1).unwrap();
             }
             Some(o) => match o {
                 FxOutput => {
-                    b.select_combo_box_item_by_data(-2);
+                    b.select_combo_box_item_by_data(-2).unwrap();
                 }
                 Device(dev) => b
                     .select_combo_box_item_by_data(dev.id().get() as _)
@@ -371,7 +370,7 @@ impl HeaderPanel {
         })?;
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
-        session_data.apply_to_model(&mut session);
+        session_data.apply_to_model(&mut session).unwrap();
         session.notify_everything_has_changed(self.session.clone());
         session.mark_project_as_dirty();
         Ok(())
@@ -383,7 +382,9 @@ impl HeaderPanel {
             serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
         let mut clipboard: ClipboardContext =
             ClipboardProvider::new().expect("couldn't create clipboard");
-        clipboard.set_contents(json);
+        clipboard
+            .set_contents(json)
+            .expect("couldn't set clipboard contents");
     }
 
     fn register_listeners(self: SharedView<Self>) {

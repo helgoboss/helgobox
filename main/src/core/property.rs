@@ -1,6 +1,5 @@
 //! In this file we assemble the a custom-tailored property type which we are going to use
 //! throughout ReaLearn.
-use reaper_high::Reaper;
 use rx_util::{LocalProp, LocalPropSubject, Notifier};
 use rxrust::prelude::*;
 use std::marker::PhantomData;
@@ -35,9 +34,11 @@ where
         {
             let mut subject = subject.clone();
             let value = value.clone();
-            Reaper::get().do_later_in_main_thread_asap(move || {
-                subject.next(value);
-            });
+            reaper_high::Reaper::get()
+                .do_later_in_main_thread_asap(move || {
+                    subject.next(value);
+                })
+                .unwrap();
         }
     }
 }

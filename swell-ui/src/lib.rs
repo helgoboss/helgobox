@@ -3,7 +3,7 @@ mod macros;
 pub use macros::*;
 
 mod view_manager;
-pub use view_manager::*;
+use view_manager::*;
 
 mod window;
 pub use window::*;

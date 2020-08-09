@@ -1,8 +1,7 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
 use crate::{SharedView, View, WeakView, Window};
-use std::cell::{BorrowMutError, Cell, RefCell, RefMut};
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-
 
 use reaper_low::{raw, Swell};
 use rxrust::prelude::*;
@@ -256,5 +255,5 @@ fn hiword_signed(wparam: usize) -> i16 {
     hiword(wparam) as _
 }
 
-/// Used for global dialog proc reentrancy check.
+// Used for global dialog proc reentrancy check.
 thread_local!(static DIALOG_PROC_ALREADY_ENTERED: Cell<bool> = Cell::new(false));

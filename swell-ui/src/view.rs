@@ -3,10 +3,8 @@ use reaper_low::raw;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 
-use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
-
-
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///

@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 pub type SharedMainState = Rc<RefCell<MainState>>;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MainState {
     pub target_filter: Prop<Option<ReaperTarget>>,
     pub is_learning_target_filter: Prop<bool>,

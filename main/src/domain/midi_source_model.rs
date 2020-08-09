@@ -7,11 +7,10 @@ use helgoboss_learn::{
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use serde::export::Formatter;
 use serde_repr::*;
 use std::borrow::Cow;
-use std::fmt::{Display};
+use std::fmt::Display;
 
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
@@ -101,11 +100,6 @@ impl MidiSourceModel {
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         // TODO-low use cached
         self.create_source().format_control_value(value)
-    }
-
-    pub fn emits_increments(&self) -> bool {
-        // TODO-low use cached
-        self.create_source().emits_increments()
     }
 
     pub fn parse_control_value(&self, text: &str) -> Result<UnitValue, &'static str> {
@@ -348,6 +342,7 @@ mod tests {
     use super::*;
     use helgoboss_midi::test_util::*;
     use rx_util::create_invocation_mock;
+    use rxrust::prelude::*;
 
     #[test]
     fn changed() {

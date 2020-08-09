@@ -3,41 +3,37 @@ use crate::domain::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, SharedSession, WeakSession,
 };
 use crate::domain::{
-    get_fx_label, get_fx_param_label, share_mapping, ActionInvocationType, MappingModel,
-    MidiControlInput, MidiFeedbackOutput, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
-    ReaperTarget, Session, SharedMapping, TargetCharacter, TargetModel, TargetModelWithContext,
-    TargetType, VirtualTrack,
+    get_fx_label, get_fx_param_label, ActionInvocationType, MappingModel, MidiSourceModel,
+    MidiSourceType, ModeModel, ModeType, ReaperTarget, Session, SharedMapping, TargetCharacter,
+    TargetModel, TargetModelWithContext, TargetType, VirtualTrack,
 };
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::constants::symbols;
-use crate::infrastructure::ui::{MainPanel};
+use crate::infrastructure::ui::MainPanel;
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, SourceCharacter,
-    SymmetricUnitValue, Target, UnitValue,
+    ControlValue, MidiClockTransportMessage, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::{Action, MidiInputDevice, MidiOutputDevice, Reaper, Track};
-use reaper_low::{raw};
-use reaper_medium::{
-    InitialAction, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, PromptForActionResult,
-    ReaperString, SectionId,
-};
-use rx_util::{UnitEvent};
+use reaper_high::Reaper;
+use reaper_low::raw;
+use reaper_medium::{InitialAction, MessageBoxType, PromptForActionResult, SectionId};
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
-use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::convert::{TryInto};
+use std::cell::{Cell, RefCell};
+use std::convert::TryInto;
 
 use std::iter;
 
 use std::ptr::null;
-use std::rc::{Rc};
+use std::rc::Rc;
 
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
+#[derive(Debug)]
 pub struct MappingPanel {
     view: ViewContext,
     session: WeakSession,
@@ -54,13 +50,11 @@ pub struct MappingPanel {
 struct ImmutableMappingPanel<'a> {
     session: &'a Session,
     mapping_ptr: *const MappingModel,
-    shared_mapping: &'a SharedMapping,
     mapping: &'a MappingModel,
     source: &'a MidiSourceModel,
     mode: &'a ModeModel,
     target: &'a TargetModel,
     view: &'a ViewContext,
-    is_invoked_programatically: &'a Cell<bool>,
     panel: &'a SharedView<MappingPanel>,
 }
 
@@ -72,6 +66,7 @@ struct MutableMappingPanel<'a> {
     panel: &'a SharedView<MappingPanel>,
 }
 
+#[derive(Debug)]
 struct Sliders {
     mode_min_target_value: Window,
     mode_max_target_value: Window,
@@ -180,13 +175,11 @@ impl MappingPanel {
         let p = ImmutableMappingPanel {
             session: &session,
             mapping_ptr: shared_mapping.as_ptr(),
-            shared_mapping: &shared_mapping,
             mapping: &mapping,
             source: &mapping.source_model,
             mode: &mapping.mode_model,
             target: &mapping.target_model,
             view: &self.view,
-            is_invoked_programatically: &self.is_invoked_programmatically,
             panel: &self,
         };
         Ok(op(&p))
@@ -285,7 +278,9 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target(&self) {
         if let Some(t) = self.real_target() {
-            Reaper::get().do_later_in_main_thread_asap(move || t.open());
+            Reaper::get()
+                .do_later_in_main_thread_asap(move || t.open())
+                .unwrap();
         }
     }
 
@@ -813,7 +808,7 @@ impl<'a> MutableMappingPanel<'a> {
             .with_context(self.session.context())
     }
 
-    fn update_target_from_combo_box_three(&mut self) -> Result<(), &'static str> {
+    fn update_target_from_combo_box_three(&mut self) {
         let combo = self
             .view
             .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
@@ -832,7 +827,6 @@ impl<'a> MutableMappingPanel<'a> {
                 .action_invocation_type
                 .set(index.try_into().expect("invalid action invocation type"));
         }
-        Ok(())
     }
 
     fn update_target_fx_parameter(&mut self) {
@@ -849,7 +843,8 @@ impl<'a> MutableMappingPanel<'a> {
             let value = self
                 .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                 .unwrap_or(UnitValue::MIN);
-            t.control(ControlValue::Absolute(value));
+            // If it doesn't work in some cases, so what.
+            let _ = t.control(ControlValue::Absolute(value));
         }
     }
 }
@@ -883,7 +878,8 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn update_target_value_from_slider(&self, slider: Window) {
         if let Some(t) = self.real_target() {
-            t.control(ControlValue::Absolute(slider.slider_unit_value()));
+            // If it doesn't work in some cases, so what.
+            let _ = t.control(ControlValue::Absolute(slider.slider_unit_value()));
         }
     }
 
@@ -1013,10 +1009,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         match self.source.channel.get() {
             None => {
-                b.select_combo_box_item_by_data(-1);
+                b.select_combo_box_item_by_data(-1).unwrap();
             }
             Some(ch) => {
-                b.select_combo_box_item_by_data(ch.get() as _);
+                b.select_combo_box_item_by_data(ch.get() as _).unwrap();
             }
         };
     }
@@ -1049,7 +1045,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             None => -1,
             Some(n) => n.get() as _,
         };
-        combo.select_combo_box_item_by_data(data);
+        combo.select_combo_box_item_by_data(data).unwrap();
     }
 
     fn invalidate_source_parameter_number_message_number_controls(&self) {
@@ -1162,7 +1158,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Master => -1,
             Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
         };
-        combo.select_combo_box_item_by_data(data);
+        combo.select_combo_box_item_by_data(data).unwrap();
     }
 
     fn invalidate_target_line_three(&self) {
@@ -2126,7 +2122,7 @@ impl View for MappingPanel {
             // Target
             ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
             ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
-                self.write(|p| p.update_target_track());
+                self.write(|p| p.update_target_track()).unwrap();
             }
             ID_TARGET_FX_OR_SEND_COMBO_BOX => {
                 self.write(|p| p.update_target_from_combo_box_three());
@@ -2137,7 +2133,6 @@ impl View for MappingPanel {
     }
 
     fn slider_moved(self: SharedView<Self>, slider: Window) {
-        
         let cloned_self = self.clone();
         let sliders = cloned_self.sliders.borrow();
         let sliders = sliders.as_ref().expect("sliders not set");
@@ -2168,7 +2163,7 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                self.read(|p| p.update_target_value_from_slider(s));
+                self.read(|p| p.update_target_value_from_slider(s)).unwrap();
             }
             _ => unreachable!(),
         };
@@ -2187,7 +2182,7 @@ impl View for MappingPanel {
         match resource_id {
             // Mapping
             ID_MAPPING_NAME_EDIT_CONTROL => {
-                let _ = self.write(|p| p.update_mapping_name());
+                self.write(|p| p.update_mapping_name()).unwrap();
             }
             // Source
             ID_SOURCE_NUMBER_EDIT_CONTROL => {
