@@ -165,10 +165,7 @@ impl MainProcessorMapping {
         self.feedback_is_enabled
     }
 
-    pub fn control_if_enabled(&mut self, value: ControlValue) {
-        if !self.control_is_enabled {
-            return;
-        }
+    pub fn control(&mut self, value: ControlValue) {
         let target = match &self.target {
             None => return,
             Some(t) => t,

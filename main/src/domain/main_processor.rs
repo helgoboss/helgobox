@@ -10,7 +10,10 @@ use reaper_medium::ControlSurface;
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
@@ -25,6 +28,7 @@ pub struct MainProcessor {
     mappings: HashMap<MappingId, MainProcessorMapping>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
+    ephemeral_source_cache: EphemeralSourceCache,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
@@ -53,6 +57,7 @@ impl ControlSurface for MainProcessor {
                         Reaper::get().logger(),
                         "Main processor: Updating all mappings..."
                     );
+                    self.ephemeral_source_cache.clear();
                     let mut unused_sources = self.currently_feedback_enabled_sources();
                     // Put into hash map in order to quickly look up mappings by ID
                     self.mappings = mappings
@@ -92,6 +97,7 @@ impl ControlSurface for MainProcessor {
                         "Main processor: Updating mapping {:?}...",
                         mapping.id()
                     );
+                    self.ephemeral_source_cache.clear();
                     // (Re)subscribe to or unsubscribe from feedback
                     match mapping.target() {
                         Some(target) if mapping.feedback_is_enabled() => {
@@ -144,7 +150,7 @@ impl ControlSurface for MainProcessor {
                 }
             }
         }
-        // Process feedback tasks
+        // Process control tasks
         let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
             .control_task_receiver
             .try_iter()
@@ -163,7 +169,11 @@ impl ControlSurface for MainProcessor {
                         // selected") and the real-time processor doesn't yet know about it, there
                         // might be a short amount of time where we still receive control
                         // statements. We filter them here.
-                        m.control_if_enabled(value);
+                        if m.control_is_enabled() {
+                            // TODO-high Only add if prevent immediate feedback enabled
+                            self.ephemeral_source_cache.add(m.source().clone());
+                            m.control(value);
+                        }
                     };
                 }
             }
@@ -186,6 +196,11 @@ impl ControlSurface for MainProcessor {
         if let Some(mapping_ids) = self.feedback_buffer.poll() {
             let source_values = mapping_ids.iter().filter_map(|mapping_id| {
                 let mapping = self.mappings.get(mapping_id)?;
+                if mapping.feedback_is_enabled()
+                    && self.ephemeral_source_cache.contains(mapping.source())
+                {
+                    return None;
+                }
                 mapping.feedback_if_enabled()
             });
             self.send_feedback(source_values);
@@ -211,6 +226,7 @@ impl MainProcessor {
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
             session,
+            ephemeral_source_cache: Default::default(),
         }
     }
 
@@ -361,5 +377,45 @@ pub struct MainProcessorTargetUpdate {
 impl Drop for MainProcessor {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping main processor...");
+    }
+}
+
+const EPHEMERAL_SOURCE_CACHE_LIFESPAN: Duration = Duration::from_millis(20);
+
+/// Allows to add sources and keeps them just for a few milliseconds.
+#[derive(Debug, Default)]
+struct EphemeralSourceCache {
+    entries: RefCell<HashMap<MidiSource, Instant>>,
+}
+
+impl EphemeralSourceCache {
+    /// Adds the given source
+    pub fn add(&mut self, source: MidiSource) {
+        self.entries.borrow_mut().insert(source, Instant::now());
+    }
+
+    /// Checks if the given source is in this cache and not yet expired.
+    ///
+    /// Also removes the cache entry if expired.
+    pub fn contains(&self, source: &MidiSource) -> bool {
+        use Entry::*;
+        let expired = {
+            if let Some(source) = self.entries.borrow().get(source) {
+                source.elapsed() > EPHEMERAL_SOURCE_CACHE_LIFESPAN
+            } else {
+                return false;
+            }
+        };
+        if expired {
+            self.entries.borrow_mut().remove(source);
+            false
+        } else {
+            true
+        }
+    }
+
+    /// Clears the cache
+    fn clear(&mut self) {
+        self.entries.borrow_mut().clear();
     }
 }
