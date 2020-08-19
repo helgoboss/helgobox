@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-07-29 (v1.10.0-pre7)</code></td>
+  <td><code>2020-08-19 (v1.10.0-pre8)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -390,6 +390,10 @@ This section provides the following mapping-related settings and functions:
   combination with the search function if there are many mappings to keep track of.
 - **Control enabled / Feedback enabled:** Use these checkboxes to enable/disable control and/or
   feedback for this mapping.
+- **Prevent echo feedback:** This checkbox mainly exists for motorized faders that don't like
+  getting feedback while being moved. If checked, ReaLearn won't send feedback if the target value
+  change was caused by incoming source events of this mapping. However, it will still send feedback
+  if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
 - **Find in mapping list:** Scrolls the mapping rows panel so that the corresponding mapping row for
   this mapping gets visible.
 
