@@ -12,6 +12,7 @@ pub struct MappingModelData {
     target: TargetModelData,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
+    prevent_echo_feedback: bool,
 }
 
 impl Default for MappingModelData {
@@ -23,6 +24,7 @@ impl Default for MappingModelData {
             target: Default::default(),
             control_is_enabled: true,
             feedback_is_enabled: true,
+            prevent_echo_feedback: false,
         }
     }
 }
@@ -36,6 +38,7 @@ impl MappingModelData {
             target: TargetModelData::from_model(&model.target_model, context),
             control_is_enabled: model.control_is_enabled.get(),
             feedback_is_enabled: model.feedback_is_enabled.get(),
+            prevent_echo_feedback: model.prevent_echo_feedback.get(),
         }
     }
 
@@ -57,5 +60,8 @@ impl MappingModelData {
         model
             .feedback_is_enabled
             .set_without_notification(self.feedback_is_enabled);
+        model
+            .prevent_echo_feedback
+            .set_without_notification(self.prevent_echo_feedback);
     }
 }

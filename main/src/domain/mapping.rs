@@ -2,6 +2,7 @@ use crate::domain::{MainProcessorTargetUpdate, Mode, ReaperTarget};
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
 use helgoboss_midi::RawShortMessage;
 
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -12,6 +13,7 @@ pub struct ProcessorMapping {
     target: Option<ReaperTarget>,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
+    prevent_echo_feedback: bool,
 }
 
 impl ProcessorMapping {
@@ -22,6 +24,7 @@ impl ProcessorMapping {
         target: Option<ReaperTarget>,
         control_is_enabled: bool,
         feedback_is_enabled: bool,
+        prevent_echo_feedback: bool,
     ) -> ProcessorMapping {
         ProcessorMapping {
             id,
@@ -30,6 +33,7 @@ impl ProcessorMapping {
             target,
             control_is_enabled,
             feedback_is_enabled,
+            prevent_echo_feedback,
         }
     }
 
@@ -46,6 +50,7 @@ impl ProcessorMapping {
             self.target.clone(),
             self.control_is_enabled,
             self.feedback_is_enabled && feedback_is_globally_enabled,
+            self.prevent_echo_feedback,
         );
         (real_time_mapping, main_mapping)
     }
@@ -109,6 +114,8 @@ impl RealTimeProcessorMapping {
     }
 }
 
+const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(20);
+
 #[derive(Debug)]
 pub struct MainProcessorMapping {
     id: MappingId,
@@ -117,6 +124,8 @@ pub struct MainProcessorMapping {
     target: Option<ReaperTarget>,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
+    prevent_echo_feedback: bool,
+    time_of_last_control: Option<Instant>,
 }
 
 impl MainProcessorMapping {
@@ -125,16 +134,19 @@ impl MainProcessorMapping {
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
-        control: bool,
-        feedback: bool,
+        control_is_enabled: bool,
+        feedback_is_enabled: bool,
+        prevent_echo_feedback: bool,
     ) -> MainProcessorMapping {
         MainProcessorMapping {
             id,
             source,
             mode,
             target,
-            control_is_enabled: control,
-            feedback_is_enabled: feedback,
+            control_is_enabled,
+            feedback_is_enabled,
+            prevent_echo_feedback,
+            time_of_last_control: None,
         }
     }
 
@@ -165,12 +177,18 @@ impl MainProcessorMapping {
         self.feedback_is_enabled
     }
 
-    pub fn control(&mut self, value: ControlValue) {
+    pub fn control_if_enabled(&mut self, value: ControlValue) {
+        if !self.control_is_enabled {
+            return;
+        }
         let target = match &self.target {
             None => return,
             Some(t) => t,
         };
         if let Some(final_value) = self.mode.control(value, target) {
+            if self.prevent_echo_feedback {
+                self.time_of_last_control = Some(Instant::now());
+            }
             target.control(final_value).unwrap();
         }
     }
@@ -178,6 +196,11 @@ impl MainProcessorMapping {
     pub fn feedback_if_enabled(&self) -> Option<MidiSourceValue<RawShortMessage>> {
         if !self.feedback_is_enabled {
             return None;
+        }
+        if let Some(t) = self.time_of_last_control {
+            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
+                return None;
+            }
         }
         let target = match &self.target {
             None => return None,

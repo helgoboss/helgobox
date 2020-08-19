@@ -120,6 +120,7 @@ pub mod root {
     pub const ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT: u32 = 40074;
     pub const ID_OK: u32 = 40075;
     pub const ID_TARGET_ACTION_LABEL_TEXT: u32 = 40076;
+    pub const ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX: u32 = 40078;
     pub const ID_CMD: u32 = 236;
     pub const ID_PSRESTARTWINDOWS: u32 = 2;
     pub const ID_PSREBOOTSYSTEM: u32 = 3;

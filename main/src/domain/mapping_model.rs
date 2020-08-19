@@ -15,6 +15,7 @@ pub struct MappingModel {
     pub name: Prop<String>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
+    pub prevent_echo_feedback: Prop<bool>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -27,6 +28,7 @@ impl Clone for MappingModel {
             name: self.name.clone(),
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
+            prevent_echo_feedback: self.prevent_echo_feedback.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
@@ -41,6 +43,7 @@ impl Default for MappingModel {
             name: Default::default(),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
+            prevent_echo_feedback: prop(false),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: Default::default(),
@@ -107,6 +110,7 @@ impl MappingModel {
             .merge(self.target_model.changed())
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
+            .merge(self.prevent_echo_feedback.changed())
     }
 }
 
@@ -133,6 +137,7 @@ impl<'a> MappingModelWithContext<'a> {
             target,
             self.mapping.control_is_enabled.get() && target_conditions_are_met,
             self.mapping.feedback_is_enabled.get() && target_conditions_are_met,
+            self.mapping.prevent_echo_feedback.get(),
         )
     }
 

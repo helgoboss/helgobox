@@ -139,7 +139,7 @@ impl TargetModelData {
                             "Track not found by GUID {} and name {}, falling back to <This>",
                             guid.to_string_with_braces(),
                             name.map(|n| format!("\"{}\"", n))
-                                .unwrap_or("-".to_string())
+                                .unwrap_or_else(|| "-".to_string())
                         )),
                     }
                     VirtualTrack::This
