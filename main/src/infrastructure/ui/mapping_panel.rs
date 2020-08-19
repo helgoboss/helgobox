@@ -353,6 +353,14 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mapping_prevent_echo_feedback(&mut self) {
+        self.mapping.prevent_echo_feedback.set(
+            self.view
+                .require_control(root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
     fn update_mapping_name(&mut self) -> Result<(), &'static str> {
         let value = self
             .view
@@ -866,6 +874,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mapping_name_edit_control();
         self.invalidate_mapping_control_enabled_check_box();
         self.invalidate_mapping_feedback_enabled_check_box();
+        self.invalidate_mapping_prevent_echo_feedback_check_box();
         self.invalidate_source_controls();
         self.invalidate_target_controls();
         self.invalidate_mode_controls();
@@ -905,6 +914,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX);
         cb.set_checked(self.mapping.feedback_is_enabled.get());
         cb.set_text(format!("{} Feedback enabled", symbols::ARROW_LEFT_SYMBOL));
+    }
+
+    fn invalidate_mapping_prevent_echo_feedback_check_box(&self) {
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX);
+        cb.set_checked(self.mapping.prevent_echo_feedback.get());
     }
 
     fn invalidate_source_controls(&self) {
@@ -1422,6 +1438,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(self.mapping.feedback_is_enabled.changed(), |view| {
                 view.invalidate_mapping_feedback_enabled_check_box();
+            });
+        self.panel
+            .when_do_sync(self.mapping.prevent_echo_feedback.changed(), |view| {
+                view.invalidate_mapping_prevent_echo_feedback_check_box();
             });
     }
 
@@ -2071,6 +2091,9 @@ impl View for MappingPanel {
             }
             ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => {
                 self.write(|p| p.update_mapping_feedback_enabled())
+            }
+            ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX => {
+                self.write(|p| p.update_mapping_prevent_echo_feedback())
             }
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
                 self.scroll_to_mapping_in_main_panel();

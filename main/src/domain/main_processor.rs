@@ -144,7 +144,7 @@ impl ControlSurface for MainProcessor {
                 }
             }
         }
-        // Process feedback tasks
+        // Process control tasks
         let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
             .control_task_receiver
             .try_iter()
