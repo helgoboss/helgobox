@@ -846,16 +846,6 @@ impl<'a> MutableMappingPanel<'a> {
         let target = &mut self.mapping.target_model;
         target.param_index.set(data as _);
     }
-
-    fn update_target_value_from_edit_control(&mut self) {
-        if let Some(t) = self.real_target() {
-            let value = self
-                .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
-                .unwrap_or(UnitValue::MIN);
-            // If it doesn't work in some cases, so what.
-            let _ = t.control(ControlValue::Absolute(value));
-        }
-    }
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
@@ -884,13 +874,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_window()
             .set_text(format!("Edit mapping {}", self.mapping.name.get_ref()));
-    }
-
-    fn update_target_value_from_slider(&self, slider: Window) {
-        if let Some(t) = self.real_target() {
-            // If it doesn't work in some cases, so what.
-            let _ = t.control(ControlValue::Absolute(slider.slider_unit_value()));
-        }
     }
 
     fn invalidate_mapping_name_edit_control(&self) {
@@ -2187,7 +2170,9 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                self.read(|p| p.update_target_value_from_slider(s)).unwrap();
+                if let Ok(Some(t)) = self.read(|p| p.real_target()) {
+                    update_target_value(t, s.slider_unit_value());
+                }
             }
             _ => unreachable!(),
         };
@@ -2245,7 +2230,15 @@ impl View for MappingPanel {
             }
             // Target
             ID_TARGET_VALUE_EDIT_CONTROL => {
-                self.write(|p| p.update_target_value_from_edit_control());
+                let (target, value) = self.write(|p| {
+                    let value = p
+                        .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
+                        .unwrap_or(UnitValue::MIN);
+                    (p.real_target(), value)
+                });
+                if let Some(t) = target {
+                    update_target_value(t, value);
+                }
             }
             _ => return false,
         };
@@ -2313,4 +2306,9 @@ impl WindowExt for Window {
 enum PositiveOrSymmetricUnitValue {
     Positive(UnitValue),
     Symmetric(SymmetricUnitValue),
+}
+
+fn update_target_value(target: ReaperTarget, value: UnitValue) {
+    // If it doesn't work in some cases, so what.
+    let _ = target.control(ControlValue::Absolute(value));
 }
