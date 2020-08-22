@@ -1,5 +1,5 @@
 use crate::application::{ModeModelData, SourceModelData, TargetModelData};
-use crate::domain::{MappingModel, SessionContext};
+use crate::domain::{ActivationCondition, MappingModel, SessionContext};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
@@ -13,6 +13,7 @@ pub struct MappingModelData {
     control_is_enabled: bool,
     feedback_is_enabled: bool,
     prevent_echo_feedback: bool,
+    activation: ActivationCondition,
 }
 
 impl Default for MappingModelData {
@@ -25,6 +26,7 @@ impl Default for MappingModelData {
             control_is_enabled: true,
             feedback_is_enabled: true,
             prevent_echo_feedback: false,
+            activation: ActivationCondition::Always,
         }
     }
 }
@@ -39,6 +41,7 @@ impl MappingModelData {
             control_is_enabled: model.control_is_enabled.get(),
             feedback_is_enabled: model.feedback_is_enabled.get(),
             prevent_echo_feedback: model.prevent_echo_feedback.get(),
+            activation: model.activation_condition.get_ref().clone(),
         }
     }
 
@@ -63,5 +66,8 @@ impl MappingModelData {
         model
             .prevent_echo_feedback
             .set_without_notification(self.prevent_echo_feedback);
+        model
+            .activation_condition
+            .set_without_notification(self.activation.clone());
     }
 }

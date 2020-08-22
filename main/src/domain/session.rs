@@ -1,8 +1,9 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask, MainProcessor,
-    MainProcessorMapping, MappingModel, NormalMainTask, NormalRealTimeTask,
-    RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping, TargetModel,
+    parameter_value_is_on, session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask,
+    MainProcessor, MainProcessorMapping, MappingActivationUpdate, MappingModel, NormalMainTask,
+    NormalRealTimeTask, RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping,
+    TargetModel,
 };
 use helgoboss_learn::MidiSource;
 
@@ -120,7 +121,42 @@ impl Session {
     }
 
     pub fn set_parameter(&mut self, index: u32, value: f32) {
+        let old_value = self.get_parameter(index);
         self.parameters[index as usize] = value;
+        if parameter_value_is_on(old_value) != parameter_value_is_on(value) {
+            self.notify_parameter_changed_on_off_state(index);
+        }
+    }
+
+    fn notify_parameter_changed_on_off_state(&mut self, index: u32) {
+        let activation_updates: Vec<MappingActivationUpdate> = self
+            .mappings()
+            .filter_map(|m| {
+                let m = m.borrow();
+                let condition = m.activation_condition.get_ref();
+                if condition.is_affected_by_parameter_update(index) {
+                    let update = MappingActivationUpdate {
+                        id: m.id(),
+                        is_active: condition.is_fulfilled(&self.parameters),
+                    };
+                    Some(update)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if activation_updates.is_empty() {
+            return;
+        }
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateMappingActivations(
+                activation_updates.clone(),
+            ))
+            .unwrap();
+        self.normal_main_task_channel
+            .0
+            .send(NormalMainTask::UpdateMappingActivations(activation_updates))
+            .unwrap();
     }
 
     pub fn set_parameters_without_notification(
@@ -648,7 +684,9 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
-        let processor_mapping = m.with_context(&self.context).create_processor_mapping();
+        let processor_mapping = m
+            .with_context(&self.context)
+            .create_processor_mapping(&self.parameters);
         let splintered = processor_mapping.splinter(self.feedback_is_effectively_enabled());
         self.normal_main_task_channel
             .0
@@ -688,7 +726,7 @@ impl Session {
         let enabled_control_mappings = splintered
             .real_time
             .into_iter()
-            .filter(|m| m.control_is_enabled())
+            .filter(|m| m.is_control_enabled())
             .map(|m| m.id())
             .collect();
         self.normal_real_time_task_sender
@@ -724,7 +762,7 @@ impl Session {
             .map(|m| {
                 m.borrow()
                     .with_context(&self.context)
-                    .create_processor_mapping()
+                    .create_processor_mapping(&self.parameters)
             })
             .collect();
         // Then we need to splinter each of it.

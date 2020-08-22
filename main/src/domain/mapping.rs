@@ -11,17 +11,21 @@ pub struct ProcessorMapping {
     source: MidiSource,
     mode: Mode,
     target: Option<ReaperTarget>,
+    is_active: bool,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
     prevent_echo_feedback: bool,
 }
 
 impl ProcessorMapping {
+    // TODO-low Improve this bool hell
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: MappingId,
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
+        is_active: bool,
         control_is_enabled: bool,
         feedback_is_enabled: bool,
         prevent_echo_feedback: bool,
@@ -31,6 +35,7 @@ impl ProcessorMapping {
             source,
             mode,
             target,
+            is_active,
             control_is_enabled,
             feedback_is_enabled,
             prevent_echo_feedback,
@@ -41,13 +46,18 @@ impl ProcessorMapping {
         &self,
         feedback_is_globally_enabled: bool,
     ) -> (RealTimeProcessorMapping, MainProcessorMapping) {
-        let real_time_mapping =
-            RealTimeProcessorMapping::new(self.id, self.source.clone(), self.control_is_enabled);
+        let real_time_mapping = RealTimeProcessorMapping::new(
+            self.id,
+            self.source.clone(),
+            self.is_active,
+            self.control_is_enabled,
+        );
         let main_mapping = MainProcessorMapping::new(
             self.id,
             self.source.clone(),
             self.mode.clone(),
             self.target.clone(),
+            self.is_active,
             self.control_is_enabled,
             self.feedback_is_enabled && feedback_is_globally_enabled,
             self.prevent_echo_feedback,
@@ -73,6 +83,7 @@ impl MappingId {
 pub struct RealTimeProcessorMapping {
     id: MappingId,
     source: MidiSource,
+    is_active: bool,
     control_is_enabled: bool,
 }
 
@@ -80,12 +91,14 @@ impl RealTimeProcessorMapping {
     pub fn new(
         mapping_id: MappingId,
         source: MidiSource,
+        is_active: bool,
         control_is_enabled: bool,
     ) -> RealTimeProcessorMapping {
         RealTimeProcessorMapping {
             source,
             id: mapping_id,
             control_is_enabled,
+            is_active,
         }
     }
 
@@ -101,16 +114,20 @@ impl RealTimeProcessorMapping {
         self.source.consumes(&msg)
     }
 
-    pub fn control_is_enabled(&self) -> bool {
+    pub fn is_control_enabled(&self) -> bool {
         self.control_is_enabled
     }
 
-    pub fn enable_control(&mut self) {
-        self.control_is_enabled = true;
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.is_active && self.control_is_enabled
     }
 
-    pub fn disable_control(&mut self) {
-        self.control_is_enabled = false;
+    pub fn update_control_is_enabled(&mut self, is_enabled: bool) {
+        self.control_is_enabled = is_enabled;
+    }
+
+    pub fn update_activation(&mut self, is_active: bool) {
+        self.is_active = is_active;
     }
 }
 
@@ -124,16 +141,21 @@ pub struct MainProcessorMapping {
     target: Option<ReaperTarget>,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
+    // Tells if activation condition is fulfilled
+    is_active: bool,
     prevent_echo_feedback: bool,
     time_of_last_control: Option<Instant>,
 }
 
 impl MainProcessorMapping {
+    // TODO-low Improve this bool hell
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: MappingId,
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
+        is_active: bool,
         control_is_enabled: bool,
         feedback_is_enabled: bool,
         prevent_echo_feedback: bool,
@@ -145,6 +167,7 @@ impl MainProcessorMapping {
             target,
             control_is_enabled,
             feedback_is_enabled,
+            is_active,
             prevent_echo_feedback,
             time_of_last_control: None,
         }
@@ -154,10 +177,14 @@ impl MainProcessorMapping {
         self.id
     }
 
-    pub fn update_from_target(&mut self, update: MainProcessorTargetUpdate) {
+    pub fn update_target(&mut self, update: MainProcessorTargetUpdate) {
         self.target = update.target;
         self.control_is_enabled = update.control_is_enabled;
         self.feedback_is_enabled = update.feedback_is_enabled;
+    }
+
+    pub fn update_activation(&mut self, is_active: bool) {
+        self.is_active = is_active;
     }
 
     pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {
@@ -169,16 +196,8 @@ impl MainProcessorMapping {
         }
     }
 
-    pub fn control_is_enabled(&self) -> bool {
-        self.control_is_enabled
-    }
-
-    pub fn feedback_is_enabled(&self) -> bool {
-        self.feedback_is_enabled
-    }
-
     pub fn control_if_enabled(&mut self, value: ControlValue) {
-        if !self.control_is_enabled {
+        if !self.control_is_effectively_on() {
             return;
         }
         let target = match &self.target {
@@ -194,7 +213,7 @@ impl MainProcessorMapping {
     }
 
     pub fn feedback_if_enabled(&self) -> Option<MidiSourceValue<RawShortMessage>> {
-        if !self.feedback_is_enabled {
+        if !self.feedback_is_effectively_on() {
             return None;
         }
         if let Some(t) = self.time_of_last_control {
@@ -217,5 +236,13 @@ impl MainProcessorMapping {
 
     pub fn target(&self) -> Option<&ReaperTarget> {
         self.target.as_ref()
+    }
+
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.is_active && self.control_is_enabled
+    }
+
+    pub fn feedback_is_effectively_on(&self) -> bool {
+        self.is_active && self.feedback_is_enabled
     }
 }

@@ -1,7 +1,7 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, MappingId, MidiSourceModel, ModeModel, ModeType,
-    ProcessorMapping, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
+    convert_factor_to_unit_value, ActivationCondition, MappingId, MidiSourceModel, ModeModel,
+    ModeType, ProcessorMapping, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
     TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
@@ -16,6 +16,7 @@ pub struct MappingModel {
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
+    pub activation_condition: Prop<ActivationCondition>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -29,6 +30,7 @@ impl Clone for MappingModel {
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
             prevent_echo_feedback: self.prevent_echo_feedback.clone(),
+            activation_condition: self.activation_condition.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
@@ -44,6 +46,7 @@ impl Default for MappingModel {
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),
+            activation_condition: prop(ActivationCondition::Always),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: Default::default(),
@@ -67,6 +70,10 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
+    pub fn id(&self) -> MappingId {
+        self.id
+    }
+
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
@@ -123,10 +130,16 @@ impl<'a> MappingModelWithContext<'a> {
     /// Creates a mapping for usage in real-time and main processors.
     ///
     /// `control_is_enabled` and `feedback_is_enabled` won't just reflect the manual setting
-    /// but also the target condition (e.g. "track selected" or "FX focused").
-    pub fn create_processor_mapping(&self) -> ProcessorMapping {
+    /// but also the mapping activation condition (e.g. modifiers) and the target condition
+    /// (e.g. "track selected" or "FX focused").
+    pub fn create_processor_mapping(&self, params: &[f32]) -> ProcessorMapping {
         let target = self.target_with_context().create_target().ok();
-        let target_conditions_are_met = match &target {
+        let mapping_is_active = self
+            .mapping
+            .activation_condition
+            .get_ref()
+            .is_fulfilled(params);
+        let target_is_active = match &target {
             None => false,
             Some(t) => self.mapping.target_model.conditions_are_met(t),
         };
@@ -135,8 +148,9 @@ impl<'a> MappingModelWithContext<'a> {
             self.mapping.source_model.create_source(),
             self.mapping.mode_model.create_mode(),
             target,
-            self.mapping.control_is_enabled.get() && target_conditions_are_met,
-            self.mapping.feedback_is_enabled.get() && target_conditions_are_met,
+            mapping_is_active,
+            self.mapping.control_is_enabled.get() && target_is_active,
+            self.mapping.feedback_is_enabled.get() && target_is_active,
             self.mapping.prevent_echo_feedback.get(),
         )
     }

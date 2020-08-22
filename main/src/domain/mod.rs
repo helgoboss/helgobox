@@ -44,3 +44,6 @@ pub use midi_source_scanner::*;
 
 mod midi_clock_calculator;
 pub use midi_clock_calculator::*;
+
+mod conditional_activation;
+pub use conditional_activation::*;
