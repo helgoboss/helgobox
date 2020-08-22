@@ -25,6 +25,7 @@ pub struct MainProcessor {
     mappings: HashMap<MappingId, MainProcessorMapping>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
+    feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
@@ -93,44 +94,49 @@ impl ControlSurface for MainProcessor {
                         mapping.id()
                     );
                     // (Re)subscribe to or unsubscribe from feedback
-                    match mapping.target() {
-                        Some(target) if mapping.feedback_is_effectively_on() => {
-                            // (Re)subscribe
-                            let subscription = send_feedback_when_target_value_changed(
-                                self.self_feedback_sender.clone(),
-                                mapping.id(),
-                                target,
-                            );
-                            self.feedback_subscriptions
-                                .insert(mapping.id(), subscription);
-                            self.send_feedback(mapping.feedback_if_enabled());
-                        }
-                        _ => {
-                            // Unsubscribe (if the feedback was enabled before)
-                            self.feedback_subscriptions.remove(&mapping.id());
-                            // Indicate via feedback that this source is not in use anymore. But
-                            // only if feedback was enabled before (otherwise this could overwrite
-                            // the feedback value of another enabled mapping which has the same
-                            // source).
-                            let was_previously_enabled = self
-                                .mappings
-                                .get(&mapping.id())
-                                .map(|m| m.feedback_is_effectively_on())
-                                .contains(&true);
-                            if was_previously_enabled {
-                                // We assume that there's no other enabled mapping with the same
-                                // source at this moment. It there is, it would be a weird setup
-                                // with two conflicting feedback value sources - this wouldn't work
-                                // well anyway.
-                                self.send_feedback(mapping.source().feedback(UnitValue::MIN));
+                    if self.feedback_is_globally_enabled {
+                        match mapping.target() {
+                            Some(target) if mapping.feedback_is_effectively_on() => {
+                                // (Re)subscribe
+                                let subscription = send_feedback_when_target_value_changed(
+                                    self.self_feedback_sender.clone(),
+                                    mapping.id(),
+                                    target,
+                                );
+                                self.feedback_subscriptions
+                                    .insert(mapping.id(), subscription);
+                                self.send_feedback(mapping.feedback_if_enabled());
                             }
-                        }
-                    };
+                            _ => {
+                                // Unsubscribe (if the feedback was enabled before)
+                                self.feedback_subscriptions.remove(&mapping.id());
+                                // Indicate via feedback that this source is not in use anymore. But
+                                // only if feedback was enabled before (otherwise this could
+                                // overwrite the feedback value of
+                                // another enabled mapping which has the same
+                                // source).
+                                let was_previously_enabled = self
+                                    .mappings
+                                    .get(&mapping.id())
+                                    .map(|m| m.feedback_is_effectively_on())
+                                    .contains(&true);
+                                if was_previously_enabled {
+                                    // We assume that there's no other enabled mapping with the same
+                                    // source at this moment. It there is, it would be a weird setup
+                                    // with two conflicting feedback value sources - this wouldn't
+                                    // work well anyway.
+                                    self.send_feedback(mapping.source().feedback(UnitValue::MIN));
+                                }
+                            }
+                        };
+                    }
                     // Update hash map entry
                     self.mappings.insert(mapping.id(), *mapping);
                 }
                 FeedbackAll => {
-                    self.send_feedback(self.feedback_all());
+                    if self.feedback_is_globally_enabled {
+                        self.send_feedback(self.feedback_all());
+                    }
                 }
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
@@ -160,6 +166,17 @@ impl ControlSurface for MainProcessor {
                         }
                     }
                     self.handle_feedback_after_batch_mapping_update(&unused_sources);
+                }
+                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
+                    // TODO-high Switch off all lights if
+                    self.feedback_is_globally_enabled = is_enabled;
+                    if is_enabled {
+                        self.handle_feedback_after_batch_mapping_update(&HashSet::new());
+                    } else {
+                        self.feedback_subscriptions.clear();
+                        self.feedback_buffer.reset();
+                        self.send_feedback(self.feedback_all_zero());
+                    }
                 }
             }
         }
@@ -202,12 +219,14 @@ impl ControlSurface for MainProcessor {
             }
         }
         // Send feedback as soon as buffered long enough
-        if let Some(mapping_ids) = self.feedback_buffer.poll() {
-            let source_values = mapping_ids.iter().filter_map(|mapping_id| {
-                let mapping = self.mappings.get(mapping_id)?;
-                mapping.feedback_if_enabled()
-            });
-            self.send_feedback(source_values);
+        if self.feedback_is_globally_enabled {
+            if let Some(mapping_ids) = self.feedback_buffer.poll() {
+                let source_values = mapping_ids.iter().filter_map(|mapping_id| {
+                    let mapping = self.mappings.get(mapping_id)?;
+                    mapping.feedback_if_enabled()
+                });
+                self.send_feedback(source_values);
+            }
         }
     }
 }
@@ -230,6 +249,7 @@ impl MainProcessor {
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
             session,
+            feedback_is_globally_enabled: false,
         }
     }
 
@@ -251,6 +271,14 @@ impl MainProcessor {
             .collect()
     }
 
+    fn feedback_all_zero(&self) -> Vec<MidiSourceValue<RawShortMessage>> {
+        self.mappings
+            .values()
+            .filter(|m| m.feedback_is_effectively_on())
+            .filter_map(|m| m.source().feedback(UnitValue::MIN))
+            .collect()
+    }
+
     fn currently_feedback_enabled_sources(&self) -> HashSet<MidiSource> {
         self.mappings
             .values()
@@ -263,6 +291,9 @@ impl MainProcessor {
         &mut self,
         now_unused_sources: &HashSet<MidiSource>,
     ) {
+        if !self.feedback_is_globally_enabled {
+            return;
+        }
         // Subscribe to target value changes for feedback. Before that, cancel all existing
         // subscriptions.
         self.feedback_subscriptions.clear();
@@ -356,6 +387,7 @@ pub enum NormalMainTask {
     UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
     /// Updates the activation state of multiple mappings.
     UpdateMappingActivations(Vec<MappingActivationUpdate>),
+    UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
     LearnSource(MidiSource),
@@ -379,8 +411,7 @@ pub enum ControlMainTask {
 pub struct MainProcessorTargetUpdate {
     pub id: MappingId,
     pub target: Option<ReaperTarget>,
-    pub control_is_enabled: bool,
-    pub feedback_is_enabled: bool,
+    pub target_is_active: bool,
 }
 
 impl Drop for MainProcessor {

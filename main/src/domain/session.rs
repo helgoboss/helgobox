@@ -220,17 +220,12 @@ impl Session {
         // mode state (e.g. throttling data). Second, it would - again - not result in any change.
         when(
             // There are several global conditions which affect whether feedback will be sent
-            // or not. And also what produces the feedback values (e.g. when there's a target
-            // which uses <Selected track>, then a track selection change changes the feedback
-            // value producer ... so the main processor needs to unsubscribe from the old producer
-            // and subscribe to the new one).
-            self.midi_feedback_output
-                .changed()
-                .merge(self.containing_fx_enabled_or_disabled())
-                .merge(self.containing_track_armed_or_disarmed())
-                .merge(self.send_feedback_only_if_armed.changed())
-                // When target conditions change.
-                .merge(TargetModel::potential_static_change_events())
+            // from a target or not. Similar global conditions decide what exactly produces the
+            // feedback values (e.g. when there's a target which uses <Selected track>,
+            // then a track selection change changes the feedback value producer ... so
+            // the main processor needs to unsubscribe from the old producer and
+            // subscribe to the new one).
+            TargetModel::potential_static_change_events()
                 .merge(TargetModel::potential_dynamic_change_events())
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
@@ -238,6 +233,21 @@ impl Session {
         .with(weak_session.clone())
         .do_async(move |session, _| {
             session.borrow_mut().sync_all_mappings_light();
+        });
+        when(
+            // There are several global conditions which affect whether feedback will be enabled in
+            // general.
+            self.midi_feedback_output
+                .changed()
+                .merge(self.containing_fx_enabled_or_disabled())
+                .merge(self.containing_track_armed_or_disarmed())
+                .merge(self.send_feedback_only_if_armed.changed())
+                // We have this explicit stop criteria because we listen to global REAPER events.
+                .take_until(self.party_is_over()),
+        )
+        .with(weak_session.clone())
+        .do_async(move |session, _| {
+            session.borrow_mut().sync_feedback_is_globally_enabled();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
@@ -687,7 +697,7 @@ impl Session {
         let processor_mapping = m
             .with_context(&self.context)
             .create_processor_mapping(&self.parameters);
-        let splintered = processor_mapping.splinter(self.feedback_is_effectively_enabled());
+        let splintered = processor_mapping.splinter();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(Box::new(splintered.1)))
@@ -697,7 +707,7 @@ impl Session {
             .unwrap();
     }
 
-    fn feedback_is_effectively_enabled(&self) -> bool {
+    fn feedback_is_globally_enabled(&self) -> bool {
         self.midi_feedback_output.get().is_some()
             && self.context.containing_fx().is_enabled()
             && self.track_arm_conditions_are_met()
@@ -723,20 +733,30 @@ impl Session {
             .into_iter()
             .map(|m| m.into_main_processor_target_update())
             .collect();
-        let enabled_control_mappings = splintered
+        let mappings_with_active_targets = splintered
             .real_time
             .into_iter()
-            .filter(|m| m.is_control_enabled())
+            .filter(|m| m.target_is_active())
             .map(|m| m.id())
             .collect();
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::EnableMappingsExclusively(
-                enabled_control_mappings,
+                mappings_with_active_targets,
             ))
             .unwrap();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateAllTargets(main_target_updates))
+            .unwrap();
+    }
+
+    /// Just syncs whether feedback globally enabled or not.
+    fn sync_feedback_is_globally_enabled(&self) {
+        self.normal_main_task_channel
+            .0
+            .send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(
+                self.feedback_is_globally_enabled(),
+            ))
             .unwrap();
     }
 
@@ -766,11 +786,7 @@ impl Session {
             })
             .collect();
         // Then we need to splinter each of it.
-        let feedback_is_globally_enabled = self.feedback_is_effectively_enabled();
-        let (real_time, main): (Vec<_>, Vec<_>) = mappings
-            .iter()
-            .map(|m| m.splinter(feedback_is_globally_enabled))
-            .unzip();
+        let (real_time, main): (Vec<_>, Vec<_>) = mappings.iter().map(|m| m.splinter()).unzip();
         SplinteredProcessorMappings { real_time, main }
     }
 
@@ -794,8 +810,9 @@ impl Session {
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
         self.resubscribe_to_mappings_in_current_list(weak_session);
-        self.sync_all_mappings_full();
         self.sync_settings_to_real_time_processor();
+        self.sync_feedback_is_globally_enabled();
+        self.sync_all_mappings_full();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }

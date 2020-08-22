@@ -136,7 +136,7 @@ impl RealTimeProcessor {
                         self.midi_clock_calculator.current_sample_count()
                     );
                     for m in self.mappings.values_mut() {
-                        m.update_control_is_enabled(mappings_to_enable.contains(&m.id()));
+                        m.update_target_activation(mappings_to_enable.contains(&m.id()));
                     }
                 }
                 UpdateSettings {
@@ -190,7 +190,7 @@ impl RealTimeProcessor {
                     );
                     for update in activation_updates.into_iter() {
                         if let Some(m) = self.mappings.get_mut(&update.id) {
-                            m.update_activation(update.is_active);
+                            m.update_mapping_activation(update.is_active);
                         } else {
                             panic!(
                                 "Couldn't find real-time mapping while updating mapping activations"

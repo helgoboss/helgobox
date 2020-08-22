@@ -1,8 +1,8 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
     convert_factor_to_unit_value, ActivationCondition, MappingId, MidiSourceModel, ModeModel,
-    ModeType, ProcessorMapping, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
-    TargetModelWithContext,
+    ModeType, ProcessorMapping, ProcessorMappingOptions, ReaperTarget, SessionContext,
+    TargetCharacter, TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
@@ -148,10 +148,13 @@ impl<'a> MappingModelWithContext<'a> {
             self.mapping.source_model.create_source(),
             self.mapping.mode_model.create_mode(),
             target,
-            mapping_is_active,
-            self.mapping.control_is_enabled.get() && target_is_active,
-            self.mapping.feedback_is_enabled.get() && target_is_active,
-            self.mapping.prevent_echo_feedback.get(),
+            ProcessorMappingOptions {
+                mapping_is_active,
+                target_is_active,
+                control_is_enabled: self.mapping.control_is_enabled.get(),
+                feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
+                prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
+            },
         )
     }
 
