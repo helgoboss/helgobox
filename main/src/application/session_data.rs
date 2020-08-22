@@ -1,8 +1,9 @@
-use crate::application::MappingModelData;
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session};
+use crate::application::{MappingModelData, ParameterData};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session, PLUGIN_PARAMETER_COUNT};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::Deref;
 
@@ -24,6 +25,7 @@ pub struct SessionData {
     /// - `Some("fx-output")` means "\<FX output>"
     feedback_device_id: Option<String>,
     mappings: Vec<MappingModelData>,
+    parameters: HashMap<u32, ParameterData>,
 }
 
 impl Default for SessionData {
@@ -37,6 +39,7 @@ impl Default for SessionData {
             control_device_id: None,
             feedback_device_id: None,
             mappings: vec![],
+            parameters: Default::default(),
         }
     }
 }
@@ -65,6 +68,16 @@ impl SessionData {
             mappings: session
                 .mappings()
                 .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
+                .collect(),
+            parameters: (0..PLUGIN_PARAMETER_COUNT)
+                .filter_map(|i| {
+                    let value = session.get_parameter(i);
+                    if value == 0.0 {
+                        return None;
+                    }
+                    let data = ParameterData { value };
+                    Some((i, data))
+                })
                 .collect(),
         }
     }
@@ -121,10 +134,17 @@ impl SessionData {
         session
             .midi_feedback_output
             .set_without_notification(feedback_output);
+        // Mappings
         let session_context = session.context().clone();
         session.set_mappings_without_notification(
             self.mappings.iter().map(|m| m.to_model(&session_context)),
         );
+        // Parameters
+        let mut parameters = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
+        for (i, p) in self.parameters.iter() {
+            parameters[*i as usize] = p.value;
+        }
+        session.set_parameters_without_notification(parameters);
         Ok(())
     }
 }

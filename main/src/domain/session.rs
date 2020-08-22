@@ -123,6 +123,13 @@ impl Session {
         self.parameters[index as usize] = value;
     }
 
+    pub fn set_parameters_without_notification(
+        &mut self,
+        parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
+    ) {
+        self.parameters = parameters;
+    }
+
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {

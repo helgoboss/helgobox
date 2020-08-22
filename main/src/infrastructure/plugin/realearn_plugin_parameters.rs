@@ -1,14 +1,12 @@
 use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
 
-use crate::domain::{Session, SharedSession, WeakSession};
+use crate::domain::{SharedSession, WeakSession};
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
 use reaper_low::firewall;
 use slog::debug;
 
-use smallvec::alloc::rc::Weak;
-use std::cell::RefCell;
 use std::sync::RwLock;
 use vst::plugin::PluginParameters;
 
