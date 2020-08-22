@@ -39,6 +39,8 @@ pub trait SessionUi {
     fn show_mapping(&self, mapping: *const MappingModel);
 }
 
+pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
+
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
@@ -72,6 +74,7 @@ pub struct Session {
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
+    parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
 }
 
 impl Session {
@@ -108,7 +111,16 @@ impl Session {
             feedback_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
+            parameters: [0.0; PLUGIN_PARAMETER_COUNT as usize],
         }
+    }
+
+    pub fn get_parameter(&self, index: u32) -> f32 {
+        self.parameters[index as usize]
+    }
+
+    pub fn set_parameter(&mut self, index: u32, value: f32) {
+        self.parameters[index as usize] = value;
     }
 
     /// Connects the dots.
