@@ -1,7 +1,7 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, ActivationCondition, MappingId, MidiSourceModel, ModeModel,
-    ModeType, ProcessorMapping, ProcessorMappingOptions, ReaperTarget, SessionContext,
+    convert_factor_to_unit_value, ActivationType, MappingId, MidiSourceModel, ModeModel, ModeType,
+    ModifierCondition, ProcessorMapping, ProcessorMappingOptions, ReaperTarget, SessionContext,
     TargetCharacter, TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
@@ -16,7 +16,10 @@ pub struct MappingModel {
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
-    pub activation_condition: Prop<ActivationCondition>,
+    pub activation_type: Prop<ActivationType>,
+    pub modifier_condition_1: Prop<ModifierCondition>,
+    pub modifier_condition_2: Prop<ModifierCondition>,
+    pub modifier_condition_3: Prop<ModifierCondition>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -30,7 +33,10 @@ impl Clone for MappingModel {
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
             prevent_echo_feedback: self.prevent_echo_feedback.clone(),
-            activation_condition: self.activation_condition.clone(),
+            activation_type: self.activation_type.clone(),
+            modifier_condition_1: self.modifier_condition_1.clone(),
+            modifier_condition_2: self.modifier_condition_2.clone(),
+            modifier_condition_3: self.modifier_condition_3.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
@@ -46,7 +52,10 @@ impl Default for MappingModel {
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),
-            activation_condition: prop(ActivationCondition::Always),
+            activation_type: prop(ActivationType::Always),
+            modifier_condition_1: Default::default(),
+            modifier_condition_2: Default::default(),
+            modifier_condition_3: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: Default::default(),
@@ -119,6 +128,36 @@ impl MappingModel {
             .merge(self.feedback_is_enabled.changed())
             .merge(self.prevent_echo_feedback.changed())
     }
+
+    /// Returns if this activation condition is fulfilled in presence of the given set of
+    /// parameters.
+    pub fn activation_condition_is_fulfilled(&self, params: &[f32]) -> bool {
+        use ActivationType::*;
+        match self.activation_type.get() {
+            Always => true,
+            Modifiers => self
+                .modifier_conditions()
+                .all(|condition| condition.is_fulfilled(params)),
+        }
+    }
+
+    /// Returns if this activation condition is affected by the given parameter update.
+    pub fn activation_is_affected_by_parameter_update(&self, updated_param_index: u32) -> bool {
+        use ActivationType::*;
+        match self.activation_type.get() {
+            Always => false,
+            Modifiers => self
+                .modifier_conditions()
+                .any(|c| c.uses_parameter(updated_param_index)),
+        }
+    }
+
+    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierCondition> {
+        use std::iter::once;
+        once(self.modifier_condition_1.get_ref())
+            .chain(once(self.modifier_condition_2.get_ref()))
+            .chain(once(self.modifier_condition_3.get_ref()))
+    }
 }
 
 pub struct MappingModelWithContext<'a> {
@@ -134,11 +173,7 @@ impl<'a> MappingModelWithContext<'a> {
     /// (e.g. "track selected" or "FX focused").
     pub fn create_processor_mapping(&self, params: &[f32]) -> ProcessorMapping {
         let target = self.target_with_context().create_target().ok();
-        let mapping_is_active = self
-            .mapping
-            .activation_condition
-            .get_ref()
-            .is_fulfilled(params);
+        let mapping_is_active = self.mapping.activation_condition_is_fulfilled(params);
         let target_is_active = match &target {
             None => false,
             Some(t) => self.mapping.target_model.conditions_are_met(t),

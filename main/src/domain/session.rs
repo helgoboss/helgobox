@@ -129,15 +129,20 @@ impl Session {
     }
 
     fn notify_parameter_changed_on_off_state(&mut self, index: u32) {
+        // We handle mapping activation in the session, not in the processors.
+        // Although it would be nice to sync mapping activation settings to the processors just
+        // as with all the other settings, we would have the following disadvantages when doing so:
+        // - We would have to sync every little parameter change to *both* processors (just
+        //   MainProcessor would be okay), even if it wouldn't have an effect on the activation.
+        // - Activation conditions would need to be evaluated in each processor separately.
         let activation_updates: Vec<MappingActivationUpdate> = self
             .mappings()
             .filter_map(|m| {
                 let m = m.borrow();
-                let condition = m.activation_condition.get_ref();
-                if condition.is_affected_by_parameter_update(index) {
+                if m.activation_is_affected_by_parameter_update(index) {
                     let update = MappingActivationUpdate {
                         id: m.id(),
-                        is_active: condition.is_fulfilled(&self.parameters),
+                        is_active: m.activation_condition_is_fulfilled(&self.parameters),
                     };
                     Some(update)
                 } else {
