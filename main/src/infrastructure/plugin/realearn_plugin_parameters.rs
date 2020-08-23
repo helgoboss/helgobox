@@ -106,7 +106,11 @@ impl PluginParameters for RealearnPluginParameters {
     }
 
     fn get_parameter_name(&self, index: i32) -> String {
-        format!("Parameter {}", index + 1)
+        if let Some(s) = self.session() {
+            s.borrow().get_parameter_name(index as u32)
+        } else {
+            format!("Parameter {}", index + 1)
+        }
     }
 
     fn get_parameter(&self, index: i32) -> f32 {

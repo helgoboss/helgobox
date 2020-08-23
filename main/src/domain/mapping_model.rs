@@ -127,6 +127,10 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
             .merge(self.prevent_echo_feedback.changed())
+            .merge(self.activation_type.changed())
+            .merge(self.modifier_condition_1.changed())
+            .merge(self.modifier_condition_2.changed())
+            .merge(self.modifier_condition_3.changed())
     }
 
     /// Returns if this activation condition is fulfilled in presence of the given set of

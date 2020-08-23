@@ -116,6 +116,10 @@ impl Session {
         }
     }
 
+    pub fn get_parameter_name(&self, index: u32) -> String {
+        format!("Parameter {}", index + 1)
+    }
+
     pub fn get_parameter(&self, index: u32) -> f32 {
         self.parameters[index as usize]
     }
@@ -135,6 +139,14 @@ impl Session {
         // - We would have to sync every little parameter change to *both* processors (just
         //   MainProcessor would be okay), even if it wouldn't have an effect on the activation.
         // - Activation conditions would need to be evaluated in each processor separately.
+        //
+        // TODO-low Okay, we actually could send parameter changes to the main processor and let
+        //  this one propagate the activation state to the real-time processor. This might be worth
+        //  a small refactoring as soon as we push parameter changes to the main processor anyway
+        //  for the sake of making parameter values available in transformation formulas. Should we
+        //  migrate the target change/activation listening also to main processor? Maybe not now
+        //  because there's no obvious benefit and we would need to sync virtual tracks etc. and
+        //  lose the immutability of ReaperTarget.
         let activation_updates: Vec<MappingActivationUpdate> = self
             .mappings()
             .filter_map(|m| {

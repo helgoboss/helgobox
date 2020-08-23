@@ -1,6 +1,7 @@
-use crate::core::when;
+use crate::core::{when, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, SharedSession, WeakSession,
+    convert_factor_to_unit_value, convert_unit_value_to_factor, ActivationType, ModifierCondition,
+    SharedSession, WeakSession, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{
     get_fx_label, get_fx_param_label, ActionInvocationType, MappingModel, MidiSourceModel,
@@ -345,6 +346,36 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mapping_activation_setting_1_on(&mut self) {
+        let checked = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX)
+            .is_checked();
+        self.mapping
+            .modifier_condition_1
+            .set_with(|prev| prev.with_is_on(checked));
+    }
+
+    fn update_mapping_activation_setting_2_on(&mut self) {
+        let checked = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX)
+            .is_checked();
+        self.mapping
+            .modifier_condition_2
+            .set_with(|prev| prev.with_is_on(checked));
+    }
+
+    fn update_mapping_activation_setting_3_on(&mut self) {
+        let checked = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX)
+            .is_checked();
+        self.mapping
+            .modifier_condition_3
+            .set_with(|prev| prev.with_is_on(checked));
+    }
+
     fn update_mapping_feedback_enabled(&mut self) {
         self.mapping.feedback_is_enabled.set(
             self.view
@@ -387,6 +418,17 @@ impl<'a> MutableMappingPanel<'a> {
         ));
     }
 
+    fn update_mapping_activation_type(&mut self) {
+        let b = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX);
+        self.mapping.activation_type.set(
+            b.selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid activation type"),
+        );
+    }
+
     fn update_source_channel(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         let value = match b.selected_combo_box_item_data() {
@@ -394,6 +436,40 @@ impl<'a> MutableMappingPanel<'a> {
             id => Some(Channel::new(id as _)),
         };
         self.mapping.source_model.channel.set(value);
+    }
+
+    fn update_mapping_activation_setting_1_option(&mut self) {
+        self.update_mapping_activation_setting_option(
+            root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
+            |s| &mut s.mapping.modifier_condition_1,
+        );
+    }
+
+    fn update_mapping_activation_setting_2_option(&mut self) {
+        self.update_mapping_activation_setting_option(
+            root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
+            |s| &mut s.mapping.modifier_condition_2,
+        );
+    }
+
+    fn update_mapping_activation_setting_3_option(&mut self) {
+        self.update_mapping_activation_setting_option(
+            root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
+            |s| &mut s.mapping.modifier_condition_3,
+        );
+    }
+
+    fn update_mapping_activation_setting_option(
+        &mut self,
+        combo_box_id: u32,
+        prop: impl Fn(&mut Self) -> &mut Prop<ModifierCondition>,
+    ) {
+        let b = self.view.require_control(combo_box_id);
+        let value = match b.selected_combo_box_item_data() {
+            -1 => None,
+            id => Some(id as u32),
+        };
+        prop(self).set_with(|prev| prev.with_param_index(value));
     }
 
     fn update_source_midi_message_number(&mut self) {
@@ -850,6 +926,8 @@ impl<'a> MutableMappingPanel<'a> {
 
 impl<'a> ImmutableMappingPanel<'a> {
     fn fill_all_controls(&self) {
+        self.fill_mapping_activation_type_combo_box();
+        self.fill_mapping_activation_settings_combo_boxes();
         self.fill_source_type_combo_box();
         self.fill_source_channel_combo_box();
         self.fill_source_midi_message_number_combo_box();
@@ -865,6 +943,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mapping_control_enabled_check_box();
         self.invalidate_mapping_feedback_enabled_check_box();
         self.invalidate_mapping_prevent_echo_feedback_check_box();
+        self.invalidate_mapping_activation_controls();
         self.invalidate_source_controls();
         self.invalidate_target_controls();
         self.invalidate_mode_controls();
@@ -904,6 +983,85 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX);
         cb.set_checked(self.mapping.prevent_echo_feedback.get());
+    }
+
+    fn invalidate_mapping_activation_controls(&self) {
+        self.invalidate_mapping_activation_control_appearance();
+        self.invalidate_mapping_activation_type_combo_box();
+        self.invalidate_mapping_activation_setting_1_controls();
+        self.invalidate_mapping_activation_setting_2_controls();
+        self.invalidate_mapping_activation_setting_3_controls();
+    }
+
+    fn invalidate_mapping_activation_control_appearance(&self) {
+        self.invalidate_mapping_activation_control_visibilities();
+    }
+
+    fn invalidate_mapping_activation_control_visibilities(&self) {
+        self.show_if(
+            self.mapping.activation_type.get() == ActivationType::Modifiers,
+            &[
+                root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
+                root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
+                root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
+                root::ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT,
+                root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
+                root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
+                root::ID_MAPPING_ACTIVATION_SETTING_3_LABEL_TEXT,
+                root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
+                root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX,
+            ],
+        );
+    }
+
+    fn invalidate_mapping_activation_type_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
+            .select_combo_box_item(self.mapping.activation_type.get().into());
+    }
+
+    fn invalidate_mapping_activation_setting_1_controls(&self) {
+        self.invalidate_mapping_activation_setting_controls(
+            root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
+            root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
+            self.mapping.modifier_condition_1.get(),
+        );
+    }
+
+    fn invalidate_mapping_activation_setting_2_controls(&self) {
+        self.invalidate_mapping_activation_setting_controls(
+            root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
+            root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
+            self.mapping.modifier_condition_2.get(),
+        );
+    }
+
+    fn invalidate_mapping_activation_setting_3_controls(&self) {
+        self.invalidate_mapping_activation_setting_controls(
+            root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
+            root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX,
+            self.mapping.modifier_condition_3.get(),
+        );
+    }
+
+    fn invalidate_mapping_activation_setting_controls(
+        &self,
+        combo_box_id: u32,
+        check_box_id: u32,
+        modifier_condition: ModifierCondition,
+    ) {
+        let b = self.view.require_control(combo_box_id);
+        match modifier_condition.param_index() {
+            None => {
+                b.select_combo_box_item_by_data(-1).unwrap();
+            }
+            Some(i) => {
+                b.select_combo_box_item_by_data(i as _).unwrap();
+            }
+        };
+        self.view
+            .require_control(check_box_id)
+            .set_checked(modifier_condition.is_on());
     }
 
     fn invalidate_source_controls(&self) {
@@ -1425,6 +1583,22 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(self.mapping.prevent_echo_feedback.changed(), |view| {
                 view.invalidate_mapping_prevent_echo_feedback_check_box();
+            });
+        self.panel
+            .when_do_sync(self.mapping.activation_type.changed(), |view| {
+                view.invalidate_mapping_activation_controls();
+            });
+        self.panel
+            .when_do_sync(self.mapping.modifier_condition_1.changed(), |view| {
+                view.invalidate_mapping_activation_setting_1_controls();
+            });
+        self.panel
+            .when_do_sync(self.mapping.modifier_condition_2.changed(), |view| {
+                view.invalidate_mapping_activation_setting_2_controls();
+            });
+        self.panel
+            .when_do_sync(self.mapping.modifier_condition_3.changed(), |view| {
+                view.invalidate_mapping_activation_setting_3_controls();
             });
     }
 
@@ -1991,6 +2165,32 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
     }
 
+    fn fill_mapping_activation_type_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX);
+        b.fill_combo_box(ActivationType::into_enum_iter());
+    }
+
+    fn fill_mapping_activation_settings_combo_boxes(&self) {
+        self.fill_mapping_activation_settings_combo_box(
+            root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
+        );
+        self.fill_mapping_activation_settings_combo_box(
+            root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
+        );
+        self.fill_mapping_activation_settings_combo_box(
+            root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
+        );
+    }
+
+    fn fill_mapping_activation_settings_combo_box(&self, control_id: u32) {
+        let b = self.view.require_control(control_id);
+        b.fill_combo_box_with_data_small(iter::once((-1isize, "<None>".to_string())).chain(
+            (0..PLUGIN_PARAMETER_COUNT).map(|i| (i as isize, self.session.get_parameter_name(i))),
+        ));
+    }
+
     fn fill_source_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
         b.fill_combo_box(MidiSourceType::into_enum_iter());
@@ -2081,6 +2281,15 @@ impl View for MappingPanel {
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
                 self.scroll_to_mapping_in_main_panel();
             }
+            ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
+                self.write(|p| p.update_mapping_activation_setting_1_on())
+            }
+            ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
+                self.write(|p| p.update_mapping_activation_setting_2_on())
+            }
+            ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX => {
+                self.write(|p| p.update_mapping_activation_setting_3_on())
+            }
             // IDCANCEL is escape button
             ID_OK | raw::IDCANCEL => {
                 self.hide();
@@ -2116,6 +2325,19 @@ impl View for MappingPanel {
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
+            // Mapping
+            ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX => {
+                self.write(|p| p.update_mapping_activation_type())
+            }
+            ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX => {
+                self.write(|p| p.update_mapping_activation_setting_1_option())
+            }
+            ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX => {
+                self.write(|p| p.update_mapping_activation_setting_2_option())
+            }
+            ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX => {
+                self.write(|p| p.update_mapping_activation_setting_3_option())
+            }
             // Source
             ID_SOURCE_CHANNEL_COMBO_BOX => self.write(|p| p.update_source_channel()),
             ID_SOURCE_NUMBER_COMBO_BOX => self.write(|p| p.update_source_midi_message_number()),
