@@ -8,7 +8,7 @@ pub struct Vm(root::NSEEL_VMCTX);
 #[derive(Debug)]
 pub struct Program(root::NSEEL_CODEHANDLE);
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Variable(*mut f64);
 
 impl Vm {

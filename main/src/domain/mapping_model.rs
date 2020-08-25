@@ -142,6 +142,7 @@ impl MappingModel {
             Modifiers => self
                 .modifier_conditions()
                 .all(|condition| condition.is_fulfilled(params)),
+            Eel => todo!(),
         }
     }
 
@@ -153,6 +154,7 @@ impl MappingModel {
             Modifiers => self
                 .modifier_conditions()
                 .any(|c| c.uses_parameter(updated_param_index)),
+            Eel => todo!(),
         }
     }
 

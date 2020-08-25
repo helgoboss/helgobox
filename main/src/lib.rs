@@ -1,5 +1,6 @@
 #![feature(option_result_contains, trait_alias)]
-mod application;
+#[macro_use]
 mod core;
+mod application;
 mod domain;
 mod infrastructure;
