@@ -97,7 +97,7 @@ impl EelCondition {
         let params = {
             let mut array = [None; PLUGIN_PARAMETER_COUNT as usize];
             for i in extract_used_param_indexes(eel_script).into_iter() {
-                let variable = vm.register_variable(&format!("p{}", i));
+                let variable = vm.register_variable(&format!("p{}", i + 1));
                 // Set initial value so we can calculate the initial activation result after
                 // compilation. All subsequent parameter value changes are done incrementally via
                 // single parameter updates (which is more efficient).
