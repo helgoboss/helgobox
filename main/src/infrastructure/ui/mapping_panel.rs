@@ -994,14 +994,30 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mapping_activation_control_appearance(&self) {
+        self.invalidate_mapping_activation_control_labels();
         self.invalidate_mapping_activation_control_visibilities();
     }
 
+    fn invalidate_mapping_activation_control_labels(&self) {
+        use ActivationType::*;
+        let setting_1_label = match self.mapping.activation_type.get() {
+            Always => None,
+            Modifiers => Some("Mod 1"),
+            Eel => Some("EEL (e.g. y = p1 > 0)"),
+        };
+        self.view
+            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT);
+    }
+
     fn invalidate_mapping_activation_control_visibilities(&self) {
+        let activation_type = self.mapping.activation_type.get();
         self.show_if(
-            self.mapping.activation_type.get() == ActivationType::Modifiers,
+            activation_type == ActivationType::Modifiers || activation_type == ActivationType::Eel,
+            &[root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT],
+        );
+        self.show_if(
+            activation_type == ActivationType::Modifiers,
             &[
-                root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT,
@@ -1011,6 +1027,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX,
             ],
+        );
+        self.show_if(
+            activation_type == ActivationType::Eel,
+            &[root::ID_MAPPING_ACTIVATION_EDIT_CONTROL],
         );
     }
 
