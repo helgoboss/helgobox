@@ -1030,7 +1030,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use ActivationType::*;
         let label = match self.mapping.activation_type.get() {
             Always => None,
-            Modifiers => Some(("Mod 1", "Mod 2")),
+            Modifiers => Some(("Modifier A", "Modifier B")),
             Program => Some(("Bank", "Program")),
             Eel => None,
         };
