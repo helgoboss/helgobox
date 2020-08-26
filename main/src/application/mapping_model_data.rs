@@ -18,7 +18,6 @@ pub struct MappingModelData {
     activation_type: ActivationType,
     modifier_condition_1: ModifierConditionModel,
     modifier_condition_2: ModifierConditionModel,
-    modifier_condition_3: ModifierConditionModel,
     program_condition: ProgramConditionModel,
     eel_condition: String,
 }
@@ -36,7 +35,6 @@ impl Default for MappingModelData {
             activation_type: ActivationType::Always,
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
-            modifier_condition_3: Default::default(),
             program_condition: Default::default(),
             eel_condition: "".to_string(),
         }
@@ -56,7 +54,6 @@ impl MappingModelData {
             activation_type: model.activation_type.get(),
             modifier_condition_1: model.modifier_condition_1.get(),
             modifier_condition_2: model.modifier_condition_2.get(),
-            modifier_condition_3: model.modifier_condition_3.get(),
             program_condition: model.program_condition.get(),
             eel_condition: model.eel_condition.get_ref().clone(),
         }
@@ -92,9 +89,6 @@ impl MappingModelData {
         model
             .modifier_condition_2
             .set_without_notification(self.modifier_condition_2);
-        model
-            .modifier_condition_3
-            .set_without_notification(self.modifier_condition_3);
         model
             .program_condition
             .set_without_notification(self.program_condition);

@@ -366,16 +366,6 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_is_on(checked));
     }
 
-    fn update_mapping_activation_setting_3_on(&mut self) {
-        let checked = self
-            .view
-            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX)
-            .is_checked();
-        self.mapping
-            .modifier_condition_3
-            .set_with(|prev| prev.with_is_on(checked));
-    }
-
     fn update_mapping_feedback_enabled(&mut self) {
         self.mapping.feedback_is_enabled.set(
             self.view
@@ -488,13 +478,6 @@ impl<'a> MutableMappingPanel<'a> {
             }
             _ => {}
         };
-    }
-
-    fn update_mapping_activation_setting_3_option(&mut self) {
-        self.update_mapping_activation_setting_option(
-            root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
-            |s| &mut s.mapping.modifier_condition_3,
-        );
     }
 
     fn update_mapping_activation_setting_option(
@@ -965,7 +948,6 @@ impl<'a> MutableMappingPanel<'a> {
 impl<'a> ImmutableMappingPanel<'a> {
     fn fill_all_controls(&self) {
         self.fill_mapping_activation_type_combo_box();
-        self.fill_mapping_activation_settings_combo_boxes();
         self.fill_source_type_combo_box();
         self.fill_source_channel_combo_box();
         self.fill_source_midi_message_number_combo_box();
@@ -1035,7 +1017,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mapping_activation_type_combo_box();
         self.invalidate_mapping_activation_setting_1_controls();
         self.invalidate_mapping_activation_setting_2_controls();
-        self.invalidate_mapping_activation_setting_3_controls();
         self.invalidate_mapping_activation_eel_condition_edit_control();
     }
 
@@ -1080,9 +1061,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             &[
                 root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
-                root::ID_MAPPING_ACTIVATION_SETTING_3_LABEL_TEXT,
-                root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
-                root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX,
             ],
         );
         self.show_if(
@@ -1166,14 +1144,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             }
             _ => {}
         };
-    }
-
-    fn invalidate_mapping_activation_setting_3_controls(&self) {
-        self.invalidate_mapping_activation_modifier_controls(
-            root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
-            root::ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX,
-            self.mapping.modifier_condition_3.get(),
-        );
     }
 
     fn invalidate_mapping_activation_modifier_controls(
@@ -1727,10 +1697,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(self.mapping.modifier_condition_2.changed(), |view| {
                 view.invalidate_mapping_activation_setting_2_controls();
-            });
-        self.panel
-            .when_do_sync(self.mapping.modifier_condition_3.changed(), |view| {
-                view.invalidate_mapping_activation_setting_3_controls();
             });
         self.panel
             .when_do_sync(self.mapping.program_condition.changed(), |view| {
@@ -2313,14 +2279,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         b.fill_combo_box(ActivationType::into_enum_iter());
     }
 
-    /// Fills only the constant ones.
-    fn fill_mapping_activation_settings_combo_boxes(&self) {
-        self.fill_combo_box_with_realearn_params(
-            root::ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX,
-            true,
-        );
-    }
-
     fn fill_combo_box_with_realearn_params(&self, control_id: u32, with_none: bool) {
         let b = self.view.require_control(control_id);
         let start = if with_none {
@@ -2434,9 +2392,6 @@ impl View for MappingPanel {
             ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
                 self.write(|p| p.update_mapping_activation_setting_2_on())
             }
-            ID_MAPPING_ACTIVATION_SETTING_3_CHECK_BOX => {
-                self.write(|p| p.update_mapping_activation_setting_3_on())
-            }
             // IDCANCEL is escape button
             ID_OK | raw::IDCANCEL => {
                 self.hide();
@@ -2481,9 +2436,6 @@ impl View for MappingPanel {
             }
             ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX => {
                 self.write(|p| p.update_mapping_activation_setting_2_option())
-            }
-            ID_MAPPING_ACTIVATION_SETTING_3_COMBO_BOX => {
-                self.write(|p| p.update_mapping_activation_setting_3_option())
             }
             // Source
             ID_SOURCE_CHANNEL_COMBO_BOX => self.write(|p| p.update_source_channel()),

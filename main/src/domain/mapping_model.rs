@@ -20,7 +20,6 @@ pub struct MappingModel {
     pub activation_type: Prop<ActivationType>,
     pub modifier_condition_1: Prop<ModifierConditionModel>,
     pub modifier_condition_2: Prop<ModifierConditionModel>,
-    pub modifier_condition_3: Prop<ModifierConditionModel>,
     pub program_condition: Prop<ProgramConditionModel>,
     pub eel_condition: Prop<String>,
     pub source_model: MidiSourceModel,
@@ -39,7 +38,6 @@ impl Clone for MappingModel {
             activation_type: self.activation_type.clone(),
             modifier_condition_1: self.modifier_condition_1.clone(),
             modifier_condition_2: self.modifier_condition_2.clone(),
-            modifier_condition_3: self.modifier_condition_3.clone(),
             program_condition: self.program_condition.clone(),
             eel_condition: self.eel_condition.clone(),
             source_model: self.source_model.clone(),
@@ -60,7 +58,6 @@ impl Default for MappingModel {
             activation_type: prop(ActivationType::Always),
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
-            modifier_condition_3: Default::default(),
             program_condition: Default::default(),
             eel_condition: Default::default(),
             source_model: Default::default(),
@@ -133,16 +130,13 @@ impl MappingModel {
             .merge(self.activation_type.changed())
             .merge(self.modifier_condition_1.changed())
             .merge(self.modifier_condition_2.changed())
-            .merge(self.modifier_condition_3.changed())
             .merge(self.eel_condition.changed())
             .merge(self.program_condition.changed())
     }
 
     fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
         use std::iter::once;
-        once(self.modifier_condition_1.get_ref())
-            .chain(once(self.modifier_condition_2.get_ref()))
-            .chain(once(self.modifier_condition_3.get_ref()))
+        once(self.modifier_condition_1.get_ref()).chain(once(self.modifier_condition_2.get_ref()))
     }
 }
 
