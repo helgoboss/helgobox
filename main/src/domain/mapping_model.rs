@@ -2,8 +2,8 @@ use crate::core::{prop, Prop};
 use crate::domain::{
     convert_factor_to_unit_value, ActivationCondition, ActivationType, EelCondition, MappingId,
     MidiSourceModel, ModeModel, ModeType, ModifierConditionModel, ProcessorMapping,
-    ProcessorMappingOptions, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
-    TargetModelWithContext,
+    ProcessorMappingOptions, ProgramConditionModel, ReaperTarget, SessionContext, TargetCharacter,
+    TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
@@ -21,6 +21,7 @@ pub struct MappingModel {
     pub modifier_condition_1: Prop<ModifierConditionModel>,
     pub modifier_condition_2: Prop<ModifierConditionModel>,
     pub modifier_condition_3: Prop<ModifierConditionModel>,
+    pub program_condition: Prop<ProgramConditionModel>,
     pub eel_condition: Prop<String>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
@@ -39,6 +40,7 @@ impl Clone for MappingModel {
             modifier_condition_1: self.modifier_condition_1.clone(),
             modifier_condition_2: self.modifier_condition_2.clone(),
             modifier_condition_3: self.modifier_condition_3.clone(),
+            program_condition: self.program_condition.clone(),
             eel_condition: self.eel_condition.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
@@ -59,6 +61,7 @@ impl Default for MappingModel {
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
             modifier_condition_3: Default::default(),
+            program_condition: Default::default(),
             eel_condition: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
@@ -132,6 +135,7 @@ impl MappingModel {
             .merge(self.modifier_condition_2.changed())
             .merge(self.modifier_condition_3.changed())
             .merge(self.eel_condition.changed())
+            .merge(self.program_condition.changed())
     }
 
     fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
@@ -189,6 +193,10 @@ impl<'a> MappingModelWithContext<'a> {
                     .collect();
                 ActivationCondition::Modifiers(conditions)
             }
+            Program => ActivationCondition::Program {
+                param_index: self.mapping.program_condition.get().param_index(),
+                program_index: self.mapping.program_condition.get().program_index(),
+            },
             Eel => match EelCondition::compile(self.mapping.eel_condition.get_ref(), params) {
                 Ok(c) => ActivationCondition::Eel(Box::new(c)),
                 Err(_) => ActivationCondition::Always,

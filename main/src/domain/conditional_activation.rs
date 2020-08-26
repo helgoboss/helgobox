@@ -6,6 +6,10 @@ use std::collections::HashSet;
 pub enum ActivationCondition {
     Always,
     Modifiers(Vec<ModifierCondition>),
+    Program {
+        param_index: u32,
+        program_index: u32,
+    },
     // Boxed in order to keep the enum variants at a similar size (clippy gave that hint)
     Eel(Box<EelCondition>),
 }
@@ -20,6 +24,14 @@ impl ActivationCondition {
             Modifiers(conditions) => conditions
                 .iter()
                 .all(|condition| condition.is_fulfilled(params)),
+            Program {
+                param_index,
+                program_index,
+            } => {
+                let param_value = params[*param_index as usize];
+                let current_program_index = (param_value * 99.0).round() as u32;
+                current_program_index == *program_index
+            }
             Eel(condition) => condition.is_fulfilled(),
         }
     }
@@ -39,6 +51,10 @@ impl ActivationCondition {
             Modifiers(conditions) => conditions
                 .iter()
                 .any(|c| c.is_affected_by_param_change(index, previous_value, value)),
+            Program {
+                param_index: bank_param_index,
+                ..
+            } => index == *bank_param_index,
             Eel(condition) => condition.notify_param_changed(index, value),
         }
     }

@@ -22,10 +22,13 @@ pub enum ActivationType {
     #[display(fmt = "Always")]
     Always,
     #[serde(rename = "modifiers")]
-    #[display(fmt = "When modifiers active")]
+    #[display(fmt = "When modifiers pressed")]
     Modifiers,
+    #[serde(rename = "program")]
+    #[display(fmt = "When program selected")]
+    Program,
     #[serde(rename = "eel")]
-    #[display(fmt = "EEL")]
+    #[display(fmt = "When EEL result > 0")]
     Eel,
 }
 
@@ -60,5 +63,37 @@ impl ModifierConditionModel {
 
     pub fn with_is_on(&self, is_on: bool) -> ModifierConditionModel {
         ModifierConditionModel { is_on, ..*self }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
+pub struct ProgramConditionModel {
+    #[serde(rename = "paramIndex")]
+    param_index: u32,
+    #[serde(rename = "programIndex")]
+    program_index: u32,
+}
+
+impl ProgramConditionModel {
+    pub fn param_index(&self) -> u32 {
+        self.param_index
+    }
+
+    pub fn with_param_index(&self, param_index: u32) -> ProgramConditionModel {
+        ProgramConditionModel {
+            param_index,
+            ..*self
+        }
+    }
+
+    pub fn program_index(&self) -> u32 {
+        self.program_index
+    }
+
+    pub fn with_program_index(&self, program_index: u32) -> ProgramConditionModel {
+        ProgramConditionModel {
+            program_index,
+            ..*self
+        }
     }
 }

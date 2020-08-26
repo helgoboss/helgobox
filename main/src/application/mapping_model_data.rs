@@ -1,5 +1,7 @@
 use crate::application::{ModeModelData, SourceModelData, TargetModelData};
-use crate::domain::{ActivationType, MappingModel, ModifierConditionModel, SessionContext};
+use crate::domain::{
+    ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel, SessionContext,
+};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
@@ -17,6 +19,7 @@ pub struct MappingModelData {
     modifier_condition_1: ModifierConditionModel,
     modifier_condition_2: ModifierConditionModel,
     modifier_condition_3: ModifierConditionModel,
+    program_condition: ProgramConditionModel,
     eel_condition: String,
 }
 
@@ -34,6 +37,7 @@ impl Default for MappingModelData {
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
             modifier_condition_3: Default::default(),
+            program_condition: Default::default(),
             eel_condition: "".to_string(),
         }
     }
@@ -53,6 +57,7 @@ impl MappingModelData {
             modifier_condition_1: model.modifier_condition_1.get(),
             modifier_condition_2: model.modifier_condition_2.get(),
             modifier_condition_3: model.modifier_condition_3.get(),
+            program_condition: model.program_condition.get(),
             eel_condition: model.eel_condition.get_ref().clone(),
         }
     }
@@ -90,6 +95,9 @@ impl MappingModelData {
         model
             .modifier_condition_3
             .set_without_notification(self.modifier_condition_3);
+        model
+            .program_condition
+            .set_without_notification(self.program_condition);
         model
             .eel_condition
             .set_without_notification(self.eel_condition.clone());
