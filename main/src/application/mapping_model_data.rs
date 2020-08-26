@@ -17,6 +17,7 @@ pub struct MappingModelData {
     modifier_condition_1: ModifierConditionModel,
     modifier_condition_2: ModifierConditionModel,
     modifier_condition_3: ModifierConditionModel,
+    eel_condition: String,
 }
 
 impl Default for MappingModelData {
@@ -33,6 +34,7 @@ impl Default for MappingModelData {
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
             modifier_condition_3: Default::default(),
+            eel_condition: "".to_string(),
         }
     }
 }
@@ -51,6 +53,7 @@ impl MappingModelData {
             modifier_condition_1: model.modifier_condition_1.get(),
             modifier_condition_2: model.modifier_condition_2.get(),
             modifier_condition_3: model.modifier_condition_3.get(),
+            eel_condition: model.eel_condition.get_ref().clone(),
         }
     }
 
@@ -87,5 +90,8 @@ impl MappingModelData {
         model
             .modifier_condition_3
             .set_without_notification(self.modifier_condition_3);
+        model
+            .eel_condition
+            .set_without_notification(self.eel_condition.clone());
     }
 }
