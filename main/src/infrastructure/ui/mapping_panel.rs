@@ -392,14 +392,22 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_mapping_name(&mut self) -> Result<(), &'static str> {
+    fn update_mapping_name(&mut self) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
         self.mapping.name.set(value);
-        Ok(())
+    }
+
+    fn update_mapping_activation_eel_condition(&mut self) {
+        let value = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
+            .text()
+            .unwrap_or_else(|_| "".to_string());
+        self.mapping.eel_condition.set(value);
     }
 
     fn update_source_is_registered(&mut self) {
@@ -962,6 +970,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         c.set_text_if_not_focused(self.mapping.name.get_ref().as_str());
     }
 
+    fn invalidate_mapping_activation_eel_condition_edit_control(&self) {
+        let c = self
+            .view
+            .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
+        c.set_text_if_not_focused(self.mapping.eel_condition.get_ref().as_str());
+    }
+
     fn invalidate_mapping_control_enabled_check_box(&self) {
         let cb = self
             .view
@@ -991,33 +1006,19 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mapping_activation_setting_1_controls();
         self.invalidate_mapping_activation_setting_2_controls();
         self.invalidate_mapping_activation_setting_3_controls();
+        self.invalidate_mapping_activation_eel_condition_edit_control();
     }
 
     fn invalidate_mapping_activation_control_appearance(&self) {
-        self.invalidate_mapping_activation_control_labels();
         self.invalidate_mapping_activation_control_visibilities();
-    }
-
-    fn invalidate_mapping_activation_control_labels(&self) {
-        use ActivationType::*;
-        let setting_1_label = match self.mapping.activation_type.get() {
-            Always => None,
-            Modifiers => Some("Mod 1"),
-            Eel => Some("EEL (e.g. y = p1 > 0)"),
-        };
-        self.view
-            .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT);
     }
 
     fn invalidate_mapping_activation_control_visibilities(&self) {
         let activation_type = self.mapping.activation_type.get();
         self.show_if(
-            activation_type == ActivationType::Modifiers || activation_type == ActivationType::Eel,
-            &[root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT],
-        );
-        self.show_if(
             activation_type == ActivationType::Modifiers,
             &[
+                root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_2_LABEL_TEXT,
@@ -1030,7 +1031,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
         self.show_if(
             activation_type == ActivationType::Eel,
-            &[root::ID_MAPPING_ACTIVATION_EDIT_CONTROL],
+            &[
+                root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT,
+                root::ID_MAPPING_ACTIVATION_EDIT_CONTROL,
+            ],
         );
     }
 
@@ -1619,6 +1623,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(self.mapping.modifier_condition_3.changed(), |view| {
                 view.invalidate_mapping_activation_setting_3_controls();
+            });
+        self.panel
+            .when_do_sync(self.mapping.eel_condition.changed(), |view| {
+                view.invalidate_mapping_activation_eel_condition_edit_control();
             });
     }
 
@@ -2433,7 +2441,10 @@ impl View for MappingPanel {
         match resource_id {
             // Mapping
             ID_MAPPING_NAME_EDIT_CONTROL => {
-                self.write(|p| p.update_mapping_name()).unwrap();
+                self.write(|p| p.update_mapping_name());
+            }
+            ID_MAPPING_ACTIVATION_EDIT_CONTROL => {
+                self.write(|p| p.update_mapping_activation_eel_condition());
             }
             // Source
             ID_SOURCE_NUMBER_EDIT_CONTROL => {

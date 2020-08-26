@@ -96,8 +96,11 @@ impl EelCondition {
         let y = vm.register_variable("y");
         let params = {
             let mut array = [None; PLUGIN_PARAMETER_COUNT as usize];
+            println!("Registering variables...");
             for i in extract_used_param_indexes(eel_script).into_iter() {
-                let variable = vm.register_variable(&format!("p{}", i + 1));
+                let variable_name = format!("p{}", i + 1);
+                println!("Registering variable {} as {}", i, variable_name);
+                let variable = vm.register_variable(&variable_name);
                 // Set initial value so we can calculate the initial activation result after
                 // compilation. All subsequent parameter value changes are done incrementally via
                 // single parameter updates (which is more efficient).
@@ -122,8 +125,16 @@ impl EelCondition {
             unsafe {
                 v.set(value as f64);
             }
+            println!(
+                "notify_param_changed: {} -> {} AFFECTED",
+                param_index, value
+            );
             true
         } else {
+            println!(
+                "notify_param_changed: {} -> {} NOT AFFECTED",
+                param_index, value
+            );
             false
         }
     }
@@ -133,16 +144,18 @@ impl EelCondition {
             self.program.execute();
             self.y.get()
         };
+        println!("Is fulfilled: {:?}", result);
         result > 0.0
     }
 }
 
 fn extract_used_param_indexes(eel_script: &str) -> HashSet<u32> {
-    let param_regex = regex!(r#"\Wp([0-9]+)\W"#);
+    let param_regex = regex!(r#"\bp([0-9]+)\b"#);
     param_regex
-        .find_iter(eel_script)
-        .map(|m| m.as_str().parse())
+        .captures_iter(eel_script)
+        .map(|m| m[1].parse())
         .flatten()
         .filter(|i| *i >= 1 && *i <= PLUGIN_PARAMETER_COUNT)
+        .map(|i: u32| i - 1)
         .collect()
 }

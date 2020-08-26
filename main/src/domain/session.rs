@@ -733,6 +733,13 @@ impl Session {
             .unwrap();
     }
 
+    fn sync_all_parameters(&self) {
+        self.normal_main_task_channel
+            .0
+            .send(NormalMainTask::UpdateAllParameters(self.parameters))
+            .unwrap();
+    }
+
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self) {
         let splintered = self.create_and_splinter_mappings();
@@ -787,6 +794,7 @@ impl Session {
         self.sync_settings_to_real_time_processor();
         self.sync_feedback_is_globally_enabled();
         self.sync_all_mappings_full();
+        self.sync_all_parameters();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }

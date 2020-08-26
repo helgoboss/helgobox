@@ -152,6 +152,13 @@ impl ControlSurface for MainProcessor {
                         .borrow_mut()
                         .learn_source(source);
                 }
+                UpdateAllParameters(parameters) => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Main processor: Updating all parameters..."
+                    );
+                    self.parameters = parameters;
+                }
                 UpdateParameter { index, value } => {
                     debug!(
                         Reaper::get().logger(),
@@ -371,6 +378,7 @@ impl MainProcessor {
                         - Normal task count: {} \n\
                         - Control task count: {} \n\
                         - Feedback task count: {} \n\
+                        - Parameter values: {:?} \n\
                         ",
             // self.mappings.values(),
             self.mappings.len(),
@@ -383,6 +391,7 @@ impl MainProcessor {
             task_count,
             self.control_task_receiver.len(),
             self.feedback_task_receiver.len(),
+            self.parameters,
         );
         Reaper::get().show_console_msg(msg);
     }
@@ -421,6 +430,7 @@ pub enum NormalMainTask {
     /// in such cases would reset all mutable mode state (e.g. throttling counter). Clearly
     /// undesired.
     UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
+    UpdateAllParameters([f32; PLUGIN_PARAMETER_COUNT as usize]),
     UpdateParameter {
         index: u32,
         value: f32,
