@@ -1,9 +1,9 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    parameter_value_is_on, session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask,
-    MainProcessor, MainProcessorMapping, MappingActivationUpdate, MappingModel, NormalMainTask,
-    NormalRealTimeTask, RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping,
-    TargetModel,
+    session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask, MainProcessor,
+    MainProcessorMapping, MappingModel, NormalMainTask, NormalRealTimeTask,
+    RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping, TargetModel,
+    PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
@@ -39,8 +39,6 @@ pub enum MidiFeedbackOutput {
 pub trait SessionUi {
     fn show_mapping(&self, mapping: *const MappingModel);
 }
-
-pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
 
 /// This represents the user session with one ReaLearn instance.
 ///
@@ -125,54 +123,10 @@ impl Session {
     }
 
     pub fn set_parameter(&mut self, index: u32, value: f32) {
-        let old_value = self.get_parameter(index);
         self.parameters[index as usize] = value;
-        if parameter_value_is_on(old_value) != parameter_value_is_on(value) {
-            self.notify_parameter_changed_on_off_state(index);
-        }
-    }
-
-    fn notify_parameter_changed_on_off_state(&mut self, index: u32) {
-        // We handle mapping activation in the session, not in the processors.
-        // Although it would be nice to sync mapping activation settings to the processors just
-        // as with all the other settings, we would have the following disadvantages when doing so:
-        // - We would have to sync every little parameter change to *both* processors (just
-        //   MainProcessor would be okay), even if it wouldn't have an effect on the activation.
-        // - Activation conditions would need to be evaluated in each processor separately.
-        //
-        // TODO-low Okay, we actually could send parameter changes to the main processor and let
-        //  this one propagate the activation state to the real-time processor. This might be worth
-        //  a small refactoring as soon as we push parameter changes to the main processor anyway
-        //  for the sake of making parameter values available in transformation formulas. Should we
-        //  migrate the target change/activation listening also to main processor? Maybe not now
-        //  because there's no obvious benefit and we would need to sync virtual tracks etc. and
-        //  lose the immutability of ReaperTarget.
-        let activation_updates: Vec<MappingActivationUpdate> = self
-            .mappings()
-            .filter_map(|m| {
-                let m = m.borrow();
-                if m.activation_is_affected_by_parameter_update(index) {
-                    let update = MappingActivationUpdate {
-                        id: m.id(),
-                        is_active: m.activation_condition_is_fulfilled(&self.parameters),
-                    };
-                    Some(update)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        if activation_updates.is_empty() {
-            return;
-        }
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateMappingActivations(
-                activation_updates.clone(),
-            ))
-            .unwrap();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateMappingActivations(activation_updates))
+            .send(NormalMainTask::UpdateParameter { index, value })
             .unwrap();
     }
 
@@ -194,8 +148,10 @@ impl Session {
             .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
                 self.normal_main_task_channel.1.clone(),
                 self.control_main_task_receiver.clone(),
+                self.normal_real_time_task_sender.clone(),
                 self.feedback_real_time_task_sender.clone(),
                 weak_session.clone(),
+                self.parameters,
             )))
             .expect("couldn't register local control surface");
         self.main_processor_registration = Some(reg);
@@ -803,7 +759,8 @@ impl Session {
             })
             .collect();
         // Then we need to splinter each of it.
-        let (real_time, main): (Vec<_>, Vec<_>) = mappings.iter().map(|m| m.splinter()).unzip();
+        let (real_time, main): (Vec<_>, Vec<_>) =
+            mappings.into_iter().map(|m| m.splinter()).unzip();
         SplinteredProcessorMappings { real_time, main }
     }
 

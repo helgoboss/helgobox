@@ -1,7 +1,7 @@
 use crate::core::{when, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, ActivationType, ModifierCondition,
-    SharedSession, WeakSession, PLUGIN_PARAMETER_COUNT,
+    convert_factor_to_unit_value, convert_unit_value_to_factor, ActivationType,
+    ModifierConditionModel, SharedSession, WeakSession, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{
     get_fx_label, get_fx_param_label, ActionInvocationType, MappingModel, MidiSourceModel,
@@ -462,7 +462,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn update_mapping_activation_setting_option(
         &mut self,
         combo_box_id: u32,
-        prop: impl Fn(&mut Self) -> &mut Prop<ModifierCondition>,
+        prop: impl Fn(&mut Self) -> &mut Prop<ModifierConditionModel>,
     ) {
         let b = self.view.require_control(combo_box_id);
         let value = match b.selected_combo_box_item_data() {
@@ -1048,7 +1048,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         &self,
         combo_box_id: u32,
         check_box_id: u32,
-        modifier_condition: ModifierCondition,
+        modifier_condition: ModifierConditionModel,
     ) {
         let b = self.view.require_control(combo_box_id);
         match modifier_condition.param_index() {

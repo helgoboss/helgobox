@@ -1,6 +1,6 @@
 use crate::domain::{
-    ControlMainTask, MappingActivationUpdate, MappingId, MidiClockCalculator, MidiControlInput,
-    MidiFeedbackOutput, MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
+    ControlMainTask, MappingId, MidiClockCalculator, MidiControlInput, MidiFeedbackOutput,
+    MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
 };
 use helgoboss_learn::{MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -519,6 +519,12 @@ pub enum NormalRealTimeTask {
     UpdateSampleRate(Hz),
     StartLearnSource,
     StopLearnSource,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MappingActivationUpdate {
+    pub id: MappingId,
+    pub is_active: bool,
 }
 
 /// A feedback task (which is potentially sent very frequently).

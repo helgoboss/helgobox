@@ -1,5 +1,5 @@
 use crate::application::{ModeModelData, SourceModelData, TargetModelData};
-use crate::domain::{ActivationType, MappingModel, ModifierCondition, SessionContext};
+use crate::domain::{ActivationType, MappingModel, ModifierConditionModel, SessionContext};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
@@ -14,9 +14,9 @@ pub struct MappingModelData {
     feedback_is_enabled: bool,
     prevent_echo_feedback: bool,
     activation_type: ActivationType,
-    modifier_condition_1: ModifierCondition,
-    modifier_condition_2: ModifierCondition,
-    modifier_condition_3: ModifierCondition,
+    modifier_condition_1: ModifierConditionModel,
+    modifier_condition_2: ModifierConditionModel,
+    modifier_condition_3: ModifierConditionModel,
 }
 
 impl Default for MappingModelData {

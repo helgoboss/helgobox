@@ -1,6 +1,6 @@
 use crate::domain::{
     FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingActivationUpdate, MappingId,
-    ReaperTarget, WeakSession,
+    NormalRealTimeTask, ReaperTarget, WeakSession,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
@@ -19,6 +19,8 @@ const CONTROL_TASK_BULK_SIZE: usize = 32;
 type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
 type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
+pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
+
 #[derive(Debug)]
 pub struct MainProcessor {
     /// Contains all mappings except those where the target could not be resolved.
@@ -30,8 +32,10 @@ pub struct MainProcessor {
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     session: WeakSession,
+    parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
 }
 
 impl ControlSurface for MainProcessor {
@@ -148,24 +152,52 @@ impl ControlSurface for MainProcessor {
                         .borrow_mut()
                         .learn_source(source);
                 }
-                UpdateMappingActivations(activation_updates) => {
+                UpdateParameter { index, value } => {
                     debug!(
                         Reaper::get().logger(),
-                        "Main processor: Updating mapping activations..."
+                        "Main processor: Updating parameter..."
                     );
+                    let previous_value = self.parameters[index as usize];
+                    self.parameters[index as usize] = value;
                     let mut unused_sources = self.currently_feedback_enabled_sources();
-                    for update in activation_updates.into_iter() {
-                        if let Some(m) = self.mappings.get_mut(&update.id) {
-                            m.update_activation(update.is_active);
+                    // In order to avoid a mutable borrow of mappings and an immutable borrow of
+                    // parameters at the same time, we need to separate the mapping updates into
+                    // READ (read new activation state) and WRITE (write new activation state).
+                    // 1. Read
+                    let activation_updates: Vec<MappingActivationUpdate> = self
+                        .mappings
+                        .values()
+                        .filter_map(|m| {
+                            let result = m.notify_param_changed(
+                                &self.parameters,
+                                index,
+                                previous_value,
+                                value,
+                            );
+                            result.map(|is_active| MappingActivationUpdate {
+                                id: m.id(),
+                                is_active,
+                            })
+                        })
+                        .collect();
+                    // 2. Write
+                    for upd in activation_updates.iter() {
+                        if let Some(m) = self.mappings.get_mut(&upd.id) {
+                            m.update_activation(upd.is_active);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
                             }
-                        } else {
-                            panic!("Couldn't find main mapping while updating mapping activations");
                         }
                     }
                     self.handle_feedback_after_batch_mapping_update(&unused_sources);
+                    if !activation_updates.is_empty() {
+                        self.normal_real_time_task_sender
+                            .send(NormalRealTimeTask::UpdateMappingActivations(
+                                activation_updates,
+                            ))
+                            .unwrap();
+                    }
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     // TODO-high Switch off all lights if
@@ -235,8 +267,10 @@ impl MainProcessor {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         session: WeakSession,
+        parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     ) -> MainProcessor {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
         MainProcessor {
@@ -244,12 +278,14 @@ impl MainProcessor {
             normal_task_receiver,
             feedback_task_receiver,
             control_task_receiver,
+            normal_real_time_task_sender,
             feedback_real_time_task_sender,
             mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
             session,
             feedback_is_globally_enabled: false,
+            parameters,
         }
     }
 
@@ -385,8 +421,10 @@ pub enum NormalMainTask {
     /// in such cases would reset all mutable mode state (e.g. throttling counter). Clearly
     /// undesired.
     UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
-    /// Updates the activation state of multiple mappings.
-    UpdateMappingActivations(Vec<MappingActivationUpdate>),
+    UpdateParameter {
+        index: u32,
+        value: f32,
+    },
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,

@@ -1,4 +1,4 @@
-use crate::domain::{MainProcessorTargetUpdate, Mode, ReaperTarget};
+use crate::domain::{ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget};
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
 use helgoboss_midi::RawShortMessage;
 
@@ -34,6 +34,7 @@ pub struct ProcessorMapping {
     source: MidiSource,
     mode: Mode,
     target: Option<ReaperTarget>,
+    activation_condition: ActivationCondition,
     options: ProcessorMappingOptions,
 }
 
@@ -43,6 +44,7 @@ impl ProcessorMapping {
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
+        activation_condition: ActivationCondition,
         options: ProcessorMappingOptions,
     ) -> ProcessorMapping {
         ProcessorMapping {
@@ -50,11 +52,12 @@ impl ProcessorMapping {
             source,
             mode,
             target,
+            activation_condition,
             options,
         }
     }
 
-    pub fn splinter(&self) -> (RealTimeProcessorMapping, MainProcessorMapping) {
+    pub fn splinter(self) -> (RealTimeProcessorMapping, MainProcessorMapping) {
         let real_time_mapping =
             RealTimeProcessorMapping::new(self.id, self.source.clone(), self.options);
         let main_mapping = MainProcessorMapping::new(
@@ -62,6 +65,7 @@ impl ProcessorMapping {
             self.source.clone(),
             self.mode.clone(),
             self.target.clone(),
+            self.activation_condition,
             self.options,
         );
         (real_time_mapping, main_mapping)
@@ -138,18 +142,18 @@ pub struct MainProcessorMapping {
     source: MidiSource,
     mode: Mode,
     target: Option<ReaperTarget>,
+    activation_condition: ActivationCondition,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
 }
 
 impl MainProcessorMapping {
-    // TODO-low Improve this bool hell
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: MappingId,
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
+        activation_condition: ActivationCondition,
         options: ProcessorMappingOptions,
     ) -> MainProcessorMapping {
         MainProcessorMapping {
@@ -157,6 +161,7 @@ impl MainProcessorMapping {
             source,
             mode,
             target,
+            activation_condition,
             options,
             time_of_last_control: None,
         }
@@ -173,6 +178,26 @@ impl MainProcessorMapping {
 
     pub fn update_activation(&mut self, is_active: bool) {
         self.options.mapping_is_active = is_active;
+    }
+
+    /// Returns `Some` if this affects the mapping's activation state and if the resulting state
+    /// is on or off.
+    pub fn notify_param_changed(
+        &self,
+        params: &[f32],
+        index: u32,
+        previous_value: f32,
+        value: f32,
+    ) -> Option<bool> {
+        if self
+            .activation_condition
+            .notify_param_changed(index, previous_value, value)
+        {
+            let is_fulfilled = self.activation_condition.is_fulfilled(params);
+            Some(is_fulfilled)
+        } else {
+            None
+        }
     }
 
     pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {

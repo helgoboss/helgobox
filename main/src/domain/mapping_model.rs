@@ -1,8 +1,9 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, ActivationType, MappingId, MidiSourceModel, ModeModel, ModeType,
-    ModifierCondition, ProcessorMapping, ProcessorMappingOptions, ReaperTarget, SessionContext,
-    TargetCharacter, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationCondition, ActivationType, EelCondition, MappingId,
+    MidiSourceModel, ModeModel, ModeType, ModifierConditionModel, ProcessorMapping,
+    ProcessorMappingOptions, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
+    TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
@@ -17,9 +18,10 @@ pub struct MappingModel {
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
     pub activation_type: Prop<ActivationType>,
-    pub modifier_condition_1: Prop<ModifierCondition>,
-    pub modifier_condition_2: Prop<ModifierCondition>,
-    pub modifier_condition_3: Prop<ModifierCondition>,
+    pub modifier_condition_1: Prop<ModifierConditionModel>,
+    pub modifier_condition_2: Prop<ModifierConditionModel>,
+    pub modifier_condition_3: Prop<ModifierConditionModel>,
+    pub eel_condition: Prop<String>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -37,6 +39,7 @@ impl Clone for MappingModel {
             modifier_condition_1: self.modifier_condition_1.clone(),
             modifier_condition_2: self.modifier_condition_2.clone(),
             modifier_condition_3: self.modifier_condition_3.clone(),
+            eel_condition: self.eel_condition.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
@@ -56,6 +59,7 @@ impl Default for MappingModel {
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
             modifier_condition_3: Default::default(),
+            eel_condition: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: Default::default(),
@@ -79,10 +83,6 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
-    pub fn id(&self) -> MappingId {
-        self.id
-    }
-
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
@@ -131,34 +131,10 @@ impl MappingModel {
             .merge(self.modifier_condition_1.changed())
             .merge(self.modifier_condition_2.changed())
             .merge(self.modifier_condition_3.changed())
+            .merge(self.eel_condition.changed())
     }
 
-    /// Returns if this activation condition is fulfilled in presence of the given set of
-    /// parameters.
-    pub fn activation_condition_is_fulfilled(&self, params: &[f32]) -> bool {
-        use ActivationType::*;
-        match self.activation_type.get() {
-            Always => true,
-            Modifiers => self
-                .modifier_conditions()
-                .all(|condition| condition.is_fulfilled(params)),
-            Eel => todo!(),
-        }
-    }
-
-    /// Returns if this activation condition is affected by the given parameter update.
-    pub fn activation_is_affected_by_parameter_update(&self, updated_param_index: u32) -> bool {
-        use ActivationType::*;
-        match self.activation_type.get() {
-            Always => false,
-            Modifiers => self
-                .modifier_conditions()
-                .any(|c| c.uses_parameter(updated_param_index)),
-            Eel => todo!(),
-        }
-    }
-
-    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierCondition> {
+    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
         use std::iter::once;
         once(self.modifier_condition_1.get_ref())
             .chain(once(self.modifier_condition_2.get_ref()))
@@ -179,8 +155,9 @@ impl<'a> MappingModelWithContext<'a> {
     /// (e.g. "track selected" or "FX focused").
     pub fn create_processor_mapping(&self, params: &[f32]) -> ProcessorMapping {
         let target = self.target_with_context().create_target().ok();
-        let mapping_is_active = self.mapping.activation_condition_is_fulfilled(params);
-        let target_is_active = match &target {
+        let activation_condition = self.create_activation_condition(params);
+        let mapping_is_initially_active = activation_condition.is_fulfilled(params);
+        let target_is_initially_active = match &target {
             None => false,
             Some(t) => self.mapping.target_model.conditions_are_met(t),
         };
@@ -189,14 +166,34 @@ impl<'a> MappingModelWithContext<'a> {
             self.mapping.source_model.create_source(),
             self.mapping.mode_model.create_mode(),
             target,
+            activation_condition,
             ProcessorMappingOptions {
-                mapping_is_active,
-                target_is_active,
+                mapping_is_active: mapping_is_initially_active,
+                target_is_active: target_is_initially_active,
                 control_is_enabled: self.mapping.control_is_enabled.get(),
                 feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
                 prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
             },
         )
+    }
+
+    fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {
+        use ActivationType::*;
+        match self.mapping.activation_type.get() {
+            Always => ActivationCondition::Always,
+            Modifiers => {
+                let conditions = self
+                    .mapping
+                    .modifier_conditions()
+                    .filter_map(|m| m.create_modifier_condition())
+                    .collect();
+                ActivationCondition::Modifiers(conditions)
+            }
+            Eel => match EelCondition::compile(self.mapping.eel_condition.get_ref(), params) {
+                Ok(c) => ActivationCondition::Eel(Box::new(c)),
+                Err(_) => ActivationCondition::Always,
+            },
+        }
     }
 
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
