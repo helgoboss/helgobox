@@ -4,10 +4,14 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase", default)]
 pub struct ParameterData {
     pub value: f32,
+    pub name: Option<String>,
 }
 
 impl Default for ParameterData {
     fn default() -> Self {
-        Self { value: 0.0 }
+        Self {
+            value: 0.0,
+            name: None,
+        }
     }
 }

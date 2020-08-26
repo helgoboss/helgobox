@@ -1,5 +1,7 @@
 use crate::application::{MappingModelData, ParameterData};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, Session, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{
+    MidiControlInput, MidiFeedbackOutput, ParameterSetting, Session, PLUGIN_PARAMETER_COUNT,
+};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};
@@ -72,10 +74,14 @@ impl SessionData {
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = session.get_parameter(i);
-                    if value == 0.0 {
+                    let settings = session.get_parameter_settings(i);
+                    if value == 0.0 && settings.custom_name.is_none() {
                         return None;
                     }
-                    let data = ParameterData { value };
+                    let data = ParameterData {
+                        value,
+                        name: settings.custom_name.clone(),
+                    };
                     Some((i, data))
                 })
                 .collect(),
@@ -141,10 +147,15 @@ impl SessionData {
         );
         // Parameters
         let mut parameters = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
+        let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
         for (i, p) in self.parameters.iter() {
             parameters[*i as usize] = p.value;
+            parameter_settings[*i as usize] = ParameterSetting {
+                custom_name: p.name.clone(),
+            };
         }
         session.set_parameters_without_notification(parameters);
+        session.set_parameter_settings_without_notification(parameter_settings);
         Ok(())
     }
 }

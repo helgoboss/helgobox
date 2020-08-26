@@ -74,6 +74,7 @@ pub struct Session {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
+    parameter_settings: Vec<ParameterSetting>,
 }
 
 impl Session {
@@ -111,11 +112,20 @@ impl Session {
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
             parameters: [0.0; PLUGIN_PARAMETER_COUNT as usize],
+            parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
         }
     }
 
+    pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
+        &self.parameter_settings[index as usize]
+    }
+
     pub fn get_parameter_name(&self, index: u32) -> String {
-        format!("Parameter {}", index + 1)
+        let setting = &self.parameter_settings[index as usize];
+        match &setting.custom_name {
+            None => format!("Parameter {}", index + 1),
+            Some(n) => n.clone(),
+        }
     }
 
     pub fn get_parameter(&self, index: u32) -> f32 {
@@ -128,6 +138,13 @@ impl Session {
             .0
             .send(NormalMainTask::UpdateParameter { index, value })
             .unwrap();
+    }
+
+    pub fn set_parameter_settings_without_notification(
+        &mut self,
+        parameter_settings: Vec<ParameterSetting>,
+    ) {
+        self.parameter_settings = parameter_settings;
     }
 
     pub fn set_parameters_without_notification(
@@ -798,6 +815,11 @@ impl Session {
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ParameterSetting {
+    pub custom_name: Option<String>,
 }
 
 struct SplinteredProcessorMappings {

@@ -19,6 +19,7 @@ const CONTROL_TASK_BULK_SIZE: usize = 32;
 type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
 type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
+// TODO-low Making this a usize might save quite some code
 pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
 
 #[derive(Debug)]

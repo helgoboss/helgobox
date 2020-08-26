@@ -2215,7 +2215,12 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_mapping_activation_settings_combo_box(&self, control_id: u32) {
         let b = self.view.require_control(control_id);
         b.fill_combo_box_with_data_small(iter::once((-1isize, "<None>".to_string())).chain(
-            (0..PLUGIN_PARAMETER_COUNT).map(|i| (i as isize, self.session.get_parameter_name(i))),
+            (0..PLUGIN_PARAMETER_COUNT).map(|i| {
+                (
+                    i as isize,
+                    format!("{}. {}", i + 1, self.session.get_parameter_name(i)),
+                )
+            }),
         ));
     }
 
