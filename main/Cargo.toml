@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "1.10.0-pre7"
+version = "1.10.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -46,7 +46,7 @@ backtrace = "0.3"
 regex = "1"
 
 [build-dependencies]
-built = { version = "0.4.2", features = ["git2", "chrono"] }
+built = { version = "0.4.3", features = ["git2", "chrono"] }
 bindgen = "0.52.0"
 cc = "1.0.50"
 embed-resource = "1.3"

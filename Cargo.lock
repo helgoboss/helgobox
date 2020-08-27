@@ -146,9 +146,9 @@ checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
 name = "built"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "161483ae87631dd826cb40fc696d9e5a9fa94e19c2e69a372dcedd7dc68e7c0a"
+checksum = "3fa7899958f4aa3c40edc1b033d0e956763319e398924abb80a0034dda5bb198"
 dependencies = [
  "cargo-lock",
  "chrono",
@@ -1214,7 +1214,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "1.10.0-pre7"
+version = "1.10.0"
 dependencies = [
  "backtrace",
  "bindgen",
