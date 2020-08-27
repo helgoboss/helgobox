@@ -35,6 +35,12 @@ GitHub on the [releases page](https://github.com/helgoboss/realearn/releases).
 
 ## Usage
 
+A complete user guide is available as 
+[PDF](https://github.com/helgoboss/realearn/releases/latest/download/realearn-user-guide.pdf) and 
+[HTML](https://www.helgoboss.org/projects/realearn/user-guide).  
+
+### Quick start
+
 ReaLearn is fired up just like any other VST instrument in REAPER: By adding it to an FX chain.
 
 **Main panel (containing the list of mappings):**
