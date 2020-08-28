@@ -4,10 +4,9 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 
 use super::RealearnEditor;
 use crate::domain::{
-    session_manager, ControlMainTask, FeedbackRealTimeTask, NormalMainTask, SharedSession,
-    PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, PLUGIN_PARAMETER_COUNT,
 };
-use crate::domain::{NormalRealTimeTask, RealTimeProcessor, Session, SessionContext};
+use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::common::debug_util;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
@@ -28,6 +27,7 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
+use crate::application::{session_manager, Session, SessionContext, SharedSession};
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -309,7 +309,7 @@ impl RealearnPlugin {
             return false;
         }
         match param_name {
-            crate::domain::WAITING_FOR_SESSION_PARAM_NAME => {
+            crate::application::WAITING_FOR_SESSION_PARAM_NAME => {
                 buffer[0] = if self.session.filled() { 0 } else { 1 };
                 true
             }

@@ -1,6 +1,7 @@
+use crate::application::WeakSession;
 use crate::domain::{
     FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingActivationUpdate, MappingId,
-    NormalRealTimeTask, ReaperTarget, WeakSession,
+    NormalRealTimeTask, ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
@@ -35,6 +36,7 @@ pub struct MainProcessor {
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    // TODO-high Design smell: Explicit knowledge about higher layer
     session: WeakSession,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
 }

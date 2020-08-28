@@ -1,4 +1,4 @@
-use crate::domain::{ModeModel, ModeType};
+use crate::application::{ModeModel, ModeType};
 use helgoboss_learn::{Interval, SymmetricUnitValue, UnitValue};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

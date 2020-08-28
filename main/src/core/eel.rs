@@ -1,4 +1,4 @@
-// TODO-medium This is an invalid dependency. We must move the bindings in core.
+// TODO-high This is an invalid dependency. We must move the bindings in core.
 use crate::infrastructure::common::bindings::root;
 use std::ffi::{CStr, CString};
 

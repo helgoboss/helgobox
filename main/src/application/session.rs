@@ -1,12 +1,14 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask, MainProcessor,
-    MainProcessorMapping, MappingModel, NormalMainTask, NormalRealTimeTask,
-    RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping, TargetModel,
+    ControlMainTask, FeedbackRealTimeTask, MainProcessor, MainProcessorMapping, MidiControlInput,
+    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, RealTimeProcessorMapping, ReaperTarget,
     PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
+use crate::application::{
+    session_manager, share_mapping, MappingModel, SessionContext, SharedMapping, TargetModel,
+};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedPayload, UnitEvent};
@@ -17,24 +19,6 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
-
-/// MIDI source which provides ReaLearn control data.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum MidiControlInput {
-    /// Processes MIDI messages which are fed into ReaLearn FX.
-    FxInput,
-    /// Processes MIDI messages coming directly from a MIDI input device.
-    Device(MidiInputDevice),
-}
-
-/// MIDI destination to which ReaLearn's feedback data is sent.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum MidiFeedbackOutput {
-    /// Routes feedback messages to the ReaLearn FX output.
-    FxOutput,
-    /// Routes feedback messages directly to a MIDI output device.
-    Device(MidiOutputDevice),
-}
 
 pub trait SessionUi {
     fn show_mapping(&self, mapping: *const MappingModel);

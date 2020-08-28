@@ -1,43 +1,23 @@
-mod session;
-pub use session::*;
-
-pub mod session_manager;
-
 mod real_time_processor;
 pub use real_time_processor::*;
 
 mod main_processor;
 pub use main_processor::*;
 
-mod session_context;
-pub use session_context::*;
-
 mod feedback_buffer;
 pub use feedback_buffer::*;
 
-mod midi_source_model;
-pub use midi_source_model::*;
-
-mod mode_model;
-pub use mode_model::*;
-
-mod mapping_model;
-pub use mapping_model::*;
-
 mod mapping;
 pub use mapping::*;
+
+mod mode;
+pub use mode::*;
 
 mod eel_transformation;
 pub use eel_transformation::*;
 
 mod reaper_target;
 pub use reaper_target::*;
-
-mod target_model;
-pub use target_model::*;
-
-mod aliases;
-pub use aliases::*;
 
 mod midi_source_scanner;
 pub use midi_source_scanner::*;
@@ -47,6 +27,3 @@ pub use midi_clock_calculator::*;
 
 mod conditional_activation;
 pub use conditional_activation::*;
-
-mod conditional_activation_model;
-pub use conditional_activation_model::*;

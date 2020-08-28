@@ -1,7 +1,6 @@
-use crate::application::{MappingModelData, ParameterData};
-use crate::domain::{
-    MidiControlInput, MidiFeedbackOutput, ParameterSetting, Session, PLUGIN_PARAMETER_COUNT,
-};
+use crate::application::{ParameterSetting, Session};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT};
+use crate::infrastructure::data::{MappingModelData, ParameterData};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};

@@ -7,6 +7,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use serde::export::Formatter;
 use serde_repr::*;
 use std::borrow::Cow;

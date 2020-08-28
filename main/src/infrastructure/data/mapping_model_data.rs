@@ -1,7 +1,7 @@
-use crate::application::{ModeModelData, SourceModelData, TargetModelData};
-use crate::domain::{
+use crate::application::{
     ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel, SessionContext,
 };
+use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 

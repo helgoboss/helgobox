@@ -1,6 +1,6 @@
 use super::none_if_minus_one;
+use crate::application::{MidiSourceModel, MidiSourceType};
 use crate::core::toast;
-use crate::domain::{MidiSourceModel, MidiSourceType};
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};

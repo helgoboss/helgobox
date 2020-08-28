@@ -1,13 +1,4 @@
 use crate::core::{when, Prop};
-use crate::domain::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, ActivationType,
-    ModifierConditionModel, SharedSession, WeakSession, PLUGIN_PARAMETER_COUNT,
-};
-use crate::domain::{
-    get_fx_label, get_fx_param_label, ActionInvocationType, MappingModel, MidiSourceModel,
-    MidiSourceType, ModeModel, ModeType, ReaperTarget, Session, SharedMapping, TargetCharacter,
-    TargetModel, TargetModelWithContext, TargetType, VirtualTrack,
-};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::MainPanel;
@@ -30,6 +21,13 @@ use std::iter;
 use std::ptr::null;
 use std::rc::Rc;
 
+use crate::application::{
+    convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
+    ActivationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
+    ModifierConditionModel, Session, SharedMapping, SharedSession, TargetModel,
+    TargetModelWithContext, TargetType, VirtualTrack, WeakSession,
+};
+use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter, PLUGIN_PARAMETER_COUNT};
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 

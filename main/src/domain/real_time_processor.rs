@@ -1,13 +1,13 @@
 use crate::domain::{
-    ControlMainTask, MappingId, MidiClockCalculator, MidiControlInput, MidiFeedbackOutput,
-    MidiSourceScanner, NormalMainTask, RealTimeProcessorMapping,
+    ControlMainTask, MappingId, MidiClockCalculator, MidiSourceScanner, NormalMainTask,
+    RealTimeProcessorMapping,
 };
 use helgoboss_learn::{MidiSource, MidiSourceValue};
 use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
     ParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
 };
-use reaper_high::Reaper;
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::debug;
 use std::collections::{HashMap, HashSet};
@@ -538,4 +538,22 @@ impl Drop for RealTimeProcessor {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping real-time processor...");
     }
+}
+
+/// MIDI source which provides ReaLearn control data.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum MidiControlInput {
+    /// Processes MIDI messages which are fed into ReaLearn FX.
+    FxInput,
+    /// Processes MIDI messages coming directly from a MIDI input device.
+    Device(MidiInputDevice),
+}
+
+/// MIDI destination to which ReaLearn's feedback data is sent.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum MidiFeedbackOutput {
+    /// Routes feedback messages to the ReaLearn FX output.
+    FxOutput,
+    /// Routes feedback messages directly to a MIDI output device.
+    Device(MidiOutputDevice),
 }

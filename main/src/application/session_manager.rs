@@ -1,4 +1,5 @@
-use crate::domain::{ReaperTarget, Session, SharedSession, WeakSession};
+use crate::application::{Session, SharedSession, WeakSession};
+use crate::domain::ReaperTarget;
 use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 use reaper_medium::MessageBoxType;

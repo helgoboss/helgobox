@@ -1,6 +1,5 @@
+use crate::application::{MappingModel, SharedMapping, SharedSession, WeakSession};
 use crate::core::when;
-use crate::domain::{MappingModel, SharedMapping};
-use crate::domain::{SharedSession, WeakSession};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::common::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
