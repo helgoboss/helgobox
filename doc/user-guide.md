@@ -412,10 +412,10 @@ responsibilities. It let's you easily implement use cases such as:
 
 There are 4 different activation modes:
 
-1. **Always:** Mapping is always active (the default)
-2. **When modifiers on/off:** Mapping becomes active only if something is pressed / not pressed
-3. **When program selected:** Allows you to step through different groups of mappings
-4. **When EEL result > 0:** Let a formula decide (total freedom)
+- **Always:** Mapping is always active (the default)
+- **When modifiers on/off:** Mapping becomes active only if something is pressed / not pressed
+- **When program selected:** Allows you to step through different groups of mappings
+- **When EEL result > 0:** Let a formula decide (total freedom)
 
 For details, see below.
 
@@ -424,7 +424,7 @@ control parameters of other FX, it also offers FX parameters itself. At the mome
 "Parameter 1" to "Parameter 20". You can control them just like parameters in other FX: Via automation
 envelopes, via track controls, via REAPER's own MIDI learn ... and of course via ReaLearn itself.
 Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
-in condition activation. In future, ReaLearn will provide additional ways to make use of parameters.
+in conditional activation. In future, ReaLearn will provide additional ways to make use of parameters.
 
 ##### When modifiers on/off
 
@@ -436,7 +436,7 @@ functionality of the `V` key.
 In ReaLearn, the modifier is one of the FX parameters. It's considered to be "on" if the parameter
 has a value greater than 0 and "off" if the value is 0.
 
-You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B". If you select "<None>",
+You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B". If you select "&lt;None&gt;",
 the modifier gets disabled (it won't have any effect on activation). The checkbox to the right of
 the dropdown lets you decide if the modifier must be "on" for the mapping to become active or "off".
 
@@ -452,7 +452,7 @@ Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2"
 creating 2 additional mappings - in the same ReaLearn instance or another one, up to you) et voilà,
 it works. The beauty of this solution lies in how you can compose different ReaLearn features to
 obtain exactly the result you want. For example, the mode of the mapping that controls the modifier
-parameter decides if the modifier button is momentary (has to be stay pressed all the time)
+parameter decides if the modifier button is momentary (has to be pressed all the time)
 or toggled (switches between on and off everytime you press it). You can also be more adventurous
 and let the modifier on/off state change over time, using REAPER's automation envelopes. 
 
@@ -461,8 +461,8 @@ and let the modifier on/off state change over time, using REAPER's automation en
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
 The certain parameter is called "Bank" and the particular value is called "Program". Why? Let's
 assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the "Bank" parameter 
-(by using "Relative" mode ... you will learn how to do that further below). And you have multiple
-mappings where each uses "When program selected" with the same "Bank" parameter but a different "Program".
+(by using "Relative" mode, you will learn how to do that further below). And you have multiple
+mappings where each one uses "When program selected" with the same "Bank" parameter but a different "Program".
 Then the result is that you can press "Previous" and "Next" and it will switch between different 
 mappings (programs) within that bank.
 
@@ -489,7 +489,7 @@ y = p1 > 0 && p2 > 0
 it will become inactive. `p1` to `p20` contain the current parameter values. Each of them has a
 value between 0.0 (= 0%) and 1.0 (= 100%).
 
-This mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing
+This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing
 one particular use case. If you feel limited by the other activation modes, just use EEL.  
 
 ##### Custom parameter names
