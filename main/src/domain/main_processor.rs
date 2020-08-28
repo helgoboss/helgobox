@@ -210,7 +210,6 @@ impl ControlSurface for MainProcessor {
                     }
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
-                    // TODO-high Switch off all lights if
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
                         self.handle_feedback_after_batch_mapping_update(&HashSet::new());
