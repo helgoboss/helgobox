@@ -1,5 +1,5 @@
 use crate::domain::{
-    ControlMainTask, MappingId, MidiClockCalculator, MidiSourceScanner, NormalMainTask,
+    ControlMainTask, DomainEvent, MappingId, MidiClockCalculator, MidiSourceScanner,
     RealTimeProcessorMapping,
 };
 use helgoboss_learn::{MidiSource, MidiSourceValue};
@@ -37,7 +37,7 @@ pub struct RealTimeProcessor {
     // Inter-thread communication
     pub(crate) normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
     pub(crate) feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
-    pub(crate) normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
+    pub(crate) domain_event_sender: crossbeam_channel::Sender<DomainEvent>,
     pub(crate) control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     // Host communication
     pub(crate) host: HostCallback,
@@ -56,7 +56,7 @@ impl RealTimeProcessor {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
-        normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
+        domain_event_sender: crossbeam_channel::Sender<DomainEvent>,
         control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
         host_callback: HostCallback,
     ) -> RealTimeProcessor {
@@ -64,7 +64,7 @@ impl RealTimeProcessor {
             control_state: ControlState::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
-            normal_main_task_sender,
+            domain_event_sender,
             control_main_task_sender,
             mappings: Default::default(),
             let_matched_events_through: false,
@@ -358,8 +358,8 @@ impl RealTimeProcessor {
     }
 
     fn learn_source(&mut self, source: MidiSource) {
-        self.normal_main_task_sender
-            .send(NormalMainTask::LearnSource(source))
+        self.domain_event_sender
+            .send(DomainEvent::LearnedSource(source))
             .unwrap();
     }
 

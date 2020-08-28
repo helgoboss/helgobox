@@ -1,4 +1,3 @@
-use crate::application::WeakSession;
 use crate::domain::{
     FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingActivationUpdate, MappingId,
     NormalRealTimeTask, ReaperTarget,
@@ -36,8 +35,6 @@ pub struct MainProcessor {
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    // TODO-high Design smell: Explicit knowledge about higher layer
-    session: WeakSession,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
 }
 
@@ -147,13 +144,6 @@ impl ControlSurface for MainProcessor {
                 }
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
-                }
-                LearnSource(source) => {
-                    self.session
-                        .upgrade()
-                        .expect("session not existing anymore")
-                        .borrow_mut()
-                        .learn_source(source);
                 }
                 UpdateAllParameters(parameters) => {
                     debug!(
@@ -278,7 +268,6 @@ impl MainProcessor {
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        session: WeakSession,
         parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     ) -> MainProcessor {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
@@ -292,7 +281,6 @@ impl MainProcessor {
             mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
-            session,
             feedback_is_globally_enabled: false,
             parameters,
         }
@@ -440,7 +428,6 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
-    LearnSource(MidiSource),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).

@@ -4,7 +4,7 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 
 use super::RealearnEditor;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, DomainEvent, FeedbackRealTimeTask, NormalMainTask, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::common::debug_util;
@@ -52,6 +52,8 @@ pub struct RealearnPlugin {
         crossbeam_channel::Receiver<NormalMainTask>,
     ),
     // Will be cloned to session as soon as it gets created.
+    domain_event_receiver: crossbeam_channel::Receiver<DomainEvent>,
+    // Will be cloned to session as soon as it gets created.
     control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     // Will be cloned to session as soon as it gets created.
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
@@ -81,6 +83,7 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::unbounded();
             let (control_main_task_sender, control_main_task_receiver) =
                 crossbeam_channel::unbounded();
+            let (domain_event_sender, domain_event_receiver) = crossbeam_channel::unbounded();
             Self {
                 host,
                 session: Rc::new(LazyCell::new()),
@@ -89,14 +92,12 @@ impl Plugin for RealearnPlugin {
                 plugin_parameters: Default::default(),
                 normal_real_time_task_sender,
                 feedback_real_time_task_sender,
-                normal_main_task_channel: (
-                    normal_main_task_sender.clone(),
-                    normal_main_task_receiver,
-                ),
+                normal_main_task_channel: (normal_main_task_sender, normal_main_task_receiver),
+                domain_event_receiver,
                 real_time_processor: RealTimeProcessor::new(
                     normal_real_time_task_receiver,
                     feedback_real_time_task_receiver,
-                    normal_main_task_sender,
+                    domain_event_sender,
                     control_main_task_sender,
                     host,
                 ),
@@ -264,6 +265,7 @@ impl RealearnPlugin {
         let normal_real_time_task_sender = self.normal_real_time_task_sender.clone();
         let feedback_real_time_task_sender = self.feedback_real_time_task_sender.clone();
         let normal_main_task_channel = self.normal_main_task_channel.clone();
+        let domain_event_receiver = self.domain_event_receiver.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
         Reaper::get()
             .do_later_in_main_thread_asap(move || {
@@ -283,6 +285,7 @@ impl RealearnPlugin {
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     normal_main_task_channel,
+                    domain_event_receiver,
                     control_main_task_receiver,
                     // It's important that we use a weak pointer here. Otherwise the session keeps
                     // a strong reference to the UI and the UI keeps strong
