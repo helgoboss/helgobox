@@ -9,7 +9,7 @@ use helgoboss_learn::MidiSource;
 use crate::application::{
     session_manager, share_mapping, MappingModel, SessionContext, SharedMapping, TargetModel,
 };
-use reaper_high::{Reaper};
+use reaper_high::Reaper;
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedPayload, UnitEvent};
 use rxrust::prelude::ops::box_it::LocalBoxOp;
