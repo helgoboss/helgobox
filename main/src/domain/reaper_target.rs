@@ -12,7 +12,7 @@ use reaper_medium::{
 };
 use rx_util::{BoxedUnitEvent, Event};
 use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
+
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 

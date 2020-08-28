@@ -3,13 +3,12 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, Interval,
-    PressDurationProcessor, RelativeMode, SymmetricUnitValue, Target, ToggleMode, UnitValue,
+    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, PressDurationProcessor,
+    RelativeMode, SymmetricUnitValue, ToggleMode, UnitValue,
 };
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use serde_repr::*;
 use std::time::Duration;
 

@@ -7,7 +7,6 @@ use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::TrackLocation;
 use rx_util::{Event, UnitEvent};
-use rxrust::prelude::*;
 
 use crate::application::SessionContext;
 use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter};

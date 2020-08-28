@@ -10,7 +10,6 @@ use crate::infrastructure::ui::{
     MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState, SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
 
