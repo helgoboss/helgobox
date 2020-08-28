@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-08-27 (v1.10.0)</code></td>
+  <td><code>2020-08-28 (v1.11.0-pre1)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-08-27 (v1.10.0)</code></td>
+  <td><code>2020-08-28 (v1.11.0-pre1)</code></td>
 </tr>
 </table>
 
@@ -396,6 +396,135 @@ This section provides the following mapping-related settings and functions:
   if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
 - **Find in mapping list:** Scrolls the mapping rows panel so that the corresponding mapping row for
   this mapping gets visible.
+- **Active:** This dropdown controls so-called conditional activation of mappings. See section below.
+  
+#### Conditional activation
+
+Conditional activation allows you to dynamically enable or disable this mapping based on the state of
+ReaLearn's own plug-in parameters. This is a powerful feature. It is especially practical if your
+controller has a limited amount of control elements and you want to give control elements several
+responsibilities. It let's you easily implement use cases such as:
+
+- "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it 
+  should control track volume!"
+- "I want to have two buttons for switching between different programs where each program represents
+  a group of mappings."
+
+There are 4 different activation modes:
+
+1. **Always:** Mapping is always active (the default)
+2. **When modifiers on/off:** Mapping becomes active only if something is pressed / not pressed
+3. **When program selected:** Allows you to step through different groups of mappings
+4. **When EEL result > 0:** Let a formula decide (total freedom)
+
+For details, see below.
+
+At this occasion some words about ReaLearn's plug-in parameters. ReaLearn itself isn't just able to
+control parameters of other FX, it also offers FX parameters itself. At the moment these are
+"Parameter 1" to "Parameter 20". You can control them just like parameters in other FX: Via automation
+envelopes, via track controls, via REAPER's own MIDI learn ... and of course via ReaLearn itself.
+Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
+in condition activation. In future, ReaLearn will provide additional ways to make use of parameters.
+
+##### When modifiers on/off
+
+This mode is comparable to modifier keys on a computer keyboard. For example, when you press `Ctrl+V`
+for pasting text, `Ctrl` is a modifier because it modifies the meaning of the `V` key. When this
+modifier is "on" (= pressed), it activates the "paste text" and deactivates the "write the letter V"
+functionality of the `V` key.
+
+In ReaLearn, the modifier is one of the FX parameters. It's considered to be "on" if the parameter
+has a value greater than 0 and "off" if the value is 0.
+
+You can choose up to 2 modifier parameters, "Modifier A" and "Modifier B". If you select "<None>",
+the modifier gets disabled (it won't have any effect on activation). The checkbox to the right of
+the dropdown lets you decide if the modifier must be "on" for the mapping to become active or "off".
+
+Example: The following setting means that this mapping becomes active *only* if both "Parameter 1"
+and "Parameter 2" are "on".
+
+- **Modifier A:** "Parameter 1"
+- **Checkbox A:** Checked
+- **Modifier B:** "Parameter 2"   
+- **Checkbox B:** Checked
+
+Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2" via ReaLearn (by
+creating 2 additional mappings - in the same ReaLearn instance or another one, up to you) et voilà,
+it works. The beauty of this solution lies in how you can compose different ReaLearn features to
+obtain exactly the result you want. For example, the mode of the mapping that controls the modifier
+parameter decides if the modifier button is momentary (has to be stay pressed all the time)
+or toggled (switches between on and off everytime you press it). You can also be more adventurous
+and let the modifier on/off state change over time, using REAPER's automation envelopes. 
+
+##### When program selected
+
+You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
+The certain parameter is called "Bank" and the particular value is called "Program". Why? Let's
+assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the "Bank" parameter 
+(by using "Relative" mode ... you will learn how to do that further below). And you have multiple
+mappings where each uses "When program selected" with the same "Bank" parameter but a different "Program".
+Then the result is that you can press "Previous" and "Next" and it will switch between different 
+mappings (programs) within that bank.
+
+If you assign the same "Program" to multiple mappings, it's like putting those mapping into one group
+which can be activated/deactivated as a whole. In previous versions of ReaLearn you could use other
+methods to achieve a similar behavior, but it always involved using multiple ReaLearn instances.
+Now you can do it also within one instance.
+
+A fixed assumption here is that each bank (parameter) consists of 100 programs. If this is too limiting
+for you, please use the EEL activation mode instead.    
+
+##### When EEL result > 0
+
+This is for experts. It allows you to write a formula in [EEL2](https://www.cockos.com/EEL2/) language
+that determines if the mapping becomes active or not, based on potentially all parameter values.
+This is the most flexible of all activation modes. The other modes can be easily simulated. The example
+modifier condition scenario mentioned above written as formula would be:
+
+```
+y = p1 > 0 && p2 > 0
+```
+
+`y` represents the result. If `y` is greater than zero, the mapping will become active, otherwise
+it will become inactive. `p1` to `p20` contain the current parameter values. Each of them has a
+value between 0.0 (= 0%) and 1.0 (= 100%).
+
+This mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing
+one particular use case. If you feel limited by the other activation modes, just use EEL.  
+
+##### Custom parameter names
+
+There's a somewhat hidden possibility to give ReaLearn parameters more descriptive names (yes, not
+very convenient, hopefully future versions will improve on that):
+
+1. Press *Export to clipboard* in the main panel.
+2. Paste the result into a text editor of your choice.
+3. You will see a property "parameters", e.g.
+   ```json
+   "parameters": {
+     "0": {
+       "value": 0.084
+     }
+   }
+   ```
+4. Adjust it as you like, e.g.
+   ```json
+   "parameters": {
+     "0": {
+       "value": 0.084,
+       "name": "Pedal"
+     },
+     "1": {
+       "name": "Shift"
+     }
+   }
+   ```
+5. Copy the complete text to the clipboard.
+6. Press *Import from clipboard*  in the main panel.
+   
+Parameter names are not global, they are always saved together with the REAPER project / FX preset /
+track template etc.
+
 
 #### Source
 

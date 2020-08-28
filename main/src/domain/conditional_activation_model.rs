@@ -22,7 +22,7 @@ pub enum ActivationType {
     #[display(fmt = "Always")]
     Always,
     #[serde(rename = "modifiers")]
-    #[display(fmt = "When modifiers pressed")]
+    #[display(fmt = "When modifiers on/off")]
     Modifiers,
     #[serde(rename = "program")]
     #[display(fmt = "When program selected")]
