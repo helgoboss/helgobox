@@ -136,11 +136,7 @@ impl RealTimeProcessor {
                         self.midi_clock_calculator.current_sample_count()
                     );
                     for m in self.mappings.values_mut() {
-                        if mappings_to_enable.contains(&m.id()) {
-                            m.enable_control();
-                        } else {
-                            m.disable_control();
-                        }
+                        m.update_target_activation(mappings_to_enable.contains(&m.id()));
                     }
                 }
                 UpdateSettings {
@@ -186,6 +182,21 @@ impl RealTimeProcessor {
                 }
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
+                }
+                UpdateMappingActivations(activation_updates) => {
+                    debug!(
+                        Reaper::get().logger(),
+                        "Real-time processor: Update mapping activations..."
+                    );
+                    for update in activation_updates.into_iter() {
+                        if let Some(m) = self.mappings.get_mut(&update.id) {
+                            m.update_mapping_activation(update.is_active);
+                        } else {
+                            panic!(
+                                "Couldn't find real-time mapping while updating mapping activations"
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -234,7 +245,7 @@ impl RealTimeProcessor {
             self.mappings.len(),
             self.mappings
                 .values()
-                .filter(|m| m.control_is_enabled())
+                .filter(|m| m.control_is_effectively_on())
                 .count(),
             task_count,
             self.feedback_task_receiver.len(),
@@ -397,7 +408,11 @@ impl RealTimeProcessor {
     /// Returns whether this source value matched one of the mappings.
     fn control(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
         let mut matched = false;
-        for m in self.mappings.values().filter(|m| m.control_is_enabled()) {
+        for m in self
+            .mappings
+            .values()
+            .filter(|m| m.control_is_effectively_on())
+        {
             if let Some(control_value) = m.control(&value) {
                 let task = ControlMainTask::Control {
                     mapping_id: m.id(),
@@ -433,7 +448,7 @@ impl RealTimeProcessor {
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
         self.mappings
             .values()
-            .any(|m| m.control_is_enabled() && m.consumes(msg))
+            .any(|m| m.control_is_effectively_on() && m.consumes(msg))
     }
 
     fn feedback(&self, value: MidiSourceValue<RawShortMessage>) {
@@ -495,11 +510,21 @@ pub enum NormalRealTimeTask {
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
+    /// This takes care of propagating target activation states (right now still mixed up with
+    /// enabled/disabled).
     EnableMappingsExclusively(HashSet<MappingId>),
+    /// Updates the activation state of multiple mappings.
+    UpdateMappingActivations(Vec<MappingActivationUpdate>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource,
     StopLearnSource,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MappingActivationUpdate {
+    pub id: MappingId,
+    pub is_active: bool,
 }
 
 /// A feedback task (which is potentially sent very frequently).

@@ -1,7 +1,7 @@
 use crate::application::SessionData;
 use crate::core::SendOrSyncWhatever;
 
-use crate::domain::WeakSession;
+use crate::domain::{SharedSession, WeakSession};
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;
 use reaper_low::firewall;
@@ -39,6 +39,10 @@ impl RealearnPluginParameters {
             self.load_bank_data(data);
             *guard = None;
         }
+    }
+
+    fn session(&self) -> Option<SharedSession> {
+        self.session.borrow().and_then(|s| s.upgrade())
     }
 }
 
@@ -99,5 +103,27 @@ impl PluginParameters for RealearnPluginParameters {
             session_data.apply_to_model(&mut session).unwrap();
             session.notify_everything_has_changed(shared_session.get().clone());
         });
+    }
+
+    fn get_parameter_name(&self, index: i32) -> String {
+        if let Some(s) = self.session() {
+            s.borrow().get_parameter_name(index as u32)
+        } else {
+            format!("Parameter {}", index + 1)
+        }
+    }
+
+    fn get_parameter(&self, index: i32) -> f32 {
+        if let Some(s) = self.session() {
+            s.borrow().get_parameter(index as u32)
+        } else {
+            0.0
+        }
+    }
+
+    fn set_parameter(&self, index: i32, value: f32) {
+        if let Some(s) = self.session() {
+            s.borrow_mut().set_parameter(index as u32, value);
+        }
     }
 }

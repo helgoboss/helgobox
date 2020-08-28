@@ -1,8 +1,9 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    convert_factor_to_unit_value, MappingId, MidiSourceModel, ModeModel, ModeType,
-    ProcessorMapping, ReaperTarget, SessionContext, TargetCharacter, TargetModel,
-    TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationCondition, ActivationType, EelCondition, MappingId,
+    MidiSourceModel, ModeModel, ModeType, ModifierConditionModel, ProcessorMapping,
+    ProcessorMappingOptions, ProgramConditionModel, ReaperTarget, SessionContext, TargetCharacter,
+    TargetModel, TargetModelWithContext,
 };
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
@@ -16,6 +17,11 @@ pub struct MappingModel {
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
+    pub activation_type: Prop<ActivationType>,
+    pub modifier_condition_1: Prop<ModifierConditionModel>,
+    pub modifier_condition_2: Prop<ModifierConditionModel>,
+    pub program_condition: Prop<ProgramConditionModel>,
+    pub eel_condition: Prop<String>,
     pub source_model: MidiSourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -29,6 +35,11 @@ impl Clone for MappingModel {
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
             prevent_echo_feedback: self.prevent_echo_feedback.clone(),
+            activation_type: self.activation_type.clone(),
+            modifier_condition_1: self.modifier_condition_1.clone(),
+            modifier_condition_2: self.modifier_condition_2.clone(),
+            program_condition: self.program_condition.clone(),
+            eel_condition: self.eel_condition.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
@@ -44,6 +55,11 @@ impl Default for MappingModel {
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),
+            activation_type: prop(ActivationType::Always),
+            modifier_condition_1: Default::default(),
+            modifier_condition_2: Default::default(),
+            program_condition: Default::default(),
+            eel_condition: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: Default::default(),
@@ -111,6 +127,16 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
             .merge(self.prevent_echo_feedback.changed())
+            .merge(self.activation_type.changed())
+            .merge(self.modifier_condition_1.changed())
+            .merge(self.modifier_condition_2.changed())
+            .merge(self.eel_condition.changed())
+            .merge(self.program_condition.changed())
+    }
+
+    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
+        use std::iter::once;
+        once(self.modifier_condition_1.get_ref()).chain(once(self.modifier_condition_2.get_ref()))
     }
 }
 
@@ -123,10 +149,13 @@ impl<'a> MappingModelWithContext<'a> {
     /// Creates a mapping for usage in real-time and main processors.
     ///
     /// `control_is_enabled` and `feedback_is_enabled` won't just reflect the manual setting
-    /// but also the target condition (e.g. "track selected" or "FX focused").
-    pub fn create_processor_mapping(&self) -> ProcessorMapping {
+    /// but also the mapping activation condition (e.g. modifiers) and the target condition
+    /// (e.g. "track selected" or "FX focused").
+    pub fn create_processor_mapping(&self, params: &[f32]) -> ProcessorMapping {
         let target = self.target_with_context().create_target().ok();
-        let target_conditions_are_met = match &target {
+        let activation_condition = self.create_activation_condition(params);
+        let mapping_is_initially_active = activation_condition.is_fulfilled(params);
+        let target_is_initially_active = match &target {
             None => false,
             Some(t) => self.mapping.target_model.conditions_are_met(t),
         };
@@ -135,10 +164,38 @@ impl<'a> MappingModelWithContext<'a> {
             self.mapping.source_model.create_source(),
             self.mapping.mode_model.create_mode(),
             target,
-            self.mapping.control_is_enabled.get() && target_conditions_are_met,
-            self.mapping.feedback_is_enabled.get() && target_conditions_are_met,
-            self.mapping.prevent_echo_feedback.get(),
+            activation_condition,
+            ProcessorMappingOptions {
+                mapping_is_active: mapping_is_initially_active,
+                target_is_active: target_is_initially_active,
+                control_is_enabled: self.mapping.control_is_enabled.get(),
+                feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
+                prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
+            },
         )
+    }
+
+    fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {
+        use ActivationType::*;
+        match self.mapping.activation_type.get() {
+            Always => ActivationCondition::Always,
+            Modifiers => {
+                let conditions = self
+                    .mapping
+                    .modifier_conditions()
+                    .filter_map(|m| m.create_modifier_condition())
+                    .collect();
+                ActivationCondition::Modifiers(conditions)
+            }
+            Program => ActivationCondition::Program {
+                param_index: self.mapping.program_condition.get().param_index(),
+                program_index: self.mapping.program_condition.get().program_index(),
+            },
+            Eel => match EelCondition::compile(self.mapping.eel_condition.get_ref(), params) {
+                Ok(c) => ActivationCondition::Eel(Box::new(c)),
+                Err(_) => ActivationCondition::Always,
+            },
+        }
     }
 
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {

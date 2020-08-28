@@ -5,6 +5,7 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::domain::{
     session_manager, ControlMainTask, FeedbackRealTimeTask, NormalMainTask, SharedSession,
+    PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor, Session, SessionContext};
 use crate::infrastructure::common::debug_util;
@@ -114,6 +115,7 @@ impl Plugin for RealearnPlugin {
                 unique_id: 1751282284,
                 preset_chunks: true,
                 category: Category::Synth,
+                parameters: PLUGIN_PARAMETER_COUNT as i32,
                 ..Default::default()
             }
         })

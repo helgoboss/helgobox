@@ -1,5 +1,7 @@
 use crate::application::{ModeModelData, SourceModelData, TargetModelData};
-use crate::domain::{MappingModel, SessionContext};
+use crate::domain::{
+    ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel, SessionContext,
+};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
@@ -13,6 +15,11 @@ pub struct MappingModelData {
     control_is_enabled: bool,
     feedback_is_enabled: bool,
     prevent_echo_feedback: bool,
+    activation_type: ActivationType,
+    modifier_condition_1: ModifierConditionModel,
+    modifier_condition_2: ModifierConditionModel,
+    program_condition: ProgramConditionModel,
+    eel_condition: String,
 }
 
 impl Default for MappingModelData {
@@ -25,6 +32,11 @@ impl Default for MappingModelData {
             control_is_enabled: true,
             feedback_is_enabled: true,
             prevent_echo_feedback: false,
+            activation_type: ActivationType::Always,
+            modifier_condition_1: Default::default(),
+            modifier_condition_2: Default::default(),
+            program_condition: Default::default(),
+            eel_condition: "".to_string(),
         }
     }
 }
@@ -39,6 +51,11 @@ impl MappingModelData {
             control_is_enabled: model.control_is_enabled.get(),
             feedback_is_enabled: model.feedback_is_enabled.get(),
             prevent_echo_feedback: model.prevent_echo_feedback.get(),
+            activation_type: model.activation_type.get(),
+            modifier_condition_1: model.modifier_condition_1.get(),
+            modifier_condition_2: model.modifier_condition_2.get(),
+            program_condition: model.program_condition.get(),
+            eel_condition: model.eel_condition.get_ref().clone(),
         }
     }
 
@@ -63,5 +80,20 @@ impl MappingModelData {
         model
             .prevent_echo_feedback
             .set_without_notification(self.prevent_echo_feedback);
+        model
+            .activation_type
+            .set_without_notification(self.activation_type);
+        model
+            .modifier_condition_1
+            .set_without_notification(self.modifier_condition_1);
+        model
+            .modifier_condition_2
+            .set_without_notification(self.modifier_condition_2);
+        model
+            .program_condition
+            .set_without_notification(self.program_condition);
+        model
+            .eel_condition
+            .set_without_notification(self.eel_condition.clone());
     }
 }

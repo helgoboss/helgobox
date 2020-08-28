@@ -1,9 +1,32 @@
-use crate::domain::{MainProcessorTargetUpdate, Mode, ReaperTarget};
+use crate::domain::{ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget};
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, Target};
 use helgoboss_midi::RawShortMessage;
 
 use std::time::{Duration, Instant};
 use uuid::Uuid;
+
+#[derive(Copy, Clone, Debug)]
+pub struct ProcessorMappingOptions {
+    pub mapping_is_active: bool,
+    pub target_is_active: bool,
+    pub control_is_enabled: bool,
+    pub feedback_is_enabled: bool,
+    pub prevent_echo_feedback: bool,
+}
+
+impl ProcessorMappingOptions {
+    fn control_is_effectively_on(&self) -> bool {
+        self.is_active() && self.control_is_enabled
+    }
+
+    fn feedback_is_effectively_on(&self) -> bool {
+        self.is_active() && self.feedback_is_enabled
+    }
+
+    fn is_active(&self) -> bool {
+        self.mapping_is_active && self.target_is_active
+    }
+}
 
 #[derive(Debug)]
 pub struct ProcessorMapping {
@@ -11,9 +34,8 @@ pub struct ProcessorMapping {
     source: MidiSource,
     mode: Mode,
     target: Option<ReaperTarget>,
-    control_is_enabled: bool,
-    feedback_is_enabled: bool,
-    prevent_echo_feedback: bool,
+    activation_condition: ActivationCondition,
+    options: ProcessorMappingOptions,
 }
 
 impl ProcessorMapping {
@@ -22,35 +44,29 @@ impl ProcessorMapping {
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
-        control_is_enabled: bool,
-        feedback_is_enabled: bool,
-        prevent_echo_feedback: bool,
+        activation_condition: ActivationCondition,
+        options: ProcessorMappingOptions,
     ) -> ProcessorMapping {
         ProcessorMapping {
             id,
             source,
             mode,
             target,
-            control_is_enabled,
-            feedback_is_enabled,
-            prevent_echo_feedback,
+            activation_condition,
+            options,
         }
     }
 
-    pub fn splinter(
-        &self,
-        feedback_is_globally_enabled: bool,
-    ) -> (RealTimeProcessorMapping, MainProcessorMapping) {
+    pub fn splinter(self) -> (RealTimeProcessorMapping, MainProcessorMapping) {
         let real_time_mapping =
-            RealTimeProcessorMapping::new(self.id, self.source.clone(), self.control_is_enabled);
+            RealTimeProcessorMapping::new(self.id, self.source.clone(), self.options);
         let main_mapping = MainProcessorMapping::new(
             self.id,
             self.source.clone(),
             self.mode.clone(),
             self.target.clone(),
-            self.control_is_enabled,
-            self.feedback_is_enabled && feedback_is_globally_enabled,
-            self.prevent_echo_feedback,
+            self.activation_condition,
+            self.options,
         );
         (real_time_mapping, main_mapping)
     }
@@ -73,19 +89,19 @@ impl MappingId {
 pub struct RealTimeProcessorMapping {
     id: MappingId,
     source: MidiSource,
-    control_is_enabled: bool,
+    options: ProcessorMappingOptions,
 }
 
 impl RealTimeProcessorMapping {
     pub fn new(
-        mapping_id: MappingId,
+        id: MappingId,
         source: MidiSource,
-        control_is_enabled: bool,
+        options: ProcessorMappingOptions,
     ) -> RealTimeProcessorMapping {
         RealTimeProcessorMapping {
             source,
-            id: mapping_id,
-            control_is_enabled,
+            id,
+            options,
         }
     }
 
@@ -101,16 +117,20 @@ impl RealTimeProcessorMapping {
         self.source.consumes(&msg)
     }
 
-    pub fn control_is_enabled(&self) -> bool {
-        self.control_is_enabled
+    pub fn target_is_active(&self) -> bool {
+        self.options.target_is_active
     }
 
-    pub fn enable_control(&mut self) {
-        self.control_is_enabled = true;
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.options.control_is_effectively_on()
     }
 
-    pub fn disable_control(&mut self) {
-        self.control_is_enabled = false;
+    pub fn update_target_activation(&mut self, is_active: bool) {
+        self.options.target_is_active = is_active;
+    }
+
+    pub fn update_mapping_activation(&mut self, is_active: bool) {
+        self.options.mapping_is_active = is_active;
     }
 }
 
@@ -122,9 +142,8 @@ pub struct MainProcessorMapping {
     source: MidiSource,
     mode: Mode,
     target: Option<ReaperTarget>,
-    control_is_enabled: bool,
-    feedback_is_enabled: bool,
-    prevent_echo_feedback: bool,
+    activation_condition: ActivationCondition,
+    options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
 }
 
@@ -134,18 +153,16 @@ impl MainProcessorMapping {
         source: MidiSource,
         mode: Mode,
         target: Option<ReaperTarget>,
-        control_is_enabled: bool,
-        feedback_is_enabled: bool,
-        prevent_echo_feedback: bool,
+        activation_condition: ActivationCondition,
+        options: ProcessorMappingOptions,
     ) -> MainProcessorMapping {
         MainProcessorMapping {
             id,
             source,
             mode,
             target,
-            control_is_enabled,
-            feedback_is_enabled,
-            prevent_echo_feedback,
+            activation_condition,
+            options,
             time_of_last_control: None,
         }
     }
@@ -154,31 +171,45 @@ impl MainProcessorMapping {
         self.id
     }
 
-    pub fn update_from_target(&mut self, update: MainProcessorTargetUpdate) {
+    pub fn update_target(&mut self, update: MainProcessorTargetUpdate) {
         self.target = update.target;
-        self.control_is_enabled = update.control_is_enabled;
-        self.feedback_is_enabled = update.feedback_is_enabled;
+        self.options.target_is_active = update.target_is_active;
+    }
+
+    pub fn update_activation(&mut self, is_active: bool) {
+        self.options.mapping_is_active = is_active;
+    }
+
+    /// Returns `Some` if this affects the mapping's activation state and if the resulting state
+    /// is on or off.
+    pub fn notify_param_changed(
+        &self,
+        params: &[f32],
+        index: u32,
+        previous_value: f32,
+        value: f32,
+    ) -> Option<bool> {
+        if self
+            .activation_condition
+            .notify_param_changed(index, previous_value, value)
+        {
+            let is_fulfilled = self.activation_condition.is_fulfilled(params);
+            Some(is_fulfilled)
+        } else {
+            None
+        }
     }
 
     pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {
         MainProcessorTargetUpdate {
             id: self.id(),
             target: self.target,
-            control_is_enabled: self.control_is_enabled,
-            feedback_is_enabled: self.feedback_is_enabled,
+            target_is_active: self.options.target_is_active,
         }
     }
 
-    pub fn control_is_enabled(&self) -> bool {
-        self.control_is_enabled
-    }
-
-    pub fn feedback_is_enabled(&self) -> bool {
-        self.feedback_is_enabled
-    }
-
     pub fn control_if_enabled(&mut self, value: ControlValue) {
-        if !self.control_is_enabled {
+        if !self.control_is_effectively_on() {
             return;
         }
         let target = match &self.target {
@@ -186,7 +217,7 @@ impl MainProcessorMapping {
             Some(t) => t,
         };
         if let Some(final_value) = self.mode.control(value, target) {
-            if self.prevent_echo_feedback {
+            if self.options.prevent_echo_feedback {
                 self.time_of_last_control = Some(Instant::now());
             }
             target.control(final_value).unwrap();
@@ -194,7 +225,7 @@ impl MainProcessorMapping {
     }
 
     pub fn feedback_if_enabled(&self) -> Option<MidiSourceValue<RawShortMessage>> {
-        if !self.feedback_is_enabled {
+        if !self.feedback_is_effectively_on() {
             return None;
         }
         if let Some(t) = self.time_of_last_control {
@@ -217,5 +248,13 @@ impl MainProcessorMapping {
 
     pub fn target(&self) -> Option<&ReaperTarget> {
         self.target.as_ref()
+    }
+
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.options.control_is_effectively_on()
+    }
+
+    pub fn feedback_is_effectively_on(&self) -> bool {
+        self.options.feedback_is_effectively_on()
     }
 }
