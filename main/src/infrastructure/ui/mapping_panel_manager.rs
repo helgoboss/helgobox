@@ -1,9 +1,8 @@
-use crate::domain::SharedMapping;
-use crate::domain::WeakSession;
 use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use reaper_high::Reaper;
 use slog::debug;
 
+use crate::application::{SharedMapping, WeakSession};
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;

@@ -1,5 +1,7 @@
-use crate::domain::ActionInvocationType;
+use derive_more::Display;
+use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
     Tempo, Track, TrackSend, Volume,
@@ -10,6 +12,8 @@ use reaper_medium::{
 };
 use rx_util::{BoxedUnitEvent, Event};
 use rxrust::prelude::*;
+
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
 use std::convert::TryInto;
@@ -1065,4 +1069,28 @@ fn parse_step_size_from_bpm(text: &str) -> Result<UnitValue, &'static str> {
         return Err("not in BPM increment range");
     }
     Ok(UnitValue::new(decimal / span))
+}
+
+/// How to invoke an action target
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum ActionInvocationType {
+    #[display(fmt = "Trigger")]
+    Trigger = 0,
+    #[display(fmt = "Absolute")]
+    Absolute = 1,
+    #[display(fmt = "Relative")]
+    Relative = 2,
 }

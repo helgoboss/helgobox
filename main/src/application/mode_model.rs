@@ -1,10 +1,10 @@
 use crate::core::{prop, Prop};
-use crate::domain::{EelTransformation, OutputVariable};
+use crate::domain::{EelTransformation, Mode, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, ControlValue, DiscreteIncrement, Interval,
-    PressDurationProcessor, RelativeMode, SymmetricUnitValue, Target, ToggleMode, UnitValue,
+    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, PressDurationProcessor,
+    RelativeMode, SymmetricUnitValue, ToggleMode, UnitValue,
 };
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -49,38 +49,6 @@ pub struct ModeModel {
     /// by the maximum value.
     pub step_interval: Prop<Interval<SymmetricUnitValue>>,
     pub rotate: Prop<bool>,
-}
-
-// Represents a learn mode
-#[derive(Clone, Debug)]
-pub enum Mode {
-    Absolute(AbsoluteMode<EelTransformation>),
-    Relative(RelativeMode<EelTransformation>),
-    Toggle(ToggleMode<EelTransformation>),
-}
-
-impl Mode {
-    pub fn control(&mut self, value: ControlValue, target: &impl Target) -> Option<ControlValue> {
-        use Mode::*;
-        match self {
-            Absolute(m) => m
-                .control(value.as_absolute().ok()?, target)
-                .map(ControlValue::Absolute),
-            Relative(m) => m.control(value, target),
-            Toggle(m) => m
-                .control(value.as_absolute().ok()?, target)
-                .map(ControlValue::Absolute),
-        }
-    }
-
-    pub fn feedback(&self, value: UnitValue) -> UnitValue {
-        use Mode::*;
-        match self {
-            Absolute(m) => m.feedback(value),
-            Relative(m) => m.feedback(value),
-            Toggle(m) => m.feedback(value),
-        }
-    }
 }
 
 /// Type of a mode

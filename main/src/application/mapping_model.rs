@@ -1,12 +1,15 @@
 use crate::core::{prop, Prop};
-use crate::domain::{
-    convert_factor_to_unit_value, ActivationCondition, ActivationType, EelCondition, MappingId,
-    MidiSourceModel, ModeModel, ModeType, ModifierConditionModel, ProcessorMapping,
-    ProcessorMappingOptions, ProgramConditionModel, ReaperTarget, SessionContext, TargetCharacter,
-    TargetModel, TargetModelWithContext,
-};
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
+use crate::application::{
+    convert_factor_to_unit_value, ActivationType, MidiSourceModel, ModeModel, ModeType,
+    ModifierConditionModel, ProgramConditionModel, SessionContext, TargetModel,
+    TargetModelWithContext,
+};
+use crate::domain::{
+    ActivationCondition, EelCondition, MappingId, ProcessorMapping, ProcessorMappingOptions,
+    ReaperTarget, TargetCharacter,
+};
 use rx_util::UnitEvent;
 
 /// A model for creating mappings (a combination of source, mode and target).

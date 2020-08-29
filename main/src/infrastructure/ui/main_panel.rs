@@ -1,5 +1,3 @@
-use crate::domain::{MappingModel, SessionUi, WeakSession};
-
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
 
@@ -9,6 +7,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::Cell;
 
+use crate::application::{MappingModel, SessionUi, WeakSession};
 use std::rc::{Rc, Weak};
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 

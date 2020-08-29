@@ -1,12 +1,12 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use crate::domain::{
-    get_guid_based_fx_at_index, ActionInvocationType, SessionContext, TargetModel, TargetType,
-    VirtualTrack,
-};
 use reaper_high::{Guid, Project, Reaper, Track};
 
+use crate::application::{
+    get_guid_based_fx_at_index, SessionContext, TargetModel, TargetType, VirtualTrack,
+};
 use crate::core::toast;
+use crate::domain::ActionInvocationType;
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;

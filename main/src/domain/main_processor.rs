@@ -1,6 +1,6 @@
 use crate::domain::{
     FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingActivationUpdate, MappingId,
-    NormalRealTimeTask, ReaperTarget, WeakSession,
+    NormalRealTimeTask, ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
@@ -35,7 +35,6 @@ pub struct MainProcessor {
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    session: WeakSession,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
 }
 
@@ -146,13 +145,6 @@ impl ControlSurface for MainProcessor {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
-                LearnSource(source) => {
-                    self.session
-                        .upgrade()
-                        .expect("session not existing anymore")
-                        .borrow_mut()
-                        .learn_source(source);
-                }
                 UpdateAllParameters(parameters) => {
                     debug!(
                         Reaper::get().logger(),
@@ -208,7 +200,6 @@ impl ControlSurface for MainProcessor {
                     }
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
-                    // TODO-high Switch off all lights if
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
                         self.handle_feedback_after_batch_mapping_update(&HashSet::new());
@@ -277,7 +268,6 @@ impl MainProcessor {
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        session: WeakSession,
         parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     ) -> MainProcessor {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
@@ -291,7 +281,6 @@ impl MainProcessor {
             mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
-            session,
             feedback_is_globally_enabled: false,
             parameters,
         }
@@ -439,7 +428,6 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
-    LearnSource(MidiSource),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).

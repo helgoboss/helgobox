@@ -1,5 +1,4 @@
 use crate::core::{prop, Prop};
-use crate::domain::{ReaperTarget, SessionContext, TargetCharacter};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::Target;
@@ -9,6 +8,8 @@ use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::TrackLocation;
 use rx_util::{Event, UnitEvent};
 
+use crate::application::SessionContext;
+use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter};
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt;
@@ -679,30 +680,6 @@ pub enum TargetType {
     SelectedTrack = 14,
     #[display(fmt = "Track FX all enable (no feedback)")]
     AllTrackFxEnable = 15,
-}
-
-/// How to invoke an action target
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize_repr,
-    Deserialize_repr,
-    IntoEnumIterator,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-pub enum ActionInvocationType {
-    #[display(fmt = "Trigger")]
-    Trigger = 0,
-    #[display(fmt = "Absolute")]
-    Absolute = 1,
-    #[display(fmt = "Relative")]
-    Relative = 2,
 }
 
 impl TargetType {

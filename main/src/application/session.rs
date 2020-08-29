@@ -1,13 +1,15 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    session_manager, share_mapping, ControlMainTask, FeedbackRealTimeTask, MainProcessor,
-    MainProcessorMapping, MappingModel, NormalMainTask, NormalRealTimeTask,
-    RealTimeProcessorMapping, ReaperTarget, SessionContext, SharedMapping, TargetModel,
-    PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, DomainEvent, FeedbackRealTimeTask, MainProcessor, MainProcessorMapping,
+    MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
+    RealTimeProcessorMapping, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
+use crate::application::{
+    session_manager, share_mapping, MappingModel, SessionContext, SharedMapping, TargetModel,
+};
+use reaper_high::Reaper;
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedPayload, UnitEvent};
 use rxrust::prelude::ops::box_it::LocalBoxOp;
@@ -18,23 +20,7 @@ use std::fmt::Debug;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
-/// MIDI source which provides ReaLearn control data.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum MidiControlInput {
-    /// Processes MIDI messages which are fed into ReaLearn FX.
-    FxInput,
-    /// Processes MIDI messages coming directly from a MIDI input device.
-    Device(MidiInputDevice),
-}
-
-/// MIDI destination to which ReaLearn's feedback data is sent.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum MidiFeedbackOutput {
-    /// Routes feedback messages to the ReaLearn FX output.
-    FxOutput,
-    /// Routes feedback messages directly to a MIDI output device.
-    Device(MidiOutputDevice),
-}
+const DOMAIN_EVENT_BULK_SIZE: usize = 32;
 
 pub trait SessionUi {
     fn show_mapping(&self, mapping: *const MappingModel);
@@ -68,6 +54,7 @@ pub struct Session {
         crossbeam_channel::Sender<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
     ),
+    domain_event_receiver: crossbeam_channel::Receiver<DomainEvent>,
     control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
@@ -86,6 +73,7 @@ impl Session {
             crossbeam_channel::Sender<NormalMainTask>,
             crossbeam_channel::Receiver<NormalMainTask>,
         ),
+        domain_event_receiver: crossbeam_channel::Receiver<DomainEvent>,
         control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         ui: impl SessionUi + 'static,
     ) -> Session {
@@ -106,6 +94,7 @@ impl Session {
             mapping_subscriptions: vec![],
             main_processor_registration: None,
             normal_main_task_channel,
+            domain_event_receiver,
             control_main_task_receiver,
             normal_real_time_task_sender,
             feedback_real_time_task_sender,
@@ -167,11 +156,33 @@ impl Session {
                 self.control_main_task_receiver.clone(),
                 self.normal_real_time_task_sender.clone(),
                 self.feedback_real_time_task_sender.clone(),
-                weak_session.clone(),
                 self.parameters,
             )))
             .expect("couldn't register local control surface");
         self.main_processor_registration = Some(reg);
+        // React to domain events
+        {
+            let receiver = self.domain_event_receiver.clone();
+            let weak_session = weak_session.clone();
+            Reaper::get()
+                .main_thread_idle()
+                // We have this explicit stop criteria because we listen to global REAPER events.
+                .take_until(self.party_is_over())
+                .subscribe(move |_| {
+                    for evt in receiver.try_iter().take(DOMAIN_EVENT_BULK_SIZE) {
+                        use DomainEvent::*;
+                        match evt {
+                            LearnedSource(source) => {
+                                weak_session
+                                    .upgrade()
+                                    .expect("session not existing anymore")
+                                    .borrow_mut()
+                                    .learn_source(source);
+                            }
+                        }
+                    }
+                });
+        }
         // Whenever something in the mapping list changes, resubscribe to mappings themselves.
         when(
             // Initial sync

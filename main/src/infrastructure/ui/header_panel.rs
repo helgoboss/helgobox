@@ -1,7 +1,6 @@
-use crate::application::SessionData;
 use crate::core::{toast, when};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, WeakSession};
-use crate::domain::{ReaperTarget, SharedSession};
+use crate::domain::ReaperTarget;
+use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::SharedMainState;
 
@@ -18,6 +17,8 @@ use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
 
+use crate::application::{SharedSession, WeakSession};
+use crate::infrastructure::data::SessionData;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".

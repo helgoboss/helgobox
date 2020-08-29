@@ -16,3 +16,5 @@ pub use moving_average_calculator::*;
 pub mod toast;
 
 pub mod eel;
+
+pub mod bindings;
