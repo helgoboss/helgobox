@@ -215,8 +215,8 @@ impl ReaperTarget {
                 invocation_type: _,
                 ..
             } => match action.character() {
-                ActionCharacter::Toggle => Trigger,
-                ActionCharacter::Trigger => Switch,
+                ActionCharacter::Trigger => Trigger,
+                ActionCharacter::Toggle => Switch,
             },
             FxParameter { param } => match param.character() {
                 FxParameterCharacter::Toggle => Switch,
