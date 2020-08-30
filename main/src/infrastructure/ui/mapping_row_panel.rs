@@ -7,6 +7,7 @@ use crate::infrastructure::ui::bindings::root::{
 use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::MappingPanelManager;
 use reaper_high::Reaper;
+use reaper_medium::{MessageBoxResult, MessageBoxType};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -234,9 +235,16 @@ impl MappingRowPanel {
     }
 
     fn remove_mapping(&self) {
-        self.session()
-            .borrow_mut()
-            .remove_mapping(self.require_mapping_address());
+        let result = Reaper::get().medium_reaper().show_message_box(
+            "Do you really want to remove this mapping?",
+            "ReaLearn",
+            MessageBoxType::YesNo,
+        );
+        if result == MessageBoxResult::Yes {
+            self.session()
+                .borrow_mut()
+                .remove_mapping(self.require_mapping_address());
+        }
     }
 
     fn duplicate_mapping(&self) {
