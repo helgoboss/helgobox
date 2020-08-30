@@ -6,7 +6,7 @@ use crate::application::{
     get_guid_based_fx_at_index, SessionContext, TargetModel, TargetType, VirtualTrack,
 };
 use crate::core::toast;
-use crate::domain::ActionInvocationType;
+use crate::domain::{ActionInvocationType, TransportAction};
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -40,6 +40,8 @@ pub struct TargetModelData {
     param_index: u32,
     // Track selection target
     select_exclusively: bool,
+    // Transport target
+    transport_action: TransportAction,
 }
 
 impl Default for TargetModelData {
@@ -58,6 +60,7 @@ impl Default for TargetModelData {
             send_index: None,
             param_index: 0,
             select_exclusively: false,
+            transport_action: TransportAction::PlayStop,
         }
     }
 }
@@ -90,6 +93,7 @@ impl TargetModelData {
             send_index: model.send_index.get(),
             param_index: model.param_index.get(),
             select_exclusively: model.select_exclusively.get(),
+            transport_action: model.transport_action.get(),
         }
     }
 
@@ -172,6 +176,9 @@ impl TargetModelData {
         model
             .select_exclusively
             .set_without_notification(self.select_exclusively);
+        model
+            .transport_action
+            .set_without_notification(self.transport_action);
     }
 }
 

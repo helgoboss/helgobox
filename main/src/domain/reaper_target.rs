@@ -13,6 +13,7 @@ use reaper_medium::{
 use rx_util::{BoxedUnitEvent, Event};
 use rxrust::prelude::*;
 
+use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
@@ -83,6 +84,10 @@ pub enum ReaperTarget {
     },
     AllTrackFxEnable {
         track: Track,
+    },
+    Transport {
+        project: Project,
+        action: TransportAction,
     },
 }
 
@@ -237,6 +242,7 @@ impl ReaperTarget {
             FxPreset { .. } => Discrete,
             SelectedTrack { .. } => Discrete,
             AllTrackFxEnable { .. } => Switch,
+            Transport { .. } => Switch,
         }
     }
 
@@ -467,7 +473,7 @@ impl ReaperTarget {
     pub fn project(&self) -> Option<Project> {
         use ReaperTarget::*;
         let project = match self {
-            Action { .. } => return None,
+            Action { .. } | Transport { .. } => return None,
             FxParameter { param } => param.fx().project()?,
             TrackVolume { track }
             | TrackPan { track }
@@ -498,7 +504,11 @@ impl ReaperTarget {
             FxEnable { fx } => fx.track()?,
             FxPreset { fx } => fx.track()?,
             AllTrackFxEnable { track } => track,
-            Action { .. } | Tempo { .. } | Playrate { .. } | SelectedTrack { .. } => return None,
+            Action { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | Transport { .. } => return None,
         };
         Some(track)
     }
@@ -521,7 +531,8 @@ impl ReaperTarget {
             | Tempo { .. }
             | Playrate { .. }
             | SelectedTrack { .. }
-            | AllTrackFxEnable { .. } => return None,
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => return None,
         };
         Some(fx)
     }
@@ -543,7 +554,8 @@ impl ReaperTarget {
             | Tempo { .. }
             | Playrate { .. }
             | SelectedTrack { .. }
-            | AllTrackFxEnable { .. } => return None,
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => return None,
         };
         Some(send)
     }
@@ -672,6 +684,40 @@ impl ReaperTarget {
                     track.enable_fx();
                 }
             }
+            Transport { project, action } => {
+                use TransportAction::*;
+                let off = value.as_absolute()?.is_zero();
+                match action {
+                    PlayStop => {
+                        if off {
+                            project.stop();
+                        } else {
+                            project.play();
+                        }
+                    }
+                    PlayPause => {
+                        if off {
+                            project.pause();
+                        } else {
+                            project.play();
+                        }
+                    }
+                    Record => {
+                        if off {
+                            Reaper::get().disable_record_in_current_project();
+                        } else {
+                            Reaper::get().enable_record_in_current_project();
+                        }
+                    }
+                    Repeat => {
+                        if off {
+                            project.disable_repeat();
+                        } else {
+                            project.enable_repeat();
+                        }
+                    }
+                };
+            }
         };
         Ok(())
     }
@@ -792,6 +838,14 @@ impl ReaperTarget {
                     .box_it()
             }
             AllTrackFxEnable { .. } => observable::never().box_it(),
+            Transport { action, .. } => {
+                let reaper = Reaper::get();
+                if *action == TransportAction::Repeat {
+                    reaper.repeat_state_changed().box_it()
+                } else {
+                    reaper.play_state_changed().box_it()
+                }
+            }
         }
     }
 }
@@ -842,6 +896,14 @@ impl Target for ReaperTarget {
                     .and_then(|t| t.index()),
             ),
             AllTrackFxEnable { track } => convert_bool_to_unit_value(track.fx_is_enabled()),
+            Transport { project, action } => {
+                use TransportAction::*;
+                match action {
+                    PlayStop | PlayPause => convert_bool_to_unit_value(project.is_playing()),
+                    Record => convert_bool_to_unit_value(project.is_recording()),
+                    Repeat => convert_bool_to_unit_value(project.repeat_is_enabled()),
+                }
+            }
         }
     }
 
@@ -1093,4 +1155,33 @@ pub enum ActionInvocationType {
     Absolute = 1,
     #[display(fmt = "Relative")]
     Relative = 2,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TransportAction {
+    #[serde(rename = "playStop")]
+    #[display(fmt = "Play/stop")]
+    PlayStop,
+    #[serde(rename = "playPause")]
+    #[display(fmt = "Play/pause")]
+    PlayPause,
+    #[serde(rename = "record")]
+    #[display(fmt = "Record")]
+    Record,
+    #[serde(rename = "repeat")]
+    #[display(fmt = "Repeat")]
+    Repeat,
 }

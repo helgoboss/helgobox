@@ -9,7 +9,7 @@ use reaper_medium::TrackLocation;
 use rx_util::{Event, UnitEvent};
 
 use crate::application::SessionContext;
-use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter};
+use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter, TransportAction};
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt;
@@ -41,6 +41,8 @@ pub struct TargetModel {
     pub send_index: Prop<Option<u32>>,
     // # For track selection targets
     pub select_exclusively: Prop<bool>,
+    // # For transport target
+    pub transport_action: Prop<TransportAction>,
 }
 
 impl Default for TargetModel {
@@ -58,6 +60,7 @@ impl Default for TargetModel {
             param_index: prop(0),
             send_index: prop(None),
             select_exclusively: prop(false),
+            transport_action: prop(TransportAction::PlayStop),
         }
     }
 }
@@ -165,6 +168,7 @@ impl TargetModel {
             .merge(self.param_index.changed())
             .merge(self.send_index.changed())
             .merge(self.select_exclusively.changed())
+            .merge(self.transport_action.changed())
     }
 
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> TargetModelWithContext<'a> {
@@ -179,7 +183,7 @@ impl TargetModel {
         match self.r#type.get() {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackArm | TrackSelection
             | TrackMute | TrackSolo | TrackSendPan | FxEnable | FxPreset | AllTrackFxEnable => true,
-            Action | Tempo | Playrate | SelectedTrack => false,
+            Action | Tempo | Playrate | SelectedTrack | Transport => false,
         }
     }
 
@@ -189,7 +193,7 @@ impl TargetModel {
             TrackSendVolume | TrackSendPan => true,
             FxParameter | TrackVolume | TrackPan | TrackArm | TrackSelection | TrackMute
             | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate | SelectedTrack
-            | AllTrackFxEnable => false,
+            | AllTrackFxEnable | Transport => false,
         }
     }
 
@@ -199,7 +203,7 @@ impl TargetModel {
             FxParameter | FxEnable | FxPreset => true,
             TrackSendVolume | TrackSendPan | TrackVolume | TrackPan | TrackArm | TrackSelection
             | TrackMute | TrackSolo | Action | Tempo | Playrate | SelectedTrack
-            | AllTrackFxEnable => false,
+            | AllTrackFxEnable | Transport => false,
         }
     }
 
@@ -366,6 +370,10 @@ impl<'a> TargetModelWithContext<'a> {
             },
             AllTrackFxEnable => ReaperTarget::AllTrackFxEnable {
                 track: self.effective_track()?,
+            },
+            Transport => ReaperTarget::Transport {
+                project: self.project(),
+                action: self.target.transport_action.get(),
             },
         };
         Ok(target)
@@ -604,6 +612,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 "Track FX all enable\nTrack {}",
                 self.target.track_label()
             ),
+            Transport => write!(f, "Transport\n{}", self.target.transport_action.get()),
         }
     }
 }
@@ -680,6 +689,8 @@ pub enum TargetType {
     SelectedTrack = 14,
     #[display(fmt = "Track FX all enable (no feedback)")]
     AllTrackFxEnable = 15,
+    #[display(fmt = "Transport")]
+    Transport = 16,
 }
 
 impl TargetType {
@@ -702,6 +713,7 @@ impl TargetType {
             FxPreset { .. } => TargetType::FxPreset,
             SelectedTrack { .. } => TargetType::SelectedTrack,
             AllTrackFxEnable { .. } => TargetType::AllTrackFxEnable,
+            Transport { .. } => TargetType::Transport,
         }
     }
 }

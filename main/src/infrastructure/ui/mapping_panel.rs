@@ -27,7 +27,9 @@ use crate::application::{
     ModifierConditionModel, Session, SharedMapping, SharedSession, TargetModel,
     TargetModelWithContext, TargetType, VirtualTrack, WeakSession,
 };
-use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{
+    ActionInvocationType, ReaperTarget, TargetCharacter, TransportAction, PLUGIN_PARAMETER_COUNT,
+};
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
@@ -883,12 +885,12 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_target_track(&mut self) -> Result<(), &'static str> {
-        let data = self
+    fn update_target_line_two_data(&mut self) -> Result<(), &'static str> {
+        let control = self
             .view
-            .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX)
-            .selected_combo_box_item_data();
+            .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX);
         if self.mapping.target_model.supports_track() {
+            let data = control.selected_combo_box_item_data();
             use VirtualTrack::*;
             let project = self.target_with_context().project();
             let track = match data {
@@ -902,6 +904,12 @@ impl<'a> MutableMappingPanel<'a> {
                 ),
             };
             self.mapping.target_model.track.set(track);
+        } else if self.mapping.target_model.r#type.get() == TargetType::Transport {
+            let data = control.selected_combo_box_item_index();
+            self.mapping
+                .target_model
+                .transport_action
+                .set(data.try_into().expect("invalid transport action"));
         }
         Ok(())
     }
@@ -1367,7 +1375,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             action_label.hide();
             pick_button.hide();
             label.set_text("Track");
-            self.fill_target_track_combo_box(label, combo);
+            self.fill_target_track_combo_box(combo);
             self.set_target_track_combo_box_value(combo);
         } else if self.target.r#type.get() == TargetType::Action {
             label.show();
@@ -1377,6 +1385,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             label.set_text("Action");
             let action_name = self.target.action_name_label().to_string();
             action_label.set_text(action_name);
+        } else if self.target.r#type.get() == TargetType::Transport {
+            label.show();
+            combo.show();
+            action_label.hide();
+            pick_button.hide();
+            label.set_text("Action");
+            self.fill_target_transport_action_combo_box(combo);
+            self.set_target_transport_action_combo_box_value(combo);
         } else {
             label.hide();
             combo.hide();
@@ -1385,8 +1401,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn fill_target_track_combo_box(&self, label: Window, combo: Window) {
-        label.set_text("Track");
+    fn fill_target_track_combo_box(&self, combo: Window) {
         let mut v = vec![
             (-3isize, VirtualTrack::This),
             (-2isize, VirtualTrack::Selected),
@@ -1400,6 +1415,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .map(|(i, track)| (i as isize, VirtualTrack::Particular(track))),
         );
         combo.fill_combo_box_with_data_vec(v);
+    }
+
+    fn fill_target_transport_action_combo_box(&self, combo: Window) {
+        combo.fill_combo_box(TransportAction::into_enum_iter());
     }
 
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
@@ -1417,6 +1436,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
         };
         combo.select_combo_box_item_by_data(data).unwrap();
+    }
+
+    fn set_target_transport_action_combo_box_value(&self, combo: Window) {
+        combo.select_combo_box_item(self.mapping.target_model.transport_action.get().into());
     }
 
     fn invalidate_target_line_three(&self) {
@@ -2188,6 +2211,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             view.invalidate_target_controls();
             view.invalidate_mode_controls();
         });
+        self.panel
+            .when_do_sync(target.transport_action.changed(), |view| {
+                view.invalidate_target_line_two();
+            });
         self.panel.when_do_sync(
             target
                 .fx_index
@@ -2448,7 +2475,7 @@ impl View for MappingPanel {
             // Target
             ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
             ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
-                self.write(|p| p.update_target_track()).unwrap();
+                self.write(|p| p.update_target_line_two_data()).unwrap();
             }
             ID_TARGET_FX_OR_SEND_COMBO_BOX => {
                 self.write(|p| p.update_target_from_combo_box_three());

@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-08-28 (v1.11.0-pre1)</code></td>
+  <td><code>2020-08-31 (v1.11.0-pre2)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-08-28 (v1.11.0-pre1)</code></td>
+  <td><code>2020-08-31 (v1.11.0-pre2)</code></td>
 </tr>
 </table>
 
@@ -787,6 +787,20 @@ Steps through tracks.
 
 Enables all the track's FX instances if the incoming absolute control value is greater than
 0%, otherwise disables them.
+
+##### Transport
+
+Invokes a transport-related action.
+
+- **Action:** Specifies which transport action should be invoked.
+  - **Play/stop:** Starts playing the containing project if the incoming absolute control value is greater than 0%, 
+    otherwise invokes stop.
+  - **Play/pause:** Starts playing the containing project if the incoming absolute control value is greater than 0%, 
+    otherwise invokes pause.
+  - **Record:** Starts/enables recording for the current project if the incoming absolute control value is greater than 
+    0%, otherwise disables recording.
+  - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%, 
+    otherwise disables it.
 
 #### Mode
 
