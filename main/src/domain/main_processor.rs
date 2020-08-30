@@ -1,6 +1,6 @@
 use crate::domain::{
-    FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping, MappingActivationUpdate, MappingId,
-    NormalRealTimeTask, ReaperTarget,
+    DomainEvent, DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainProcessorMapping,
+    MappingActivationUpdate, MappingId, NormalRealTimeTask, ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
@@ -23,7 +23,7 @@ type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
 
 #[derive(Debug)]
-pub struct MainProcessor {
+pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains all mappings except those where the target could not be resolved.
     mappings: HashMap<MappingId, MainProcessorMapping>,
     feedback_buffer: FeedbackBuffer,
@@ -36,9 +36,10 @@ pub struct MainProcessor {
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
+    event_handler: EH,
 }
 
-impl ControlSurface for MainProcessor {
+impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
     fn run(&mut self) {
         // Process normal tasks
         // We could also iterate directly while keeping the receiver open. But that would (for
@@ -144,6 +145,10 @@ impl ControlSurface for MainProcessor {
                 }
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
+                }
+                LearnSource(source) => {
+                    self.event_handler
+                        .handle_event(DomainEvent::LearnedSource(source));
                 }
                 UpdateAllParameters(parameters) => {
                     debug!(
@@ -262,14 +267,15 @@ impl ControlSurface for MainProcessor {
     }
 }
 
-impl MainProcessor {
+impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
-    ) -> MainProcessor {
+        event_handler: EH,
+    ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
         MainProcessor {
             self_feedback_sender,
@@ -283,6 +289,7 @@ impl MainProcessor {
             feedback_subscriptions: Default::default(),
             feedback_is_globally_enabled: false,
             parameters,
+            event_handler,
         }
     }
 
@@ -428,6 +435,7 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
+    LearnSource(MidiSource),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).
@@ -451,7 +459,7 @@ pub struct MainProcessorTargetUpdate {
     pub target_is_active: bool,
 }
 
-impl Drop for MainProcessor {
+impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping main processor...");
     }
