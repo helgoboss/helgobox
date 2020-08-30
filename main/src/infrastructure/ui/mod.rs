@@ -1,3 +1,5 @@
+mod bindings;
+
 mod main_panel;
 pub use main_panel::*;
 
@@ -20,3 +22,8 @@ mod mapping_panel_manager;
 pub use mapping_panel_manager::*;
 
 mod constants;
+
+#[allow(unused)]
+mod built_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}

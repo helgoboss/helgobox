@@ -5,9 +5,9 @@ use reaper_high::Reaper;
 use reaper_low::raw;
 
 use crate::core::when;
-use crate::infrastructure::common::bindings::root;
 use crate::infrastructure::ui::{
-    MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState, SharedMappingPanelManager,
+    bindings::root, MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
+    SharedMappingPanelManager,
 };
 use rx_util::UnitEvent;
 use slog::debug;

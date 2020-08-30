@@ -1,7 +1,7 @@
 use crate::core::{toast, when};
 use crate::domain::ReaperTarget;
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
-use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::SharedMainState;
 
 use clipboard::{ClipboardContext, ClipboardProvider};

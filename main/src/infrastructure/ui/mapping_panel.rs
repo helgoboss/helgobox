@@ -1,5 +1,5 @@
 use crate::core::{when, Prop};
-use crate::infrastructure::common::bindings::root;
+use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::MainPanel;
 

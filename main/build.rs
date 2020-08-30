@@ -67,7 +67,7 @@ fn compile_eel() {
 fn compile_dialogs() {
     // Make RC file SWELL-compatible.
     // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-    let modified_rc_content = std::fs::read_to_string("src/infrastructure/common/realearn.rc")
+    let modified_rc_content = std::fs::read_to_string("src/infrastructure/ui/realearn.rc")
         .expect("couldn't read RC file")
         .replace("WS_CHILDWINDOW", "WS_CHILD");
     std::fs::write("../target/realearn.modified.rc", modified_rc_content)
@@ -80,7 +80,7 @@ fn compile_dialogs() {
         .expect("PHP dialog translator result not available");
     std::fs::copy(
         "../target/realearn.modified.rc_mac_dlg",
-        "src/infrastructure/common/realearn.rc_mac_dlg",
+        "src/infrastructure/ui/realearn.rc_mac_dlg",
     )
     .unwrap();
     assert!(result.status.success(), "PHP dialog translator failed");
@@ -89,7 +89,7 @@ fn compile_dialogs() {
         .cpp(true)
         .cpp_set_stdlib(util::determine_cpp_stdlib())
         .warnings(false)
-        .file("src/infrastructure/common/dialogs.cpp")
+        .file("src/infrastructure/ui/dialogs.cpp")
         .compile("dialogs");
 }
 
@@ -102,7 +102,7 @@ fn embed_dialog_resources() {
             std::env::set_var(key, value);
         }
     }
-    embed_resource::compile("src/infrastructure/common/realearn.rc");
+    embed_resource::compile("src/infrastructure/ui/realearn.rc");
 }
 
 #[cfg(feature = "generate")]
@@ -139,9 +139,9 @@ mod codegen {
 
     fn generate_infrastructure_bindings() {
         // Tell cargo to invalidate the built crate whenever the wrapper changes
-        println!("cargo:rerun-if-changed=src/infrastructure/common/wrapper.hpp");
+        println!("cargo:rerun-if-changed=src/infrastructure/ui/wrapper.hpp");
         let bindings = bindgen::Builder::default()
-            .header("src/infrastructure/common/wrapper.hpp")
+            .header("src/infrastructure/ui/wrapper.hpp")
             .whitelist_var("ID_.*")
             .enable_cxx_namespaces()
             .parse_callbacks(Box::new(bindgen::CargoCallbacks))
@@ -149,7 +149,7 @@ mod codegen {
             .expect("Unable to generate bindings");
         let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
         bindings
-            .write_to_file(out_path.join("src/infrastructure/common/bindings.rs"))
+            .write_to_file(out_path.join("src/infrastructure/ui/bindings.rs"))
             .expect("Couldn't write bindings!");
     }
 }

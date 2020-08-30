@@ -7,7 +7,7 @@ use crate::domain::{
     ControlMainTask, DomainEvent, FeedbackRealTimeTask, NormalMainTask, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
-use crate::infrastructure::common::debug_util;
+use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};

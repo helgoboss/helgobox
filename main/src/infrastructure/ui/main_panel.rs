@@ -1,5 +1,6 @@
-use crate::infrastructure::common::bindings::root;
-use crate::infrastructure::ui::{constants, HeaderPanel, MappingRowsPanel, SharedMainState};
+use crate::infrastructure::ui::{
+    bindings::root, constants, HeaderPanel, MappingRowsPanel, SharedMainState,
+};
 
 use lazycell::LazyCell;
 use reaper_high::Reaper;
@@ -98,7 +99,7 @@ impl MainPanel {
     }
 
     fn invalidate_version_text(&self) {
-        use crate::infrastructure::common::built_info::*;
+        use crate::infrastructure::ui::built_info::*;
         let dirty_mark = if GIT_DIRTY.contains(&true) {
             "-dirty"
         } else {
