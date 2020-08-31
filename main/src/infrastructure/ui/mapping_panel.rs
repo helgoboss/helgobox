@@ -1403,17 +1403,21 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_target_track_combo_box(&self, combo: Window) {
         let mut v = vec![
-            (-3isize, VirtualTrack::This),
-            (-2isize, VirtualTrack::Selected),
-            (-1isize, VirtualTrack::Master),
+            (-3isize, VirtualTrack::This.to_string()),
+            (-2isize, VirtualTrack::Selected.to_string()),
+            (-1isize, VirtualTrack::Master.to_string()),
         ];
         let project = self.target_with_context().project();
-        v.extend(
-            project
-                .tracks()
-                .enumerate()
-                .map(|(i, track)| (i as isize, VirtualTrack::Particular(track))),
-        );
+        let mut current_folder_level: i32 = 0;
+        let particular_tracks = project.tracks().enumerate().map(|(i, track)| {
+            let indentation = ".".repeat(current_folder_level.abs() as usize * 4);
+            let space = if indentation.is_empty() { "" } else { " " };
+            let name = track.name().expect("non-master track must have name");
+            let label = format!("{}. {}{}{}", i + 1, indentation, space, name.to_str());
+            current_folder_level += track.folder_depth_change();
+            (i as isize, label)
+        });
+        v.extend(particular_tracks);
         combo.fill_combo_box_with_data_vec(v);
     }
 
