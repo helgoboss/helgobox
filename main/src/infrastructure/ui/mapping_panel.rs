@@ -978,7 +978,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_window_title(&self) {
         self.view
             .require_window()
-            .set_text(format!("Edit mapping {}", self.mapping.name.get_ref()));
+            .set_text(format!("Mapping \"{}\"", self.mapping.name.get_ref()));
     }
 
     fn invalidate_mapping_name_edit_control(&self) {
