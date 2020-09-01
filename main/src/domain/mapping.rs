@@ -226,13 +226,23 @@ impl MainProcessorMapping {
                 self.time_of_last_control = Some(Instant::now());
             }
             target.control(final_value).unwrap();
-            // The target was controlled, so it will result in feedback. Therefore we won't send
-            // it here a second time, even if `send_feedback_after_control` is enabled.
-            None
-        } else if self.options.send_feedback_after_control {
-            self.feedback_if_enabled()
+            if target.supports_feedback() {
+                // The target value was changed and that triggered feedback. Therefore we don't
+                // need to send it here a second time (even if `send_feedback_after_control` is
+                // enabled). This happens in the majority of cases.
+                None
+            } else {
+                // The target value was changed but the target doesn't support feedback. If
+                // `send_feedback_after_control` is enabled, we at least send feedback after we
+                // know it has been changed.
+                self.feedback_after_control_if_enabled()
+            }
         } else {
-            None
+            // The target value was not changed. If `send_feedback_after_control` is enabled, we
+            // still send feedback - this can be useful with controllers which insist controlling
+            // the LED on their own. The feedback sent by ReaLearn will fix this self-controlled
+            // LED state.
+            self.feedback_after_control_if_enabled()
         }
     }
 
@@ -268,5 +278,13 @@ impl MainProcessorMapping {
 
     pub fn feedback_is_effectively_on(&self) -> bool {
         self.options.feedback_is_effectively_on()
+    }
+
+    fn feedback_after_control_if_enabled(&self) -> Option<MidiSourceValue<RawShortMessage>> {
+        if self.options.send_feedback_after_control {
+            self.feedback_if_enabled()
+        } else {
+            None
+        }
     }
 }

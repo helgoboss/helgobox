@@ -560,6 +560,29 @@ impl ReaperTarget {
         Some(send)
     }
 
+    pub fn supports_feedback(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            Action { .. } => true,
+            FxParameter { .. } => true,
+            TrackVolume { .. } => true,
+            TrackSendVolume { .. } => true,
+            TrackPan { .. } => true,
+            TrackArm { .. } => true,
+            TrackSelection { .. } => true,
+            TrackMute { .. } => true,
+            TrackSolo { .. } => true,
+            TrackSendPan { .. } => true,
+            Tempo { .. } => true,
+            Playrate { .. } => true,
+            FxEnable { .. } => true,
+            FxPreset { .. } => true,
+            SelectedTrack { .. } => true,
+            AllTrackFxEnable { .. } => false,
+            Transport { .. } => true,
+        }
+    }
+
     pub fn control(&self, value: ControlValue) -> Result<(), &'static str> {
         use ControlValue::*;
         use ReaperTarget::*;
