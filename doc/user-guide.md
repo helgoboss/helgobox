@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-08-31 (v1.11.0-pre2)</code></td>
+  <td><code>2020-09-01 (v1.11.0-pre2)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-08-31 (v1.11.0-pre2)</code></td>
+  <td><code>2020-09-01 (v1.11.0-pre2)</code></td>
 </tr>
 </table>
 
@@ -390,13 +390,27 @@ This section provides the following mapping-related settings and functions:
   combination with the search function if there are many mappings to keep track of.
 - **Control enabled / Feedback enabled:** Use these checkboxes to enable/disable control and/or
   feedback for this mapping.
+- **Active:** This dropdown controls so-called conditional activation of mappings. See section below.
 - **Prevent echo feedback:** This checkbox mainly exists for motorized faders that don't like
   getting feedback while being moved. If checked, ReaLearn won't send feedback if the target value
   change was caused by incoming source events of this mapping. However, it will still send feedback
   if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
+- **Send feedback after control:** This checkbox mainly exists for "fixing" controllers which allow
+  their LEDs to be controlled via incoming MIDI *but at the same time* insist on controlling these 
+  LEDs themselves. According to users, some Behringer X-Touch Compact buttons exhibit this behavior,
+  for example. This can lead to wrong LED states which don't reflect the actual state in REAPER.
+  If this checkbox is not checked (the normal case and recommended for most controllers), ReaLearn 
+  will send feedback to the controller *only* if the target value has changed. For example, if you
+  use a button to toggle a target value on and off, the target value will change only when pressing
+  the button, not when releasing it. As a consequence, feedback will be sent only when pressing the
+  button, not when releasing it. However, if this checkbox is checked, ReaLearn will send feedback
+  even after releasing the button - although the target value has not been changed by it. Another
+  case where this option comes in handy is if you use a target which doesn't support proper feedback
+  because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable"). By
+  checking this checkbox, ReaLearn will send feedback whenever the target value change was caused
+  by ReaLearn itself, which improves the situation at least a bit.
 - **Find in mapping list:** Scrolls the mapping rows panel so that the corresponding mapping row for
   this mapping gets visible.
-- **Active:** This dropdown controls so-called conditional activation of mappings. See section below.
   
 #### Conditional activation
 

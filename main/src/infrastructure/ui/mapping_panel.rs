@@ -1453,6 +1453,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             This => -3,
             Selected => -2,
             Master => -1,
+            // TODO-high Check if track is available, otherwise -1! Otherwise can panic when closing
+            // project.
             Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
         };
         combo.select_combo_box_item_by_data(data).unwrap();
