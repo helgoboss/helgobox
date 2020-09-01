@@ -235,7 +235,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         // selected") and the real-time processor doesn't yet know about it, there
                         // might be a short amount of time where we still receive control
                         // statements. We filter them here.
-                        m.control_if_enabled(value);
+                        let feedback = m.control_if_enabled(value);
+                        self.send_feedback(feedback);
                     };
                 }
             }

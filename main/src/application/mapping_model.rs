@@ -20,6 +20,7 @@ pub struct MappingModel {
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
+    pub send_feedback_after_control: Prop<bool>,
     pub activation_type: Prop<ActivationType>,
     pub modifier_condition_1: Prop<ModifierConditionModel>,
     pub modifier_condition_2: Prop<ModifierConditionModel>,
@@ -38,6 +39,7 @@ impl Clone for MappingModel {
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
             prevent_echo_feedback: self.prevent_echo_feedback.clone(),
+            send_feedback_after_control: self.send_feedback_after_control.clone(),
             activation_type: self.activation_type.clone(),
             modifier_condition_1: self.modifier_condition_1.clone(),
             modifier_condition_2: self.modifier_condition_2.clone(),
@@ -58,6 +60,7 @@ impl Default for MappingModel {
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),
+            send_feedback_after_control: prop(false),
             activation_type: prop(ActivationType::Always),
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
@@ -130,6 +133,7 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
             .merge(self.prevent_echo_feedback.changed())
+            .merge(self.send_feedback_after_control.changed())
             .merge(self.activation_type.changed())
             .merge(self.modifier_condition_1.changed())
             .merge(self.modifier_condition_2.changed())
@@ -174,6 +178,7 @@ impl<'a> MappingModelWithContext<'a> {
                 control_is_enabled: self.mapping.control_is_enabled.get(),
                 feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
                 prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
+                send_feedback_after_control: self.mapping.send_feedback_after_control.get(),
             },
         )
     }

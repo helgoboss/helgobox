@@ -15,6 +15,7 @@ pub struct MappingModelData {
     control_is_enabled: bool,
     feedback_is_enabled: bool,
     prevent_echo_feedback: bool,
+    send_feedback_after_control: bool,
     activation_type: ActivationType,
     modifier_condition_1: ModifierConditionModel,
     modifier_condition_2: ModifierConditionModel,
@@ -32,6 +33,7 @@ impl Default for MappingModelData {
             control_is_enabled: true,
             feedback_is_enabled: true,
             prevent_echo_feedback: false,
+            send_feedback_after_control: false,
             activation_type: ActivationType::Always,
             modifier_condition_1: Default::default(),
             modifier_condition_2: Default::default(),
@@ -51,6 +53,7 @@ impl MappingModelData {
             control_is_enabled: model.control_is_enabled.get(),
             feedback_is_enabled: model.feedback_is_enabled.get(),
             prevent_echo_feedback: model.prevent_echo_feedback.get(),
+            send_feedback_after_control: model.send_feedback_after_control.get(),
             activation_type: model.activation_type.get(),
             modifier_condition_1: model.modifier_condition_1.get(),
             modifier_condition_2: model.modifier_condition_2.get(),
@@ -80,6 +83,9 @@ impl MappingModelData {
         model
             .prevent_echo_feedback
             .set_without_notification(self.prevent_echo_feedback);
+        model
+            .send_feedback_after_control
+            .set_without_notification(self.send_feedback_after_control);
         model
             .activation_type
             .set_without_notification(self.activation_type);

@@ -12,6 +12,7 @@ pub struct ProcessorMappingOptions {
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
     pub prevent_echo_feedback: bool,
+    pub send_feedback_after_control: bool,
 }
 
 impl ProcessorMappingOptions {
@@ -208,12 +209,16 @@ impl MainProcessorMapping {
         }
     }
 
-    pub fn control_if_enabled(&mut self, value: ControlValue) {
+    /// If `send_feedback_after_control` is on, this might return feedback.
+    pub fn control_if_enabled(
+        &mut self,
+        value: ControlValue,
+    ) -> Option<MidiSourceValue<RawShortMessage>> {
         if !self.control_is_effectively_on() {
-            return;
+            return None;
         }
         let target = match &self.target {
-            None => return,
+            None => return None,
             Some(t) => t,
         };
         if let Some(final_value) = self.mode.control(value, target) {
@@ -221,6 +226,13 @@ impl MainProcessorMapping {
                 self.time_of_last_control = Some(Instant::now());
             }
             target.control(final_value).unwrap();
+            // The target was controlled, so it will result in feedback. Therefore we won't send
+            // it here a second time, even if `send_feedback_after_control` is enabled.
+            None
+        } else if self.options.send_feedback_after_control {
+            self.feedback_if_enabled()
+        } else {
+            None
         }
     }
 

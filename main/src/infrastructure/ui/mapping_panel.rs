@@ -382,6 +382,14 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mapping_send_feedback_after_control(&mut self) {
+        self.mapping.send_feedback_after_control.set(
+            self.view
+                .require_control(root::ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
     fn update_mapping_name(&mut self) {
         let value = self
             .view
@@ -969,6 +977,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mapping_control_enabled_check_box();
         self.invalidate_mapping_feedback_enabled_check_box();
         self.invalidate_mapping_prevent_echo_feedback_check_box();
+        self.invalidate_mapping_send_feedback_after_control_check_box();
         self.invalidate_mapping_activation_controls();
         self.invalidate_source_controls();
         self.invalidate_target_controls();
@@ -1016,6 +1025,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX);
         cb.set_checked(self.mapping.prevent_echo_feedback.get());
+    }
+
+    fn invalidate_mapping_send_feedback_after_control_check_box(&self) {
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX);
+        cb.set_checked(self.mapping.send_feedback_after_control.get());
     }
 
     fn invalidate_mapping_activation_controls(&self) {
@@ -1710,6 +1726,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(self.mapping.prevent_echo_feedback.changed(), |view| {
                 view.invalidate_mapping_prevent_echo_feedback_check_box();
+            });
+        self.panel
+            .when_do_sync(self.mapping.send_feedback_after_control.changed(), |view| {
+                view.invalidate_mapping_send_feedback_after_control_check_box();
             });
         self.panel
             .when_do_sync(self.mapping.activation_type.changed(), |view| {
@@ -2411,6 +2431,9 @@ impl View for MappingPanel {
             }
             ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX => {
                 self.write(|p| p.update_mapping_prevent_echo_feedback())
+            }
+            ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX => {
+                self.write(|p| p.update_mapping_send_feedback_after_control())
             }
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
                 self.scroll_to_mapping_in_main_panel();
