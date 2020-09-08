@@ -146,6 +146,13 @@ running. It's important to include this information in bug reports.
 
 #### Troubleshooting
 
+If REAPER crashes when scanning for plug-ins and the crash message shows something like `reaper_host64`
+or `reaper_host32`, you either have a 32/64-bit version mismatch or you have 
+"Preferences → Plug-ins → Compatibility → VST bridging/firewalling" set to "In separate plug-in process" or
+"In dedicated process per plug-in". Please see the [installation instructions on the
+project website](https://github.com/helgoboss/realearn#installation) for hints how to fix this.
+In future, ReaLearn hopefully will handle this situation more gracefully. 
+
 If the label remains at "Stop" at step 3, you need to have a look at your MIDI setup.
 
 - Make sure **Enable input from this device** is checked for your controller MIDI input device in
@@ -156,6 +163,11 @@ If the label remains at "Stop" at step 3, you need to have a look at your MIDI s
     regular _track MIDI path_, which is one reason why it is so flexible.
 - Make sure your audio hardware is not stuck (playback in REAPER should work).
 - Make sure the track is armed for recording and has the appropriate MIDI device input.
+- Make sure your controller is in MIDI mode.
+   - Some controllers, especially DAW controllers, are able to work with several protocols (MCU, HUI, ...).
+   - Consult your controller's manual and take the necessary steps to put it into something like a
+     "generic MIDI" mode.
+   - Example: Presonus Faderport
 
 When you read this the first time, you might get the impression that this is a lot of work for
 setting up one simple control mapping. It's not. Learning mappings is a matter of a few secs after
@@ -271,6 +283,17 @@ Changes in the mapping panel are applied immediately. Pressing the _OK_ button j
 panel.
 
 **Tip:** It is possible to have up to 4 mapping panels open at the same time.
+
+### Controller setup
+
+In order to get the most out of your controller in combination with ReaLearn, you should consider 
+the following hints:
+
+- Put your controller's buttons into momentary mode, *not* toggle mode.
+- If you are in the lucky situation of owning a controller with endless rotary encoders, by all
+  means, configure them to transmit relative values, not absolute ones!
+  - Otherwise you can't take advantage of "Relative mode" features such as the "Step size" or
+    "Speed" setting.
 
 ## Reference
 
@@ -478,15 +501,34 @@ assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value
 (by using "Relative" mode, you will learn how to do that further below). And you have multiple
 mappings where each one uses "When program selected" with the same "Bank" parameter but a different "Program".
 Then the result is that you can press "Previous" and "Next" and it will switch between different 
-mappings (programs) within that bank.
+mappings (programs) within that bank. If you assign the same "Program" to multiple mappings, it's like putting
+those mapping into one group which can be activated/deactivated as a whole.
 
-If you assign the same "Program" to multiple mappings, it's like putting those mapping into one group
-which can be activated/deactivated as a whole. In previous versions of ReaLearn you could use other
-methods to achieve a similar behavior, but it always involved using multiple ReaLearn instances.
-Now you can do it also within one instance.
+Switching between different programs via "Previous" and "Next" buttons is just one possibility.
+Here are some other ones:
 
-A fixed assumption here is that each bank (parameter) consists of 100 programs. If this is too limiting
-for you, please use the EEL activation mode instead.    
+- **Navigate between programs using a rotary encoder:** Just map the rotary encoder
+  to the "Bank" parameter ("Relative" mode) and restrict the target range as desired.
+- **Activate each program with a separate button:** Map each button to the "Bank"
+  parameter ("Absolute" mode) and set "Target Min/Max" to a distinct value. E.g. set button
+  1 min/max both to 0% and button 2 min/max both to 1%. Then pressing button 1
+  will activate program 1 and pressing button 2 will activate program 2.
+
+In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always
+involved using multiple ReaLearn instances:
+
+- **By enabling/disabling other ReaLearn instances:** You can use one main ReaLearn instance containing
+  a bunch of mappings with "Track FX enable" target in order to enable/disable other ReaLearn FX
+  instances. Then each of the other ReaLearn instances acts as one mapping bank/group.
+- **By switching between presets of another ReaLearn instance:** You can use one main ReaLearn instance
+  containing a mapping with "Track FX preset" target in order to navigate between presets of another
+  ReaLearn FX instance. Then each preset in the other ReaLearn instance acts as one mapping bank/group.
+  However, that method is pretty limited and hard to maintain because presets are something global
+  (not saved together with your REAPER project).
+
+With *Conditional activation* you can do the same (and more) within just one ReaLearn instance. A fixed
+assumption here is that each bank (parameter) consists of 100 programs. If this is too limiting for you,
+please use the EEL activation mode instead.    
 
 ##### When EEL result > 0
 
@@ -571,8 +613,11 @@ This source reacts to incoming MIDI control-change messages.
   direction. The possible values are:
   - **Knob/Fader:** A control element that emits continuous absolute values. Examples: Faders,
     knobs, modulation wheel, pitch bend, ribbon controller.
-  - **Switch:** A control element that can be pressed and emits absolute values. It emits a > 0%
+  - **Momentary switch:** A control element that can be pressed and emits absolute values. It emits a > 0%
     value when pressing it and optionally a 0% value when releasing it. Examples: Damper pedal.
+    - Hint: There's no option "Toggle switch" because ReaLearn can only take full control with momentary
+      switches. So make sure your controller buttons are in momentary mode! ReaLearn itself provides
+      a toggle mode that is naturally more capable than your controller's built-in toggle mode.
   - **Encoder (type _x_):** A control element that emits relative values, usually an endless rotary
     encoder. The _x_ specifies _how_ the relative values are sent. This 1:1 corresponds to the
     relative modes in REAPER's built-in MIDI learn:
@@ -965,6 +1010,12 @@ control elements.
   pressed to have an effect. Unlike in _Absolute mode_, here the achieved effect is not _triggering_
   but _toggling_ the target.
 - **Feedback transformation (EEL):** This has the same effect like in absolute mode.
+
+**Important:** Sometimes the controller itself provides a toggle mode for buttons. Don't use this!
+Always set up your controller buttons to work in momentary mode! It's impossible for the controller
+to know which state (on/off) a target currently has. Therefore, if you use the controller's built-in
+toggle function, it's quite likely that it gets out of sync with the actual target state at some point.
+ReaLearn's own toggle mode has a clear advantage here.  
 
 ## Automation and rendering
 

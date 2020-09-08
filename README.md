@@ -20,18 +20,26 @@
 Since ReaLearn v1.10.0, the preferred and easiest way of installing ReaLearn is via [ReaPack](https://reapack.com/), a
 sort of "app store" for REAPER. It allows you to keep your installation of ReaLearn up-to-date very easily.
 
-1. Install [ReaPack](https://reapack.com/) if not done so already
-2. Extensions → ReaPack → Import repositories...
-3. Copy and paste the following repository URL:
+1. If you previously installed an old version of ReaLearn (< 1.10.0) via installer, please uninstall it first!
+2. Install [ReaPack](https://reapack.com/) if not done so already
+3. Extensions → ReaPack → Import repositories...
+4. Copy and paste the following repository URL:
    https://github.com/helgoboss/reaper-packages/raw/master/index.xml
-4. Extensions → ReaPack → Browse packages...
-5. Search for `realearn`
-6. Right mouse click on the ReaLearn entry → Install...
-7. OK or Apply
-8. Restart REAPER
+5. Extensions → ReaPack → Browse packages...
+6. Search for `realearn`
+7. Right mouse click on the ReaLearn entry → Install...
+8. OK or Apply
+9. Restart REAPER
 
 If you are more the download type of person, you can find the latest `dll`s, `dylib`s and `so`s here at
-GitHub on the [releases page](https://github.com/helgoboss/realearn/releases).
+GitHub on the [releases page](https://github.com/helgoboss/realearn/releases) for manual installation.
+You also must install ReaLearn manually if you plan to use ReaLearn in both REAPER for Windows 32-bit
+and REAPER for Windows 64-bit because then it's important to use two separate VST plug-in directories.
+
+**Please note that it's impossible to run ReaLearn as a bridged plug-in.** If you have
+"Preferences → Plug-ins → Compatibility → VST bridging/firewalling" set to "In separate plug-in process" or
+"In dedicated process per plug-in", you will need to add an exception for ReaLearn by setting "Run as" to
+"Native only"!
 
 ## Usage
 
