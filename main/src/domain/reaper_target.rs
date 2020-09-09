@@ -1,6 +1,6 @@
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue, FEEDBACK_EPSILON};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
@@ -1011,12 +1011,12 @@ fn format_bpm(bpm: f64) -> String {
 
 fn format_as_percentage_without_unit(value: UnitValue) -> String {
     let percent = value.get() * 100.0;
-    if (percent - percent.round()).abs() < 0.0000_0001 {
+    if (percent - percent.round()).abs() < FEEDBACK_EPSILON {
         // No fraction. Omit zeros after dot.
         format!("{:.0}", percent)
     } else {
         // Has fraction. We want to display these.
-        format!("{:.8}", percent)
+        format!("{:.4}", percent)
     }
 }
 
