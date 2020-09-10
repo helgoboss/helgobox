@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-09-01 (v1.11.0-pre2)</code></td>
+  <td><code>2020-09-10 (v1.11.0-pre3)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-09-01 (v1.11.0-pre2)</code></td>
+  <td><code>2020-09-10 (v1.11.0-pre3)</code></td>
 </tr>
 </table>
 
@@ -879,6 +879,12 @@ common settings and functions:
   This wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself. This
   setting applies to targets which are controlled via absolute control values (= all targets with
   the exception of the "Action target" if invocation type is _Relative_).
+- **Out of range:** This determines ReaLearn's behavior if the control value is not within
+  "Source Min/Max" or the feedback value not within "Target Min/Max". 
+  
+  If unchecked and an incoming source control value is not
+  within _Source Min/Max_, the target value will be set to either min or max. If checked, the target
+  value will not be touched.
 
 All other UI elements in this section depend on the chosen mode type.
 
@@ -889,9 +895,6 @@ the current target value is irrelevant and the target will just be set to whatev
 coming in (potentially transformed). If incoming source control values are relative, they will be
 ignored.
 
-- **Ignore out-of-range source values:** If unchecked and an incoming source control value is not
-  within _Source Min/Max_, the target value will be set to either min or max. If checked, the target
-  value will not be touched.
 - **Length Min/Max:** This decides how long a button needs to be pressed to have an effect.
   Obviously, this setting makes sense for switch-like control elements only (keys, pads, buttons,
   ...), not for knobs or faders.

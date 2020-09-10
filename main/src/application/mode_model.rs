@@ -3,8 +3,8 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, PressDurationProcessor,
-    RelativeMode, SymmetricUnitValue, ToggleMode, UnitValue,
+    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
+    PressDurationProcessor, RelativeMode, SymmetricUnitValue, ToggleMode, UnitValue,
 };
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -25,7 +25,7 @@ pub struct ModeModel {
     pub press_duration_interval: Prop<Interval<Duration>>,
     // For absolute mode
     pub jump_interval: Prop<Interval<UnitValue>>,
-    pub ignore_out_of_range_source_values: Prop<bool>,
+    pub out_of_range_behavior: Prop<OutOfRangeBehavior>,
     pub round_target_value: Prop<bool>,
     pub approach_target_value: Prop<bool>,
     pub eel_control_transformation: Prop<String>,
@@ -84,7 +84,7 @@ impl Default for ModeModel {
                 Duration::from_millis(0),
             )),
             jump_interval: prop(full_unit_interval()),
-            ignore_out_of_range_source_values: prop(false),
+            out_of_range_behavior: prop(OutOfRangeBehavior::MinOrMax),
             round_target_value: prop(false),
             approach_target_value: prop(false),
             eel_control_transformation: prop(String::new()),
@@ -112,8 +112,8 @@ impl ModeModel {
             .set(def.eel_control_transformation.get_ref().clone());
         self.eel_feedback_transformation
             .set(def.eel_feedback_transformation.get_ref().clone());
-        self.ignore_out_of_range_source_values
-            .set(def.ignore_out_of_range_source_values.get());
+        self.out_of_range_behavior
+            .set(def.out_of_range_behavior.get());
         self.round_target_value.set(def.round_target_value.get());
         self.approach_target_value
             .set(def.approach_target_value.get());
@@ -132,7 +132,7 @@ impl ModeModel {
             .merge(self.source_value_interval.changed())
             .merge(self.reverse.changed())
             .merge(self.jump_interval.changed())
-            .merge(self.ignore_out_of_range_source_values.changed())
+            .merge(self.out_of_range_behavior.changed())
             .merge(self.round_target_value.changed())
             .merge(self.approach_target_value.changed())
             .merge(self.eel_control_transformation.changed())
@@ -156,7 +156,7 @@ impl ModeModel {
                 approach_target_value: self.approach_target_value.get(),
                 reverse_target_value: self.reverse.get(),
                 round_target_value: self.round_target_value.get(),
-                ignore_out_of_range_source_values: self.ignore_out_of_range_source_values.get(),
+                out_of_range_behavior: self.out_of_range_behavior.get(),
                 control_transformation: EelTransformation::compile(
                     self.eel_control_transformation.get_ref(),
                     OutputVariable::Y,
@@ -184,6 +184,7 @@ impl ModeModel {
                     OutputVariable::X,
                 )
                 .ok(),
+                out_of_range_behavior: self.out_of_range_behavior.get(),
             }),
             Toggle => Mode::Toggle(ToggleMode {
                 source_value_interval: self.source_value_interval.get(),
@@ -196,6 +197,7 @@ impl ModeModel {
                     OutputVariable::X,
                 )
                 .ok(),
+                out_of_range_behavior: self.out_of_range_behavior.get(),
             }),
         }
     }
@@ -210,8 +212,8 @@ impl ModeModel {
         matches!(self.r#type.get(), Absolute | Relative)
     }
 
-    pub fn supports_ignore_out_of_range_source_values(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+    pub fn supports_out_of_range_behavior(&self) -> bool {
+        true
     }
 
     pub fn supports_jump(&self) -> bool {

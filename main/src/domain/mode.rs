@@ -23,7 +23,7 @@ impl Mode {
         }
     }
 
-    pub fn feedback(&self, value: UnitValue) -> UnitValue {
+    pub fn feedback(&self, value: UnitValue) -> Option<UnitValue> {
         use Mode::*;
         match self {
             Absolute(m) => m.feedback(value),

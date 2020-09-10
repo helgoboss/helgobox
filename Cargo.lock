@@ -1214,7 +1214,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "1.11.0-pre2"
+version = "1.11.0-pre3"
 dependencies = [
  "backtrace",
  "bindgen",

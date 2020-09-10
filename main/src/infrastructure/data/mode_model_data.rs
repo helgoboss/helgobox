@@ -1,5 +1,5 @@
 use crate::application::{ModeModel, ModeType};
-use helgoboss_learn::{Interval, SymmetricUnitValue, UnitValue};
+use helgoboss_learn::{Interval, OutOfRangeBehavior, SymmetricUnitValue, UnitValue};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -20,7 +20,11 @@ pub struct ModeModelData {
     eel_control_transformation: String,
     eel_feedback_transformation: String,
     reverse_is_enabled: bool,
+    // Serialization skipped because this is deprecated in favor of out_of_range_behavior
+    // since ReaLearn v1.11.0.
+    #[serde(skip_serializing)]
     ignore_out_of_range_source_values_is_enabled: bool,
+    out_of_range_behavior: OutOfRangeBehavior,
     round_target_value: bool,
     scale_mode_enabled: bool,
     rotate_is_enabled: bool,
@@ -44,6 +48,7 @@ impl Default for ModeModelData {
             eel_feedback_transformation: "".to_string(),
             reverse_is_enabled: false,
             ignore_out_of_range_source_values_is_enabled: false,
+            out_of_range_behavior: OutOfRangeBehavior::MinOrMax,
             round_target_value: false,
             scale_mode_enabled: false,
             rotate_is_enabled: false,
@@ -76,9 +81,9 @@ impl ModeModelData {
             eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
             eel_feedback_transformation: model.eel_feedback_transformation.get_ref().clone(),
             reverse_is_enabled: model.reverse.get(),
-            ignore_out_of_range_source_values_is_enabled: model
-                .ignore_out_of_range_source_values
-                .get(),
+            // Not used anymore since ReaLearn v1.11.0
+            ignore_out_of_range_source_values_is_enabled: false,
+            out_of_range_behavior: model.out_of_range_behavior.get(),
             round_target_value: model.round_target_value.get(),
             scale_mode_enabled: model.approach_target_value.get(),
             rotate_is_enabled: model.rotate.get(),
@@ -114,9 +119,15 @@ impl ModeModelData {
         model
             .reverse
             .set_without_notification(self.reverse_is_enabled);
+        let actual_out_of_range_behavior = if self.ignore_out_of_range_source_values_is_enabled {
+            // Data saved with ReaLearn version < 1.11.0
+            OutOfRangeBehavior::Ignore
+        } else {
+            self.out_of_range_behavior
+        };
         model
-            .ignore_out_of_range_source_values
-            .set_without_notification(self.ignore_out_of_range_source_values_is_enabled);
+            .out_of_range_behavior
+            .set_without_notification(actual_out_of_range_behavior);
         model
             .round_target_value
             .set_without_notification(self.round_target_value);

@@ -5,7 +5,8 @@ use crate::infrastructure::ui::MainPanel;
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
+    ControlValue, MidiClockTransportMessage, OutOfRangeBehavior, SourceCharacter,
+    SymmetricUnitValue, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::Reaper;
@@ -560,15 +561,14 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_mode_ignore_out_of_range_values(&mut self) {
-        self.mapping
-            .mode_model
-            .ignore_out_of_range_source_values
-            .set(
-                self.view
-                    .require_control(root::ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX)
-                    .is_checked(),
-            );
+    fn update_mode_out_of_range_behavior(&mut self) {
+        let behavior = self
+            .view
+            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid out-of-range behavior");
+        self.mapping.mode_model.out_of_range_behavior.set(behavior);
     }
 
     fn update_mode_round_target_value(&mut self) {
@@ -967,7 +967,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_source_midi_message_number_combo_box();
         self.fill_source_character_combo_box();
         self.fill_source_midi_clock_transport_message_type_combo_box();
-        self.fill_settings_mode_combo_box();
+        self.fill_mode_type_combo_box();
+        self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_target_type_combo_box();
     }
 
@@ -1800,7 +1801,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_target_value_controls();
         self.invalidate_mode_step_or_duration_controls();
         self.invalidate_mode_rotate_check_box();
-        self.invalidate_mode_ignore_out_of_range_check_box();
+        self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_round_target_value_check_box();
         self.invalidate_mode_approach_check_box();
         self.invalidate_mode_reverse_check_box();
@@ -1858,8 +1859,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
         );
         self.show_if(
-            mode.supports_ignore_out_of_range_source_values(),
-            &[root::ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX],
+            mode.supports_out_of_range_behavior(),
+            &[
+                root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
+                root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
+            ],
         );
         self.show_if(
             mode.supports_steps() || mode.supports_press_duration(),
@@ -2166,10 +2170,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.rotate.get());
     }
 
-    fn invalidate_mode_ignore_out_of_range_check_box(&self) {
+    fn invalidate_mode_out_of_range_behavior_combo_box(&self) {
         self.view
-            .require_control(root::ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX)
-            .set_checked(self.mode.ignore_out_of_range_source_values.get());
+            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
+            .select_combo_box_item(self.mode.out_of_range_behavior.get().into());
     }
 
     fn invalidate_mode_round_target_value_check_box(&self) {
@@ -2296,8 +2300,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_step_or_duration_controls();
             });
         self.panel
-            .when_do_sync(mode.ignore_out_of_range_source_values.changed(), |view| {
-                view.invalidate_mode_ignore_out_of_range_check_box();
+            .when_do_sync(mode.out_of_range_behavior.changed(), |view| {
+                view.invalidate_mode_out_of_range_behavior_combo_box();
             });
         self.panel
             .when_do_sync(mode.round_target_value.changed(), |view| {
@@ -2383,9 +2387,16 @@ impl<'a> ImmutableMappingPanel<'a> {
         b.fill_combo_box(MidiClockTransportMessage::into_enum_iter());
     }
 
-    fn fill_settings_mode_combo_box(&self) {
+    fn fill_mode_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_SETTINGS_MODE_COMBO_BOX);
         b.fill_combo_box(ModeType::into_enum_iter());
+    }
+
+    fn fill_mode_out_of_range_behavior_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX);
+        b.fill_combo_box(OutOfRangeBehavior::into_enum_iter());
     }
 
     fn fill_target_type_combo_box(&self) {
@@ -2456,9 +2467,6 @@ impl View for MappingPanel {
             ID_SOURCE_14_BIT_CHECK_BOX => self.write(|p| p.update_source_is_14_bit()),
             // Mode
             ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
-            ID_SETTINGS_IGNORE_OUT_OF_RANGE_CHECK_BOX => {
-                self.write(|p| p.update_mode_ignore_out_of_range_values())
-            }
             ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX => {
                 self.write(|p| p.update_mode_round_target_value())
             }
@@ -2501,6 +2509,9 @@ impl View for MappingPanel {
             }
             // Mode
             ID_SETTINGS_MODE_COMBO_BOX => self.write(|p| p.update_mode_type()),
+            ID_MODE_OUT_OF_RANGE_COMBOX_BOX => {
+                self.write(|p| p.update_mode_out_of_range_behavior())
+            }
             // Target
             ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
             ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {

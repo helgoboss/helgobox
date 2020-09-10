@@ -260,7 +260,7 @@ impl MainProcessorMapping {
             Some(t) => t,
         };
         let target_value = target.current_value();
-        let modified_value = self.mode.feedback(target_value);
+        let modified_value = self.mode.feedback(target_value)?;
         self.source.feedback(modified_value)
     }
 
