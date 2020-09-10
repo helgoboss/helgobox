@@ -24,9 +24,9 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    ActivationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
-    ModifierConditionModel, Session, SharedMapping, SharedSession, TargetModel,
-    TargetModelWithContext, TargetType, VirtualTrack, WeakSession,
+    ActivationType, MappingModel, MidiSourceModel, ModeModel, ModeType, ModifierConditionModel,
+    Session, SharedMapping, SharedSession, SourceType, TargetModel, TargetModelWithContext,
+    TargetType, VirtualTrack, WeakSession,
 };
 use crate::domain::{
     ActionInvocationType, ReaperTarget, TargetCharacter, TransportAction, PLUGIN_PARAMETER_COUNT,
@@ -2353,7 +2353,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_source_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
-        b.fill_combo_box(MidiSourceType::into_enum_iter());
+        b.fill_combo_box(SourceType::into_enum_iter());
     }
 
     fn fill_source_channel_combo_box(&self) {

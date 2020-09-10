@@ -7,7 +7,7 @@ use crate::application::{
     TargetModelWithContext,
 };
 use crate::domain::{
-    ActivationCondition, EelCondition, MappingId, ProcessorMapping, ProcessorMappingOptions,
+    ActivationCondition, EelCondition, MappingId, NormalMapping, ProcessorMappingOptions,
     ReaperTarget, TargetCharacter,
 };
 use rx_util::UnitEvent;
@@ -158,7 +158,7 @@ impl<'a> MappingModelWithContext<'a> {
     /// `control_is_enabled` and `feedback_is_enabled` won't just reflect the manual setting
     /// but also the mapping activation condition (e.g. modifiers) and the target condition
     /// (e.g. "track selected" or "FX focused").
-    pub fn create_processor_mapping(&self, params: &[f32]) -> ProcessorMapping {
+    pub fn create_processor_mapping(&self, params: &[f32]) -> NormalMapping {
         let target = self.target_with_context().create_target().ok();
         let activation_condition = self.create_activation_condition(params);
         let mapping_is_initially_active = activation_condition.is_fulfilled(params);
@@ -166,7 +166,7 @@ impl<'a> MappingModelWithContext<'a> {
             None => false,
             Some(t) => self.mapping.target_model.conditions_are_met(t),
         };
-        ProcessorMapping::new(
+        NormalMapping::new(
             self.mapping.id,
             self.mapping.source_model.create_source(),
             self.mapping.mode_model.create_mode(),

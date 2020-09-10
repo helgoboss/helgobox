@@ -1,4 +1,5 @@
 use crate::core::{prop, Prop};
+use crate::domain::NormalMappingSource;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -15,7 +16,7 @@ use std::fmt::Display;
 /// A model for creating MIDI sources
 #[derive(Clone, Debug)]
 pub struct MidiSourceModel {
-    pub r#type: Prop<MidiSourceType>,
+    pub r#type: Prop<SourceType>,
     pub channel: Prop<Option<Channel>>,
     pub midi_message_number: Prop<Option<U7>>,
     pub parameter_number_message_number: Prop<Option<U14>>,
@@ -28,7 +29,7 @@ pub struct MidiSourceModel {
 impl Default for MidiSourceModel {
     fn default() -> Self {
         Self {
-            r#type: prop(MidiSourceType::ControlChangeValue),
+            r#type: prop(SourceType::ControlChangeValue),
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
@@ -54,47 +55,54 @@ impl MidiSourceModel {
             .merge(self.is_14_bit.changed())
     }
 
-    pub fn apply_from_source(&mut self, source: &MidiSource) {
-        use MidiSource::*;
-        self.r#type.set(MidiSourceType::from_source(source));
-        self.channel.set(source.channel());
+    pub fn apply_from_source(&mut self, source: &NormalMappingSource) {
+        self.r#type.set(SourceType::from_source(source));
+        use NormalMappingSource::*;
         match source {
-            NoteVelocity { key_number, .. } | PolyphonicKeyPressureAmount { key_number, .. } => {
-                self.midi_message_number.set(key_number.map(Into::into));
+            Midi(s) => {
+                use MidiSource::*;
+                self.channel.set(s.channel());
+                match s {
+                    NoteVelocity { key_number, .. }
+                    | PolyphonicKeyPressureAmount { key_number, .. } => {
+                        self.midi_message_number.set(key_number.map(Into::into));
+                    }
+                    ControlChangeValue {
+                        controller_number,
+                        custom_character,
+                        ..
+                    } => {
+                        self.is_14_bit.set(Some(false));
+                        self.midi_message_number
+                            .set(controller_number.map(Into::into));
+                        self.custom_character.set(*custom_character);
+                    }
+                    ControlChange14BitValue {
+                        msb_controller_number,
+                        ..
+                    } => {
+                        self.is_14_bit.set(Some(true));
+                        self.midi_message_number
+                            .set(msb_controller_number.map(Into::into));
+                    }
+                    ParameterNumberValue {
+                        number,
+                        is_14_bit,
+                        is_registered,
+                        ..
+                    } => {
+                        self.parameter_number_message_number.set(*number);
+                        self.is_14_bit.set(*is_14_bit);
+                        self.is_registered.set(*is_registered);
+                    }
+                    ClockTransport { message } => {
+                        self.midi_clock_transport_message.set(*message);
+                    }
+                    _ => {}
+                }
             }
-            ControlChangeValue {
-                controller_number,
-                custom_character,
-                ..
-            } => {
-                self.is_14_bit.set(Some(false));
-                self.midi_message_number
-                    .set(controller_number.map(Into::into));
-                self.custom_character.set(*custom_character);
-            }
-            ControlChange14BitValue {
-                msb_controller_number,
-                ..
-            } => {
-                self.is_14_bit.set(Some(true));
-                self.midi_message_number
-                    .set(msb_controller_number.map(Into::into));
-            }
-            ParameterNumberValue {
-                number,
-                is_14_bit,
-                is_registered,
-                ..
-            } => {
-                self.parameter_number_message_number.set(*number);
-                self.is_14_bit.set(*is_14_bit);
-                self.is_registered.set(*is_registered);
-            }
-            ClockTransport { message } => {
-                self.midi_clock_transport_message.set(*message);
-            }
-            _ => {}
-        }
+            Virtual(_) => todo!(),
+        };
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
@@ -113,11 +121,11 @@ impl MidiSourceModel {
     }
 
     /// Creates a source reflecting this model's current values
-    pub fn create_source(&self) -> MidiSource {
-        use MidiSourceType::*;
+    pub fn create_source(&self) -> NormalMappingSource {
+        use SourceType::*;
         let channel = self.channel.get();
         let key_number = self.midi_message_number.get().map(|n| n.into());
-        match self.r#type.get() {
+        let midi_source = match self.r#type.get() {
             NoteVelocity => MidiSource::NoteVelocity {
                 channel,
                 key_number,
@@ -154,11 +162,12 @@ impl MidiSourceModel {
             ClockTransport => MidiSource::ClockTransport {
                 message: self.midi_clock_transport_message.get(),
             },
-        }
+        };
+        NormalMappingSource::Midi(midi_source)
     }
 
     pub fn supports_channel(&self) -> bool {
-        use MidiSourceType::*;
+        use SourceType::*;
         matches!(
             self.r#type.get(),
             ChannelPressureAmount
@@ -173,7 +182,7 @@ impl MidiSourceModel {
     }
 
     pub fn supports_midi_message_number(&self) -> bool {
-        use MidiSourceType::*;
+        use SourceType::*;
         matches!(
             self.r#type.get(),
             ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount
@@ -181,7 +190,7 @@ impl MidiSourceModel {
     }
 
     pub fn supports_14_bit(&self) -> bool {
-        use MidiSourceType::*;
+        use SourceType::*;
         matches!(self.r#type.get(), ControlChangeValue | ParameterNumberValue)
     }
 
@@ -194,20 +203,19 @@ impl MidiSourceModel {
     }
 
     pub fn supports_custom_character(&self) -> bool {
-        self.r#type.get() == MidiSourceType::ControlChangeValue
-            && self.is_14_bit.get().contains(&false)
+        self.r#type.get() == SourceType::ControlChangeValue && self.is_14_bit.get().contains(&false)
     }
 
     pub fn supports_midi_clock_transport_message_type(&self) -> bool {
-        self.r#type.get() == MidiSourceType::ClockTransport
+        self.r#type.get() == SourceType::ClockTransport
     }
 
     fn supports_parameter_number_message_props(&self) -> bool {
-        self.r#type.get() == MidiSourceType::ParameterNumberValue
+        self.r#type.get() == SourceType::ParameterNumberValue
     }
 
     fn primary_label(&self) -> Cow<str> {
-        use MidiSourceType::*;
+        use SourceType::*;
         match self.r#type.get() {
             ParameterNumberValue => match self.is_registered.get() {
                 None => ParameterNumberValue.to_string().into(),
@@ -240,7 +248,7 @@ impl MidiSourceModel {
     }
 
     fn secondary_label(&self) -> Cow<str> {
-        use MidiSourceType::*;
+        use SourceType::*;
         match self.r#type.get() {
             NoteVelocity | PolyphonicKeyPressureAmount => match self.midi_message_number.get() {
                 None => "Any note".into(),
@@ -285,7 +293,7 @@ impl Display for MidiSourceModel {
     Display,
 )]
 #[repr(usize)]
-pub enum MidiSourceType {
+pub enum SourceType {
     #[display(fmt = "CC value")]
     ControlChangeValue = 0,
     #[display(fmt = "Note velocity")]
@@ -308,26 +316,32 @@ pub enum MidiSourceType {
     ClockTransport = 9,
 }
 
-impl MidiSourceType {
-    pub fn from_source(source: &MidiSource) -> MidiSourceType {
-        use MidiSource::*;
+impl SourceType {
+    pub fn from_source(source: &NormalMappingSource) -> SourceType {
+        use NormalMappingSource::*;
         match source {
-            NoteVelocity { .. } => MidiSourceType::NoteVelocity,
-            NoteKeyNumber { .. } => MidiSourceType::NoteKeyNumber,
-            PolyphonicKeyPressureAmount { .. } => MidiSourceType::PolyphonicKeyPressureAmount,
-            ControlChangeValue { .. } => MidiSourceType::ControlChangeValue,
-            ProgramChangeNumber { .. } => MidiSourceType::ProgramChangeNumber,
-            ChannelPressureAmount { .. } => MidiSourceType::ChannelPressureAmount,
-            PitchBendChangeValue { .. } => MidiSourceType::PitchBendChangeValue,
-            ControlChange14BitValue { .. } => MidiSourceType::ControlChangeValue,
-            ParameterNumberValue { .. } => MidiSourceType::ParameterNumberValue,
-            ClockTempo => MidiSourceType::ClockTempo,
-            ClockTransport { .. } => MidiSourceType::ClockTransport,
+            Midi(s) => {
+                use MidiSource::*;
+                match s {
+                    NoteVelocity { .. } => SourceType::NoteVelocity,
+                    NoteKeyNumber { .. } => SourceType::NoteKeyNumber,
+                    PolyphonicKeyPressureAmount { .. } => SourceType::PolyphonicKeyPressureAmount,
+                    ControlChangeValue { .. } => SourceType::ControlChangeValue,
+                    ProgramChangeNumber { .. } => SourceType::ProgramChangeNumber,
+                    ChannelPressureAmount { .. } => SourceType::ChannelPressureAmount,
+                    PitchBendChangeValue { .. } => SourceType::PitchBendChangeValue,
+                    ControlChange14BitValue { .. } => SourceType::ControlChangeValue,
+                    ParameterNumberValue { .. } => SourceType::ParameterNumberValue,
+                    ClockTempo => SourceType::ClockTempo,
+                    ClockTransport { .. } => SourceType::ClockTransport,
+                }
+            }
+            Virtual(_) => todo!(),
         }
     }
 
     pub fn number_label(&self) -> &'static str {
-        use MidiSourceType::*;
+        use SourceType::*;
         match self {
             ControlChangeValue => "CC number",
             NoteVelocity | PolyphonicKeyPressureAmount => "Note number",
@@ -351,10 +365,10 @@ mod tests {
         let (mock, mock_mirror) = create_invocation_mock();
         // When
         m.changed().subscribe(move |_| mock.invoke(()));
-        m.r#type.set(MidiSourceType::NoteVelocity);
+        m.r#type.set(SourceType::NoteVelocity);
         m.channel.set(Some(channel(5)));
-        m.r#type.set(MidiSourceType::ClockTransport);
-        m.r#type.set(MidiSourceType::ClockTransport);
+        m.r#type.set(SourceType::ClockTransport);
+        m.r#type.set(SourceType::ClockTransport);
         m.channel.set(Some(channel(4)));
         // Then
         assert_eq!(mock_mirror.invocation_count(), 4);
@@ -369,11 +383,11 @@ mod tests {
         // Then
         assert_eq!(
             s,
-            MidiSource::ControlChangeValue {
+            NormalMappingSource::Midi(MidiSource::ControlChangeValue {
                 channel: None,
                 controller_number: None,
                 custom_character: SourceCharacter::Range,
-            }
+            })
         );
     }
 }

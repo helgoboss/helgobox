@@ -1,5 +1,5 @@
 use crate::core::Prop;
-use crate::domain::ReaperTarget;
+use crate::domain::{NormalMappingSource, ReaperTarget};
 use helgoboss_learn::MidiSource;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -10,7 +10,7 @@ pub type SharedMainState = Rc<RefCell<MainState>>;
 pub struct MainState {
     pub target_filter: Prop<Option<ReaperTarget>>,
     pub is_learning_target_filter: Prop<bool>,
-    pub source_filter: Prop<Option<MidiSource>>,
+    pub source_filter: Prop<Option<NormalMappingSource>>,
     pub is_learning_source_filter: Prop<bool>,
     pub search_expression: Prop<String>,
 }

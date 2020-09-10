@@ -1,6 +1,6 @@
 use crate::domain::{
-    ControlMainTask, MappingId, MidiClockCalculator, MidiSourceScanner, NormalMainTask,
-    RealTimeProcessorMapping,
+    ControlMainTask, MappingId, MidiClockCalculator, NormalMainTask, NormalMappingSource,
+    NormalMappingSourceValue, NormalRealTimeMapping, SourceScanner,
 };
 use helgoboss_learn::{MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -31,7 +31,7 @@ pub struct RealTimeProcessor {
     pub(crate) control_state: ControlState,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
-    pub(crate) mappings: HashMap<MappingId, RealTimeProcessorMapping>,
+    pub(crate) mappings: HashMap<MappingId, NormalRealTimeMapping>,
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
@@ -47,7 +47,7 @@ pub struct RealTimeProcessor {
     // For detecting play state changes
     pub(crate) was_playing_in_last_cycle: bool,
     // For source learning
-    pub(crate) source_scanner: MidiSourceScanner,
+    pub(crate) source_scanner: SourceScanner,
     // For MIDI timing clock calculations
     pub(crate) midi_clock_calculator: MidiClockCalculator,
 }
@@ -209,7 +209,11 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(source_value) => {
-                    self.feedback(source_value);
+                    use NormalMappingSourceValue::*;
+                    match source_value {
+                        Midi(v) => self.feedback_midi(v),
+                        Virtual(_) => todo!(),
+                    };
                 }
             }
         }
@@ -340,7 +344,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(source_value);
+                self.feed_source_scanner(NormalMappingSourceValue::Midi(source_value));
             }
         }
     }
@@ -351,13 +355,13 @@ impl RealTimeProcessor {
         }
     }
 
-    fn feed_source_scanner(&mut self, value: MidiSourceValue<RawShortMessage>) {
+    fn feed_source_scanner(&mut self, value: NormalMappingSourceValue) {
         if let Some(source) = self.source_scanner.feed(value) {
             self.learn_source(source);
         }
     }
 
-    fn learn_source(&mut self, source: MidiSource) {
+    fn learn_source(&mut self, source: NormalMappingSource) {
         self.normal_main_task_sender
             .send(NormalMainTask::LearnSource(source))
             .unwrap();
@@ -380,7 +384,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(source_value);
+                self.feed_source_scanner(NormalMappingSourceValue::Midi(source_value));
             }
         }
     }
@@ -400,7 +404,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(source_value);
+                self.feed_source_scanner(NormalMappingSourceValue::Midi(source_value));
             }
         }
     }
@@ -413,7 +417,7 @@ impl RealTimeProcessor {
             .values()
             .filter(|m| m.control_is_effectively_on())
         {
-            if let Some(control_value) = m.control(&value) {
+            if let Some(control_value) = m.control(&NormalMappingSourceValue::Midi(value)) {
                 let task = ControlMainTask::Control {
                     mapping_id: m.id(),
                     value: control_value,
@@ -451,7 +455,7 @@ impl RealTimeProcessor {
             .any(|m| m.control_is_effectively_on() && m.consumes(msg))
     }
 
-    fn feedback(&self, value: MidiSourceValue<RawShortMessage>) {
+    fn feedback_midi(&self, value: MidiSourceValue<RawShortMessage>) {
         if let Some(output) = self.midi_feedback_output {
             let shorts = value.to_short_messages();
             if shorts[0].is_none() {
@@ -502,8 +506,8 @@ impl RealTimeProcessor {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    UpdateAllMappings(Vec<RealTimeProcessorMapping>),
-    UpdateSingleMapping(RealTimeProcessorMapping),
+    UpdateAllMappings(Vec<NormalRealTimeMapping>),
+    UpdateSingleMapping(NormalRealTimeMapping),
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
@@ -531,7 +535,7 @@ pub struct MappingActivationUpdate {
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(MidiSourceValue<RawShortMessage>),
+    Feedback(NormalMappingSourceValue),
 }
 
 impl Drop for RealTimeProcessor {

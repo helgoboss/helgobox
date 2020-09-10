@@ -1,8 +1,8 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainProcessor,
-    MainProcessorMapping, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    RealTimeProcessorMapping, ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    MidiControlInput, MidiFeedbackOutput, NormalMainMapping, NormalMainTask, NormalMappingSource,
+    NormalRealTimeMapping, NormalRealTimeTask, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
@@ -43,7 +43,7 @@ pub struct Session {
     mapping_models: Vec<SharedMapping>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
-    midi_source_touched_subject: LocalSubject<'static, MidiSource, ()>,
+    source_touched_subject: LocalSubject<'static, NormalMappingSource, ()>,
     mapping_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
     // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
     // will stay around as a ghost after the plug-in is removed.
@@ -86,7 +86,7 @@ impl Session {
             mapping_models: vec![],
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
-            midi_source_touched_subject: Default::default(),
+            source_touched_subject: Default::default(),
             mapping_subscriptions: vec![],
             main_processor_registration: None,
             normal_main_task_channel,
@@ -269,7 +269,7 @@ impl Session {
             }
             when(
                 session
-                    .midi_source_touched()
+                    .source_touched()
                     // We have this explicit stop criteria because we listen to global REAPER
                     // events.
                     .take_until(session.party_is_over())
@@ -314,17 +314,17 @@ impl Session {
             .merge(self.midi_feedback_output.changed())
     }
 
-    pub fn learn_source(&mut self, source: MidiSource) {
-        self.midi_source_touched_subject.next(source);
+    pub fn learn_source(&mut self, source: NormalMappingSource) {
+        self.source_touched_subject.next(source);
     }
 
-    pub fn midi_source_touched(&self) -> impl Event<MidiSource> {
+    pub fn source_touched(&self) -> impl Event<NormalMappingSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::StartLearnSource)
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
-        self.midi_source_touched_subject.clone().finalize(move || {
+        self.source_touched_subject.clone().finalize(move || {
             rt_sender.send(NormalRealTimeTask::StopLearnSource).unwrap();
         })
     }
@@ -807,8 +807,8 @@ pub struct ParameterSetting {
 }
 
 struct SplinteredProcessorMappings {
-    real_time: Vec<RealTimeProcessorMapping>,
-    main: Vec<MainProcessorMapping>,
+    real_time: Vec<NormalRealTimeMapping>,
+    main: Vec<NormalMainMapping>,
 }
 
 impl Drop for Session {

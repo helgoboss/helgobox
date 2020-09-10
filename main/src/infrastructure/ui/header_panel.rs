@@ -58,7 +58,7 @@ impl HeaderPanel {
             when(
                 self.session()
                     .borrow()
-                    .midi_source_touched()
+                    .source_touched()
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )
