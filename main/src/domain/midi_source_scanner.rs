@@ -135,14 +135,14 @@ fn guess_custom_character(count: usize, values: &[U7; MAX_CC_MSG_COUNT]) -> Sour
     use SourceCharacter::*;
     #[allow(clippy::if_same_then_else)]
     if count == 1 {
-        // Only one message received. Looks like a switch has been pressed and not released.
-        Switch
+        // Only one message received. Looks like a button has been pressed and not released.
+        Button
     } else if count == 2 && values[1] == U7::MIN {
-        // Two messages received and second message has value 0. Looks like a switch has been
+        // Two messages received and second message has value 0. Looks like a button has been
         // pressed and released.
-        Switch
+        Button
     } else {
-        // Multiple messages received. Switch character is ruled out already. Check continuity.
+        // Multiple messages received. Button character is ruled out already. Check continuity.
         let mut prev_ord = Ordering::Equal;
         for i in 1..count {
             let current_ord = values[i - 1].cmp(&values[i]);

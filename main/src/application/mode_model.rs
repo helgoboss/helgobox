@@ -67,8 +67,11 @@ pub struct ModeModel {
 )]
 #[repr(usize)]
 pub enum ModeType {
+    #[display(fmt = "Absolute (for range elements and buttons)")]
     Absolute = 0,
+    #[display(fmt = "Relative (for encoders and buttons)")]
     Relative = 1,
+    #[display(fmt = "Toggle (for buttons only)")]
     Toggle = 2,
 }
 

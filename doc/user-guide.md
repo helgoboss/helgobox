@@ -611,12 +611,12 @@ This source reacts to incoming MIDI control-change messages.
   by looking at the emitted values. Naturally, the result is not always correct. The best guessing
   result can be achieved by turning the knob or encoder quickly and "passionately" into a single
   direction. The possible values are:
-  - **Knob/Fader:** A control element that emits continuous absolute values. Examples: Faders,
+  - **Range element (knob, fader, etc.):** A control element that emits continuous absolute values. Examples: Faders,
     knobs, modulation wheel, pitch bend, ribbon controller.
-  - **Momentary switch:** A control element that can be pressed and emits absolute values. It emits a > 0%
+  - **Button (momentary):** A control element that can be pressed and emits absolute values. It emits a > 0%
     value when pressing it and optionally a 0% value when releasing it. Examples: Damper pedal.
-    - Hint: There's no option "Toggle switch" because ReaLearn can only take full control with momentary
-      switches. So make sure your controller buttons are in momentary mode! ReaLearn itself provides
+    - Hint: There's no option "Button (toggle)" because ReaLearn can only take full control with momentary
+      buttons. So make sure your controller buttons are in momentary mode! ReaLearn itself provides
       a toggle mode that is naturally more capable than your controller's built-in toggle mode.
   - **Encoder (type _x_):** A control element that emits relative values, usually an endless rotary
     encoder. The _x_ specifies _how_ the relative values are sent. This 1:1 corresponds to the
@@ -879,16 +879,18 @@ common settings and functions:
   This wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself. This
   setting applies to targets which are controlled via absolute control values (= all targets with
   the exception of the "Action target" if invocation type is _Relative_).
-- **Out of range:** This determines ReaLearn's behavior if the control value is not within
-  "Source Min/Max" or the feedback value not within "Target Min/Max". 
+- **Out of range:** This determines ReaLearn's behavior if the source value is not within
+  "Source Min/Max" or the target value not within "Target Min/Max". There are these variants:
   
-  If unchecked and an incoming source control value is not
-  within _Source Min/Max_, the target value will be set to either min or max. If checked, the target
-  value will not be touched.
+  |                | Control direction (absolute mode only)                                                                                                                                                                                                       | Feedback direction                                                                                                                                                                                                                 |
+  |----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+  | **Min or max** | If the source value is < "Source Min", ReaLearn will behave as if "Source Min" was received (or 0% if min = max).<br><br>If the source value is > "Source Max", ReaLearn will behave as if "Source Max" was received (or 100% if min = max). | If the target value is < "Target Min", ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).<br><br>If the target value is > "Target Max", ReaLearn will behave as if "Target Max" was detected (or 100% if min = max). |
+  | **Min**        | ReaLearn will behave as if "Source Min" was received (or 0% if min = max).                                                                                                                                                                   | ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).                                                                                                                                                                   |
+  | **Ignore**     | Target value won't be touched.                                                                                                                                                                                                               | No feedback will be sent.                                                                                                                                                                                                                    |
 
 All other UI elements in this section depend on the chosen mode type.
 
-##### Absolute mode
+##### Absolute (for range elements and buttons)
 
 Absolute mode takes and optionally transforms absolute source control values. _Absolute_ means that
 the current target value is irrelevant and the target will just be set to whatever control value is
@@ -896,7 +898,7 @@ coming in (potentially transformed). If incoming source control values are relat
 ignored.
 
 - **Length Min/Max:** This decides how long a button needs to be pressed to have an effect.
-  Obviously, this setting makes sense for switch-like control elements only (keys, pads, buttons,
+  Obviously, this setting makes sense for button-like control elements only (keys, pads, buttons,
   ...), not for knobs or faders.
   - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
     both press (> 0%) and release (0%) will be instantly forwarded. If you change _Length Min_ to
@@ -950,7 +952,7 @@ ignored.
   source value (= output value) and `y` is the current target value (= input value), so you must
   assign the desired source value to `x`. Example: `x = y * 2`.
 
-##### Relative mode
+##### Relative (for encoders and buttons)
 
 Relative mode takes and optionally transforms relative or absolute source control values. _Relative_
 means that the current target value is relevant and the change of the target value is calculated in
@@ -960,7 +962,7 @@ encoders. Therefore, if _Auto-correct settings_ is enabled, this mode will autom
 activated if the source is known to emit relative values (increments/decrements).
 
 You read correctly, ReaLarn's relative mode can also deal with incoming absolute control values -
-provided they are emitted by switch-like control elements. Let's assume you use the _Note velocity_
+provided they are emitted by button-like control elements. Let's assume you use the _Note velocity_
 source together with relative mode. Then it works like this: Each time you press the key, the target
 value will increase, according to the mode's settings (you can even make it velocity-sensitive). If
 you want the target value to decrease, you need to check the _Reverse_ checkbox.
@@ -1003,10 +1005,10 @@ you want the target value to decrease, you need to check the _Reverse_ checkbox.
 - **Feedback transformation (EEL):** This has the same effect like in absolute mode (feedback is
   always absolute, never relative).
 
-##### Toggle mode
+##### Toggle (for buttons only)
 
 Toggle mode is a very simple mode that takes and optionally transforms absolute source control
-values. It's used to toggle a target between _on_ and _off_ states. Only makes sense for switch-like
+values. It's used to toggle a target between _on_ and _off_ states. Only makes sense for button-like
 control elements.
 
 - **Length Min/Max:** Just like in _Absolute mode_, this decides how long a button needs to be

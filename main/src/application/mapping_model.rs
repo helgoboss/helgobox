@@ -212,7 +212,7 @@ impl<'a> MappingModelWithContext<'a> {
         let mode_type = self.mapping.mode_model.r#type.get();
         let result = match self.mapping.source_model.character() {
             Range => mode_type == Absolute,
-            Switch => {
+            Button => {
                 let target = self.target_with_context().create_target()?;
                 match mode_type {
                     Absolute | Toggle => !target.control_type().is_relative(),
@@ -245,7 +245,7 @@ impl<'a> MappingModelWithContext<'a> {
         use SourceCharacter::*;
         let result = match self.mapping.source_model.character() {
             Range => Absolute,
-            Switch => {
+            Button => {
                 let target = self.target_with_context().create_target()?;
                 if target.control_type().is_relative() {
                     Relative
