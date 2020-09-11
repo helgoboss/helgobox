@@ -2,6 +2,7 @@ use crate::domain::{
     ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualControlElement,
     VirtualSource, VirtualSourceValue, VirtualTarget,
 };
+use enum_map::Enum;
 use helgoboss_learn::{
     ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
 };
@@ -388,6 +389,10 @@ impl VirtualMapping {
         self.options.feedback_is_effectively_on()
     }
 
+    pub fn consumes(&self, msg: RawShortMessage) -> bool {
+        self.source.consumes(&msg)
+    }
+
     pub fn control(&self, value: &MidiSourceValue<RawShortMessage>) -> Option<VirtualSourceValue> {
         let control_value = self.source.control(value)?;
         Some(VirtualSourceValue::new(
@@ -412,4 +417,10 @@ impl VirtualMapping {
 pub enum ControllerMappingTarget {
     Reaper(ReaperTarget),
     Virtual(VirtualTarget),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Enum)]
+pub enum MappingCompartment {
+    PrimaryMappings,
+    ControllerMappings,
 }

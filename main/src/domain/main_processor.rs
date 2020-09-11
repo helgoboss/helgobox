@@ -1,9 +1,10 @@
 use crate::domain::{
     DomainEvent, DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MappingActivationUpdate,
-    MappingId, NormalMainMapping, NormalMappingSource, NormalMappingSourceValue,
-    NormalRealTimeTask, ReaperTarget,
+    MappingCompartment, MappingId, NormalMainMapping, NormalMappingSource,
+    NormalMappingSourceValue, NormalRealTimeTask, ReaperTarget,
 };
 use crossbeam_channel::Sender;
+use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
 use helgoboss_midi::RawShortMessage;
 use reaper_high::Reaper;
@@ -26,7 +27,7 @@ pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains all mappings except those where the target could not be resolved.
-    mappings: HashMap<MappingId, NormalMainMapping>,
+    mappings: EnumMap<MappingCompartment, HashMap<MappingId, NormalMainMapping>>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
     feedback_is_globally_enabled: bool,
@@ -55,14 +56,14 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
         for task in normal_tasks {
             use NormalMainTask::*;
             match task {
-                UpdateAllMappings(mappings) => {
+                UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating all mappings..."
                     );
-                    let mut unused_sources = self.currently_feedback_enabled_sources();
+                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // Put into hash map in order to quickly look up mappings by ID
-                    self.mappings = mappings
+                    self.mappings[compartment] = mappings
                         .into_iter()
                         .map(|m| {
                             if m.feedback_is_effectively_on() {
@@ -72,16 +73,16 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             (m.id(), m)
                         })
                         .collect();
-                    self.handle_feedback_after_batch_mapping_update(&unused_sources);
+                    self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                 }
-                UpdateAllTargets(updates) => {
+                UpdateAllTargets(compartment, updates) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating all targets..."
                     );
-                    let mut unused_sources = self.currently_feedback_enabled_sources();
+                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     for update in updates.into_iter() {
-                        if let Some(m) = self.mappings.get_mut(&update.id) {
+                        if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
                             m.update_target(update);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
@@ -91,9 +92,9 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             panic!("Couldn't find mapping while updating all targets");
                         }
                     }
-                    self.handle_feedback_after_batch_mapping_update(&unused_sources);
+                    self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                 }
-                UpdateSingleMapping(mapping) => {
+                UpdateSingleMapping(compartment, mapping) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating mapping {:?}...",
@@ -106,6 +107,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                                 // (Re)subscribe
                                 let subscription = send_feedback_when_target_value_changed(
                                     self.self_feedback_sender.clone(),
+                                    compartment,
                                     mapping.id(),
                                     target,
                                 );
@@ -121,8 +123,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                                 // overwrite the feedback value of
                                 // another enabled mapping which has the same
                                 // source).
-                                let was_previously_enabled = self
-                                    .mappings
+                                let was_previously_enabled = self.mappings[compartment]
                                     .get(&mapping.id())
                                     .map(|m| m.feedback_is_effectively_on())
                                     .contains(&true);
@@ -137,7 +138,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         };
                     }
                     // Update hash map entry
-                    self.mappings.insert(mapping.id(), *mapping);
+                    self.mappings[compartment].insert(mapping.id(), *mapping);
                 }
                 FeedbackAll => {
                     if self.feedback_is_globally_enabled {
@@ -165,13 +166,14 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     );
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
-                    let mut unused_sources = self.currently_feedback_enabled_sources();
+                    let mut unused_sources = self
+                        .currently_feedback_enabled_sources(MappingCompartment::PrimaryMappings);
                     // In order to avoid a mutable borrow of mappings and an immutable borrow of
                     // parameters at the same time, we need to separate the mapping updates into
                     // READ (read new activation state) and WRITE (write new activation state).
                     // 1. Read
-                    let activation_updates: Vec<MappingActivationUpdate> = self
-                        .mappings
+                    let activation_updates: Vec<MappingActivationUpdate> = self.mappings
+                        [MappingCompartment::PrimaryMappings]
                         .values()
                         .filter_map(|m| {
                             let result = m.notify_param_changed(
@@ -188,7 +190,9 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         .collect();
                     // 2. Write
                     for upd in activation_updates.iter() {
-                        if let Some(m) = self.mappings.get_mut(&upd.id) {
+                        if let Some(m) =
+                            self.mappings[MappingCompartment::PrimaryMappings].get_mut(&upd.id)
+                        {
                             m.update_activation(upd.is_active);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
@@ -196,10 +200,14 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             }
                         }
                     }
-                    self.handle_feedback_after_batch_mapping_update(&unused_sources);
+                    self.handle_feedback_after_batch_mapping_update(
+                        MappingCompartment::PrimaryMappings,
+                        &unused_sources,
+                    );
                     if !activation_updates.is_empty() {
                         self.normal_real_time_task_sender
                             .send(NormalRealTimeTask::UpdateNormalMappingActivations(
+                                MappingCompartment::PrimaryMappings,
                                 activation_updates,
                             ))
                             .unwrap();
@@ -208,10 +216,17 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
-                        self.handle_feedback_after_batch_mapping_update(&HashSet::new());
+                        self.handle_feedback_after_batch_mapping_update(
+                            MappingCompartment::ControllerMappings,
+                            &HashSet::new(),
+                        );
+                        self.handle_feedback_after_batch_mapping_update(
+                            MappingCompartment::PrimaryMappings,
+                            &HashSet::new(),
+                        );
                     } else {
                         self.feedback_subscriptions.clear();
-                        self.feedback_buffer.reset();
+                        self.feedback_buffer.reset_all();
                         self.send_feedback(self.feedback_all_zero());
                     }
                 }
@@ -226,8 +241,12 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
         for task in control_tasks {
             use ControlMainTask::*;
             match task {
-                Control { mapping_id, value } => {
-                    if let Some(m) = self.mappings.get_mut(&mapping_id) {
+                Control {
+                    compartment,
+                    mapping_id,
+                    value,
+                } => {
+                    if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
                         // Most of the time, the main processor won't even receive a control
                         // instruction (from the real-time processor) for a mapping for which
                         // control is disabled, because the real-time processor doesn't process
@@ -251,16 +270,17 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
         for task in feedback_tasks {
             use FeedbackMainTask::*;
             match task {
-                Feedback(mapping_id) => {
-                    self.feedback_buffer.buffer_feedback_for_mapping(mapping_id);
+                Feedback(compartment, mapping_id) => {
+                    self.feedback_buffer
+                        .buffer_feedback_for_mapping(compartment, mapping_id);
                 }
             }
         }
         // Send feedback as soon as buffered long enough
         if self.feedback_is_globally_enabled {
             if let Some(mapping_ids) = self.feedback_buffer.poll() {
-                let source_values = mapping_ids.iter().filter_map(|mapping_id| {
-                    let mapping = self.mappings.get(mapping_id)?;
+                let source_values = mapping_ids.iter().filter_map(|(compartment, mapping_id)| {
+                    let mapping = self.mappings[*compartment].get(mapping_id)?;
                     mapping.feedback_if_enabled()
                 });
                 self.send_feedback(source_values);
@@ -303,23 +323,40 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    fn all_mappings(&self) -> impl Iterator<Item = &NormalMainMapping> {
+        self.mappings[MappingCompartment::ControllerMappings]
+            .values()
+            .chain(self.mappings[MappingCompartment::PrimaryMappings].values())
+    }
+
     fn feedback_all(&self) -> Vec<NormalMappingSourceValue> {
-        self.mappings
+        self.all_mappings()
+            .filter_map(|m| m.feedback_if_enabled())
+            .collect()
+    }
+
+    fn feedback_all_in_compartment(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Vec<NormalMappingSourceValue> {
+        self.mappings[compartment]
             .values()
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
     }
 
     fn feedback_all_zero(&self) -> Vec<NormalMappingSourceValue> {
-        self.mappings
-            .values()
+        self.all_mappings()
             .filter(|m| m.feedback_is_effectively_on())
             .filter_map(|m| m.source().feedback(UnitValue::MIN))
             .collect()
     }
 
-    fn currently_feedback_enabled_sources(&self) -> HashSet<NormalMappingSource> {
-        self.mappings
+    fn currently_feedback_enabled_sources(
+        &self,
+        compartment: MappingCompartment,
+    ) -> HashSet<NormalMappingSource> {
+        self.mappings[compartment]
             .values()
             .filter(|m| m.feedback_is_effectively_on())
             .map(|m| m.source().clone())
@@ -328,6 +365,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn handle_feedback_after_batch_mapping_update(
         &mut self,
+        compartment: MappingCompartment,
         now_unused_sources: &HashSet<NormalMappingSource>,
     ) {
         if !self.feedback_is_globally_enabled {
@@ -336,8 +374,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Subscribe to target value changes for feedback. Before that, cancel all existing
         // subscriptions.
         self.feedback_subscriptions.clear();
-        for m in self
-            .mappings
+        for m in self.mappings[compartment]
             .values()
             .filter(|m| m.feedback_is_effectively_on())
         {
@@ -345,6 +382,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // Subscribe
                 let subscription = send_feedback_when_target_value_changed(
                     self.self_feedback_sender.clone(),
+                    compartment,
                     m.id(),
                     target,
                 );
@@ -358,8 +396,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Then discard the current feedback buffer and send feedback for all new mappings which
         // are enabled.
-        self.feedback_buffer.reset();
-        self.send_feedback(self.feedback_all());
+        self.feedback_buffer.reset_all_in_compartment(compartment);
+        self.send_feedback(self.feedback_all_in_compartment(compartment));
     }
 
     fn log_debug_info(&self, task_count: usize) {
@@ -367,8 +405,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             "\n\
                         # Main processor\n\
                         \n\
-                        - Total mapping count: {} \n\
-                        - Enabled mapping count: {} \n\
+                        - Total primary mapping count: {} \n\
+                        - Enabled primary mapping count: {} \n\
+                        - Total controller mapping count: {} \n\
+                        - Enabled controller mapping count: {} \n\
                         - Feedback subscription count: {} \n\
                         - Feedback buffer length: {} \n\
                         - Normal task count: {} \n\
@@ -376,9 +416,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         - Feedback task count: {} \n\
                         - Parameter values: {:?} \n\
                         ",
-            // self.mappings.values(),
-            self.mappings.len(),
-            self.mappings
+            self.mappings[MappingCompartment::PrimaryMappings].len(),
+            self.mappings[MappingCompartment::PrimaryMappings]
+                .values()
+                .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
+                .count(),
+            self.mappings[MappingCompartment::ControllerMappings].len(),
+            self.mappings[MappingCompartment::ControllerMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
@@ -395,6 +439,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
 fn send_feedback_when_target_value_changed(
     self_sender: Sender<FeedbackMainTask>,
+    compartment: MappingCompartment,
     mapping_id: MappingId,
     target: &ReaperTarget,
 ) -> FeedbackSubscriptionGuard {
@@ -402,7 +447,7 @@ fn send_feedback_when_target_value_changed(
         .value_changed()
         .subscribe(move |_| {
             self_sender
-                .send(FeedbackMainTask::Feedback(mapping_id))
+                .send(FeedbackMainTask::Feedback(compartment, mapping_id))
                 .unwrap();
         })
         .unsubscribe_when_dropped()
@@ -412,10 +457,10 @@ fn send_feedback_when_target_value_changed(
 #[derive(Debug)]
 pub enum NormalMainTask {
     /// Clears all mappings and uses the passed ones.
-    UpdateAllMappings(Vec<NormalMainMapping>),
+    UpdateAllMappings(MappingCompartment, Vec<NormalMainMapping>),
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
-    UpdateSingleMapping(Box<NormalMainMapping>),
+    UpdateSingleMapping(MappingCompartment, Box<NormalMainMapping>),
     /// Replaces the targets of all given mappings.
     ///
     /// Use this instead of `UpdateAllMappings` whenever existing modes should not be overwritten.
@@ -425,7 +470,7 @@ pub enum NormalMainTask {
     /// when a selected track changes because a controller knob has been moved). Syncing the modes
     /// in such cases would reset all mutable mode state (e.g. throttling counter). Clearly
     /// undesired.
-    UpdateAllTargets(Vec<MainProcessorTargetUpdate>),
+    UpdateAllTargets(MappingCompartment, Vec<MainProcessorTargetUpdate>),
     UpdateAllParameters([f32; PLUGIN_PARAMETER_COUNT as usize]),
     UpdateParameter {
         index: u32,
@@ -440,12 +485,13 @@ pub enum NormalMainTask {
 /// A feedback-related task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackMainTask {
-    Feedback(MappingId),
+    Feedback(MappingCompartment, MappingId),
 }
 
 /// A control-related task (which is potentially sent very frequently).
 pub enum ControlMainTask {
     Control {
+        compartment: MappingCompartment,
         mapping_id: MappingId,
         value: ControlValue,
     },

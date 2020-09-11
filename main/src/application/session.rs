@@ -1,8 +1,9 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainProcessor,
-    MidiControlInput, MidiFeedbackOutput, NormalMainMapping, NormalMainTask, NormalMappingSource,
-    NormalRealTimeMapping, NormalRealTimeTask, ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    MappingCompartment, MidiControlInput, MidiFeedbackOutput, NormalMainMapping, NormalMainTask,
+    NormalMappingSource, NormalRealTimeMapping, NormalRealTimeTask, ReaperTarget,
+    PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
@@ -674,10 +675,16 @@ impl Session {
         let splintered = processor_mapping.splinter();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateSingleMapping(Box::new(splintered.1)))
+            .send(NormalMainTask::UpdateSingleMapping(
+                MappingCompartment::PrimaryMappings,
+                Box::new(splintered.1),
+            ))
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleNormalMapping(splintered.0))
+            .send(NormalRealTimeTask::UpdateSingleNormalMapping(
+                MappingCompartment::PrimaryMappings,
+                splintered.0,
+            ))
             .unwrap();
     }
 
@@ -715,12 +722,16 @@ impl Session {
             .collect();
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::EnableMappingsExclusively(
+                MappingCompartment::PrimaryMappings,
                 mappings_with_active_targets,
             ))
             .unwrap();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateAllTargets(main_target_updates))
+            .send(NormalMainTask::UpdateAllTargets(
+                MappingCompartment::PrimaryMappings,
+                main_target_updates,
+            ))
             .unwrap();
     }
 
@@ -746,10 +757,14 @@ impl Session {
         let splintered = self.create_and_splinter_mappings();
         self.normal_main_task_channel
             .0
-            .send(NormalMainTask::UpdateAllMappings(splintered.main))
+            .send(NormalMainTask::UpdateAllMappings(
+                MappingCompartment::PrimaryMappings,
+                splintered.main,
+            ))
             .unwrap();
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::UpdateAllNormalMappings(
+                MappingCompartment::PrimaryMappings,
                 splintered.real_time,
             ))
             .unwrap();
