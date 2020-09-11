@@ -1,6 +1,6 @@
 use crate::domain::{
     ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualSource,
-    VirtualTarget,
+    VirtualSourceValue, VirtualTarget,
 };
 use helgoboss_learn::{
     ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
@@ -291,12 +291,6 @@ impl NormalMainMapping {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum ControllerMappingTarget {
-    Reaper(ReaperTarget),
-    Virtual(VirtualTarget),
-}
-
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum NormalMappingSource {
     Midi(MidiSource),
@@ -308,7 +302,7 @@ impl NormalMappingSource {
         use NormalMappingSource::*;
         match (self, value) {
             (Midi(s), NormalMappingSourceValue::Midi(v)) => s.control(v),
-            (Virtual(s), NormalMappingSourceValue::Virtual(v)) => todo!(),
+            (Virtual(s), NormalMappingSourceValue::Virtual(v)) => s.control(v),
             _ => None,
         }
     }
@@ -317,7 +311,7 @@ impl NormalMappingSource {
         use NormalMappingSource::*;
         match self {
             Midi(s) => s.format_control_value(value),
-            Virtual(_) => todo!(),
+            Virtual(s) => s.format_control_value(value),
         }
     }
 
@@ -325,7 +319,7 @@ impl NormalMappingSource {
         use NormalMappingSource::*;
         match self {
             Midi(s) => s.parse_control_value(text),
-            Virtual(_) => todo!(),
+            Virtual(s) => s.parse_control_value(text),
         }
     }
 
@@ -333,7 +327,7 @@ impl NormalMappingSource {
         use NormalMappingSource::*;
         match self {
             Midi(s) => s.character(),
-            Virtual(_) => todo!(),
+            Virtual(s) => s.character(),
         }
     }
 
@@ -343,7 +337,9 @@ impl NormalMappingSource {
             Midi(s) => s
                 .feedback(feedback_value)
                 .map(NormalMappingSourceValue::Midi),
-            Virtual(_) => todo!(),
+            Virtual(s) => Some(NormalMappingSourceValue::Virtual(
+                s.feedback(feedback_value),
+            )),
         }
     }
 
@@ -359,5 +355,19 @@ impl NormalMappingSource {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum NormalMappingSourceValue {
     Midi(MidiSourceValue<RawShortMessage>),
-    Virtual(UnitValue),
+    Virtual(VirtualSourceValue),
+}
+
+#[derive(Debug)]
+pub struct ControllerMapping {
+    source: MidiSource,
+    mode: Mode,
+    target: Option<ControllerMappingTarget>,
+    options: ProcessorMappingOptions,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum ControllerMappingTarget {
+    Reaper(ReaperTarget),
+    Virtual(VirtualTarget),
 }

@@ -1,6 +1,6 @@
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue, FEEDBACK_EPSILON};
+use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
+use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -1009,17 +1010,6 @@ fn format_bpm(bpm: f64) -> String {
     format!("{:.4}", bpm)
 }
 
-fn format_as_percentage_without_unit(value: UnitValue) -> String {
-    let percent = value.get() * 100.0;
-    if (percent - percent.round()).abs() < FEEDBACK_EPSILON {
-        // No fraction. Omit zeros after dot.
-        format!("{:.0}", percent)
-    } else {
-        // Has fraction. We want to display these.
-        format!("{:.4}", percent)
-    }
-}
-
 fn format_value_as_db_without_unit(value: UnitValue) -> String {
     let db = Volume::from_soft_normalized_value(value.get()).db();
     if db == Db::MINUS_INF {
@@ -1096,11 +1086,6 @@ fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> U
             UnitValue::new(value)
         }
     }
-}
-
-fn parse_from_percentage(text: &str) -> Result<UnitValue, &'static str> {
-    let percentage: f64 = text.parse().map_err(|_| "not a valid decimal value")?;
-    (percentage / 100.0).try_into()
 }
 
 fn parse_value_from_db(text: &str) -> Result<UnitValue, &'static str> {

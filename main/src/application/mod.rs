@@ -6,8 +6,8 @@ pub mod session_manager;
 mod session_context;
 pub use session_context::*;
 
-mod midi_source_model;
-pub use midi_source_model::*;
+mod source_model;
+pub use source_model::*;
 
 mod mode_model;
 pub use mode_model::*;

@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::NormalMappingSource;
+use crate::domain::{NormalMappingSource, VirtualControlElement, VirtualSource};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -9,14 +9,18 @@ use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
 use serde::export::Formatter;
+use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt::Display;
 
-/// A model for creating MIDI sources
+/// A model for creating sources
 #[derive(Clone, Debug)]
-pub struct MidiSourceModel {
-    pub r#type: Prop<SourceType>,
+pub struct SourceModel {
+    pub category: Prop<SourceCategory>,
+    pub midi_source_type: Prop<MidiSourceType>,
+    pub virtual_source_type: Prop<VirtualSourceType>,
+    pub virtual_control_element_index: Prop<u32>,
     pub channel: Prop<Option<Channel>>,
     pub midi_message_number: Prop<Option<U7>>,
     pub parameter_number_message_number: Prop<Option<U14>>,
@@ -26,10 +30,13 @@ pub struct MidiSourceModel {
     pub is_14_bit: Prop<Option<bool>>,
 }
 
-impl Default for MidiSourceModel {
+impl Default for SourceModel {
     fn default() -> Self {
         Self {
-            r#type: prop(SourceType::ControlChangeValue),
+            category: prop(SourceCategory::Midi),
+            midi_source_type: prop(MidiSourceType::ControlChangeValue),
+            virtual_source_type: prop(VirtualSourceType::Continuous),
+            virtual_control_element_index: prop(0),
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
@@ -41,11 +48,14 @@ impl Default for MidiSourceModel {
     }
 }
 
-impl MidiSourceModel {
+impl SourceModel {
     /// Fires whenever one of the properties of this model has changed
     pub fn changed(&self) -> impl UnitEvent {
-        self.r#type
+        self.category
             .changed()
+            .merge(self.midi_source_type.changed())
+            .merge(self.virtual_source_type.changed())
+            .merge(self.virtual_control_element_index.changed())
             .merge(self.channel.changed())
             .merge(self.midi_message_number.changed())
             .merge(self.parameter_number_message_number.changed())
@@ -56,12 +66,12 @@ impl MidiSourceModel {
     }
 
     pub fn apply_from_source(&mut self, source: &NormalMappingSource) {
-        self.r#type.set(SourceType::from_source(source));
         use NormalMappingSource::*;
         match source {
             Midi(s) => {
-                use MidiSource::*;
+                self.midi_source_type.set(MidiSourceType::from_source(s));
                 self.channel.set(s.channel());
+                use MidiSource::*;
                 match s {
                     NoteVelocity { key_number, .. }
                     | PolyphonicKeyPressureAmount { key_number, .. } => {
@@ -101,7 +111,12 @@ impl MidiSourceModel {
                     _ => {}
                 }
             }
-            Virtual(_) => todo!(),
+            Virtual(s) => {
+                self.virtual_source_type
+                    .set(VirtualSourceType::from_source(s));
+                self.virtual_control_element_index
+                    .set(s.control_element().index())
+            }
         };
     }
 
@@ -122,54 +137,79 @@ impl MidiSourceModel {
 
     /// Creates a source reflecting this model's current values
     pub fn create_source(&self) -> NormalMappingSource {
-        use SourceType::*;
-        let channel = self.channel.get();
-        let key_number = self.midi_message_number.get().map(|n| n.into());
-        let midi_source = match self.r#type.get() {
-            NoteVelocity => MidiSource::NoteVelocity {
-                channel,
-                key_number,
-            },
-            NoteKeyNumber => MidiSource::NoteKeyNumber { channel },
-            PolyphonicKeyPressureAmount => MidiSource::PolyphonicKeyPressureAmount {
-                channel,
-                key_number,
-            },
-            ControlChangeValue => {
-                if self.is_14_bit.get() == Some(true) {
-                    MidiSource::ControlChange14BitValue {
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => {
+                use MidiSourceType::*;
+                let channel = self.channel.get();
+                let key_number = self.midi_message_number.get().map(|n| n.into());
+                let midi_source = match self.midi_source_type.get() {
+                    NoteVelocity => MidiSource::NoteVelocity {
                         channel,
-                        msb_controller_number: self.midi_message_number.get().map(|n| n.into()),
-                    }
-                } else {
-                    MidiSource::ControlChangeValue {
+                        key_number,
+                    },
+                    NoteKeyNumber => MidiSource::NoteKeyNumber { channel },
+                    PolyphonicKeyPressureAmount => MidiSource::PolyphonicKeyPressureAmount {
                         channel,
-                        controller_number: self.midi_message_number.get().map(|n| n.into()),
-                        custom_character: self.custom_character.get(),
+                        key_number,
+                    },
+                    ControlChangeValue => {
+                        if self.is_14_bit.get() == Some(true) {
+                            MidiSource::ControlChange14BitValue {
+                                channel,
+                                msb_controller_number: self
+                                    .midi_message_number
+                                    .get()
+                                    .map(|n| n.into()),
+                            }
+                        } else {
+                            MidiSource::ControlChangeValue {
+                                channel,
+                                controller_number: self.midi_message_number.get().map(|n| n.into()),
+                                custom_character: self.custom_character.get(),
+                            }
+                        }
                     }
-                }
+                    ProgramChangeNumber => MidiSource::ProgramChangeNumber { channel },
+                    ChannelPressureAmount => MidiSource::ChannelPressureAmount { channel },
+                    PitchBendChangeValue => MidiSource::PitchBendChangeValue { channel },
+                    ParameterNumberValue => MidiSource::ParameterNumberValue {
+                        channel,
+                        number: self.parameter_number_message_number.get(),
+                        is_14_bit: self.is_14_bit.get(),
+                        is_registered: self.is_registered.get(),
+                    },
+                    ClockTempo => MidiSource::ClockTempo,
+                    ClockTransport => MidiSource::ClockTransport {
+                        message: self.midi_clock_transport_message.get(),
+                    },
+                };
+                NormalMappingSource::Midi(midi_source)
             }
-            ProgramChangeNumber => MidiSource::ProgramChangeNumber { channel },
-            ChannelPressureAmount => MidiSource::ChannelPressureAmount { channel },
-            PitchBendChangeValue => MidiSource::PitchBendChangeValue { channel },
-            ParameterNumberValue => MidiSource::ParameterNumberValue {
-                channel,
-                number: self.parameter_number_message_number.get(),
-                is_14_bit: self.is_14_bit.get(),
-                is_registered: self.is_registered.get(),
-            },
-            ClockTempo => MidiSource::ClockTempo,
-            ClockTransport => MidiSource::ClockTransport {
-                message: self.midi_clock_transport_message.get(),
-            },
-        };
-        NormalMappingSource::Midi(midi_source)
+            Virtual => {
+                use VirtualSourceType::*;
+                let control_element_index = self.virtual_control_element_index.get();
+                let control_element = match self.virtual_source_type.get() {
+                    Continuous => VirtualControlElement::Continuous(control_element_index),
+                    Button => VirtualControlElement::Button(control_element_index),
+                };
+                let virtual_source = VirtualSource::new(control_element);
+                NormalMappingSource::Virtual(virtual_source)
+            }
+        }
+    }
+
+    pub fn supports_virtual_control_element_index(&self) -> bool {
+        self.category.get() == SourceCategory::Virtual
     }
 
     pub fn supports_channel(&self) -> bool {
-        use SourceType::*;
+        if !self.is_midi() {
+            return false;
+        }
+        use MidiSourceType::*;
         matches!(
-            self.r#type.get(),
+            self.midi_source_type.get(),
             ChannelPressureAmount
                 | ControlChangeValue
                 | NoteVelocity
@@ -182,41 +222,67 @@ impl MidiSourceModel {
     }
 
     pub fn supports_midi_message_number(&self) -> bool {
-        use SourceType::*;
+        if !self.is_midi() {
+            return false;
+        }
+        use MidiSourceType::*;
         matches!(
-            self.r#type.get(),
+            self.midi_source_type.get(),
             ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount
         )
     }
 
     pub fn supports_14_bit(&self) -> bool {
-        use SourceType::*;
-        matches!(self.r#type.get(), ControlChangeValue | ParameterNumberValue)
+        if !self.is_midi() {
+            return false;
+        }
+        use MidiSourceType::*;
+        matches!(
+            self.midi_source_type.get(),
+            ControlChangeValue | ParameterNumberValue
+        )
     }
 
     pub fn supports_parameter_number_message_number(&self) -> bool {
+        if !self.is_midi() {
+            return false;
+        }
         self.supports_parameter_number_message_props()
     }
 
     pub fn supports_is_registered(&self) -> bool {
+        if !self.is_midi() {
+            return false;
+        }
         self.supports_parameter_number_message_props()
     }
 
     pub fn supports_custom_character(&self) -> bool {
-        self.r#type.get() == SourceType::ControlChangeValue && self.is_14_bit.get().contains(&false)
+        if !self.is_midi() {
+            return false;
+        }
+        self.midi_source_type.get() == MidiSourceType::ControlChangeValue
+            && self.is_14_bit.get().contains(&false)
     }
 
     pub fn supports_midi_clock_transport_message_type(&self) -> bool {
-        self.r#type.get() == SourceType::ClockTransport
+        if !self.is_midi() {
+            return false;
+        }
+        self.midi_source_type.get() == MidiSourceType::ClockTransport
+    }
+
+    fn is_midi(&self) -> bool {
+        self.category.get() == SourceCategory::Midi
     }
 
     fn supports_parameter_number_message_props(&self) -> bool {
-        self.r#type.get() == SourceType::ParameterNumberValue
+        self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
     }
 
     fn primary_label(&self) -> Cow<str> {
-        use SourceType::*;
-        match self.r#type.get() {
+        use MidiSourceType::*;
+        match self.midi_source_type.get() {
             ParameterNumberValue => match self.is_registered.get() {
                 None => ParameterNumberValue.to_string().into(),
                 Some(is_registered) => {
@@ -248,8 +314,8 @@ impl MidiSourceModel {
     }
 
     fn secondary_label(&self) -> Cow<str> {
-        use SourceType::*;
-        match self.r#type.get() {
+        use MidiSourceType::*;
+        match self.midi_source_type.get() {
             NoteVelocity | PolyphonicKeyPressureAmount => match self.midi_message_number.get() {
                 None => "Any note".into(),
                 Some(n) => format!("Note number {}", n.get()).into(),
@@ -267,7 +333,7 @@ impl MidiSourceModel {
     }
 }
 
-impl Display for MidiSourceModel {
+impl Display for SourceModel {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let compartments = [
             self.primary_label(),
@@ -276,6 +342,29 @@ impl Display for MidiSourceModel {
         ];
         write!(f, "{}", compartments.join("\n"))
     }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum SourceCategory {
+    #[serde(rename = "midi")]
+    #[display(fmt = "MIDI")]
+    Midi,
+    #[serde(rename = "virtual")]
+    #[display(fmt = "Virtual")]
+    Virtual,
 }
 
 /// Type of a MIDI source
@@ -293,7 +382,7 @@ impl Display for MidiSourceModel {
     Display,
 )]
 #[repr(usize)]
-pub enum SourceType {
+pub enum MidiSourceType {
     #[display(fmt = "CC value")]
     ControlChangeValue = 0,
     #[display(fmt = "Note velocity")]
@@ -316,37 +405,65 @@ pub enum SourceType {
     ClockTransport = 9,
 }
 
-impl SourceType {
-    pub fn from_source(source: &NormalMappingSource) -> SourceType {
-        use NormalMappingSource::*;
+impl MidiSourceType {
+    pub fn from_source(source: &MidiSource) -> MidiSourceType {
+        use MidiSource::*;
         match source {
-            Midi(s) => {
-                use MidiSource::*;
-                match s {
-                    NoteVelocity { .. } => SourceType::NoteVelocity,
-                    NoteKeyNumber { .. } => SourceType::NoteKeyNumber,
-                    PolyphonicKeyPressureAmount { .. } => SourceType::PolyphonicKeyPressureAmount,
-                    ControlChangeValue { .. } => SourceType::ControlChangeValue,
-                    ProgramChangeNumber { .. } => SourceType::ProgramChangeNumber,
-                    ChannelPressureAmount { .. } => SourceType::ChannelPressureAmount,
-                    PitchBendChangeValue { .. } => SourceType::PitchBendChangeValue,
-                    ControlChange14BitValue { .. } => SourceType::ControlChangeValue,
-                    ParameterNumberValue { .. } => SourceType::ParameterNumberValue,
-                    ClockTempo => SourceType::ClockTempo,
-                    ClockTransport { .. } => SourceType::ClockTransport,
-                }
-            }
-            Virtual(_) => todo!(),
+            NoteVelocity { .. } => MidiSourceType::NoteVelocity,
+            NoteKeyNumber { .. } => MidiSourceType::NoteKeyNumber,
+            PolyphonicKeyPressureAmount { .. } => MidiSourceType::PolyphonicKeyPressureAmount,
+            ControlChangeValue { .. } => MidiSourceType::ControlChangeValue,
+            ProgramChangeNumber { .. } => MidiSourceType::ProgramChangeNumber,
+            ChannelPressureAmount { .. } => MidiSourceType::ChannelPressureAmount,
+            PitchBendChangeValue { .. } => MidiSourceType::PitchBendChangeValue,
+            ControlChange14BitValue { .. } => MidiSourceType::ControlChangeValue,
+            ParameterNumberValue { .. } => MidiSourceType::ParameterNumberValue,
+            ClockTempo => MidiSourceType::ClockTempo,
+            ClockTransport { .. } => MidiSourceType::ClockTransport,
         }
     }
 
     pub fn number_label(&self) -> &'static str {
-        use SourceType::*;
+        use MidiSourceType::*;
         match self {
             ControlChangeValue => "CC number",
             NoteVelocity | PolyphonicKeyPressureAmount => "Note number",
             ParameterNumberValue => "Number",
             _ => "",
+        }
+    }
+}
+
+/// Type of a virtual source
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum VirtualSourceType {
+    #[serde(rename = "continuous")]
+    #[display(fmt = "Continuous")]
+    Continuous,
+    #[serde(rename = "button")]
+    #[display(fmt = "Button")]
+    Button,
+}
+
+impl VirtualSourceType {
+    pub fn from_source(source: &VirtualSource) -> VirtualSourceType {
+        use VirtualControlElement::*;
+        match source.control_element() {
+            Continuous(_) => VirtualSourceType::Continuous,
+            Button(_) => VirtualSourceType::Button,
         }
     }
 }
@@ -361,14 +478,14 @@ mod tests {
     #[test]
     fn changed() {
         // Given
-        let mut m = MidiSourceModel::default();
+        let mut m = SourceModel::default();
         let (mock, mock_mirror) = create_invocation_mock();
         // When
         m.changed().subscribe(move |_| mock.invoke(()));
-        m.r#type.set(SourceType::NoteVelocity);
+        m.midi_source_type.set(MidiSourceType::NoteVelocity);
         m.channel.set(Some(channel(5)));
-        m.r#type.set(SourceType::ClockTransport);
-        m.r#type.set(SourceType::ClockTransport);
+        m.midi_source_type.set(MidiSourceType::ClockTransport);
+        m.midi_source_type.set(MidiSourceType::ClockTransport);
         m.channel.set(Some(channel(4)));
         // Then
         assert_eq!(mock_mirror.invocation_count(), 4);
@@ -377,7 +494,7 @@ mod tests {
     #[test]
     fn create_source() {
         // Given
-        let m = MidiSourceModel::default();
+        let m = SourceModel::default();
         // When
         let s = m.create_source();
         // Then

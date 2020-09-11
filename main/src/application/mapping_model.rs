@@ -2,9 +2,8 @@ use crate::core::{prop, Prop};
 use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationType, MidiSourceModel, ModeModel, ModeType,
-    ModifierConditionModel, ProgramConditionModel, SessionContext, TargetModel,
-    TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationType, ModeModel, ModeType, ModifierConditionModel,
+    ProgramConditionModel, SessionContext, SourceModel, TargetModel, TargetModelWithContext,
 };
 use crate::domain::{
     ActivationCondition, EelCondition, MappingId, NormalMapping, ProcessorMappingOptions,
@@ -26,7 +25,7 @@ pub struct MappingModel {
     pub modifier_condition_2: Prop<ModifierConditionModel>,
     pub program_condition: Prop<ProgramConditionModel>,
     pub eel_condition: Prop<String>,
-    pub source_model: MidiSourceModel,
+    pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
 }

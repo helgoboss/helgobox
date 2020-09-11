@@ -212,7 +212,10 @@ impl RealTimeProcessor {
                     use NormalMappingSourceValue::*;
                     match source_value {
                         Midi(v) => self.feedback_midi(v),
-                        Virtual(_) => todo!(),
+                        Virtual(v) => {
+                            // TODO-high implement correctly (process controller mappings)
+                            println!("Virtual feedback: {:?}", v);
+                        }
                     };
                 }
             }

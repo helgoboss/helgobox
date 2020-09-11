@@ -1,4 +1,4 @@
-use crate::domain::{NormalMappingSource, NormalMappingSourceValue};
+use crate::domain::{NormalMappingSource, NormalMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{
     Channel, ControllerNumber, RawShortMessage, ShortMessage, StructuredShortMessage, U7,
@@ -87,7 +87,9 @@ impl SourceScanner {
                             MidiSource::from_source_value(v).map(NormalMappingSource::Midi)
                         }
                     }
-                    Virtual(_) => todo!(),
+                    Virtual(v) => Some(NormalMappingSource::Virtual(
+                        VirtualSource::from_source_value(v),
+                    )),
                 }
             }
             WaitingForMoreCcMsgs(cc_state) => {
@@ -106,28 +108,28 @@ impl SourceScanner {
                                 }
                             }
                         }
-                        self.guess_or_not()
+                        self.guess_or_not().map(NormalMappingSource::Midi)
                     }
-                    Virtual(_) => todo!(),
+                    Virtual(_) => None,
                 }
             }
         }
     }
 
     pub fn poll(&mut self) -> Option<NormalMappingSource> {
-        self.guess_or_not()
+        self.guess_or_not().map(NormalMappingSource::Midi)
     }
 
     pub fn reset(&mut self) {
         self.state = State::Initial;
     }
 
-    fn guess_or_not(&mut self) -> Option<NormalMappingSource> {
+    fn guess_or_not(&mut self) -> Option<MidiSource> {
         if let State::WaitingForMoreCcMsgs(cc_state) = &self.state {
             if cc_state.time_to_guess() {
                 let guessed_source = guess_source(cc_state);
                 self.reset();
-                Some(NormalMappingSource::Midi(guessed_source))
+                Some(guessed_source)
             } else {
                 None
             }
