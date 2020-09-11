@@ -26,7 +26,7 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
     ActivationType, MappingModel, MidiSourceType, ModeModel, ModeType, ModifierConditionModel,
     Session, SharedMapping, SharedSession, SourceCategory, SourceModel, TargetModel,
-    TargetModelWithContext, TargetType, VirtualSourceType, VirtualTrack, WeakSession,
+    TargetModelWithContext, TargetType, VirtualControlElementType, VirtualTrack, WeakSession,
 };
 use crate::domain::{
     ActionInvocationType, ReaperTarget, TargetCharacter, TransportAction, PLUGIN_PARAMETER_COUNT,
@@ -451,7 +451,7 @@ impl<'a> MutableMappingPanel<'a> {
                 let index = b.selected_combo_box_item_index();
                 self.mapping
                     .source_model
-                    .virtual_control_element_index
+                    .control_element_index
                     .set(index as u32)
             }
         };
@@ -558,7 +558,7 @@ impl<'a> MutableMappingPanel<'a> {
             Virtual => self
                 .mapping
                 .source_model
-                .virtual_source_type
+                .control_element_type
                 .set(i.try_into().expect("invalid virtual source type")),
         };
     }
@@ -1320,7 +1320,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let item_index = match self.source.category.get() {
             Midi => self.source.midi_source_type.get().into(),
-            Virtual => self.source.virtual_source_type.get().into(),
+            Virtual => self.source.control_element_type.get().into(),
         };
         b.select_combo_box_item(item_index);
     }
@@ -1357,9 +1357,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 };
             }
-            Virtual => {
-                b.select_combo_box_item(self.source.virtual_control_element_index.get() as _)
-            }
+            Virtual => b.select_combo_box_item(self.source.control_element_index.get() as _),
         };
     }
 
@@ -2434,7 +2432,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         match self.source.category.get() {
             Midi => b.fill_combo_box(MidiSourceType::into_enum_iter()),
-            Virtual => b.fill_combo_box(VirtualSourceType::into_enum_iter()),
+            Virtual => b.fill_combo_box(VirtualControlElementType::into_enum_iter()),
         };
     }
 

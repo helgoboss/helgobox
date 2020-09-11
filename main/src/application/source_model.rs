@@ -19,8 +19,8 @@ use std::fmt::Display;
 pub struct SourceModel {
     pub category: Prop<SourceCategory>,
     pub midi_source_type: Prop<MidiSourceType>,
-    pub virtual_source_type: Prop<VirtualSourceType>,
-    pub virtual_control_element_index: Prop<u32>,
+    pub control_element_type: Prop<VirtualControlElementType>,
+    pub control_element_index: Prop<u32>,
     pub channel: Prop<Option<Channel>>,
     pub midi_message_number: Prop<Option<U7>>,
     pub parameter_number_message_number: Prop<Option<U14>>,
@@ -35,8 +35,8 @@ impl Default for SourceModel {
         Self {
             category: prop(SourceCategory::Midi),
             midi_source_type: prop(MidiSourceType::ControlChangeValue),
-            virtual_source_type: prop(VirtualSourceType::Continuous),
-            virtual_control_element_index: prop(0),
+            control_element_type: prop(VirtualControlElementType::Continuous),
+            control_element_index: prop(0),
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
@@ -54,8 +54,8 @@ impl SourceModel {
         self.category
             .changed()
             .merge(self.midi_source_type.changed())
-            .merge(self.virtual_source_type.changed())
-            .merge(self.virtual_control_element_index.changed())
+            .merge(self.control_element_type.changed())
+            .merge(self.control_element_index.changed())
             .merge(self.channel.changed())
             .merge(self.midi_message_number.changed())
             .merge(self.parameter_number_message_number.changed())
@@ -112,10 +112,9 @@ impl SourceModel {
                 }
             }
             Virtual(s) => {
-                self.virtual_source_type
-                    .set(VirtualSourceType::from_source(s));
-                self.virtual_control_element_index
-                    .set(s.control_element().index())
+                self.control_element_type
+                    .set(VirtualControlElementType::from_source(s));
+                self.control_element_index.set(s.control_element().index())
             }
         };
     }
@@ -187,9 +186,9 @@ impl SourceModel {
                 NormalMappingSource::Midi(midi_source)
             }
             Virtual => {
-                use VirtualSourceType::*;
-                let control_element_index = self.virtual_control_element_index.get();
-                let control_element = match self.virtual_source_type.get() {
+                use VirtualControlElementType::*;
+                let control_element_index = self.control_element_index.get();
+                let control_element = match self.control_element_type.get() {
                     Continuous => VirtualControlElement::Continuous(control_element_index),
                     Button => VirtualControlElement::Button(control_element_index),
                 };
@@ -281,54 +280,81 @@ impl SourceModel {
     }
 
     fn primary_label(&self) -> Cow<str> {
-        use MidiSourceType::*;
-        match self.midi_source_type.get() {
-            ParameterNumberValue => match self.is_registered.get() {
-                None => ParameterNumberValue.to_string().into(),
-                Some(is_registered) => {
-                    if is_registered {
-                        "RPN".into()
-                    } else {
-                        "NRPN".into()
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => {
+                use MidiSourceType::*;
+                match self.midi_source_type.get() {
+                    ParameterNumberValue => match self.is_registered.get() {
+                        None => ParameterNumberValue.to_string().into(),
+                        Some(is_registered) => {
+                            if is_registered {
+                                "RPN".into()
+                            } else {
+                                "NRPN".into()
+                            }
+                        }
+                    },
+                    PolyphonicKeyPressureAmount => "Poly after touch".into(),
+                    ClockTempo => "MIDI clock\nTempo".into(),
+                    ClockTransport => {
+                        format!("MIDI clock\n{}", self.midi_clock_transport_message.get()).into()
                     }
+                    t => t.to_string().into(),
                 }
-            },
-            PolyphonicKeyPressureAmount => "Poly after touch".into(),
-            ClockTempo => "MIDI clock\nTempo".into(),
-            ClockTransport => {
-                format!("MIDI clock\n{}", self.midi_clock_transport_message.get()).into()
             }
-            t => t.to_string().into(),
-        }
-    }
-
-    fn channel_label(&self) -> Cow<str> {
-        if self.supports_channel() {
-            match self.channel.get() {
-                None => "Any channel".into(),
-                Some(ch) => format!("Channel {}", ch.get() + 1).into(),
-            }
-        } else {
-            "".into()
+            Virtual => "Virtual".into(),
         }
     }
 
     fn secondary_label(&self) -> Cow<str> {
-        use MidiSourceType::*;
-        match self.midi_source_type.get() {
-            NoteVelocity | PolyphonicKeyPressureAmount => match self.midi_message_number.get() {
-                None => "Any note".into(),
-                Some(n) => format!("Note number {}", n.get()).into(),
-            },
-            ControlChangeValue => match self.midi_message_number.get() {
-                None => "Any CC".into(),
-                Some(n) => format!("CC number {}", n.get()).into(),
-            },
-            ParameterNumberValue => match self.parameter_number_message_number.get() {
-                None => "Any number".into(),
-                Some(n) => format!("Number {}", n.get()).into(),
-            },
-            _ => "".into(),
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => {
+                if self.supports_channel() {
+                    match self.channel.get() {
+                        None => "Any channel".into(),
+                        Some(ch) => format!("Channel {}", ch.get() + 1).into(),
+                    }
+                } else {
+                    "".into()
+                }
+            }
+            Virtual => {
+                use VirtualControlElementType::*;
+                let pos = self.control_element_index.get() + 1;
+                match self.control_element_type.get() {
+                    Continuous => format!("Continuous {}", pos).into(),
+                    Button => format!("Button {}", pos).into(),
+                }
+            }
+        }
+    }
+
+    fn ternary_label(&self) -> Cow<str> {
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => {
+                use MidiSourceType::*;
+                match self.midi_source_type.get() {
+                    NoteVelocity | PolyphonicKeyPressureAmount => {
+                        match self.midi_message_number.get() {
+                            None => "Any note".into(),
+                            Some(n) => format!("Note number {}", n.get()).into(),
+                        }
+                    }
+                    ControlChangeValue => match self.midi_message_number.get() {
+                        None => "Any CC".into(),
+                        Some(n) => format!("CC number {}", n.get()).into(),
+                    },
+                    ParameterNumberValue => match self.parameter_number_message_number.get() {
+                        None => "Any number".into(),
+                        Some(n) => format!("Number {}", n.get()).into(),
+                    },
+                    _ => "".into(),
+                }
+            }
+            Virtual => "".into(),
         }
     }
 }
@@ -337,8 +363,8 @@ impl Display for SourceModel {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let compartments = [
             self.primary_label(),
-            self.channel_label(),
             self.secondary_label(),
+            self.ternary_label(),
         ];
         write!(f, "{}", compartments.join("\n"))
     }
@@ -449,7 +475,7 @@ impl MidiSourceType {
     Display,
 )]
 #[repr(usize)]
-pub enum VirtualSourceType {
+pub enum VirtualControlElementType {
     #[serde(rename = "continuous")]
     #[display(fmt = "Continuous")]
     Continuous,
@@ -458,12 +484,12 @@ pub enum VirtualSourceType {
     Button,
 }
 
-impl VirtualSourceType {
-    pub fn from_source(source: &VirtualSource) -> VirtualSourceType {
+impl VirtualControlElementType {
+    pub fn from_source(source: &VirtualSource) -> VirtualControlElementType {
         use VirtualControlElement::*;
         match source.control_element() {
-            Continuous(_) => VirtualSourceType::Continuous,
-            Button(_) => VirtualSourceType::Button,
+            Continuous(_) => VirtualControlElementType::Continuous,
+            Button(_) => VirtualControlElementType::Button,
         }
     }
 }

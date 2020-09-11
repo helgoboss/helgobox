@@ -1,5 +1,5 @@
 use super::none_if_minus_one;
-use crate::application::{MidiSourceType, SourceModel};
+use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
 use crate::core::toast;
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -11,6 +11,8 @@ use std::convert::TryInto;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SourceModelData {
+    pub category: SourceCategory,
+    // midi_type would be a better name but we needs backwards compatibility
     pub r#type: MidiSourceType,
     #[serde(deserialize_with = "none_if_minus_one")]
     pub channel: Option<Channel>,
@@ -20,11 +22,14 @@ pub struct SourceModelData {
     pub is_registered: Option<bool>,
     pub is_14_bit: Option<bool>,
     pub message: MidiClockTransportMessage,
+    pub control_element_type: VirtualControlElementType,
+    pub control_element_index: u32,
 }
 
 impl Default for SourceModelData {
     fn default() -> Self {
         Self {
+            category: SourceCategory::Midi,
             r#type: MidiSourceType::ControlChangeValue,
             channel: Some(Channel::new(0)),
             number: Some(U14::new(0)),
@@ -32,6 +37,8 @@ impl Default for SourceModelData {
             is_registered: Some(false),
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Start,
+            control_element_type: VirtualControlElementType::Continuous,
+            control_element_index: 0,
         }
     }
 }
@@ -39,6 +46,7 @@ impl Default for SourceModelData {
 impl SourceModelData {
     pub fn from_model(model: &SourceModel) -> Self {
         Self {
+            category: model.category.get(),
             r#type: model.midi_source_type.get(),
             channel: model.channel.get(),
             number: if model.midi_source_type.get() == MidiSourceType::ParameterNumberValue {
@@ -50,11 +58,14 @@ impl SourceModelData {
             is_registered: model.is_registered.get(),
             is_14_bit: model.is_14_bit.get(),
             message: model.midi_clock_transport_message.get(),
+            control_element_type: model.control_element_type.get(),
+            control_element_index: model.control_element_index.get(),
         }
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
     pub fn apply_to_model(&self, model: &mut SourceModel) {
+        model.category.set_without_notification(self.category);
         if self.r#type == MidiSourceType::ParameterNumberValue {
             model
                 .parameter_number_message_number
@@ -84,6 +95,12 @@ impl SourceModelData {
         model
             .midi_clock_transport_message
             .set_without_notification(self.message);
+        model
+            .control_element_type
+            .set_without_notification(self.control_element_type);
+        model
+            .control_element_index
+            .set_without_notification(self.control_element_index);
     }
 }
 
@@ -111,13 +128,16 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
+                category: SourceCategory::Midi,
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(Channel::new(0)),
                 number: Some(U14::new(0)),
                 character: SourceCharacter::Range,
                 is_registered: Some(false),
                 is_14_bit: Some(false),
-                message: MidiClockTransportMessage::Start
+                message: MidiClockTransportMessage::Start,
+                control_element_type: VirtualControlElementType::Continuous,
+                control_element_index: 0
             }
         );
     }
@@ -140,13 +160,16 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
+                category: SourceCategory::Midi,
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
                 number: Some(U14::new(12542)),
                 character: SourceCharacter::Range,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
-                message: MidiClockTransportMessage::Start
+                message: MidiClockTransportMessage::Start,
+                control_element_type: VirtualControlElementType::Continuous,
+                control_element_index: 0
             }
         );
     }
@@ -155,6 +178,7 @@ mod tests {
     fn apply_1() {
         // Given
         let data = SourceModelData {
+            category: SourceCategory::Midi,
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(Channel::new(8)),
             number: None,
@@ -162,6 +186,8 @@ mod tests {
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
+            control_element_type: VirtualControlElementType::Continuous,
+            control_element_index: 0,
         };
         let mut model = SourceModel::default();
         // When
@@ -187,6 +213,7 @@ mod tests {
     fn apply_2() {
         // Given
         let data = SourceModelData {
+            category: SourceCategory::Midi,
             r#type: MidiSourceType::ClockTransport,
             channel: None,
             number: Some(U14::new(112)),
@@ -194,6 +221,8 @@ mod tests {
             is_registered: None,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
+            control_element_type: VirtualControlElementType::Continuous,
+            control_element_index: 0,
         };
         let mut model = SourceModel::default();
         // When
@@ -229,6 +258,7 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
+                category: SourceCategory::Midi,
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(Channel::new(15)),
                 number: Some(U14::new(12)),
@@ -236,6 +266,8 @@ mod tests {
                 is_registered: Some(false),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
+                control_element_type: VirtualControlElementType::Continuous,
+                control_element_index: 0
             }
         );
     }
@@ -262,6 +294,7 @@ mod tests {
         assert_eq!(
             data,
             SourceModelData {
+                category: SourceCategory::Midi,
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
                 number: Some(U14::new(78)),
@@ -269,6 +302,8 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Continue,
+                control_element_type: VirtualControlElementType::Continuous,
+                control_element_index: 0
             }
         );
     }
