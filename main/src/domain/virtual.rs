@@ -6,6 +6,12 @@ pub struct VirtualTarget {
     control_element: VirtualControlElement,
 }
 
+impl VirtualTarget {
+    pub fn control_element(&self) -> VirtualControlElement {
+        self.control_element
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct VirtualSource {
     control_element: VirtualControlElement,
@@ -71,6 +77,14 @@ impl VirtualSourceValue {
             control_element,
             control_value,
         }
+    }
+
+    pub fn control_element(&self) -> VirtualControlElement {
+        self.control_element
+    }
+
+    pub fn control_value(&self) -> ControlValue {
+        self.control_value
     }
 }
 

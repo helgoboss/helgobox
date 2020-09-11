@@ -677,7 +677,7 @@ impl Session {
             .send(NormalMainTask::UpdateSingleMapping(Box::new(splintered.1)))
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleMapping(splintered.0))
+            .send(NormalRealTimeTask::UpdateSingleNormalMapping(splintered.0))
             .unwrap();
     }
 
@@ -749,7 +749,9 @@ impl Session {
             .send(NormalMainTask::UpdateAllMappings(splintered.main))
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateAllMappings(splintered.real_time))
+            .send(NormalRealTimeTask::UpdateAllNormalMappings(
+                splintered.real_time,
+            ))
             .unwrap();
     }
 

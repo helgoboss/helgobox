@@ -199,7 +199,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     self.handle_feedback_after_batch_mapping_update(&unused_sources);
                     if !activation_updates.is_empty() {
                         self.normal_real_time_task_sender
-                            .send(NormalRealTimeTask::UpdateMappingActivations(
+                            .send(NormalRealTimeTask::UpdateNormalMappingActivations(
                                 activation_updates,
                             ))
                             .unwrap();

@@ -1,6 +1,6 @@
 use crate::domain::{
-    ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualSource,
-    VirtualSourceValue, VirtualTarget,
+    ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualControlElement,
+    VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use helgoboss_learn::{
     ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
@@ -364,6 +364,48 @@ pub struct ControllerMapping {
     mode: Mode,
     target: Option<ControllerMappingTarget>,
     options: ProcessorMappingOptions,
+}
+
+#[derive(Debug)]
+pub struct VirtualMapping {
+    id: MappingId,
+    source: MidiSource,
+    mode: Mode,
+    target: VirtualTarget,
+    options: ProcessorMappingOptions,
+}
+
+impl VirtualMapping {
+    pub fn id(&self) -> MappingId {
+        self.id
+    }
+
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.options.control_is_effectively_on()
+    }
+
+    pub fn feedback_is_effectively_on(&self) -> bool {
+        self.options.feedback_is_effectively_on()
+    }
+
+    pub fn control(&self, value: &MidiSourceValue<RawShortMessage>) -> Option<VirtualSourceValue> {
+        let control_value = self.source.control(value)?;
+        Some(VirtualSourceValue::new(
+            self.target.control_element(),
+            control_value,
+        ))
+    }
+
+    pub fn feedback(
+        &self,
+        control_element: VirtualControlElement,
+        value: UnitValue,
+    ) -> Option<MidiSourceValue<RawShortMessage>> {
+        if self.target.control_element() != control_element {
+            return None;
+        }
+        self.source.feedback(value)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
