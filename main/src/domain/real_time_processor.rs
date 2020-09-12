@@ -13,6 +13,7 @@ use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::debug;
 use std::collections::{HashMap, HashSet};
 
+use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use std::ptr::null_mut;
 use vst::api::{EventType, Events, MidiEvent};
@@ -438,9 +439,9 @@ impl RealTimeProcessor {
     }
 
     fn all_normal_mappings(&self) -> impl Iterator<Item = &NormalRealTimeMapping> {
-        self.normal_mappings[MappingCompartment::ControllerMappings]
-            .values()
-            .chain(self.normal_mappings[MappingCompartment::PrimaryMappings].values())
+        MappingCompartment::into_enum_iter()
+            .map(move |compartment| self.normal_mappings[compartment].values())
+            .flatten()
     }
 
     fn control_midi_normal_mappings(
@@ -486,13 +487,16 @@ impl RealTimeProcessor {
 
     /// Returns whether this source value matched one of the mappings.
     fn control_virtual(&self, value: VirtualSourceValue) -> bool {
+        // Controller mappings can't have virtual sources, so for now we only need to check
+        // primary mappings.
+        let compartment = MappingCompartment::PrimaryMappings;
         let mut matched = false;
-        for m in self.normal_mappings[MappingCompartment::PrimaryMappings]
+        for m in self.normal_mappings[compartment]
             .values()
             .filter(|m| m.control_is_effectively_on())
         {
             if let Some(control_value) = m.control(&NormalMappingSourceValue::Virtual(value)) {
-                self.control_main(MappingCompartment::PrimaryMappings, m.id(), control_value);
+                self.control_main(compartment, m.id(), control_value);
                 matched = true;
             }
         }

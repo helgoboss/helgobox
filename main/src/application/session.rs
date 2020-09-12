@@ -10,9 +10,11 @@ use helgoboss_learn::MidiSource;
 use crate::application::{
     session_manager, share_mapping, MappingModel, SessionContext, SharedMapping, TargetModel,
 };
+use enum_iterator::IntoEnumIterator;
+use enum_map::EnumMap;
 use reaper_high::Reaper;
 use reaper_medium::RegistrationHandle;
-use rx_util::{BoxedUnitEvent, Event, Notifier, SharedPayload, UnitEvent};
+use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::debug;
@@ -41,9 +43,9 @@ pub struct Session {
     pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
     pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
     context: SessionContext,
-    mappings: Vec<SharedMapping>,
+    mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
-    mapping_list_changed_subject: LocalSubject<'static, (), ()>,
+    mapping_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, NormalMappingSource, ()>,
     mapping_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
     // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
@@ -84,7 +86,7 @@ impl Session {
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
             context,
-            mappings: vec![],
+            mappings: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
@@ -139,6 +141,14 @@ impl Session {
         self.parameters = parameters;
     }
 
+    fn initial_sync(&mut self, weak_session: WeakSession) {
+        for compartment in MappingCompartment::into_enum_iter() {
+            self.resubscribe_to_mappings(compartment, weak_session.clone());
+            self.sync_all_mappings_full(compartment);
+        }
+        self.sync_settings_to_real_time_processor();
+    }
+
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
@@ -158,36 +168,35 @@ impl Session {
             .plugin_register_add_csurf_inst(Box::new(main_processor))
             .expect("couldn't register local control surface");
         self.main_processor_registration = Some(reg);
-        // Whenever something in the mapping list changes, resubscribe to mappings themselves.
-        when(
-            // Initial sync
-            observable::of(())
-                // Future syncs
-                // When the mapping list changes.
-                .merge(self.mapping_list_changed())
-                // When auto-detect is off, we can save some mapping descriptions
-                .merge(self.always_auto_detect.changed()),
-        )
-        .with(weak_session.clone())
-        .do_async(|shared_session, _| {
-            shared_session
-                .borrow_mut()
-                .resubscribe_to_mappings_in_current_list(Rc::downgrade(&shared_session));
-        });
-        // Whenever anything in the mapping list changes and other things which affect all
+        // Initial sync
+        self.initial_sync(weak_session.clone());
+        // Whenever auto-correct setting changes, resubscribe to all mappings because
+        // that saves us some mapping subscriptions.
+        when(self.always_auto_detect.changed())
+            .with(weak_session.clone())
+            .do_async(|shared_session, _| {
+                for compartment in MappingCompartment::into_enum_iter() {
+                    shared_session
+                        .borrow_mut()
+                        .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
+                }
+            });
+        // Whenever something in a specific mapping list changes, resubscribe to those mappings.
+        when(self.mapping_list_changed())
+            .with(weak_session.clone())
+            .do_async(|shared_session, compartment| {
+                shared_session
+                    .borrow_mut()
+                    .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
+            });
+        // Whenever anything in a mapping list changes and other things which affect all
         // processors (including the real-time processor which takes care of sources only), resync
         // all mappings to *all* processors.
-        when(
-            // Initial sync
-            observable::of(())
-                // Future syncs
-                // When the mapping list changes.
-                .merge(self.mapping_list_changed()),
-        )
-        .with(weak_session.clone())
-        .do_async(move |session, _| {
-            session.borrow_mut().sync_all_mappings_full();
-        });
+        when(self.mapping_list_changed())
+            .with(weak_session.clone())
+            .do_async(move |session, compartment| {
+                session.borrow_mut().sync_all_mappings_full(compartment);
+            });
         // Handle dynamic target changes and target activation depending on REAPER state.
         //
         // Whenever anything changes that just affects the main processor targets, resync all
@@ -259,22 +268,20 @@ impl Session {
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
-        when(self.settings_changed().merge(self.mapping_list_changed()))
-            .with(weak_session.clone())
-            .do_sync(move |s, _| {
-                s.borrow().mark_project_as_dirty();
-            });
-        // Keep syncing some general settings to real-time processor.
         when(
-            // Initial sync
-            observable::of(())
-                // Future syncs
-                .merge(self.settings_changed()),
+            self.settings_changed()
+                .merge(self.mapping_list_changed().map_to(())),
         )
         .with(weak_session.clone())
-        .do_async(move |s, _| {
-            s.borrow().sync_settings_to_real_time_processor();
+        .do_sync(move |s, _| {
+            s.borrow().mark_project_as_dirty();
         });
+        // Keep syncing some general settings to real-time processor.
+        when(self.settings_changed())
+            .with(weak_session.clone())
+            .do_async(move |s, _| {
+                s.borrow().sync_settings_to_real_time_processor();
+            });
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
         // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
         when(
@@ -332,7 +339,7 @@ impl Session {
     }
 
     fn invalidate_fx_indexes_of_mapping_targets(&self) {
-        for m in self.mappings() {
+        for m in self.all_mappings() {
             m.borrow_mut()
                 .target_model
                 .invalidate_fx_index(&self.context);
@@ -363,9 +370,12 @@ impl Session {
         })
     }
 
-    fn resubscribe_to_mappings_in_current_list(&mut self, weak_session: WeakSession) {
-        self.mapping_subscriptions = self
-            .mappings
+    fn resubscribe_to_mappings(
+        &mut self,
+        compartment: MappingCompartment,
+        weak_session: WeakSession,
+    ) {
+        self.mapping_subscriptions = self.mappings[compartment]
             .iter()
             .map(|shared_mapping| {
                 // We don't need to take until "party is over" because if the session disappears,
@@ -379,8 +389,10 @@ impl Session {
                         .with(weak_session.clone())
                         .do_sync(move |session, _| {
                             let session = session.borrow();
-                            session
-                                .sync_single_mapping_to_processors(&shared_mapping_clone.borrow());
+                            session.sync_single_mapping_to_processors(
+                                compartment,
+                                &shared_mapping_clone.borrow(),
+                            );
                             session.mark_project_as_dirty();
                         });
                     all_subscriptions.add(subscription);
@@ -436,26 +448,44 @@ impl Session {
         &self.context
     }
 
-    pub fn add_default_mapping(&mut self) -> SharedMapping {
+    pub fn add_default_mapping(&mut self, compartment: MappingCompartment) -> SharedMapping {
         let mut mapping = MappingModel::default();
         mapping.name.set(self.generate_name_for_new_mapping());
-        self.add_mapping(mapping)
+        self.add_mapping(compartment, mapping)
     }
 
-    pub fn mapping_count(&self) -> usize {
-        self.mappings.len()
+    pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
+        self.mappings[compartment].len()
     }
 
-    pub fn find_mapping_by_index(&self, index: usize) -> Option<&SharedMapping> {
-        self.mappings.get(index)
+    pub fn find_mapping_by_index(
+        &self,
+        compartment: MappingCompartment,
+        index: usize,
+    ) -> Option<&SharedMapping> {
+        self.mappings[compartment].get(index)
     }
 
-    pub fn find_mapping_by_address(&self, mapping: *const MappingModel) -> Option<&SharedMapping> {
-        self.mappings().find(|m| m.as_ptr() == mapping as _)
+    pub fn find_mapping_by_address(
+        &self,
+        compartment: MappingCompartment,
+        mapping: *const MappingModel,
+    ) -> Option<&SharedMapping> {
+        self.mappings(compartment)
+            .find(|m| m.as_ptr() == mapping as _)
     }
 
-    pub fn mappings(&self) -> impl Iterator<Item = &SharedMapping> {
-        self.mappings.iter()
+    pub fn mappings(
+        &self,
+        compartment: MappingCompartment,
+    ) -> impl Iterator<Item = &SharedMapping> {
+        self.mappings[compartment].iter()
+    }
+
+    fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
+        MappingCompartment::into_enum_iter()
+            .map(move |compartment| self.mappings(compartment))
+            .flatten()
     }
 
     pub fn mapping_is_learning_source(&self, mapping: *const MappingModel) -> bool {
@@ -480,23 +510,31 @@ impl Session {
         toggle_learn(&mut self.mapping_which_learns_target, mapping);
     }
 
-    pub fn move_mapping_up(&mut self, mapping: *const MappingModel) {
+    pub fn move_mapping_up(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping: *const MappingModel,
+    ) {
         // No problem if it doesn't work
-        let _ = self.swap_mappings(mapping, -1);
+        let _ = self.swap_mappings(compartment, mapping, -1);
     }
 
-    pub fn move_mapping_down(&mut self, mapping: *const MappingModel) {
+    pub fn move_mapping_down(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping: *const MappingModel,
+    ) {
         // No problem if it doesn't work
-        let _ = self.swap_mappings(mapping, 1);
+        let _ = self.swap_mappings(compartment, mapping, 1);
     }
 
     fn swap_mappings(
         &mut self,
+        compartment: MappingCompartment,
         mapping: *const MappingModel,
         increment: isize,
     ) -> Result<(), &str> {
-        let current_index = self
-            .mappings
+        let current_index = self.mappings[compartment]
             .iter()
             .position(|m| m.as_ptr() == mapping as _)
             .ok_or("mapping not found")?;
@@ -505,22 +543,29 @@ impl Session {
             return Err("too far up");
         }
         let new_index = new_index as usize;
-        if new_index >= self.mappings.len() {
+        if new_index >= self.mappings[compartment].len() {
             return Err("too far down");
         }
-        self.mappings.swap(current_index, new_index);
-        self.notify_mapping_list_changed();
+        self.mappings[compartment].swap(current_index, new_index);
+        self.notify_mapping_list_changed(compartment);
         Ok(())
     }
 
-    pub fn remove_mapping(&mut self, mapping: *const MappingModel) {
-        self.mappings.retain(|m| m.as_ptr() != mapping as _);
-        self.notify_mapping_list_changed();
+    pub fn remove_mapping(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping: *const MappingModel,
+    ) {
+        self.mappings[compartment].retain(|m| m.as_ptr() != mapping as _);
+        self.notify_mapping_list_changed(compartment);
     }
 
-    pub fn duplicate_mapping(&mut self, mapping: *const MappingModel) -> Result<(), &str> {
-        let (index, mapping) = self
-            .mappings
+    pub fn duplicate_mapping(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping: *const MappingModel,
+    ) -> Result<(), &str> {
+        let (index, mapping) = self.mappings[compartment]
             .iter()
             .enumerate()
             .find(|(_i, m)| m.as_ptr() == mapping as _)
@@ -533,17 +578,21 @@ impl Session {
                 .set(format!("Copy of {}", mapping.name.get_ref()));
             duplicate
         };
-        self.mappings.insert(index + 1, share_mapping(duplicate));
-        self.notify_mapping_list_changed();
+        self.mappings[compartment].insert(index + 1, share_mapping(duplicate));
+        self.notify_mapping_list_changed(compartment);
         Ok(())
     }
 
     pub fn has_mapping(&self, mapping: *const MappingModel) -> bool {
-        self.mappings.iter().any(|m| m.as_ptr() == mapping as _)
+        self.all_mappings().any(|m| m.as_ptr() == mapping as _)
     }
 
-    pub fn index_of_mapping(&self, mapping: *const MappingModel) -> Option<usize> {
-        self.mappings
+    pub fn index_of_mapping(
+        &self,
+        compartment: MappingCompartment,
+        mapping: *const MappingModel,
+    ) -> Option<usize> {
+        self.mappings[compartment]
             .iter()
             .position(|m| m.as_ptr() == mapping as _)
     }
@@ -586,7 +635,7 @@ impl Session {
     /// Fires if a mapping has been added, removed or changed its position in the list.
     ///
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
-    pub fn mapping_list_changed(&self) -> impl UnitEvent {
+    pub fn mapping_list_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
         self.mapping_list_changed_subject.clone()
     }
 
@@ -612,15 +661,20 @@ impl Session {
 
     pub fn set_mappings_without_notification(
         &mut self,
+        compartment: MappingCompartment,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
-        self.mappings = mappings.map(share_mapping).collect();
+        self.mappings[compartment] = mappings.map(share_mapping).collect();
     }
 
-    fn add_mapping(&mut self, mapping: MappingModel) -> SharedMapping {
+    fn add_mapping(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping: MappingModel,
+    ) -> SharedMapping {
         let shared_mapping = share_mapping(mapping);
-        self.mappings.push(shared_mapping.clone());
-        self.notify_mapping_list_changed();
+        self.mappings[compartment].push(shared_mapping.clone());
+        self.notify_mapping_list_changed(compartment);
         shared_mapping
     }
 
@@ -657,15 +711,23 @@ impl Session {
         Reaper::get().show_console_msg(msg);
     }
 
-    pub fn find_mapping_with_target(&self, target: &ReaperTarget) -> Option<&SharedMapping> {
-        self.mappings()
+    pub fn find_mapping_with_target(
+        &self,
+        compartment: MappingCompartment,
+        target: &ReaperTarget,
+    ) -> Option<&SharedMapping> {
+        self.mappings(compartment)
             .find(|m| m.borrow().with_context(&self.context).has_target(target))
     }
 
-    pub fn toggle_learn_source_for_target(&mut self, target: &ReaperTarget) -> SharedMapping {
-        let mapping = match self.find_mapping_with_target(target) {
+    pub fn toggle_learn_source_for_target(
+        &mut self,
+        compartment: MappingCompartment,
+        target: &ReaperTarget,
+    ) -> SharedMapping {
+        let mapping = match self.find_mapping_with_target(compartment, target) {
             None => {
-                let m = self.add_default_mapping();
+                let m = self.add_default_mapping(compartment);
                 m.borrow_mut()
                     .target_model
                     .apply_from_target(target, &self.context);
@@ -684,8 +746,8 @@ impl Session {
     /// Notifies listeners async that something in the mapping list has changed.
     ///
     /// Shouldn't be used if the complete list has changed.
-    fn notify_mapping_list_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.mapping_list_changed_subject, &());
+    fn notify_mapping_list_changed(&mut self, compartment: MappingCompartment) {
+        AsyncNotifier::notify(&mut self.mapping_list_changed_subject, &compartment);
     }
 
     fn sync_settings_to_real_time_processor(&self) {
@@ -698,7 +760,7 @@ impl Session {
         self.normal_real_time_task_sender.send(task).unwrap();
     }
 
-    fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
+    fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
         let processor_mapping = m
             .with_context(&self.context)
             .create_processor_mapping(&self.parameters);
@@ -706,13 +768,13 @@ impl Session {
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
-                MappingCompartment::PrimaryMappings,
+                compartment,
                 Box::new(splintered.1),
             ))
             .unwrap();
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::UpdateSingleNormalMapping(
-                MappingCompartment::PrimaryMappings,
+                compartment,
                 splintered.0,
             ))
             .unwrap();
@@ -738,31 +800,33 @@ impl Session {
     ///
     /// Usually invoked whenever target conditions have changed, e.g. track selection.
     fn sync_all_mappings_light(&self) {
-        let splintered = self.create_and_splinter_mappings();
-        let main_target_updates = splintered
-            .main
-            .into_iter()
-            .map(|m| m.into_main_processor_target_update())
-            .collect();
-        let mappings_with_active_targets = splintered
-            .real_time
-            .into_iter()
-            .filter(|m| m.target_is_active())
-            .map(|m| m.id())
-            .collect();
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::EnableMappingsExclusively(
-                MappingCompartment::PrimaryMappings,
-                mappings_with_active_targets,
-            ))
-            .unwrap();
-        self.normal_main_task_channel
-            .0
-            .send(NormalMainTask::UpdateAllTargets(
-                MappingCompartment::PrimaryMappings,
-                main_target_updates,
-            ))
-            .unwrap();
+        for compartment in MappingCompartment::into_enum_iter() {
+            let splintered = self.create_and_splinter_mappings(compartment);
+            let main_target_updates = splintered
+                .main
+                .into_iter()
+                .map(|m| m.into_main_processor_target_update())
+                .collect();
+            let mappings_with_active_targets = splintered
+                .real_time
+                .into_iter()
+                .filter(|m| m.target_is_active())
+                .map(|m| m.id())
+                .collect();
+            self.normal_real_time_task_sender
+                .send(NormalRealTimeTask::EnableMappingsExclusively(
+                    compartment,
+                    mappings_with_active_targets,
+                ))
+                .unwrap();
+            self.normal_main_task_channel
+                .0
+                .send(NormalMainTask::UpdateAllTargets(
+                    compartment,
+                    main_target_updates,
+                ))
+                .unwrap();
+        }
     }
 
     /// Just syncs whether feedback globally enabled or not.
@@ -783,18 +847,18 @@ impl Session {
     }
 
     /// Does a full mapping sync.
-    fn sync_all_mappings_full(&self) {
-        let splintered = self.create_and_splinter_mappings();
+    fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
+        let splintered = self.create_and_splinter_mappings(compartment);
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateAllMappings(
-                MappingCompartment::PrimaryMappings,
+                compartment,
                 splintered.main,
             ))
             .unwrap();
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::UpdateAllNormalMappings(
-                MappingCompartment::PrimaryMappings,
+                compartment,
                 splintered.real_time,
             ))
             .unwrap();
@@ -802,11 +866,14 @@ impl Session {
 
     /// Creates mappings from mapping models and splits them into different lists so they can be
     /// distributed to different processors.
-    fn create_and_splinter_mappings(&self) -> SplinteredProcessorMappings {
+    fn create_and_splinter_mappings(
+        &self,
+        compartment: MappingCompartment,
+    ) -> SplinteredProcessorMappings {
         // At first we want a clean representation of each relevant mapping, without all the
         // property stuff and so on.
         let mappings: Vec<_> = self
-            .mappings()
+            .mappings(compartment)
             .map(|m| {
                 m.borrow()
                     .with_context(&self.context)
@@ -838,10 +905,9 @@ impl Session {
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
-        self.resubscribe_to_mappings_in_current_list(weak_session);
-        self.sync_settings_to_real_time_processor();
+        self.initial_sync(weak_session);
+        // Not sure why this is not included in initial sync
         self.sync_feedback_is_globally_enabled();
-        self.sync_all_mappings_full();
         self.sync_all_parameters();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());

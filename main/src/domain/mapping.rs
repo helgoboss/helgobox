@@ -2,6 +2,7 @@ use crate::domain::{
     ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualControlElement,
     VirtualSource, VirtualSourceValue, VirtualTarget,
 };
+use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
     ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
@@ -419,7 +420,7 @@ pub enum ControllerMappingTarget {
     Virtual(VirtualTarget),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Enum)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Enum, IntoEnumIterator)]
 pub enum MappingCompartment {
     PrimaryMappings,
     ControllerMappings,

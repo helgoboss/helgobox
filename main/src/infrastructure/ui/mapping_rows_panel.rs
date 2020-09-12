@@ -14,6 +14,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{MappingModel, SharedMapping, SharedSession, WeakSession};
+use crate::domain::MappingCompartment;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 #[derive(Debug)]
@@ -38,8 +39,12 @@ impl MappingRowsPanel {
             view: Default::default(),
             rows: (0..6)
                 .map(|i| {
-                    let panel =
-                        MappingRowPanel::new(session.clone(), i, mapping_panel_manager.clone());
+                    let panel = MappingRowPanel::new(
+                        session.clone(),
+                        i,
+                        mapping_panel_manager.clone(),
+                        main_state.clone(),
+                    );
                     SharedView::new(panel)
                 })
                 .collect(),
@@ -57,7 +62,7 @@ impl MappingRowsPanel {
     pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let index = match session.index_of_mapping(mapping) {
+        let index = match session.index_of_mapping(self.active_compartment(), mapping) {
             None => return,
             Some(i) => i,
         };
@@ -69,9 +74,17 @@ impl MappingRowsPanel {
     }
 
     pub fn edit_mapping(&self, mapping: *const MappingModel) {
-        if let Some(m) = self.session().borrow().find_mapping_by_address(mapping) {
+        if let Some(m) = self
+            .session()
+            .borrow()
+            .find_mapping_by_address(self.active_compartment(), mapping)
+        {
             self.mapping_panel_manager.borrow_mut().edit_mapping(m);
         }
+    }
+
+    fn active_compartment(&self) -> MappingCompartment {
+        self.main_state.borrow().active_compartment.get()
     }
 
     fn open_mapping_rows(&self, window: Window) {
@@ -159,10 +172,10 @@ impl MappingRowsPanel {
             && main_state.target_filter.get_ref().is_none()
             && main_state.search_expression.get_ref().trim().is_empty()
         {
-            return session.mapping_count();
+            return session.mapping_count(self.active_compartment());
         }
         session
-            .mappings()
+            .mappings(self.active_compartment())
             .filter(|m| self.mapping_matches_filter(*m))
             .count()
     }
@@ -203,14 +216,19 @@ impl MappingRowsPanel {
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
-        let mapping_count = self.session().borrow().mapping_count();
+        let mapping_count = self
+            .session()
+            .borrow()
+            .mapping_count(self.active_compartment());
         for i in self.scroll_position.get()..mapping_count {
             if row_index >= self.rows.len() {
                 break;
             }
             let shared_session = self.session();
             let session = shared_session.borrow();
-            let mapping = session.find_mapping_by_index(i).expect("impossible");
+            let mapping = session
+                .find_mapping_by_index(self.active_compartment(), i)
+                .expect("impossible");
             if !self.mapping_matches_filter(mapping) {
                 continue;
             }
@@ -277,7 +295,7 @@ impl MappingRowsPanel {
         self.when(session.everything_changed(), |view| {
             view.invalidate_all_controls();
         });
-        self.when(session.mapping_list_changed(), |view| {
+        self.when(session.mapping_list_changed().map_to(()), |view| {
             view.invalidate_all_controls();
         });
         self.when(

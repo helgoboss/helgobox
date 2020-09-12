@@ -1,5 +1,7 @@
 use crate::application::{ParameterSetting, Session};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{
+    MappingCompartment, MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT,
+};
 use crate::infrastructure::data::{MappingModelData, ParameterData};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
@@ -67,7 +69,8 @@ impl SessionData {
                 })
             },
             mappings: session
-                .mappings()
+                // TODO-high Implement correctly
+                .mappings(MappingCompartment::PrimaryMappings)
                 .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
                 .collect(),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
@@ -142,6 +145,8 @@ impl SessionData {
         // Mappings
         let session_context = session.context().clone();
         session.set_mappings_without_notification(
+            // TODO-high Implement correctly
+            MappingCompartment::PrimaryMappings,
             self.mappings.iter().map(|m| m.to_model(&session_context)),
         );
         // Parameters

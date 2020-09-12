@@ -1,5 +1,5 @@
 use crate::core::{toast, when};
-use crate::domain::ReaperTarget;
+use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::SharedMainState;
@@ -42,6 +42,10 @@ impl HeaderPanel {
 impl HeaderPanel {
     fn session(&self) -> SharedSession {
         self.session.upgrade().expect("session gone")
+    }
+
+    fn active_compartment(&self) -> MappingCompartment {
+        self.main_state.borrow().active_compartment.get()
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -476,7 +480,9 @@ impl View for HeaderPanel {
         use root::*;
         match resource_id {
             ID_ADD_MAPPING_BUTTON => {
-                self.session().borrow_mut().add_default_mapping();
+                self.session()
+                    .borrow_mut()
+                    .add_default_mapping(self.active_compartment());
             }
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),

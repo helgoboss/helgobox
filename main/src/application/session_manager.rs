@@ -1,5 +1,5 @@
 use crate::application::{Session, SharedSession, WeakSession};
-use crate::domain::ReaperTarget;
+use crate::domain::{MappingCompartment, ReaperTarget};
 use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 use reaper_medium::MessageBoxType;
@@ -81,15 +81,15 @@ pub fn register_global_learn_action() {
                 None => return,
                 Some(t) => t,
             };
-            start_learning_source_for_target(&target);
+            start_learning_source_for_target(MappingCompartment::PrimaryMappings, &target);
         },
         ActionKind::NotToggleable,
     );
 }
 
-fn start_learning_source_for_target(target: &ReaperTarget) {
+fn start_learning_source_for_target(compartment: MappingCompartment, target: &ReaperTarget) {
     // Try to find an existing session which has a target with that parameter
-    let session = find_first_session_in_current_project_with_target(target)
+    let session = find_first_session_in_current_project_with_target(compartment, target)
         // If not found, find the instance on the parameter's track (if there's one)
         .or_else(|| target.track().and_then(find_first_session_on_track))
         // If not found, find a random instance
@@ -103,19 +103,24 @@ fn start_learning_source_for_target(target: &ReaperTarget) {
             );
         }
         Some(s) => {
-            let mapping = s.borrow_mut().toggle_learn_source_for_target(target);
+            let mapping = s
+                .borrow_mut()
+                .toggle_learn_source_for_target(compartment, target);
             s.borrow().show_mapping(mapping.as_ptr());
         }
     }
 }
 
 fn find_first_session_in_current_project_with_target(
+    compartment: MappingCompartment,
     target: &ReaperTarget,
 ) -> Option<SharedSession> {
     find_session(|session| {
         let session = session.borrow();
         session.context().project() == Reaper::get().current_project()
-            && session.find_mapping_with_target(target).is_some()
+            && session
+                .find_mapping_with_target(compartment, target)
+                .is_some()
     })
 }
 

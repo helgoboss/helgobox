@@ -4,6 +4,7 @@ use crate::domain::{
     NormalMappingSourceValue, NormalRealTimeTask, ReaperTarget,
 };
 use crossbeam_channel::Sender;
+use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
 use helgoboss_midi::RawShortMessage;
@@ -166,14 +167,15 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     );
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
-                    let mut unused_sources = self
-                        .currently_feedback_enabled_sources(MappingCompartment::PrimaryMappings);
+                    // Activation is only supported for primary mappings
+                    let compartment = MappingCompartment::PrimaryMappings;
+                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // In order to avoid a mutable borrow of mappings and an immutable borrow of
                     // parameters at the same time, we need to separate the mapping updates into
                     // READ (read new activation state) and WRITE (write new activation state).
                     // 1. Read
                     let activation_updates: Vec<MappingActivationUpdate> = self.mappings
-                        [MappingCompartment::PrimaryMappings]
+                        [compartment]
                         .values()
                         .filter_map(|m| {
                             let result = m.notify_param_changed(
@@ -190,9 +192,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         .collect();
                     // 2. Write
                     for upd in activation_updates.iter() {
-                        if let Some(m) =
-                            self.mappings[MappingCompartment::PrimaryMappings].get_mut(&upd.id)
-                        {
+                        if let Some(m) = self.mappings[compartment].get_mut(&upd.id) {
                             m.update_activation(upd.is_active);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
@@ -200,14 +200,11 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             }
                         }
                     }
-                    self.handle_feedback_after_batch_mapping_update(
-                        MappingCompartment::PrimaryMappings,
-                        &unused_sources,
-                    );
+                    self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                     if !activation_updates.is_empty() {
                         self.normal_real_time_task_sender
                             .send(NormalRealTimeTask::UpdateNormalMappingActivations(
-                                MappingCompartment::PrimaryMappings,
+                                compartment,
                                 activation_updates,
                             ))
                             .unwrap();
@@ -216,14 +213,12 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
-                        self.handle_feedback_after_batch_mapping_update(
-                            MappingCompartment::ControllerMappings,
-                            &HashSet::new(),
-                        );
-                        self.handle_feedback_after_batch_mapping_update(
-                            MappingCompartment::PrimaryMappings,
-                            &HashSet::new(),
-                        );
+                        for compartment in MappingCompartment::into_enum_iter() {
+                            self.handle_feedback_after_batch_mapping_update(
+                                compartment,
+                                &HashSet::new(),
+                            );
+                        }
                     } else {
                         self.feedback_subscriptions.clear();
                         self.feedback_buffer.reset_all();
@@ -324,9 +319,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &NormalMainMapping> {
-        self.mappings[MappingCompartment::ControllerMappings]
-            .values()
-            .chain(self.mappings[MappingCompartment::PrimaryMappings].values())
+        MappingCompartment::into_enum_iter()
+            .map(move |compartment| self.mappings[compartment].values())
+            .flatten()
     }
 
     fn feedback_all(&self) -> Vec<NormalMappingSourceValue> {
