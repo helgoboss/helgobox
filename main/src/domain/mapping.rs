@@ -2,12 +2,14 @@ use crate::domain::{
     ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualControlElement,
     VirtualSource, VirtualSourceValue, VirtualTarget,
 };
+use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
     ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -420,8 +422,23 @@ pub enum ControllerMappingTarget {
     Virtual(VirtualTarget),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Enum, IntoEnumIterator)]
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    Enum,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
 pub enum MappingCompartment {
+    #[display(fmt = "Primary mappings")]
     PrimaryMappings,
+    #[display(fmt = "Controller mappings")]
     ControllerMappings,
 }

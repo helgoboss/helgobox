@@ -9,7 +9,7 @@ use crate::infrastructure::ui::{
     bindings::root, MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
     SharedMappingPanelManager,
 };
-use rx_util::UnitEvent;
+use rx_util::{SharedItemEvent, SharedPayload, UnitEvent};
 use slog::debug;
 use std::cmp;
 
@@ -292,19 +292,23 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        self.when(session.everything_changed(), |view| {
+        self.when(session.everything_changed(), |view, _| {
             view.invalidate_all_controls();
         });
-        self.when(session.mapping_list_changed().map_to(()), |view| {
-            view.invalidate_all_controls();
+        let main_state_clone = self.main_state.clone();
+        self.when(session.mapping_list_changed(), move |view, compartment| {
+            if compartment == main_state_clone.borrow().active_compartment.get() {
+                view.invalidate_all_controls();
+            }
         });
         self.when(
             main_state
                 .source_filter
                 .changed()
                 .merge(main_state.target_filter.changed())
-                .merge(main_state.search_expression.changed()),
-            |view| {
+                .merge(main_state.search_expression.changed())
+                .merge(main_state.active_compartment.changed()),
+            |view, _| {
                 view.scroll_position.set(0);
                 view.invalidate_mapping_rows();
                 view.invalidate_scroll_info();
@@ -312,14 +316,14 @@ impl MappingRowsPanel {
         );
     }
 
-    fn when(
+    fn when<I: SharedPayload>(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+        event: impl SharedItemEvent<I>,
+        reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
-            .do_sync(move |panel, _| reaction(panel));
+            .do_sync(move |panel, item| reaction(panel, item));
     }
 }
 

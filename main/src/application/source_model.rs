@@ -69,6 +69,7 @@ impl SourceModel {
         use NormalMappingSource::*;
         match source {
             Midi(s) => {
+                self.category.set(SourceCategory::Midi);
                 self.midi_source_type.set(MidiSourceType::from_source(s));
                 self.channel.set(s.channel());
                 use MidiSource::*;
@@ -112,6 +113,7 @@ impl SourceModel {
                 }
             }
             Virtual(s) => {
+                self.category.set(SourceCategory::Virtual);
                 self.control_element_type
                     .set(VirtualControlElementType::from_source(s));
                 self.control_element_index.set(s.control_element().index())

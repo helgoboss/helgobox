@@ -2449,43 +2449,43 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn fill_source_midi_message_number_combo_box(&self) {
-        let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
-        b.fill_combo_box_with_data_vec(
-            iter::once((-1isize, "<Any> (no feedback)".to_string()))
-                .chain((0..128).map(|i| (i as isize, i.to_string())))
-                .collect(),
-        )
+        self.view
+            .require_control(root::ID_SOURCE_NUMBER_COMBO_BOX)
+            .fill_combo_box_with_data_vec(
+                iter::once((-1isize, "<Any> (no feedback)".to_string()))
+                    .chain((0..128).map(|i| (i as isize, i.to_string())))
+                    .collect(),
+            )
     }
 
     fn fill_source_character_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
-        b.fill_combo_box(SourceCharacter::into_enum_iter());
+        self.view
+            .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX)
+            .fill_combo_box(SourceCharacter::into_enum_iter());
     }
 
     fn fill_source_midi_clock_transport_message_type_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
-        b.fill_combo_box(MidiClockTransportMessage::into_enum_iter());
+        self.view
+            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX)
+            .fill_combo_box(MidiClockTransportMessage::into_enum_iter());
     }
 
     fn fill_mode_type_combo_box(&self) {
-        let b = self.view.require_control(root::ID_SETTINGS_MODE_COMBO_BOX);
-        b.fill_combo_box(ModeType::into_enum_iter());
+        self.view
+            .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
+            .fill_combo_box(ModeType::into_enum_iter());
     }
 
     fn fill_mode_out_of_range_behavior_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX);
-        b.fill_combo_box(OutOfRangeBehavior::into_enum_iter());
+        self.view
+            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
+            .fill_combo_box(OutOfRangeBehavior::into_enum_iter());
     }
 
     fn fill_target_type_combo_box(&self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        b.fill_combo_box(TargetType::into_enum_iter());
+        self.view
+            .require_control(root::ID_TARGET_TYPE_COMBO_BOX)
+            .fill_combo_box(TargetType::into_enum_iter());
     }
 
     fn real_target(&self) -> Option<ReaperTarget> {

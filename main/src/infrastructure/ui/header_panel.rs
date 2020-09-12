@@ -19,6 +19,8 @@ use std::rc::Rc;
 
 use crate::application::{SharedSession, WeakSession};
 use crate::infrastructure::data::SessionData;
+use enum_iterator::IntoEnumIterator;
+use std::convert::TryInto;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -142,9 +144,14 @@ impl HeaderPanel {
         );
     }
 
+    fn fill_all_controls(&self) {
+        self.fill_compartment_combo_box();
+    }
+
     fn invalidate_all_controls(&self) {
         self.invalidate_midi_control_input_combo_box();
         self.invalidate_midi_feedback_output_combo_box();
+        self.invalidate_compartment_combo_box();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_send_feedback_only_if_armed_check_box();
@@ -156,6 +163,18 @@ impl HeaderPanel {
     fn invalidate_midi_control_input_combo_box(&self) {
         self.invalidate_midi_control_input_combo_box_options();
         self.invalidate_midi_control_input_combo_box_value();
+    }
+
+    fn invalidate_compartment_combo_box(&self) {
+        self.view
+            .require_control(root::ID_COMPARTMENT_COMBO_BOX)
+            .select_combo_box_item(self.active_compartment().into());
+    }
+
+    fn fill_compartment_combo_box(&self) {
+        self.view
+            .require_control(root::ID_COMPARTMENT_COMBO_BOX)
+            .fill_combo_box(MappingCompartment::into_enum_iter());
     }
 
     fn invalidate_midi_control_input_combo_box_options(&self) {
@@ -275,6 +294,16 @@ impl HeaderPanel {
             _ => unreachable!(),
         };
         self.session().borrow_mut().midi_feedback_output.set(value);
+    }
+
+    fn update_compartment(&self) {
+        self.main_state.borrow_mut().active_compartment.set(
+            self.view
+                .require_control(root::ID_COMPARTMENT_COMBO_BOX)
+                .selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid compartment"),
+        );
     }
 
     fn invalidate_let_matched_events_through_check_box(&self) {
@@ -447,6 +476,9 @@ impl HeaderPanel {
                 view.invalidate_source_filter_buttons();
             },
         );
+        self.when(main_state.active_compartment.changed(), |view| {
+            view.invalidate_compartment_combo_box();
+        });
     }
 
     fn when(
@@ -470,6 +502,7 @@ impl View for HeaderPanel {
     }
 
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
+        self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression();
         self.register_listeners();
@@ -513,6 +546,7 @@ impl View for HeaderPanel {
         match resource_id {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
+            ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
             _ => unreachable!(),
         }
     }
