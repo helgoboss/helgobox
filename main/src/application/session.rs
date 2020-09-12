@@ -41,7 +41,7 @@ pub struct Session {
     pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
     pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
     context: SessionContext,
-    mapping_models: Vec<SharedMapping>,
+    mappings: Vec<SharedMapping>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject: LocalSubject<'static, (), ()>,
     source_touched_subject: LocalSubject<'static, NormalMappingSource, ()>,
@@ -84,7 +84,7 @@ impl Session {
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
             context,
-            mapping_models: vec![],
+            mappings: vec![],
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
@@ -365,7 +365,7 @@ impl Session {
 
     fn resubscribe_to_mappings_in_current_list(&mut self, weak_session: WeakSession) {
         self.mapping_subscriptions = self
-            .mapping_models
+            .mappings
             .iter()
             .map(|shared_mapping| {
                 // We don't need to take until "party is over" because if the session disappears,
@@ -443,11 +443,11 @@ impl Session {
     }
 
     pub fn mapping_count(&self) -> usize {
-        self.mapping_models.len()
+        self.mappings.len()
     }
 
     pub fn find_mapping_by_index(&self, index: usize) -> Option<&SharedMapping> {
-        self.mapping_models.get(index)
+        self.mappings.get(index)
     }
 
     pub fn find_mapping_by_address(&self, mapping: *const MappingModel) -> Option<&SharedMapping> {
@@ -455,7 +455,7 @@ impl Session {
     }
 
     pub fn mappings(&self) -> impl Iterator<Item = &SharedMapping> {
-        self.mapping_models.iter()
+        self.mappings.iter()
     }
 
     pub fn mapping_is_learning_source(&self, mapping: *const MappingModel) -> bool {
@@ -496,7 +496,7 @@ impl Session {
         increment: isize,
     ) -> Result<(), &str> {
         let current_index = self
-            .mapping_models
+            .mappings
             .iter()
             .position(|m| m.as_ptr() == mapping as _)
             .ok_or("mapping not found")?;
@@ -505,22 +505,22 @@ impl Session {
             return Err("too far up");
         }
         let new_index = new_index as usize;
-        if new_index >= self.mapping_models.len() {
+        if new_index >= self.mappings.len() {
             return Err("too far down");
         }
-        self.mapping_models.swap(current_index, new_index);
+        self.mappings.swap(current_index, new_index);
         self.notify_mapping_list_changed();
         Ok(())
     }
 
     pub fn remove_mapping(&mut self, mapping: *const MappingModel) {
-        self.mapping_models.retain(|m| m.as_ptr() != mapping as _);
+        self.mappings.retain(|m| m.as_ptr() != mapping as _);
         self.notify_mapping_list_changed();
     }
 
     pub fn duplicate_mapping(&mut self, mapping: *const MappingModel) -> Result<(), &str> {
         let (index, mapping) = self
-            .mapping_models
+            .mappings
             .iter()
             .enumerate()
             .find(|(_i, m)| m.as_ptr() == mapping as _)
@@ -533,20 +533,17 @@ impl Session {
                 .set(format!("Copy of {}", mapping.name.get_ref()));
             duplicate
         };
-        self.mapping_models
-            .insert(index + 1, share_mapping(duplicate));
+        self.mappings.insert(index + 1, share_mapping(duplicate));
         self.notify_mapping_list_changed();
         Ok(())
     }
 
     pub fn has_mapping(&self, mapping: *const MappingModel) -> bool {
-        self.mapping_models
-            .iter()
-            .any(|m| m.as_ptr() == mapping as _)
+        self.mappings.iter().any(|m| m.as_ptr() == mapping as _)
     }
 
     pub fn index_of_mapping(&self, mapping: *const MappingModel) -> Option<usize> {
-        self.mapping_models
+        self.mappings
             .iter()
             .position(|m| m.as_ptr() == mapping as _)
     }
@@ -617,12 +614,12 @@ impl Session {
         &mut self,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
-        self.mapping_models = mappings.map(share_mapping).collect();
+        self.mappings = mappings.map(share_mapping).collect();
     }
 
     fn add_mapping(&mut self, mapping: MappingModel) -> SharedMapping {
         let shared_mapping = share_mapping(mapping);
-        self.mapping_models.push(shared_mapping.clone());
+        self.mappings.push(shared_mapping.clone());
         self.notify_mapping_list_changed();
         shared_mapping
     }
@@ -654,7 +651,7 @@ impl Session {
             - Mapping model count: {}\n\
             - Mapping subscription count: {}\n\
             ",
-            self.mapping_models.len(),
+            self.mappings.len(),
             self.mapping_subscriptions.len(),
         );
         Reaper::get().show_console_msg(msg);
@@ -823,7 +820,7 @@ impl Session {
     }
 
     fn generate_name_for_new_mapping(&self) -> String {
-        format!("{}", self.mapping_models.len() + 1)
+        format!("{}", self.mappings.len() + 1)
     }
 
     fn party_is_over(&self) -> impl UnitEvent {
