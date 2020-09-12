@@ -1759,8 +1759,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 // Because we want a changed track name to be reflected immediately in the UI.
                 .merge(reaper.track_name_changed().map_to(()))
                 // Because we want to see any possible effective `ReaperTarget` change immediately.
-                .merge(TargetModel::potential_static_change_events())
-                .merge(TargetModel::potential_dynamic_change_events()),
+                .merge(ReaperTarget::potential_static_change_events())
+                .merge(ReaperTarget::potential_dynamic_change_events()),
             |view| {
                 // TODO-medium The C++ code yields here (when FX changed):
                 //  Yield. Because the model might also listen to such events and we want the model
@@ -2285,8 +2285,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.changed())
                 // ... and some other events occur that might change the target "value producer"
                 // (e.g. volume of track 2) in some way.
-                .merge(TargetModel::potential_static_change_events())
-                .merge(TargetModel::potential_dynamic_change_events()),
+                .merge(ReaperTarget::potential_static_change_events())
+                .merge(ReaperTarget::potential_dynamic_change_events()),
             |view| {
                 // Okay. Time to resubscribe.
                 let mut existing_subscription =

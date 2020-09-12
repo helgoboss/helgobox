@@ -145,16 +145,17 @@ impl Session {
         // Register the main processor. We instantiate it as control surface because it must be
         // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
         // callback is not suited.
+        let mut main_processor = MainProcessor::new(
+            self.normal_main_task_channel.1.clone(),
+            self.control_main_task_receiver.clone(),
+            self.normal_real_time_task_sender.clone(),
+            self.feedback_real_time_task_sender.clone(),
+            self.parameters,
+            weak_session.clone(),
+        );
         let reg = Reaper::get()
             .medium_session()
-            .plugin_register_add_csurf_inst(Box::new(MainProcessor::new(
-                self.normal_main_task_channel.1.clone(),
-                self.control_main_task_receiver.clone(),
-                self.normal_real_time_task_sender.clone(),
-                self.feedback_real_time_task_sender.clone(),
-                self.parameters,
-                weak_session.clone(),
-            )))
+            .plugin_register_add_csurf_inst(Box::new(main_processor))
             .expect("couldn't register local control surface");
         self.main_processor_registration = Some(reg);
         // Whenever something in the mapping list changes, resubscribe to mappings themselves.
@@ -174,7 +175,7 @@ impl Session {
                 .resubscribe_to_mappings_in_current_list(Rc::downgrade(&shared_session));
         });
         // Whenever anything in the mapping list changes and other things which affect all
-        // processor (including the real-time processor which takes care of sources only), resync
+        // processors (including the real-time processor which takes care of sources only), resync
         // all mappings to *all* processors.
         when(
             // Initial sync
@@ -187,12 +188,42 @@ impl Session {
         .do_async(move |session, _| {
             session.borrow_mut().sync_all_mappings_full();
         });
+        // Handle dynamic target changes and target activation depending on REAPER state.
+        //
         // Whenever anything changes that just affects the main processor targets, resync all
         // targets to the main processor. We don't want to resync to the real-time processor
         // just because another track has been selected. First, it would reset any source state
         // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
         // We also don't want to resync modes to the main processor. First, it would reset any
         // mode state (e.g. throttling data). Second, it would - again - not result in any change.
+        //
+        // I used to have the idea that this logic should be in the main processor (domain layer),
+        // not in the session (application layer) because it could be considered as part of the
+        // core processing logic, its changes happen without ReaLearn UI interaction and the main
+        // processor handles mapping activation already, which is similar to target activation. I
+        // made an attempt to bring it there but realized that there are also counter arguments:
+        //
+        // - The ReaperTarget is a nice immutable and straightforward data structure now where each
+        //   variant just carries whatever is necessary. If we handle target change logic in the
+        //   processor, we would need additional mutable state for exchanging the current track/FX
+        //   which would make the processing logic more complex. That additional mutable state would
+        //   probably reside in something similar to the TargetModel (just without Props) which
+        //   would keep the VirtualTrack and be able to create ReaperTarget objects. Furthermore, we
+        //   would need to determine the initial value of the immutable state somewhere - worst case
+        //   in the session.
+        // - If we would decide to only handle target activation in the processor and target changes
+        //   still in the session, we would have to listen for the same kinds of events (e.g. track
+        //   selection) in *both* session and processor, which brings unnecessary overhead and might
+        //   even lead to update conflicts.
+        // - Right now, feedback update is nicely taken care of when syncing state. We probably
+        //   would have to generalize the feedback update logic a bit so it still works correctly
+        //   (okay, this is a minor point).
+        //
+        // So instead of considering the main processor as a jack of all trades device, it's also
+        // a valid view to consider it as a dumb processing unit that you can throw ready-to-use
+        // targets at and exchange/activate/deactivate the targets of those mappings. Ultimately
+        // a question of how we want to distribute responsibilities. And there's not enough evidence
+        // yet which distribution is most helpful. So let's keep things as they are for now.
         when(
             // There are several global conditions which affect whether feedback will be sent
             // from a target or not. Similar global conditions decide what exactly produces the
@@ -200,8 +231,8 @@ impl Session {
             // then a track selection change changes the feedback value producer ... so
             // the main processor needs to unsubscribe from the old producer and
             // subscribe to the new one).
-            TargetModel::potential_static_change_events()
-                .merge(TargetModel::potential_dynamic_change_events())
+            ReaperTarget::potential_static_change_events()
+                .merge(ReaperTarget::potential_dynamic_change_events())
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
         )
@@ -209,6 +240,8 @@ impl Session {
         .do_async(move |session, _| {
             session.borrow_mut().sync_all_mappings_light();
         });
+        // Whenever something changes that determines if feedback is enabled in general, let the
+        // processors know.
         when(
             // There are several global conditions which affect whether feedback will be enabled in
             // general.
