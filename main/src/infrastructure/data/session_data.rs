@@ -28,6 +28,7 @@ pub struct SessionData {
     /// - `Some("fx-output")` means "\<FX output>"
     feedback_device_id: Option<String>,
     mappings: Vec<MappingModelData>,
+    controller_mappings: Vec<MappingModelData>,
     parameters: HashMap<u32, ParameterData>,
 }
 
@@ -42,6 +43,7 @@ impl Default for SessionData {
             control_device_id: None,
             feedback_device_id: None,
             mappings: vec![],
+            controller_mappings: vec![],
             parameters: Default::default(),
         }
     }
@@ -49,6 +51,12 @@ impl Default for SessionData {
 
 impl SessionData {
     pub fn from_model(session: &Session) -> SessionData {
+        let from_mappings = |compartment| {
+            session
+                .mappings(compartment)
+                .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
+                .collect()
+        };
         SessionData {
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
@@ -68,11 +76,8 @@ impl SessionData {
                     FxOutput => "fx-output".to_string(),
                 })
             },
-            mappings: session
-                // TODO-high Implement correctly
-                .mappings(MappingCompartment::PrimaryMappings)
-                .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
-                .collect(),
+            mappings: from_mappings(MappingCompartment::PrimaryMappings),
+            controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = session.get_parameter(i);
@@ -144,10 +149,16 @@ impl SessionData {
             .set_without_notification(feedback_output);
         // Mappings
         let session_context = session.context().clone();
-        session.set_mappings_without_notification(
-            // TODO-high Implement correctly
-            MappingCompartment::PrimaryMappings,
-            self.mappings.iter().map(|m| m.to_model(&session_context)),
+        let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
+            session.set_mappings_without_notification(
+                compartment,
+                mappings.iter().map(|m| m.to_model(&session_context)),
+            );
+        };
+        apply_mappings(MappingCompartment::PrimaryMappings, &self.mappings);
+        apply_mappings(
+            MappingCompartment::ControllerMappings,
+            &self.controller_mappings,
         );
         // Parameters
         let mut parameters = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
