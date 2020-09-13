@@ -67,7 +67,7 @@ impl Default for TargetModelData {
             param_index: 0,
             select_exclusively: false,
             transport_action: TransportAction::PlayStop,
-            control_element_type: VirtualControlElementType::Continuous,
+            control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         }
     }

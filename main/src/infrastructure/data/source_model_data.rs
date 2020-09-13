@@ -37,7 +37,7 @@ impl Default for SourceModelData {
             is_registered: Some(false),
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Start,
-            control_element_type: VirtualControlElementType::Continuous,
+            control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         }
     }
@@ -136,7 +136,7 @@ mod tests {
                 is_registered: Some(false),
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
-                control_element_type: VirtualControlElementType::Continuous,
+                control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
         );
@@ -168,7 +168,7 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
-                control_element_type: VirtualControlElementType::Continuous,
+                control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
         );
@@ -186,7 +186,7 @@ mod tests {
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
-            control_element_type: VirtualControlElementType::Continuous,
+            control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
         let mut model = SourceModel::default();
@@ -221,7 +221,7 @@ mod tests {
             is_registered: None,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
-            control_element_type: VirtualControlElementType::Continuous,
+            control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
         let mut model = SourceModel::default();
@@ -266,7 +266,7 @@ mod tests {
                 is_registered: Some(false),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
-                control_element_type: VirtualControlElementType::Continuous,
+                control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
         );
@@ -302,7 +302,7 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Continue,
-                control_element_type: VirtualControlElementType::Continuous,
+                control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
         );

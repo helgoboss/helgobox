@@ -59,7 +59,7 @@ impl Default for TargetModel {
     fn default() -> Self {
         Self {
             category: prop(TargetCategory::Reaper),
-            control_element_type: prop(VirtualControlElementType::Continuous),
+            control_element_type: prop(VirtualControlElementType::Multi),
             control_element_index: prop(0),
             r#type: prop(ReaperTargetType::FxParameter),
             action: prop(None),

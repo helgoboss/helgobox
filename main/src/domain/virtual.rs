@@ -19,15 +19,15 @@ impl VirtualTarget {
     }
 
     pub fn control_type(&self) -> ControlType {
-        ControlType::Virtual
+        use VirtualControlElement::*;
+        match self.control_element {
+            Multi(_) => ControlType::VirtualMulti,
+            Button(_) => ControlType::VirtualButton,
+        }
     }
 
     pub fn character(&self) -> TargetCharacter {
-        use VirtualControlElement::*;
-        match self.control_element {
-            Continuous(_) => TargetCharacter::VirtualContinuous,
-            Button(_) => TargetCharacter::VirtualButton,
-        }
+        TargetCharacter::from_control_type(self.control_type())
     }
 }
 
@@ -73,7 +73,7 @@ impl VirtualSource {
         use VirtualControlElement::*;
         match self.control_element {
             Button(_) => ExtendedSourceCharacter::Normal(SourceCharacter::Button),
-            Continuous(_) => ExtendedSourceCharacter::VirtualContinuous,
+            Multi(_) => ExtendedSourceCharacter::VirtualContinuous,
         }
     }
 }
@@ -106,7 +106,7 @@ impl VirtualSourceValue {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum VirtualControlElement {
-    Continuous(u32),
+    Multi(u32),
     Button(u32),
 }
 
@@ -114,7 +114,7 @@ impl Display for VirtualControlElement {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use VirtualControlElement::*;
         match self {
-            Continuous(i) => write!(f, "Continuous {}", i + 1),
+            Multi(i) => write!(f, "Multi {}", i + 1),
             Button(i) => write!(f, "Button {}", i + 1),
         }
     }
@@ -124,7 +124,7 @@ impl VirtualControlElement {
     pub fn index(&self) -> u32 {
         use VirtualControlElement::*;
         match self {
-            Continuous(i) => *i,
+            Multi(i) => *i,
             Button(i) => *i,
         }
     }

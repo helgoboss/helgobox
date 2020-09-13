@@ -38,7 +38,7 @@ impl Default for SourceModel {
         Self {
             category: prop(SourceCategory::Midi),
             midi_source_type: prop(MidiSourceType::ControlChangeValue),
-            control_element_type: prop(VirtualControlElementType::Continuous),
+            control_element_type: prop(VirtualControlElementType::Multi),
             control_element_index: prop(0),
             channel: prop(None),
             midi_message_number: prop(None),
@@ -474,9 +474,10 @@ impl MidiSourceType {
 )]
 #[repr(usize)]
 pub enum VirtualControlElementType {
+    // TODO-high rename to multi
     #[serde(rename = "continuous")]
-    #[display(fmt = "Continuous")]
-    Continuous,
+    #[display(fmt = "Multi")]
+    Multi,
     #[serde(rename = "button")]
     #[display(fmt = "Button")]
     Button,
@@ -486,7 +487,7 @@ impl VirtualControlElementType {
     pub fn from_source(source: &VirtualSource) -> VirtualControlElementType {
         use VirtualControlElement::*;
         match source.control_element() {
-            Continuous(_) => VirtualControlElementType::Continuous,
+            Multi(_) => VirtualControlElementType::Multi,
             Button(_) => VirtualControlElementType::Button,
         }
     }
@@ -494,7 +495,7 @@ impl VirtualControlElementType {
     pub fn from_target(target: &VirtualTarget) -> VirtualControlElementType {
         use VirtualControlElement::*;
         match target.control_element() {
-            Continuous(_) => VirtualControlElementType::Continuous,
+            Multi(_) => VirtualControlElementType::Multi,
             Button(_) => VirtualControlElementType::Button,
         }
     }
@@ -502,7 +503,7 @@ impl VirtualControlElementType {
     pub fn create_control_element(self, index: u32) -> VirtualControlElement {
         use VirtualControlElementType::*;
         match self {
-            Continuous => VirtualControlElement::Continuous(index),
+            Multi => VirtualControlElement::Multi(index),
             Button => VirtualControlElement::Button(index),
         }
     }

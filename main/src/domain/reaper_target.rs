@@ -7,8 +7,8 @@ use reaper_high::{
     Tempo, Track, TrackSend, Volume,
 };
 use reaper_medium::{
-    Bpm, CommandId, Db, FxPresetRef, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
-    ReaperNormalizedFxParamValue, UndoBehavior,
+    Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
+    NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, UndoBehavior,
 };
 use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
@@ -23,19 +23,26 @@ use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
-    // TODO-high Can maybe be replaced by ControlType
-    // AbsoluteTrigger
     Trigger,
-    // AbsoluteSwitch
     Switch,
-    // AbsoluteDiscrete and RelativeDiscrete
     Discrete,
-    // AbsoluteContinuous and RelativeContinuous
     Continuous,
-    // VirtualButton
+    VirtualMulti,
     VirtualButton,
-    // VirtualContinuous (look for better name)
-    VirtualContinuous,
+}
+
+impl TargetCharacter {
+    pub fn from_control_type(control_type: ControlType) -> TargetCharacter {
+        use ControlType::*;
+        match control_type {
+            AbsoluteTrigger => TargetCharacter::Trigger,
+            AbsoluteSwitch => TargetCharacter::Switch,
+            AbsoluteContinuous | AbsoluteContinuousRoundable { .. } => TargetCharacter::Continuous,
+            AbsoluteDiscrete { .. } | Relative => TargetCharacter::Discrete,
+            VirtualMulti => TargetCharacter::VirtualMulti,
+            VirtualButton => TargetCharacter::VirtualButton,
+        }
+    }
 }
 
 /// This is a ReaLearn target.
@@ -255,38 +262,7 @@ impl ReaperTarget {
     }
 
     pub fn character(&self) -> TargetCharacter {
-        use ReaperTarget::*;
-        use TargetCharacter::*;
-        match self {
-            Action {
-                action,
-                invocation_type: _,
-                ..
-            } => match action.character() {
-                ActionCharacter::Trigger => Trigger,
-                ActionCharacter::Toggle => Switch,
-            },
-            FxParameter { param } => match param.character() {
-                FxParameterCharacter::Toggle => Switch,
-                FxParameterCharacter::Discrete => Discrete,
-                FxParameterCharacter::Continuous => Continuous,
-            },
-            TrackVolume { .. } => Continuous,
-            TrackSendVolume { .. } => Continuous,
-            TrackPan { .. } => Continuous,
-            TrackArm { .. } => Switch,
-            TrackSelection { .. } => Switch,
-            TrackMute { .. } => Switch,
-            TrackSolo { .. } => Switch,
-            TrackSendPan { .. } => Continuous,
-            Tempo { .. } => Continuous,
-            Playrate { .. } => Continuous,
-            FxEnable { .. } => Switch,
-            FxPreset { .. } => Discrete,
-            SelectedTrack { .. } => Discrete,
-            AllTrackFxEnable { .. } => Switch,
-            Transport { .. } => Switch,
-        }
+        TargetCharacter::from_control_type(self.control_type())
     }
 
     /// Formats the value completely (including a possible unit).
@@ -973,20 +949,48 @@ impl Target for ReaperTarget {
         use ReaperTarget::*;
         match self {
             Action {
-                invocation_type, ..
+                invocation_type,
+                action,
+                ..
             } => {
-                if *invocation_type == ActionInvocationType::Relative {
-                    ControlType::Relative
-                } else {
-                    ControlType::AbsoluteContinuous
+                use ActionInvocationType::*;
+                match *invocation_type {
+                    Trigger => ControlType::AbsoluteTrigger,
+                    Absolute => match action.character() {
+                        ActionCharacter::Toggle => ControlType::AbsoluteSwitch,
+                        ActionCharacter::Trigger => ControlType::AbsoluteContinuous,
+                    },
+                    Relative => ControlType::Relative,
                 }
             }
-            FxParameter { param } => match param.step_size() {
-                None => ControlType::AbsoluteContinuous,
-                Some(step_size) => ControlType::AbsoluteDiscrete {
-                    atomic_step_size: UnitValue::new(step_size),
-                },
-            },
+            FxParameter { param } => {
+                use GetParameterStepSizesResult::*;
+                match param.step_sizes() {
+                    None => ControlType::AbsoluteContinuous,
+                    Some(Normal {
+                        normal_step,
+                        small_step,
+                        ..
+                    }) => {
+                        // The reported step sizes relate to the reported value range, which is not
+                        // always the unit interval! Easy to test with JS
+                        // FX.
+                        let range = param.value_range();
+                        // We are primarily interested in the smallest step size that makes sense.
+                        // We can always create multiples of it.
+                        let span = (range.max_val - range.min_val).abs();
+                        if span == 0.0 {
+                            return ControlType::AbsoluteContinuous;
+                        }
+                        let pref_step_size = small_step.unwrap_or(normal_step);
+                        let step_size = pref_step_size / span;
+                        ControlType::AbsoluteDiscrete {
+                            atomic_step_size: UnitValue::new(step_size),
+                        }
+                    }
+                    Some(Toggle) => ControlType::AbsoluteSwitch,
+                }
+            }
             Tempo { .. } => ControlType::AbsoluteContinuousRoundable {
                 rounding_step_size: UnitValue::new(1.0 / bpm_span()),
             },
@@ -1001,17 +1005,16 @@ impl Target for ReaperTarget {
             SelectedTrack { project } => ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
             },
-            TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackArm { .. }
+            TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
-            | TrackSolo { .. }
-            | TrackSendPan { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
-            | Transport { .. } => ControlType::AbsoluteContinuous,
+            | Transport { .. }
+            | TrackSolo { .. } => ControlType::AbsoluteSwitch,
+            TrackVolume { .. } | TrackSendVolume { .. } | TrackPan { .. } | TrackSendPan { .. } => {
+                ControlType::AbsoluteContinuous
+            }
         }
     }
 }

@@ -232,7 +232,7 @@ impl<'a> MappingModelWithContext<'a> {
                             match target.character() {
                                 TargetCharacter::Discrete
                                 | TargetCharacter::Continuous
-                                | TargetCharacter::VirtualContinuous => true,
+                                | TargetCharacter::VirtualMulti => true,
                                 TargetCharacter::Trigger
                                 | TargetCharacter::Switch
                                 | TargetCharacter::VirtualButton => false,
@@ -267,7 +267,7 @@ impl<'a> MappingModelWithContext<'a> {
                     match target.character() {
                         TargetCharacter::Trigger
                         | TargetCharacter::Continuous
-                        | TargetCharacter::VirtualContinuous => AbsoluteMode::Normal,
+                        | TargetCharacter::VirtualMulti => AbsoluteMode::Normal,
                         TargetCharacter::Switch | TargetCharacter::VirtualButton => {
                             AbsoluteMode::ToggleButtons
                         }
