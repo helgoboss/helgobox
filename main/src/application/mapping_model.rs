@@ -8,8 +8,9 @@ use crate::application::{
     ProgramConditionModel, SessionContext, SourceModel, TargetModel, TargetModelWithContext,
 };
 use crate::domain::{
-    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition, Mapping,
-    MappingCompartment, MappingId, ProcessorMappingOptions, ReaperTarget, TargetCharacter,
+    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition,
+    ExtendedSourceCharacter, Mapping, MappingCompartment, MappingId, ProcessorMappingOptions,
+    ReaperTarget, TargetCharacter,
 };
 use rx_util::UnitEvent;
 
@@ -213,16 +214,18 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
-        use AbsoluteMode::*;
+        use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
         let mode_type = self.mapping.mode_model.r#type.get();
         let result = match self.mapping.source_model.character() {
-            Range => mode_type == Normal,
-            Button => {
+            Normal(Range) => mode_type == AbsoluteMode::Normal,
+            Normal(Button) => {
                 let target = self.target_with_context().create_target()?;
                 match mode_type {
-                    Normal | ToggleButtons => !target.control_type().is_relative(),
-                    IncrementalButtons => {
+                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
+                        !target.control_type().is_relative()
+                    }
+                    AbsoluteMode::IncrementalButtons => {
                         if target.control_type().is_relative() {
                             true
                         } else {
@@ -238,7 +241,8 @@ impl<'a> MappingModelWithContext<'a> {
                     }
                 }
             }
-            Encoder1 | Encoder2 | Encoder3 => mode_type == IncrementalButtons,
+            Normal(Encoder1) | Normal(Encoder2) | Normal(Encoder3) => true,
+            VirtualContinuous => true,
         };
         Ok(result)
     }
@@ -251,25 +255,27 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn preferred_mode_type(&self) -> Result<AbsoluteMode, &'static str> {
-        use AbsoluteMode::*;
+        use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
         let result = match self.mapping.source_model.character() {
-            Range => Normal,
-            Button => {
+            Normal(Range) | VirtualContinuous => AbsoluteMode::Normal,
+            Normal(Button) => {
                 let target = self.target_with_context().create_target()?;
                 if target.control_type().is_relative() {
-                    IncrementalButtons
+                    AbsoluteMode::IncrementalButtons
                 } else {
                     match target.character() {
                         TargetCharacter::Trigger
                         | TargetCharacter::Continuous
-                        | TargetCharacter::VirtualContinuous => Normal,
-                        TargetCharacter::Switch | TargetCharacter::VirtualButton => ToggleButtons,
-                        TargetCharacter::Discrete => IncrementalButtons,
+                        | TargetCharacter::VirtualContinuous => AbsoluteMode::Normal,
+                        TargetCharacter::Switch | TargetCharacter::VirtualButton => {
+                            AbsoluteMode::ToggleButtons
+                        }
+                        TargetCharacter::Discrete => AbsoluteMode::IncrementalButtons,
                     }
                 }
             }
-            Encoder1 | Encoder2 | Encoder3 => IncrementalButtons,
+            Normal(Encoder1) | Normal(Encoder2) | Normal(Encoder3) => AbsoluteMode::Normal,
         };
         Ok(result)
     }

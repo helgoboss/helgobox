@@ -1,5 +1,5 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
-use crate::domain::TargetCharacter;
+use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
 use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, UnitValue};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt::Display;
@@ -69,14 +69,11 @@ impl VirtualSource {
         parse_from_percentage(text)
     }
 
-    pub fn character(&self) -> SourceCharacter {
+    pub fn character(&self) -> ExtendedSourceCharacter {
         use VirtualControlElement::*;
         match self.control_element {
-            // TODO-high This is not accurate. It's either range or a type of encoder.
-            // Anyway, this is just for auto-correction of modes. We are going to use virtual
-            // control elements with a new automatic mode probably, so this shouldn't matter.
-            Continuous(_) => SourceCharacter::Range,
-            Button(_) => SourceCharacter::Button,
+            Button(_) => ExtendedSourceCharacter::Normal(SourceCharacter::Button),
+            Continuous(_) => ExtendedSourceCharacter::VirtualContinuous,
         }
     }
 }

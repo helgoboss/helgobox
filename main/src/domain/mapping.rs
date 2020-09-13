@@ -313,10 +313,10 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn character(&self) -> SourceCharacter {
+    pub fn character(&self) -> ExtendedSourceCharacter {
         use CompoundMappingSource::*;
         match self {
-            Midi(s) => s.character(),
+            Midi(s) => ExtendedSourceCharacter::Normal(s.character()),
             Virtual(s) => s.character(),
         }
     }
@@ -391,4 +391,9 @@ pub enum MappingCompartment {
     ControllerMappings,
     #[display(fmt = "Primary mappings")]
     PrimaryMappings,
+}
+
+pub enum ExtendedSourceCharacter {
+    Normal(SourceCharacter),
+    VirtualContinuous,
 }

@@ -1,5 +1,8 @@
 use crate::core::{prop, Prop};
-use crate::domain::{CompoundMappingSource, VirtualControlElement, VirtualSource, VirtualTarget};
+use crate::domain::{
+    CompoundMappingSource, ExtendedSourceCharacter, VirtualControlElement, VirtualSource,
+    VirtualTarget,
+};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -131,7 +134,7 @@ impl SourceModel {
         self.create_source().parse_control_value(text)
     }
 
-    pub fn character(&self) -> SourceCharacter {
+    pub fn character(&self) -> ExtendedSourceCharacter {
         // TODO-low use cached
         self.create_source().character()
     }
