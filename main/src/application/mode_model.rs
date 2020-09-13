@@ -3,8 +3,8 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteInterpretation, DiscreteIncrement, Interval, OutOfRangeBehavior,
-    PressDurationProcessor, SymmetricUnitValue, UnitValue, UniversalMode,
+    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
+    PressDurationProcessor, SymmetricUnitValue, UnitValue,
 };
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -15,22 +15,18 @@ use std::time::Duration;
 /// A model for creating modes
 #[derive(Clone, Debug)]
 pub struct ModeModel {
-    // For all modes
-    pub r#type: Prop<ModeType>,
+    pub r#type: Prop<AbsoluteMode>,
     pub target_value_interval: Prop<Interval<UnitValue>>,
-    // For absolute and relative mode
     pub source_value_interval: Prop<Interval<UnitValue>>,
     pub reverse: Prop<bool>,
-    // For absolute and toggle mode
     pub press_duration_interval: Prop<Interval<Duration>>,
-    // For absolute mode
     pub jump_interval: Prop<Interval<UnitValue>>,
     pub out_of_range_behavior: Prop<OutOfRangeBehavior>,
     pub round_target_value: Prop<bool>,
     pub approach_target_value: Prop<bool>,
     pub eel_control_transformation: Prop<String>,
     pub eel_feedback_transformation: Prop<String>,
-    // For relative mode
+    // For relative control values.
     /// Depending on the target character, this is either a step count or a step size.
     ///
     /// A step count is a coefficient which multiplies the atomic step size. E.g. a step count of 2
@@ -51,34 +47,10 @@ pub struct ModeModel {
     pub rotate: Prop<bool>,
 }
 
-/// Type of a mode
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize_repr,
-    Deserialize_repr,
-    IntoEnumIterator,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-pub enum ModeType {
-    #[display(fmt = "Absolute (for range elements and buttons)")]
-    Absolute = 0,
-    #[display(fmt = "Relative (for encoders and buttons)")]
-    Relative = 1,
-    #[display(fmt = "Toggle (for buttons only)")]
-    Toggle = 2,
-}
-
 impl Default for ModeModel {
     fn default() -> Self {
         Self {
-            r#type: prop(ModeType::Absolute),
+            r#type: prop(AbsoluteMode::Normal),
             target_value_interval: prop(full_unit_interval()),
             source_value_interval: prop(full_unit_interval()),
             reverse: prop(false),
@@ -147,14 +119,8 @@ impl ModeModel {
 
     /// Creates a mode reflecting this model's current values
     pub fn create_mode(&self) -> Mode {
-        use ModeType::*;
-        let absolute_interpretation = match self.r#type.get() {
-            Absolute => AbsoluteInterpretation::Normal,
-            Relative => AbsoluteInterpretation::ButtonsToRelative,
-            Toggle => AbsoluteInterpretation::Toggle,
-        };
         Mode {
-            absolute_interpretation,
+            absolute_mode: self.r#type.get(),
             source_value_interval: self.source_value_interval.get(),
             target_value_interval: self.target_value_interval.get(),
             step_count_interval: Interval::new(
@@ -186,13 +152,13 @@ impl ModeModel {
     }
 
     pub fn supports_press_duration(&self) -> bool {
-        use ModeType::*;
-        matches!(self.r#type.get(), Absolute | Toggle)
+        use AbsoluteMode::*;
+        matches!(self.r#type.get(), Normal | ToggleButtons)
     }
 
     pub fn supports_reverse(&self) -> bool {
-        use ModeType::*;
-        matches!(self.r#type.get(), Absolute | Relative)
+        use AbsoluteMode::*;
+        matches!(self.r#type.get(), Normal | IncrementalButtons)
     }
 
     pub fn supports_out_of_range_behavior(&self) -> bool {
@@ -200,11 +166,11 @@ impl ModeModel {
     }
 
     pub fn supports_jump(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_eel_control_transformation(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_eel_feedback_transformation(&self) -> bool {
@@ -212,19 +178,19 @@ impl ModeModel {
     }
 
     pub fn supports_round_target_value(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_approach_target_value(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_steps(&self) -> bool {
-        self.r#type.get() == ModeType::Relative
+        self.r#type.get() == AbsoluteMode::IncrementalButtons
     }
 
     pub fn supports_rotate(&self) -> bool {
-        self.r#type.get() == ModeType::Relative
+        self.r#type.get() == AbsoluteMode::IncrementalButtons
     }
 
     fn positive_step_size_interval(&self) -> Interval<UnitValue> {

@@ -5,7 +5,7 @@ use crate::infrastructure::ui::MainPanel;
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, OutOfRangeBehavior, SourceCharacter,
+    AbsoluteMode, ControlValue, MidiClockTransportMessage, OutOfRangeBehavior, SourceCharacter,
     SymmetricUnitValue, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
@@ -24,7 +24,7 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    ActivationType, MappingModel, MidiSourceType, ModeModel, ModeType, ModifierConditionModel,
+    ActivationType, MappingModel, MidiSourceType, ModeModel, ModifierConditionModel,
     ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
     TargetCategory, TargetModel, TargetModelWithContext, VirtualControlElementType, VirtualTrack,
     WeakSession,
@@ -2599,7 +2599,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_mode_type_combo_box(&self) {
         self.view
             .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
-            .fill_combo_box(ModeType::into_enum_iter());
+            .fill_combo_box(AbsoluteMode::into_enum_iter());
     }
 
     fn fill_mode_out_of_range_behavior_combo_box(&self) {

@@ -1,8 +1,10 @@
 use crate::core::{prop, Prop};
-use helgoboss_learn::{Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteMode, Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
+};
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationType, ModeModel, ModeType, ModifierConditionModel,
+    convert_factor_to_unit_value, ActivationType, ModeModel, ModifierConditionModel,
     ProgramConditionModel, SessionContext, SourceModel, TargetModel, TargetModelWithContext,
 };
 use crate::domain::{
@@ -211,16 +213,16 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
-        use ModeType::*;
+        use AbsoluteMode::*;
         use SourceCharacter::*;
         let mode_type = self.mapping.mode_model.r#type.get();
         let result = match self.mapping.source_model.character() {
-            Range => mode_type == Absolute,
+            Range => mode_type == Normal,
             Button => {
                 let target = self.target_with_context().create_target()?;
                 match mode_type {
-                    Absolute | Toggle => !target.control_type().is_relative(),
-                    Relative => {
+                    Normal | ToggleButtons => !target.control_type().is_relative(),
+                    IncrementalButtons => {
                         if target.control_type().is_relative() {
                             true
                         } else {
@@ -236,7 +238,7 @@ impl<'a> MappingModelWithContext<'a> {
                     }
                 }
             }
-            Encoder1 | Encoder2 | Encoder3 => mode_type == Relative,
+            Encoder1 | Encoder2 | Encoder3 => mode_type == IncrementalButtons,
         };
         Ok(result)
     }
@@ -248,26 +250,26 @@ impl<'a> MappingModelWithContext<'a> {
         }
     }
 
-    pub fn preferred_mode_type(&self) -> Result<ModeType, &'static str> {
-        use ModeType::*;
+    pub fn preferred_mode_type(&self) -> Result<AbsoluteMode, &'static str> {
+        use AbsoluteMode::*;
         use SourceCharacter::*;
         let result = match self.mapping.source_model.character() {
-            Range => Absolute,
+            Range => Normal,
             Button => {
                 let target = self.target_with_context().create_target()?;
                 if target.control_type().is_relative() {
-                    Relative
+                    IncrementalButtons
                 } else {
                     match target.character() {
                         TargetCharacter::Trigger
                         | TargetCharacter::Continuous
-                        | TargetCharacter::VirtualContinuous => Absolute,
-                        TargetCharacter::Switch | TargetCharacter::VirtualButton => Toggle,
-                        TargetCharacter::Discrete => Relative,
+                        | TargetCharacter::VirtualContinuous => Normal,
+                        TargetCharacter::Switch | TargetCharacter::VirtualButton => ToggleButtons,
+                        TargetCharacter::Discrete => IncrementalButtons,
                     }
                 }
             }
-            Encoder1 | Encoder2 | Encoder3 => Relative,
+            Encoder1 | Encoder2 | Encoder3 => IncrementalButtons,
         };
         Ok(result)
     }
