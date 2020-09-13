@@ -3,8 +3,8 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
-    PressDurationProcessor, RelativeMode, SymmetricUnitValue, ToggleMode, UnitValue,
+    full_unit_interval, AbsoluteInterpretation, DiscreteIncrement, Interval, OutOfRangeBehavior,
+    PressDurationProcessor, SymmetricUnitValue, UnitValue, UniversalMode,
 };
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -148,60 +148,40 @@ impl ModeModel {
     /// Creates a mode reflecting this model's current values
     pub fn create_mode(&self) -> Mode {
         use ModeType::*;
-        match self.r#type.get() {
-            Absolute => Mode::Absolute(AbsoluteMode {
-                source_value_interval: self.source_value_interval.get(),
-                target_value_interval: self.target_value_interval.get(),
-                jump_interval: self.jump_interval.get(),
-                press_duration_processor: PressDurationProcessor::new(
-                    self.press_duration_interval.get(),
-                ),
-                approach_target_value: self.approach_target_value.get(),
-                reverse_target_value: self.reverse.get(),
-                round_target_value: self.round_target_value.get(),
-                out_of_range_behavior: self.out_of_range_behavior.get(),
-                control_transformation: EelTransformation::compile(
-                    self.eel_control_transformation.get_ref(),
-                    OutputVariable::Y,
-                )
-                .ok(),
-                feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get_ref(),
-                    OutputVariable::X,
-                )
-                .ok(),
-            }),
-            Relative => Mode::Relative(RelativeMode {
-                source_value_interval: self.source_value_interval.get(),
-                step_count_interval: Interval::new(
-                    convert_to_step_count(self.step_interval.get_ref().min_val()),
-                    convert_to_step_count(self.step_interval.get_ref().max_val()),
-                ),
-                step_size_interval: self.positive_step_size_interval(),
-                target_value_interval: self.target_value_interval.get(),
-                reverse: self.reverse.get(),
-                rotate: self.rotate.get(),
-                increment_counter: 0,
-                feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get_ref(),
-                    OutputVariable::X,
-                )
-                .ok(),
-                out_of_range_behavior: self.out_of_range_behavior.get(),
-            }),
-            Toggle => Mode::Toggle(ToggleMode {
-                source_value_interval: self.source_value_interval.get(),
-                target_value_interval: self.target_value_interval.get(),
-                press_duration_processor: PressDurationProcessor::new(
-                    self.press_duration_interval.get(),
-                ),
-                feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get_ref(),
-                    OutputVariable::X,
-                )
-                .ok(),
-                out_of_range_behavior: self.out_of_range_behavior.get(),
-            }),
+        let absolute_interpretation = match self.r#type.get() {
+            Absolute => AbsoluteInterpretation::Normal,
+            Relative => AbsoluteInterpretation::ButtonsToRelative,
+            Toggle => AbsoluteInterpretation::Toggle,
+        };
+        Mode {
+            absolute_interpretation,
+            source_value_interval: self.source_value_interval.get(),
+            target_value_interval: self.target_value_interval.get(),
+            step_count_interval: Interval::new(
+                convert_to_step_count(self.step_interval.get_ref().min_val()),
+                convert_to_step_count(self.step_interval.get_ref().max_val()),
+            ),
+            step_size_interval: self.positive_step_size_interval(),
+            jump_interval: self.jump_interval.get(),
+            press_duration_processor: PressDurationProcessor::new(
+                self.press_duration_interval.get(),
+            ),
+            approach_target_value: self.approach_target_value.get(),
+            reverse: self.reverse.get(),
+            rotate: self.rotate.get(),
+            increment_counter: 0,
+            round_target_value: self.round_target_value.get(),
+            out_of_range_behavior: self.out_of_range_behavior.get(),
+            control_transformation: EelTransformation::compile(
+                self.eel_control_transformation.get_ref(),
+                OutputVariable::Y,
+            )
+            .ok(),
+            feedback_transformation: EelTransformation::compile(
+                self.eel_feedback_transformation.get_ref(),
+                OutputVariable::X,
+            )
+            .ok(),
         }
     }
 

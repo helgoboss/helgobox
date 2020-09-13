@@ -78,6 +78,8 @@ struct Sliders {
     mode_max_source_value: Window,
     mode_min_step_size: Window,
     mode_max_step_size: Window,
+    mode_min_length: Window,
+    mode_max_length: Window,
     mode_min_jump: Window,
     mode_max_jump: Window,
     target_value: Window,
@@ -224,6 +226,8 @@ impl MappingPanel {
                 .require_control(root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL),
             mode_max_step_size: view
                 .require_control(root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL),
+            mode_min_length: view.require_control(root::ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL),
+            mode_max_length: view.require_control(root::ID_SETTINGS_MAX_LENGTH_SLIDER_CONTROL),
             mode_min_jump: view.require_control(root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL),
             mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
@@ -723,24 +727,24 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_max(value));
     }
 
-    fn update_mode_min_step_or_duration_from_edit_control(&mut self) {
-        if self.mapping.mode_model.supports_press_duration() {
-            let value = self
-                .get_value_from_duration_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or_else(|| Duration::from_millis(0));
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_min(value));
-        } else {
-            let value = self
-                .get_value_from_step_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or_else(|| UnitValue::MIN.to_symmetric());
-            self.mapping
-                .mode_model
-                .step_interval
-                .set_with(|prev| prev.with_min(value));
-        }
+    fn update_mode_min_step_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_step_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
+            .unwrap_or_else(|| UnitValue::MIN.to_symmetric());
+        self.mapping
+            .mode_model
+            .step_interval
+            .set_with(|prev| prev.with_min(value));
+    }
+
+    fn update_mode_min_length_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_duration_edit_control(root::ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL)
+            .unwrap_or_else(|| Duration::from_millis(0));
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn get_value_from_duration_edit_control(&self, edit_control_id: u32) -> Option<Duration> {
@@ -758,24 +762,24 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn update_mode_max_step_or_duration_from_edit_control(&mut self) {
-        if self.mapping.mode_model.supports_press_duration() {
-            let value = self
-                .get_value_from_duration_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or_else(|| Duration::from_millis(0));
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_max(value));
-        } else {
-            let value = self
-                .get_value_from_step_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or(SymmetricUnitValue::MAX);
-            self.mapping
-                .mode_model
-                .step_interval
-                .set_with(|prev| prev.with_max(value));
-        }
+    fn update_mode_max_step_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_step_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
+            .unwrap_or(SymmetricUnitValue::MAX);
+        self.mapping
+            .mode_model
+            .step_interval
+            .set_with(|prev| prev.with_max(value));
+    }
+
+    fn update_mode_max_length_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_duration_edit_control(root::ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL)
+            .unwrap_or_else(|| Duration::from_millis(0));
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn update_mode_eel_control_transformation(&mut self) {
@@ -830,38 +834,38 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
-    fn update_mode_min_step_or_duration_from_slider(&mut self, slider: Window) {
-        if self.mapping.mode_model.supports_press_duration() {
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_min(slider.slider_duration()));
+    fn update_mode_min_step_from_slider(&mut self, slider: Window) {
+        let step_counts = self.mapping_uses_step_counts();
+        let prop = &mut self.mapping.mode_model.step_interval;
+        if step_counts {
+            prop.set_with(|prev| prev.with_min(slider.slider_symmetric_unit_value()));
         } else {
-            let step_counts = self.mapping_uses_step_counts();
-            let prop = &mut self.mapping.mode_model.step_interval;
-            if step_counts {
-                prop.set_with(|prev| prev.with_min(slider.slider_symmetric_unit_value()));
-            } else {
-                prop.set_with(|prev| prev.with_min(slider.slider_unit_value().to_symmetric()));
-            }
+            prop.set_with(|prev| prev.with_min(slider.slider_unit_value().to_symmetric()));
         }
     }
 
-    fn update_mode_max_step_or_duration_from_slider(&mut self, slider: Window) {
-        if self.mapping.mode_model.supports_press_duration() {
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_max(slider.slider_duration()));
+    fn update_mode_max_step_from_slider(&mut self, slider: Window) {
+        let step_counts = self.mapping_uses_step_counts();
+        let prop = &mut self.mapping.mode_model.step_interval;
+        if step_counts {
+            prop.set_with(|prev| prev.with_max(slider.slider_symmetric_unit_value()));
         } else {
-            let step_counts = self.mapping_uses_step_counts();
-            let prop = &mut self.mapping.mode_model.step_interval;
-            if step_counts {
-                prop.set_with(|prev| prev.with_max(slider.slider_symmetric_unit_value()));
-            } else {
-                prop.set_with(|prev| prev.with_max(slider.slider_unit_value().to_symmetric()));
-            }
+            prop.set_with(|prev| prev.with_max(slider.slider_unit_value().to_symmetric()));
         }
+    }
+
+    fn update_mode_min_length_from_slider(&mut self, slider: Window) {
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_min(slider.slider_duration()));
+    }
+
+    fn update_mode_max_length_from_slider(&mut self, slider: Window) {
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_max(slider.slider_duration()));
     }
 
     fn mapping_uses_step_counts(&self) -> bool {
@@ -1964,7 +1968,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_control_appearance();
         self.invalidate_mode_source_value_controls();
         self.invalidate_mode_target_value_controls();
-        self.invalidate_mode_step_or_duration_controls();
+        self.invalidate_mode_step_controls();
+        self.invalidate_mode_length_controls();
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_round_target_value_check_box();
@@ -1992,9 +1997,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_control_labels(&self) {
-        let step_label = if self.mode.supports_press_duration() {
-            "Length"
-        } else if self.mapping_uses_step_counts() {
+        let step_label = if self.mapping_uses_step_counts() {
             "Speed"
         } else {
             "Step size"
@@ -2006,72 +2009,72 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_control_visibilities(&self) {
         let mode = self.mode;
-        self.show_if(
-            mode.supports_round_target_value()
-                && self.target_with_context().is_known_to_be_roundable(),
-            &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
-        );
-        self.show_if(
-            mode.supports_reverse(),
-            &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
-        );
-        self.show_if(
-            mode.supports_approach_target_value(),
-            &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
-        );
-        self.show_if(
-            mode.supports_rotate(),
-            &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
-        );
-        self.show_if(
-            mode.supports_out_of_range_behavior(),
-            &[
-                root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
-                root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
-            ],
-        );
-        self.show_if(
-            mode.supports_steps() || mode.supports_press_duration(),
-            &[
-                root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-                root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
-                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-            ],
-        );
-        self.show_if(
-            mode.supports_jump(),
-            &[
-                root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
-            ],
-        );
-        self.show_if(
-            mode.supports_eel_control_transformation(),
-            &[
-                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
-                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
-            ],
-        );
-        self.show_if(
-            mode.supports_eel_feedback_transformation(),
-            &[
-                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
-                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
-            ],
-        );
+        // self.show_if(
+        //     mode.supports_round_target_value()
+        //         && self.target_with_context().is_known_to_be_roundable(),
+        //     &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
+        // );
+        // self.show_if(
+        //     mode.supports_reverse(),
+        //     &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
+        // );
+        // self.show_if(
+        //     mode.supports_approach_target_value(),
+        //     &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
+        // );
+        // self.show_if(
+        //     mode.supports_rotate(),
+        //     &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
+        // );
+        // self.show_if(
+        //     mode.supports_out_of_range_behavior(),
+        //     &[
+        //         root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
+        //         root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
+        //     ],
+        // );
+        // self.show_if(
+        //     mode.supports_steps() || mode.supports_press_duration(),
+        //     &[
+        //         root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
+        //         root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
+        //         root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+        //         root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+        //         root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+        //         root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
+        //         root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+        //         root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+        //         root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+        //     ],
+        // );
+        // self.show_if(
+        //     mode.supports_jump(),
+        //     &[
+        //         root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
+        //         root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
+        //         root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
+        //         root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
+        //         root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
+        //         root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
+        //         root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
+        //         root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
+        //         root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
+        //     ],
+        // );
+        // self.show_if(
+        //     mode.supports_eel_control_transformation(),
+        //     &[
+        //         root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
+        //         root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
+        //     ],
+        // );
+        // self.show_if(
+        //     mode.supports_eel_feedback_transformation(),
+        //     &[
+        //         root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
+        //         root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+        //     ],
+        // );
     }
 
     fn invalidate_mode_source_value_controls(&self) {
@@ -2217,45 +2220,50 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_mode_step_or_duration_controls(&self) {
-        self.invalidate_mode_min_step_or_duration_controls();
-        self.invalidate_mode_max_step_or_duration_controls();
+    fn invalidate_mode_step_controls(&self) {
+        self.invalidate_mode_min_step_controls();
+        self.invalidate_mode_max_step_controls();
     }
 
-    fn invalidate_mode_min_step_or_duration_controls(&self) {
-        if self.mode.supports_press_duration() {
-            self.invalidate_mode_press_duration_controls_internal(
-                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-                self.mode.press_duration_interval.get_ref().min_val(),
-            );
-        } else if self.mode.supports_steps() {
-            self.invalidate_mode_step_controls_internal(
-                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-                self.mode.step_interval.get_ref().min_val(),
-            );
-        }
+    fn invalidate_mode_length_controls(&self) {
+        self.invalidate_mode_min_length_controls();
+        self.invalidate_mode_max_length_controls();
     }
 
-    fn invalidate_mode_max_step_or_duration_controls(&self) {
-        if self.mode.supports_press_duration() {
-            self.invalidate_mode_press_duration_controls_internal(
-                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-                self.mode.press_duration_interval.get_ref().max_val(),
-            );
-        } else if self.mode.supports_steps() {
-            self.invalidate_mode_step_controls_internal(
-                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-                self.mode.step_interval.get_ref().max_val(),
-            );
-        }
+    fn invalidate_mode_min_step_controls(&self) {
+        self.invalidate_mode_step_controls_internal(
+            root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+            self.mode.step_interval.get_ref().min_val(),
+        );
+    }
+
+    fn invalidate_mode_min_length_controls(&self) {
+        self.invalidate_mode_press_duration_controls_internal(
+            root::ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_LENGTH_VALUE_TEXT,
+            self.mode.press_duration_interval.get_ref().min_val(),
+        );
+    }
+
+    fn invalidate_mode_max_step_controls(&self) {
+        self.invalidate_mode_step_controls_internal(
+            root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+            self.mode.step_interval.get_ref().max_val(),
+        );
+    }
+
+    fn invalidate_mode_max_length_controls(&self) {
+        self.invalidate_mode_press_duration_controls_internal(
+            root::ID_SETTINGS_MAX_LENGTH_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_LENGTH_VALUE_TEXT,
+            self.mode.press_duration_interval.get_ref().max_val(),
+        );
     }
 
     fn invalidate_mode_step_controls_internal(
@@ -2473,11 +2481,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
         self.panel
             .when_do_sync(mode.step_interval.changed(), |view| {
-                view.invalidate_mode_step_or_duration_controls();
+                view.invalidate_mode_step_controls();
             });
         self.panel
             .when_do_sync(mode.press_duration_interval.changed(), |view| {
-                view.invalidate_mode_step_or_duration_controls();
+                view.invalidate_mode_length_controls();
             });
         self.panel
             .when_do_sync(mode.out_of_range_behavior.changed(), |view| {
@@ -2758,10 +2766,16 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_source_value_from_slider(s));
             }
             s if s == sliders.mode_min_step_size => {
-                self.write(|p| p.update_mode_min_step_or_duration_from_slider(s));
+                self.write(|p| p.update_mode_min_step_from_slider(s));
             }
             s if s == sliders.mode_max_step_size => {
-                self.write(|p| p.update_mode_max_step_or_duration_from_slider(s));
+                self.write(|p| p.update_mode_max_step_from_slider(s));
+            }
+            s if s == sliders.mode_min_length => {
+                self.write(|p| p.update_mode_min_length_from_slider(s));
+            }
+            s if s == sliders.mode_max_length => {
+                self.write(|p| p.update_mode_max_length_from_slider(s));
             }
             s if s == sliders.mode_min_jump => {
                 self.write(|p| p.update_mode_min_jump_from_slider(s));
@@ -2820,10 +2834,16 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_source_value_from_edit_control());
             }
             ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_step_or_duration_from_edit_control());
+                self.write(|p| p.update_mode_min_step_from_edit_control());
             }
             ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_step_or_duration_from_edit_control());
+                self.write(|p| p.update_mode_max_step_from_edit_control());
+            }
+            ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_length_from_edit_control());
+            }
+            ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_length_from_edit_control());
             }
             ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_eel_control_transformation());
