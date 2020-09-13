@@ -974,7 +974,13 @@ impl Target for ReaperTarget {
         match self {
             Action {
                 invocation_type, ..
-            } if *invocation_type == ActionInvocationType::Relative => ControlType::Relative,
+            } => {
+                if *invocation_type == ActionInvocationType::Relative {
+                    ControlType::Relative
+                } else {
+                    ControlType::AbsoluteContinuous
+                }
+            }
             FxParameter { param } => match param.step_size() {
                 None => ControlType::AbsoluteContinuous,
                 Some(step_size) => ControlType::AbsoluteDiscrete {
@@ -995,7 +1001,17 @@ impl Target for ReaperTarget {
             SelectedTrack { project } => ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
             },
-            _ => ControlType::AbsoluteContinuous,
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => ControlType::AbsoluteContinuous,
         }
     }
 }
