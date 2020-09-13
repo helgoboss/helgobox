@@ -1,5 +1,5 @@
 use crate::core::{prop, Prop};
-use crate::domain::{NormalMappingSource, VirtualControlElement, VirtualSource};
+use crate::domain::{CompoundMappingSource, VirtualControlElement, VirtualSource, VirtualTarget};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -54,8 +54,6 @@ impl SourceModel {
         self.category
             .changed()
             .merge(self.midi_source_type.changed())
-            .merge(self.control_element_type.changed())
-            .merge(self.control_element_index.changed())
             .merge(self.channel.changed())
             .merge(self.midi_message_number.changed())
             .merge(self.parameter_number_message_number.changed())
@@ -63,10 +61,12 @@ impl SourceModel {
             .merge(self.midi_clock_transport_message.changed())
             .merge(self.is_registered.changed())
             .merge(self.is_14_bit.changed())
+            .merge(self.control_element_type.changed())
+            .merge(self.control_element_index.changed())
     }
 
-    pub fn apply_from_source(&mut self, source: &NormalMappingSource) {
-        use NormalMappingSource::*;
+    pub fn apply_from_source(&mut self, source: &CompoundMappingSource) {
+        use CompoundMappingSource::*;
         match source {
             Midi(s) => {
                 self.category.set(SourceCategory::Midi);
@@ -137,7 +137,7 @@ impl SourceModel {
     }
 
     /// Creates a source reflecting this model's current values
-    pub fn create_source(&self) -> NormalMappingSource {
+    pub fn create_source(&self) -> CompoundMappingSource {
         use SourceCategory::*;
         match self.category.get() {
             Midi => {
@@ -185,17 +185,11 @@ impl SourceModel {
                         message: self.midi_clock_transport_message.get(),
                     },
                 };
-                NormalMappingSource::Midi(midi_source)
+                CompoundMappingSource::Midi(midi_source)
             }
             Virtual => {
-                use VirtualControlElementType::*;
-                let control_element_index = self.control_element_index.get();
-                let control_element = match self.control_element_type.get() {
-                    Continuous => VirtualControlElement::Continuous(control_element_index),
-                    Button => VirtualControlElement::Button(control_element_index),
-                };
-                let virtual_source = VirtualSource::new(control_element);
-                NormalMappingSource::Virtual(virtual_source)
+                let virtual_source = VirtualSource::new(self.create_control_element());
+                CompoundMappingSource::Virtual(virtual_source)
             }
         }
     }
@@ -322,15 +316,14 @@ impl SourceModel {
                     "".into()
                 }
             }
-            Virtual => {
-                use VirtualControlElementType::*;
-                let pos = self.control_element_index.get() + 1;
-                match self.control_element_type.get() {
-                    Continuous => format!("Continuous {}", pos).into(),
-                    Button => format!("Button {}", pos).into(),
-                }
-            }
+            Virtual => self.create_control_element().to_string().into(),
         }
+    }
+
+    fn create_control_element(&self) -> VirtualControlElement {
+        self.control_element_type
+            .get()
+            .create_control_element(self.control_element_index.get())
     }
 
     fn ternary_label(&self) -> Cow<str> {
@@ -494,6 +487,22 @@ impl VirtualControlElementType {
             Button(_) => VirtualControlElementType::Button,
         }
     }
+
+    pub fn from_target(target: &VirtualTarget) -> VirtualControlElementType {
+        use VirtualControlElement::*;
+        match target.control_element() {
+            Continuous(_) => VirtualControlElementType::Continuous,
+            Button(_) => VirtualControlElementType::Button,
+        }
+    }
+
+    pub fn create_control_element(self, index: u32) -> VirtualControlElement {
+        use VirtualControlElementType::*;
+        match self {
+            Continuous => VirtualControlElement::Continuous(index),
+            Button => VirtualControlElement::Button(index),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -528,7 +537,7 @@ mod tests {
         // Then
         assert_eq!(
             s,
-            NormalMappingSource::Midi(MidiSource::ControlChangeValue {
+            CompoundMappingSource::Midi(MidiSource::ControlChangeValue {
                 channel: None,
                 controller_number: None,
                 custom_character: SourceCharacter::Range,

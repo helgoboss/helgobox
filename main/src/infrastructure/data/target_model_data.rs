@@ -3,7 +3,8 @@ use super::none_if_minus_one;
 use reaper_high::{Guid, Project, Reaper, Track};
 
 use crate::application::{
-    get_guid_based_fx_at_index, SessionContext, TargetModel, TargetType, VirtualTrack,
+    get_guid_based_fx_at_index, ReaperTargetType, SessionContext, TargetCategory, TargetModel,
+    VirtualControlElementType, VirtualTrack,
 };
 use crate::core::toast;
 use crate::domain::{ActionInvocationType, TransportAction};
@@ -14,7 +15,9 @@ use std::convert::TryInto;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct TargetModelData {
-    r#type: TargetType,
+    pub category: TargetCategory,
+    // reaper_type would be a better name but we need backwards compatibility
+    r#type: ReaperTargetType,
     // Action target
     command_name: Option<String>,
     invocation_type: ActionInvocationType,
@@ -42,12 +45,15 @@ pub struct TargetModelData {
     select_exclusively: bool,
     // Transport target
     transport_action: TransportAction,
+    pub control_element_type: VirtualControlElementType,
+    pub control_element_index: u32,
 }
 
 impl Default for TargetModelData {
     fn default() -> Self {
         Self {
-            r#type: TargetType::FxParameter,
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::FxParameter,
             command_name: None,
             invocation_type: ActionInvocationType::Trigger,
             invoke_relative: None,
@@ -61,6 +67,8 @@ impl Default for TargetModelData {
             param_index: 0,
             select_exclusively: false,
             transport_action: TransportAction::PlayStop,
+            control_element_type: VirtualControlElementType::Continuous,
+            control_element_index: 0,
         }
     }
 }
@@ -69,6 +77,7 @@ impl TargetModelData {
     pub fn from_model(model: &TargetModel, _context: &SessionContext) -> Self {
         let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
+            category: model.category.get(),
             r#type: model.r#type.get(),
             command_name: model
                 .action
@@ -94,10 +103,13 @@ impl TargetModelData {
             param_index: model.param_index.get(),
             select_exclusively: model.select_exclusively.get(),
             transport_action: model.transport_action.get(),
+            control_element_type: model.control_element_type.get(),
+            control_element_index: model.control_element_index.get(),
         }
     }
 
     pub fn apply_to_model(&self, model: &mut TargetModel, context: &SessionContext) {
+        model.category.set_without_notification(self.category);
         model.r#type.set_without_notification(self.r#type);
         let reaper = Reaper::get();
         let action = match self.command_name.as_ref() {
@@ -179,6 +191,12 @@ impl TargetModelData {
         model
             .transport_action
             .set_without_notification(self.transport_action);
+        model
+            .control_element_type
+            .set_without_notification(self.control_element_type);
+        model
+            .control_element_index
+            .set_without_notification(self.control_element_index);
     }
 }
 

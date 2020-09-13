@@ -1,5 +1,8 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
-use helgoboss_learn::{ControlValue, SourceCharacter, UnitValue};
+use crate::domain::TargetCharacter;
+use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, UnitValue};
+use smallvec::alloc::fmt::Formatter;
+use std::fmt::Display;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct VirtualTarget {
@@ -7,8 +10,24 @@ pub struct VirtualTarget {
 }
 
 impl VirtualTarget {
+    pub fn new(control_element: VirtualControlElement) -> VirtualTarget {
+        VirtualTarget { control_element }
+    }
+
     pub fn control_element(&self) -> VirtualControlElement {
         self.control_element
+    }
+
+    pub fn control_type(&self) -> ControlType {
+        ControlType::Virtual
+    }
+
+    pub fn character(&self) -> TargetCharacter {
+        use VirtualControlElement::*;
+        match self.control_element {
+            Continuous(_) => TargetCharacter::VirtualContinuous,
+            Button(_) => TargetCharacter::VirtualButton,
+        }
     }
 }
 
@@ -53,7 +72,7 @@ impl VirtualSource {
     pub fn character(&self) -> SourceCharacter {
         use VirtualControlElement::*;
         match self.control_element {
-            // TODO-medium This is not accurate. It's either range or a type of encoder.
+            // TODO-high This is not accurate. It's either range or a type of encoder.
             // Anyway, this is just for auto-correction of modes. We are going to use virtual
             // control elements with a new automatic mode probably, so this shouldn't matter.
             Continuous(_) => SourceCharacter::Range,
@@ -92,6 +111,16 @@ impl VirtualSourceValue {
 pub enum VirtualControlElement {
     Continuous(u32),
     Button(u32),
+}
+
+impl Display for VirtualControlElement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use VirtualControlElement::*;
+        match self {
+            Continuous(i) => write!(f, "Continuous {}", i + 1),
+            Button(i) => write!(f, "Button {}", i + 1),
+        }
+    }
 }
 
 impl VirtualControlElement {

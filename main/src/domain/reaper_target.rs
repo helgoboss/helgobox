@@ -23,10 +23,19 @@ use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
+    // TODO-high Can maybe be replaced by ControlType
+    // AbsoluteTrigger
     Trigger,
+    // AbsoluteSwitch
     Switch,
+    // AbsoluteDiscrete and RelativeDiscrete
     Discrete,
+    // AbsoluteContinuous and RelativeContinuous
     Continuous,
+    // VirtualButton
+    VirtualButton,
+    // VirtualContinuous (look for better name)
+    VirtualContinuous,
 }
 
 /// This is a ReaLearn target.
@@ -102,7 +111,6 @@ impl ReaperTarget {
     pub fn potential_static_change_events() -> impl UnitEvent {
         let reaper = Reaper::get();
         reaper
-            // TODO-high Problem: We don't get notified about focus kill :(
             // Considering fx_focused() as static event is okay as long as we don't have a target
             // which switches focus between different FX. As soon as we have that, we must treat
             // fx_focused() as a dynamic event, like track_selection_changed().
@@ -279,10 +287,6 @@ impl ReaperTarget {
             AllTrackFxEnable { .. } => Switch,
             Transport { .. } => Switch,
         }
-    }
-
-    pub fn is_roundable(&self) -> bool {
-        matches!(self.control_type(), ControlType::AbsoluteContinuousRoundable { .. })
     }
 
     /// Formats the value completely (including a possible unit).

@@ -1,7 +1,7 @@
 use crate::domain::{
-    DomainEvent, DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MappingActivationUpdate,
-    MappingCompartment, MappingId, NormalMainMapping, NormalMappingSource,
-    NormalMappingSourceValue, NormalRealTimeTask, ReaperTarget,
+    CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, DomainEvent,
+    DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationUpdate,
+    MappingCompartment, MappingId, NormalRealTimeTask, ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -28,7 +28,7 @@ pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains all mappings except those where the target could not be resolved.
-    mappings: EnumMap<MappingCompartment, HashMap<MappingId, NormalMainMapping>>,
+    mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: FeedbackSubscriptions,
     feedback_is_globally_enabled: bool,
@@ -104,7 +104,9 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     // (Re)subscribe to or unsubscribe from feedback
                     if self.feedback_is_globally_enabled {
                         match mapping.target() {
-                            Some(target) if mapping.feedback_is_effectively_on() => {
+                            Some(CompoundMappingTarget::Reaper(target))
+                                if mapping.feedback_is_effectively_on() =>
+                            {
                                 // (Re)subscribe
                                 let subscription = send_feedback_when_target_value_changed(
                                     self.self_feedback_sender.clone(),
@@ -310,7 +312,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn send_feedback(&self, source_values: impl IntoIterator<Item = NormalMappingSourceValue>) {
+    fn send_feedback(&self, source_values: impl IntoIterator<Item = CompoundMappingSourceValue>) {
         for v in source_values.into_iter() {
             self.feedback_real_time_task_sender
                 .send(FeedbackRealTimeTask::Feedback(v))
@@ -318,13 +320,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn all_mappings(&self) -> impl Iterator<Item = &NormalMainMapping> {
+    fn all_mappings(&self) -> impl Iterator<Item = &MainMapping> {
         MappingCompartment::into_enum_iter()
             .map(move |compartment| self.mappings[compartment].values())
             .flatten()
     }
 
-    fn feedback_all(&self) -> Vec<NormalMappingSourceValue> {
+    fn feedback_all(&self) -> Vec<CompoundMappingSourceValue> {
         self.all_mappings()
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
@@ -333,14 +335,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn feedback_all_in_compartment(
         &self,
         compartment: MappingCompartment,
-    ) -> Vec<NormalMappingSourceValue> {
+    ) -> Vec<CompoundMappingSourceValue> {
         self.mappings[compartment]
             .values()
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
     }
 
-    fn feedback_all_zero(&self) -> Vec<NormalMappingSourceValue> {
+    fn feedback_all_zero(&self) -> Vec<CompoundMappingSourceValue> {
         self.all_mappings()
             .filter(|m| m.feedback_is_effectively_on())
             .filter_map(|m| m.source().feedback(UnitValue::MIN))
@@ -350,7 +352,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn currently_feedback_enabled_sources(
         &self,
         compartment: MappingCompartment,
-    ) -> HashSet<NormalMappingSource> {
+    ) -> HashSet<CompoundMappingSource> {
         self.mappings[compartment]
             .values()
             .filter(|m| m.feedback_is_effectively_on())
@@ -361,7 +363,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_batch_mapping_update(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashSet<NormalMappingSource>,
+        now_unused_sources: &HashSet<CompoundMappingSource>,
     ) {
         if !self.feedback_is_globally_enabled {
             return;
@@ -373,7 +375,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .values()
             .filter(|m| m.feedback_is_effectively_on())
         {
-            if let Some(target) = m.target() {
+            if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
                 // Subscribe
                 let subscription = send_feedback_when_target_value_changed(
                     self.self_feedback_sender.clone(),
@@ -452,10 +454,10 @@ fn send_feedback_when_target_value_changed(
 #[derive(Debug)]
 pub enum NormalMainTask {
     /// Clears all mappings and uses the passed ones.
-    UpdateAllMappings(MappingCompartment, Vec<NormalMainMapping>),
+    UpdateAllMappings(MappingCompartment, Vec<MainMapping>),
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
-    UpdateSingleMapping(MappingCompartment, Box<NormalMainMapping>),
+    UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
     /// Replaces the targets of all given mappings.
     ///
     /// Use this instead of `UpdateAllMappings` whenever existing modes should not be overwritten.
@@ -474,7 +476,7 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
-    LearnSource(NormalMappingSource),
+    LearnSource(CompoundMappingSource),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).
@@ -495,7 +497,7 @@ pub enum ControlMainTask {
 #[derive(Debug)]
 pub struct MainProcessorTargetUpdate {
     pub id: MappingId,
-    pub target: Option<ReaperTarget>,
+    pub target: Option<CompoundMappingTarget>,
     pub target_is_active: bool,
 }
 

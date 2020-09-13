@@ -1,6 +1,7 @@
 use crate::application::{
     ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel, SessionContext,
 };
+use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -62,8 +63,12 @@ impl MappingModelData {
         }
     }
 
-    pub fn to_model(&self, context: &SessionContext) -> MappingModel {
-        let mut model = MappingModel::default();
+    pub fn to_model(
+        &self,
+        compartment: MappingCompartment,
+        context: &SessionContext,
+    ) -> MappingModel {
+        let mut model = MappingModel::new(compartment);
         self.apply_to_model(&mut model, context);
         model
     }

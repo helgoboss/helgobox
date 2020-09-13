@@ -12,7 +12,7 @@ use std::convert::TryInto;
 #[serde(rename_all = "camelCase", default)]
 pub struct SourceModelData {
     pub category: SourceCategory,
-    // midi_type would be a better name but we needs backwards compatibility
+    // midi_type would be a better name but we need backwards compatibility
     pub r#type: MidiSourceType,
     #[serde(deserialize_with = "none_if_minus_one")]
     pub channel: Option<Channel>,

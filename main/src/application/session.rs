@@ -1,9 +1,8 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
-    ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainProcessor,
-    MappingCompartment, MidiControlInput, MidiFeedbackOutput, NormalMainMapping, NormalMainTask,
-    NormalMappingSource, NormalRealTimeMapping, NormalRealTimeTask, ReaperTarget,
-    PLUGIN_PARAMETER_COUNT,
+    CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
+    MainProcessor, Mapping, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
+    NormalMainTask, NormalRealTimeTask, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
@@ -46,8 +45,8 @@ pub struct Session {
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    source_touched_subject: LocalSubject<'static, NormalMappingSource, ()>,
-    mapping_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
+    source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
+    mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
     // will stay around as a ghost after the plug-in is removed.
     main_processor_registration: Option<RegistrationHandle<MainProcessor<WeakSession>>>,
@@ -90,7 +89,7 @@ impl Session {
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
-            mapping_subscriptions: vec![],
+            mapping_subscriptions: Default::default(),
             main_processor_registration: None,
             normal_main_task_channel,
             control_main_task_receiver,
@@ -355,11 +354,11 @@ impl Session {
             .merge(self.midi_feedback_output.changed())
     }
 
-    pub fn learn_source(&mut self, source: NormalMappingSource) {
+    pub fn learn_source(&mut self, source: CompoundMappingSource) {
         self.source_touched_subject.next(source);
     }
 
-    pub fn source_touched(&self) -> impl Event<NormalMappingSource> {
+    pub fn source_touched(&self) -> impl Event<CompoundMappingSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::StartLearnSource)
@@ -375,7 +374,7 @@ impl Session {
         compartment: MappingCompartment,
         weak_session: WeakSession,
     ) {
-        self.mapping_subscriptions = self.mappings[compartment]
+        self.mapping_subscriptions[compartment] = self.mappings[compartment]
             .iter()
             .map(|shared_mapping| {
                 // We don't need to take until "party is over" because if the session disappears,
@@ -449,7 +448,7 @@ impl Session {
     }
 
     pub fn add_default_mapping(&mut self, compartment: MappingCompartment) -> SharedMapping {
-        let mut mapping = MappingModel::default();
+        let mut mapping = MappingModel::new(compartment);
         mapping.name.set(self.generate_name_for_new_mapping());
         self.add_mapping(compartment, mapping)
     }
@@ -761,21 +760,21 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let processor_mapping = m
+        let (real_time_mapping, main_mapping) = m
             .with_context(&self.context)
-            .create_processor_mapping(&self.parameters);
-        let splintered = processor_mapping.splinter();
+            .create_processor_mapping(&self.parameters)
+            .splinter();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
                 compartment,
-                Box::new(splintered.1),
+                Box::new(main_mapping),
             ))
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleNormalMapping(
+            .send(NormalRealTimeTask::UpdateSingleMapping(
                 compartment,
-                splintered.0,
+                real_time_mapping,
             ))
             .unwrap();
     }
@@ -801,17 +800,15 @@ impl Session {
     /// Usually invoked whenever target conditions have changed, e.g. track selection.
     fn sync_all_mappings_light(&self) {
         for compartment in MappingCompartment::into_enum_iter() {
-            let splintered = self.create_and_splinter_mappings(compartment);
-            let main_target_updates = splintered
-                .main
-                .into_iter()
-                .map(|m| m.into_main_processor_target_update())
-                .collect();
-            let mappings_with_active_targets = splintered
-                .real_time
-                .into_iter()
+            let mappings = self.create_processor_mappings(compartment);
+            let mappings_with_active_targets = mappings
+                .iter()
                 .filter(|m| m.target_is_active())
                 .map(|m| m.id())
+                .collect();
+            let main_target_updates = mappings
+                .into_iter()
+                .map(|m| m.into_main_processor_target_update())
                 .collect();
             self.normal_real_time_task_sender
                 .send(NormalRealTimeTask::EnableMappingsExclusively(
@@ -848,42 +845,35 @@ impl Session {
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
-        let splintered = self.create_and_splinter_mappings(compartment);
+        let (real_time_mappings, main_mappings) = self
+            .create_processor_mappings(compartment)
+            .into_iter()
+            .map(|m| m.splinter())
+            .unzip();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateAllMappings(
                 compartment,
-                splintered.main,
+                main_mappings,
             ))
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateAllNormalMappings(
+            .send(NormalRealTimeTask::UpdateAllMappings(
                 compartment,
-                splintered.real_time,
+                real_time_mappings,
             ))
             .unwrap();
     }
 
-    /// Creates mappings from mapping models and splits them into different lists so they can be
-    /// distributed to different processors.
-    fn create_and_splinter_mappings(
-        &self,
-        compartment: MappingCompartment,
-    ) -> SplinteredProcessorMappings {
-        // At first we want a clean representation of each relevant mapping, without all the
-        // property stuff and so on.
-        let mappings: Vec<_> = self
-            .mappings(compartment)
+    /// Creates mappings from mapping models so they can be distributed to different processors.
+    fn create_processor_mappings(&self, compartment: MappingCompartment) -> Vec<Mapping> {
+        self.mappings(compartment)
             .map(|m| {
                 m.borrow()
                     .with_context(&self.context)
                     .create_processor_mapping(&self.parameters)
             })
-            .collect();
-        // Then we need to splinter each of it.
-        let (real_time, main): (Vec<_>, Vec<_>) =
-            mappings.into_iter().map(|m| m.splinter()).unzip();
-        SplinteredProcessorMappings { real_time, main }
+            .collect()
     }
 
     fn generate_name_for_new_mapping(&self) -> String {
@@ -917,11 +907,6 @@ impl Session {
 #[derive(Clone, Debug, Default)]
 pub struct ParameterSetting {
     pub custom_name: Option<String>,
-}
-
-struct SplinteredProcessorMappings {
-    real_time: Vec<NormalRealTimeMapping>,
-    main: Vec<NormalMainMapping>,
 }
 
 impl Drop for Session {

@@ -1,12 +1,12 @@
 use crate::domain::{
-    ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget,
+    ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, TargetCharacter,
+    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -38,50 +38,6 @@ impl ProcessorMappingOptions {
     }
 }
 
-#[derive(Debug)]
-pub struct NormalMapping {
-    id: MappingId,
-    source: NormalMappingSource,
-    mode: Mode,
-    target: Option<ReaperTarget>,
-    activation_condition: ActivationCondition,
-    options: ProcessorMappingOptions,
-}
-
-impl NormalMapping {
-    pub fn new(
-        id: MappingId,
-        source: NormalMappingSource,
-        mode: Mode,
-        target: Option<ReaperTarget>,
-        activation_condition: ActivationCondition,
-        options: ProcessorMappingOptions,
-    ) -> NormalMapping {
-        NormalMapping {
-            id,
-            source,
-            mode,
-            target,
-            activation_condition,
-            options,
-        }
-    }
-
-    pub fn splinter(self) -> (NormalRealTimeMapping, NormalMainMapping) {
-        let real_time_mapping =
-            NormalRealTimeMapping::new(self.id, self.source.clone(), self.options);
-        let main_mapping = NormalMainMapping::new(
-            self.id,
-            self.source.clone(),
-            self.mode.clone(),
-            self.target.clone(),
-            self.activation_condition,
-            self.options,
-        );
-        (real_time_mapping, main_mapping)
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct MappingId {
     uuid: Uuid,
@@ -95,99 +51,17 @@ impl MappingId {
     }
 }
 
-#[derive(Debug)]
-pub struct NormalRealTimeMapping {
-    id: MappingId,
-    source: NormalMappingSource,
-    options: ProcessorMappingOptions,
-}
-
-impl NormalRealTimeMapping {
-    pub fn new(
-        id: MappingId,
-        source: NormalMappingSource,
-        options: ProcessorMappingOptions,
-    ) -> NormalRealTimeMapping {
-        NormalRealTimeMapping {
-            source,
-            id,
-            options,
-        }
-    }
-
-    pub fn id(&self) -> MappingId {
-        self.id
-    }
-
-    pub fn control(&self, value: &NormalMappingSourceValue) -> Option<ControlValue> {
-        self.source.control(value)
-    }
-
-    pub fn consumes(&self, msg: RawShortMessage) -> bool {
-        self.source.consumes(&msg)
-    }
-
-    pub fn target_is_active(&self) -> bool {
-        self.options.target_is_active
-    }
-
-    pub fn control_is_effectively_on(&self) -> bool {
-        self.options.control_is_effectively_on()
-    }
-
-    pub fn update_target_activation(&mut self, is_active: bool) {
-        self.options.target_is_active = is_active;
-    }
-
-    pub fn update_mapping_activation(&mut self, is_active: bool) {
-        self.options.mapping_is_active = is_active;
-    }
-}
-
 const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(20);
 
 #[derive(Debug)]
-pub struct NormalMainMapping {
-    id: MappingId,
-    source: NormalMappingSource,
-    mode: Mode,
-    target: Option<ReaperTarget>,
+pub struct MainMapping {
+    core: MappingCore,
     activation_condition: ActivationCondition,
-    options: ProcessorMappingOptions,
-    time_of_last_control: Option<Instant>,
 }
 
-impl NormalMainMapping {
-    pub fn new(
-        id: MappingId,
-        source: NormalMappingSource,
-        mode: Mode,
-        target: Option<ReaperTarget>,
-        activation_condition: ActivationCondition,
-        options: ProcessorMappingOptions,
-    ) -> NormalMainMapping {
-        NormalMainMapping {
-            id,
-            source,
-            mode,
-            target,
-            activation_condition,
-            options,
-            time_of_last_control: None,
-        }
-    }
-
+impl MainMapping {
     pub fn id(&self) -> MappingId {
-        self.id
-    }
-
-    pub fn update_target(&mut self, update: MainProcessorTargetUpdate) {
-        self.target = update.target;
-        self.options.target_is_active = update.target_is_active;
-    }
-
-    pub fn update_activation(&mut self, is_active: bool) {
-        self.options.mapping_is_active = is_active;
+        self.core.id
     }
 
     /// Returns `Some` if this affects the mapping's activation state and if the resulting state
@@ -210,26 +84,49 @@ impl NormalMainMapping {
         }
     }
 
-    pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {
-        MainProcessorTargetUpdate {
-            id: self.id(),
-            target: self.target,
-            target_is_active: self.options.target_is_active,
-        }
+    pub fn update_activation(&mut self, is_active: bool) {
+        self.core.options.mapping_is_active = is_active;
     }
 
-    /// If `send_feedback_after_control` is on, this might return feedback.
-    pub fn control_if_enabled(&mut self, value: ControlValue) -> Option<NormalMappingSourceValue> {
+    pub fn update_target(&mut self, update: MainProcessorTargetUpdate) {
+        self.core.target = update.target;
+        self.core.options.target_is_active = update.target_is_active;
+    }
+
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.core.options.control_is_effectively_on()
+    }
+
+    pub fn feedback_is_effectively_on(&self) -> bool {
+        self.core.options.feedback_is_effectively_on()
+    }
+
+    pub fn source(&self) -> &CompoundMappingSource {
+        &self.core.source
+    }
+
+    pub fn target(&self) -> Option<&CompoundMappingTarget> {
+        self.core.target.as_ref()
+    }
+
+    /// Controls mode => target.
+    ///
+    /// Don't execute in real-time processor because this executes REAPER main-thread-only
+    /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    pub fn control_if_enabled(
+        &mut self,
+        value: ControlValue,
+    ) -> Option<CompoundMappingSourceValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
-        let target = match &self.target {
-            None => return None,
-            Some(t) => t,
+        let target = match &self.core.target {
+            Some(CompoundMappingTarget::Reaper(t)) => t,
+            _ => return None,
         };
-        if let Some(final_value) = self.mode.control(value, target) {
-            if self.options.prevent_echo_feedback {
-                self.time_of_last_control = Some(Instant::now());
+        if let Some(final_value) = self.core.mode.control(value, target) {
+            if self.core.options.prevent_echo_feedback {
+                self.core.time_of_last_control = Some(Instant::now());
             }
             target.control(final_value).unwrap();
             if target.supports_feedback() {
@@ -252,42 +149,26 @@ impl NormalMainMapping {
         }
     }
 
-    pub fn feedback_if_enabled(&self) -> Option<NormalMappingSourceValue> {
+    pub fn feedback_if_enabled(&self) -> Option<CompoundMappingSourceValue> {
         if !self.feedback_is_effectively_on() {
             return None;
         }
-        if let Some(t) = self.time_of_last_control {
+        if let Some(t) = self.core.time_of_last_control {
             if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
                 return None;
             }
         }
-        let target = match &self.target {
-            None => return None,
-            Some(t) => t,
+        let target = match &self.core.target {
+            Some(CompoundMappingTarget::Reaper(t)) => t,
+            _ => return None,
         };
         let target_value = target.current_value();
-        let modified_value = self.mode.feedback(target_value)?;
-        self.source.feedback(modified_value)
+        let modified_value = self.core.mode.feedback(target_value)?;
+        self.core.source.feedback(modified_value)
     }
 
-    pub fn source(&self) -> &NormalMappingSource {
-        &self.source
-    }
-
-    pub fn target(&self) -> Option<&ReaperTarget> {
-        self.target.as_ref()
-    }
-
-    pub fn control_is_effectively_on(&self) -> bool {
-        self.options.control_is_effectively_on()
-    }
-
-    pub fn feedback_is_effectively_on(&self) -> bool {
-        self.options.feedback_is_effectively_on()
-    }
-
-    fn feedback_after_control_if_enabled(&self) -> Option<NormalMappingSourceValue> {
-        if self.options.send_feedback_after_control {
+    fn feedback_after_control_if_enabled(&self) -> Option<CompoundMappingSourceValue> {
+        if self.core.options.send_feedback_after_control {
             self.feedback_if_enabled()
         } else {
             None
@@ -295,24 +176,129 @@ impl NormalMainMapping {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct RealTimeMapping {
+    core: MappingCore,
+}
+
+impl RealTimeMapping {
+    pub fn id(&self) -> MappingId {
+        self.core.id
+    }
+
+    pub fn control_is_effectively_on(&self) -> bool {
+        self.core.options.control_is_effectively_on()
+    }
+
+    pub fn feedback_is_effectively_on(&self) -> bool {
+        self.core.options.feedback_is_effectively_on()
+    }
+
+    pub fn update_target_activation(&mut self, is_active: bool) {
+        self.core.options.target_is_active = is_active;
+    }
+
+    pub fn update_activation(&mut self, is_active: bool) {
+        self.core.options.mapping_is_active = is_active;
+    }
+
+    pub fn source(&self) -> &CompoundMappingSource {
+        &self.core.source
+    }
+
+    pub fn target(&self) -> Option<&CompoundMappingTarget> {
+        self.core.target.as_ref()
+    }
+
+    pub fn consumes(&self, msg: RawShortMessage) -> bool {
+        self.core.source.consumes(&msg)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MappingCore {
+    id: MappingId,
+    source: CompoundMappingSource,
+    mode: Mode,
+    target: Option<CompoundMappingTarget>,
+    options: ProcessorMappingOptions,
+    time_of_last_control: Option<Instant>,
+}
+
+#[derive(Debug)]
+pub struct Mapping {
+    core: MappingCore,
+    activation_condition: ActivationCondition,
+}
+
+impl Mapping {
+    pub fn new(
+        id: MappingId,
+        source: CompoundMappingSource,
+        mode: Mode,
+        target: Option<CompoundMappingTarget>,
+        activation_condition: ActivationCondition,
+        options: ProcessorMappingOptions,
+    ) -> Mapping {
+        Mapping {
+            core: MappingCore {
+                id,
+                source,
+                mode,
+                target,
+                options,
+                time_of_last_control: None,
+            },
+            activation_condition,
+        }
+    }
+
+    pub fn id(&self) -> MappingId {
+        self.core.id
+    }
+
+    pub fn splinter(self) -> (RealTimeMapping, MainMapping) {
+        let real_time_mapping = RealTimeMapping {
+            core: self.core.clone(),
+        };
+        let main_mapping = MainMapping {
+            core: self.core,
+            activation_condition: self.activation_condition,
+        };
+        (real_time_mapping, main_mapping)
+    }
+
+    pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {
+        MainProcessorTargetUpdate {
+            id: self.core.id,
+            target: self.core.target,
+            target_is_active: self.core.options.target_is_active,
+        }
+    }
+
+    pub fn target_is_active(&self) -> bool {
+        self.core.options.target_is_active
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
-pub enum NormalMappingSource {
+pub enum CompoundMappingSource {
     Midi(MidiSource),
     Virtual(VirtualSource),
 }
 
-impl NormalMappingSource {
-    pub fn control(&self, value: &NormalMappingSourceValue) -> Option<ControlValue> {
-        use NormalMappingSource::*;
+impl CompoundMappingSource {
+    pub fn control(&self, value: &CompoundMappingSourceValue) -> Option<ControlValue> {
+        use CompoundMappingSource::*;
         match (self, value) {
-            (Midi(s), NormalMappingSourceValue::Midi(v)) => s.control(v),
-            (Virtual(s), NormalMappingSourceValue::Virtual(v)) => s.control(v),
+            (Midi(s), CompoundMappingSourceValue::Midi(v)) => s.control(v),
+            (Virtual(s), CompoundMappingSourceValue::Virtual(v)) => s.control(v),
             _ => None,
         }
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
-        use NormalMappingSource::*;
+        use CompoundMappingSource::*;
         match self {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
@@ -320,7 +306,7 @@ impl NormalMappingSource {
     }
 
     pub fn parse_control_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        use NormalMappingSource::*;
+        use CompoundMappingSource::*;
         match self {
             Midi(s) => s.parse_control_value(text),
             Virtual(s) => s.parse_control_value(text),
@@ -328,27 +314,27 @@ impl NormalMappingSource {
     }
 
     pub fn character(&self) -> SourceCharacter {
-        use NormalMappingSource::*;
+        use CompoundMappingSource::*;
         match self {
             Midi(s) => s.character(),
             Virtual(s) => s.character(),
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<NormalMappingSourceValue> {
-        use NormalMappingSource::*;
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<CompoundMappingSourceValue> {
+        use CompoundMappingSource::*;
         match self {
             Midi(s) => s
                 .feedback(feedback_value)
-                .map(NormalMappingSourceValue::Midi),
-            Virtual(s) => Some(NormalMappingSourceValue::Virtual(
+                .map(CompoundMappingSourceValue::Midi),
+            Virtual(s) => Some(CompoundMappingSourceValue::Virtual(
                 s.feedback(feedback_value),
             )),
         }
     }
 
     pub fn consumes(&self, msg: &impl ShortMessage) -> bool {
-        use NormalMappingSource::*;
+        use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
             Virtual(_) => false,
@@ -357,69 +343,33 @@ impl NormalMappingSource {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum NormalMappingSourceValue {
+pub enum CompoundMappingSourceValue {
     Midi(MidiSourceValue<RawShortMessage>),
     Virtual(VirtualSourceValue),
 }
 
-#[derive(Debug)]
-pub struct ControllerMapping {
-    source: MidiSource,
-    mode: Mode,
-    target: Option<ControllerMappingTarget>,
-    options: ProcessorMappingOptions,
-}
-
-#[derive(Debug)]
-pub struct VirtualMapping {
-    id: MappingId,
-    source: MidiSource,
-    mode: Mode,
-    target: VirtualTarget,
-    options: ProcessorMappingOptions,
-}
-
-impl VirtualMapping {
-    pub fn id(&self) -> MappingId {
-        self.id
-    }
-
-    pub fn control_is_effectively_on(&self) -> bool {
-        self.options.control_is_effectively_on()
-    }
-
-    pub fn feedback_is_effectively_on(&self) -> bool {
-        self.options.feedback_is_effectively_on()
-    }
-
-    pub fn consumes(&self, msg: RawShortMessage) -> bool {
-        self.source.consumes(&msg)
-    }
-
-    pub fn control(&self, value: &MidiSourceValue<RawShortMessage>) -> Option<VirtualSourceValue> {
-        let control_value = self.source.control(value)?;
-        Some(VirtualSourceValue::new(
-            self.target.control_element(),
-            control_value,
-        ))
-    }
-
-    pub fn feedback(
-        &self,
-        control_element: VirtualControlElement,
-        value: UnitValue,
-    ) -> Option<MidiSourceValue<RawShortMessage>> {
-        if self.target.control_element() != control_element {
-            return None;
-        }
-        self.source.feedback(value)
-    }
-}
-
 #[derive(Clone, PartialEq, Debug)]
-pub enum ControllerMappingTarget {
+pub enum CompoundMappingTarget {
     Reaper(ReaperTarget),
     Virtual(VirtualTarget),
+}
+
+impl CompoundMappingTarget {
+    pub fn control_type(&self) -> ControlType {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.control_type(),
+            Virtual(t) => t.control_type(),
+        }
+    }
+
+    pub fn character(&self) -> TargetCharacter {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.character(),
+            Virtual(t) => t.character(),
+        }
+    }
 }
 
 #[derive(
@@ -437,8 +387,8 @@ pub enum ControllerMappingTarget {
 )]
 #[repr(usize)]
 pub enum MappingCompartment {
-    #[display(fmt = "Primary mappings")]
-    PrimaryMappings,
     #[display(fmt = "Controller mappings")]
     ControllerMappings,
+    #[display(fmt = "Primary mappings")]
+    PrimaryMappings,
 }

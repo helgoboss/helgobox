@@ -1,15 +1,19 @@
 use crate::core::{prop, Prop};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::Target;
+use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
 use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
 use reaper_medium::TrackLocation;
 use rx_util::{Event, UnitEvent};
+use serde::{Deserialize, Serialize};
 
-use crate::application::SessionContext;
-use crate::domain::{ActionInvocationType, ReaperTarget, TargetCharacter, TransportAction};
+use crate::application::{SessionContext, VirtualControlElementType};
+use crate::domain::{
+    ActionInvocationType, CompoundMappingTarget, ReaperTarget, TargetCharacter, TransportAction,
+    VirtualControlElement, VirtualTarget,
+};
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt;
@@ -19,7 +23,13 @@ use std::fmt::{Display, Formatter};
 #[derive(Clone, Debug)]
 pub struct TargetModel {
     // # For all targets
-    pub r#type: Prop<TargetType>,
+    pub category: Prop<TargetCategory>,
+    // # For virtual targets
+    pub control_element_type: Prop<VirtualControlElementType>,
+    pub control_element_index: Prop<u32>,
+    // # For REAPER targets
+    // TODO-low Rename this to reaper_target_type
+    pub r#type: Prop<ReaperTargetType>,
     // # For action targets only
     // TODO-low Maybe replace Action with just command ID and/or command name
     pub action: Prop<Option<Action>>,
@@ -48,7 +58,10 @@ pub struct TargetModel {
 impl Default for TargetModel {
     fn default() -> Self {
         Self {
-            r#type: prop(TargetType::FxParameter),
+            category: prop(TargetCategory::Reaper),
+            control_element_type: prop(VirtualControlElementType::Continuous),
+            control_element_index: prop(0),
+            r#type: prop(ReaperTargetType::FxParameter),
             action: prop(None),
             action_invocation_type: prop(ActionInvocationType::Trigger),
             track: prop(VirtualTrack::This),
@@ -92,7 +105,8 @@ impl TargetModel {
 
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &SessionContext) {
         use ReaperTarget::*;
-        self.r#type.set(TargetType::from_target(target));
+        self.category.set(TargetCategory::Reaper);
+        self.r#type.set(ReaperTargetType::from_target(target));
         if let Some(track) = target.track() {
             self.track.set(virtualize_track(track.clone(), context));
         }
@@ -122,8 +136,9 @@ impl TargetModel {
 
     /// Fires whenever one of the properties of this model has changed
     pub fn changed(&self) -> impl UnitEvent {
-        self.r#type
+        self.category
             .changed()
+            .merge(self.r#type.changed())
             .merge(self.action.changed())
             .merge(self.action_invocation_type.changed())
             .merge(self.track.changed())
@@ -135,6 +150,8 @@ impl TargetModel {
             .merge(self.send_index.changed())
             .merge(self.select_exclusively.changed())
             .merge(self.transport_action.changed())
+            .merge(self.control_element_type.changed())
+            .merge(self.control_element_index.changed())
     }
 
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> TargetModelWithContext<'a> {
@@ -145,7 +162,10 @@ impl TargetModel {
     }
 
     pub fn supports_track(&self) -> bool {
-        use TargetType::*;
+        if !self.is_reaper() {
+            return false;
+        }
+        use ReaperTargetType::*;
         match self.r#type.get() {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackArm | TrackSelection
             | TrackMute | TrackSolo | TrackSendPan | FxEnable | FxPreset | AllTrackFxEnable => true,
@@ -154,7 +174,10 @@ impl TargetModel {
     }
 
     pub fn supports_send(&self) -> bool {
-        use TargetType::*;
+        if !self.is_reaper() {
+            return false;
+        }
+        use ReaperTargetType::*;
         match self.r#type.get() {
             TrackSendVolume | TrackSendPan => true,
             FxParameter | TrackVolume | TrackPan | TrackArm | TrackSelection | TrackMute
@@ -164,7 +187,10 @@ impl TargetModel {
     }
 
     pub fn supports_fx(&self) -> bool {
-        use TargetType::*;
+        if !self.is_reaper() {
+            return false;
+        }
+        use ReaperTargetType::*;
         match self.r#type.get() {
             FxParameter | FxEnable | FxPreset => true,
             TrackSendVolume | TrackSendPan | TrackVolume | TrackPan | TrackArm | TrackSelection
@@ -192,6 +218,16 @@ impl TargetModel {
             }
         }
         true
+    }
+
+    fn create_control_element(&self) -> VirtualControlElement {
+        self.control_element_type
+            .get()
+            .create_control_element(self.control_element_index.get())
+    }
+
+    fn is_reaper(&self) -> bool {
+        self.category.get() == TargetCategory::Reaper
     }
 
     fn command_id_label(&self) -> Cow<str> {
@@ -287,62 +323,71 @@ impl<'a> TargetModelWithContext<'a> {
     ///
     /// Returns an error if not enough information is provided by the model or if something (e.g.
     /// track/FX/parameter) is not available.
-    pub fn create_target(&self) -> Result<ReaperTarget, &'static str> {
-        use TargetType::*;
-        let target = match self.target.r#type.get() {
-            Action => ReaperTarget::Action {
-                action: self.target.action()?,
-                invocation_type: self.target.action_invocation_type.get(),
-                project: self.project(),
-            },
-            FxParameter => ReaperTarget::FxParameter {
-                param: self.fx_param()?,
-            },
-            TrackVolume => ReaperTarget::TrackVolume {
-                track: self.effective_track()?,
-            },
-            TrackSendVolume => ReaperTarget::TrackSendVolume {
-                send: self.track_send()?,
-            },
-            TrackPan => ReaperTarget::TrackPan {
-                track: self.effective_track()?,
-            },
-            TrackArm => ReaperTarget::TrackArm {
-                track: self.effective_track()?,
-            },
-            TrackSelection => ReaperTarget::TrackSelection {
-                track: self.effective_track()?,
-                select_exclusively: self.target.select_exclusively.get(),
-            },
-            TrackMute => ReaperTarget::TrackMute {
-                track: self.effective_track()?,
-            },
-            TrackSolo => ReaperTarget::TrackSolo {
-                track: self.effective_track()?,
-            },
-            TrackSendPan => ReaperTarget::TrackSendPan {
-                send: self.track_send()?,
-            },
-            Tempo => ReaperTarget::Tempo {
-                project: self.project(),
-            },
-            Playrate => ReaperTarget::Playrate {
-                project: self.project(),
-            },
-            FxEnable => ReaperTarget::FxEnable { fx: self.fx()? },
-            FxPreset => ReaperTarget::FxPreset { fx: self.fx()? },
-            SelectedTrack => ReaperTarget::SelectedTrack {
-                project: self.project(),
-            },
-            AllTrackFxEnable => ReaperTarget::AllTrackFxEnable {
-                track: self.effective_track()?,
-            },
-            Transport => ReaperTarget::Transport {
-                project: self.project(),
-                action: self.target.transport_action.get(),
-            },
-        };
-        Ok(target)
+    pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
+        use TargetCategory::*;
+        match self.target.category.get() {
+            Reaper => {
+                use ReaperTargetType::*;
+                let target = match self.target.r#type.get() {
+                    Action => ReaperTarget::Action {
+                        action: self.target.action()?,
+                        invocation_type: self.target.action_invocation_type.get(),
+                        project: self.project(),
+                    },
+                    FxParameter => ReaperTarget::FxParameter {
+                        param: self.fx_param()?,
+                    },
+                    TrackVolume => ReaperTarget::TrackVolume {
+                        track: self.effective_track()?,
+                    },
+                    TrackSendVolume => ReaperTarget::TrackSendVolume {
+                        send: self.track_send()?,
+                    },
+                    TrackPan => ReaperTarget::TrackPan {
+                        track: self.effective_track()?,
+                    },
+                    TrackArm => ReaperTarget::TrackArm {
+                        track: self.effective_track()?,
+                    },
+                    TrackSelection => ReaperTarget::TrackSelection {
+                        track: self.effective_track()?,
+                        select_exclusively: self.target.select_exclusively.get(),
+                    },
+                    TrackMute => ReaperTarget::TrackMute {
+                        track: self.effective_track()?,
+                    },
+                    TrackSolo => ReaperTarget::TrackSolo {
+                        track: self.effective_track()?,
+                    },
+                    TrackSendPan => ReaperTarget::TrackSendPan {
+                        send: self.track_send()?,
+                    },
+                    Tempo => ReaperTarget::Tempo {
+                        project: self.project(),
+                    },
+                    Playrate => ReaperTarget::Playrate {
+                        project: self.project(),
+                    },
+                    FxEnable => ReaperTarget::FxEnable { fx: self.fx()? },
+                    FxPreset => ReaperTarget::FxPreset { fx: self.fx()? },
+                    SelectedTrack => ReaperTarget::SelectedTrack {
+                        project: self.project(),
+                    },
+                    AllTrackFxEnable => ReaperTarget::AllTrackFxEnable {
+                        track: self.effective_track()?,
+                    },
+                    Transport => ReaperTarget::Transport {
+                        project: self.project(),
+                        action: self.target.transport_action.get(),
+                    },
+                };
+                Ok(CompoundMappingTarget::Reaper(target))
+            }
+            Virtual => {
+                let virtual_target = VirtualTarget::new(self.target.create_control_element());
+                Ok(CompoundMappingTarget::Virtual(virtual_target))
+            }
+        }
     }
 
     pub fn is_known_to_be_discrete(&self) -> bool {
@@ -362,9 +407,10 @@ impl<'a> TargetModelWithContext<'a> {
     pub fn is_known_to_be_roundable(&self) -> bool {
         // TODO-low use cached
         self.create_target()
-            .map(|t| t.is_roundable())
+            .map(|t| matches!(t.control_type(), ControlType::AbsoluteContinuousRoundable { .. }))
             .unwrap_or(false)
     }
+
     // Returns an error if the FX doesn't exist.
     pub fn fx(&self) -> Result<Fx, &'static str> {
         // Actually it's not that important whether we create an index-based or GUID-based FX.
@@ -524,61 +570,68 @@ pub fn get_effective_track(
 
 impl<'a> Display for TargetModelWithContext<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use TargetType::*;
-
-        match self.target.r#type.get() {
-            Action => write!(
-                f,
-                "Action {}\n{}",
-                self.target.command_id_label(),
-                self.target.action_name_label()
-            ),
-            FxParameter => write!(
-                f,
-                "Track FX parameter\nTrack {}\nFX {}\nParam {}",
-                self.target.track_label(),
-                self.fx_label(),
-                self.fx_param_label()
-            ),
-            TrackVolume => write!(f, "Track volume\nTrack {}", self.target.track_label()),
-            TrackSendVolume => write!(
-                f,
-                "Track send volume\nTrack {}\nSend {}",
-                self.target.track_label(),
-                self.track_send_label()
-            ),
-            TrackPan => write!(f, "Track pan\nTrack {}", self.target.track_label()),
-            TrackArm => write!(f, "Track arm\nTrack {}", self.target.track_label()),
-            TrackSelection => write!(f, "Track selection\nTrack {}", self.target.track_label()),
-            TrackMute => write!(f, "Track mute\nTrack {}", self.target.track_label()),
-            TrackSolo => write!(f, "Track solo\nTrack {}", self.target.track_label()),
-            TrackSendPan => write!(
-                f,
-                "Track send pan\nTrack {}\nSend {}",
-                self.target.track_label(),
-                self.track_send_label()
-            ),
-            Tempo => write!(f, "Master tempo"),
-            Playrate => write!(f, "Master playrate"),
-            FxEnable => write!(
-                f,
-                "Track FX enable\nTrack {}\nFX {}",
-                self.target.track_label(),
-                self.fx_label(),
-            ),
-            FxPreset => write!(
-                f,
-                "Track FX preset\nTrack {}\nFX {}",
-                self.target.track_label(),
-                self.fx_label(),
-            ),
-            SelectedTrack => write!(f, "Selected track",),
-            AllTrackFxEnable => write!(
-                f,
-                "Track FX all enable\nTrack {}",
-                self.target.track_label()
-            ),
-            Transport => write!(f, "Transport\n{}", self.target.transport_action.get()),
+        use TargetCategory::*;
+        match self.target.category.get() {
+            Reaper => {
+                use ReaperTargetType::*;
+                match self.target.r#type.get() {
+                    Action => write!(
+                        f,
+                        "Action {}\n{}",
+                        self.target.command_id_label(),
+                        self.target.action_name_label()
+                    ),
+                    FxParameter => write!(
+                        f,
+                        "Track FX parameter\nTrack {}\nFX {}\nParam {}",
+                        self.target.track_label(),
+                        self.fx_label(),
+                        self.fx_param_label()
+                    ),
+                    TrackVolume => write!(f, "Track volume\nTrack {}", self.target.track_label()),
+                    TrackSendVolume => write!(
+                        f,
+                        "Track send volume\nTrack {}\nSend {}",
+                        self.target.track_label(),
+                        self.track_send_label()
+                    ),
+                    TrackPan => write!(f, "Track pan\nTrack {}", self.target.track_label()),
+                    TrackArm => write!(f, "Track arm\nTrack {}", self.target.track_label()),
+                    TrackSelection => {
+                        write!(f, "Track selection\nTrack {}", self.target.track_label())
+                    }
+                    TrackMute => write!(f, "Track mute\nTrack {}", self.target.track_label()),
+                    TrackSolo => write!(f, "Track solo\nTrack {}", self.target.track_label()),
+                    TrackSendPan => write!(
+                        f,
+                        "Track send pan\nTrack {}\nSend {}",
+                        self.target.track_label(),
+                        self.track_send_label()
+                    ),
+                    Tempo => write!(f, "Master tempo"),
+                    Playrate => write!(f, "Master playrate"),
+                    FxEnable => write!(
+                        f,
+                        "Track FX enable\nTrack {}\nFX {}",
+                        self.target.track_label(),
+                        self.fx_label(),
+                    ),
+                    FxPreset => write!(
+                        f,
+                        "Track FX preset\nTrack {}\nFX {}",
+                        self.target.track_label(),
+                        self.fx_label(),
+                    ),
+                    SelectedTrack => write!(f, "Selected track",),
+                    AllTrackFxEnable => write!(
+                        f,
+                        "Track FX all enable\nTrack {}",
+                        self.target.track_label()
+                    ),
+                    Transport => write!(f, "Transport\n{}", self.target.transport_action.get()),
+                }
+            }
+            Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
         }
     }
 }
@@ -622,7 +675,7 @@ impl fmt::Display for VirtualTrack {
     Display,
 )]
 #[repr(usize)]
-pub enum TargetType {
+pub enum ReaperTargetType {
     #[display(fmt = "Action (limited feedback)")]
     Action = 0,
     #[display(fmt = "Track FX parameter")]
@@ -659,29 +712,52 @@ pub enum TargetType {
     Transport = 16,
 }
 
-impl TargetType {
-    pub fn from_target(target: &ReaperTarget) -> TargetType {
+impl ReaperTargetType {
+    pub fn from_target(target: &ReaperTarget) -> ReaperTargetType {
         use ReaperTarget::*;
         match target {
-            Action { .. } => TargetType::Action,
-            FxParameter { .. } => TargetType::FxParameter,
-            TrackVolume { .. } => TargetType::TrackVolume,
-            TrackSendVolume { .. } => TargetType::TrackSendVolume,
-            TrackPan { .. } => TargetType::TrackPan,
-            TrackArm { .. } => TargetType::TrackArm,
-            TrackSelection { .. } => TargetType::TrackSelection,
-            TrackMute { .. } => TargetType::TrackMute,
-            TrackSolo { .. } => TargetType::TrackSolo,
-            TrackSendPan { .. } => TargetType::TrackSendPan,
-            Tempo { .. } => TargetType::Tempo,
-            Playrate { .. } => TargetType::Playrate,
-            FxEnable { .. } => TargetType::FxEnable,
-            FxPreset { .. } => TargetType::FxPreset,
-            SelectedTrack { .. } => TargetType::SelectedTrack,
-            AllTrackFxEnable { .. } => TargetType::AllTrackFxEnable,
-            Transport { .. } => TargetType::Transport,
+            Action { .. } => ReaperTargetType::Action,
+            FxParameter { .. } => ReaperTargetType::FxParameter,
+            TrackVolume { .. } => ReaperTargetType::TrackVolume,
+            TrackSendVolume { .. } => ReaperTargetType::TrackSendVolume,
+            TrackPan { .. } => ReaperTargetType::TrackPan,
+            TrackArm { .. } => ReaperTargetType::TrackArm,
+            TrackSelection { .. } => ReaperTargetType::TrackSelection,
+            TrackMute { .. } => ReaperTargetType::TrackMute,
+            TrackSolo { .. } => ReaperTargetType::TrackSolo,
+            TrackSendPan { .. } => ReaperTargetType::TrackSendPan,
+            Tempo { .. } => ReaperTargetType::Tempo,
+            Playrate { .. } => ReaperTargetType::Playrate,
+            FxEnable { .. } => ReaperTargetType::FxEnable,
+            FxPreset { .. } => ReaperTargetType::FxPreset,
+            SelectedTrack { .. } => ReaperTargetType::SelectedTrack,
+            AllTrackFxEnable { .. } => ReaperTargetType::AllTrackFxEnable,
+            Transport { .. } => ReaperTargetType::Transport,
         }
     }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TargetCategory {
+    #[serde(rename = "reaper")]
+    #[display(fmt = "REAPER")]
+    Reaper,
+    #[serde(rename = "virtual")]
+    #[display(fmt = "Virtual")]
+    Virtual,
 }
 
 fn virtualize_track(track: Track, context: &SessionContext) -> VirtualTrack {

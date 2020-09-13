@@ -152,7 +152,9 @@ impl SessionData {
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             session.set_mappings_without_notification(
                 compartment,
-                mappings.iter().map(|m| m.to_model(&session_context)),
+                mappings
+                    .iter()
+                    .map(|m| m.to_model(compartment, &session_context)),
             );
         };
         apply_mappings(MappingCompartment::PrimaryMappings, &self.mappings);

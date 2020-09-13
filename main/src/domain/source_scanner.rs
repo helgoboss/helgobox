@@ -1,4 +1,4 @@
-use crate::domain::{NormalMappingSource, NormalMappingSourceValue, VirtualSource};
+use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{
     Channel, ControllerNumber, RawShortMessage, ShortMessage, StructuredShortMessage, U7,
@@ -61,11 +61,14 @@ impl ControlChangeState {
 }
 
 impl SourceScanner {
-    pub fn feed(&mut self, source_value: NormalMappingSourceValue) -> Option<NormalMappingSource> {
+    pub fn feed(
+        &mut self,
+        source_value: CompoundMappingSourceValue,
+    ) -> Option<CompoundMappingSource> {
         use State::*;
         match &mut self.state {
             Initial => {
-                use NormalMappingSourceValue::*;
+                use CompoundMappingSourceValue::*;
                 match source_value {
                     Midi(v) => {
                         if let MidiSourceValue::Plain(msg) = v {
@@ -81,19 +84,19 @@ impl SourceScanner {
                                 self.state = WaitingForMoreCcMsgs(cc_state);
                                 None
                             } else {
-                                MidiSource::from_source_value(v).map(NormalMappingSource::Midi)
+                                MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
                             }
                         } else {
-                            MidiSource::from_source_value(v).map(NormalMappingSource::Midi)
+                            MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
                         }
                     }
-                    Virtual(v) => Some(NormalMappingSource::Virtual(
+                    Virtual(v) => Some(CompoundMappingSource::Virtual(
                         VirtualSource::from_source_value(v),
                     )),
                 }
             }
             WaitingForMoreCcMsgs(cc_state) => {
-                use NormalMappingSourceValue::*;
+                use CompoundMappingSourceValue::*;
                 match source_value {
                     Midi(v) => {
                         if let MidiSourceValue::Plain(msg) = v {
@@ -108,7 +111,7 @@ impl SourceScanner {
                                 }
                             }
                         }
-                        self.guess_or_not().map(NormalMappingSource::Midi)
+                        self.guess_or_not().map(CompoundMappingSource::Midi)
                     }
                     Virtual(_) => None,
                 }
@@ -116,8 +119,8 @@ impl SourceScanner {
         }
     }
 
-    pub fn poll(&mut self) -> Option<NormalMappingSource> {
-        self.guess_or_not().map(NormalMappingSource::Midi)
+    pub fn poll(&mut self) -> Option<CompoundMappingSource> {
+        self.guess_or_not().map(CompoundMappingSource::Midi)
     }
 
     pub fn reset(&mut self) {

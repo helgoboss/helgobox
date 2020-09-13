@@ -6,8 +6,8 @@ use crate::application::{
     ProgramConditionModel, SessionContext, SourceModel, TargetModel, TargetModelWithContext,
 };
 use crate::domain::{
-    ActivationCondition, EelCondition, MappingId, NormalMapping, ProcessorMappingOptions,
-    ReaperTarget, TargetCharacter,
+    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition, Mapping,
+    MappingCompartment, MappingId, ProcessorMappingOptions, ReaperTarget, TargetCharacter,
 };
 use rx_util::UnitEvent;
 
@@ -15,6 +15,7 @@ use rx_util::UnitEvent;
 #[derive(Debug)]
 pub struct MappingModel {
     id: MappingId,
+    compartment: MappingCompartment,
     pub name: Prop<String>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
@@ -34,6 +35,7 @@ impl Clone for MappingModel {
     fn clone(&self) -> Self {
         Self {
             id: MappingId::random(),
+            compartment: self.compartment,
             name: self.name.clone(),
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
@@ -47,27 +49,6 @@ impl Clone for MappingModel {
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
-        }
-    }
-}
-
-impl Default for MappingModel {
-    fn default() -> Self {
-        Self {
-            id: MappingId::random(),
-            name: Default::default(),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
-            prevent_echo_feedback: prop(false),
-            send_feedback_after_control: prop(false),
-            activation_type: prop(ActivationType::Always),
-            modifier_condition_1: Default::default(),
-            modifier_condition_2: Default::default(),
-            program_condition: Default::default(),
-            eel_condition: Default::default(),
-            source_model: Default::default(),
-            mode_model: Default::default(),
-            target_model: Default::default(),
         }
     }
 }
@@ -88,6 +69,30 @@ impl PartialEq for MappingModel {
 }
 
 impl MappingModel {
+    pub fn new(compartment: MappingCompartment) -> Self {
+        Self {
+            id: MappingId::random(),
+            compartment,
+            name: Default::default(),
+            control_is_enabled: prop(true),
+            feedback_is_enabled: prop(true),
+            prevent_echo_feedback: prop(false),
+            send_feedback_after_control: prop(false),
+            activation_type: prop(ActivationType::Always),
+            modifier_condition_1: Default::default(),
+            modifier_condition_2: Default::default(),
+            program_condition: Default::default(),
+            eel_condition: Default::default(),
+            source_model: Default::default(),
+            mode_model: Default::default(),
+            target_model: Default::default(),
+        }
+    }
+
+    pub fn compartment(&self) -> MappingCompartment {
+        self.compartment
+    }
+
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
@@ -152,34 +157,34 @@ pub struct MappingModelWithContext<'a> {
 }
 
 impl<'a> MappingModelWithContext<'a> {
-    /// Creates a mapping for usage in real-time and main processors.
-    ///
-    /// `control_is_enabled` and `feedback_is_enabled` won't just reflect the manual setting
-    /// but also the mapping activation condition (e.g. modifiers) and the target condition
-    /// (e.g. "track selected" or "FX focused").
-    pub fn create_processor_mapping(&self, params: &[f32]) -> NormalMapping {
+    /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
+    /// then going to be distributed to real-time and main processor.
+    pub fn create_processor_mapping(&self, params: &[f32]) -> Mapping {
+        let id = self.mapping.id;
+        let source = self.mapping.source_model.create_source();
+        let mode = self.mapping.mode_model.create_mode();
         let target = self.target_with_context().create_target().ok();
         let activation_condition = self.create_activation_condition(params);
         let mapping_is_initially_active = activation_condition.is_fulfilled(params);
         let target_is_initially_active = match &target {
             None => false,
-            Some(t) => self.mapping.target_model.conditions_are_met(t),
+            Some(t) => {
+                use CompoundMappingTarget::*;
+                match t {
+                    Reaper(t) => self.mapping.target_model.conditions_are_met(t),
+                    Virtual(_) => true,
+                }
+            }
         };
-        NormalMapping::new(
-            self.mapping.id,
-            self.mapping.source_model.create_source(),
-            self.mapping.mode_model.create_mode(),
-            target,
-            activation_condition,
-            ProcessorMappingOptions {
-                mapping_is_active: mapping_is_initially_active,
-                target_is_active: target_is_initially_active,
-                control_is_enabled: self.mapping.control_is_enabled.get(),
-                feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
-                prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
-                send_feedback_after_control: self.mapping.send_feedback_after_control.get(),
-            },
-        )
+        let options = ProcessorMappingOptions {
+            mapping_is_active: mapping_is_initially_active,
+            target_is_active: target_is_initially_active,
+            control_is_enabled: self.mapping.control_is_enabled.get(),
+            feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
+            prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
+            send_feedback_after_control: self.mapping.send_feedback_after_control.get(),
+        };
+        Mapping::new(id, source, mode, target, activation_condition, options)
     }
 
     fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {
@@ -220,8 +225,12 @@ impl<'a> MappingModelWithContext<'a> {
                             true
                         } else {
                             match target.character() {
-                                TargetCharacter::Discrete | TargetCharacter::Continuous => true,
-                                TargetCharacter::Trigger | TargetCharacter::Switch => false,
+                                TargetCharacter::Discrete
+                                | TargetCharacter::Continuous
+                                | TargetCharacter::VirtualContinuous => true,
+                                TargetCharacter::Trigger
+                                | TargetCharacter::Switch
+                                | TargetCharacter::VirtualButton => false,
                             }
                         }
                     }
@@ -234,8 +243,8 @@ impl<'a> MappingModelWithContext<'a> {
 
     pub fn has_target(&self, target: &ReaperTarget) -> bool {
         match self.target_with_context().create_target() {
-            Ok(t) => t == *target,
-            Err(_) => false,
+            Ok(CompoundMappingTarget::Reaper(t)) => t == *target,
+            _ => false,
         }
     }
 
@@ -250,8 +259,10 @@ impl<'a> MappingModelWithContext<'a> {
                     Relative
                 } else {
                     match target.character() {
-                        TargetCharacter::Trigger | TargetCharacter::Continuous => Absolute,
-                        TargetCharacter::Switch => Toggle,
+                        TargetCharacter::Trigger
+                        | TargetCharacter::Continuous
+                        | TargetCharacter::VirtualContinuous => Absolute,
+                        TargetCharacter::Switch | TargetCharacter::VirtualButton => Toggle,
                         TargetCharacter::Discrete => Relative,
                     }
                 }

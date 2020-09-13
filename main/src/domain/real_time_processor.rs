@@ -1,7 +1,7 @@
 use crate::domain::{
-    ControlMainTask, ControllerMapping, MappingCompartment, MappingId, MidiClockCalculator,
-    NormalMainTask, NormalMappingSource, NormalMappingSourceValue, NormalRealTimeMapping,
-    SourceScanner, VirtualMapping, VirtualSourceValue,
+    CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, ControlMainTask,
+    MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask, RealTimeMapping,
+    SourceScanner, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -34,9 +34,7 @@ pub struct RealTimeProcessor {
     pub(crate) control_state: ControlState,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
-    pub(crate) virtual_mappings: HashMap<MappingId, VirtualMapping>,
-    pub(crate) normal_mappings:
-        EnumMap<MappingCompartment, HashMap<MappingId, NormalRealTimeMapping>>,
+    pub(crate) mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
     pub(crate) let_matched_events_through: bool,
     pub(crate) let_unmatched_events_through: bool,
     // Inter-thread communication
@@ -71,8 +69,7 @@ impl RealTimeProcessor {
             feedback_task_receiver,
             normal_main_task_sender,
             control_main_task_sender,
-            virtual_mappings: Default::default(),
-            normal_mappings: Default::default(),
+            mappings: Default::default(),
             let_matched_events_through: false,
             let_unmatched_events_through: false,
             nrpn_scanner: Default::default(),
@@ -115,36 +112,22 @@ impl RealTimeProcessor {
         for task in self.normal_task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             use NormalRealTimeTask::*;
             match task {
-                UpdateAllNormalMappings(compartment, mappings) => {
+                UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         Reaper::get().logger(),
-                        "Real-time processor: Updating all normal mappings"
+                        "Real-time processor: Updating all {}...", compartment
                     );
-                    self.normal_mappings[compartment] =
+                    self.mappings[compartment] =
                         mappings.into_iter().map(|m| (m.id(), m)).collect();
                 }
-                UpdateAllVirtualMappings(mappings) => {
+                UpdateSingleMapping(compartment, mapping) => {
                     debug!(
                         Reaper::get().logger(),
-                        "Real-time processor: Updating all virtual mappings"
-                    );
-                    self.virtual_mappings = mappings.into_iter().map(|m| (m.id(), m)).collect();
-                }
-                UpdateSingleNormalMapping(compartment, mapping) => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Updating normal mapping {:?}...",
+                        "Real-time processor: Updating single {} {:?}...",
+                        compartment,
                         mapping.id()
                     );
-                    self.normal_mappings[compartment].insert(mapping.id(), mapping);
-                }
-                UpdateSingleVirtualMapping(mapping) => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Updating virtual mapping {:?}...",
-                        mapping.id()
-                    );
-                    self.virtual_mappings.insert(mapping.id(), mapping);
+                    self.mappings[compartment].insert(mapping.id(), mapping);
                 }
                 EnableMappingsExclusively(compartment, mappings_to_enable) => {
                     // TODO-low We should use an own logger and always log the sample count
@@ -153,11 +136,12 @@ impl RealTimeProcessor {
                     // (timestamp is not accurate enough on e.g. selection changes).
                     debug!(
                         Reaper::get().logger(),
-                        "Real-time processor: Enable {} mappings at {} samples...",
+                        "Real-time processor: Enable {} {} at {} samples...",
                         mappings_to_enable.len(),
+                        compartment,
                         self.midi_clock_calculator.current_sample_count()
                     );
-                    for m in self.normal_mappings[compartment].values_mut() {
+                    for m in self.mappings[compartment].values_mut() {
                         m.update_target_activation(mappings_to_enable.contains(&m.id()));
                     }
                 }
@@ -211,8 +195,8 @@ impl RealTimeProcessor {
                         "Real-time processor: Update mapping activations..."
                     );
                     for update in activation_updates.into_iter() {
-                        if let Some(m) = self.normal_mappings[compartment].get_mut(&update.id) {
-                            m.update_mapping_activation(update.is_active);
+                        if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
+                            m.update_activation(update.is_active);
                         } else {
                             panic!(
                                 "Couldn't find real-time mapping while updating mapping activations"
@@ -231,7 +215,7 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(source_value) => {
-                    use NormalMappingSourceValue::*;
+                    use CompoundMappingSourceValue::*;
                     match source_value {
                         Midi(v) => self.feedback_midi(v),
                         Virtual(v) => self.feedback_virtual(v),
@@ -270,13 +254,13 @@ impl RealTimeProcessor {
             - Feedback task count: {} \n\
             ",
             self.control_state,
-            self.normal_mappings[MappingCompartment::PrimaryMappings].len(),
-            self.normal_mappings[MappingCompartment::PrimaryMappings]
+            self.mappings[MappingCompartment::PrimaryMappings].len(),
+            self.mappings[MappingCompartment::PrimaryMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on())
                 .count(),
-            self.normal_mappings[MappingCompartment::ControllerMappings].len(),
-            self.normal_mappings[MappingCompartment::ControllerMappings]
+            self.mappings[MappingCompartment::ControllerMappings].len(),
+            self.mappings[MappingCompartment::ControllerMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on())
                 .count(),
@@ -373,7 +357,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(NormalMappingSourceValue::Midi(source_value));
+                self.feed_source_scanner(CompoundMappingSourceValue::Midi(source_value));
             }
         }
     }
@@ -384,13 +368,13 @@ impl RealTimeProcessor {
         }
     }
 
-    fn feed_source_scanner(&mut self, value: NormalMappingSourceValue) {
+    fn feed_source_scanner(&mut self, value: CompoundMappingSourceValue) {
         if let Some(source) = self.source_scanner.feed(value) {
             self.learn_source(source);
         }
     }
 
-    fn learn_source(&mut self, source: NormalMappingSource) {
+    fn learn_source(&mut self, source: CompoundMappingSource) {
         self.normal_main_task_sender
             .send(NormalMainTask::LearnSource(source))
             .unwrap();
@@ -413,7 +397,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(NormalMappingSourceValue::Midi(source_value));
+                self.feed_source_scanner(CompoundMappingSourceValue::Midi(source_value));
             }
         }
     }
@@ -433,44 +417,48 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(NormalMappingSourceValue::Midi(source_value));
+                self.feed_source_scanner(CompoundMappingSourceValue::Midi(source_value));
             }
         }
     }
 
-    fn all_normal_mappings(&self) -> impl Iterator<Item = &NormalRealTimeMapping> {
+    fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {
         MappingCompartment::into_enum_iter()
-            .map(move |compartment| self.normal_mappings[compartment].values())
+            .map(move |compartment| self.mappings[compartment].values())
             .flatten()
     }
 
-    fn control_midi_normal_mappings(
+    fn control_midi_for_compartment(
         &self,
         compartment: MappingCompartment,
         value: MidiSourceValue<RawShortMessage>,
     ) -> bool {
         let mut matched = false;
-        for m in self.normal_mappings[compartment]
+        for m in self.mappings[compartment]
             .values()
             .filter(|m| m.control_is_effectively_on())
         {
-            if let Some(control_value) = m.control(&NormalMappingSourceValue::Midi(value)) {
-                self.control_main(compartment, m.id(), control_value);
-                matched = true;
-            }
-        }
-        matched
-    }
-
-    fn control_midi_virtual_mappings(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
-        let mut matched = false;
-        for m in self
-            .virtual_mappings
-            .values()
-            .filter(|m| m.control_is_effectively_on())
-        {
-            if let Some(virtual_value) = m.control(&value) {
-                if self.control_virtual(virtual_value) {
+            let target = match m.target() {
+                None => continue,
+                Some(t) => t,
+            };
+            if let Some(control_value) =
+                m.source().control(&CompoundMappingSourceValue::Midi(value))
+            {
+                use CompoundMappingTarget::*;
+                let mapping_matched = match target {
+                    Reaper(_) => {
+                        // Send to main processor because this needs to be done in main thread.
+                        self.control_main(compartment, m.id(), control_value);
+                        true
+                    }
+                    Virtual(t) => {
+                        let virtual_source_value =
+                            VirtualSourceValue::new(t.control_element(), control_value);
+                        self.control_virtual(virtual_source_value)
+                    }
+                };
+                if mapping_matched {
                     matched = true;
                 }
             }
@@ -480,9 +468,8 @@ impl RealTimeProcessor {
 
     /// Returns whether this source value matched one of the mappings.
     fn control_midi(&self, value: MidiSourceValue<RawShortMessage>) -> bool {
-        self.control_midi_normal_mappings(MappingCompartment::ControllerMappings, value)
-            | self.control_midi_normal_mappings(MappingCompartment::PrimaryMappings, value)
-            | self.control_midi_virtual_mappings(value)
+        self.control_midi_for_compartment(MappingCompartment::ControllerMappings, value)
+            | self.control_midi_for_compartment(MappingCompartment::PrimaryMappings, value)
     }
 
     /// Returns whether this source value matched one of the mappings.
@@ -491,11 +478,14 @@ impl RealTimeProcessor {
         // primary mappings.
         let compartment = MappingCompartment::PrimaryMappings;
         let mut matched = false;
-        for m in self.normal_mappings[compartment]
+        for m in self.mappings[compartment]
             .values()
             .filter(|m| m.control_is_effectively_on())
         {
-            if let Some(control_value) = m.control(&NormalMappingSourceValue::Virtual(value)) {
+            if let Some(control_value) = m
+                .source()
+                .control(&CompoundMappingSourceValue::Virtual(value))
+            {
                 self.control_main(compartment, m.id(), control_value);
                 matched = true;
             }
@@ -538,14 +528,7 @@ impl RealTimeProcessor {
     }
 
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
-        let consumed_by_normal_mappings = self
-            .all_normal_mappings()
-            .any(|m| m.control_is_effectively_on() && m.consumes(msg));
-        if consumed_by_normal_mappings {
-            return true;
-        }
-        self.virtual_mappings
-            .values()
+        self.all_mappings()
             .any(|m| m.control_is_effectively_on() && m.consumes(msg))
     }
 
@@ -575,12 +558,20 @@ impl RealTimeProcessor {
     fn feedback_virtual(&self, value: VirtualSourceValue) {
         if let ControlValue::Absolute(v) = value.control_value() {
             for m in self
-                .virtual_mappings
+                // Only controller mappings can have virtual targets.
+                .mappings[MappingCompartment::ControllerMappings]
                 .values()
                 .filter(|m| m.feedback_is_effectively_on())
             {
-                if let Some(midi_value) = m.feedback(value.control_element(), v) {
-                    self.feedback_midi(midi_value);
+                // TODO-low Mmh, very nested
+                if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                    if t.control_element() == value.control_element() {
+                        if let Some(CompoundMappingSourceValue::Midi(midi_value)) =
+                            m.source().feedback(v)
+                        {
+                            self.feedback_midi(midi_value);
+                        }
+                    }
                 }
             }
         }
@@ -614,10 +605,8 @@ impl RealTimeProcessor {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    UpdateAllNormalMappings(MappingCompartment, Vec<NormalRealTimeMapping>),
-    UpdateAllVirtualMappings(Vec<VirtualMapping>),
-    UpdateSingleNormalMapping(MappingCompartment, NormalRealTimeMapping),
-    UpdateSingleVirtualMapping(VirtualMapping),
+    UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
+    UpdateSingleMapping(MappingCompartment, RealTimeMapping),
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
@@ -645,7 +634,7 @@ pub struct MappingActivationUpdate {
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(NormalMappingSourceValue),
+    Feedback(CompoundMappingSourceValue),
 }
 
 impl Drop for RealTimeProcessor {
