@@ -14,7 +14,7 @@ use slog::debug;
 use std::collections::{HashMap, HashSet};
 
 use enum_iterator::IntoEnumIterator;
-use enum_map::EnumMap;
+use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
 use vst::api::{EventType, Events, MidiEvent};
 use vst::host::Host;
@@ -63,13 +63,17 @@ impl RealTimeProcessor {
         control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
         host_callback: HostCallback,
     ) -> RealTimeProcessor {
+        use MappingCompartment::*;
         RealTimeProcessor {
             control_state: ControlState::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
             normal_main_task_sender,
             control_main_task_sender,
-            mappings: Default::default(),
+            mappings: enum_map! {
+                ControllerMappings => HashMap::with_capacity(100),
+                PrimaryMappings => HashMap::with_capacity(500),
+            },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
             nrpn_scanner: Default::default(),
@@ -117,8 +121,9 @@ impl RealTimeProcessor {
                         Reaper::get().logger(),
                         "Real-time processor: Updating all {}...", compartment
                     );
-                    self.mappings[compartment] =
-                        mappings.into_iter().map(|m| (m.id(), m)).collect();
+                    for m in mappings.into_iter() {
+                        self.mappings[compartment].insert(m.id(), m);
+                    }
                 }
                 UpdateSingleMapping(compartment, mapping) => {
                     debug!(
