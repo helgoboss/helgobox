@@ -1812,7 +1812,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_TARGET_VALUE_SLIDER_CONTROL,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 root::ID_TARGET_VALUE_TEXT,
-                t.current_value(),
+                t.current_value().unwrap_or(UnitValue::MIN),
             )
         }
     }

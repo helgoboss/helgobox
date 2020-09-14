@@ -162,7 +162,7 @@ impl MainMapping {
             Some(CompoundMappingTarget::Reaper(t)) => t,
             _ => return None,
         };
-        let target_value = target.current_value();
+        let target_value = target.current_value()?;
         let modified_value = self.core.mode.feedback(target_value)?;
         self.core.source.feedback(modified_value)
     }
@@ -206,6 +206,10 @@ impl RealTimeMapping {
         &self.core.source
     }
 
+    pub fn mode(&mut self) -> &Mode {
+        &self.core.mode
+    }
+
     pub fn target(&self) -> Option<&CompoundMappingTarget> {
         self.core.target.as_ref()
     }
@@ -213,6 +217,46 @@ impl RealTimeMapping {
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
         self.core.source.consumes(&msg)
     }
+
+    pub fn control(
+        &mut self,
+        source_value: MidiSourceValue<RawShortMessage>,
+    ) -> Option<PartialControlMatch> {
+        let target = self.core.target.as_ref()?;
+        let control_value = self
+            .core
+            .source
+            .control(&CompoundMappingSourceValue::Midi(source_value))?;
+        use CompoundMappingTarget::*;
+        let result = match target {
+            Reaper(_) => {
+                // Send to main processor because this needs to be done in main thread.
+                PartialControlMatch::ForwardToMain(control_value)
+            }
+            Virtual(t) => {
+                // Determine resulting virtual control value in real-time processor.
+                // It's important to do that here. We need to know the result in order to
+                // return if there was actually a match of *real* non-virtual mappings.
+                // Unlike with REAPER targets, we also don't have threading issues here :)
+                let transformed_control_value = self.core.mode.control(control_value, t)?;
+                PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
+                    t.control_element(),
+                    transformed_control_value,
+                ))
+            }
+        };
+        Some(result)
+    }
+
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<CompoundMappingSourceValue> {
+        let transformed_feedback_value = self.core.mode.feedback(feedback_value)?;
+        self.core.source.feedback(transformed_feedback_value)
+    }
+}
+
+pub enum PartialControlMatch {
+    ProcessVirtual(VirtualSourceValue),
+    ForwardToMain(ControlValue),
 }
 
 #[derive(Clone, Debug)]

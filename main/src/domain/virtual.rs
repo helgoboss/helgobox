@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
 use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
-use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, Target, UnitValue};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt::Display;
 
@@ -18,16 +18,22 @@ impl VirtualTarget {
         self.control_element
     }
 
-    pub fn control_type(&self) -> ControlType {
+    pub fn character(&self) -> TargetCharacter {
+        TargetCharacter::from_control_type(self.control_type())
+    }
+}
+
+impl Target for VirtualTarget {
+    fn current_value(&self) -> Option<UnitValue> {
+        None
+    }
+
+    fn control_type(&self) -> ControlType {
         use VirtualControlElement::*;
         match self.control_element {
             Multi(_) => ControlType::VirtualMulti,
             Button(_) => ControlType::VirtualButton,
         }
-    }
-
-    pub fn character(&self) -> TargetCharacter {
-        TargetCharacter::from_control_type(self.control_type())
     }
 }
 

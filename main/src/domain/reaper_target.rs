@@ -889,9 +889,9 @@ impl ReaperTarget {
 }
 
 impl Target for ReaperTarget {
-    fn current_value(&self) -> UnitValue {
+    fn current_value(&self) -> Option<UnitValue> {
         use ReaperTarget::*;
-        match self {
+        let result = match self {
             Action { action, .. } => convert_bool_to_unit_value(action.is_on()),
             FxParameter { param } => {
                 let v = param
@@ -909,7 +909,7 @@ impl Target for ReaperTarget {
                         v,
                         param
                     );
-                    return UnitValue::MAX;
+                    return Some(UnitValue::MAX);
                 }
                 UnitValue::new(v)
             }
@@ -942,7 +942,8 @@ impl Target for ReaperTarget {
                     Repeat => convert_bool_to_unit_value(project.repeat_is_enabled()),
                 }
             }
-        }
+        };
+        Some(result)
     }
 
     fn control_type(&self) -> ControlType {
