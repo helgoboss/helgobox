@@ -242,6 +242,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     compartment,
                     mapping_id,
                     value,
+                    options,
                 } => {
                     if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
                         // Most of the time, the main processor won't even receive a control
@@ -252,7 +253,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         // selected") and the real-time processor doesn't yet know about it, there
                         // might be a short amount of time where we still receive control
                         // statements. We filter them here.
-                        let feedback = m.control_if_enabled(value);
+                        let feedback = m.control_if_enabled(value, options);
                         self.send_feedback(feedback);
                     };
                 }
@@ -491,7 +492,14 @@ pub enum ControlMainTask {
         compartment: MappingCompartment,
         mapping_id: MappingId,
         value: ControlValue,
+        options: ControlOptions,
     },
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub struct ControlOptions {
+    pub enforce_prevent_echo_feedback: bool,
+    pub enforce_send_feedback_after_control: bool,
 }
 
 #[derive(Debug)]

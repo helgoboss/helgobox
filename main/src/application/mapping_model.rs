@@ -1,6 +1,6 @@
 use crate::core::{prop, Prop};
 use helgoboss_learn::{
-    AbsoluteMode, Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
+    AbsoluteMode, ControlType, Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
 };
 
 use crate::application::{
@@ -10,7 +10,7 @@ use crate::application::{
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition,
     ExtendedSourceCharacter, Mapping, MappingCompartment, MappingId, ProcessorMappingOptions,
-    ReaperTarget, TargetCharacter,
+    RealearnTarget, ReaperTarget, TargetCharacter,
 };
 use rx_util::UnitEvent;
 
@@ -281,8 +281,20 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn uses_step_counts(&self) -> bool {
-        let target = self.target_with_context();
-        target.is_known_to_be_relative() || target.is_known_to_be_discrete()
+        let target = match self.target_with_context().create_target().ok() {
+            None => return false,
+            Some(t) => t,
+        };
+        match target.control_type() {
+            ControlType::AbsoluteTrigger => false,
+            ControlType::AbsoluteSwitch => false,
+            ControlType::AbsoluteContinuous => false,
+            ControlType::AbsoluteContinuousRoundable { .. } => false,
+            ControlType::AbsoluteDiscrete { .. } => true,
+            ControlType::Relative => true,
+            ControlType::VirtualMulti => true,
+            ControlType::VirtualButton => false,
+        }
     }
 
     fn preferred_step_interval(&self) -> Interval<SymmetricUnitValue> {

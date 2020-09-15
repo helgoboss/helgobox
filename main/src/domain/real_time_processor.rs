@@ -1,7 +1,7 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, ControlMainTask,
-    MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask, PartialControlMatch,
-    RealTimeMapping, SourceScanner, VirtualSourceValue,
+    ControlOptions, MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask,
+    PartialControlMatch, RealTimeMapping, SourceScanner, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -433,58 +433,53 @@ impl RealTimeProcessor {
             .flatten()
     }
 
-    fn control_midi_for_compartment(
+    /// Returns whether this source value matched one of the mappings.
+    fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
+        let matched_controller = if let [ref mut controller_mappings, ref primary_mappings] =
+            self.mappings.as_mut_slice()
+        {
+            control_midi_virtual_and_reaper_targets(
+                &self.control_main_task_sender,
+                controller_mappings,
+                primary_mappings,
+                value,
+            )
+        } else {
+            unreachable!()
+        };
+        let matched_primary =
+            self.control_midi_reaper_targets(MappingCompartment::PrimaryMappings, value);
+        matched_primary || matched_controller
+    }
+
+    fn control_midi_reaper_targets(
         &mut self,
         compartment: MappingCompartment,
-        value: MidiSourceValue<RawShortMessage>,
+        source_value: MidiSourceValue<RawShortMessage>,
     ) -> bool {
         let mut matched = false;
-        for m in self.mappings[compartment]
-            .values_mut()
-            .filter(|m| m.control_is_effectively_on())
-        {
-            if let Some(control_match) = m.control(value) {
-                use PartialControlMatch::*;
-                let mapping_matched = match control_match {
-                    ProcessVirtual(virtual_source_value) => control_virtual(
-                        &self.control_main_task_sender,
-                        // TODO-high CONTINUE 2 possibilities to fix this issue:
-                        // 1. Collect virtual source values into smallvec and do the iteration
-                        //    after releasing self.mappings
-                        // 2. Splitting self.mappings into self.mappings and self.virtual_mappings,
-                        //    handle the splitting here in this processor. This is a bit harder to
-                        //    to do but has the advantage of being faster in general. Less virtual
-                        //    controller mappings to iterate? No. Less primary mappings to iterate?
-                        //    Actually also no.
-                        // 3. Just split into self.mappings and self.controller_mappings. Then:
-                        //    2.1 Process self.mappings with MIDI sources (the normal procedure)
-                        //    2.2 Process controller mappings. When REAPER target, process normal.
-                        //        When virtual target, process self.mappings with virtual sources.
-                        &self.mappings,
-                        virtual_source_value,
-                    ),
-                    ForwardToMain(control_value) => {
-                        control_main(
-                            &self.control_main_task_sender,
-                            compartment,
-                            m.id(),
-                            control_value,
-                        );
-                        true
-                    }
-                };
-                if mapping_matched {
-                    matched = true;
-                }
+        for m in self.mappings[compartment].values_mut().filter(|m| {
+            m.control_is_effectively_on()
+                && matches!(m.target(), Some(CompoundMappingTarget::Reaper(_)))
+        }) {
+            if let Some(control_value) = m
+                .source()
+                .control(&CompoundMappingSourceValue::Midi(source_value))
+            {
+                control_main(
+                    &self.control_main_task_sender,
+                    compartment,
+                    m.id(),
+                    control_value,
+                    ControlOptions {
+                        enforce_prevent_echo_feedback: false,
+                        enforce_send_feedback_after_control: false,
+                    },
+                );
+                matched = true;
             }
         }
         matched
-    }
-
-    /// Returns whether this source value matched one of the mappings.
-    fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
-        self.control_midi_for_compartment(MappingCompartment::ControllerMappings, value)
-            | self.control_midi_for_compartment(MappingCompartment::PrimaryMappings, value)
     }
 
     fn process_matched_short(&self, msg: RawShortMessage) {
@@ -641,16 +636,65 @@ pub enum MidiFeedbackOutput {
     Device(MidiOutputDevice),
 }
 
+fn control_midi_virtual_and_reaper_targets(
+    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    primary_mappings: &HashMap<MappingId, RealTimeMapping>,
+    value: MidiSourceValue<RawShortMessage>,
+) -> bool {
+    let mut matched = false;
+    for m in controller_mappings
+        .values_mut()
+        .filter(|m| m.control_is_effectively_on())
+    {
+        if let Some(control_match) = m.control(value) {
+            use PartialControlMatch::*;
+            let mapping_matched = match control_match {
+                ProcessVirtual(virtual_source_value) => control_virtual(
+                    sender,
+                    primary_mappings,
+                    virtual_source_value,
+                    ControlOptions {
+                        enforce_prevent_echo_feedback: m.options().prevent_echo_feedback,
+                        enforce_send_feedback_after_control: m
+                            .options()
+                            .send_feedback_after_control,
+                    },
+                ),
+                ForwardToMain(control_value) => {
+                    control_main(
+                        sender,
+                        MappingCompartment::PrimaryMappings,
+                        m.id(),
+                        control_value,
+                        ControlOptions {
+                            enforce_prevent_echo_feedback: false,
+                            enforce_send_feedback_after_control: false,
+                        },
+                    );
+                    true
+                }
+            };
+            if mapping_matched {
+                matched = true;
+            }
+        }
+    }
+    matched
+}
+
 fn control_main(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     compartment: MappingCompartment,
     mapping_id: MappingId,
     value: ControlValue,
+    options: ControlOptions,
 ) {
     let task = ControlMainTask::Control {
         compartment,
         mapping_id,
         value,
+        options,
     };
     sender.send(task).unwrap();
 }
@@ -658,14 +702,14 @@ fn control_main(
 /// Returns whether this source value matched one of the mappings.
 fn control_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    mappings: &EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
+    primary_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: VirtualSourceValue,
+    options: ControlOptions,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // primary mappings.
-    let compartment = MappingCompartment::PrimaryMappings;
     let mut matched = false;
-    for m in mappings[compartment]
+    for m in primary_mappings
         .values()
         .filter(|m| m.control_is_effectively_on())
     {
@@ -673,7 +717,13 @@ fn control_virtual(
             .source()
             .control(&CompoundMappingSourceValue::Virtual(value))
         {
-            control_main(sender, compartment, m.id(), control_value);
+            control_main(
+                sender,
+                MappingCompartment::PrimaryMappings,
+                m.id(),
+                control_value,
+                options,
+            );
             matched = true;
         }
     }

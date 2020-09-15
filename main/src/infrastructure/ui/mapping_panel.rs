@@ -30,8 +30,8 @@ use crate::application::{
     WeakSession,
 };
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, MappingCompartment, ReaperTarget, TargetCharacter,
-    TransportAction, PLUGIN_PARAMETER_COUNT,
+    ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
+    TargetCharacter, TransportAction, PLUGIN_PARAMETER_COUNT,
 };
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
@@ -276,11 +276,8 @@ fn decorate_reaction(
 }
 
 impl<'a> MutableMappingPanel<'a> {
-    fn real_target(&self) -> Option<ReaperTarget> {
-        match self.target_with_context().create_target() {
-            Ok(CompoundMappingTarget::Reaper(t)) => Some(t),
-            _ => None,
-        }
+    fn real_target(&self) -> Option<CompoundMappingTarget> {
+        self.target_with_context().create_target().ok()
     }
 
     fn open_target(&self) {
@@ -1136,10 +1133,18 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mapping_activation_control_visibilities(&self) {
+        let show = self.mapping.compartment() != MappingCompartment::ControllerMappings;
         let activation_type = self.mapping.activation_type.get();
         self.show_if(
-            activation_type == ActivationType::Modifiers
-                || activation_type == ActivationType::Program,
+            show,
+            &[
+                root::ID_MAPPING_ACTIVATION_LABEL,
+                root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX,
+            ],
+        );
+        self.show_if(
+            show && (activation_type == ActivationType::Modifiers
+                || activation_type == ActivationType::Program),
             &[
                 root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
@@ -1148,14 +1153,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            activation_type == ActivationType::Modifiers,
+            show && activation_type == ActivationType::Modifiers,
             &[
                 root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
             ],
         );
         self.show_if(
-            activation_type == ActivationType::Eel,
+            show && activation_type == ActivationType::Eel,
             &[
                 root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_EDIT_CONTROL,
@@ -1491,7 +1496,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.show_if(
             self.target.category.get() == TargetCategory::Reaper,
             &[
-                root::ID_TARGET_FX_PARAMETER_LABEL_TEXT,
+                root::ID_TARGET_VALUE_LABEL_TEXT,
                 root::ID_TARGET_VALUE_SLIDER_CONTROL,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 root::ID_TARGET_VALUE_TEXT,
@@ -2009,72 +2014,92 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_control_visibilities(&self) {
         let mode = self.mode;
-        // self.show_if(
-        //     mode.supports_round_target_value()
-        //         && self.target_with_context().is_known_to_be_roundable(),
-        //     &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
-        // );
-        // self.show_if(
-        //     mode.supports_reverse(),
-        //     &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
-        // );
-        // self.show_if(
-        //     mode.supports_approach_target_value(),
-        //     &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
-        // );
-        // self.show_if(
-        //     mode.supports_rotate(),
-        //     &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
-        // );
-        // self.show_if(
-        //     mode.supports_out_of_range_behavior(),
-        //     &[
-        //         root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
-        //         root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
-        //     ],
-        // );
-        // self.show_if(
-        //     mode.supports_steps() || mode.supports_press_duration(),
-        //     &[
-        //         root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
-        //         root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
-        //         root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-        //         root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-        //         root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-        //         root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
-        //         root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-        //         root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-        //         root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-        //     ],
-        // );
-        // self.show_if(
-        //     mode.supports_jump(),
-        //     &[
-        //         root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
-        //         root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
-        //         root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
-        //         root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-        //         root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
-        //         root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
-        //         root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
-        //         root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-        //         root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
-        //     ],
-        // );
-        // self.show_if(
-        //     mode.supports_eel_control_transformation(),
-        //     &[
-        //         root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
-        //         root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
-        //     ],
-        // );
-        // self.show_if(
-        //     mode.supports_eel_feedback_transformation(),
-        //     &[
-        //         root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
-        //         root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
-        //     ],
-        // );
+        let target = match self.real_target() {
+            None => return,
+            Some(t) => t,
+        };
+        let show_round_controls = mode.supports_round_target_value()
+            && self.target_with_context().is_known_to_be_roundable();
+        self.show_if(
+            show_round_controls,
+            &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_reverse(),
+            &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
+        );
+        let show_jump_controls = mode.supports_jump() && target.can_report_current_value();
+        self.show_if(
+            show_jump_controls,
+            &[
+                root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
+            ],
+        );
+        self.show_if(
+            show_jump_controls && mode.supports_approach_target_value(),
+            &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_out_of_range_behavior(),
+            &[
+                root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
+                root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
+            ],
+        );
+        self.show_if(
+            target.can_report_current_value(),
+            &[
+                root::ID_SETTINGS_TARGET_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
+            ],
+        );
+        self.show_if(
+            mode.supports_steps(),
+            &[
+                root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+            ],
+        );
+        self.show_if(
+            mode.supports_rotate() && target.can_report_current_value(),
+            &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_eel_control_transformation(),
+            &[
+                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
+                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
+            ],
+        );
+        self.show_if(
+            mode.supports_eel_feedback_transformation(),
+            &[
+                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
+                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+            ],
+        );
     }
 
     fn invalidate_mode_source_value_controls(&self) {
@@ -2176,7 +2201,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn get_text_right_to_step_size_edit_control(
         &self,
-        t: &ReaperTarget,
+        t: &CompoundMappingTarget,
         step_size: UnitValue,
     ) -> String {
         if t.hide_formatted_step_size() {
@@ -2190,7 +2215,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn get_text_right_to_target_edit_control(&self, t: &ReaperTarget, value: UnitValue) -> String {
+    fn get_text_right_to_target_edit_control(
+        &self,
+        t: &CompoundMappingTarget,
+        value: UnitValue,
+    ) -> String {
         if t.hide_formatted_value() {
             t.value_unit().to_string()
         } else if t.character() == TargetCharacter::Discrete {
@@ -2619,11 +2648,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn real_target(&self) -> Option<ReaperTarget> {
-        match self.target_with_context().create_target() {
-            Ok(CompoundMappingTarget::Reaper(t)) => Some(t),
-            _ => None,
-        }
+    fn real_target(&self) -> Option<CompoundMappingTarget> {
+        self.target_with_context().create_target().ok()
     }
 }
 
@@ -2785,7 +2811,7 @@ impl View for MappingPanel {
             }
             s if s == sliders.target_value => {
                 if let Ok(Some(t)) = self.read(|p| p.real_target()) {
-                    update_target_value(t, s.slider_unit_value());
+                    update_target_value(&t, s.slider_unit_value());
                 }
             }
             _ => unreachable!(),
@@ -2860,7 +2886,7 @@ impl View for MappingPanel {
                     (p.real_target(), value)
                 });
                 if let Some(t) = target {
-                    update_target_value(t, value);
+                    update_target_value(&t, value);
                 }
             }
             _ => return false,
@@ -2931,7 +2957,7 @@ enum PositiveOrSymmetricUnitValue {
     Symmetric(SymmetricUnitValue),
 }
 
-fn update_target_value(target: ReaperTarget, value: UnitValue) {
+fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
     // If it doesn't work in some cases, so what.
     let _ = target.control(ControlValue::Absolute(value));
 }

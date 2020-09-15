@@ -1,6 +1,7 @@
 use crate::domain::{
-    ActivationCondition, MainProcessorTargetUpdate, Mode, ReaperTarget, TargetCharacter,
-    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
+    ActivationCondition, ControlOptions, MainProcessorTargetUpdate, Mode, RealearnTarget,
+    ReaperTarget, TargetCharacter, VirtualControlElement, VirtualSource, VirtualSourceValue,
+    VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -116,6 +117,7 @@ impl MainMapping {
     pub fn control_if_enabled(
         &mut self,
         value: ControlValue,
+        options: ControlOptions,
     ) -> Option<CompoundMappingSourceValue> {
         if !self.control_is_effectively_on() {
             return None;
@@ -125,7 +127,7 @@ impl MainMapping {
             _ => return None,
         };
         if let Some(final_value) = self.core.mode.control(value, target) {
-            if self.core.options.prevent_echo_feedback {
+            if self.core.options.prevent_echo_feedback || options.enforce_prevent_echo_feedback {
                 self.core.time_of_last_control = Some(Instant::now());
             }
             target.control(final_value).unwrap();
@@ -138,14 +140,14 @@ impl MainMapping {
                 // The target value was changed but the target doesn't support feedback. If
                 // `send_feedback_after_control` is enabled, we at least send feedback after we
                 // know it has been changed.
-                self.feedback_after_control_if_enabled()
+                self.feedback_after_control_if_enabled(options)
             }
         } else {
             // The target value was not changed. If `send_feedback_after_control` is enabled, we
             // still send feedback - this can be useful with controllers which insist controlling
             // the LED on their own. The feedback sent by ReaLearn will fix this self-controlled
             // LED state.
-            self.feedback_after_control_if_enabled()
+            self.feedback_after_control_if_enabled(options)
         }
     }
 
@@ -167,8 +169,13 @@ impl MainMapping {
         self.core.source.feedback(modified_value)
     }
 
-    fn feedback_after_control_if_enabled(&self) -> Option<CompoundMappingSourceValue> {
-        if self.core.options.send_feedback_after_control {
+    fn feedback_after_control_if_enabled(
+        &self,
+        options: ControlOptions,
+    ) -> Option<CompoundMappingSourceValue> {
+        if self.core.options.send_feedback_after_control
+            || options.enforce_send_feedback_after_control
+        {
             self.feedback_if_enabled()
         } else {
             None
@@ -216,6 +223,10 @@ impl RealTimeMapping {
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
         self.core.source.consumes(&msg)
+    }
+
+    pub fn options(&self) -> &ProcessorMappingOptions {
+        &self.core.options
     }
 
     pub fn control(
@@ -398,20 +409,134 @@ pub enum CompoundMappingTarget {
     Virtual(VirtualTarget),
 }
 
-impl CompoundMappingTarget {
-    pub fn control_type(&self) -> ControlType {
-        use CompoundMappingTarget::*;
-        match self {
-            Reaper(t) => t.control_type(),
-            Virtual(t) => t.control_type(),
-        }
-    }
-
-    pub fn character(&self) -> TargetCharacter {
+impl RealearnTarget for CompoundMappingTarget {
+    fn character(&self) -> TargetCharacter {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.character(),
             Virtual(t) => t.character(),
+        }
+    }
+
+    fn open(&self) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.open(),
+            Virtual(_) => {}
+        };
+    }
+    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.parse_as_value(text),
+            Virtual(_) => Err("not supported for virtual targets"),
+        }
+    }
+
+    /// Parses the given text as a target step size and returns it as unit value.
+    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.parse_as_step_size(text),
+            Virtual(_) => Err("not supported for virtual targets"),
+        }
+    }
+
+    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.convert_unit_value_to_discrete_value(input),
+            Virtual(_) => Err("not supported for virtual targets"),
+        }
+    }
+
+    fn format_value_without_unit(&self, value: UnitValue) -> String {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.format_value_without_unit(value),
+            Virtual(_) => String::new(),
+        }
+    }
+
+    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.format_step_size_without_unit(step_size),
+            Virtual(_) => String::new(),
+        }
+    }
+
+    fn hide_formatted_value(&self) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.hide_formatted_value(),
+            Virtual(_) => false,
+        }
+    }
+
+    fn hide_formatted_step_size(&self) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.hide_formatted_step_size(),
+            Virtual(_) => false,
+        }
+    }
+
+    fn value_unit(&self) -> &'static str {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.value_unit(),
+            Virtual(_) => "",
+        }
+    }
+
+    fn step_size_unit(&self) -> &'static str {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.step_size_unit(),
+            Virtual(_) => "",
+        }
+    }
+
+    fn format_value(&self, value: UnitValue) -> String {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.format_value(value),
+            Virtual(_) => String::new(),
+        }
+    }
+
+    fn control(&self, value: ControlValue) -> Result<(), &'static str> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.control(value),
+            Virtual(_) => Err("not supported for virtual targets"),
+        }
+    }
+
+    fn can_report_current_value(&self) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.can_report_current_value(),
+            Virtual(_) => false,
+        }
+    }
+}
+
+impl Target for CompoundMappingTarget {
+    fn current_value(&self) -> Option<UnitValue> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.current_value(),
+            Virtual(t) => t.current_value(),
+        }
+    }
+
+    fn control_type(&self) -> ControlType {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.control_type(),
+            Virtual(t) => t.control_type(),
         }
     }
 }

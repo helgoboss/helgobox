@@ -157,11 +157,12 @@ impl ModeModel {
     }
 
     pub fn supports_reverse(&self) -> bool {
-        use AbsoluteMode::*;
-        matches!(self.r#type.get(), Normal | IncrementalButtons)
+        // For feedback always relevant
+        true
     }
 
     pub fn supports_out_of_range_behavior(&self) -> bool {
+        // For feedback always relevant
         true
     }
 
@@ -186,11 +187,13 @@ impl ModeModel {
     }
 
     pub fn supports_steps(&self) -> bool {
-        self.r#type.get() == AbsoluteMode::IncrementalButtons
+        // No matter which absolute mode, incoming relative values always support this
+        true
     }
 
     pub fn supports_rotate(&self) -> bool {
-        self.r#type.get() == AbsoluteMode::IncrementalButtons
+        // No matter which absolute mode, incoming relative values always support this
+        true
     }
 
     fn positive_step_size_interval(&self) -> Interval<UnitValue> {

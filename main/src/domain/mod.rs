@@ -16,6 +16,9 @@ pub use mode::*;
 mod eel_transformation;
 pub use eel_transformation::*;
 
+mod realearn_target;
+pub use realearn_target::*;
+
 mod reaper_target;
 pub use reaper_target::*;
 
