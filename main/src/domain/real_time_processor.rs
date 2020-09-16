@@ -472,7 +472,6 @@ impl RealTimeProcessor {
                     m.id(),
                     control_value,
                     ControlOptions {
-                        enforce_prevent_echo_feedback: false,
                         enforce_send_feedback_after_control: false,
                     },
                 );
@@ -541,9 +540,7 @@ impl RealTimeProcessor {
                 // TODO-low Mmh, very nested
                 if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
                     if t.control_element() == value.control_element() {
-                        if let Some(CompoundMappingSourceValue::Midi(midi_value)) =
-                            m.source().feedback(v)
-                        {
+                        if let Some(midi_value) = m.feedback(v) {
                             self.feedback_midi(midi_value);
                         }
                     }
@@ -655,7 +652,12 @@ fn control_midi_virtual_and_reaper_targets(
                     primary_mappings,
                     virtual_source_value,
                     ControlOptions {
-                        enforce_prevent_echo_feedback: m.options().prevent_echo_feedback,
+                        // We inherit "Send feedback after control" to the main processor if it's
+                        // enabled for the virtual mapping. That's the easy way to do it.
+                        // Downside: If multiple real control elements are mapped to one virtual
+                        // control element, "feedback after control" will be sent to all of those,
+                        // which is technically not necessary. It would be enough to just send it
+                        // to the one that was touched. However, it also doesn't really hurt.
                         enforce_send_feedback_after_control: m
                             .options()
                             .send_feedback_after_control,
@@ -668,7 +670,6 @@ fn control_midi_virtual_and_reaper_targets(
                         m.id(),
                         control_value,
                         ControlOptions {
-                            enforce_prevent_echo_feedback: false,
                             enforce_send_feedback_after_control: false,
                         },
                     );

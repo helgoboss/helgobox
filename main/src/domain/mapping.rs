@@ -127,7 +127,7 @@ impl MainMapping {
             _ => return None,
         };
         if let Some(final_value) = self.core.mode.control(value, target) {
-            if self.core.options.prevent_echo_feedback || options.enforce_prevent_echo_feedback {
+            if self.core.options.prevent_echo_feedback {
                 self.core.time_of_last_control = Some(Instant::now());
             }
             target.control(final_value).unwrap();
@@ -250,6 +250,9 @@ impl RealTimeMapping {
                 // return if there was actually a match of *real* non-virtual mappings.
                 // Unlike with REAPER targets, we also don't have threading issues here :)
                 let transformed_control_value = self.core.mode.control(control_value, t)?;
+                if self.core.options.prevent_echo_feedback {
+                    self.core.time_of_last_control = Some(Instant::now());
+                }
                 PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
                     t.control_element(),
                     transformed_control_value,
@@ -259,9 +262,20 @@ impl RealTimeMapping {
         Some(result)
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<CompoundMappingSourceValue> {
-        let transformed_feedback_value = self.core.mode.feedback(feedback_value)?;
-        self.core.source.feedback(transformed_feedback_value)
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<MidiSourceValue<RawShortMessage>> {
+        if let Some(t) = self.core.time_of_last_control {
+            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
+                return None;
+            }
+        }
+        let modified_value = self.core.mode.feedback(feedback_value)?;
+        if let Some(CompoundMappingSourceValue::Midi(midi_value)) =
+            self.core.source.feedback(modified_value)
+        {
+            Some(midi_value)
+        } else {
+            None
+        }
     }
 }
 

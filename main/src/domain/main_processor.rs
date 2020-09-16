@@ -498,7 +498,6 @@ pub enum ControlMainTask {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ControlOptions {
-    pub enforce_prevent_echo_feedback: bool,
     pub enforce_send_feedback_after_control: bool,
 }
 
