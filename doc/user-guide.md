@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-09-10 (v1.11.0-pre3)</code></td>
+  <td><code>2020-09-10 (v1.11.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-09-10 (v1.11.0-pre3)</code></td>
+  <td><code>2020-09-10 (v1.11.0)</code></td>
 </tr>
 </table>
 
