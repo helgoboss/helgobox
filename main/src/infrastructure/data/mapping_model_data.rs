@@ -45,12 +45,12 @@ impl Default for MappingModelData {
 }
 
 impl MappingModelData {
-    pub fn from_model(model: &MappingModel, context: &SessionContext) -> MappingModelData {
+    pub fn from_model(model: &MappingModel) -> MappingModelData {
         MappingModelData {
             name: model.name.get_ref().clone(),
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
-            target: TargetModelData::from_model(&model.target_model, context),
+            target: TargetModelData::from_model(&model.target_model),
             control_is_enabled: model.control_is_enabled.get(),
             feedback_is_enabled: model.feedback_is_enabled.get(),
             prevent_echo_feedback: model.prevent_echo_feedback.get(),

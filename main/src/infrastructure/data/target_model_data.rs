@@ -74,7 +74,7 @@ impl Default for TargetModelData {
 }
 
 impl TargetModelData {
-    pub fn from_model(model: &TargetModel, _context: &SessionContext) -> Self {
+    pub fn from_model(model: &TargetModel) -> Self {
         let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
             category: model.category.get(),

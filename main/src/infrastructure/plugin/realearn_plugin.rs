@@ -28,6 +28,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::application::{session_manager, Session, SessionContext, SharedSession};
+use crate::infrastructure::plugin::app::App;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -290,6 +291,7 @@ impl RealearnPlugin {
                     // being dropped when the plug-in is removed. It
                     // doesn't result in a crash, but there's no cleanup.
                     Rc::downgrade(&main_panel),
+                    App::get().controller_manager(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);

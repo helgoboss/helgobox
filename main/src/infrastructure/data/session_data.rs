@@ -54,7 +54,7 @@ impl SessionData {
         let from_mappings = |compartment| {
             session
                 .mappings(compartment)
-                .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
+                .map(|m| MappingModelData::from_model(m.borrow().deref()))
                 .collect()
         };
         SessionData {

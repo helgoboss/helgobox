@@ -8,6 +8,10 @@ use slog::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+// TODO-low Consider making this a part of App (infrastructure level). Then we don't need to have
+//  so much top-level static mut stuff.
+/// static mut maybe okay because we access this via `sessions()` function only and this one checks
+/// the thread before returning the reference.
 static mut SESSIONS: Lazy<RefCell<Vec<WeakSession>>> = Lazy::new(|| RefCell::new(vec![]));
 
 /// Panics if not in main thread.

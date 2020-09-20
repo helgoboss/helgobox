@@ -7,7 +7,8 @@ use crate::domain::{
 use helgoboss_learn::MidiSource;
 
 use crate::application::{
-    session_manager, share_mapping, MappingModel, SessionContext, SharedMapping, TargetModel,
+    session_manager, share_mapping, ControllerManager, MappingModel, SessionContext, SharedMapping,
+    TargetModel,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -41,6 +42,7 @@ pub struct Session {
     // We want that learn works independently of the UI, so they are session properties.
     pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
     pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
+    active_controller_id: Option<String>,
     context: SessionContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
@@ -61,6 +63,7 @@ pub struct Session {
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     parameter_settings: Vec<ParameterSetting>,
+    controller_manager: Box<dyn ControllerManager>,
 }
 
 impl Session {
@@ -74,6 +77,7 @@ impl Session {
         ),
         control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         ui: impl SessionUi + 'static,
+        controller_manager: impl ControllerManager + 'static,
     ) -> Session {
         Self {
             let_matched_events_through: prop(false),
@@ -84,6 +88,7 @@ impl Session {
             midi_feedback_output: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
+            active_controller_id: None,
             context,
             mappings: Default::default(),
             everything_changed_subject: Default::default(),
@@ -99,6 +104,7 @@ impl Session {
             ui: WrapDebug(Box::new(ui)),
             parameters: [0.0; PLUGIN_PARAMETER_COUNT as usize],
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
+            controller_manager: Box::new(controller_manager),
         }
     }
 
@@ -602,6 +608,38 @@ impl Session {
 
     pub fn containing_fx_is_in_input_fx_chain(&self) -> bool {
         self.context.containing_fx().is_input_fx()
+    }
+
+    pub fn active_controller_id(&self) -> Option<&str> {
+        self.active_controller_id.as_ref().map(|s| s.as_str())
+    }
+
+    pub fn activate_controller(
+        &mut self,
+        id: Option<String>,
+        weak_session: WeakSession,
+    ) -> Result<(), &str> {
+        match id.as_ref() {
+            None => {
+                self.set_mappings_without_notification(
+                    MappingCompartment::ControllerMappings,
+                    std::iter::empty(),
+                );
+            }
+            Some(id) => {
+                let controller = self
+                    .controller_manager
+                    .find_by_id(id)
+                    .ok_or("controller not found")?;
+                self.set_mappings_without_notification(
+                    MappingCompartment::ControllerMappings,
+                    controller.mappings(),
+                );
+            }
+        };
+        self.active_controller_id = id;
+        self.notify_everything_has_changed(weak_session);
+        Ok(())
     }
 
     fn containing_fx_enabled_or_disabled(&self) -> impl UnitEvent {

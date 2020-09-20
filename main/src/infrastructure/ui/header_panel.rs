@@ -19,6 +19,7 @@ use std::rc::Rc;
 
 use crate::application::{SharedSession, WeakSession};
 use crate::infrastructure::data::SessionData;
+use crate::infrastructure::plugin::App;
 use enum_iterator::IntoEnumIterator;
 use std::convert::TryInto;
 use swell_ui::{SharedView, View, ViewContext, Window};
@@ -152,6 +153,7 @@ impl HeaderPanel {
         self.invalidate_midi_control_input_combo_box();
         self.invalidate_midi_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
+        self.invalidate_preset_combo_box();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_send_feedback_only_if_armed_check_box();
@@ -169,6 +171,58 @@ impl HeaderPanel {
         self.view
             .require_control(root::ID_COMPARTMENT_COMBO_BOX)
             .select_combo_box_item(self.active_compartment().into());
+    }
+
+    fn invalidate_preset_controls(&self) {
+        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+        let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
+        let save_as_button = self.view.require_control(root::ID_PRESET_SAVE_AS_BUTTON);
+        if self.main_state.borrow().active_compartment.get()
+            == MappingCompartment::ControllerMappings
+        {
+            combo.show();
+            save_button.show();
+            save_as_button.show();
+            self.invalidate_preset_combo_box();
+        } else {
+            combo.hide();
+            save_button.hide();
+            save_as_button.hide();
+        }
+    }
+
+    fn invalidate_preset_combo_box(&self) {
+        self.fill_preset_combo_box();
+        self.invalidate_preset_combo_box_value();
+    }
+
+    fn fill_preset_combo_box(&self) {
+        self.view
+            .require_control(root::ID_PRESET_COMBO_BOX)
+            .fill_combo_box_with_data_small(
+                vec![(-1isize, "<None>".to_string())].into_iter().chain(
+                    App::get()
+                        .controller_manager()
+                        .borrow()
+                        .controllers()
+                        .enumerate()
+                        .map(|(i, c)| (i as isize, c.to_string())),
+                ),
+            );
+    }
+
+    fn invalidate_preset_combo_box_value(&self) {
+        let index = match self.session().borrow().active_controller_id() {
+            None => -1isize,
+            Some(id) => App::get()
+                .controller_manager()
+                .borrow()
+                .find_index_by_id(id)
+                .expect("no controller found for ID") as isize,
+        };
+        self.view
+            .require_control(root::ID_PRESET_COMBO_BOX)
+            .select_combo_box_item_by_data(index);
     }
 
     fn fill_compartment_combo_box(&self) {
@@ -304,6 +358,23 @@ impl HeaderPanel {
                 .try_into()
                 .expect("invalid compartment"),
         );
+    }
+
+    fn update_preset(&self) {
+        let controller_manager = App::get().controller_manager();
+        let controller_manager = controller_manager.borrow();
+        let controller = match self
+            .view
+            .require_control(root::ID_PRESET_COMBO_BOX)
+            .selected_combo_box_item_data()
+        {
+            -1 => None,
+            i if i >= 0 => controller_manager.find_by_index(i as usize),
+            _ => unreachable!(),
+        };
+        self.session()
+            .borrow_mut()
+            .activate_controller(controller.map(|c| c.id().to_string()), self.session.clone());
     }
 
     fn invalidate_let_matched_events_through_check_box(&self) {
@@ -478,6 +549,7 @@ impl HeaderPanel {
         );
         self.when(main_state.active_compartment.changed(), |view| {
             view.invalidate_compartment_combo_box();
+            view.invalidate_preset_controls();
         });
     }
 
@@ -547,6 +619,7 @@ impl View for HeaderPanel {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
             ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
+            ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
     }

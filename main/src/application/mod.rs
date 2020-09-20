@@ -21,5 +21,8 @@ pub use target_model::*;
 mod aliases;
 pub use aliases::*;
 
+mod controller;
+pub use controller::*;
+
 mod conditional_activation_model;
 pub use conditional_activation_model::*;
