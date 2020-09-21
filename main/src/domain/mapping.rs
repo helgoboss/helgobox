@@ -1,7 +1,7 @@
 use crate::domain::{
     ActivationCondition, ControlOptions, MainProcessorTargetUpdate, Mode, RealearnTarget,
-    ReaperTarget, TargetCharacter, VirtualControlElement, VirtualSource, VirtualSourceValue,
-    VirtualTarget,
+    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
+    VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -12,6 +12,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::application::SessionContext;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -92,6 +93,14 @@ impl MainMapping {
     pub fn update_target(&mut self, update: MainProcessorTargetUpdate) {
         self.core.target = update.target;
         self.core.options.target_is_active = update.target_is_active;
+    }
+
+    pub fn resolve(&mut self, context: &SessionContext) {
+        self.core.target = self
+            .core
+            .unresolved_target
+            .as_ref()
+            .and_then(|t| t.resolve(context).ok());
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
@@ -213,12 +222,15 @@ impl RealTimeMapping {
         &self.core.source
     }
 
-    pub fn mode(&mut self) -> &Mode {
-        &self.core.mode
+    pub fn target(&self) -> Option<&UnresolvedCompoundMappingTarget> {
+        self.core.unresolved_target.as_ref()
     }
 
-    pub fn target(&self) -> Option<&CompoundMappingTarget> {
-        self.core.target.as_ref()
+    pub fn has_reaper_target(&self) -> bool {
+        match self.core.unresolved_target {
+            Some(UnresolvedCompoundMappingTarget::Reaper(_)) => true,
+            _ => false,
+        }
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
@@ -289,6 +301,7 @@ pub struct MappingCore {
     id: MappingId,
     source: CompoundMappingSource,
     mode: Mode,
+    unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     target: Option<CompoundMappingTarget>,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
@@ -305,7 +318,7 @@ impl Mapping {
         id: MappingId,
         source: CompoundMappingSource,
         mode: Mode,
-        target: Option<CompoundMappingTarget>,
+        unresolved_target: Option<UnresolvedCompoundMappingTarget>,
         activation_condition: ActivationCondition,
         options: ProcessorMappingOptions,
     ) -> Mapping {
@@ -314,7 +327,8 @@ impl Mapping {
                 id,
                 source,
                 mode,
-                target,
+                unresolved_target,
+                target: None,
                 options,
                 time_of_last_control: None,
             },
@@ -415,6 +429,23 @@ impl CompoundMappingSource {
 pub enum CompoundMappingSourceValue {
     Midi(MidiSourceValue<RawShortMessage>),
     Virtual(VirtualSourceValue),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum UnresolvedCompoundMappingTarget {
+    Reaper(UnresolvedReaperTarget),
+    Virtual(VirtualTarget),
+}
+
+impl UnresolvedCompoundMappingTarget {
+    pub fn resolve(&self, context: &SessionContext) -> Result<CompoundMappingTarget, &'static str> {
+        use UnresolvedCompoundMappingTarget::*;
+        let resolved = match self {
+            Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context)?),
+            Virtual(t) => CompoundMappingTarget::Virtual(t.clone()),
+        };
+        Ok(resolved)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]

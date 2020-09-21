@@ -1,7 +1,8 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, ControlMainTask,
     ControlOptions, MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask,
-    PartialControlMatch, RealTimeMapping, SourceScanner, VirtualSourceValue,
+    PartialControlMatch, RealTimeMapping, SourceScanner, UnresolvedCompoundMappingTarget,
+    VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -458,10 +459,10 @@ impl RealTimeProcessor {
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> bool {
         let mut matched = false;
-        for m in self.mappings[compartment].values_mut().filter(|m| {
-            m.control_is_effectively_on()
-                && matches!(m.target(), Some(CompoundMappingTarget::Reaper(_)))
-        }) {
+        for m in self.mappings[compartment]
+            .values_mut()
+            .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
+        {
             if let Some(control_value) = m
                 .source()
                 .control(&CompoundMappingSourceValue::Midi(source_value))
@@ -538,7 +539,7 @@ impl RealTimeProcessor {
                 .filter(|m| m.feedback_is_effectively_on())
             {
                 // TODO-low Mmh, very nested
-                if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                if let Some(UnresolvedCompoundMappingTarget::Virtual(t)) = m.target() {
                     if t.control_element() == value.control_element() {
                         if let Some(midi_value) = m.feedback(v) {
                             self.feedback_midi(midi_value);

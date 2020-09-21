@@ -22,6 +22,9 @@ pub use realearn_target::*;
 mod reaper_target;
 pub use reaper_target::*;
 
+mod unresolved_reaper_target;
+pub use unresolved_reaper_target::*;
+
 mod r#virtual;
 pub use r#virtual::*;
 

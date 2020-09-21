@@ -166,28 +166,25 @@ impl<'a> MappingModelWithContext<'a> {
         let id = self.mapping.id;
         let source = self.mapping.source_model.create_source();
         let mode = self.mapping.mode_model.create_mode();
-        let target = self.target_with_context().create_target().ok();
+        let unresolved_target = self.mapping.target_model.create_target().ok();
         let activation_condition = self.create_activation_condition(params);
-        let mapping_is_initially_active = activation_condition.is_fulfilled(params);
-        let target_is_initially_active = match &target {
-            None => false,
-            Some(t) => {
-                use CompoundMappingTarget::*;
-                match t {
-                    Reaper(t) => self.mapping.target_model.conditions_are_met(t),
-                    Virtual(_) => true,
-                }
-            }
-        };
         let options = ProcessorMappingOptions {
-            mapping_is_active: mapping_is_initially_active,
-            target_is_active: target_is_initially_active,
+            // TODO-medium Encapsulate, don't set here
+            mapping_is_active: false,
+            target_is_active: false,
             control_is_enabled: self.mapping.control_is_enabled.get(),
             feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
             prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
             send_feedback_after_control: self.mapping.send_feedback_after_control.get(),
         };
-        Mapping::new(id, source, mode, target, activation_condition, options)
+        Mapping::new(
+            id,
+            source,
+            mode,
+            unresolved_target,
+            activation_condition,
+            options,
+        )
     }
 
     fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {

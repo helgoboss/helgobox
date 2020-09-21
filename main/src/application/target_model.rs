@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::{SessionContext, VirtualControlElementType};
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, ReaperTarget, TargetCharacter, TransportAction,
+    ActionInvocationType, CompoundMappingTarget, FxDescriptor, ReaperTarget, TargetCharacter,
+    TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
     VirtualControlElement, VirtualTarget,
 };
 use serde_repr::*;
@@ -152,6 +153,90 @@ impl TargetModel {
             .merge(self.transport_action.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
+    }
+
+    fn track_descriptor(&self) -> TrackDescriptor {
+        TrackDescriptor {
+            track: self.track.get_ref().clone(),
+            enable_only_if_track_selected: self.enable_only_if_track_selected.get(),
+        }
+    }
+
+    fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
+        let desc = FxDescriptor {
+            track_descriptor: self.track_descriptor(),
+            is_input_fx: self.is_input_fx.get(),
+            fx_index: self.fx_index.get().ok_or("FX index not set")?,
+            fx_guid: self.fx_guid.get_ref().clone(),
+            enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus.get(),
+        };
+        Ok(desc)
+    }
+
+    pub fn create_target(&self) -> Result<UnresolvedCompoundMappingTarget, &'static str> {
+        use TargetCategory::*;
+        match self.category.get() {
+            Reaper => {
+                use ReaperTargetType::*;
+                let target = match self.r#type.get() {
+                    Action => UnresolvedReaperTarget::Action {
+                        action: self.action()?,
+                        invocation_type: self.action_invocation_type.get(),
+                    },
+                    FxParameter => UnresolvedReaperTarget::FxParameter {
+                        fx_descriptor: self.fx_descriptor()?,
+                        fx_param_index: self.param_index.get(),
+                    },
+                    TrackVolume => UnresolvedReaperTarget::TrackVolume {
+                        track_descriptor: self.track_descriptor(),
+                    },
+                    TrackSendVolume => UnresolvedReaperTarget::TrackSendVolume {
+                        track_descriptor: self.track_descriptor(),
+                        send_index: self.send_index.get().ok_or("send index not set")?,
+                    },
+                    TrackPan => UnresolvedReaperTarget::TrackPan {
+                        track_descriptor: self.track_descriptor(),
+                    },
+                    TrackArm => UnresolvedReaperTarget::TrackArm {
+                        track_descriptor: self.track_descriptor(),
+                    },
+                    TrackSelection => UnresolvedReaperTarget::TrackSelection {
+                        track_descriptor: self.track_descriptor(),
+                        select_exclusively: self.select_exclusively.get(),
+                    },
+                    TrackMute => UnresolvedReaperTarget::TrackMute {
+                        track_descriptor: self.track_descriptor(),
+                    },
+                    TrackSolo => UnresolvedReaperTarget::TrackSolo {
+                        track_descriptor: self.track_descriptor(),
+                    },
+                    TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
+                        track_descriptor: self.track_descriptor(),
+                        send_index: self.send_index.get().ok_or("send index not set")?,
+                    },
+                    Tempo => UnresolvedReaperTarget::Tempo,
+                    Playrate => UnresolvedReaperTarget::Playrate,
+                    FxEnable => UnresolvedReaperTarget::FxEnable {
+                        fx_descriptor: self.fx_descriptor()?,
+                    },
+                    FxPreset => UnresolvedReaperTarget::FxPreset {
+                        fx_descriptor: self.fx_descriptor()?,
+                    },
+                    SelectedTrack => UnresolvedReaperTarget::SelectedTrack,
+                    AllTrackFxEnable => UnresolvedReaperTarget::AllTrackFxEnable {
+                        track_descriptor: self.track_descriptor(),
+                    },
+                    Transport => UnresolvedReaperTarget::Transport {
+                        action: self.transport_action.get(),
+                    },
+                };
+                Ok(UnresolvedCompoundMappingTarget::Reaper(target))
+            }
+            Virtual => {
+                let virtual_target = VirtualTarget::new(self.create_control_element());
+                Ok(UnresolvedCompoundMappingTarget::Virtual(virtual_target))
+            }
+        }
     }
 
     pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> TargetModelWithContext<'a> {
