@@ -62,8 +62,36 @@ pub struct MainMapping {
 }
 
 impl MainMapping {
+    pub fn new(
+        id: MappingId,
+        source: CompoundMappingSource,
+        mode: Mode,
+        unresolved_target: Option<UnresolvedCompoundMappingTarget>,
+        activation_condition: ActivationCondition,
+        options: ProcessorMappingOptions,
+    ) -> MainMapping {
+        MainMapping {
+            core: MappingCore {
+                id,
+                source,
+                mode,
+                unresolved_target,
+                target: None,
+                options,
+                time_of_last_control: None,
+            },
+            activation_condition,
+        }
+    }
+
     pub fn id(&self) -> MappingId {
         self.core.id
+    }
+
+    pub fn splinter_real_time_mapping(&self) -> RealTimeMapping {
+        RealTimeMapping {
+            core: self.core.clone(),
+        }
     }
 
     /// Returns `Some` if this affects the mapping's activation state and if the resulting state
@@ -95,12 +123,29 @@ impl MainMapping {
         self.core.options.target_is_active = update.target_is_active;
     }
 
-    pub fn resolve(&mut self, context: &SessionContext) {
-        self.core.target = self
-            .core
-            .unresolved_target
-            .as_ref()
-            .and_then(|t| t.resolve(context).ok());
+    pub fn refresh_all(&mut self, context: &SessionContext, params: &[f32]) {
+        self.refresh_target(context);
+        self.refresh_activation(params);
+    }
+
+    pub fn refresh_target(&mut self, context: &SessionContext) -> bool {
+        let (target, is_active) = match self.core.unresolved_target.as_ref() {
+            None => (None, false),
+            Some(t) => match t.resolve(context).ok() {
+                None => (None, false),
+                Some(rt) => {
+                    let met = t.conditions_are_met(&rt);
+                    (Some(rt), met)
+                }
+            },
+        };
+        self.core.target = target;
+        self.core.options.target_is_active = is_active;
+        is_active
+    }
+
+    pub fn refresh_activation(&mut self, params: &[f32]) {
+        self.core.options.target_is_active = self.activation_condition.is_fulfilled(params);
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
@@ -307,63 +352,6 @@ pub struct MappingCore {
     time_of_last_control: Option<Instant>,
 }
 
-#[derive(Debug)]
-pub struct Mapping {
-    core: MappingCore,
-    activation_condition: ActivationCondition,
-}
-
-impl Mapping {
-    pub fn new(
-        id: MappingId,
-        source: CompoundMappingSource,
-        mode: Mode,
-        unresolved_target: Option<UnresolvedCompoundMappingTarget>,
-        activation_condition: ActivationCondition,
-        options: ProcessorMappingOptions,
-    ) -> Mapping {
-        Mapping {
-            core: MappingCore {
-                id,
-                source,
-                mode,
-                unresolved_target,
-                target: None,
-                options,
-                time_of_last_control: None,
-            },
-            activation_condition,
-        }
-    }
-
-    pub fn id(&self) -> MappingId {
-        self.core.id
-    }
-
-    pub fn splinter(self) -> (RealTimeMapping, MainMapping) {
-        let real_time_mapping = RealTimeMapping {
-            core: self.core.clone(),
-        };
-        let main_mapping = MainMapping {
-            core: self.core,
-            activation_condition: self.activation_condition,
-        };
-        (real_time_mapping, main_mapping)
-    }
-
-    pub fn into_main_processor_target_update(self) -> MainProcessorTargetUpdate {
-        MainProcessorTargetUpdate {
-            id: self.core.id,
-            target: self.core.target,
-            target_is_active: self.core.options.target_is_active,
-        }
-    }
-
-    pub fn target_is_active(&self) -> bool {
-        self.core.options.target_is_active
-    }
-}
-
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum CompoundMappingSource {
     Midi(MidiSource),
@@ -445,6 +433,15 @@ impl UnresolvedCompoundMappingTarget {
             Virtual(t) => CompoundMappingTarget::Virtual(t.clone()),
         };
         Ok(resolved)
+    }
+
+    pub fn conditions_are_met(&self, target: &CompoundMappingTarget) -> bool {
+        use UnresolvedCompoundMappingTarget::*;
+        match (self, target) {
+            (Reaper(t), CompoundMappingTarget::Reaper(rt)) => t.conditions_are_met(rt),
+            (Virtual(_), CompoundMappingTarget::Virtual(_)) => true,
+            _ => unreachable!(),
+        }
     }
 }
 

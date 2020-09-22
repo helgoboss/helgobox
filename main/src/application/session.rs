@@ -1,7 +1,7 @@
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
-    MainProcessor, Mapping, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
+    MainMapping, MainProcessor, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
     NormalMainTask, NormalRealTimeTask, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
@@ -161,13 +161,16 @@ impl Session {
         // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
         // callback is not suited.
         let mut main_processor = MainProcessor::new(
+            self.normal_main_task_channel.0.clone(),
             self.normal_main_task_channel.1.clone(),
             self.control_main_task_receiver.clone(),
             self.normal_real_time_task_sender.clone(),
             self.feedback_real_time_task_sender.clone(),
             self.parameters,
             weak_session.clone(),
+            self.context.clone(),
         );
+        main_processor.activate();
         let reg = Reaper::get()
             .medium_session()
             .plugin_register_add_csurf_inst(Box::new(main_processor))
@@ -202,58 +205,6 @@ impl Session {
             .do_async(move |session, compartment| {
                 session.borrow_mut().sync_all_mappings_full(compartment);
             });
-        // Handle dynamic target changes and target activation depending on REAPER state.
-        //
-        // Whenever anything changes that just affects the main processor targets, resync all
-        // targets to the main processor. We don't want to resync to the real-time processor
-        // just because another track has been selected. First, it would reset any source state
-        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
-        // We also don't want to resync modes to the main processor. First, it would reset any
-        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
-        //
-        // I used to have the idea that this logic should be in the main processor (domain layer),
-        // not in the session (application layer) because it could be considered as part of the
-        // core processing logic, its changes happen without ReaLearn UI interaction and the main
-        // processor handles mapping activation already, which is similar to target activation. I
-        // made an attempt to bring it there but realized that there are also counter arguments:
-        //
-        // - The ReaperTarget is a nice immutable and straightforward data structure now where each
-        //   variant just carries whatever is necessary. If we handle target change logic in the
-        //   processor, we would need additional mutable state for exchanging the current track/FX
-        //   which would make the processing logic more complex. That additional mutable state would
-        //   probably reside in something similar to the TargetModel (just without Props) which
-        //   would keep the VirtualTrack and be able to create ReaperTarget objects. Furthermore, we
-        //   would need to determine the initial value of the immutable state somewhere - worst case
-        //   in the session.
-        // - If we would decide to only handle target activation in the processor and target changes
-        //   still in the session, we would have to listen for the same kinds of events (e.g. track
-        //   selection) in *both* session and processor, which brings unnecessary overhead and might
-        //   even lead to update conflicts.
-        // - Right now, feedback update is nicely taken care of when syncing state. We probably
-        //   would have to generalize the feedback update logic a bit so it still works correctly
-        //   (okay, this is a minor point).
-        //
-        // So instead of considering the main processor as a jack of all trades device, it's also
-        // a valid view to consider it as a dumb processing unit that you can throw ready-to-use
-        // targets at and exchange/activate/deactivate the targets of those mappings. Ultimately
-        // a question of how we want to distribute responsibilities. And there's not enough evidence
-        // yet which distribution is most helpful. So let's keep things as they are for now.
-        when(
-            // There are several global conditions which affect whether feedback will be sent
-            // from a target or not. Similar global conditions decide what exactly produces the
-            // feedback values (e.g. when there's a target which uses <Selected track>,
-            // then a track selection change changes the feedback value producer ... so
-            // the main processor needs to unsubscribe from the old producer and
-            // subscribe to the new one).
-            ReaperTarget::potential_static_change_events()
-                .merge(ReaperTarget::potential_dynamic_change_events())
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session.clone())
-        .do_async(move |session, _| {
-            session.borrow_mut().sync_all_mappings_light();
-        });
         // Whenever something changes that determines if feedback is enabled in general, let the
         // processors know.
         when(
@@ -798,21 +749,14 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let (real_time_mapping, main_mapping) = m
+        let main_mapping = m
             .with_context(&self.context)
-            .create_processor_mapping(&self.parameters)
-            .splinter();
+            .create_main_mapping(&self.parameters);
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
                 compartment,
                 Box::new(main_mapping),
-            ))
-            .unwrap();
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateSingleMapping(
-                compartment,
-                real_time_mapping,
             ))
             .unwrap();
     }
@@ -830,37 +774,6 @@ impl Session {
         match self.context.track() {
             None => true,
             Some(t) => t.is_available() && t.is_armed(false),
-        }
-    }
-
-    /// Just syncs mapping enabled/disabled states and targets.
-    ///
-    /// Usually invoked whenever target conditions have changed, e.g. track selection.
-    fn sync_all_mappings_light(&self) {
-        for compartment in MappingCompartment::into_enum_iter() {
-            let mappings = self.create_processor_mappings(compartment);
-            let mappings_with_active_targets = mappings
-                .iter()
-                .filter(|m| m.target_is_active())
-                .map(|m| m.id())
-                .collect();
-            let main_target_updates = mappings
-                .into_iter()
-                .map(|m| m.into_main_processor_target_update())
-                .collect();
-            self.normal_real_time_task_sender
-                .send(NormalRealTimeTask::EnableMappingsExclusively(
-                    compartment,
-                    mappings_with_active_targets,
-                ))
-                .unwrap();
-            self.normal_main_task_channel
-                .0
-                .send(NormalMainTask::UpdateAllTargets(
-                    compartment,
-                    main_target_updates,
-                ))
-                .unwrap();
         }
     }
 
@@ -883,11 +796,7 @@ impl Session {
 
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
-        let (real_time_mappings, main_mappings) = self
-            .create_processor_mappings(compartment)
-            .into_iter()
-            .map(|m| m.splinter())
-            .unzip();
+        let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateAllMappings(
@@ -895,21 +804,15 @@ impl Session {
                 main_mappings,
             ))
             .unwrap();
-        self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateAllMappings(
-                compartment,
-                real_time_mappings,
-            ))
-            .unwrap();
     }
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
-    fn create_processor_mappings(&self, compartment: MappingCompartment) -> Vec<Mapping> {
+    fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
         self.mappings(compartment)
             .map(|m| {
                 m.borrow()
                     .with_context(&self.context)
-                    .create_processor_mapping(&self.parameters)
+                    .create_main_mapping(&self.parameters)
             })
             .collect()
     }
@@ -959,7 +862,7 @@ impl Drop for Session {
                     .plugin_register_remove_csurf_inst(reg);
             }
         }
-        self.party_is_over_subject.next(())
+        self.party_is_over_subject.next(());
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::application::SessionContext;
 use crate::domain::{
     CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, DomainEvent,
     DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationUpdate,
@@ -10,6 +11,7 @@ use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
 use helgoboss_midi::RawShortMessage;
 use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
@@ -33,6 +35,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_subscriptions: FeedbackSubscriptions,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
+    self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
@@ -40,6 +43,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     event_handler: EH,
+    session_context: SessionContext,
+    party_is_over_subject: LocalSubject<'static, (), ()>,
 }
 
 impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
@@ -63,10 +68,22 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         "Main processor: Updating all mappings..."
                     );
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
+                    // Sync to real-time processor
+                    let real_time_mappings = mappings
+                        .iter()
+                        .map(|m| m.splinter_real_time_mapping())
+                        .collect();
+                    self.normal_real_time_task_sender
+                        .send(NormalRealTimeTask::UpdateAllMappings(
+                            compartment,
+                            real_time_mappings,
+                        ))
+                        .unwrap();
                     // Put into hash map in order to quickly look up mappings by ID
                     self.mappings[compartment] = mappings
                         .into_iter()
-                        .map(|m| {
+                        .map(|mut m| {
+                            m.refresh_all(&self.session_context, &self.parameters);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
@@ -76,31 +93,52 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         .collect();
                     self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                 }
-                UpdateAllTargets(compartment, updates) => {
+                UpdateAllTargets => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating all targets..."
                     );
-                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
-                    for update in updates.into_iter() {
-                        if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
-                            m.update_target(update);
+                    for compartment in MappingCompartment::into_enum_iter() {
+                        let mut unused_sources =
+                            self.currently_feedback_enabled_sources(compartment);
+                        let mut mappings_with_active_targets =
+                            HashSet::with_capacity(self.mappings[compartment].len());
+                        for m in self.mappings[compartment].values_mut() {
+                            let is_active = m.refresh_target(&self.session_context);
+                            if is_active {
+                                mappings_with_active_targets.insert(m.id());
+                            }
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
                             }
-                        } else {
-                            panic!("Couldn't find mapping while updating all targets");
                         }
+                        self.normal_real_time_task_sender
+                            .send(NormalRealTimeTask::EnableMappingsExclusively(
+                                compartment,
+                                mappings_with_active_targets,
+                            ))
+                            .unwrap();
+                        self.handle_feedback_after_batch_mapping_update(
+                            compartment,
+                            &unused_sources,
+                        );
                     }
-                    self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                 }
-                UpdateSingleMapping(compartment, mapping) => {
+                UpdateSingleMapping(compartment, mut mapping) => {
                     debug!(
                         Reaper::get().logger(),
                         "Main processor: Updating mapping {:?}...",
                         mapping.id()
                     );
+                    mapping.refresh_all(&self.session_context, &self.parameters);
+                    // Sync to real-time processor
+                    self.normal_real_time_task_sender
+                        .send(NormalRealTimeTask::UpdateSingleMapping(
+                            compartment,
+                            mapping.splinter_real_time_mapping(),
+                        ))
+                        .unwrap();
                     // (Re)subscribe to or unsubscribe from feedback
                     if self.feedback_is_globally_enabled {
                         match mapping.target() {
@@ -289,15 +327,18 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn new(
+        self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
         event_handler: EH,
+        session_context: SessionContext,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
         MainProcessor {
+            self_normal_sender,
             self_feedback_sender,
             normal_task_receiver,
             feedback_task_receiver,
@@ -310,7 +351,34 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_is_globally_enabled: false,
             parameters,
             event_handler,
+            session_context,
+            party_is_over_subject: Default::default(),
         }
+    }
+
+    pub fn activate(&self) {
+        // Handle dynamic target changes and target activation depending on REAPER state.
+        //
+        // Whenever anything changes that just affects the main processor targets, resync all
+        // targets to the main processor. We don't want to resync to the real-time processor
+        // just because another track has been selected. First, it would reset any source state
+        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
+        // We also don't want to resync modes to the main processor. First, it would reset any
+        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
+        // There are several global conditions which affect whether feedback will be sent
+        // from a target or not. Similar global conditions decide what exactly produces the
+        // feedback values (e.g. when there's a target which uses <Selected track>,
+        // then a track selection change changes the feedback value producer ... so
+        // the main processor needs to unsubscribe from the old producer and
+        // subscribe to the new one).
+        let self_sender = self.self_normal_sender.clone();
+        ReaperTarget::potential_static_change_events()
+            .merge(ReaperTarget::potential_dynamic_change_events())
+            // We have this explicit stop criteria because we listen to global REAPER events.
+            .take_until(self.party_is_over_subject.clone())
+            .subscribe(move |_| {
+                self_sender.send(NormalMainTask::UpdateAllTargets).unwrap();
+            });
     }
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = CompoundMappingSourceValue>) {
@@ -459,16 +527,7 @@ pub enum NormalMainTask {
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
-    /// Replaces the targets of all given mappings.
-    ///
-    /// Use this instead of `UpdateAllMappings` whenever existing modes should not be overwritten.
-    /// Attention: This never adds or removes any mappings.
-    ///
-    /// This is always the case when syncing as a result of ReaLearn control processing (e.g.
-    /// when a selected track changes because a controller knob has been moved). Syncing the modes
-    /// in such cases would reset all mutable mode state (e.g. throttling counter). Clearly
-    /// undesired.
-    UpdateAllTargets(MappingCompartment, Vec<MainProcessorTargetUpdate>),
+    UpdateAllTargets,
     UpdateAllParameters([f32; PLUGIN_PARAMETER_COUNT as usize]),
     UpdateParameter {
         index: u32,
@@ -511,5 +570,6 @@ pub struct MainProcessorTargetUpdate {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping main processor...");
+        self.party_is_over_subject.next(());
     }
 }

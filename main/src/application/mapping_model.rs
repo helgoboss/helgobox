@@ -9,7 +9,7 @@ use crate::application::{
 };
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition,
-    ExtendedSourceCharacter, Mapping, MappingCompartment, MappingId, ProcessorMappingOptions,
+    ExtendedSourceCharacter, MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions,
     RealearnTarget, ReaperTarget, TargetCharacter,
 };
 use rx_util::UnitEvent;
@@ -162,7 +162,8 @@ pub struct MappingModelWithContext<'a> {
 impl<'a> MappingModelWithContext<'a> {
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_processor_mapping(&self, params: &[f32]) -> Mapping {
+    // TODO-high Put out of context
+    pub fn create_main_mapping(&self, params: &[f32]) -> MainMapping {
         let id = self.mapping.id;
         let source = self.mapping.source_model.create_source();
         let mode = self.mapping.mode_model.create_mode();
@@ -171,13 +172,14 @@ impl<'a> MappingModelWithContext<'a> {
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             mapping_is_active: false,
+            // TODO-medium Encapsulate, don't set here
             target_is_active: false,
             control_is_enabled: self.mapping.control_is_enabled.get(),
             feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
             prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
             send_feedback_after_control: self.mapping.send_feedback_after_control.get(),
         };
-        Mapping::new(
+        MainMapping::new(
             id,
             source,
             mode,
