@@ -1,8 +1,7 @@
-use crate::application::SessionContext;
 use crate::domain::{
     CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, DomainEvent,
     DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationUpdate,
-    MappingCompartment, MappingId, NormalRealTimeTask, ReaperTarget,
+    MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext, ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -43,7 +42,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     event_handler: EH,
-    session_context: SessionContext,
+    context: ProcessorContext,
     party_is_over_subject: LocalSubject<'static, (), ()>,
 }
 
@@ -83,7 +82,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     self.mappings[compartment] = mappings
                         .into_iter()
                         .map(|mut m| {
-                            m.refresh_all(&self.session_context, &self.parameters);
+                            m.refresh_all(&self.context, &self.parameters);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
@@ -104,7 +103,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         let mut mappings_with_active_targets =
                             HashSet::with_capacity(self.mappings[compartment].len());
                         for m in self.mappings[compartment].values_mut() {
-                            let is_active = m.refresh_target(&self.session_context);
+                            let is_active = m.refresh_target(&self.context);
                             if is_active {
                                 mappings_with_active_targets.insert(m.id());
                             }
@@ -131,7 +130,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         "Main processor: Updating mapping {:?}...",
                         mapping.id()
                     );
-                    mapping.refresh_all(&self.session_context, &self.parameters);
+                    mapping.refresh_all(&self.context, &self.parameters);
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateSingleMapping(
@@ -334,7 +333,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
         event_handler: EH,
-        session_context: SessionContext,
+        context: ProcessorContext,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
         MainProcessor {
@@ -351,7 +350,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_is_globally_enabled: false,
             parameters,
             event_handler,
-            session_context,
+            context,
             party_is_over_subject: Default::default(),
         }
     }

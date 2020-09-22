@@ -5,12 +5,12 @@ use helgoboss_learn::{
 
 use crate::application::{
     convert_factor_to_unit_value, ActivationType, ModeModel, ModifierConditionModel,
-    ProgramConditionModel, SessionContext, SourceModel, TargetModel, TargetModelWithContext,
+    ProgramConditionModel, SourceModel, TargetModel, TargetModelWithContext,
 };
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition,
-    ExtendedSourceCharacter, MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions,
-    RealearnTarget, ReaperTarget, TargetCharacter,
+    ExtendedSourceCharacter, MainMapping, MappingCompartment, MappingId, ProcessorContext,
+    ProcessorMappingOptions, RealearnTarget, ReaperTarget, TargetCharacter,
 };
 use rx_util::UnitEvent;
 
@@ -96,14 +96,17 @@ impl MappingModel {
         self.compartment
     }
 
-    pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> MappingModelWithContext<'a> {
+    pub fn with_context<'a>(
+        &'a self,
+        context: &'a ProcessorContext,
+    ) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
             context,
         }
     }
 
-    pub fn adjust_mode_if_necessary(&mut self, context: &SessionContext) {
+    pub fn adjust_mode_if_necessary(&mut self, context: &ProcessorContext) {
         let with_context = self.with_context(context);
         if with_context.mode_makes_sense().contains(&false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
@@ -113,13 +116,13 @@ impl MappingModel {
         }
     }
 
-    pub fn reset_mode(&mut self, context: &SessionContext) {
+    pub fn reset_mode(&mut self, context: &ProcessorContext) {
         self.mode_model.reset_within_type();
         self.set_preferred_mode_values(context);
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
-    pub fn set_preferred_mode_values(&mut self, context: &SessionContext) {
+    pub fn set_preferred_mode_values(&mut self, context: &ProcessorContext) {
         self.mode_model
             .step_interval
             .set(self.with_context(context).preferred_step_interval())
@@ -156,7 +159,7 @@ impl MappingModel {
 
 pub struct MappingModelWithContext<'a> {
     mapping: &'a MappingModel,
-    context: &'a SessionContext,
+    context: &'a ProcessorContext,
 }
 
 impl<'a> MappingModelWithContext<'a> {

@@ -1,8 +1,8 @@
-use crate::domain::{ActionInvocationType, ReaperTarget, TransportAction};
+use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, TransportAction};
 use reaper_high::{Action, Fx, FxParameter, Guid, Project, Track, TrackSend};
 // TODO-high Move from app layer
 use crate::application::{
-    get_guid_based_fx_by_guid_with_index_hint, get_index_based_fx, SessionContext, VirtualTrack,
+    get_guid_based_fx_by_guid_with_index_hint, get_index_based_fx, VirtualTrack,
 };
 use reaper_medium::MasterTrackBehavior;
 
@@ -61,7 +61,7 @@ pub enum UnresolvedReaperTarget {
 }
 
 impl UnresolvedReaperTarget {
-    pub fn resolve(&self, context: &SessionContext) -> Result<ReaperTarget, &'static str> {
+    pub fn resolve(&self, context: &ProcessorContext) -> Result<ReaperTarget, &'static str> {
         use UnresolvedReaperTarget::*;
         let resolved = match self {
             Action {
@@ -195,7 +195,7 @@ impl UnresolvedReaperTarget {
 
 // TODO-high Delete in app layer
 fn get_effective_track(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track_descriptor: &TrackDescriptor,
 ) -> Result<Track, &'static str> {
     use VirtualTrack::*;
@@ -220,7 +220,7 @@ fn get_effective_track(
 // Returns an error if that send (or track) doesn't exist.
 // TODO-high Use in app layer
 fn get_track_send(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track_descriptor: &TrackDescriptor,
     send_index: u32,
 ) -> Result<TrackSend, &'static str> {
@@ -250,7 +250,7 @@ pub struct FxDescriptor {
 // Returns an error if that param (or FX) doesn't exist.
 // TODO-high Delete in app layer
 fn get_fx_param(
-    context: &SessionContext,
+    context: &ProcessorContext,
     descriptor: &FxDescriptor,
     param_index: u32,
 ) -> Result<FxParameter, &'static str> {
@@ -264,7 +264,7 @@ fn get_fx_param(
 
 // Returns an error if the FX doesn't exist.
 // TODO-high Delete in app layer
-fn get_fx(context: &SessionContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
+fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
     // Actually it's not that important whether we create an index-based or GUID-based FX.
     // The session listeners will recreate and resync the FX whenever something has
     // changed anyway. But for monitoring FX it could still be good (which we don't get notified

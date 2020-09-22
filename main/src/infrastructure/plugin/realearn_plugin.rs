@@ -4,7 +4,7 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 
 use super::RealearnEditor;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, ProcessorContext, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::debug_util;
@@ -27,7 +27,7 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use crate::application::{session_manager, Session, SessionContext, SharedSession};
+use crate::application::{session_manager, Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
@@ -268,7 +268,7 @@ impl RealearnPlugin {
         let control_main_task_receiver = self.control_main_task_receiver.clone();
         Reaper::get()
             .do_later_in_main_thread_asap(move || {
-                let session_context = match SessionContext::from_host(&host) {
+                let processor_context = match ProcessorContext::from_host(&host) {
                     Ok(c) => c,
                     Err(msg) => {
                         Reaper::get().medium_reaper().show_message_box(
@@ -280,7 +280,7 @@ impl RealearnPlugin {
                     }
                 };
                 let session = Session::new(
-                    session_context,
+                    processor_context,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     normal_main_task_channel,
@@ -311,7 +311,7 @@ impl RealearnPlugin {
             return false;
         }
         match param_name {
-            crate::application::WAITING_FOR_SESSION_PARAM_NAME => {
+            crate::domain::WAITING_FOR_SESSION_PARAM_NAME => {
                 buffer[0] = if self.session.filled() { 0 } else { 1 };
                 true
             }

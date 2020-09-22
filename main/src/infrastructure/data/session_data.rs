@@ -148,13 +148,13 @@ impl SessionData {
             .midi_feedback_output
             .set_without_notification(feedback_output);
         // Mappings
-        let session_context = session.context().clone();
+        let processor_context = session.context().clone();
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             session.set_mappings_without_notification(
                 compartment,
                 mappings
                     .iter()
-                    .map(|m| m.to_model(compartment, &session_context)),
+                    .map(|m| m.to_model(compartment, &processor_context)),
             );
         };
         apply_mappings(MappingCompartment::PrimaryMappings, &self.mappings);

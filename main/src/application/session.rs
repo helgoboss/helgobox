@@ -2,13 +2,12 @@ use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
     MainMapping, MainProcessor, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
-    NormalMainTask, NormalRealTimeTask, ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use helgoboss_learn::MidiSource;
 
 use crate::application::{
-    session_manager, share_mapping, ControllerManager, MappingModel, SessionContext, SharedMapping,
-    TargetModel,
+    session_manager, share_mapping, ControllerManager, MappingModel, SharedMapping, TargetModel,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -43,7 +42,7 @@ pub struct Session {
     pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
     pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
     active_controller_id: Option<String>,
-    context: SessionContext,
+    context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
@@ -68,7 +67,7 @@ pub struct Session {
 
 impl Session {
     pub fn new(
-        context: SessionContext,
+        context: ProcessorContext,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         normal_main_task_channel: (
@@ -364,7 +363,7 @@ impl Session {
                 }
                 // Keep auto-detecting mode settings
                 if self.always_auto_detect.get() {
-                    let session_context = self.context().clone();
+                    let processor_context = self.context().clone();
                     let subscription = when(
                         mapping
                             .source_model
@@ -375,7 +374,7 @@ impl Session {
                     .do_sync(move |mapping, _| {
                         mapping
                             .borrow_mut()
-                            .adjust_mode_if_necessary(&session_context);
+                            .adjust_mode_if_necessary(&processor_context);
                     });
                     all_subscriptions.add(subscription);
                 }
@@ -400,7 +399,7 @@ impl Session {
         }
     }
 
-    pub fn context(&self) -> &SessionContext {
+    pub fn context(&self) -> &ProcessorContext {
         &self.context
     }
 

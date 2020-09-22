@@ -25,6 +25,9 @@ pub use reaper_target::*;
 mod unresolved_reaper_target;
 pub use unresolved_reaper_target::*;
 
+mod processor_context;
+pub use processor_context::*;
+
 mod r#virtual;
 pub use r#virtual::*;
 

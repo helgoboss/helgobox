@@ -1,7 +1,7 @@
 use crate::application::{
-    ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel, SessionContext,
+    ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel,
 };
-use crate::domain::MappingCompartment;
+use crate::domain::{MappingCompartment, ProcessorContext};
 use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -66,14 +66,14 @@ impl MappingModelData {
     pub fn to_model(
         &self,
         compartment: MappingCompartment,
-        context: &SessionContext,
+        context: &ProcessorContext,
     ) -> MappingModel {
         let mut model = MappingModel::new(compartment);
         self.apply_to_model(&mut model, context);
         model
     }
 
-    fn apply_to_model(&self, model: &mut MappingModel, context: &SessionContext) {
+    fn apply_to_model(&self, model: &mut MappingModel, context: &ProcessorContext) {
         model.name.set_without_notification(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());

@@ -3,9 +3,6 @@ pub use session::*;
 
 pub mod session_manager;
 
-mod session_context;
-pub use session_context::*;
-
 mod source_model;
 pub use source_model::*;
 

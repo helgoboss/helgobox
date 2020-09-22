@@ -3,11 +3,11 @@ use super::none_if_minus_one;
 use reaper_high::{Guid, Project, Reaper, Track};
 
 use crate::application::{
-    get_guid_based_fx_at_index, ReaperTargetType, SessionContext, TargetCategory, TargetModel,
+    get_guid_based_fx_at_index, ReaperTargetType, TargetCategory, TargetModel,
     VirtualControlElementType, VirtualTrack,
 };
 use crate::core::toast;
-use crate::domain::{ActionInvocationType, TransportAction};
+use crate::domain::{ActionInvocationType, ProcessorContext, TransportAction};
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -108,7 +108,7 @@ impl TargetModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel, context: &SessionContext) {
+    pub fn apply_to_model(&self, model: &mut TargetModel, context: &ProcessorContext) {
         model.category.set_without_notification(self.category);
         model.r#type.set_without_notification(self.r#type);
         let reaper = Reaper::get();

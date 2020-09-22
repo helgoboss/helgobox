@@ -9,11 +9,11 @@ use reaper_medium::TrackLocation;
 use rx_util::{Event, UnitEvent};
 use serde::{Deserialize, Serialize};
 
-use crate::application::{SessionContext, VirtualControlElementType};
+use crate::application::VirtualControlElementType;
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, FxDescriptor, ReaperTarget, TargetCharacter,
-    TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualTarget,
+    ActionInvocationType, CompoundMappingTarget, FxDescriptor, ProcessorContext, ReaperTarget,
+    TargetCharacter, TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualTarget,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -82,7 +82,7 @@ impl Default for TargetModel {
 impl TargetModel {
     pub fn set_fx_index_and_memorize_guid(
         &mut self,
-        context: &SessionContext,
+        context: &ProcessorContext,
         fx_index: Option<u32>,
     ) {
         self.fx_index.set(fx_index);
@@ -95,7 +95,7 @@ impl TargetModel {
         self.fx_guid.set(fx_guid);
     }
 
-    pub fn invalidate_fx_index(&mut self, context: &SessionContext) {
+    pub fn invalidate_fx_index(&mut self, context: &ProcessorContext) {
         if !self.supports_fx() {
             return;
         }
@@ -104,7 +104,7 @@ impl TargetModel {
         }
     }
 
-    pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &SessionContext) {
+    pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
         use ReaperTarget::*;
         self.category.set(TargetCategory::Reaper);
         self.r#type.set(ReaperTargetType::from_target(target));
@@ -239,7 +239,7 @@ impl TargetModel {
         }
     }
 
-    pub fn with_context<'a>(&'a self, context: &'a SessionContext) -> TargetModelWithContext<'a> {
+    pub fn with_context<'a>(&'a self, context: &'a ProcessorContext) -> TargetModelWithContext<'a> {
         TargetModelWithContext {
             target: self,
             context,
@@ -394,7 +394,7 @@ pub fn get_track_label(track: &Track) -> String {
 
 pub struct TargetModelWithContext<'a> {
     target: &'a TargetModel,
-    context: &'a SessionContext,
+    context: &'a ProcessorContext,
 }
 
 impl<'a> TargetModelWithContext<'a> {
@@ -562,7 +562,7 @@ impl<'a> TargetModelWithContext<'a> {
 }
 
 pub fn get_fx_chain(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
 ) -> Result<FxChain, &'static str> {
@@ -576,7 +576,7 @@ pub fn get_fx_chain(
 }
 
 pub fn get_index_based_fx(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,
@@ -590,7 +590,7 @@ pub fn get_index_based_fx(
 }
 
 pub fn get_guid_based_fx_at_index(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,
@@ -600,7 +600,7 @@ pub fn get_guid_based_fx_at_index(
 }
 
 pub fn get_guid_based_fx_by_guid_with_index_hint(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
     guid: &Guid,
@@ -617,7 +617,7 @@ pub fn get_guid_based_fx_by_guid_with_index_hint(
 }
 
 pub fn get_effective_track(
-    context: &SessionContext,
+    context: &ProcessorContext,
     track: &VirtualTrack,
 ) -> Result<Track, &'static str> {
     use VirtualTrack::*;
@@ -831,7 +831,7 @@ pub enum TargetCategory {
     Virtual,
 }
 
-fn virtualize_track(track: Track, context: &SessionContext) -> VirtualTrack {
+fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
     match context.track() {
         Some(t) if *t == track => VirtualTrack::This,
         _ => {

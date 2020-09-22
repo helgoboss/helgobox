@@ -1,7 +1,7 @@
 use crate::domain::{
-    ActivationCondition, ControlOptions, MainProcessorTargetUpdate, Mode, RealearnTarget,
-    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
-    VirtualSourceValue, VirtualTarget,
+    ActivationCondition, ControlOptions, MainProcessorTargetUpdate, Mode, ProcessorContext,
+    RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -12,7 +12,6 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::application::SessionContext;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -123,12 +122,12 @@ impl MainMapping {
         self.core.options.target_is_active = update.target_is_active;
     }
 
-    pub fn refresh_all(&mut self, context: &SessionContext, params: &[f32]) {
+    pub fn refresh_all(&mut self, context: &ProcessorContext, params: &[f32]) {
         self.refresh_target(context);
         self.refresh_activation(params);
     }
 
-    pub fn refresh_target(&mut self, context: &SessionContext) -> bool {
+    pub fn refresh_target(&mut self, context: &ProcessorContext) -> bool {
         let (target, is_active) = match self.core.unresolved_target.as_ref() {
             None => (None, false),
             Some(t) => match t.resolve(context).ok() {
@@ -426,7 +425,10 @@ pub enum UnresolvedCompoundMappingTarget {
 }
 
 impl UnresolvedCompoundMappingTarget {
-    pub fn resolve(&self, context: &SessionContext) -> Result<CompoundMappingTarget, &'static str> {
+    pub fn resolve(
+        &self,
+        context: &ProcessorContext,
+    ) -> Result<CompoundMappingTarget, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved = match self {
             Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context)?),
