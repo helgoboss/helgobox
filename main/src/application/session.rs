@@ -1,13 +1,11 @@
+use crate::application::{
+    session_manager, share_mapping, ControllerManager, MappingModel, SharedMapping, TargetModel,
+};
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
     MainMapping, MainProcessor, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
     NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
-};
-use helgoboss_learn::MidiSource;
-
-use crate::application::{
-    session_manager, share_mapping, ControllerManager, MappingModel, SharedMapping, TargetModel,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;

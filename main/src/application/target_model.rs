@@ -13,8 +13,8 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
     CompoundMappingTarget, FxDescriptor, ProcessorContext, ReaperTarget, TargetCharacter,
-    TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualTarget, VirtualTrack,
+    TrackAnchor, TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -316,10 +316,6 @@ impl TargetModel {
         Ok(action.clone())
     }
 
-    fn track_label(&self) -> String {
-        self.track.get_ref().to_string()
-    }
-
     pub fn action_name_label(&self) -> Cow<str> {
         match self.action().ok() {
             None => "-".into(),
@@ -429,6 +425,14 @@ impl<'a> TargetModelWithContext<'a> {
     fn fx_param_label(&self) -> Cow<str> {
         get_fx_param_label(self.fx_param().ok().as_ref(), self.target.param_index.get())
     }
+
+    fn track_label(&self) -> String {
+        self.target
+            .track
+            .get_ref()
+            .with_context(self.context)
+            .to_string()
+    }
 }
 
 pub fn get_guid_based_fx_at_index(
@@ -457,28 +461,26 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     FxParameter => write!(
                         f,
                         "Track FX parameter\nTrack {}\nFX {}\nParam {}",
-                        self.target.track_label(),
+                        self.track_label(),
                         self.fx_label(),
                         self.fx_param_label()
                     ),
-                    TrackVolume => write!(f, "Track volume\nTrack {}", self.target.track_label()),
+                    TrackVolume => write!(f, "Track volume\nTrack {}", self.track_label()),
                     TrackSendVolume => write!(
                         f,
                         "Track send volume\nTrack {}\nSend {}",
-                        self.target.track_label(),
+                        self.track_label(),
                         self.track_send_label()
                     ),
-                    TrackPan => write!(f, "Track pan\nTrack {}", self.target.track_label()),
-                    TrackArm => write!(f, "Track arm\nTrack {}", self.target.track_label()),
-                    TrackSelection => {
-                        write!(f, "Track selection\nTrack {}", self.target.track_label())
-                    }
-                    TrackMute => write!(f, "Track mute\nTrack {}", self.target.track_label()),
-                    TrackSolo => write!(f, "Track solo\nTrack {}", self.target.track_label()),
+                    TrackPan => write!(f, "Track pan\nTrack {}", self.track_label()),
+                    TrackArm => write!(f, "Track arm\nTrack {}", self.track_label()),
+                    TrackSelection => write!(f, "Track selection\nTrack {}", self.track_label()),
+                    TrackMute => write!(f, "Track mute\nTrack {}", self.track_label()),
+                    TrackSolo => write!(f, "Track solo\nTrack {}", self.track_label()),
                     TrackSendPan => write!(
                         f,
                         "Track send pan\nTrack {}\nSend {}",
-                        self.target.track_label(),
+                        self.track_label(),
                         self.track_send_label()
                     ),
                     Tempo => write!(f, "Master tempo"),
@@ -486,21 +488,19 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     FxEnable => write!(
                         f,
                         "Track FX enable\nTrack {}\nFX {}",
-                        self.target.track_label(),
+                        self.track_label(),
                         self.fx_label(),
                     ),
                     FxPreset => write!(
                         f,
                         "Track FX preset\nTrack {}\nFX {}",
-                        self.target.track_label(),
+                        self.track_label(),
                         self.fx_label(),
                     ),
                     SelectedTrack => write!(f, "Selected track",),
-                    AllTrackFxEnable => write!(
-                        f,
-                        "Track FX all enable\nTrack {}",
-                        self.target.track_label()
-                    ),
+                    AllTrackFxEnable => {
+                        write!(f, "Track FX all enable\nTrack {}", self.track_label())
+                    }
                     Transport => write!(f, "Transport\n{}", self.target.transport_action.get()),
                 }
             }
@@ -616,7 +616,9 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
             if track.is_master_track() {
                 VirtualTrack::Master
             } else {
-                VirtualTrack::Particular(track)
+                let guid = track.guid();
+                let name = track.name().expect("track must have name").into_string();
+                VirtualTrack::Particular(TrackAnchor::IdOrName(*guid, name))
             }
         }
     }

@@ -7,7 +7,9 @@ use crate::application::{
     VirtualControlElementType,
 };
 use crate::core::toast;
-use crate::domain::{ActionInvocationType, ProcessorContext, TransportAction, VirtualTrack};
+use crate::domain::{
+    ActionInvocationType, ProcessorContext, TrackAnchor, TransportAction, VirtualTrack,
+};
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -141,26 +143,26 @@ impl TargetModelData {
         model
             .action_invocation_type
             .set_without_notification(invocation_type);
-        let virtual_track =
-            match deserialize_track(&self.track_guid, &self.track_name, context.project()) {
-                Ok(t) => t,
-                Err(e) => {
-                    use TrackDeserializationError::*;
-                    match e {
-                        InvalidGuid(guid) => toast::warn(&format!(
-                            "Invalid track GUID {}, falling back to <This>",
-                            guid
-                        )),
-                        TrackNotFound { guid, name } => toast::warn(&format!(
-                            "Track not found by GUID {} and name {}, falling back to <This>",
-                            guid.to_string_with_braces(),
-                            name.map(|n| format!("\"{}\"", n))
-                                .unwrap_or_else(|| "-".to_string())
-                        )),
-                    }
-                    VirtualTrack::This
+        let virtual_track = match deserialize_track(&self.track_guid, &self.track_name) {
+            Ok(t) => t,
+            Err(e) => {
+                use TrackDeserializationError::*;
+                match e {
+                    InvalidGuid(guid) => toast::warn(&format!(
+                        "Invalid track GUID {}, falling back to <This>",
+                        guid
+                    )),
+                    /* TODO-high Add to whatever infrastructure code calls TrackAnchor::resolve()
+                     * TrackNotFound { guid, name } => toast::warn(&format!(
+                     *     "Track not found by GUID {} and name {}, falling back to <This>",
+                     *     guid.to_string_with_braces(),
+                     *     name.map(|n| format!("\"{}\"", n))
+                     *         .unwrap_or_else(|| "-".to_string())
+                     * )), */
                 }
-            };
+                VirtualTrack::This
+            }
+        };
         model.track.set_without_notification(virtual_track.clone());
         model
             .enable_only_if_track_selected
@@ -206,28 +208,23 @@ fn serialize_track(virtual_track: &VirtualTrack) -> (Option<String>, Option<Stri
         This => (None, None),
         Selected => (Some("selected".to_string()), None),
         Master => (Some("master".to_string()), None),
-        Particular(track) => {
-            let guid = track.guid().to_string_without_braces();
-            let name = track.name().expect("track must have name").into_string();
-            (Some(guid), Some(name))
-        }
+        Particular(anchor) => match anchor {
+            TrackAnchor::IdOrName(guid, name) => {
+                (Some(guid.to_string_without_braces()), Some(name.clone()))
+            }
+            TrackAnchor::Id(guid) => (Some(guid.to_string_without_braces()), None),
+        },
     }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
 pub enum TrackDeserializationError {
     InvalidGuid(#[error(not(source))] String),
-    #[display(fmt = "TrackNotFound")]
-    TrackNotFound {
-        guid: Guid,
-        name: Option<String>,
-    },
 }
 
 fn deserialize_track(
     id: &Option<String>,
     name: &Option<String>,
-    project: Project,
 ) -> Result<VirtualTrack, TrackDeserializationError> {
     let virtual_track = match id.as_ref().map(String::as_str) {
         None => VirtualTrack::This,
@@ -236,29 +233,12 @@ fn deserialize_track(
         Some(s) => {
             let guid = Guid::from_string_without_braces(s)
                 .map_err(|_| TrackDeserializationError::InvalidGuid(s.to_string()))?;
-            let track = project.track_by_guid(&guid);
-            let track = if track.is_available() {
-                track
-            } else {
-                let name = name
-                    .as_ref()
-                    .ok_or(TrackDeserializationError::TrackNotFound { guid, name: None })?;
-                find_track_by_name(project, name.as_str()).ok_or(
-                    TrackDeserializationError::TrackNotFound {
-                        guid,
-                        name: Some(name.clone()),
-                    },
-                )?
+            let anchor = match name {
+                None => TrackAnchor::Id(guid),
+                Some(n) => TrackAnchor::IdOrName(guid, n.clone()),
             };
-            VirtualTrack::Particular(track)
+            VirtualTrack::Particular(anchor)
         }
     };
     Ok(virtual_track)
-}
-
-fn find_track_by_name(project: Project, name: &str) -> Option<Track> {
-    project.tracks().find(|t| match t.name() {
-        None => false,
-        Some(n) => n.to_str() == name,
-    })
 }

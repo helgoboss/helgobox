@@ -345,6 +345,7 @@ pub struct MappingCore {
     id: MappingId,
     source: CompoundMappingSource,
     mode: Mode,
+    // TODO-medium Take targets out of MappingCore because RealTimeMapping doesn't need most of it!
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     target: Option<CompoundMappingTarget>,
     options: ProcessorMappingOptions,

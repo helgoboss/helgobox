@@ -1,4 +1,5 @@
 use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, TransportAction};
+use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Track, TrackSend};
 use reaper_medium::{MasterTrackBehavior, TrackLocation};
 use std::fmt;
@@ -207,7 +208,9 @@ pub fn get_effective_track(
             .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
             .ok_or("no track selected")?,
         Master => context.project().master_track(),
-        Particular(track) => track.clone(),
+        Particular(anchor) => anchor
+            .resolve(context.project())
+            .map_err(|_| "particular track couldn't be resolved")?,
     };
     Ok(track)
 }
@@ -241,26 +244,99 @@ pub struct FxDescriptor {
     pub enable_only_if_fx_has_focus: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Display)]
 pub enum VirtualTrack {
     /// Current track (the one which contains the ReaLearn instance).
+    #[display(fmt = "<This>")]
     This,
     /// Currently selected track.
+    #[display(fmt = "<Selected>")]
     Selected,
     /// Master track.
+    #[display(fmt = "<Master>")]
     Master,
     /// A particular track.
-    Particular(Track),
+    #[display(fmt = "<Particular>")]
+    Particular(TrackAnchor),
 }
 
-impl fmt::Display for VirtualTrack {
+impl VirtualTrack {
+    pub fn with_context<'a>(
+        &'a self,
+        context: &'a ProcessorContext,
+    ) -> VirtualTrackWithContext<'a> {
+        VirtualTrackWithContext {
+            virtual_track: self,
+            context,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TrackAnchor {
+    IdOrName(Guid, String),
+    Id(Guid),
+}
+
+impl TrackAnchor {
+    pub fn resolve(&self, project: Project) -> Result<Track, TrackResolveError> {
+        use TrackAnchor::*;
+        let track = match self {
+            IdOrName(guid, name) => {
+                let t = project.track_by_guid(guid);
+                if t.is_available() {
+                    t
+                } else {
+                    find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
+                        guid: guid.clone(),
+                        name: Some(name.clone()),
+                    })?
+                }
+            }
+            Id(guid) => {
+                let t = project.track_by_guid(guid);
+                if !t.is_available() {
+                    return Err(TrackResolveError::TrackNotFound {
+                        guid: guid.clone(),
+                        name: None,
+                    });
+                }
+                t
+            }
+        };
+        Ok(track)
+    }
+}
+
+fn find_track_by_name(project: Project, name: &str) -> Option<Track> {
+    project.tracks().find(|t| match t.name() {
+        None => false,
+        Some(n) => n.to_str() == name,
+    })
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+pub enum TrackResolveError {
+    #[display(fmt = "TrackNotFound")]
+    TrackNotFound { guid: Guid, name: Option<String> },
+}
+
+pub struct VirtualTrackWithContext<'a> {
+    virtual_track: &'a VirtualTrack,
+    context: &'a ProcessorContext,
+}
+
+impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use VirtualTrack::*;
-        match self {
-            This => write!(f, "<This>"),
-            Selected => write!(f, "<Selected>"),
-            Master => write!(f, "<Master>"),
-            Particular(t) => write!(f, "{}", get_track_label(t)),
+        match self.virtual_track {
+            This | Selected | Master => write!(f, "{}", self.virtual_track),
+            Particular(anchor) => {
+                let t = anchor
+                    .resolve(self.context.project())
+                    .map_err(|_| fmt::Error)?;
+                write!(f, "{}", get_track_label(&t))
+            }
         }
     }
 }

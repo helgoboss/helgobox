@@ -30,7 +30,7 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
-    TargetCharacter, TransportAction, VirtualTrack, PLUGIN_PARAMETER_COUNT,
+    TargetCharacter, TrackAnchor, TransportAction, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
@@ -961,11 +961,15 @@ impl<'a> MutableMappingPanel<'a> {
                         -3 => This,
                         -2 => Selected,
                         -1 => Master,
-                        _ => Particular(
-                            project
+                        _ => {
+                            let t = project
                                 .track_by_index(data as u32)
-                                .ok_or("track not existing")?,
-                        ),
+                                .ok_or("track not existing")?;
+                            Particular(TrackAnchor::IdOrName(
+                                *t.guid(),
+                                t.name().expect("track must have name").into_string(),
+                            ))
+                        }
                     };
                     self.mapping.target_model.track.set(track);
                 } else if self.mapping.target_model.r#type.get() == ReaperTargetType::Transport {
@@ -1614,7 +1618,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             Master => -1,
             // TODO-high #23 Check if track is available, otherwise -1! Otherwise can panic when
             //  closing project.
-            Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
+            Particular(t) => {
+                let track = t
+                    .resolve(self.session.context().project())
+                    .expect("track not available");
+                track.index().map(|i| i as isize).unwrap_or(-1)
+            }
         };
         combo.select_combo_box_item_by_data(data).unwrap();
     }
