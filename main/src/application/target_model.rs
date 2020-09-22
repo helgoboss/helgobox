@@ -11,9 +11,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, FxDescriptor, ProcessorContext, ReaperTarget,
-    TargetCharacter, TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualTarget,
+    get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
+    CompoundMappingTarget, FxDescriptor, ProcessorContext, ReaperTarget, TargetCharacter,
+    TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -284,27 +285,6 @@ impl TargetModel {
         }
     }
 
-    /// Returns whether all conditions for this target to be active are met.
-    ///
-    /// Targets conditions are for example "track selected" or "FX focused".
-    pub fn conditions_are_met(&self, target: &ReaperTarget) -> bool {
-        if self.enable_only_if_track_selected.get() {
-            if let Some(track) = target.track() {
-                if !track.is_selected() {
-                    return false;
-                }
-            }
-        }
-        if self.enable_only_if_fx_has_focus.get() {
-            if let Some(fx) = target.fx() {
-                if !fx.window_has_focus() {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
     fn create_control_element(&self) -> VirtualControlElement {
         self.control_element_type
             .get()
@@ -376,22 +356,6 @@ pub fn get_fx_label(fx: Option<&Fx>, index: Option<u32>) -> Cow<'static, str> {
     }
 }
 
-pub fn get_track_label(track: &Track) -> String {
-    match track.location() {
-        TrackLocation::MasterTrack => "<Master track>".into(),
-        TrackLocation::NormalTrack(i) => {
-            let position = i + 1;
-            let name = track.name().expect("non-master track must have name");
-            let name = name.to_str();
-            if name.is_empty() {
-                position.to_string()
-            } else {
-                format!("{}. {}", position, name)
-            }
-        }
-    }
-}
-
 pub struct TargetModelWithContext<'a> {
     target: &'a TargetModel,
     context: &'a ProcessorContext,
@@ -409,70 +373,8 @@ impl<'a> TargetModelWithContext<'a> {
     /// Returns an error if not enough information is provided by the model or if something (e.g.
     /// track/FX/parameter) is not available.
     pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
-        use TargetCategory::*;
-        match self.target.category.get() {
-            Reaper => {
-                use ReaperTargetType::*;
-                let target = match self.target.r#type.get() {
-                    Action => ReaperTarget::Action {
-                        action: self.target.action()?,
-                        invocation_type: self.target.action_invocation_type.get(),
-                        project: self.project(),
-                    },
-                    FxParameter => ReaperTarget::FxParameter {
-                        param: self.fx_param()?,
-                    },
-                    TrackVolume => ReaperTarget::TrackVolume {
-                        track: self.effective_track()?,
-                    },
-                    TrackSendVolume => ReaperTarget::TrackSendVolume {
-                        send: self.track_send()?,
-                    },
-                    TrackPan => ReaperTarget::TrackPan {
-                        track: self.effective_track()?,
-                    },
-                    TrackArm => ReaperTarget::TrackArm {
-                        track: self.effective_track()?,
-                    },
-                    TrackSelection => ReaperTarget::TrackSelection {
-                        track: self.effective_track()?,
-                        select_exclusively: self.target.select_exclusively.get(),
-                    },
-                    TrackMute => ReaperTarget::TrackMute {
-                        track: self.effective_track()?,
-                    },
-                    TrackSolo => ReaperTarget::TrackSolo {
-                        track: self.effective_track()?,
-                    },
-                    TrackSendPan => ReaperTarget::TrackSendPan {
-                        send: self.track_send()?,
-                    },
-                    Tempo => ReaperTarget::Tempo {
-                        project: self.project(),
-                    },
-                    Playrate => ReaperTarget::Playrate {
-                        project: self.project(),
-                    },
-                    FxEnable => ReaperTarget::FxEnable { fx: self.fx()? },
-                    FxPreset => ReaperTarget::FxPreset { fx: self.fx()? },
-                    SelectedTrack => ReaperTarget::SelectedTrack {
-                        project: self.project(),
-                    },
-                    AllTrackFxEnable => ReaperTarget::AllTrackFxEnable {
-                        track: self.effective_track()?,
-                    },
-                    Transport => ReaperTarget::Transport {
-                        project: self.project(),
-                        action: self.target.transport_action.get(),
-                    },
-                };
-                Ok(CompoundMappingTarget::Reaper(target))
-            }
-            Virtual => {
-                let virtual_target = VirtualTarget::new(self.target.create_control_element());
-                Ok(CompoundMappingTarget::Virtual(virtual_target))
-            }
-        }
+        let unresolved = self.target.create_target()?;
+        unresolved.resolve(&self.context)
     }
 
     pub fn is_known_to_be_roundable(&self) -> bool {
@@ -481,38 +383,9 @@ impl<'a> TargetModelWithContext<'a> {
             .map(|t| matches!(t.control_type(), ControlType::AbsoluteContinuousRoundable { .. }))
             .unwrap_or(false)
     }
-
     // Returns an error if the FX doesn't exist.
     pub fn fx(&self) -> Result<Fx, &'static str> {
-        // Actually it's not that important whether we create an index-based or GUID-based FX.
-        // The session listeners will recreate and resync the FX whenever something has
-        // changed anyway. But for monitoring FX it could still be good (which we don't get notified
-        // about unfortunately).
-        let track = self.target.track.get_ref();
-        let is_input_fx = self.target.is_input_fx.get();
-        let fx_index = self.target.fx_index.get().ok_or("FX index not set")?;
-        if *track == VirtualTrack::Selected {
-            // When the target relates to the selected track, GUID-based FX doesn't make sense.
-            get_index_based_fx(&self.context, track, is_input_fx, fx_index)
-        } else {
-            let guid = self.target.fx_guid.get_ref().as_ref();
-            match guid {
-                None => get_index_based_fx(&self.context, track, is_input_fx, fx_index),
-                Some(guid) => {
-                    // Track by GUID because target relates to a very particular FX
-                    get_guid_based_fx_by_guid_with_index_hint(
-                        &self.context,
-                        track,
-                        is_input_fx,
-                        guid,
-                        fx_index,
-                    )
-                    // Fall back to index-based (otherwise this could have the unpleasant effect
-                    // that mapping panel FX menu doesn't find any FX anymore.
-                    .or_else(|_| get_index_based_fx(&self.context, track, is_input_fx, fx_index))
-                }
-            }
-        }
+        get_fx(&self.context, &self.target.fx_descriptor()?)
     }
 
     pub fn project(&self) -> Project {
@@ -526,23 +399,20 @@ impl<'a> TargetModelWithContext<'a> {
 
     // Returns an error if that send (or track) doesn't exist.
     fn track_send(&self) -> Result<TrackSend, &'static str> {
-        let send_index = self.target.send_index.get().ok_or("send index not set")?;
-        let track = self.effective_track()?;
-        let send = track.index_based_send_by_index(send_index);
-        if !send.is_available() {
-            return Err("send doesn't exist");
-        }
-        Ok(send)
+        get_track_send(
+            &self.context,
+            self.target.track.get_ref(),
+            self.target.send_index.get().ok_or("send index not set")?,
+        )
     }
 
     // Returns an error if that param (or FX) doesn't exist.
     fn fx_param(&self) -> Result<FxParameter, &'static str> {
-        let fx = self.fx()?;
-        let param = fx.parameter_by_index(self.target.param_index.get());
-        if !param.is_available() {
-            return Err("parameter doesn't exist");
-        }
-        Ok(param)
+        get_fx_param(
+            &self.context,
+            &self.target.fx_descriptor()?,
+            self.target.param_index.get(),
+        )
     }
 
     fn track_send_label(&self) -> Cow<str> {
@@ -561,34 +431,6 @@ impl<'a> TargetModelWithContext<'a> {
     }
 }
 
-pub fn get_fx_chain(
-    context: &ProcessorContext,
-    track: &VirtualTrack,
-    is_input_fx: bool,
-) -> Result<FxChain, &'static str> {
-    let track = get_effective_track(context, track)?;
-    let result = if is_input_fx {
-        track.input_fx_chain()
-    } else {
-        track.normal_fx_chain()
-    };
-    Ok(result)
-}
-
-pub fn get_index_based_fx(
-    context: &ProcessorContext,
-    track: &VirtualTrack,
-    is_input_fx: bool,
-    fx_index: u32,
-) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
-    let fx = fx_chain.fx_by_index_untracked(fx_index);
-    if !fx.is_available() {
-        return Err("no FX at that index");
-    }
-    Ok(fx)
-}
-
 pub fn get_guid_based_fx_at_index(
     context: &ProcessorContext,
     track: &VirtualTrack,
@@ -597,46 +439,6 @@ pub fn get_guid_based_fx_at_index(
 ) -> Result<Fx, &'static str> {
     let fx_chain = get_fx_chain(context, track, is_input_fx)?;
     fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
-}
-
-pub fn get_guid_based_fx_by_guid_with_index_hint(
-    context: &ProcessorContext,
-    track: &VirtualTrack,
-    is_input_fx: bool,
-    guid: &Guid,
-    fx_index: u32,
-) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
-    let fx = fx_chain.fx_by_guid_and_index(guid, fx_index);
-    // is_available() also invalidates the index if necessary
-    // TODO-low This is too implicit.
-    if !fx.is_available() {
-        return Err("no FX with that GUID");
-    }
-    Ok(fx)
-}
-
-pub fn get_effective_track(
-    context: &ProcessorContext,
-    track: &VirtualTrack,
-) -> Result<Track, &'static str> {
-    use VirtualTrack::*;
-    let track = match track {
-        This => context
-            .containing_fx()
-            .track()
-            .cloned()
-            // If this is monitoring FX, we want this to resolve to the master track since
-            // in most functions, monitoring FX chain is the "input FX chain" of the master track.
-            .unwrap_or_else(|| context.project().master_track()),
-        Selected => context
-            .project()
-            .first_selected_track(IncludeMasterTrack)
-            .ok_or("no track selected")?,
-        Master => context.project().master_track(),
-        Particular(track) => track.clone(),
-    };
-    Ok(track)
 }
 
 impl<'a> Display for TargetModelWithContext<'a> {
@@ -703,30 +505,6 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum VirtualTrack {
-    /// Current track (the one which contains the ReaLearn instance).
-    This,
-    /// Currently selected track.
-    Selected,
-    /// Master track.
-    Master,
-    /// A particular track.
-    Particular(Track),
-}
-
-impl fmt::Display for VirtualTrack {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use VirtualTrack::*;
-        match self {
-            This => write!(f, "<This>"),
-            Selected => write!(f, "<Selected>"),
-            Master => write!(f, "<Master>"),
-            Particular(t) => write!(f, "{}", get_track_label(t)),
         }
     }
 }

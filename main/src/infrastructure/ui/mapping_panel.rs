@@ -26,12 +26,11 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
     ActivationType, MappingModel, MidiSourceType, ModeModel, ModifierConditionModel,
     ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
-    TargetCategory, TargetModel, TargetModelWithContext, VirtualControlElementType, VirtualTrack,
-    WeakSession,
+    TargetCategory, TargetModel, TargetModelWithContext, VirtualControlElementType, WeakSession,
 };
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
-    TargetCharacter, TransportAction, PLUGIN_PARAMETER_COUNT,
+    TargetCharacter, TransportAction, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
@@ -1613,8 +1612,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             This => -3,
             Selected => -2,
             Master => -1,
-            // TODO-high Check if track is available, otherwise -1! Otherwise can panic when closing
-            // project.
+            // TODO-high #23 Check if track is available, otherwise -1! Otherwise can panic when
+            //  closing project.
             Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
         };
         combo.select_combo_box_item_by_data(data).unwrap();

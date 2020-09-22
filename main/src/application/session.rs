@@ -748,9 +748,7 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let main_mapping = m
-            .with_context(&self.context)
-            .create_main_mapping(&self.parameters);
+        let main_mapping = m.create_main_mapping(&self.parameters);
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
@@ -808,11 +806,7 @@ impl Session {
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
         self.mappings(compartment)
-            .map(|m| {
-                m.borrow()
-                    .with_context(&self.context)
-                    .create_main_mapping(&self.parameters)
-            })
+            .map(|m| m.borrow().create_main_mapping(&self.parameters))
             .collect()
     }
 

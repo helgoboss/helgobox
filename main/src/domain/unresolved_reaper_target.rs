@@ -1,10 +1,7 @@
 use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, TransportAction};
-use reaper_high::{Action, Fx, FxParameter, Guid, Project, Track, TrackSend};
-// TODO-high Move from app layer
-use crate::application::{
-    get_guid_based_fx_by_guid_with_index_hint, get_index_based_fx, VirtualTrack,
-};
-use reaper_medium::MasterTrackBehavior;
+use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Track, TrackSend};
+use reaper_medium::{MasterTrackBehavior, TrackLocation};
+use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum UnresolvedReaperTarget {
@@ -79,38 +76,38 @@ impl UnresolvedReaperTarget {
                 param: get_fx_param(context, fx_descriptor, *fx_param_index)?,
             },
             TrackVolume { track_descriptor } => ReaperTarget::TrackVolume {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
             },
             TrackSendVolume {
                 track_descriptor,
                 send_index,
             } => ReaperTarget::TrackSendVolume {
-                send: get_track_send(context, track_descriptor, *send_index)?,
+                send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             TrackPan { track_descriptor } => ReaperTarget::TrackPan {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
             },
             TrackArm { track_descriptor } => ReaperTarget::TrackArm {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
             },
             TrackSelection {
                 track_descriptor,
                 select_exclusively,
             } => ReaperTarget::TrackSelection {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
                 select_exclusively: *select_exclusively,
             },
             TrackMute { track_descriptor } => ReaperTarget::TrackMute {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
             },
             TrackSolo { track_descriptor } => ReaperTarget::TrackSolo {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
             },
             TrackSendPan {
                 track_descriptor,
                 send_index,
             } => ReaperTarget::TrackSendVolume {
-                send: get_track_send(context, track_descriptor, *send_index)?,
+                send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             Tempo => ReaperTarget::Tempo {
                 project: context.project(),
@@ -128,7 +125,7 @@ impl UnresolvedReaperTarget {
                 project: context.project(),
             },
             AllTrackFxEnable { track_descriptor } => ReaperTarget::AllTrackFxEnable {
-                track: get_effective_track(context, track_descriptor)?,
+                track: get_effective_track(context, &track_descriptor.track)?,
             },
             Transport { action } => ReaperTarget::Transport {
                 project: context.project(),
@@ -141,7 +138,6 @@ impl UnresolvedReaperTarget {
     /// Returns whether all conditions for this target to be active are met.
     ///
     /// Targets conditions are for example "track selected" or "FX focused".
-    // TODO-high Remove app layer analog function
     pub fn conditions_are_met(&self, target: &ReaperTarget) -> bool {
         let (track_descriptor, fx_descriptor) = self.descriptors();
         if let Some(desc) = track_descriptor {
@@ -193,13 +189,12 @@ impl UnresolvedReaperTarget {
     }
 }
 
-// TODO-high Delete in app layer
-fn get_effective_track(
+pub fn get_effective_track(
     context: &ProcessorContext,
-    track_descriptor: &TrackDescriptor,
+    virtual_track: &VirtualTrack,
 ) -> Result<Track, &'static str> {
     use VirtualTrack::*;
-    let track = match &track_descriptor.track {
+    let track = match virtual_track {
         This => context
             .containing_fx()
             .track()
@@ -218,13 +213,12 @@ fn get_effective_track(
 }
 
 // Returns an error if that send (or track) doesn't exist.
-// TODO-high Use in app layer
-fn get_track_send(
+pub fn get_track_send(
     context: &ProcessorContext,
-    track_descriptor: &TrackDescriptor,
+    virtual_track: &VirtualTrack,
     send_index: u32,
 ) -> Result<TrackSend, &'static str> {
-    let track = get_effective_track(context, track_descriptor)?;
+    let track = get_effective_track(context, virtual_track)?;
     let send = track.index_based_send_by_index(send_index);
     if !send.is_available() {
         return Err("send doesn't exist");
@@ -247,9 +241,48 @@ pub struct FxDescriptor {
     pub enable_only_if_fx_has_focus: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum VirtualTrack {
+    /// Current track (the one which contains the ReaLearn instance).
+    This,
+    /// Currently selected track.
+    Selected,
+    /// Master track.
+    Master,
+    /// A particular track.
+    Particular(Track),
+}
+
+impl fmt::Display for VirtualTrack {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use VirtualTrack::*;
+        match self {
+            This => write!(f, "<This>"),
+            Selected => write!(f, "<Selected>"),
+            Master => write!(f, "<Master>"),
+            Particular(t) => write!(f, "{}", get_track_label(t)),
+        }
+    }
+}
+
+fn get_track_label(track: &Track) -> String {
+    match track.location() {
+        TrackLocation::MasterTrack => "<Master track>".into(),
+        TrackLocation::NormalTrack(i) => {
+            let position = i + 1;
+            let name = track.name().expect("non-master track must have name");
+            let name = name.to_str();
+            if name.is_empty() {
+                position.to_string()
+            } else {
+                format!("{}. {}", position, name)
+            }
+        }
+    }
+}
+
 // Returns an error if that param (or FX) doesn't exist.
-// TODO-high Delete in app layer
-fn get_fx_param(
+pub fn get_fx_param(
     context: &ProcessorContext,
     descriptor: &FxDescriptor,
     param_index: u32,
@@ -263,8 +296,7 @@ fn get_fx_param(
 }
 
 // Returns an error if the FX doesn't exist.
-// TODO-high Delete in app layer
-fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
+pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
     // Actually it's not that important whether we create an index-based or GUID-based FX.
     // The session listeners will recreate and resync the FX whenever something has
     // changed anyway. But for monitoring FX it could still be good (which we don't get notified
@@ -308,4 +340,49 @@ fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &
             }
         }
     }
+}
+
+pub fn get_index_based_fx(
+    context: &ProcessorContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    let fx = fx_chain.fx_by_index_untracked(fx_index);
+    if !fx.is_available() {
+        return Err("no FX at that index");
+    }
+    Ok(fx)
+}
+
+pub fn get_fx_chain(
+    context: &ProcessorContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+) -> Result<FxChain, &'static str> {
+    let track = get_effective_track(context, track)?;
+    let result = if is_input_fx {
+        track.input_fx_chain()
+    } else {
+        track.normal_fx_chain()
+    };
+    Ok(result)
+}
+
+fn get_guid_based_fx_by_guid_with_index_hint(
+    context: &ProcessorContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+    guid: &Guid,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    let fx = fx_chain.fx_by_guid_and_index(guid, fx_index);
+    // is_available() also invalidates the index if necessary
+    // TODO-low This is too implicit.
+    if !fx.is_available() {
+        return Err("no FX with that GUID");
+    }
+    Ok(fx)
 }

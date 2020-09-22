@@ -1,18 +1,18 @@
-use crate::core::{prop, Prop};
 use helgoboss_learn::{
     AbsoluteMode, ControlType, Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
 };
+use rx_util::UnitEvent;
 
 use crate::application::{
     convert_factor_to_unit_value, ActivationType, ModeModel, ModifierConditionModel,
     ProgramConditionModel, SourceModel, TargetModel, TargetModelWithContext,
 };
+use crate::core::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition,
     ExtendedSourceCharacter, MainMapping, MappingCompartment, MappingId, ProcessorContext,
     ProcessorMappingOptions, RealearnTarget, ReaperTarget, TargetCharacter,
 };
-use rx_util::UnitEvent;
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Debug)]
@@ -150,37 +150,23 @@ impl MappingModel {
             .merge(self.eel_condition.changed())
             .merge(self.program_condition.changed())
     }
-
-    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
-        use std::iter::once;
-        once(self.modifier_condition_1.get_ref()).chain(once(self.modifier_condition_2.get_ref()))
-    }
-}
-
-pub struct MappingModelWithContext<'a> {
-    mapping: &'a MappingModel,
-    context: &'a ProcessorContext,
-}
-
-impl<'a> MappingModelWithContext<'a> {
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    // TODO-high Put out of context
     pub fn create_main_mapping(&self, params: &[f32]) -> MainMapping {
-        let id = self.mapping.id;
-        let source = self.mapping.source_model.create_source();
-        let mode = self.mapping.mode_model.create_mode();
-        let unresolved_target = self.mapping.target_model.create_target().ok();
+        let id = self.id;
+        let source = self.source_model.create_source();
+        let mode = self.mode_model.create_mode();
+        let unresolved_target = self.target_model.create_target().ok();
         let activation_condition = self.create_activation_condition(params);
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             mapping_is_active: false,
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,
-            control_is_enabled: self.mapping.control_is_enabled.get(),
-            feedback_is_enabled: self.mapping.feedback_is_enabled.get(),
-            prevent_echo_feedback: self.mapping.prevent_echo_feedback.get(),
-            send_feedback_after_control: self.mapping.send_feedback_after_control.get(),
+            control_is_enabled: self.control_is_enabled.get(),
+            feedback_is_enabled: self.feedback_is_enabled.get(),
+            prevent_echo_feedback: self.prevent_echo_feedback.get(),
+            send_feedback_after_control: self.send_feedback_after_control.get(),
         };
         MainMapping::new(
             id,
@@ -194,27 +180,38 @@ impl<'a> MappingModelWithContext<'a> {
 
     fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {
         use ActivationType::*;
-        match self.mapping.activation_type.get() {
+        match self.activation_type.get() {
             Always => ActivationCondition::Always,
             Modifiers => {
                 let conditions = self
-                    .mapping
                     .modifier_conditions()
                     .filter_map(|m| m.create_modifier_condition())
                     .collect();
                 ActivationCondition::Modifiers(conditions)
             }
             Program => ActivationCondition::Program {
-                param_index: self.mapping.program_condition.get().param_index(),
-                program_index: self.mapping.program_condition.get().program_index(),
+                param_index: self.program_condition.get().param_index(),
+                program_index: self.program_condition.get().program_index(),
             },
-            Eel => match EelCondition::compile(self.mapping.eel_condition.get_ref(), params) {
+            Eel => match EelCondition::compile(self.eel_condition.get_ref(), params) {
                 Ok(c) => ActivationCondition::Eel(Box::new(c)),
                 Err(_) => ActivationCondition::Always,
             },
         }
     }
 
+    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
+        use std::iter::once;
+        once(self.modifier_condition_1.get_ref()).chain(once(self.modifier_condition_2.get_ref()))
+    }
+}
+
+pub struct MappingModelWithContext<'a> {
+    mapping: &'a MappingModel,
+    context: &'a ProcessorContext,
+}
+
+impl<'a> MappingModelWithContext<'a> {
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;

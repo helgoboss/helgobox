@@ -4,10 +4,10 @@ use reaper_high::{Guid, Project, Reaper, Track};
 
 use crate::application::{
     get_guid_based_fx_at_index, ReaperTargetType, TargetCategory, TargetModel,
-    VirtualControlElementType, VirtualTrack,
+    VirtualControlElementType,
 };
 use crate::core::toast;
-use crate::domain::{ActionInvocationType, ProcessorContext, TransportAction};
+use crate::domain::{ActionInvocationType, ProcessorContext, TransportAction, VirtualTrack};
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
