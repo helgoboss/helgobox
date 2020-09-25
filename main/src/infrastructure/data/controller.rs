@@ -1,4 +1,5 @@
 use crate::application::{Controller, ControllerManager};
+use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::plugin::App;
 use reaper_high::Reaper;
@@ -111,16 +112,22 @@ pub struct ControllerData {
 impl ControllerData {
     pub fn from_model(controller: &Controller) -> ControllerData {
         ControllerData {
-            // mappings: controller
-            //     .mappings()
-            //     .map(|m| MappingModelData::from_model(&m, session.context()))
-            //     .collect()
+            mappings: controller
+                .mappings()
+                .map(|m| MappingModelData::from_model(&m))
+                .collect(),
             name: controller.name().to_string(),
-            mappings: vec![],
         }
     }
 
     pub fn to_model(&self, id: String) -> Controller {
-        Controller::new(id, self.name.clone(), vec![])
+        Controller::new(
+            id,
+            self.name.clone(),
+            self.mappings
+                .iter()
+                .map(|m| m.to_model(MappingCompartment::ControllerMappings, None))
+                .collect(),
+        )
     }
 }

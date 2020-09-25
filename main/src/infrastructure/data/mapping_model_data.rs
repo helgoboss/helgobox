@@ -63,17 +63,21 @@ impl MappingModelData {
         }
     }
 
+    /// The context is necessary only if there's the possibility of loading data saved with
+    /// ReaLearn < 1.12.0.
     pub fn to_model(
         &self,
         compartment: MappingCompartment,
-        context: &ProcessorContext,
+        context: Option<&ProcessorContext>,
     ) -> MappingModel {
         let mut model = MappingModel::new(compartment);
         self.apply_to_model(&mut model, context);
         model
     }
 
-    fn apply_to_model(&self, model: &mut MappingModel, context: &ProcessorContext) {
+    /// The context is necessary only if there's the possibility of loading data saved with
+    /// ReaLearn < 1.12.0.
+    fn apply_to_model(&self, model: &mut MappingModel, context: Option<&ProcessorContext>) {
         model.name.set_without_notification(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());

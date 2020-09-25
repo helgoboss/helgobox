@@ -22,8 +22,8 @@ impl Controller {
         &self.name
     }
 
-    pub fn mappings(self) -> impl Iterator<Item = MappingModel> {
-        self.mappings.into_iter()
+    pub fn mappings(&self) -> impl Iterator<Item = &MappingModel> {
+        self.mappings.iter()
     }
 }
 

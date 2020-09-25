@@ -154,7 +154,7 @@ impl SessionData {
                 compartment,
                 mappings
                     .iter()
-                    .map(|m| m.to_model(compartment, &processor_context)),
+                    .map(|m| m.to_model(compartment, Some(&processor_context))),
             );
         };
         apply_mappings(MappingCompartment::PrimaryMappings, &self.mappings);

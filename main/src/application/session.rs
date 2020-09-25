@@ -581,7 +581,7 @@ impl Session {
                     .ok_or("controller not found")?;
                 self.set_mappings_without_notification(
                     MappingCompartment::ControllerMappings,
-                    controller.mappings(),
+                    controller.mappings().cloned(),
                 );
             }
         };

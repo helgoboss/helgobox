@@ -35,6 +35,8 @@ pub struct TargetModelData {
     // FX target
     #[serde(deserialize_with = "none_if_minus_one")]
     fx_index: Option<u32>,
+    #[serde(rename = "fxGUID")]
+    fx_guid: Option<String>,
     is_input_fx: bool,
     enable_only_if_fx_has_focus: bool,
     // Track send target
@@ -63,6 +65,7 @@ impl Default for TargetModelData {
             track_name: None,
             enable_only_if_track_is_selected: false,
             fx_index: None,
+            fx_guid: None,
             is_input_fx: false,
             enable_only_if_fx_has_focus: false,
             send_index: None,
@@ -99,6 +102,11 @@ impl TargetModelData {
             track_name,
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_index: model.fx_index.get(),
+            fx_guid: model
+                .fx_guid
+                .get_ref()
+                .as_ref()
+                .map(Guid::to_string_without_braces),
             is_input_fx: model.is_input_fx.get(),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             send_index: model.send_index.get(),
@@ -110,7 +118,9 @@ impl TargetModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel, context: &ProcessorContext) {
+    /// The context is necessary only if there's the possibility of loading data saved with
+    /// ReaLearn < 1.12.0.
+    pub fn apply_to_model(&self, model: &mut TargetModel, context: Option<&ProcessorContext>) {
         model.category.set_without_notification(self.category);
         model.r#type.set_without_notification(self.r#type);
         let reaper = Reaper::get();
@@ -167,20 +177,31 @@ impl TargetModelData {
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
-        // At loading time, we can reliably identify an FX using its index because the FX can't
-        // be moved around while the project is not loaded.
         model.fx_index.set_without_notification(self.fx_index);
-        // Therefore we just query the GUID from the FX at the given index.
-        let fx_guid = self.fx_index.and_then(|fx_index| {
-            match get_guid_based_fx_at_index(context, &virtual_track, self.is_input_fx, fx_index) {
-                Ok(fx) => fx.guid(),
-                Err(e) => {
-                    toast::warn(e);
-                    None
-                }
-            }
-        });
-        model.fx_guid.set(fx_guid);
+        if self.r#type.supports_fx() {
+            let fx_guid = match &self.fx_guid {
+                // Before ReaLearn 1.12.0
+                None => self.fx_index.and_then(|fx_index| {
+                    match get_guid_based_fx_at_index(
+                        context.expect(
+                            "trying to load pre-1.12.0 FX target without processor context",
+                        ),
+                        &virtual_track,
+                        self.is_input_fx,
+                        fx_index,
+                    ) {
+                        Ok(fx) => fx.guid(),
+                        Err(e) => {
+                            toast::warn(e);
+                            None
+                        }
+                    }
+                }),
+                // Since ReaLearn 1.12.0
+                Some(s) => Guid::from_string_without_braces(s).ok(),
+            };
+            model.fx_guid.set(fx_guid);
+        }
         model.is_input_fx.set_without_notification(self.is_input_fx);
         model
             .enable_only_if_fx_has_focus

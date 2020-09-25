@@ -251,38 +251,21 @@ impl TargetModel {
         if !self.is_reaper() {
             return false;
         }
-        use ReaperTargetType::*;
-        match self.r#type.get() {
-            FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackArm | TrackSelection
-            | TrackMute | TrackSolo | TrackSendPan | FxEnable | FxPreset | AllTrackFxEnable => true,
-            Action | Tempo | Playrate | SelectedTrack | Transport => false,
-        }
+        self.r#type.get().supports_track()
     }
 
     pub fn supports_send(&self) -> bool {
         if !self.is_reaper() {
             return false;
         }
-        use ReaperTargetType::*;
-        match self.r#type.get() {
-            TrackSendVolume | TrackSendPan => true,
-            FxParameter | TrackVolume | TrackPan | TrackArm | TrackSelection | TrackMute
-            | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate | SelectedTrack
-            | AllTrackFxEnable | Transport => false,
-        }
+        self.r#type.get().supports_send()
     }
 
     pub fn supports_fx(&self) -> bool {
         if !self.is_reaper() {
             return false;
         }
-        use ReaperTargetType::*;
-        match self.r#type.get() {
-            FxParameter | FxEnable | FxPreset => true,
-            TrackSendVolume | TrackSendPan | TrackVolume | TrackPan | TrackArm | TrackSelection
-            | TrackMute | TrackSolo | Action | Tempo | Playrate | SelectedTrack
-            | AllTrackFxEnable | Transport => false,
-        }
+        self.r#type.get().supports_fx()
     }
 
     fn create_control_element(&self) -> VirtualControlElement {
@@ -582,6 +565,35 @@ impl ReaperTargetType {
             SelectedTrack { .. } => ReaperTargetType::SelectedTrack,
             AllTrackFxEnable { .. } => ReaperTargetType::AllTrackFxEnable,
             Transport { .. } => ReaperTargetType::Transport,
+        }
+    }
+
+    pub fn supports_track(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackArm | TrackSelection
+            | TrackMute | TrackSolo | TrackSendPan | FxEnable | FxPreset | AllTrackFxEnable => true,
+            Action | Tempo | Playrate | SelectedTrack | Transport => false,
+        }
+    }
+
+    pub fn supports_fx(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            FxParameter | FxEnable | FxPreset => true,
+            TrackSendVolume | TrackSendPan | TrackVolume | TrackPan | TrackArm | TrackSelection
+            | TrackMute | TrackSolo | Action | Tempo | Playrate | SelectedTrack
+            | AllTrackFxEnable | Transport => false,
+        }
+    }
+
+    pub fn supports_send(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            TrackSendVolume | TrackSendPan => true,
+            FxParameter | TrackVolume | TrackPan | TrackArm | TrackSelection | TrackMute
+            | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate | SelectedTrack
+            | AllTrackFxEnable | Transport => false,
         }
     }
 }
