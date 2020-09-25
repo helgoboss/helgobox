@@ -8,7 +8,9 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
-use reaper_medium::{MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
+use reaper_medium::{
+    MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
+};
 use rx_util::UnitEvent;
 
 use slog::debug;
@@ -17,9 +19,10 @@ use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::application::{SharedSession, WeakSession};
+use crate::application::{Controller, SharedSession, WeakSession};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
+use crate::infrastructure::ui::dialog_util;
 use enum_iterator::IntoEnumIterator;
 use std::convert::TryInto;
 use swell_ui::{SharedView, View, ViewContext, Window};
@@ -153,7 +156,7 @@ impl HeaderPanel {
         self.invalidate_midi_control_input_combo_box();
         self.invalidate_midi_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
-        self.invalidate_preset_combo_box();
+        self.invalidate_preset_controls();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_send_feedback_only_if_armed_check_box();
@@ -174,18 +177,24 @@ impl HeaderPanel {
     }
 
     fn invalidate_preset_controls(&self) {
+        let label = self.view.require_control(root::ID_PRESET_LABEL_TEXT);
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
         let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
         let save_as_button = self.view.require_control(root::ID_PRESET_SAVE_AS_BUTTON);
         if self.main_state.borrow().active_compartment.get()
             == MappingCompartment::ControllerMappings
         {
+            label.show();
             combo.show();
+            delete_button.show();
             save_button.show();
             save_as_button.show();
             self.invalidate_preset_combo_box();
         } else {
+            label.hide();
             combo.hide();
+            delete_button.hide();
             save_button.hide();
             save_as_button.hide();
         }
@@ -494,6 +503,68 @@ impl HeaderPanel {
             .expect("couldn't set clipboard contents");
     }
 
+    fn delete_active_preset(&self) -> Result<(), &'static str> {
+        let result = Reaper::get().medium_reaper().show_message_box(
+            "Do you really want to remove this controller?",
+            "ReaLearn",
+            MessageBoxType::YesNo,
+        );
+        if result == MessageBoxResult::Yes {
+            let session = self.session();
+            let mut session = session.borrow_mut();
+            let active_controller_id = session
+                .active_controller_id()
+                .ok_or("no controller selected")?
+                .to_string();
+            session.activate_controller(None, self.session.clone());
+            App::get()
+                .controller_manager()
+                .borrow_mut()
+                .remove_controller(&active_controller_id)?;
+        }
+        Ok(())
+    }
+
+    fn save_active_preset(&self) -> Result<(), &'static str> {
+        let session = self.session();
+        let session = session.borrow();
+        match session.active_controller() {
+            None => self.save_as_preset(),
+            Some(mut controller) => {
+                let mappings = session
+                    .mappings(MappingCompartment::ControllerMappings)
+                    .map(|ptr| ptr.borrow().clone())
+                    .collect();
+                controller.update_mappings(mappings);
+                App::get()
+                    .controller_manager()
+                    .borrow_mut()
+                    .update_controller(controller)?;
+                Ok(())
+            }
+        }
+    }
+
+    fn save_as_preset(&self) -> Result<(), &'static str> {
+        let controller_name = dialog_util::prompt_for("Controller name")?;
+        let controller_id = slug::slugify(&controller_name);
+        let mappings = self
+            .session()
+            .borrow()
+            .mappings(MappingCompartment::ControllerMappings)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
+        let controller = Controller::new(controller_id.clone(), controller_name, mappings);
+        App::get()
+            .controller_manager()
+            .borrow_mut()
+            .add_controller(controller)?;
+        self.session()
+            .borrow_mut()
+            .activate_controller(Some(controller_id), self.session.clone())?;
+        Ok(())
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -551,6 +622,9 @@ impl HeaderPanel {
             view.invalidate_compartment_combo_box();
             view.invalidate_preset_controls();
         });
+        self.when_async(App::get().controller_manager().borrow().changed(), |view| {
+            view.invalidate_preset_combo_box();
+        });
     }
 
     fn when(
@@ -561,6 +635,16 @@ impl HeaderPanel {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
+    }
+
+    fn when_async(
+        self: &SharedView<Self>,
+        event: impl UnitEvent,
+        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+    ) {
+        when(event.take_until(self.view.closed()))
+            .with(Rc::downgrade(self))
+            .do_async(move |panel, _| reaction(panel));
     }
 }
 
@@ -609,6 +693,15 @@ impl View for HeaderPanel {
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
             ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX => self.update_always_auto_detect(),
+            ID_PRESET_DELETE_BUTTON => {
+                self.delete_active_preset().unwrap();
+            }
+            ID_PRESET_SAVE_AS_BUTTON => {
+                self.save_as_preset().unwrap();
+            }
+            ID_PRESET_SAVE_BUTTON => {
+                self.save_active_preset().unwrap();
+            }
             _ => {}
         }
     }

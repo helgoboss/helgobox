@@ -144,7 +144,7 @@ impl MainMapping {
     }
 
     pub fn refresh_activation(&mut self, params: &[f32]) {
-        self.core.options.target_is_active = self.activation_condition.is_fulfilled(params);
+        self.core.options.mapping_is_active = self.activation_condition.is_fulfilled(params);
     }
 
     pub fn control_is_effectively_on(&self) -> bool {

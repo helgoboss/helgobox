@@ -15,9 +15,13 @@ pub struct App {
 }
 
 impl App {
-    pub fn resource_path() -> PathBuf {
+    pub fn resource_dir_path() -> PathBuf {
         let reaper_resource_path = Reaper::get().resource_path();
         reaper_resource_path.join("ReaLearn")
+    }
+
+    pub fn controller_dir_path() -> PathBuf {
+        App::resource_dir_path().join("controllers")
     }
 
     /// Panics if not in main thread.

@@ -4,6 +4,7 @@ use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::plugin::App;
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::fs;
@@ -13,20 +14,22 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct FileBasedControllerManager {
     controllers: Vec<Controller>,
+    changed_subject: LocalSubject<'static, (), ()>,
 }
 
 impl FileBasedControllerManager {
     pub fn new() -> FileBasedControllerManager {
         let mut manager = FileBasedControllerManager {
             controllers: vec![],
+            changed_subject: Default::default(),
         };
-        manager.load_controllers();
+        let _ = manager.load_controllers();
         manager
     }
 
-    pub fn load_controllers(&mut self) -> Result<(), &str> {
-        let controller_file_paths = fs::read_dir(App::resource_path())
-            .map_err(|_| "couldn't read ReaLearn resource directory")?
+    pub fn load_controllers(&mut self) -> Result<(), String> {
+        let controller_file_paths = fs::read_dir(App::controller_dir_path())
+            .map_err(|_| "couldn't read ReaLearn resource directory".to_string())?
             .filter_map(|result| {
                 let dir_entry = result.ok()?;
                 let file_type = dir_entry.file_type().ok()?;
@@ -57,24 +60,41 @@ impl FileBasedControllerManager {
         self.controllers.iter().position(|c| c.id() == id)
     }
 
-    pub fn add_controller(&mut self, controller: Controller) {
-        unimplemented!()
+    pub fn add_controller(&mut self, controller: Controller) -> Result<(), &'static str> {
+        let path = get_controller_file_path(controller.id());
+        fs::create_dir_all(App::controller_dir_path())
+            .map_err(|_| "couldn't create controller directory")?;
+        let data = ControllerData::from_model(&controller);
+        let json =
+            serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize controller")?;
+        fs::write(path, json).map_err(|_| "couldn't write controller file")?;
+        self.notify_changed();
+        Ok(())
     }
 
-    pub fn remove_controller(&mut self, id: &str) {
-        unimplemented!()
+    pub fn remove_controller(&mut self, id: &str) -> Result<(), &'static str> {
+        let path = get_controller_file_path(id);
+        fs::remove_file(path).map_err(|_| "couldn't delete controller file")?;
+        self.notify_changed();
+        Ok(())
     }
 
-    pub fn update_controller(&mut self, controller: Controller) {
-        unimplemented!()
+    pub fn update_controller(&mut self, controller: Controller) -> Result<(), &'static str> {
+        self.add_controller(controller)
     }
 
-    pub fn changed<E>(&self) -> E
-    where
-        E: UnitEvent,
-    {
-        unimplemented!()
+    pub fn changed(&self) -> impl UnitEvent {
+        self.changed_subject.clone()
     }
+
+    fn notify_changed(&mut self) {
+        let _ = self.load_controllers();
+        self.changed_subject.next(());
+    }
+}
+
+fn get_controller_file_path(id: &str) -> PathBuf {
+    App::controller_dir_path().join(format!("{}.json", id))
 }
 
 impl ControllerManager for FileBasedControllerManager {
@@ -91,15 +111,23 @@ impl ControllerManager for SharedControllerManager {
     }
 }
 
-fn load_controller(path: impl AsRef<Path>) -> Result<Controller, &'static str> {
+fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
     let id = path
         .as_ref()
         .file_stem()
-        .ok_or("controller file must have stem because it makes up the ID")?
+        .ok_or("controller file must have stem because it makes up the ID".to_string())?
         .to_string_lossy()
         .to_string();
-    let controller = Controller::new(id.clone(), id, vec![]);
-    Ok(controller)
+    let json =
+        fs::read_to_string(&path).map_err(|_| "couldn't read controller file".to_string())?;
+    let data: ControllerData = serde_json::from_str(&json).map_err(|e| {
+        format!(
+            "Controller file {:?} isn't valid. Details:\n\n{}",
+            path.as_ref(),
+            e
+        )
+    })?;
+    Ok(data.to_model(id))
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

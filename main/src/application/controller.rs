@@ -25,6 +25,10 @@ impl Controller {
     pub fn mappings(&self) -> impl Iterator<Item = &MappingModel> {
         self.mappings.iter()
     }
+
+    pub fn update_mappings(&mut self, mappings: Vec<MappingModel>) {
+        self.mappings = mappings;
+    }
 }
 
 impl fmt::Display for Controller {

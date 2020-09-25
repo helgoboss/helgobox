@@ -13,7 +13,7 @@
             "name": "Portable Windows 64-bit",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "C:\\REAPER\\reaper.exe",
+            "program": "${env:USERPROFILE}\\Downloads\\REAPER\\reaper.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

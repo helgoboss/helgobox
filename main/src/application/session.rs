@@ -1,5 +1,6 @@
 use crate::application::{
-    session_manager, share_mapping, ControllerManager, MappingModel, SharedMapping, TargetModel,
+    session_manager, share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
+    TargetModel,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -568,11 +569,16 @@ impl Session {
         self.active_controller_id.as_ref().map(|s| s.as_str())
     }
 
+    pub fn active_controller(&self) -> Option<Controller> {
+        let id = self.active_controller_id()?;
+        self.controller_manager.find_by_id(id)
+    }
+
     pub fn activate_controller(
         &mut self,
         id: Option<String>,
         weak_session: WeakSession,
-    ) -> Result<(), &str> {
+    ) -> Result<(), &'static str> {
         match id.as_ref() {
             None => {
                 self.set_mappings_without_notification(
