@@ -64,21 +64,10 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         Reaper::get().logger(),
-                        "Main processor: Updating all mappings..."
+                        "Main processor: Updating all {}...", compartment
                     );
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
-                    // Sync to real-time processor
-                    let real_time_mappings = mappings
-                        .iter()
-                        .map(|m| m.splinter_real_time_mapping())
-                        .collect();
-                    self.normal_real_time_task_sender
-                        .send(NormalRealTimeTask::UpdateAllMappings(
-                            compartment,
-                            real_time_mappings,
-                        ))
-                        .unwrap();
-                    // Put into hash map in order to quickly look up mappings by ID
+                    // Refresh and put into hash map in order to quickly look up mappings by ID
                     self.mappings[compartment] = mappings
                         .into_iter()
                         .map(|mut m| {
@@ -90,6 +79,18 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             (m.id(), m)
                         })
                         .collect();
+                    // Sync to real-time processor
+                    let real_time_mappings = self.mappings[compartment]
+                        .values()
+                        .map(|m| m.splinter_real_time_mapping())
+                        .collect();
+                    self.normal_real_time_task_sender
+                        .send(NormalRealTimeTask::UpdateAllMappings(
+                            compartment,
+                            real_time_mappings,
+                        ))
+                        .unwrap();
+                    // Feedback
                     self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                 }
                 UpdateAllTargets => {
@@ -127,9 +128,11 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateSingleMapping(compartment, mut mapping) => {
                     debug!(
                         Reaper::get().logger(),
-                        "Main processor: Updating mapping {:?}...",
+                        "Main processor: Updating single {} {:?}...",
+                        compartment,
                         mapping.id()
                     );
+                    // Refresh
                     mapping.refresh_all(&self.context, &self.parameters);
                     // Sync to real-time processor
                     self.normal_real_time_task_sender

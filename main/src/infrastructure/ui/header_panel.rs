@@ -604,7 +604,7 @@ impl View for HeaderPanel {
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
-            ID_LOG_BUTTON => self.session().borrow().log_debug_info(),
+            ID_LOG_BUTTON => self.session().borrow_mut().log_debug_info(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
