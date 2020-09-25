@@ -20,6 +20,7 @@ use std::ptr::null_mut;
 use vst::api::{EventType, Events, MidiEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
+use wrap_debug::WrapDebug;
 
 const NORMAL_BULK_SIZE: usize = 100;
 const FEEDBACK_BULK_SIZE: usize = 100;
@@ -30,6 +31,7 @@ pub(crate) enum ControlState {
     LearningSource,
 }
 
+#[derive(Debug)]
 pub struct RealTimeProcessor {
     // Synced processing settings
     pub(crate) control_state: ControlState,
@@ -44,7 +46,7 @@ pub struct RealTimeProcessor {
     pub(crate) normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     pub(crate) control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     // Host communication
-    pub(crate) host: HostCallback,
+    pub(crate) host: WrapDebug<HostCallback>,
     // Scanners for more complex MIDI message types
     pub(crate) nrpn_scanner: ParameterNumberMessageScanner,
     pub(crate) cc_14_bit_scanner: ControlChange14BitMessageScanner,
@@ -81,7 +83,7 @@ impl RealTimeProcessor {
             cc_14_bit_scanner: Default::default(),
             midi_control_input: MidiControlInput::FxInput,
             midi_feedback_output: None,
-            host: host_callback,
+            host: WrapDebug(host_callback),
             was_playing_in_last_cycle: false,
             source_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
@@ -247,6 +249,7 @@ impl RealTimeProcessor {
     }
 
     fn log_debug_info(&self, task_count: usize) {
+        // Summary
         let msg = format!(
             "\n\
             # Real-time processor\n\
@@ -278,6 +281,15 @@ impl RealTimeProcessor {
                 Reaper::get().show_console_msg(msg);
             })
             .unwrap();
+        // Detailled
+        println!(
+            "\n\
+            # Real-time processor\n\
+            \n\
+            {:#?}
+            ",
+            self
+        );
     }
 
     fn is_now_playing(&self) -> bool {

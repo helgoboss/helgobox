@@ -469,6 +469,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn log_debug_info(&self, task_count: usize) {
+        // Summary
         let msg = format!(
             "\n\
                         # Main processor\n\
@@ -502,6 +503,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.parameters,
         );
         Reaper::get().show_console_msg(msg);
+        // Detailled
+        println!(
+            "\n\
+            # Main processor\n\
+            \n\
+            {:#?}
+            ",
+            self
+        );
     }
 }
 

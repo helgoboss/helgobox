@@ -22,7 +22,6 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::rc::{Rc, Weak};
-use tempfile::TempPath;
 use wrap_debug::WrapDebug;
 
 pub trait SessionUi {
@@ -66,7 +65,6 @@ pub struct Session {
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     parameter_settings: Vec<ParameterSetting>,
     controller_manager: Box<dyn ControllerManager>,
-    debug_info_html_file_temp_path: Lazy<Option<TempPath>>,
 }
 
 impl Session {
@@ -108,7 +106,6 @@ impl Session {
             parameters: [0.0; PLUGIN_PARAMETER_COUNT as usize],
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_manager: Box::new(controller_manager),
-            debug_info_html_file_temp_path: Lazy::new(|| create_debug_info_html_file().ok()),
         }
     }
 
@@ -680,7 +677,6 @@ impl Session {
     }
 
     pub fn log_debug_info(&self) {
-        self.show_in_browser("<html><body><pre>Test</pre></body></html>");
         self.log_debug_info_internal();
         session_manager::log_debug_info();
         self.normal_main_task_channel
@@ -690,16 +686,6 @@ impl Session {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::LogDebugInfo)
             .unwrap();
-    }
-
-    fn show_in_browser(&self, content: &str) {
-        if let Some(file) = &*self.debug_info_html_file_temp_path {
-            let result = std::fs::write(file, content);
-            if result.is_ok() {
-                let path: &Path = &file;
-                let _ = webbrowser::open(&path.to_string_lossy());
-            }
-        }
     }
 
     fn log_debug_info_internal(&self) {
@@ -719,6 +705,15 @@ impl Session {
             self.mapping_subscriptions[MappingCompartment::ControllerMappings].len(),
         );
         Reaper::get().show_console_msg(msg);
+        // Detailled
+        println!(
+            "\n\
+            # Session\n\
+            \n\
+            {:#?}
+            ",
+            self
+        );
     }
 
     pub fn find_mapping_with_target(
@@ -951,8 +946,3 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
-
-fn create_debug_info_html_file() -> io::Result<TempPath> {
-    let mut file = tempfile::Builder::new().suffix(".html").tempfile()?;
-    Ok(file.into_temp_path())
-}

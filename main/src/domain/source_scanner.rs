@@ -9,11 +9,13 @@ use std::time::{Duration, Instant};
 const MAX_CC_MSG_COUNT: usize = 10;
 const MAX_CC_WAITING_TIME: Duration = Duration::from_millis(250);
 
+#[derive(Debug)]
 enum State {
     Initial,
     WaitingForMoreCcMsgs(ControlChangeState),
 }
 
+#[derive(Debug)]
 pub struct SourceScanner {
     state: State,
 }
@@ -26,6 +28,7 @@ impl Default for SourceScanner {
     }
 }
 
+#[derive(Debug)]
 struct ControlChangeState {
     start_time: Instant,
     channel: Channel,
