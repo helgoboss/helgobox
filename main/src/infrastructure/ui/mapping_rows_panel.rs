@@ -139,16 +139,11 @@ impl MappingRowsPanel {
         }
     }
 
-    fn scroll(&self, pos: usize) {
-        self.scroll_without_mapping_row_invalidation(pos);
-        self.invalidate_mapping_rows();
-    }
-
-    fn scroll_without_mapping_row_invalidation(&self, pos: usize) {
+    fn scroll(&self, pos: usize) -> bool {
         let pos = pos.min(self.max_scroll_position());
         let scroll_pos = self.scroll_position.get();
         if pos == scroll_pos {
-            return;
+            return false;
         }
         unsafe {
             Reaper::get().medium_reaper().low().CoolSB_SetScrollPos(
@@ -159,6 +154,8 @@ impl MappingRowsPanel {
             );
         }
         self.scroll_position.set(pos);
+        self.invalidate_mapping_rows();
+        true
     }
 
     fn max_scroll_position(&self) -> usize {
@@ -313,10 +310,11 @@ impl MappingRowsPanel {
                 .merge(main_state.search_expression.changed())
                 .merge(main_state.active_compartment.changed()),
             |view, _| {
-                // We scroll without because we want to do it in any case, even if the scroll
-                // position was already zero.
-                view.scroll_without_mapping_row_invalidation(0);
-                view.invalidate_mapping_rows();
+                if !view.scroll(0) {
+                    // No scrolling was necessary. But that also means, the rows were not
+                    // invalidated. Do it now!
+                    view.invalidate_mapping_rows();
+                }
                 view.invalidate_scroll_info();
             },
         );

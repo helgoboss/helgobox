@@ -160,8 +160,11 @@ impl MappingRowPanel {
     fn invalidate_on_indicator(&self, mapping: &MappingModel) {
         let is_on = self.session().borrow().mapping_is_on(mapping.id());
         self.view
-            .require_control(root::ID_MAPPING_ROW_ACTIVE_RADIO_BUTTON)
-            .set_checked(is_on);
+            .require_control(root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT)
+            .set_enabled(is_on);
+        self.view
+            .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)
+            .set_enabled(is_on);
     }
 
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
