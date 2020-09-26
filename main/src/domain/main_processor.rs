@@ -242,8 +242,12 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             }
                         }
                     }
-                    self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                     if !activation_updates.is_empty() {
+                        // TODO-low This could be reduced to just the activation update mappings
+                        self.handle_feedback_after_batch_mapping_update(
+                            compartment,
+                            &unused_sources,
+                        );
                         self.normal_real_time_task_sender
                             .send(NormalRealTimeTask::UpdateNormalMappingActivations(
                                 compartment,
