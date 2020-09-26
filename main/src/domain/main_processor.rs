@@ -62,7 +62,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
         for task in normal_tasks {
             use NormalMainTask::*;
             match task {
-                UpdateAllMappings(compartment, mappings) => {
+                UpdateAllMappings(compartment, mut mappings) => {
                     debug!(
                         self.logger,
                         "Updating {} {}...",
@@ -93,7 +93,6 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             real_time_mappings,
                         ))
                         .unwrap();
-                    // Other stuff
                     self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
                     self.update_on_mappings();
                 }
@@ -202,6 +201,28 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateAllParameters(parameters) => {
                     debug!(self.logger, "Updating all parameters...");
                     self.parameters = parameters;
+                    // Activation is only supported for primary mappings
+                    let compartment = MappingCompartment::PrimaryMappings;
+                    let mut activation_updates: Vec<MappingActivationUpdate> = vec![];
+                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
+                    for m in &mut self.mappings[compartment].values_mut() {
+                        if m.is_affected_by_parameters() {
+                            m.refresh_activation(&self.parameters);
+                            activation_updates.push(MappingActivationUpdate {
+                                id: m.id(),
+                                is_active: m.is_active(),
+                            });
+                        }
+                        if m.feedback_is_effectively_on() {
+                            // Mark source as used
+                            unused_sources.remove(m.source());
+                        }
+                    }
+                    self.process_activation_updates(
+                        compartment,
+                        activation_updates,
+                        &unused_sources,
+                    );
                 }
                 UpdateParameter { index, value } => {
                     debug!(self.logger, "Updating parameter {} to {}...", index, value);
@@ -232,6 +253,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         .collect();
                     // 2. Write
                     for upd in activation_updates.iter() {
+                        // TODO-high This
                         if let Some(m) = self.mappings[compartment].get_mut(&upd.id) {
                             m.update_activation(upd.is_active);
                             if m.feedback_is_effectively_on() {
@@ -240,24 +262,11 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             }
                         }
                     }
-                    if !activation_updates.is_empty() {
-                        // Send feedback
-                        // TODO-low Feedback could be reduced to just the activation update mappings
-                        self.handle_feedback_after_batch_mapping_update(
-                            compartment,
-                            &unused_sources,
-                        );
-                        // Communicate changes to real-time processor
-                        self.normal_real_time_task_sender
-                            .send(NormalRealTimeTask::UpdateMappingActivations(
-                                compartment,
-                                activation_updates,
-                            ))
-                            .unwrap();
-                        // Update on mappings
-                        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
-                        self.update_on_mappings();
-                    }
+                    self.process_activation_updates(
+                        compartment,
+                        activation_updates,
+                        &unused_sources,
+                    )
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     self.feedback_is_globally_enabled = is_enabled;
@@ -392,6 +401,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .subscribe(move |_| {
                 self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
             });
+    }
+
+    fn process_activation_updates(
+        &mut self,
+        compartment: MappingCompartment,
+        activation_updates: Vec<MappingActivationUpdate>,
+        unused_sources: &HashSet<CompoundMappingSource>,
+    ) {
+        if activation_updates.is_empty() {
+            return;
+        }
+        // Send feedback
+        // TODO-low Feedback could be reduced to just the activation update mappings
+        self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
+        // Communicate changes to real-time processor
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateMappingActivations(
+                compartment,
+                activation_updates,
+            ))
+            .unwrap();
+        // Update on mappings
+        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
+        self.update_on_mappings();
     }
 
     fn update_on_mappings(&self) {

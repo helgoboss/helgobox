@@ -36,6 +36,14 @@ impl ActivationCondition {
         }
     }
 
+    /// Returns if this activation condition is affected by parameter changes in general.
+    pub fn is_affected_by_parameters(&self) -> bool {
+        match self {
+            ActivationCondition::Always => false,
+            _ => true,
+        }
+    }
+
     /// Returns if this activation condition is affected by the given parameter update.
     ///
     /// This is a bit hacky because in case of EEL, this actually writes something - but in EEL

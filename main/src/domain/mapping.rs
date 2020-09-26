@@ -113,6 +113,11 @@ impl MainMapping {
         }
     }
 
+    /// Returns if this activation condition is affected by parameter changes in general.
+    pub fn is_affected_by_parameters(&self) -> bool {
+        self.activation_condition.is_affected_by_parameters()
+    }
+
     pub fn update_activation(&mut self, is_active: bool) {
         self.core.options.mapping_is_active = is_active;
     }
@@ -145,6 +150,10 @@ impl MainMapping {
 
     pub fn refresh_activation(&mut self, params: &[f32]) {
         self.core.options.mapping_is_active = self.activation_condition.is_fulfilled(params);
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.core.options.mapping_is_active
     }
 
     pub fn is_effectively_on(&self) -> bool {
