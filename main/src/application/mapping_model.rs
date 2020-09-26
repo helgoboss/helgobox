@@ -179,6 +179,10 @@ impl MappingModel {
     }
 
     fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {
+        if self.compartment == MappingCompartment::ControllerMappings {
+            // Controller mappings are always active, no matter what weird stuff is in the model.
+            return ActivationCondition::Always;
+        }
         use ActivationType::*;
         match self.activation_type.get() {
             Always => ActivationCondition::Always,
