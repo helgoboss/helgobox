@@ -1,4 +1,4 @@
-use crate::application::{Controller, ControllerManager};
+use crate::application::{Controller, ControllerManager, SharedMapping};
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::plugin::App;
@@ -101,6 +101,24 @@ impl ControllerManager for FileBasedControllerManager {
     fn find_by_id(&self, id: &str) -> Option<Controller> {
         self.controllers.iter().find(|c| c.id() == id).cloned()
     }
+
+    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
+        let controller = match self.controllers.iter().find(|c| c.id() == id) {
+            None => return false,
+            Some(c) => c,
+        };
+        if mappings.len() != controller.mappings().len() {
+            return true;
+        }
+        mappings
+            .iter()
+            .zip(controller.mappings())
+            .any(|(actual_mapping, controller_mapping)| {
+                let actual_mapping_data = MappingModelData::from_model(&actual_mapping.borrow());
+                let controller_mapping_data = MappingModelData::from_model(controller_mapping);
+                actual_mapping_data != controller_mapping_data
+            })
+    }
 }
 
 pub type SharedControllerManager = Rc<RefCell<FileBasedControllerManager>>;
@@ -108,6 +126,10 @@ pub type SharedControllerManager = Rc<RefCell<FileBasedControllerManager>>;
 impl ControllerManager for SharedControllerManager {
     fn find_by_id(&self, id: &str) -> Option<Controller> {
         self.borrow().find_by_id(id)
+    }
+
+    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
+        self.borrow().mappings_are_dirty(id, mappings)
     }
 }
 

@@ -574,6 +574,15 @@ impl Session {
         self.controller_manager.find_by_id(id)
     }
 
+    pub fn controller_mappings_are_dirty(&self) -> bool {
+        let id = match &self.active_controller_id {
+            None => return false,
+            Some(id) => id,
+        };
+        self.controller_manager
+            .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
+    }
+
     pub fn activate_controller(
         &mut self,
         id: Option<String>,

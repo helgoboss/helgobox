@@ -1,4 +1,4 @@
-use crate::application::MappingModel;
+use crate::application::{MappingModel, SharedMapping};
 use rx_util::UnitEvent;
 use std::fmt;
 
@@ -22,7 +22,7 @@ impl Controller {
         &self.name
     }
 
-    pub fn mappings(&self) -> impl Iterator<Item = &MappingModel> {
+    pub fn mappings(&self) -> impl Iterator<Item = &MappingModel> + ExactSizeIterator {
         self.mappings.iter()
     }
 
@@ -39,4 +39,6 @@ impl fmt::Display for Controller {
 
 pub trait ControllerManager: fmt::Debug {
     fn find_by_id(&self, id: &str) -> Option<Controller>;
+
+    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool;
 }

@@ -209,9 +209,12 @@ impl HeaderPanel {
     fn invalidate_preset_buttons(&self) {
         let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
         let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
-        let controller_is_active = self.session().borrow().active_controller_id().is_some();
+        let session = self.session();
+        let session = session.borrow();
+        let controller_is_active = session.active_controller_id().is_some();
         delete_button.set_enabled(controller_is_active);
-        save_button.set_enabled(controller_is_active);
+        let controller_mappings_are_dirty = session.controller_mappings_are_dirty();
+        save_button.set_enabled(controller_is_active && controller_mappings_are_dirty);
     }
 
     fn fill_preset_combo_box(&self) {
@@ -637,6 +640,7 @@ impl HeaderPanel {
         self.when_async(App::get().controller_manager().borrow().changed(), |view| {
             view.invalidate_preset_combo_box();
         });
+        session.mapping_list_changed().filter(|c| c)
     }
 
     fn when(
