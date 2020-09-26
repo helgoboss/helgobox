@@ -31,7 +31,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains all mappings except those where the target could not be resolved.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
     feedback_buffer: FeedbackBuffer,
-    feedback_subscriptions: FeedbackSubscriptions,
+    feedback_subscriptions: EnumMap<MappingCompartment, FeedbackSubscriptions>,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -154,13 +154,13 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                                     mapping.id(),
                                     target,
                                 );
-                                self.feedback_subscriptions
+                                self.feedback_subscriptions[compartment]
                                     .insert(mapping.id(), subscription);
                                 self.send_feedback(mapping.feedback_if_enabled());
                             }
                             _ => {
                                 // Unsubscribe (if the feedback was enabled before)
-                                self.feedback_subscriptions.remove(&mapping.id());
+                                self.feedback_subscriptions[compartment].remove(&mapping.id());
                                 // Indicate via feedback that this source is not in use anymore. But
                                 // only if feedback was enabled before (otherwise this could
                                 // overwrite the feedback value of
@@ -266,7 +266,9 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             );
                         }
                     } else {
-                        self.feedback_subscriptions.clear();
+                        for compartment in MappingCompartment::into_enum_iter() {
+                            self.feedback_subscriptions[compartment].clear();
+                        }
                         self.feedback_buffer.reset_all();
                         self.send_feedback(self.feedback_all_zero());
                     }
@@ -445,7 +447,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         // Subscribe to target value changes for feedback. Before that, cancel all existing
         // subscriptions.
-        self.feedback_subscriptions.clear();
+        self.feedback_subscriptions[compartment].clear();
         for m in self.mappings[compartment]
             .values()
             .filter(|m| m.feedback_is_effectively_on())
@@ -458,7 +460,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     m.id(),
                     target,
                 );
-                self.feedback_subscriptions.insert(m.id(), subscription);
+                self.feedback_subscriptions[compartment].insert(m.id(), subscription);
             }
         }
         // Send feedback instantly to reflect this change in mappings.
@@ -480,9 +482,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         \n\
                         - Total primary mapping count: {} \n\
                         - Enabled primary mapping count: {} \n\
+                        - Primary mapping feedback subscription count: {} \n\
                         - Total controller mapping count: {} \n\
                         - Enabled controller mapping count: {} \n\
-                        - Feedback subscription count: {} \n\
+                        - Controller mapping feedback subscription count: {} \n\
                         - Feedback buffer length: {} \n\
                         - Normal task count: {} \n\
                         - Control task count: {} \n\
@@ -494,12 +497,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
+            self.feedback_subscriptions[MappingCompartment::PrimaryMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.feedback_subscriptions.len(),
+            self.feedback_subscriptions[MappingCompartment::ControllerMappings].len(),
             self.feedback_buffer.len(),
             task_count,
             self.control_task_receiver.len(),
