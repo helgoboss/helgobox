@@ -253,13 +253,15 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         .collect();
                     // 2. Write
                     for upd in activation_updates.iter() {
-                        // TODO-high This
                         if let Some(m) = self.mappings[compartment].get_mut(&upd.id) {
                             m.update_activation(upd.is_active);
-                            if m.feedback_is_effectively_on() {
-                                // Mark source as used
-                                unused_sources.remove(m.source());
-                            }
+                        }
+                    }
+                    // Determine unused sources
+                    for m in self.mappings[compartment].values() {
+                        if m.feedback_is_effectively_on() {
+                            // Mark source as used
+                            unused_sources.remove(m.source());
                         }
                     }
                     self.process_activation_updates(
