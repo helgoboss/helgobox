@@ -1808,7 +1808,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_FX_PARAMETER_LABEL_TEXT);
         let target = self.target;
-        if target.r#type.get() == ReaperTargetType::FxParameter {
+        if target.category.get() == TargetCategory::Reaper
+            && target.r#type.get() == ReaperTargetType::FxParameter
+        {
             combo.show();
             label.show();
             self.fill_target_fx_param_combo_box(combo);
