@@ -76,6 +76,7 @@ impl MappingRowPanel {
         self.invalidate_learn_target_button(&mapping);
         self.invalidate_control_check_box(&mapping);
         self.invalidate_feedback_check_box(&mapping);
+        self.invalidate_on_indicator(&mapping);
     }
 
     fn invalidate_name_label(&self, mapping: &MappingModel) {
@@ -156,6 +157,13 @@ impl MappingRowPanel {
             .set_checked(mapping.feedback_is_enabled.get());
     }
 
+    fn invalidate_on_indicator(&self, mapping: &MappingModel) {
+        let is_on = self.session().borrow().mapping_is_on(mapping.id());
+        self.view
+            .require_control(root::ID_MAPPING_ROW_ACTIVE_RADIO_BUTTON)
+            .set_checked(is_on);
+    }
+
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
         self.when(mapping.name.changed(), |view| {
             view.with_mapping(Self::invalidate_name_label);
@@ -197,6 +205,9 @@ impl MappingRowPanel {
                 view.with_mapping(Self::invalidate_learn_target_button);
             },
         );
+        self.when(self.session().borrow().on_mappings_changed(), |view| {
+            view.with_mapping(Self::invalidate_on_indicator);
+        });
     }
 
     fn with_mapping(&self, use_mapping: impl Fn(&Self, &MappingModel)) {

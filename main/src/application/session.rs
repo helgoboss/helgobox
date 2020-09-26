@@ -5,8 +5,9 @@ use crate::application::{
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
-    MainMapping, MainProcessor, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
-    NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
+    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget,
+    PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -17,7 +18,8 @@ use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, U
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::debug;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io;
@@ -67,6 +69,8 @@ pub struct Session {
     parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     parameter_settings: Vec<ParameterSetting>,
     controller_manager: Box<dyn ControllerManager>,
+    /// The mappings which are on (control or feedback enabled + mapping active + target active)
+    on_mappings: Prop<HashSet<MappingId>>,
 }
 
 impl Session {
@@ -109,6 +113,7 @@ impl Session {
             parameters: [0.0; PLUGIN_PARAMETER_COUNT as usize],
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_manager: Box::new(controller_manager),
+            on_mappings: Default::default(),
         }
     }
 
@@ -713,6 +718,14 @@ impl Session {
             .unwrap();
     }
 
+    pub fn mapping_is_on(&self, id: MappingId) -> bool {
+        self.on_mappings.get_ref().contains(&id)
+    }
+
+    pub fn on_mappings_changed(&self) -> impl UnitEvent {
+        self.on_mappings.changed()
+    }
+
     fn log_debug_info_internal(&self) {
         // Summary
         let msg = format!(
@@ -916,13 +929,15 @@ fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping)
 
 impl DomainEventHandler for WeakSession {
     fn handle_event(&self, event: DomainEvent) {
+        let session = self.upgrade().expect("session not existing anymore");
+        let mut session = session.borrow_mut();
         use DomainEvent::*;
         match event {
             LearnedSource(source) => {
-                self.upgrade()
-                    .expect("session not existing anymore")
-                    .borrow_mut()
-                    .learn_source(source);
+                session.learn_source(source);
+            }
+            UpdateOnMappings(on_mappings) => {
+                session.on_mappings.set(on_mappings);
             }
         }
     }

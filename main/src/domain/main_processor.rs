@@ -90,13 +90,14 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             real_time_mappings,
                         ))
                         .unwrap();
-                    // Feedback
+                    // Other stuff
                     self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
+                    self.update_on_mappings();
                 }
-                UpdateAllTargets => {
+                RefreshAllTargets => {
                     debug!(
                         Reaper::get().logger(),
-                        "Main processor: Updating all targets..."
+                        "Main processor: Refreshing all targets..."
                     );
                     for compartment in MappingCompartment::into_enum_iter() {
                         let mut unused_sources =
@@ -114,7 +115,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             }
                         }
                         self.normal_real_time_task_sender
-                            .send(NormalRealTimeTask::EnableMappingsExclusively(
+                            .send(NormalRealTimeTask::UpdateTargetActivations(
                                 compartment,
                                 mappings_with_active_targets,
                             ))
@@ -124,6 +125,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                             &unused_sources,
                         );
                     }
+                    self.update_on_mappings();
                 }
                 UpdateSingleMapping(compartment, mut mapping) => {
                     debug!(
@@ -182,6 +184,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     }
                     // Update hash map entry
                     self.mappings[compartment].insert(mapping.id(), *mapping);
+                    // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
+                    self.update_on_mappings();
                 }
                 FeedbackAll => {
                     if self.feedback_is_globally_enabled {
@@ -243,17 +247,22 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         }
                     }
                     if !activation_updates.is_empty() {
-                        // TODO-low This could be reduced to just the activation update mappings
+                        // Send feedback
+                        // TODO-low Feedback could be reduced to just the activation update mappings
                         self.handle_feedback_after_batch_mapping_update(
                             compartment,
                             &unused_sources,
                         );
+                        // Communicate changes to real-time processor
                         self.normal_real_time_task_sender
-                            .send(NormalRealTimeTask::UpdateNormalMappingActivations(
+                            .send(NormalRealTimeTask::UpdateMappingActivations(
                                 compartment,
                                 activation_updates,
                             ))
                             .unwrap();
+                        // Update on mappings
+                        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
+                        self.update_on_mappings();
                     }
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
@@ -385,8 +394,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // We have this explicit stop criteria because we listen to global REAPER events.
             .take_until(self.party_is_over_subject.clone())
             .subscribe(move |_| {
-                self_sender.send(NormalMainTask::UpdateAllTargets).unwrap();
+                self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
             });
+    }
+
+    fn update_on_mappings(&self) {
+        let on_mappings = self
+            .all_mappings()
+            .filter(|m| m.is_effectively_on())
+            .map(MainMapping::id)
+            .collect();
+        self.event_handler
+            .handle_event(DomainEvent::UpdateOnMappings(on_mappings));
     }
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = CompoundMappingSourceValue>) {
@@ -547,7 +566,7 @@ pub enum NormalMainTask {
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
-    UpdateAllTargets,
+    RefreshAllTargets,
     UpdateAllParameters([f32; PLUGIN_PARAMETER_COUNT as usize]),
     UpdateParameter {
         index: u32,

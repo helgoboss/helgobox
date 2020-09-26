@@ -92,6 +92,10 @@ impl MappingModel {
         }
     }
 
+    pub fn id(&self) -> MappingId {
+        self.id
+    }
+
     pub fn compartment(&self) -> MappingCompartment {
         self.compartment
     }

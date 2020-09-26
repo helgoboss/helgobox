@@ -138,7 +138,7 @@ impl RealTimeProcessor {
                     );
                     self.mappings[compartment].insert(mapping.id(), mapping);
                 }
-                EnableMappingsExclusively(compartment, mappings_to_enable) => {
+                UpdateTargetActivations(compartment, mappings_with_active_target) => {
                     // TODO-low We should use an own logger and always log the sample count
                     //  automatically.
                     // Also log sample count in order to be sure about invocation order
@@ -146,12 +146,12 @@ impl RealTimeProcessor {
                     debug!(
                         Reaper::get().logger(),
                         "Real-time processor: Enable {} {} at {} samples...",
-                        mappings_to_enable.len(),
+                        mappings_with_active_target.len(),
                         compartment,
                         self.midi_clock_calculator.current_sample_count()
                     );
                     for m in self.mappings[compartment].values_mut() {
-                        m.update_target_activation(mappings_to_enable.contains(&m.id()));
+                        m.update_target_activation(mappings_with_active_target.contains(&m.id()));
                     }
                 }
                 UpdateSettings {
@@ -198,7 +198,7 @@ impl RealTimeProcessor {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
-                UpdateNormalMappingActivations(compartment, activation_updates) => {
+                UpdateMappingActivations(compartment, activation_updates) => {
                     debug!(
                         Reaper::get().logger(),
                         "Real-time processor: Update mapping activations..."
@@ -599,11 +599,15 @@ pub enum NormalRealTimeTask {
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
-    /// This takes care of propagating target activation states (right now still mixed up with
-    /// enabled/disabled).
-    EnableMappingsExclusively(MappingCompartment, HashSet<MappingId>),
+    /// This takes care of propagating target activation states.
+    ///
+    /// The given set contains *all* mappings whose target is active.
+    UpdateTargetActivations(MappingCompartment, HashSet<MappingId>),
     /// Updates the activation state of multiple mappings.
-    UpdateNormalMappingActivations(MappingCompartment, Vec<MappingActivationUpdate>),
+    ///
+    /// The given vector contains updates just for affected mappings. This is because when a
+    /// parameter update occurs we can determine in a very granular way which targets are affected.
+    UpdateMappingActivations(MappingCompartment, Vec<MappingActivationUpdate>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource,

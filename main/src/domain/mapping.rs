@@ -27,14 +27,14 @@ pub struct ProcessorMappingOptions {
 
 impl ProcessorMappingOptions {
     fn control_is_effectively_on(&self) -> bool {
-        self.is_active() && self.control_is_enabled
+        self.is_effectively_active() && self.control_is_enabled
     }
 
     fn feedback_is_effectively_on(&self) -> bool {
-        self.is_active() && self.feedback_is_enabled
+        self.is_effectively_active() && self.feedback_is_enabled
     }
 
-    fn is_active(&self) -> bool {
+    fn is_effectively_active(&self) -> bool {
         self.mapping_is_active && self.target_is_active
     }
 }
@@ -145,6 +145,11 @@ impl MainMapping {
 
     pub fn refresh_activation(&mut self, params: &[f32]) {
         self.core.options.mapping_is_active = self.activation_condition.is_fulfilled(params);
+    }
+
+    pub fn is_effectively_on(&self) -> bool {
+        self.core.options.is_effectively_active()
+            && (self.core.options.control_is_enabled || self.core.options.feedback_is_enabled)
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
