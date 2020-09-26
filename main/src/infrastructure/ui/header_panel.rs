@@ -191,6 +191,7 @@ impl HeaderPanel {
             save_button.show();
             save_as_button.show();
             self.invalidate_preset_combo_box();
+            self.invalidate_preset_buttons();
         } else {
             label.hide();
             combo.hide();
@@ -203,6 +204,14 @@ impl HeaderPanel {
     fn invalidate_preset_combo_box(&self) {
         self.fill_preset_combo_box();
         self.invalidate_preset_combo_box_value();
+    }
+
+    fn invalidate_preset_buttons(&self) {
+        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
+        let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
+        let controller_is_active = self.session().borrow().active_controller_id().is_some();
+        delete_button.set_enabled(controller_is_active);
+        save_button.set_enabled(controller_is_active);
     }
 
     fn fill_preset_combo_box(&self) {
@@ -529,7 +538,7 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         match session.active_controller() {
-            None => self.save_as_preset(),
+            None => Err("no active preset"),
             Some(mut controller) => {
                 let mappings = session
                     .mappings(MappingCompartment::ControllerMappings)
@@ -546,7 +555,10 @@ impl HeaderPanel {
     }
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
-        let controller_name = dialog_util::prompt_for("Controller name")?;
+        let controller_name = match dialog_util::prompt_for("Controller name") {
+            None => return Ok(()),
+            Some(n) => n,
+        };
         let controller_id = slug::slugify(&controller_name);
         let mappings = self
             .session()

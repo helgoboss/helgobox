@@ -1,6 +1,9 @@
+use reaper_high::Reaper;
 use uuid::Uuid;
 
-pub fn prompt_for(caption: &str) -> Result<String, &'static str> {
-    // TODO-high Implement via GetUserInputs
-    Ok(Uuid::new_v4().to_string())
+pub fn prompt_for(caption: &str) -> Option<String> {
+    Reaper::get()
+        .medium_reaper()
+        .get_user_inputs("ReaLearn", 1, "Controller name", 256)
+        .map(|r| r.into_string())
 }
