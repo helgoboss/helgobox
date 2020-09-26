@@ -28,6 +28,7 @@ pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
 
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
+    logger: slog::Logger,
     /// Contains all mappings except those where the target could not be resolved.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
     feedback_buffer: FeedbackBuffer,
@@ -63,8 +64,10 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
             match task {
                 UpdateAllMappings(compartment, mappings) => {
                     debug!(
-                        Reaper::get().logger(),
-                        "Main processor: Updating all {}...", compartment
+                        self.logger,
+                        "Updating {} {}...",
+                        mappings.len(),
+                        compartment
                     );
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // Refresh and put into hash map in order to quickly look up mappings by ID
@@ -95,10 +98,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     self.update_on_mappings();
                 }
                 RefreshAllTargets => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Main processor: Refreshing all targets..."
-                    );
+                    debug!(self.logger, "Refreshing all targets...");
                     for compartment in MappingCompartment::into_enum_iter() {
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment);
@@ -129,8 +129,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 }
                 UpdateSingleMapping(compartment, mut mapping) => {
                     debug!(
-                        Reaper::get().logger(),
-                        "Main processor: Updating single {} {:?}...",
+                        self.logger,
+                        "Updating single {} {:?}...",
                         compartment,
                         mapping.id()
                     );
@@ -200,17 +200,11 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         .handle_event(DomainEvent::LearnedSource(source));
                 }
                 UpdateAllParameters(parameters) => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Main processor: Updating all parameters..."
-                    );
+                    debug!(self.logger, "Updating all parameters...");
                     self.parameters = parameters;
                 }
                 UpdateParameter { index, value } => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Main processor: Updating parameter {} to {}...", index, value
-                    );
+                    debug!(self.logger, "Updating parameter {} to {}...", index, value);
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
                     // Activation is only supported for primary mappings
@@ -344,6 +338,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
     pub fn new(
+        parent_logger: &slog::Logger,
         self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
@@ -355,6 +350,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
         MainProcessor {
+            logger: parent_logger.new(slog::o!("struct" => "MainProcessor")),
             self_normal_sender,
             self_feedback_sender,
             normal_task_receiver,
@@ -608,7 +604,7 @@ pub struct MainProcessorTargetUpdate {
 
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping main processor...");
+        debug!(self.logger, "Dropping main processor...");
         self.party_is_over_subject.next(());
     }
 }

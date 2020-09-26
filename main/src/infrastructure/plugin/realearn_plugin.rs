@@ -12,11 +12,11 @@ use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginPar
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
-use reaper_high::{Reaper, ReaperGuard};
+use reaper_high::{create_terminal_logger, Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset};
 
-use slog::debug;
+use slog::{debug, o};
 use std::cell::RefCell;
 use std::convert::TryFrom;
 use std::ffi::CStr;
@@ -37,6 +37,7 @@ use vst::event::Event;
 reaper_vst_plugin!();
 
 pub struct RealearnPlugin {
+    logger: slog::Logger,
     // This will be filled right at construction time. It won't have a session yet though.
     main_panel: SharedView<MainPanel>,
     // This will be set on `new()`.
@@ -82,7 +83,11 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::unbounded();
             let (control_main_task_sender, control_main_task_receiver) =
                 crossbeam_channel::unbounded();
+            let instance_id = nanoid::nanoid!(4);
+            let logger =
+                create_terminal_logger().new(o!("app" => "ReaLearn", "instance" => instance_id));
             Self {
+                logger: logger.clone(),
                 host,
                 session: Rc::new(LazyCell::new()),
                 main_panel: Default::default(),
@@ -95,6 +100,7 @@ impl Plugin for RealearnPlugin {
                     normal_main_task_receiver,
                 ),
                 real_time_processor: RealTimeProcessor::new(
+                    &logger,
                     normal_real_time_task_receiver,
                     feedback_real_time_task_receiver,
                     normal_main_task_sender,
@@ -246,7 +252,7 @@ impl RealearnPlugin {
             let context =
                 PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
             Swell::make_available_globally(Swell::load(context));
-            Reaper::setup_with_defaults(context, "info@helgoboss.org");
+            Reaper::setup_with_defaults(context, self.logger.clone(), "info@helgoboss.org");
             session_manager::register_global_learn_action();
             debug_util::register_resolve_symbols_action();
         })
@@ -266,6 +272,7 @@ impl RealearnPlugin {
         let feedback_real_time_task_sender = self.feedback_real_time_task_sender.clone();
         let normal_main_task_channel = self.normal_main_task_channel.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
+        let logger = self.logger.clone();
         Reaper::get()
             .do_later_in_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(&host) {
@@ -280,6 +287,7 @@ impl RealearnPlugin {
                     }
                 };
                 let session = Session::new(
+                    &logger,
                     processor_context,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
@@ -322,11 +330,11 @@ impl RealearnPlugin {
 
 impl Drop for RealearnPlugin {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping plug-in...");
+        debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
             session_manager::unregister_session(session.as_ptr());
             debug!(
-                Reaper::get().logger(),
+                self.logger,
                 "{} pointers are still referring to this session",
                 Rc::strong_count(session)
             );

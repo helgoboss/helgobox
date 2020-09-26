@@ -37,6 +37,7 @@ pub trait SessionUi {
 // TODO-low Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
+    logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub always_auto_detect: Prop<bool>,
@@ -75,6 +76,7 @@ pub struct Session {
 
 impl Session {
     pub fn new(
+        parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
@@ -87,6 +89,7 @@ impl Session {
         controller_manager: impl ControllerManager + 'static,
     ) -> Session {
         Self {
+            logger: parent_logger.clone(),
             let_matched_events_through: prop(false),
             let_unmatched_events_through: prop(true),
             always_auto_detect: prop(true),
@@ -170,6 +173,7 @@ impl Session {
         // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
         // callback is not suited.
         let mut main_processor = MainProcessor::new(
+            &self.logger,
             self.normal_main_task_channel.0.clone(),
             self.normal_main_task_channel.1.clone(),
             self.control_main_task_receiver.clone(),
@@ -881,8 +885,12 @@ impl Session {
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_project_as_dirty(&self) {
-        debug!(Reaper::get().logger(), "Marking project as dirty");
+        debug!(self.logger, "Marking project as dirty");
         self.context.project().mark_as_dirty();
+    }
+
+    pub fn logger(&self) -> &slog::Logger {
+        &self.logger
     }
 
     /// Does a full resync and notifies the UI async.
@@ -906,7 +914,7 @@ pub struct ParameterSetting {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping session...");
+        debug!(self.logger(), "Dropping session...");
         if let Some(reg) = self.main_processor_registration {
             unsafe {
                 // We can throw the unregistered control surface immediately because we are sure

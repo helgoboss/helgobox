@@ -33,6 +33,7 @@ pub(crate) enum ControlState {
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
+    logger: slog::Logger,
     // Synced processing settings
     pub(crate) control_state: ControlState,
     pub(crate) midi_control_input: MidiControlInput,
@@ -60,6 +61,7 @@ pub struct RealTimeProcessor {
 
 impl RealTimeProcessor {
     pub fn new(
+        parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -68,6 +70,7 @@ impl RealTimeProcessor {
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
+            logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             control_state: ControlState::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
@@ -121,8 +124,10 @@ impl RealTimeProcessor {
             match task {
                 UpdateAllMappings(compartment, mappings) => {
                     debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Updating all {}...", compartment
+                        self.logger,
+                        "Updating {} {}...",
+                        mappings.len(),
+                        compartment
                     );
                     self.mappings[compartment].clear();
                     for m in mappings.into_iter() {
@@ -131,8 +136,8 @@ impl RealTimeProcessor {
                 }
                 UpdateSingleMapping(compartment, mapping) => {
                     debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Updating single {} {:?}...",
+                        self.logger,
+                        "Updating single {} {:?}...",
                         compartment,
                         mapping.id()
                     );
@@ -144,8 +149,8 @@ impl RealTimeProcessor {
                     // Also log sample count in order to be sure about invocation order
                     // (timestamp is not accurate enough on e.g. selection changes).
                     debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Enable {} {} at {} samples...",
+                        self.logger,
+                        "Update target activations for {} {} at {} samples...",
                         mappings_with_active_target.len(),
                         compartment,
                         self.midi_clock_calculator.current_sample_count()
@@ -160,37 +165,25 @@ impl RealTimeProcessor {
                     midi_control_input,
                     midi_feedback_output,
                 } => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Updating settings"
-                    );
+                    debug!(self.logger, "Updating settings");
                     self.let_matched_events_through = let_matched_events_through;
                     self.let_unmatched_events_through = let_unmatched_events_through;
                     self.midi_control_input = midi_control_input;
                     self.midi_feedback_output = midi_feedback_output;
                 }
                 UpdateSampleRate(sample_rate) => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Updating sample rate"
-                    );
+                    debug!(self.logger, "Updating sample rate");
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Start learn source"
-                    );
+                    debug!(self.logger, "Start learn source");
                     self.control_state = ControlState::LearningSource;
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                     self.source_scanner.reset();
                 }
                 StopLearnSource => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Stop learn source"
-                    );
+                    debug!(self.logger, "Stop learn source");
                     self.control_state = ControlState::Controlling;
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
@@ -199,10 +192,7 @@ impl RealTimeProcessor {
                     self.log_debug_info(normal_task_count);
                 }
                 UpdateMappingActivations(compartment, activation_updates) => {
-                    debug!(
-                        Reaper::get().logger(),
-                        "Real-time processor: Update mapping activations..."
-                    );
+                    debug!(self.logger, "Update mapping activations...");
                     for update in activation_updates.into_iter() {
                         if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
                             m.update_activation(update.is_active);
@@ -629,7 +619,7 @@ pub enum FeedbackRealTimeTask {
 
 impl Drop for RealTimeProcessor {
     fn drop(&mut self) {
-        debug!(Reaper::get().logger(), "Dropping real-time processor...");
+        debug!(self.logger, "Dropping real-time processor...");
     }
 }
 
