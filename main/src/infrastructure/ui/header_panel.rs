@@ -382,6 +382,17 @@ impl HeaderPanel {
     }
 
     fn update_preset(&self) {
+        if self.session().borrow().controller_mappings_are_dirty() {
+            let result = Reaper::get().medium_reaper().show_message_box(
+                "Your changes of the current controller mappings will be lost. Consider to save them first. Do you really want to continue?",
+                "ReaLearn",
+                MessageBoxType::YesNo,
+            );
+            if result == MessageBoxResult::No {
+                self.invalidate_preset_combo_box_value();
+                return;
+            }
+        }
         let controller_manager = App::get().controller_manager();
         let controller_manager = controller_manager.borrow();
         let controller = match self
@@ -521,19 +532,20 @@ impl HeaderPanel {
             "ReaLearn",
             MessageBoxType::YesNo,
         );
-        if result == MessageBoxResult::Yes {
-            let session = self.session();
-            let mut session = session.borrow_mut();
-            let active_controller_id = session
-                .active_controller_id()
-                .ok_or("no controller selected")?
-                .to_string();
-            session.activate_controller(None, self.session.clone());
-            App::get()
-                .controller_manager()
-                .borrow_mut()
-                .remove_controller(&active_controller_id)?;
+        if result == MessageBoxResult::No {
+            return Ok(());
         }
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let active_controller_id = session
+            .active_controller_id()
+            .ok_or("no controller selected")?
+            .to_string();
+        session.activate_controller(None, self.session.clone());
+        App::get()
+            .controller_manager()
+            .borrow_mut()
+            .remove_controller(&active_controller_id)?;
         Ok(())
     }
 
@@ -637,10 +649,29 @@ impl HeaderPanel {
             view.invalidate_compartment_combo_box();
             view.invalidate_preset_controls();
         });
-        self.when_async(App::get().controller_manager().borrow().changed(), |view| {
-            view.invalidate_preset_combo_box();
+        when(
+            App::get()
+                .controller_manager()
+                .borrow()
+                .changed()
+                .take_until(self.view.closed()),
+        )
+        .with(Rc::downgrade(&self))
+        .do_async(move |view, _| {
+            view.invalidate_preset_controls();
         });
-        session.mapping_list_changed().filter(|c| c)
+        when(
+            session
+                .mapping_list_changed()
+                .merge(session.mapping_changed())
+                .take_until(self.view.closed()),
+        )
+        .with(Rc::downgrade(&self))
+        .do_sync(move |view, compartment| {
+            if compartment == MappingCompartment::ControllerMappings {
+                view.invalidate_preset_buttons();
+            }
+        });
     }
 
     fn when(
@@ -651,16 +682,6 @@ impl HeaderPanel {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
-    }
-
-    fn when_async(
-        self: &SharedView<Self>,
-        event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
-    ) {
-        when(event.take_until(self.view.closed()))
-            .with(Rc::downgrade(self))
-            .do_async(move |panel, _| reaction(panel));
     }
 }
 

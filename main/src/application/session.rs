@@ -49,6 +49,7 @@ pub struct Session {
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
+    mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
@@ -95,6 +96,7 @@ impl Session {
             mappings: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
+            mapping_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             main_processor_registration: None,
@@ -346,12 +348,13 @@ impl Session {
                     let subscription = when(mapping.changed_processing_relevant())
                         .with(weak_session.clone())
                         .do_sync(move |session, _| {
-                            let session = session.borrow();
+                            let mut session = session.borrow_mut();
                             session.sync_single_mapping_to_processors(
                                 compartment,
                                 &shared_mapping_clone.borrow(),
                             );
                             session.mark_project_as_dirty();
+                            session.notify_mapping_changed(compartment);
                         });
                     all_subscriptions.add(subscription);
                 }
@@ -359,8 +362,10 @@ impl Session {
                 {
                     let subscription = when(mapping.changed_non_processing_relevant())
                         .with(weak_session.clone())
-                        .do_sync(|session, _| {
-                            session.borrow().mark_project_as_dirty();
+                        .do_sync(move |session, _| {
+                            let mut session = session.borrow_mut();
+                            session.mark_project_as_dirty();
+                            session.notify_mapping_changed(compartment);
                         });
                     all_subscriptions.add(subscription);
                 }
@@ -645,6 +650,11 @@ impl Session {
         self.mapping_list_changed_subject.clone()
     }
 
+    /// Fires if a mapping itself has been changed.
+    pub fn mapping_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+        self.mapping_changed_subject.clone()
+    }
+
     /// Omits observables that omit touched targets as long as target learn is enabled.
     // TODO-low Why not handle this in a more simple way? Like learning target filter.
     //  That way we get rid of the switch_on_next() which is not part of the main rxRust
@@ -763,11 +773,16 @@ impl Session {
         self.ui.show_mapping(mapping);
     }
 
-    /// Notifies listeners async that something in the mapping list has changed.
+    /// Notifies listeners async that something in a mapping list has changed.
     ///
     /// Shouldn't be used if the complete list has changed.
     fn notify_mapping_list_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.mapping_list_changed_subject, &compartment);
+    }
+
+    /// Notifies listeners async a mapping in a mapping list has changed.
+    fn notify_mapping_changed(&mut self, compartment: MappingCompartment) {
+        AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
     }
 
     fn sync_settings_to_real_time_processor(&self) {

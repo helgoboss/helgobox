@@ -205,7 +205,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateParameter { index, value } => {
                     debug!(
                         Reaper::get().logger(),
-                        "Main processor: Updating parameter..."
+                        "Main processor: Updating parameter {} to {}...", index, value
                     );
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
