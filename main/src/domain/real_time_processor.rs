@@ -124,6 +124,7 @@ impl RealTimeProcessor {
                         Reaper::get().logger(),
                         "Real-time processor: Updating all {}...", compartment
                     );
+                    self.mappings[compartment].clear();
                     for m in mappings.into_iter() {
                         self.mappings[compartment].insert(m.id(), m);
                     }
