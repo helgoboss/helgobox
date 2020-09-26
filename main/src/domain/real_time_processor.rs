@@ -649,12 +649,12 @@ pub enum MidiFeedbackOutput {
 
 fn control_midi_virtual_and_reaper_targets(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
-    primary_mappings: &HashMap<MappingId, RealTimeMapping>,
+    mappings_with_virtual_targets: &mut HashMap<MappingId, RealTimeMapping>,
+    mappings_with_virtual_sources: &HashMap<MappingId, RealTimeMapping>,
     value: MidiSourceValue<RawShortMessage>,
 ) -> bool {
     let mut matched = false;
-    for m in controller_mappings
+    for m in mappings_with_virtual_targets
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
@@ -663,7 +663,7 @@ fn control_midi_virtual_and_reaper_targets(
             let mapping_matched = match control_match {
                 ProcessVirtual(virtual_source_value) => control_virtual(
                     sender,
-                    primary_mappings,
+                    mappings_with_virtual_sources,
                     virtual_source_value,
                     ControlOptions {
                         // We inherit "Send feedback after control" to the main processor if it's
@@ -680,7 +680,7 @@ fn control_midi_virtual_and_reaper_targets(
                 ForwardToMain(control_value) => {
                     control_main(
                         sender,
-                        MappingCompartment::PrimaryMappings,
+                        MappingCompartment::ControllerMappings,
                         m.id(),
                         control_value,
                         ControlOptions {
