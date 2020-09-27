@@ -1,4 +1,5 @@
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
+use crate::infrastructure::projection::ProjectionClients;
 use once_cell::unsync::Lazy;
 use reaper_high::Reaper;
 use std::cell::RefCell;
@@ -11,6 +12,7 @@ static mut APP: Lazy<App> = Lazy::new(App::new);
 
 pub struct App {
     controller_manager: SharedControllerManager,
+    projection_clients: ProjectionClients,
 }
 
 impl App {
@@ -32,10 +34,15 @@ impl App {
     fn new() -> App {
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new())),
+            projection_clients: Default::default(),
         }
     }
 
     pub fn controller_manager(&self) -> SharedControllerManager {
         self.controller_manager.clone()
+    }
+
+    pub fn projection_clients(&self) -> ProjectionClients {
+        self.projection_clients.clone()
     }
 }

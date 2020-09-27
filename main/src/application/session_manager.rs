@@ -20,6 +20,13 @@ fn sessions() -> &'static RefCell<Vec<WeakSession>> {
     unsafe { &SESSIONS }
 }
 
+pub fn find_session_by_id(session_id: &str) -> Option<SharedSession> {
+    find_session(|session| {
+        let session = session.borrow();
+        session.id() == session_id
+    })
+}
+
 pub fn log_debug_info() {
     let msg = format!(
         "\n\

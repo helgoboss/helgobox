@@ -34,6 +34,7 @@ pub trait SessionUi {
 // TODO-low Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
+    instance_id: String,
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
@@ -74,6 +75,7 @@ pub struct Session {
 impl Session {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        instance_id: String,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
@@ -87,6 +89,7 @@ impl Session {
         controller_manager: impl ControllerManager + 'static,
     ) -> Session {
         Self {
+            instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(false),
             let_unmatched_events_through: prop(true),
@@ -116,6 +119,11 @@ impl Session {
             controller_manager: Box::new(controller_manager),
             on_mappings: Default::default(),
         }
+    }
+
+    pub fn id(&self) -> &str {
+        // For now this is the instance ID but it should be user-overridable (for non-random IDs)
+        &self.instance_id
     }
 
     pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {

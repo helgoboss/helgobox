@@ -38,6 +38,7 @@ use vst::event::Event;
 reaper_vst_plugin!();
 
 pub struct RealearnPlugin {
+    instance_id: String,
     logger: slog::Logger,
     // This will be filled right at construction time. It won't have a session yet though.
     main_panel: SharedView<MainPanel>,
@@ -85,9 +86,10 @@ impl Plugin for RealearnPlugin {
             let (control_main_task_sender, control_main_task_receiver) =
                 crossbeam_channel::unbounded();
             let instance_id = nanoid::nanoid!(4);
-            let logger =
-                create_terminal_logger().new(o!("app" => "ReaLearn", "instance" => instance_id));
+            let logger = create_terminal_logger()
+                .new(o!("app" => "ReaLearn", "instance" => instance_id.clone()));
             Self {
+                instance_id,
                 logger: logger.clone(),
                 host,
                 session: Rc::new(LazyCell::new()),
@@ -256,6 +258,7 @@ impl RealearnPlugin {
             Reaper::setup_with_defaults(context, self.logger.clone(), "info@helgoboss.org");
             session_manager::register_global_learn_action();
             debug_util::register_resolve_symbols_action();
+            projection::start_server();
         })
     }
 
@@ -274,6 +277,7 @@ impl RealearnPlugin {
         let normal_main_task_channel = self.normal_main_task_channel.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
         let logger = self.logger.clone();
+        let instance_id = self.instance_id.clone();
         Reaper::get()
             .do_later_in_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(&host) {
@@ -288,6 +292,7 @@ impl RealearnPlugin {
                     }
                 };
                 let session = Session::new(
+                    instance_id,
                     &logger,
                     processor_context,
                     normal_real_time_task_sender,
@@ -304,7 +309,7 @@ impl RealearnPlugin {
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
-                projection::register_session(&shared_session);
+                projection::keep_projecting(&shared_session);
                 session_manager::register_session(weak_session.clone());
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
