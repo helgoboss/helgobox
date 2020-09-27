@@ -579,6 +579,13 @@ impl Session {
         self.context.containing_fx().is_input_fx()
     }
 
+    pub fn set_active_controller_id_without_notification(
+        &mut self,
+        active_controller_id: Option<String>,
+    ) {
+        self.active_controller_id = active_controller_id;
+    }
+
     pub fn active_controller_id(&self) -> Option<&str> {
         self.active_controller_id.as_ref().map(|s| s.as_str())
     }

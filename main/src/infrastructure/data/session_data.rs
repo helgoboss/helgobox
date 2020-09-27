@@ -29,6 +29,7 @@ pub struct SessionData {
     feedback_device_id: Option<String>,
     mappings: Vec<MappingModelData>,
     controller_mappings: Vec<MappingModelData>,
+    active_controller_id: Option<String>,
     parameters: HashMap<u32, ParameterData>,
 }
 
@@ -44,6 +45,7 @@ impl Default for SessionData {
             feedback_device_id: None,
             mappings: vec![],
             controller_mappings: vec![],
+            active_controller_id: None,
             parameters: Default::default(),
         }
     }
@@ -78,6 +80,7 @@ impl SessionData {
             },
             mappings: from_mappings(MappingCompartment::PrimaryMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
+            active_controller_id: session.active_controller_id().map(|id| id.to_string()),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = session.get_parameter(i);
@@ -162,6 +165,7 @@ impl SessionData {
             MappingCompartment::ControllerMappings,
             &self.controller_mappings,
         );
+        session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         // Parameters
         let mut parameters = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
         let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
