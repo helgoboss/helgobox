@@ -9,9 +9,9 @@ use crate::application::{
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, EelCondition,
-    ExtendedSourceCharacter, MainMapping, MappingCompartment, MappingId, ProcessorContext,
-    ProcessorMappingOptions, RealearnTarget, ReaperTarget, TargetCharacter,
+    ActivationCondition, CompoundMappingTarget, EelCondition, ExtendedSourceCharacter, MainMapping,
+    MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
+    ReaperTarget, TargetCharacter,
 };
 
 /// A model for creating mappings (a combination of source, mode and target).

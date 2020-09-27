@@ -1,6 +1,5 @@
 use reaper_high::Reaper;
 
-
 pub fn prompt_for(_caption: &str) -> Option<String> {
     Reaper::get()
         .medium_reaper()
