@@ -12,6 +12,9 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use smallvec::alloc::fmt::Formatter;
+use std::fmt;
+use std::fmt::Display;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -49,6 +52,12 @@ impl MappingId {
         MappingId {
             uuid: Uuid::new_v4(),
         }
+    }
+}
+
+impl Display for MappingId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.uuid)
     }
 }
 

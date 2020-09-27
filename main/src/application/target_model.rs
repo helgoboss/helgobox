@@ -268,7 +268,7 @@ impl TargetModel {
         self.r#type.get().supports_fx()
     }
 
-    fn create_control_element(&self) -> VirtualControlElement {
+    pub fn create_control_element(&self) -> VirtualControlElement {
         self.control_element_type
             .get()
             .create_control_element(self.control_element_index.get())
