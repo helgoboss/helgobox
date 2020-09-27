@@ -1,10 +1,9 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, ControlMainTask,
-    ControlOptions, MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask,
-    PartialControlMatch, RealTimeMapping, SourceScanner, UnresolvedCompoundMappingTarget,
-    VirtualSourceValue,
+    CompoundMappingSource, CompoundMappingSourceValue, ControlMainTask, ControlOptions,
+    MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask, PartialControlMatch,
+    RealTimeMapping, SourceScanner, UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
+use helgoboss_learn::{ControlValue, MidiSourceValue};
 use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
     ParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
@@ -141,7 +140,7 @@ impl RealTimeProcessor {
                         compartment,
                         mapping.id()
                     );
-                    self.mappings[compartment].insert(mapping.id(), mapping);
+                    self.mappings[compartment].insert(mapping.id(), *mapping);
                 }
                 UpdateTargetActivations(compartment, mappings_with_active_target) => {
                     // TODO-low We should use an own logger and always log the sample count
@@ -582,7 +581,7 @@ impl RealTimeProcessor {
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
-    UpdateSingleMapping(MappingCompartment, RealTimeMapping),
+    UpdateSingleMapping(MappingCompartment, Box<RealTimeMapping>),
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,

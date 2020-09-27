@@ -1,6 +1,6 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use reaper_high::{Guid, Project, Reaper, Track};
+use reaper_high::{Guid, Reaper};
 
 use crate::application::{
     get_guid_based_fx_at_index, ReaperTargetType, TargetCategory, TargetModel,

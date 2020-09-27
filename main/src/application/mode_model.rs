@@ -1,15 +1,13 @@
 use crate::core::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
-use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
+
 use helgoboss_learn::{
     full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
     PressDurationProcessor, SymmetricUnitValue, UnitValue,
 };
 
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
-use serde_repr::*;
+
 use std::time::Duration;
 
 /// A model for creating modes
@@ -149,11 +147,6 @@ impl ModeModel {
             )
             .ok(),
         }
-    }
-
-    pub fn supports_press_duration(&self) -> bool {
-        use AbsoluteMode::*;
-        matches!(self.r#type.get(), Normal | ToggleButtons)
     }
 
     pub fn supports_reverse(&self) -> bool {

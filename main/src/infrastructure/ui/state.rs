@@ -1,6 +1,6 @@
 use crate::core::{prop, Prop};
 use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
-use helgoboss_learn::MidiSource;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 

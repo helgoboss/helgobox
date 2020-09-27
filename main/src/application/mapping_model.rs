@@ -9,7 +9,7 @@ use crate::application::{
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, EelCondition,
+    ActivationCondition, CompoundMappingTarget, EelCondition,
     ExtendedSourceCharacter, MainMapping, MappingCompartment, MappingId, ProcessorContext,
     ProcessorMappingOptions, RealearnTarget, ReaperTarget, TargetCharacter,
 };

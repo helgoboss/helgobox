@@ -1,7 +1,6 @@
 use crate::domain::{
-    ActivationCondition, ControlOptions, MainProcessorTargetUpdate, Mode, ProcessorContext,
-    RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget,
+    ActivationCondition, ControlOptions, Mode, ProcessorContext, RealearnTarget, ReaperTarget,
+    TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -129,11 +128,6 @@ impl MainMapping {
 
     pub fn update_activation(&mut self, is_active: bool) {
         self.core.options.mapping_is_active = is_active;
-    }
-
-    pub fn update_target(&mut self, update: MainProcessorTargetUpdate) {
-        self.core.target = update.target;
-        self.core.options.target_is_active = update.target_is_active;
     }
 
     pub fn refresh_all(&mut self, context: &ProcessorContext, params: &[f32]) {
@@ -456,7 +450,7 @@ impl UnresolvedCompoundMappingTarget {
         use UnresolvedCompoundMappingTarget::*;
         let resolved = match self {
             Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context)?),
-            Virtual(t) => CompoundMappingTarget::Virtual(t.clone()),
+            Virtual(t) => CompoundMappingTarget::Virtual(*t),
         };
         Ok(resolved)
     }

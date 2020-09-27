@@ -28,7 +28,7 @@ impl FeedbackBuffer {
 
     pub fn reset_all_in_compartment(&mut self, compartment: MappingCompartment) {
         self.buffered_mapping_ids
-            .retain(|(c, id)| *c != compartment);
+            .retain(|(c, _id)| *c != compartment);
         self.last_buffer_start = Instant::now();
     }
 

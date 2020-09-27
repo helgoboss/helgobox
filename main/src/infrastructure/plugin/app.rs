@@ -1,4 +1,3 @@
-use crate::application::ControllerManager;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
 use once_cell::unsync::Lazy;
 use reaper_high::Reaper;
@@ -8,7 +7,7 @@ use std::rc::Rc;
 
 /// static mut maybe okay because we access this via `App::get()` function only and this one checks
 /// the thread before returning the reference.
-static mut APP: Lazy<App> = Lazy::new(|| App::new());
+static mut APP: Lazy<App> = Lazy::new(App::new);
 
 pub struct App {
     controller_manager: SharedControllerManager,

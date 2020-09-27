@@ -1,5 +1,4 @@
 use crate::application::{MappingModel, SharedMapping};
-use rx_util::UnitEvent;
 use std::fmt;
 
 #[derive(Clone, Debug)]

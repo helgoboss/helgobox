@@ -243,7 +243,8 @@ impl HeaderPanel {
         };
         self.view
             .require_control(root::ID_PRESET_COMBO_BOX)
-            .select_combo_box_item_by_data(index);
+            .select_combo_box_item_by_data(index)
+            .unwrap();
     }
 
     fn fill_compartment_combo_box(&self) {
@@ -406,7 +407,8 @@ impl HeaderPanel {
         };
         self.session()
             .borrow_mut()
-            .activate_controller(controller.map(|c| c.id().to_string()), self.session.clone());
+            .activate_controller(controller.map(|c| c.id().to_string()), self.session.clone())
+            .unwrap();
     }
 
     fn invalidate_let_matched_events_through_check_box(&self) {
@@ -541,7 +543,7 @@ impl HeaderPanel {
             .active_controller_id()
             .ok_or("no controller selected")?
             .to_string();
-        session.activate_controller(None, self.session.clone());
+        session.activate_controller(None, self.session.clone())?;
         App::get()
             .controller_manager()
             .borrow_mut()

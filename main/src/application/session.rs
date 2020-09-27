@@ -1,6 +1,5 @@
 use crate::application::{
     session_manager, share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
-    TargetModel,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -11,19 +10,17 @@ use crate::domain::{
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use once_cell::unsync::Lazy;
+
 use reaper_high::Reaper;
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::debug;
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Debug;
-use std::fs::File;
-use std::io;
-use std::path::Path;
+
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
@@ -75,6 +72,7 @@ pub struct Session {
 }
 
 impl Session {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         parent_logger: &slog::Logger,
         context: ProcessorContext,
@@ -172,7 +170,7 @@ impl Session {
         // Register the main processor. We instantiate it as control surface because it must be
         // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
         // callback is not suited.
-        let mut main_processor = MainProcessor::new(
+        let main_processor = MainProcessor::new(
             &self.logger,
             self.normal_main_task_channel.0.clone(),
             self.normal_main_task_channel.1.clone(),
@@ -587,7 +585,7 @@ impl Session {
     }
 
     pub fn active_controller_id(&self) -> Option<&str> {
-        self.active_controller_id.as_ref().map(|s| s.as_str())
+        self.active_controller_id.as_deref()
     }
 
     pub fn active_controller(&self) -> Option<Controller> {

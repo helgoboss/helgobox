@@ -9,7 +9,7 @@ use crate::infrastructure::ui::{
     bindings::root, MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
     SharedMappingPanelManager,
 };
-use rx_util::{SharedItemEvent, SharedPayload, UnitEvent};
+use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
 use std::cmp;
 

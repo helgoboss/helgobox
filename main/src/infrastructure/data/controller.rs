@@ -2,7 +2,7 @@ use crate::application::{Controller, ControllerManager, SharedMapping};
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::plugin::App;
-use reaper_high::Reaper;
+
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -137,7 +137,7 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
     let id = path
         .as_ref()
         .file_stem()
-        .ok_or("controller file must have stem because it makes up the ID".to_string())?
+        .ok_or_else(|| "controller file must have stem because it makes up the ID".to_string())?
         .to_string_lossy()
         .to_string();
     let json =

@@ -6,8 +6,8 @@ use crate::domain::{
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, UnitValue};
-use helgoboss_midi::RawShortMessage;
+use helgoboss_learn::{ControlValue, UnitValue};
+
 use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rx_util::UnitEvent;
@@ -62,7 +62,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
         for task in normal_tasks {
             use NormalMainTask::*;
             match task {
-                UpdateAllMappings(compartment, mut mappings) => {
+                UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         self.logger,
                         "Updating {} {}...",
@@ -139,7 +139,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateSingleMapping(
                             compartment,
-                            mapping.splinter_real_time_mapping(),
+                            Box::new(mapping.splinter_real_time_mapping()),
                         ))
                         .unwrap();
                     // (Re)subscribe to or unsubscribe from feedback
@@ -348,6 +348,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         parent_logger: &slog::Logger,
         self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -628,13 +629,6 @@ pub enum ControlMainTask {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ControlOptions {
     pub enforce_send_feedback_after_control: bool,
-}
-
-#[derive(Debug)]
-pub struct MainProcessorTargetUpdate {
-    pub id: MappingId,
-    pub target: Option<CompoundMappingTarget>,
-    pub target_is_active: bool,
 }
 
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {

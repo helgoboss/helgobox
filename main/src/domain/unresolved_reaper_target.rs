@@ -288,7 +288,7 @@ impl TrackAnchor {
                     t
                 } else {
                     find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                        guid: guid.clone(),
+                        guid: *guid,
                         name: Some(name.clone()),
                     })?
                 }
@@ -297,7 +297,7 @@ impl TrackAnchor {
                 let t = project.track_by_guid(guid);
                 if !t.is_available() {
                     return Err(TrackResolveError::TrackNotFound {
-                        guid: guid.clone(),
+                        guid: *guid,
                         name: None,
                     });
                 }

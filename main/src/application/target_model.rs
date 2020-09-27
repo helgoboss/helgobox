@@ -3,22 +3,21 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
-use reaper_medium::MasterTrackBehavior::IncludeMasterTrack;
-use reaper_medium::TrackLocation;
+use reaper_high::{Action, Fx, FxParameter, Guid, Project, Track, TrackSend};
+
 use rx_util::{Event, UnitEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
     get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, FxDescriptor, ProcessorContext, ReaperTarget, TargetCharacter,
-    TrackAnchor, TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualTarget, VirtualTrack,
+    CompoundMappingTarget, FxDescriptor, ProcessorContext, ReaperTarget, TrackAnchor,
+    TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
-use std::fmt;
+
 use std::fmt::{Display, Formatter};
 
 /// A model for creating targets
@@ -168,7 +167,7 @@ impl TargetModel {
             track_descriptor: self.track_descriptor(),
             is_input_fx: self.is_input_fx.get(),
             fx_index: self.fx_index.get().ok_or("FX index not set")?,
-            fx_guid: self.fx_guid.get_ref().clone(),
+            fx_guid: self.fx_guid.get(),
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus.get(),
         };
         Ok(desc)

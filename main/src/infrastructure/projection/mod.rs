@@ -1,7 +1,6 @@
-use crate::application::{Session, SharedSession, SourceCategory, TargetCategory, WeakSession};
+use crate::application::{Session, SharedSession, SourceCategory, TargetCategory};
 use crate::core::when;
-use crate::domain::{MappingCompartment, MappingId};
-use rxrust::prelude::*;
+use crate::domain::MappingCompartment;
 use serde::Serialize;
 use std::rc::Rc;
 
@@ -27,7 +26,7 @@ pub fn print_controller_projection(session: &Session) -> Result<(), &'static str
                         .filter(|mp| {
                             let mp = mp.borrow();
                             mp.source_model.category.get() == SourceCategory::Virtual
-                                && &mp.source_model.create_control_element() == &control_element
+                                && mp.source_model.create_control_element() == control_element
                                 && session.mapping_is_on(mp.id())
                         })
                         .collect();
