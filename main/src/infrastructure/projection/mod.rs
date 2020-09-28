@@ -4,6 +4,7 @@ use crate::domain::MappingCompartment;
 use crate::infrastructure::plugin::App;
 use futures::SinkExt;
 use reaper_high::Reaper;
+use rxrust::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -31,7 +32,7 @@ pub fn start_server() {
                     ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
                 });
             warp::serve(projection_websocket_route)
-                .run(([127, 0, 0, 1], 3030))
+                .run(([0, 0, 0, 0], 3030))
                 .await;
         });
     });
@@ -95,11 +96,17 @@ pub type ProjectionClients = Arc<std::sync::RwLock<HashMap<usize, ProjectionClie
 
 pub fn keep_projecting(shared_session: &SharedSession) {
     let session = shared_session.borrow();
-    when(session.on_mappings_changed())
-        .with(Rc::downgrade(shared_session))
-        .do_async(|session, _| {
-            let _ = send_updated_controller_projection(&session.borrow());
-        });
+    when(
+        session
+            .on_mappings_changed()
+            .merge(session.mapping_list_changed().map_to(()))
+            .merge(session.mapping_changed().map_to(()))
+            .merge(session.everything_changed()),
+    )
+    .with(Rc::downgrade(shared_session))
+    .do_async(|session, _| {
+        let _ = send_updated_controller_projection(&session.borrow());
+    });
 }
 
 fn send_updated_controller_projection(session: &Session) -> Result<(), &'static str> {
@@ -186,11 +193,13 @@ fn get_controller_projection(session: &Session) -> Result<ControllerProjection, 
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ControllerProjection {
     mapping_projections: Vec<MappingProjection>,
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct MappingProjection {
     id: String,
     name: String,
@@ -198,6 +207,7 @@ struct MappingProjection {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TargetProjection {
     label: String,
 }
