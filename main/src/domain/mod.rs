@@ -16,11 +16,23 @@ pub use mode::*;
 mod eel_transformation;
 pub use eel_transformation::*;
 
+mod realearn_target;
+pub use realearn_target::*;
+
 mod reaper_target;
 pub use reaper_target::*;
 
-mod midi_source_scanner;
-pub use midi_source_scanner::*;
+mod unresolved_reaper_target;
+pub use unresolved_reaper_target::*;
+
+mod processor_context;
+pub use processor_context::*;
+
+mod r#virtual;
+pub use r#virtual::*;
+
+mod source_scanner;
+pub use source_scanner::*;
 
 mod midi_clock_calculator;
 pub use midi_clock_calculator::*;
@@ -30,3 +42,5 @@ pub use conditional_activation::*;
 
 mod eventing;
 pub use eventing::*;
+
+mod ui_util;

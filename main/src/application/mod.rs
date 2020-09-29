@@ -3,11 +3,8 @@ pub use session::*;
 
 pub mod session_manager;
 
-mod session_context;
-pub use session_context::*;
-
-mod midi_source_model;
-pub use midi_source_model::*;
+mod source_model;
+pub use source_model::*;
 
 mod mode_model;
 pub use mode_model::*;
@@ -20,6 +17,9 @@ pub use target_model::*;
 
 mod aliases;
 pub use aliases::*;
+
+mod controller;
+pub use controller::*;
 
 mod conditional_activation_model;
 pub use conditional_activation_model::*;

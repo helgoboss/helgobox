@@ -1,11 +1,12 @@
 use crate::application::{MappingModel, SharedMapping, SharedSession, WeakSession};
 use crate::core::when;
+use crate::domain::MappingCompartment;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::constants::symbols;
-use crate::infrastructure::ui::MappingPanelManager;
+use crate::infrastructure::ui::{MappingPanelManager, SharedMainState};
 use reaper_high::Reaper;
 use reaper_medium::{MessageBoxResult, MessageBoxType};
 use rx_util::UnitEvent;
@@ -23,6 +24,7 @@ pub type SharedMappingPanelManager = Rc<RefCell<MappingPanelManager>>;
 pub struct MappingRowPanel {
     view: ViewContext,
     session: WeakSession,
+    main_state: SharedMainState,
     row_index: u32,
     // We use virtual scrolling in order to be able to show a large amount of rows without any
     // performance issues. That means there's a fixed number of mapping rows and they just
@@ -40,10 +42,12 @@ impl MappingRowPanel {
         session: WeakSession,
         row_index: u32,
         mapping_panel_manager: SharedMappingPanelManager,
+        main_state: SharedMainState,
     ) -> MappingRowPanel {
         MappingRowPanel {
             view: Default::default(),
             session,
+            main_state,
             row_index,
             party_is_over_subject: Default::default(),
             mapping: None.into(),
@@ -72,6 +76,7 @@ impl MappingRowPanel {
         self.invalidate_learn_target_button(&mapping);
         self.invalidate_control_check_box(&mapping);
         self.invalidate_feedback_check_box(&mapping);
+        self.invalidate_on_indicator(&mapping);
     }
 
     fn invalidate_name_label(&self, mapping: &MappingModel) {
@@ -152,6 +157,16 @@ impl MappingRowPanel {
             .set_checked(mapping.feedback_is_enabled.get());
     }
 
+    fn invalidate_on_indicator(&self, mapping: &MappingModel) {
+        let is_on = self.session().borrow().mapping_is_on(mapping.id());
+        self.view
+            .require_control(root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT)
+            .set_enabled(is_on);
+        self.view
+            .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)
+            .set_enabled(is_on);
+    }
+
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
         self.when(mapping.name.changed(), |view| {
             view.with_mapping(Self::invalidate_name_label);
@@ -193,6 +208,9 @@ impl MappingRowPanel {
                 view.with_mapping(Self::invalidate_learn_target_button);
             },
         );
+        self.when(self.session().borrow().on_mappings_changed(), |view| {
+            view.with_mapping(Self::invalidate_on_indicator);
+        });
     }
 
     fn with_mapping(&self, use_mapping: impl Fn(&Self, &MappingModel)) {
@@ -225,13 +243,17 @@ impl MappingRowPanel {
     fn move_mapping_up(&self) {
         self.session()
             .borrow_mut()
-            .move_mapping_up(self.require_mapping_address());
+            .move_mapping_up(self.active_compartment(), self.require_mapping_address());
+    }
+
+    fn active_compartment(&self) -> MappingCompartment {
+        self.main_state.borrow().active_compartment.get()
     }
 
     fn move_mapping_down(&self) {
         self.session()
             .borrow_mut()
-            .move_mapping_down(self.require_mapping_address());
+            .move_mapping_down(self.active_compartment(), self.require_mapping_address());
     }
 
     fn remove_mapping(&self) {
@@ -243,14 +265,14 @@ impl MappingRowPanel {
         if result == MessageBoxResult::Yes {
             self.session()
                 .borrow_mut()
-                .remove_mapping(self.require_mapping_address());
+                .remove_mapping(self.active_compartment(), self.require_mapping_address());
         }
     }
 
     fn duplicate_mapping(&self) {
         self.session()
             .borrow_mut()
-            .duplicate_mapping(self.require_mapping_address())
+            .duplicate_mapping(self.active_compartment(), self.require_mapping_address())
             .unwrap();
     }
 

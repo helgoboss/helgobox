@@ -1,36 +1,30 @@
 use crate::core::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
-use derive_more::Display;
-use enum_iterator::IntoEnumIterator;
+
 use helgoboss_learn::{
     full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
-    PressDurationProcessor, RelativeMode, SymmetricUnitValue, ToggleMode, UnitValue,
+    PressDurationProcessor, SymmetricUnitValue, UnitValue,
 };
 
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
-use serde_repr::*;
+
 use std::time::Duration;
 
 /// A model for creating modes
 #[derive(Clone, Debug)]
 pub struct ModeModel {
-    // For all modes
-    pub r#type: Prop<ModeType>,
+    pub r#type: Prop<AbsoluteMode>,
     pub target_value_interval: Prop<Interval<UnitValue>>,
-    // For absolute and relative mode
     pub source_value_interval: Prop<Interval<UnitValue>>,
     pub reverse: Prop<bool>,
-    // For absolute and toggle mode
     pub press_duration_interval: Prop<Interval<Duration>>,
-    // For absolute mode
     pub jump_interval: Prop<Interval<UnitValue>>,
     pub out_of_range_behavior: Prop<OutOfRangeBehavior>,
     pub round_target_value: Prop<bool>,
     pub approach_target_value: Prop<bool>,
     pub eel_control_transformation: Prop<String>,
     pub eel_feedback_transformation: Prop<String>,
-    // For relative mode
+    // For relative control values.
     /// Depending on the target character, this is either a step count or a step size.
     ///
     /// A step count is a coefficient which multiplies the atomic step size. E.g. a step count of 2
@@ -51,34 +45,10 @@ pub struct ModeModel {
     pub rotate: Prop<bool>,
 }
 
-/// Type of a mode
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    Serialize_repr,
-    Deserialize_repr,
-    IntoEnumIterator,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-)]
-#[repr(usize)]
-pub enum ModeType {
-    #[display(fmt = "Absolute (for range elements and buttons)")]
-    Absolute = 0,
-    #[display(fmt = "Relative (for encoders and buttons)")]
-    Relative = 1,
-    #[display(fmt = "Toggle (for buttons only)")]
-    Toggle = 2,
-}
-
 impl Default for ModeModel {
     fn default() -> Self {
         Self {
-            r#type: prop(ModeType::Absolute),
+            r#type: prop(AbsoluteMode::Normal),
             target_value_interval: prop(full_unit_interval()),
             source_value_interval: prop(full_unit_interval()),
             reverse: prop(false),
@@ -147,84 +117,54 @@ impl ModeModel {
 
     /// Creates a mode reflecting this model's current values
     pub fn create_mode(&self) -> Mode {
-        use ModeType::*;
-        match self.r#type.get() {
-            Absolute => Mode::Absolute(AbsoluteMode {
-                source_value_interval: self.source_value_interval.get(),
-                target_value_interval: self.target_value_interval.get(),
-                jump_interval: self.jump_interval.get(),
-                press_duration_processor: PressDurationProcessor::new(
-                    self.press_duration_interval.get(),
-                ),
-                approach_target_value: self.approach_target_value.get(),
-                reverse_target_value: self.reverse.get(),
-                round_target_value: self.round_target_value.get(),
-                out_of_range_behavior: self.out_of_range_behavior.get(),
-                control_transformation: EelTransformation::compile(
-                    self.eel_control_transformation.get_ref(),
-                    OutputVariable::Y,
-                )
-                .ok(),
-                feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get_ref(),
-                    OutputVariable::X,
-                )
-                .ok(),
-            }),
-            Relative => Mode::Relative(RelativeMode {
-                source_value_interval: self.source_value_interval.get(),
-                step_count_interval: Interval::new(
-                    convert_to_step_count(self.step_interval.get_ref().min_val()),
-                    convert_to_step_count(self.step_interval.get_ref().max_val()),
-                ),
-                step_size_interval: self.positive_step_size_interval(),
-                target_value_interval: self.target_value_interval.get(),
-                reverse: self.reverse.get(),
-                rotate: self.rotate.get(),
-                increment_counter: 0,
-                feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get_ref(),
-                    OutputVariable::X,
-                )
-                .ok(),
-                out_of_range_behavior: self.out_of_range_behavior.get(),
-            }),
-            Toggle => Mode::Toggle(ToggleMode {
-                source_value_interval: self.source_value_interval.get(),
-                target_value_interval: self.target_value_interval.get(),
-                press_duration_processor: PressDurationProcessor::new(
-                    self.press_duration_interval.get(),
-                ),
-                feedback_transformation: EelTransformation::compile(
-                    self.eel_feedback_transformation.get_ref(),
-                    OutputVariable::X,
-                )
-                .ok(),
-                out_of_range_behavior: self.out_of_range_behavior.get(),
-            }),
+        Mode {
+            absolute_mode: self.r#type.get(),
+            source_value_interval: self.source_value_interval.get(),
+            target_value_interval: self.target_value_interval.get(),
+            step_count_interval: Interval::new(
+                convert_to_step_count(self.step_interval.get_ref().min_val()),
+                convert_to_step_count(self.step_interval.get_ref().max_val()),
+            ),
+            step_size_interval: self.positive_step_size_interval(),
+            jump_interval: self.jump_interval.get(),
+            press_duration_processor: PressDurationProcessor::new(
+                self.press_duration_interval.get(),
+            ),
+            approach_target_value: self.approach_target_value.get(),
+            reverse: self.reverse.get(),
+            rotate: self.rotate.get(),
+            increment_counter: 0,
+            round_target_value: self.round_target_value.get(),
+            out_of_range_behavior: self.out_of_range_behavior.get(),
+            control_transformation: EelTransformation::compile(
+                self.eel_control_transformation.get_ref(),
+                OutputVariable::Y,
+            )
+            .ok(),
+            feedback_transformation: EelTransformation::compile(
+                self.eel_feedback_transformation.get_ref(),
+                OutputVariable::X,
+            )
+            .ok(),
         }
     }
 
-    pub fn supports_press_duration(&self) -> bool {
-        use ModeType::*;
-        matches!(self.r#type.get(), Absolute | Toggle)
-    }
-
     pub fn supports_reverse(&self) -> bool {
-        use ModeType::*;
-        matches!(self.r#type.get(), Absolute | Relative)
+        // For feedback always relevant
+        true
     }
 
     pub fn supports_out_of_range_behavior(&self) -> bool {
+        // For feedback always relevant
         true
     }
 
     pub fn supports_jump(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_eel_control_transformation(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_eel_feedback_transformation(&self) -> bool {
@@ -232,19 +172,21 @@ impl ModeModel {
     }
 
     pub fn supports_round_target_value(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_approach_target_value(&self) -> bool {
-        self.r#type.get() == ModeType::Absolute
+        self.r#type.get() == AbsoluteMode::Normal
     }
 
     pub fn supports_steps(&self) -> bool {
-        self.r#type.get() == ModeType::Relative
+        // No matter which absolute mode, incoming relative values always support this
+        true
     }
 
     pub fn supports_rotate(&self) -> bool {
-        self.r#type.get() == ModeType::Relative
+        // No matter which absolute mode, incoming relative values always support this
+        true
     }
 
     fn positive_step_size_interval(&self) -> Interval<UnitValue> {

@@ -1,12 +1,15 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use reaper_high::{Guid, Project, Reaper, Track};
+use reaper_high::{Guid, Reaper};
 
 use crate::application::{
-    get_guid_based_fx_at_index, SessionContext, TargetModel, TargetType, VirtualTrack,
+    get_guid_based_fx_at_index, ReaperTargetType, TargetCategory, TargetModel,
+    VirtualControlElementType,
 };
 use crate::core::toast;
-use crate::domain::{ActionInvocationType, TransportAction};
+use crate::domain::{
+    ActionInvocationType, ProcessorContext, TrackAnchor, TransportAction, VirtualTrack,
+};
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -14,7 +17,9 @@ use std::convert::TryInto;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct TargetModelData {
-    r#type: TargetType,
+    pub category: TargetCategory,
+    // reaper_type would be a better name but we need backwards compatibility
+    r#type: ReaperTargetType,
     // Action target
     command_name: Option<String>,
     invocation_type: ActionInvocationType,
@@ -30,6 +35,8 @@ pub struct TargetModelData {
     // FX target
     #[serde(deserialize_with = "none_if_minus_one")]
     fx_index: Option<u32>,
+    #[serde(rename = "fxGUID")]
+    fx_guid: Option<String>,
     is_input_fx: bool,
     enable_only_if_fx_has_focus: bool,
     // Track send target
@@ -42,12 +49,15 @@ pub struct TargetModelData {
     select_exclusively: bool,
     // Transport target
     transport_action: TransportAction,
+    pub control_element_type: VirtualControlElementType,
+    pub control_element_index: u32,
 }
 
 impl Default for TargetModelData {
     fn default() -> Self {
         Self {
-            r#type: TargetType::FxParameter,
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::FxParameter,
             command_name: None,
             invocation_type: ActionInvocationType::Trigger,
             invoke_relative: None,
@@ -55,20 +65,24 @@ impl Default for TargetModelData {
             track_name: None,
             enable_only_if_track_is_selected: false,
             fx_index: None,
+            fx_guid: None,
             is_input_fx: false,
             enable_only_if_fx_has_focus: false,
             send_index: None,
             param_index: 0,
             select_exclusively: false,
             transport_action: TransportAction::PlayStop,
+            control_element_type: VirtualControlElementType::Multi,
+            control_element_index: 0,
         }
     }
 }
 
 impl TargetModelData {
-    pub fn from_model(model: &TargetModel, _context: &SessionContext) -> Self {
+    pub fn from_model(model: &TargetModel) -> Self {
         let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
+            category: model.category.get(),
             r#type: model.r#type.get(),
             command_name: model
                 .action
@@ -88,16 +102,26 @@ impl TargetModelData {
             track_name,
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_index: model.fx_index.get(),
+            fx_guid: model
+                .fx_guid
+                .get_ref()
+                .as_ref()
+                .map(Guid::to_string_without_braces),
             is_input_fx: model.is_input_fx.get(),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             send_index: model.send_index.get(),
             param_index: model.param_index.get(),
             select_exclusively: model.select_exclusively.get(),
             transport_action: model.transport_action.get(),
+            control_element_type: model.control_element_type.get(),
+            control_element_index: model.control_element_index.get(),
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel, context: &SessionContext) {
+    /// The context is necessary only if there's the possibility of loading data saved with
+    /// ReaLearn < 1.12.0.
+    pub fn apply_to_model(&self, model: &mut TargetModel, context: Option<&ProcessorContext>) {
+        model.category.set_without_notification(self.category);
         model.r#type.set_without_notification(self.r#type);
         let reaper = Reaper::get();
         let action = match self.command_name.as_ref() {
@@ -129,44 +153,55 @@ impl TargetModelData {
         model
             .action_invocation_type
             .set_without_notification(invocation_type);
-        let virtual_track =
-            match deserialize_track(&self.track_guid, &self.track_name, context.project()) {
-                Ok(t) => t,
-                Err(e) => {
-                    use TrackDeserializationError::*;
-                    match e {
-                        InvalidGuid(guid) => toast::warn(&format!(
-                            "Invalid track GUID {}, falling back to <This>",
-                            guid
-                        )),
-                        TrackNotFound { guid, name } => toast::warn(&format!(
-                            "Track not found by GUID {} and name {}, falling back to <This>",
-                            guid.to_string_with_braces(),
-                            name.map(|n| format!("\"{}\"", n))
-                                .unwrap_or_else(|| "-".to_string())
-                        )),
-                    }
-                    VirtualTrack::This
+        let virtual_track = match deserialize_track(&self.track_guid, &self.track_name) {
+            Ok(t) => t,
+            Err(e) => {
+                use TrackDeserializationError::*;
+                match e {
+                    InvalidGuid(guid) => toast::warn(&format!(
+                        "Invalid track GUID {}, falling back to <This>",
+                        guid
+                    )),
+                    /* TODO-high Add to whatever infrastructure code calls TrackAnchor::resolve()
+                     * TrackNotFound { guid, name } => toast::warn(&format!(
+                     *     "Track not found by GUID {} and name {}, falling back to <This>",
+                     *     guid.to_string_with_braces(),
+                     *     name.map(|n| format!("\"{}\"", n))
+                     *         .unwrap_or_else(|| "-".to_string())
+                     * )), */
                 }
-            };
+                VirtualTrack::This
+            }
+        };
         model.track.set_without_notification(virtual_track.clone());
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
-        // At loading time, we can reliably identify an FX using its index because the FX can't
-        // be moved around while the project is not loaded.
         model.fx_index.set_without_notification(self.fx_index);
-        // Therefore we just query the GUID from the FX at the given index.
-        let fx_guid = self.fx_index.and_then(|fx_index| {
-            match get_guid_based_fx_at_index(context, &virtual_track, self.is_input_fx, fx_index) {
-                Ok(fx) => fx.guid(),
-                Err(e) => {
-                    toast::warn(e);
-                    None
-                }
-            }
-        });
-        model.fx_guid.set(fx_guid);
+        if self.r#type.supports_fx() {
+            let fx_guid = match &self.fx_guid {
+                // Before ReaLearn 1.12.0
+                None => self.fx_index.and_then(|fx_index| {
+                    match get_guid_based_fx_at_index(
+                        context.expect(
+                            "trying to load pre-1.12.0 FX target without processor context",
+                        ),
+                        &virtual_track,
+                        self.is_input_fx,
+                        fx_index,
+                    ) {
+                        Ok(fx) => fx.guid(),
+                        Err(e) => {
+                            toast::warn(e);
+                            None
+                        }
+                    }
+                }),
+                // Since ReaLearn 1.12.0
+                Some(s) => Guid::from_string_without_braces(s).ok(),
+            };
+            model.fx_guid.set(fx_guid);
+        }
         model.is_input_fx.set_without_notification(self.is_input_fx);
         model
             .enable_only_if_fx_has_focus
@@ -179,6 +214,12 @@ impl TargetModelData {
         model
             .transport_action
             .set_without_notification(self.transport_action);
+        model
+            .control_element_type
+            .set_without_notification(self.control_element_type);
+        model
+            .control_element_index
+            .set_without_notification(self.control_element_index);
     }
 }
 
@@ -188,28 +229,23 @@ fn serialize_track(virtual_track: &VirtualTrack) -> (Option<String>, Option<Stri
         This => (None, None),
         Selected => (Some("selected".to_string()), None),
         Master => (Some("master".to_string()), None),
-        Particular(track) => {
-            let guid = track.guid().to_string_without_braces();
-            let name = track.name().expect("track must have name").into_string();
-            (Some(guid), Some(name))
-        }
+        Particular(anchor) => match anchor {
+            TrackAnchor::IdOrName(guid, name) => {
+                (Some(guid.to_string_without_braces()), Some(name.clone()))
+            }
+            TrackAnchor::Id(guid) => (Some(guid.to_string_without_braces()), None),
+        },
     }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
 pub enum TrackDeserializationError {
     InvalidGuid(#[error(not(source))] String),
-    #[display(fmt = "TrackNotFound")]
-    TrackNotFound {
-        guid: Guid,
-        name: Option<String>,
-    },
 }
 
 fn deserialize_track(
     id: &Option<String>,
     name: &Option<String>,
-    project: Project,
 ) -> Result<VirtualTrack, TrackDeserializationError> {
     let virtual_track = match id.as_ref().map(String::as_str) {
         None => VirtualTrack::This,
@@ -218,29 +254,12 @@ fn deserialize_track(
         Some(s) => {
             let guid = Guid::from_string_without_braces(s)
                 .map_err(|_| TrackDeserializationError::InvalidGuid(s.to_string()))?;
-            let track = project.track_by_guid(&guid);
-            let track = if track.is_available() {
-                track
-            } else {
-                let name = name
-                    .as_ref()
-                    .ok_or(TrackDeserializationError::TrackNotFound { guid, name: None })?;
-                find_track_by_name(project, name.as_str()).ok_or(
-                    TrackDeserializationError::TrackNotFound {
-                        guid,
-                        name: Some(name.clone()),
-                    },
-                )?
+            let anchor = match name {
+                None => TrackAnchor::Id(guid),
+                Some(n) => TrackAnchor::IdOrName(guid, n.clone()),
             };
-            VirtualTrack::Particular(track)
+            VirtualTrack::Particular(anchor)
         }
     };
     Ok(virtual_track)
-}
-
-fn find_track_by_name(project: Project, name: &str) -> Option<Track> {
-    project.tracks().find(|t| match t.name() {
-        None => false,
-        Some(n) => n.to_str() == name,
-    })
 }

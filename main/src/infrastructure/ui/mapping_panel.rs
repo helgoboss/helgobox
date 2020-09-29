@@ -5,7 +5,7 @@ use crate::infrastructure::ui::MainPanel;
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, OutOfRangeBehavior, SourceCharacter,
+    AbsoluteMode, ControlValue, MidiClockTransportMessage, OutOfRangeBehavior, SourceCharacter,
     SymmetricUnitValue, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
@@ -24,12 +24,13 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    ActivationType, MappingModel, MidiSourceModel, MidiSourceType, ModeModel, ModeType,
-    ModifierConditionModel, Session, SharedMapping, SharedSession, TargetModel,
-    TargetModelWithContext, TargetType, VirtualTrack, WeakSession,
+    ActivationType, MappingModel, MidiSourceType, ModeModel, ModifierConditionModel,
+    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
+    TargetCategory, TargetModel, TargetModelWithContext, VirtualControlElementType, WeakSession,
 };
 use crate::domain::{
-    ActionInvocationType, ReaperTarget, TargetCharacter, TransportAction, PLUGIN_PARAMETER_COUNT,
+    ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
+    TargetCharacter, TrackAnchor, TransportAction, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
@@ -53,7 +54,7 @@ struct ImmutableMappingPanel<'a> {
     session: &'a Session,
     mapping_ptr: *const MappingModel,
     mapping: &'a MappingModel,
-    source: &'a MidiSourceModel,
+    source: &'a SourceModel,
     mode: &'a ModeModel,
     target: &'a TargetModel,
     view: &'a ViewContext,
@@ -76,6 +77,8 @@ struct Sliders {
     mode_max_source_value: Window,
     mode_min_step_size: Window,
     mode_max_step_size: Window,
+    mode_min_length: Window,
+    mode_max_length: Window,
     mode_min_jump: Window,
     mode_max_jump: Window,
     target_value: Window,
@@ -222,6 +225,8 @@ impl MappingPanel {
                 .require_control(root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL),
             mode_max_step_size: view
                 .require_control(root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL),
+            mode_min_length: view.require_control(root::ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL),
+            mode_max_length: view.require_control(root::ID_SETTINGS_MAX_LENGTH_SLIDER_CONTROL),
             mode_min_jump: view.require_control(root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL),
             mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
@@ -270,12 +275,8 @@ fn decorate_reaction(
 }
 
 impl<'a> MutableMappingPanel<'a> {
-    fn real_target(&self) -> Option<ReaperTarget> {
-        self.mapping
-            .target_model
-            .with_context(self.session.context())
-            .create_target()
-            .ok()
+    fn real_target(&self) -> Option<CompoundMappingTarget> {
+        self.target_with_context().create_target().ok()
     }
 
     fn open_target(&self) {
@@ -436,13 +437,25 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_source_channel(&mut self) {
+    fn update_source_channel_or_control_element(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
-        let value = match b.selected_combo_box_item_data() {
-            -1 => None,
-            id => Some(Channel::new(id as _)),
+        use SourceCategory::*;
+        match self.mapping.source_model.category.get() {
+            Midi => {
+                let value = match b.selected_combo_box_item_data() {
+                    -1 => None,
+                    id => Some(Channel::new(id as _)),
+                };
+                self.mapping.source_model.channel.set(value);
+            }
+            Virtual => {
+                let index = b.selected_combo_box_item_index();
+                self.mapping
+                    .source_model
+                    .control_element_index
+                    .set(index as u32)
+            }
         };
-        self.mapping.source_model.channel.set(value);
     }
 
     fn update_mapping_activation_setting_1_option(&mut self) {
@@ -522,13 +535,33 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_source_type(&mut self) {
-        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
-        self.mapping.source_model.r#type.set(
+    fn update_source_category(&mut self) {
+        let b = self
+            .view
+            .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
+        self.mapping.source_model.category.set(
             b.selected_combo_box_item_index()
                 .try_into()
-                .expect("invalid source type"),
+                .expect("invalid source category"),
         );
+    }
+
+    fn update_source_type(&mut self) {
+        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
+        let i = b.selected_combo_box_item_index();
+        use SourceCategory::*;
+        match self.mapping.source_model.category.get() {
+            Midi => self
+                .mapping
+                .source_model
+                .midi_source_type
+                .set(i.try_into().expect("invalid MIDI source type")),
+            Virtual => self
+                .mapping
+                .source_model
+                .control_element_type
+                .set(i.try_into().expect("invalid virtual source type")),
+        };
     }
 
     fn update_source_midi_clock_transport_message_type(&mut self) {
@@ -690,24 +723,24 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_max(value));
     }
 
-    fn update_mode_min_step_or_duration_from_edit_control(&mut self) {
-        if self.mapping.mode_model.supports_press_duration() {
-            let value = self
-                .get_value_from_duration_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or_else(|| Duration::from_millis(0));
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_min(value));
-        } else {
-            let value = self
-                .get_value_from_step_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or_else(|| UnitValue::MIN.to_symmetric());
-            self.mapping
-                .mode_model
-                .step_interval
-                .set_with(|prev| prev.with_min(value));
-        }
+    fn update_mode_min_step_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_step_edit_control(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL)
+            .unwrap_or_else(|| UnitValue::MIN.to_symmetric());
+        self.mapping
+            .mode_model
+            .step_interval
+            .set_with(|prev| prev.with_min(value));
+    }
+
+    fn update_mode_min_length_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_duration_edit_control(root::ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL)
+            .unwrap_or_else(|| Duration::from_millis(0));
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn get_value_from_duration_edit_control(&self, edit_control_id: u32) -> Option<Duration> {
@@ -725,24 +758,24 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn update_mode_max_step_or_duration_from_edit_control(&mut self) {
-        if self.mapping.mode_model.supports_press_duration() {
-            let value = self
-                .get_value_from_duration_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or_else(|| Duration::from_millis(0));
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_max(value));
-        } else {
-            let value = self
-                .get_value_from_step_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-                .unwrap_or(SymmetricUnitValue::MAX);
-            self.mapping
-                .mode_model
-                .step_interval
-                .set_with(|prev| prev.with_max(value));
-        }
+    fn update_mode_max_step_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_step_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
+            .unwrap_or(SymmetricUnitValue::MAX);
+        self.mapping
+            .mode_model
+            .step_interval
+            .set_with(|prev| prev.with_max(value));
+    }
+
+    fn update_mode_max_length_from_edit_control(&mut self) {
+        let value = self
+            .get_value_from_duration_edit_control(root::ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL)
+            .unwrap_or_else(|| Duration::from_millis(0));
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn update_mode_eel_control_transformation(&mut self) {
@@ -797,38 +830,38 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_max(slider.slider_unit_value()));
     }
 
-    fn update_mode_min_step_or_duration_from_slider(&mut self, slider: Window) {
-        if self.mapping.mode_model.supports_press_duration() {
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_min(slider.slider_duration()));
+    fn update_mode_min_step_from_slider(&mut self, slider: Window) {
+        let step_counts = self.mapping_uses_step_counts();
+        let prop = &mut self.mapping.mode_model.step_interval;
+        if step_counts {
+            prop.set_with(|prev| prev.with_min(slider.slider_symmetric_unit_value()));
         } else {
-            let step_counts = self.mapping_uses_step_counts();
-            let prop = &mut self.mapping.mode_model.step_interval;
-            if step_counts {
-                prop.set_with(|prev| prev.with_min(slider.slider_symmetric_unit_value()));
-            } else {
-                prop.set_with(|prev| prev.with_min(slider.slider_unit_value().to_symmetric()));
-            }
+            prop.set_with(|prev| prev.with_min(slider.slider_unit_value().to_symmetric()));
         }
     }
 
-    fn update_mode_max_step_or_duration_from_slider(&mut self, slider: Window) {
-        if self.mapping.mode_model.supports_press_duration() {
-            self.mapping
-                .mode_model
-                .press_duration_interval
-                .set_with(|prev| prev.with_max(slider.slider_duration()));
+    fn update_mode_max_step_from_slider(&mut self, slider: Window) {
+        let step_counts = self.mapping_uses_step_counts();
+        let prop = &mut self.mapping.mode_model.step_interval;
+        if step_counts {
+            prop.set_with(|prev| prev.with_max(slider.slider_symmetric_unit_value()));
         } else {
-            let step_counts = self.mapping_uses_step_counts();
-            let prop = &mut self.mapping.mode_model.step_interval;
-            if step_counts {
-                prop.set_with(|prev| prev.with_max(slider.slider_symmetric_unit_value()));
-            } else {
-                prop.set_with(|prev| prev.with_max(slider.slider_unit_value().to_symmetric()));
-            }
+            prop.set_with(|prev| prev.with_max(slider.slider_unit_value().to_symmetric()));
         }
+    }
+
+    fn update_mode_min_length_from_slider(&mut self, slider: Window) {
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_min(slider.slider_duration()));
+    }
+
+    fn update_mode_max_length_from_slider(&mut self, slider: Window) {
+        self.mapping
+            .mode_model
+            .press_duration_interval
+            .set_with(|prev| prev.with_max(slider.slider_duration()));
     }
 
     fn mapping_uses_step_counts(&self) -> bool {
@@ -867,7 +900,7 @@ impl<'a> MutableMappingPanel<'a> {
         let target = &mut self.mapping.target_model;
         if target.supports_fx() {
             target.enable_only_if_fx_has_focus.set(is_checked);
-        } else if target.r#type.get() == TargetType::TrackSelection {
+        } else if target.r#type.get() == ReaperTargetType::TrackSelection {
             target.select_exclusively.set(is_checked);
         }
     }
@@ -884,41 +917,77 @@ impl<'a> MutableMappingPanel<'a> {
         self.session.toggle_learn_target(self.shared_mapping);
     }
 
-    fn update_target_type(&mut self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        self.mapping.target_model.r#type.set(
+    fn update_target_category(&mut self) {
+        let b = self
+            .view
+            .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX);
+        self.mapping.target_model.category.set(
             b.selected_combo_box_item_index()
                 .try_into()
-                .expect("invalid target type"),
+                .expect("invalid target category"),
         );
     }
 
+    fn update_target_type(&mut self) {
+        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
+        let i = b.selected_combo_box_item_index();
+        use TargetCategory::*;
+        match self.mapping.target_model.category.get() {
+            Reaper => self
+                .mapping
+                .target_model
+                .r#type
+                .set(i.try_into().expect("invalid REAPER target type")),
+            Virtual => self
+                .mapping
+                .target_model
+                .control_element_type
+                .set(i.try_into().expect("invalid virtual target type")),
+        };
+    }
+
     fn update_target_line_two_data(&mut self) -> Result<(), &'static str> {
-        let control = self
+        let b = self
             .view
             .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX);
-        if self.mapping.target_model.supports_track() {
-            let data = control.selected_combo_box_item_data();
-            use VirtualTrack::*;
-            let project = self.target_with_context().project();
-            let track = match data {
-                -3 => This,
-                -2 => Selected,
-                -1 => Master,
-                _ => Particular(
-                    project
-                        .track_by_index(data as u32)
-                        .ok_or("track not existing")?,
-                ),
-            };
-            self.mapping.target_model.track.set(track);
-        } else if self.mapping.target_model.r#type.get() == TargetType::Transport {
-            let data = control.selected_combo_box_item_index();
-            self.mapping
-                .target_model
-                .transport_action
-                .set(data.try_into().expect("invalid transport action"));
-        }
+        use TargetCategory::*;
+        match self.mapping.target_model.category.get() {
+            Reaper => {
+                if self.mapping.target_model.supports_track() {
+                    let data = b.selected_combo_box_item_data();
+                    use VirtualTrack::*;
+                    let project = self.target_with_context().project();
+                    let track = match data {
+                        -3 => This,
+                        -2 => Selected,
+                        -1 => Master,
+                        _ => {
+                            let t = project
+                                .track_by_index(data as u32)
+                                .ok_or("track not existing")?;
+                            Particular(TrackAnchor::IdOrName(
+                                *t.guid(),
+                                t.name().expect("track must have name").into_string(),
+                            ))
+                        }
+                    };
+                    self.mapping.target_model.track.set(track);
+                } else if self.mapping.target_model.r#type.get() == ReaperTargetType::Transport {
+                    let data = b.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .transport_action
+                        .set(data.try_into().expect("invalid transport action"));
+                }
+            }
+            Virtual => {
+                let index = b.selected_combo_box_item_index();
+                self.mapping
+                    .target_model
+                    .control_element_index
+                    .set(index as u32)
+            }
+        };
         Ok(())
     }
 
@@ -941,7 +1010,7 @@ impl<'a> MutableMappingPanel<'a> {
             let data = combo.selected_combo_box_item_data();
             let send_index = if data == -1 { None } else { Some(data as u32) };
             target.send_index.set(send_index);
-        } else if target.r#type.get() == TargetType::Action {
+        } else if target.r#type.get() == ReaperTargetType::Action {
             let index = combo.selected_combo_box_item_index();
             target
                 .action_invocation_type
@@ -962,14 +1031,13 @@ impl<'a> MutableMappingPanel<'a> {
 impl<'a> ImmutableMappingPanel<'a> {
     fn fill_all_controls(&self) {
         self.fill_mapping_activation_type_combo_box();
-        self.fill_source_type_combo_box();
-        self.fill_source_channel_combo_box();
+        self.fill_source_category_combo_box();
         self.fill_source_midi_message_number_combo_box();
         self.fill_source_character_combo_box();
         self.fill_source_midi_clock_transport_message_type_combo_box();
         self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
-        self.fill_target_type_combo_box();
+        self.fill_target_category_combo_box();
     }
 
     fn invalidate_all_controls(&self) {
@@ -1068,10 +1136,18 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mapping_activation_control_visibilities(&self) {
+        let show = self.mapping.compartment() != MappingCompartment::ControllerMappings;
         let activation_type = self.mapping.activation_type.get();
         self.show_if(
-            activation_type == ActivationType::Modifiers
-                || activation_type == ActivationType::Program,
+            show,
+            &[
+                root::ID_MAPPING_ACTIVATION_LABEL,
+                root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX,
+            ],
+        );
+        self.show_if(
+            show && (activation_type == ActivationType::Modifiers
+                || activation_type == ActivationType::Program),
             &[
                 root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
@@ -1080,14 +1156,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            activation_type == ActivationType::Modifiers,
+            show && activation_type == ActivationType::Modifiers,
             &[
                 root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX,
                 root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX,
             ],
         );
         self.show_if(
-            activation_type == ActivationType::Eel,
+            show && activation_type == ActivationType::Eel,
             &[
                 root::ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_EDIT_CONTROL,
@@ -1191,9 +1267,10 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_source_controls(&self) {
         self.invalidate_source_control_appearance();
+        self.invalidate_source_category_combo_box();
         self.invalidate_source_type_combo_box();
         self.invalidate_source_learn_button();
-        self.invalidate_source_channel_combo_box();
+        self.invalidate_source_channel_or_control_element_combo_box();
         self.invalidate_source_14_bit_check_box();
         self.invalidate_source_is_registered_check_box();
         self.invalidate_source_midi_message_number_controls();
@@ -1203,6 +1280,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_source_control_appearance(&self) {
+        self.fill_source_channel_or_control_element_combo_box();
         self.invalidate_source_control_labels();
         self.invalidate_source_control_visibilities();
     }
@@ -1210,13 +1288,25 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_control_labels(&self) {
         self.view
             .require_control(root::ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT)
-            .set_text(self.source.r#type.get().number_label())
+            .set_text(self.source.midi_source_type.get().number_label());
+        use SourceCategory::*;
+        self.view
+            .require_control(root::ID_SOURCE_CHANNEL_LABEL)
+            .set_text(match self.source.category.get() {
+                Midi => "Channel",
+                Virtual => "Number",
+            });
     }
 
     fn invalidate_source_control_visibilities(&self) {
         let source = self.source;
+        // Don't allow controller mappings to have virtual source
+        self.view
+            .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
+            .set_enabled(self.mapping.compartment() != MappingCompartment::ControllerMappings);
+        // Show/hide stuff
         self.show_if(
-            source.supports_channel(),
+            source.supports_channel() || source.supports_virtual_control_element_index(),
             &[
                 root::ID_SOURCE_CHANNEL_COMBO_BOX,
                 root::ID_SOURCE_CHANNEL_LABEL,
@@ -1264,10 +1354,35 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_source_type_combo_box(&self) {
+    fn invalidate_source_category_combo_box(&self) {
         self.view
-            .require_control(root::ID_SOURCE_TYPE_COMBO_BOX)
-            .select_combo_box_item(self.source.r#type.get().into());
+            .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
+            .select_combo_box_item(self.source.category.get().into());
+    }
+
+    fn invalidate_target_category_combo_box(&self) {
+        // Don't allow primary mappings to have virtual target
+        self.view
+            .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
+            .set_enabled(self.mapping.compartment() != MappingCompartment::PrimaryMappings);
+        self.view
+            .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
+            .select_combo_box_item(self.target.category.get().into());
+    }
+
+    fn invalidate_source_type_combo_box(&self) {
+        self.fill_source_type_combo_box();
+        self.invalidate_source_type_combo_box_value();
+    }
+
+    fn invalidate_source_type_combo_box_value(&self) {
+        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
+        use SourceCategory::*;
+        let item_index = match self.source.category.get() {
+            Midi => self.source.midi_source_type.get().into(),
+            Virtual => self.source.control_element_type.get().into(),
+        };
+        b.select_combo_box_item(item_index);
     }
 
     fn invalidate_source_learn_button(&self) {
@@ -1288,15 +1403,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(text);
     }
 
-    fn invalidate_source_channel_combo_box(&self) {
+    fn invalidate_source_channel_or_control_element_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
-        match self.source.channel.get() {
-            None => {
-                b.select_combo_box_item_by_data(-1).unwrap();
+        use SourceCategory::*;
+        match self.source.category.get() {
+            Midi => {
+                match self.source.channel.get() {
+                    None => {
+                        b.select_combo_box_item_by_data(-1).unwrap();
+                    }
+                    Some(ch) => {
+                        b.select_combo_box_item_by_data(ch.get() as _).unwrap();
+                    }
+                };
             }
-            Some(ch) => {
-                b.select_combo_box_item_by_data(ch.get() as _).unwrap();
-            }
+            Virtual => b.select_combo_box_item(self.source.control_element_index.get() as _),
         };
     }
 
@@ -1358,6 +1479,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_controls(&self) {
+        self.invalidate_target_control_appearance();
+        self.invalidate_target_category_combo_box();
         self.invalidate_target_type_combo_box();
         self.invalidate_target_line_two();
         self.invalidate_target_line_three();
@@ -1368,10 +1491,35 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_learn_button();
     }
 
+    fn invalidate_target_control_appearance(&self) {
+        self.invalidate_target_control_visibilities();
+    }
+
+    fn invalidate_target_control_visibilities(&self) {
+        self.show_if(
+            self.target.category.get() == TargetCategory::Reaper,
+            &[
+                root::ID_TARGET_VALUE_LABEL_TEXT,
+                root::ID_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_TARGET_VALUE_TEXT,
+            ],
+        );
+    }
+
     fn invalidate_target_type_combo_box(&self) {
-        self.view
-            .require_control(root::ID_TARGET_TYPE_COMBO_BOX)
-            .select_combo_box_item(self.target.r#type.get().into());
+        self.fill_target_type_combo_box();
+        self.invalidate_target_type_combo_box_value();
+    }
+
+    fn invalidate_target_type_combo_box_value(&self) {
+        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
+        use TargetCategory::*;
+        let item_index = match self.target.category.get() {
+            Reaper => self.target.r#type.get().into(),
+            Virtual => self.target.control_element_type.get().into(),
+        };
+        b.select_combo_box_item(item_index);
     }
 
     fn invalidate_target_line_two(&self) {
@@ -1386,36 +1534,50 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_TRACK_OR_CMD_LABEL_TEXT);
         let target = self.target;
-        if target.supports_track() {
-            label.show();
-            combo.show();
-            action_label.hide();
-            pick_button.hide();
-            label.set_text("Track");
-            self.fill_target_track_combo_box(combo);
-            self.set_target_track_combo_box_value(combo);
-        } else if self.target.r#type.get() == TargetType::Action {
-            label.show();
-            action_label.show();
-            pick_button.show();
-            combo.hide();
-            label.set_text("Action");
-            let action_name = self.target.action_name_label().to_string();
-            action_label.set_text(action_name);
-        } else if self.target.r#type.get() == TargetType::Transport {
-            label.show();
-            combo.show();
-            action_label.hide();
-            pick_button.hide();
-            label.set_text("Action");
-            self.fill_target_transport_action_combo_box(combo);
-            self.set_target_transport_action_combo_box_value(combo);
-        } else {
-            label.hide();
-            combo.hide();
-            action_label.hide();
-            pick_button.hide();
-        }
+        use TargetCategory::*;
+        match self.target.category.get() {
+            Reaper => {
+                if target.supports_track() {
+                    label.show();
+                    combo.show();
+                    action_label.hide();
+                    pick_button.hide();
+                    label.set_text("Track");
+                    self.fill_target_track_combo_box(combo);
+                    self.set_target_track_combo_box_value(combo);
+                } else if self.target.r#type.get() == ReaperTargetType::Action {
+                    label.show();
+                    action_label.show();
+                    pick_button.show();
+                    combo.hide();
+                    label.set_text("Action");
+                    let action_name = self.target.action_name_label().to_string();
+                    action_label.set_text(action_name);
+                } else if self.target.r#type.get() == ReaperTargetType::Transport {
+                    label.show();
+                    combo.show();
+                    action_label.hide();
+                    pick_button.hide();
+                    label.set_text("Action");
+                    self.fill_target_transport_action_combo_box(combo);
+                    self.set_target_transport_action_combo_box_value(combo);
+                } else {
+                    label.hide();
+                    combo.hide();
+                    action_label.hide();
+                    pick_button.hide();
+                }
+            }
+            Virtual => {
+                label.show();
+                combo.show();
+                action_label.hide();
+                pick_button.hide();
+                label.set_text("Number");
+                combo.fill_combo_box_small(1..=16);
+                combo.select_combo_box_item(self.target.control_element_index.get() as _);
+            }
+        };
     }
 
     fn fill_target_track_combo_box(&self, combo: Window) {
@@ -1454,9 +1616,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             This => -3,
             Selected => -2,
             Master => -1,
-            // TODO-high Check if track is available, otherwise -1! Otherwise can panic when closing
-            // project.
-            Particular(t) => t.index().map(|i| i as isize).unwrap_or(-1),
+            // TODO-high #23 Check if track is available, otherwise -1! Otherwise can panic when
+            //  closing project.
+            Particular(t) => {
+                let track = t
+                    .resolve(self.session.context().project())
+                    .expect("track not available");
+                track.index().map(|i| i as isize).unwrap_or(-1)
+            }
         };
         combo.select_combo_box_item_by_data(data).unwrap();
     }
@@ -1488,7 +1655,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             input_fx_box.hide();
             self.fill_target_send_combo_box(label, combo);
             self.set_target_send_combo_box_value(combo);
-        } else if target.r#type.get() == TargetType::Action {
+        } else if target.r#type.get() == ReaperTargetType::Action {
             combo.show();
             label.show();
             input_fx_box.hide();
@@ -1611,7 +1778,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             b.show();
             b.set_text("FX must have focus");
             b.set_checked(target.enable_only_if_fx_has_focus.get());
-        } else if target.r#type.get() == TargetType::TrackSelection {
+        } else if target.r#type.get() == ReaperTargetType::TrackSelection {
             b.show();
             b.set_text("Select exclusively");
             b.set_checked(target.select_exclusively.get());
@@ -1641,7 +1808,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_FX_PARAMETER_LABEL_TEXT);
         let target = self.target;
-        if target.r#type.get() == TargetType::FxParameter {
+        if target.category.get() == TargetCategory::Reaper
+            && target.r#type.get() == ReaperTargetType::FxParameter
+        {
             combo.show();
             label.show();
             self.fill_target_fx_param_combo_box(combo);
@@ -1658,7 +1827,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_TARGET_VALUE_SLIDER_CONTROL,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 root::ID_TARGET_VALUE_TEXT,
-                t.current_value(),
+                t.current_value().unwrap_or(UnitValue::MIN),
             )
         }
     }
@@ -1698,8 +1867,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 // Because we want a changed track name to be reflected immediately in the UI.
                 .merge(reaper.track_name_changed().map_to(()))
                 // Because we want to see any possible effective `ReaperTarget` change immediately.
-                .merge(TargetModel::potential_static_change_events())
-                .merge(TargetModel::potential_dynamic_change_events()),
+                .merge(ReaperTarget::potential_static_change_events())
+                .merge(ReaperTarget::potential_dynamic_change_events()),
             |view| {
                 // TODO-medium The C++ code yields here (when FX changed):
                 //  Yield. Because the model might also listen to such events and we want the model
@@ -1759,14 +1928,29 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_source_listeners(&self) {
         let source = self.source;
-        self.panel.when_do_sync(source.r#type.changed(), |view| {
-            view.invalidate_source_type_combo_box();
-            view.invalidate_source_control_appearance();
-            view.invalidate_mode_controls();
-        });
-        self.panel.when_do_sync(source.channel.changed(), |view| {
-            view.invalidate_source_channel_combo_box();
-        });
+        self.panel.when_do_sync(
+            source
+                .category
+                .changed()
+                .merge(source.midi_source_type.changed())
+                .merge(source.control_element_type.changed()),
+            |view| {
+                view.invalidate_source_category_combo_box();
+                view.invalidate_source_type_combo_box();
+                view.invalidate_source_control_appearance();
+                view.invalidate_source_channel_or_control_element_combo_box();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.panel.when_do_sync(
+            source
+                .channel
+                .changed()
+                .merge(source.control_element_index.changed()),
+            |view| {
+                view.invalidate_source_channel_or_control_element_combo_box();
+            },
+        );
         self.panel.when_do_sync(source.is_14_bit.changed(), |view| {
             view.invalidate_source_14_bit_check_box();
             view.invalidate_mode_controls();
@@ -1799,7 +1983,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_control_appearance();
         self.invalidate_mode_source_value_controls();
         self.invalidate_mode_target_value_controls();
-        self.invalidate_mode_step_or_duration_controls();
+        self.invalidate_mode_step_controls();
+        self.invalidate_mode_length_controls();
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_round_target_value_check_box();
@@ -1827,9 +2012,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_control_labels(&self) {
-        let step_label = if self.mode.supports_press_duration() {
-            "Length"
-        } else if self.mapping_uses_step_counts() {
+        let step_label = if self.mapping_uses_step_counts() {
             "Speed"
         } else {
             "Step size"
@@ -1841,22 +2024,38 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_control_visibilities(&self) {
         let mode = self.mode;
+        let target = match self.real_target() {
+            None => return,
+            Some(t) => t,
+        };
+        let show_round_controls = mode.supports_round_target_value()
+            && self.target_with_context().is_known_to_be_roundable();
         self.show_if(
-            mode.supports_round_target_value()
-                && self.target_with_context().is_known_to_be_roundable(),
+            show_round_controls,
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
         );
         self.show_if(
             mode.supports_reverse(),
             &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
         );
+        let show_jump_controls = mode.supports_jump() && target.can_report_current_value();
         self.show_if(
-            mode.supports_approach_target_value(),
-            &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
+            show_jump_controls,
+            &[
+                root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
+            ],
         );
         self.show_if(
-            mode.supports_rotate(),
-            &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
+            show_jump_controls && mode.supports_approach_target_value(),
+            &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
         );
         self.show_if(
             mode.supports_out_of_range_behavior(),
@@ -1866,7 +2065,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            mode.supports_steps() || mode.supports_press_duration(),
+            target.can_report_current_value(),
+            &[
+                root::ID_SETTINGS_TARGET_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
+                root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_LABEL_TEXT,
+                root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
+            ],
+        );
+        self.show_if(
+            mode.supports_steps(),
             &[
                 root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
                 root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
@@ -1880,18 +2093,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            mode.supports_jump(),
-            &[
-                root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
-            ],
+            mode.supports_rotate() && target.can_report_current_value(),
+            &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
         );
         self.show_if(
             mode.supports_eel_control_transformation(),
@@ -2008,7 +2211,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn get_text_right_to_step_size_edit_control(
         &self,
-        t: &ReaperTarget,
+        t: &CompoundMappingTarget,
         step_size: UnitValue,
     ) -> String {
         if t.hide_formatted_step_size() {
@@ -2022,7 +2225,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn get_text_right_to_target_edit_control(&self, t: &ReaperTarget, value: UnitValue) -> String {
+    fn get_text_right_to_target_edit_control(
+        &self,
+        t: &CompoundMappingTarget,
+        value: UnitValue,
+    ) -> String {
         if t.hide_formatted_value() {
             t.value_unit().to_string()
         } else if t.character() == TargetCharacter::Discrete {
@@ -2052,45 +2259,50 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_mode_step_or_duration_controls(&self) {
-        self.invalidate_mode_min_step_or_duration_controls();
-        self.invalidate_mode_max_step_or_duration_controls();
+    fn invalidate_mode_step_controls(&self) {
+        self.invalidate_mode_min_step_controls();
+        self.invalidate_mode_max_step_controls();
     }
 
-    fn invalidate_mode_min_step_or_duration_controls(&self) {
-        if self.mode.supports_press_duration() {
-            self.invalidate_mode_press_duration_controls_internal(
-                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-                self.mode.press_duration_interval.get_ref().min_val(),
-            );
-        } else if self.mode.supports_steps() {
-            self.invalidate_mode_step_controls_internal(
-                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-                self.mode.step_interval.get_ref().min_val(),
-            );
-        }
+    fn invalidate_mode_length_controls(&self) {
+        self.invalidate_mode_min_length_controls();
+        self.invalidate_mode_max_length_controls();
     }
 
-    fn invalidate_mode_max_step_or_duration_controls(&self) {
-        if self.mode.supports_press_duration() {
-            self.invalidate_mode_press_duration_controls_internal(
-                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-                self.mode.press_duration_interval.get_ref().max_val(),
-            );
-        } else if self.mode.supports_steps() {
-            self.invalidate_mode_step_controls_internal(
-                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-                self.mode.step_interval.get_ref().max_val(),
-            );
-        }
+    fn invalidate_mode_min_step_controls(&self) {
+        self.invalidate_mode_step_controls_internal(
+            root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+            self.mode.step_interval.get_ref().min_val(),
+        );
+    }
+
+    fn invalidate_mode_min_length_controls(&self) {
+        self.invalidate_mode_press_duration_controls_internal(
+            root::ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL,
+            root::ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL,
+            root::ID_SETTINGS_MIN_LENGTH_VALUE_TEXT,
+            self.mode.press_duration_interval.get_ref().min_val(),
+        );
+    }
+
+    fn invalidate_mode_max_step_controls(&self) {
+        self.invalidate_mode_step_controls_internal(
+            root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+            self.mode.step_interval.get_ref().max_val(),
+        );
+    }
+
+    fn invalidate_mode_max_length_controls(&self) {
+        self.invalidate_mode_press_duration_controls_internal(
+            root::ID_SETTINGS_MAX_LENGTH_SLIDER_CONTROL,
+            root::ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL,
+            root::ID_SETTINGS_MAX_LENGTH_VALUE_TEXT,
+            self.mode.press_duration_interval.get_ref().max_val(),
+        );
     }
 
     fn invalidate_mode_step_controls_internal(
@@ -2216,14 +2428,16 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.changed())
                 // ... and some other events occur that might change the target "value producer"
                 // (e.g. volume of track 2) in some way.
-                .merge(TargetModel::potential_static_change_events())
-                .merge(TargetModel::potential_dynamic_change_events()),
+                .merge(ReaperTarget::potential_static_change_events())
+                .merge(ReaperTarget::potential_dynamic_change_events()),
             |view| {
                 // Okay. Time to resubscribe.
                 let mut existing_subscription =
                     view.panel.target_value_change_subscription.borrow_mut();
                 // Resubscribe if information in model is enough to create actual target.
-                if let Ok(t) = view.target_with_context().create_target() {
+                if let Ok(CompoundMappingTarget::Reaper(t)) =
+                    view.target_with_context().create_target()
+                {
                     let new_subscription =
                         view.panel.when_do_async(t.value_changed(), |inner_view| {
                             inner_view.invalidate_target_value_controls();
@@ -2233,14 +2447,27 @@ impl<'a> ImmutableMappingPanel<'a> {
                 };
             },
         );
-        self.panel.when_do_sync(target.r#type.changed(), |view| {
-            view.invalidate_target_controls();
-            view.invalidate_mode_controls();
-        });
-        self.panel.when_do_sync(target.track.changed(), |view| {
-            view.invalidate_target_controls();
-            view.invalidate_mode_controls();
-        });
+        self.panel.when_do_sync(
+            target
+                .category
+                .changed()
+                .merge(target.r#type.changed())
+                .merge(target.control_element_type.changed()),
+            |view| {
+                view.invalidate_target_controls();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.panel.when_do_sync(
+            target
+                .track
+                .changed()
+                .merge(target.control_element_index.changed()),
+            |view| {
+                view.invalidate_target_controls();
+                view.invalidate_mode_controls();
+            },
+        );
         self.panel
             .when_do_sync(target.transport_action.changed(), |view| {
                 view.invalidate_target_line_two();
@@ -2293,11 +2520,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
         self.panel
             .when_do_sync(mode.step_interval.changed(), |view| {
-                view.invalidate_mode_step_or_duration_controls();
+                view.invalidate_mode_step_controls();
             });
         self.panel
             .when_do_sync(mode.press_duration_interval.changed(), |view| {
-                view.invalidate_mode_step_or_duration_controls();
+                view.invalidate_mode_length_controls();
             });
         self.panel
             .when_do_sync(mode.out_of_range_behavior.changed(), |view| {
@@ -2351,60 +2578,87 @@ impl<'a> ImmutableMappingPanel<'a> {
         )));
     }
 
-    fn fill_source_type_combo_box(&self) {
-        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
-        b.fill_combo_box(MidiSourceType::into_enum_iter());
+    fn fill_source_category_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
+        b.fill_combo_box(SourceCategory::into_enum_iter());
     }
 
-    fn fill_source_channel_combo_box(&self) {
+    fn fill_target_category_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX);
+        b.fill_combo_box(TargetCategory::into_enum_iter());
+    }
+
+    fn fill_source_type_combo_box(&self) {
+        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
+        use SourceCategory::*;
+        match self.source.category.get() {
+            Midi => b.fill_combo_box(MidiSourceType::into_enum_iter()),
+            Virtual => b.fill_combo_box(VirtualControlElementType::into_enum_iter()),
+        };
+    }
+
+    fn fill_source_channel_or_control_element_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
-        b.fill_combo_box_with_data_small(
-            iter::once((-1isize, "<Any> (no feedback)".to_string()))
-                .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
-        )
+        use SourceCategory::*;
+        match self.source.category.get() {
+            Midi => b.fill_combo_box_with_data_small(
+                iter::once((-1isize, "<Any> (no feedback)".to_string()))
+                    .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
+            ),
+            Virtual => b.fill_combo_box_small(1..=16),
+        };
     }
 
     fn fill_source_midi_message_number_combo_box(&self) {
-        let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
-        b.fill_combo_box_with_data_vec(
-            iter::once((-1isize, "<Any> (no feedback)".to_string()))
-                .chain((0..128).map(|i| (i as isize, i.to_string())))
-                .collect(),
-        )
+        self.view
+            .require_control(root::ID_SOURCE_NUMBER_COMBO_BOX)
+            .fill_combo_box_with_data_vec(
+                iter::once((-1isize, "<Any> (no feedback)".to_string()))
+                    .chain((0..128).map(|i| (i as isize, i.to_string())))
+                    .collect(),
+            )
     }
 
     fn fill_source_character_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
-        b.fill_combo_box(SourceCharacter::into_enum_iter());
+        self.view
+            .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX)
+            .fill_combo_box(SourceCharacter::into_enum_iter());
     }
 
     fn fill_source_midi_clock_transport_message_type_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
-        b.fill_combo_box(MidiClockTransportMessage::into_enum_iter());
+        self.view
+            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX)
+            .fill_combo_box(MidiClockTransportMessage::into_enum_iter());
     }
 
     fn fill_mode_type_combo_box(&self) {
-        let b = self.view.require_control(root::ID_SETTINGS_MODE_COMBO_BOX);
-        b.fill_combo_box(ModeType::into_enum_iter());
+        self.view
+            .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
+            .fill_combo_box(AbsoluteMode::into_enum_iter());
     }
 
     fn fill_mode_out_of_range_behavior_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX);
-        b.fill_combo_box(OutOfRangeBehavior::into_enum_iter());
+        self.view
+            .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
+            .fill_combo_box(OutOfRangeBehavior::into_enum_iter());
     }
 
     fn fill_target_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        b.fill_combo_box(TargetType::into_enum_iter());
+        use TargetCategory::*;
+        match self.target.category.get() {
+            Reaper => {
+                b.fill_combo_box(ReaperTargetType::into_enum_iter());
+            }
+            Virtual => b.fill_combo_box(VirtualControlElementType::into_enum_iter()),
+        }
     }
 
-    fn real_target(&self) -> Option<ReaperTarget> {
+    fn real_target(&self) -> Option<CompoundMappingTarget> {
         self.target_with_context().create_target().ok()
     }
 }
@@ -2500,10 +2754,13 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mapping_activation_setting_2_option())
             }
             // Source
-            ID_SOURCE_CHANNEL_COMBO_BOX => self.write(|p| p.update_source_channel()),
+            ID_SOURCE_CATEGORY_COMBO_BOX => self.write(|p| p.update_source_category()),
+            ID_SOURCE_TYPE_COMBO_BOX => self.write(|p| p.update_source_type()),
+            ID_SOURCE_CHANNEL_COMBO_BOX => {
+                self.write(|p| p.update_source_channel_or_control_element())
+            }
             ID_SOURCE_NUMBER_COMBO_BOX => self.write(|p| p.update_source_midi_message_number()),
             ID_SOURCE_CHARACTER_COMBO_BOX => self.write(|p| p.update_source_character()),
-            ID_SOURCE_TYPE_COMBO_BOX => self.write(|p| p.update_source_type()),
             ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX => {
                 self.write(|p| p.update_source_midi_clock_transport_message_type())
             }
@@ -2513,6 +2770,7 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_out_of_range_behavior())
             }
             // Target
+            ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
             ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
             ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
                 self.write(|p| p.update_target_line_two_data()).unwrap();
@@ -2544,10 +2802,16 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_source_value_from_slider(s));
             }
             s if s == sliders.mode_min_step_size => {
-                self.write(|p| p.update_mode_min_step_or_duration_from_slider(s));
+                self.write(|p| p.update_mode_min_step_from_slider(s));
             }
             s if s == sliders.mode_max_step_size => {
-                self.write(|p| p.update_mode_max_step_or_duration_from_slider(s));
+                self.write(|p| p.update_mode_max_step_from_slider(s));
+            }
+            s if s == sliders.mode_min_length => {
+                self.write(|p| p.update_mode_min_length_from_slider(s));
+            }
+            s if s == sliders.mode_max_length => {
+                self.write(|p| p.update_mode_max_length_from_slider(s));
             }
             s if s == sliders.mode_min_jump => {
                 self.write(|p| p.update_mode_min_jump_from_slider(s));
@@ -2557,7 +2821,7 @@ impl View for MappingPanel {
             }
             s if s == sliders.target_value => {
                 if let Ok(Some(t)) = self.read(|p| p.real_target()) {
-                    update_target_value(t, s.slider_unit_value());
+                    update_target_value(&t, s.slider_unit_value());
                 }
             }
             _ => unreachable!(),
@@ -2606,10 +2870,16 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_source_value_from_edit_control());
             }
             ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_step_or_duration_from_edit_control());
+                self.write(|p| p.update_mode_min_step_from_edit_control());
             }
             ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_step_or_duration_from_edit_control());
+                self.write(|p| p.update_mode_max_step_from_edit_control());
+            }
+            ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_length_from_edit_control());
+            }
+            ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_length_from_edit_control());
             }
             ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_eel_control_transformation());
@@ -2626,7 +2896,7 @@ impl View for MappingPanel {
                     (p.real_target(), value)
                 });
                 if let Some(t) = target {
-                    update_target_value(t, value);
+                    update_target_value(&t, value);
                 }
             }
             _ => return false,
@@ -2697,7 +2967,7 @@ enum PositiveOrSymmetricUnitValue {
     Symmetric(SymmetricUnitValue),
 }
 
-fn update_target_value(target: ReaperTarget, value: UnitValue) {
+fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
     // If it doesn't work in some cases, so what.
     let _ = target.control(ControlValue::Absolute(value));
 }

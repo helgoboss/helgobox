@@ -1,6 +1,7 @@
 use crate::application::{
-    ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel, SessionContext,
+    ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel,
 };
+use crate::domain::{MappingCompartment, ProcessorContext};
 use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -44,12 +45,12 @@ impl Default for MappingModelData {
 }
 
 impl MappingModelData {
-    pub fn from_model(model: &MappingModel, context: &SessionContext) -> MappingModelData {
+    pub fn from_model(model: &MappingModel) -> MappingModelData {
         MappingModelData {
             name: model.name.get_ref().clone(),
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
-            target: TargetModelData::from_model(&model.target_model, context),
+            target: TargetModelData::from_model(&model.target_model),
             control_is_enabled: model.control_is_enabled.get(),
             feedback_is_enabled: model.feedback_is_enabled.get(),
             prevent_echo_feedback: model.prevent_echo_feedback.get(),
@@ -62,13 +63,21 @@ impl MappingModelData {
         }
     }
 
-    pub fn to_model(&self, context: &SessionContext) -> MappingModel {
-        let mut model = MappingModel::default();
+    /// The context is necessary only if there's the possibility of loading data saved with
+    /// ReaLearn < 1.12.0.
+    pub fn to_model(
+        &self,
+        compartment: MappingCompartment,
+        context: Option<&ProcessorContext>,
+    ) -> MappingModel {
+        let mut model = MappingModel::new(compartment);
         self.apply_to_model(&mut model, context);
         model
     }
 
-    fn apply_to_model(&self, model: &mut MappingModel, context: &SessionContext) {
+    /// The context is necessary only if there's the possibility of loading data saved with
+    /// ReaLearn < 1.12.0.
+    fn apply_to_model(&self, model: &mut MappingModel, context: Option<&ProcessorContext>) {
         model.name.set_without_notification(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());

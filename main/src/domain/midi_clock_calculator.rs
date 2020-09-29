@@ -3,6 +3,7 @@ use helgoboss_learn::Bpm;
 
 use reaper_medium::{Hz, MidiFrameOffset};
 
+#[derive(Debug)]
 pub struct MidiClockCalculator {
     sample_rate: Hz,
     sample_counter: u64,

@@ -1,5 +1,7 @@
 use crate::application::{ParameterSetting, Session};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{
+    MappingCompartment, MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT,
+};
 use crate::infrastructure::data::{MappingModelData, ParameterData};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
@@ -26,6 +28,8 @@ pub struct SessionData {
     /// - `Some("fx-output")` means "\<FX output>"
     feedback_device_id: Option<String>,
     mappings: Vec<MappingModelData>,
+    controller_mappings: Vec<MappingModelData>,
+    active_controller_id: Option<String>,
     parameters: HashMap<u32, ParameterData>,
 }
 
@@ -40,6 +44,8 @@ impl Default for SessionData {
             control_device_id: None,
             feedback_device_id: None,
             mappings: vec![],
+            controller_mappings: vec![],
+            active_controller_id: None,
             parameters: Default::default(),
         }
     }
@@ -47,6 +53,12 @@ impl Default for SessionData {
 
 impl SessionData {
     pub fn from_model(session: &Session) -> SessionData {
+        let from_mappings = |compartment| {
+            session
+                .mappings(compartment)
+                .map(|m| MappingModelData::from_model(m.borrow().deref()))
+                .collect()
+        };
         SessionData {
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
@@ -66,10 +78,9 @@ impl SessionData {
                     FxOutput => "fx-output".to_string(),
                 })
             },
-            mappings: session
-                .mappings()
-                .map(|m| MappingModelData::from_model(m.borrow().deref(), session.context()))
-                .collect(),
+            mappings: from_mappings(MappingCompartment::PrimaryMappings),
+            controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
+            active_controller_id: session.active_controller_id().map(|id| id.to_string()),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = session.get_parameter(i);
@@ -140,10 +151,21 @@ impl SessionData {
             .midi_feedback_output
             .set_without_notification(feedback_output);
         // Mappings
-        let session_context = session.context().clone();
-        session.set_mappings_without_notification(
-            self.mappings.iter().map(|m| m.to_model(&session_context)),
+        let processor_context = session.context().clone();
+        let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
+            session.set_mappings_without_notification(
+                compartment,
+                mappings
+                    .iter()
+                    .map(|m| m.to_model(compartment, Some(&processor_context))),
+            );
+        };
+        apply_mappings(MappingCompartment::PrimaryMappings, &self.mappings);
+        apply_mappings(
+            MappingCompartment::ControllerMappings,
+            &self.controller_mappings,
         );
+        session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         // Parameters
         let mut parameters = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
         let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];

@@ -1,12 +1,12 @@
-use crate::application::{ModeModel, ModeType};
-use helgoboss_learn::{Interval, OutOfRangeBehavior, SymmetricUnitValue, UnitValue};
+use crate::application::ModeModel;
+use helgoboss_learn::{AbsoluteMode, Interval, OutOfRangeBehavior, SymmetricUnitValue, UnitValue};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ModeModelData {
-    r#type: ModeType,
+    r#type: AbsoluteMode,
     min_source_value: UnitValue,
     max_source_value: UnitValue,
     min_target_value: UnitValue,
@@ -33,7 +33,7 @@ pub struct ModeModelData {
 impl Default for ModeModelData {
     fn default() -> Self {
         Self {
-            r#type: ModeType::Absolute,
+            r#type: AbsoluteMode::Normal,
             min_source_value: UnitValue::MIN,
             max_source_value: UnitValue::MAX,
             min_target_value: UnitValue::MIN,

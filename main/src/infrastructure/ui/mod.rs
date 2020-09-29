@@ -21,6 +21,8 @@ pub use mapping_panel::*;
 mod mapping_panel_manager;
 pub use mapping_panel_manager::*;
 
+mod dialog_util;
+
 mod constants;
 
 #[allow(unused)]

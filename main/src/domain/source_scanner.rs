@@ -1,23 +1,24 @@
+use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
-use helgoboss_midi::{
-    Channel, ControllerNumber, RawShortMessage, ShortMessage, StructuredShortMessage, U7,
-};
+use helgoboss_midi::{Channel, ControllerNumber, ShortMessage, StructuredShortMessage, U7};
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 const MAX_CC_MSG_COUNT: usize = 10;
 const MAX_CC_WAITING_TIME: Duration = Duration::from_millis(250);
 
+#[derive(Debug)]
 enum State {
     Initial,
     WaitingForMoreCcMsgs(ControlChangeState),
 }
 
-pub struct MidiSourceScanner {
+#[derive(Debug)]
+pub struct SourceScanner {
     state: State,
 }
 
-impl Default for MidiSourceScanner {
+impl Default for SourceScanner {
     fn default() -> Self {
         Self {
             state: State::Initial,
@@ -25,6 +26,7 @@ impl Default for MidiSourceScanner {
     }
 }
 
+#[derive(Debug)]
 struct ControlChangeState {
     start_time: Instant,
     channel: Channel,
@@ -59,49 +61,67 @@ impl ControlChangeState {
     }
 }
 
-impl MidiSourceScanner {
-    pub fn feed(&mut self, source_value: MidiSourceValue<RawShortMessage>) -> Option<MidiSource> {
+impl SourceScanner {
+    pub fn feed(
+        &mut self,
+        source_value: CompoundMappingSourceValue,
+    ) -> Option<CompoundMappingSource> {
         use State::*;
         match &mut self.state {
             Initial => {
-                if let MidiSourceValue::Plain(msg) = source_value {
-                    if let StructuredShortMessage::ControlChange {
-                        channel,
-                        controller_number,
-                        control_value,
-                    } = msg.to_structured()
-                    {
-                        let mut cc_state = ControlChangeState::new(channel, controller_number);
-                        cc_state.add_value(control_value);
-                        self.state = WaitingForMoreCcMsgs(cc_state);
-                        None
-                    } else {
-                        MidiSource::from_source_value(source_value)
+                use CompoundMappingSourceValue::*;
+                match source_value {
+                    Midi(v) => {
+                        if let MidiSourceValue::Plain(msg) = v {
+                            if let StructuredShortMessage::ControlChange {
+                                channel,
+                                controller_number,
+                                control_value,
+                            } = msg.to_structured()
+                            {
+                                let mut cc_state =
+                                    ControlChangeState::new(channel, controller_number);
+                                cc_state.add_value(control_value);
+                                self.state = WaitingForMoreCcMsgs(cc_state);
+                                None
+                            } else {
+                                MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
+                            }
+                        } else {
+                            MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
+                        }
                     }
-                } else {
-                    MidiSource::from_source_value(source_value)
+                    Virtual(v) => Some(CompoundMappingSource::Virtual(
+                        VirtualSource::from_source_value(v),
+                    )),
                 }
             }
             WaitingForMoreCcMsgs(cc_state) => {
-                if let MidiSourceValue::Plain(msg) = source_value {
-                    if let StructuredShortMessage::ControlChange {
-                        channel,
-                        controller_number,
-                        control_value,
-                    } = msg.to_structured()
-                    {
-                        if cc_state.matches(channel, controller_number) {
-                            cc_state.add_value(control_value);
+                use CompoundMappingSourceValue::*;
+                match source_value {
+                    Midi(v) => {
+                        if let MidiSourceValue::Plain(msg) = v {
+                            if let StructuredShortMessage::ControlChange {
+                                channel,
+                                controller_number,
+                                control_value,
+                            } = msg.to_structured()
+                            {
+                                if cc_state.matches(channel, controller_number) {
+                                    cc_state.add_value(control_value);
+                                }
+                            }
                         }
+                        self.guess_or_not().map(CompoundMappingSource::Midi)
                     }
+                    Virtual(_) => None,
                 }
-                self.guess_or_not()
             }
         }
     }
 
-    pub fn poll(&mut self) -> Option<MidiSource> {
-        self.guess_or_not()
+    pub fn poll(&mut self) -> Option<CompoundMappingSource> {
+        self.guess_or_not().map(CompoundMappingSource::Midi)
     }
 
     pub fn reset(&mut self) {

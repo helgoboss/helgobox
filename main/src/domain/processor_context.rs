@@ -4,15 +4,15 @@ use std::ptr::NonNull;
 use vst::plugin::HostCallback;
 
 #[derive(Clone, Debug)]
-pub struct SessionContext {
+pub struct ProcessorContext {
     containing_fx: Fx,
 }
 
 pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
 
-impl SessionContext {
-    pub fn from_host(host: &HostCallback) -> Result<SessionContext, &'static str> {
-        let context = SessionContext {
+impl ProcessorContext {
+    pub fn from_host(host: &HostCallback) -> Result<ProcessorContext, &'static str> {
+        let context = ProcessorContext {
             containing_fx: get_containing_fx(host)?,
         };
         Ok(context)

@@ -9,11 +9,12 @@ use crate::infrastructure::ui::{
     bindings::root, MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
     SharedMappingPanelManager,
 };
-use rx_util::UnitEvent;
+use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
 use std::cmp;
 
 use crate::application::{MappingModel, SharedMapping, SharedSession, WeakSession};
+use crate::domain::{CompoundMappingTarget, MappingCompartment};
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
 #[derive(Debug)]
@@ -38,8 +39,12 @@ impl MappingRowsPanel {
             view: Default::default(),
             rows: (0..6)
                 .map(|i| {
-                    let panel =
-                        MappingRowPanel::new(session.clone(), i, mapping_panel_manager.clone());
+                    let panel = MappingRowPanel::new(
+                        session.clone(),
+                        i,
+                        mapping_panel_manager.clone(),
+                        main_state.clone(),
+                    );
                     SharedView::new(panel)
                 })
                 .collect(),
@@ -57,7 +62,7 @@ impl MappingRowsPanel {
     pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let index = match session.index_of_mapping(mapping) {
+        let index = match session.index_of_mapping(self.active_compartment(), mapping) {
             None => return,
             Some(i) => i,
         };
@@ -69,9 +74,17 @@ impl MappingRowsPanel {
     }
 
     pub fn edit_mapping(&self, mapping: *const MappingModel) {
-        if let Some(m) = self.session().borrow().find_mapping_by_address(mapping) {
+        if let Some(m) = self
+            .session()
+            .borrow()
+            .find_mapping_by_address(self.active_compartment(), mapping)
+        {
             self.mapping_panel_manager.borrow_mut().edit_mapping(m);
         }
+    }
+
+    fn active_compartment(&self) -> MappingCompartment {
+        self.main_state.borrow().active_compartment.get()
     }
 
     fn open_mapping_rows(&self, window: Window) {
@@ -126,11 +139,11 @@ impl MappingRowsPanel {
         }
     }
 
-    fn scroll(&self, pos: usize) {
+    fn scroll(&self, pos: usize) -> bool {
         let pos = pos.min(self.max_scroll_position());
         let scroll_pos = self.scroll_position.get();
         if pos == scroll_pos {
-            return;
+            return false;
         }
         unsafe {
             Reaper::get().medium_reaper().low().CoolSB_SetScrollPos(
@@ -142,6 +155,7 @@ impl MappingRowsPanel {
         }
         self.scroll_position.set(pos);
         self.invalidate_mapping_rows();
+        true
     }
 
     fn max_scroll_position(&self) -> usize {
@@ -159,10 +173,10 @@ impl MappingRowsPanel {
             && main_state.target_filter.get_ref().is_none()
             && main_state.search_expression.get_ref().trim().is_empty()
         {
-            return session.mapping_count();
+            return session.mapping_count(self.active_compartment());
         }
         session
-            .mappings()
+            .mappings(self.active_compartment())
             .filter(|m| self.mapping_matches_filter(*m))
             .count()
     }
@@ -203,14 +217,19 @@ impl MappingRowsPanel {
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
-        let mapping_count = self.session().borrow().mapping_count();
+        let mapping_count = self
+            .session()
+            .borrow()
+            .mapping_count(self.active_compartment());
         for i in self.scroll_position.get()..mapping_count {
             if row_index >= self.rows.len() {
                 break;
             }
             let shared_session = self.session();
             let session = shared_session.borrow();
-            let mapping = session.find_mapping_by_index(i).expect("impossible");
+            let mapping = session
+                .find_mapping_by_index(self.active_compartment(), i)
+                .expect("impossible");
             if !self.mapping_matches_filter(mapping) {
                 continue;
             }
@@ -241,8 +260,8 @@ impl MappingRowsPanel {
                 .with_context(self.session().borrow().context())
                 .create_target()
             {
-                Ok(t) => t,
-                Err(_) => return false,
+                Ok(CompoundMappingTarget::Reaper(t)) => t,
+                _ => return false,
             };
             if mapping_target != *filter_target {
                 return false;
@@ -274,34 +293,41 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        self.when(session.everything_changed(), |view| {
+        self.when(session.everything_changed(), |view, _| {
             view.invalidate_all_controls();
         });
-        self.when(session.mapping_list_changed(), |view| {
-            view.invalidate_all_controls();
+        let main_state_clone = self.main_state.clone();
+        self.when(session.mapping_list_changed(), move |view, compartment| {
+            if compartment == main_state_clone.borrow().active_compartment.get() {
+                view.invalidate_all_controls();
+            }
         });
         self.when(
             main_state
                 .source_filter
                 .changed()
                 .merge(main_state.target_filter.changed())
-                .merge(main_state.search_expression.changed()),
-            |view| {
-                view.scroll_position.set(0);
-                view.invalidate_mapping_rows();
+                .merge(main_state.search_expression.changed())
+                .merge(main_state.active_compartment.changed()),
+            |view, _| {
+                if !view.scroll(0) {
+                    // No scrolling was necessary. But that also means, the rows were not
+                    // invalidated. Do it now!
+                    view.invalidate_mapping_rows();
+                }
                 view.invalidate_scroll_info();
             },
         );
     }
 
-    fn when(
+    fn when<I: SharedPayload>(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+        event: impl SharedItemEvent<I>,
+        reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
-            .do_sync(move |panel, _| reaction(panel));
+            .do_sync(move |panel, item| reaction(panel, item));
     }
 }
 

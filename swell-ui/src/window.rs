@@ -99,6 +99,13 @@ impl Window {
         }
     }
 
+    pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item = I>) {
+        self.clear_combo_box();
+        for item in items {
+            self.add_combo_box_item(item.to_string());
+        }
+    }
+
     /// Reserves some capacity if there are many items.
     ///
     /// See https://docs.microsoft.com/en-us/windows/win32/controls/cb-initstorage.

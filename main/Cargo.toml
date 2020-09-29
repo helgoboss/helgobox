@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "1.11.0"
+version = "1.12.0-pre1"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -44,6 +44,9 @@ chrono = "0.4.11"
 smallvec = "1.4.0"
 backtrace = "0.3"
 regex = "1"
+enum-map = "0.6.3"
+slug = "0.1.4"
+nanoid = "0.3.0"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }

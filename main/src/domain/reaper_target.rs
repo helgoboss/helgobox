@@ -1,22 +1,24 @@
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue, FEEDBACK_EPSILON};
+use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
     Tempo, Track, TrackSend, Volume,
 };
 use reaper_medium::{
-    Bpm, CommandId, Db, FxPresetRef, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
-    ReaperNormalizedFxParamValue, UndoBehavior,
+    Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
+    NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, UndoBehavior,
 };
-use rx_util::{BoxedUnitEvent, Event};
+use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
 
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
+use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
+use crate::domain::RealearnTarget;
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -26,6 +28,22 @@ pub enum TargetCharacter {
     Switch,
     Discrete,
     Continuous,
+    VirtualMulti,
+    VirtualButton,
+}
+
+impl TargetCharacter {
+    pub fn from_control_type(control_type: ControlType) -> TargetCharacter {
+        use ControlType::*;
+        match control_type {
+            AbsoluteTrigger => TargetCharacter::Trigger,
+            AbsoluteSwitch => TargetCharacter::Switch,
+            AbsoluteContinuous | AbsoluteContinuousRoundable { .. } => TargetCharacter::Continuous,
+            AbsoluteDiscrete { .. } | Relative => TargetCharacter::Discrete,
+            VirtualMulti => TargetCharacter::VirtualMulti,
+            VirtualButton => TargetCharacter::VirtualButton,
+        }
+    }
 }
 
 /// This is a ReaLearn target.
@@ -91,101 +109,12 @@ pub enum ReaperTarget {
     },
 }
 
-impl ReaperTarget {
-    pub fn touched() -> impl Event<Rc<ReaperTarget>> {
-        use ReaperTarget::*;
-        let reaper = Reaper::get();
-        observable::empty()
-            .merge(
-                reaper
-                    .fx_parameter_touched()
-                    .map(move |param| FxParameter { param }.into()),
-            )
-            .merge(
-                reaper
-                    .fx_enabled_changed()
-                    .map(move |fx| FxEnable { fx }.into()),
-            )
-            .merge(
-                reaper
-                    .fx_preset_changed()
-                    .map(move |fx| FxPreset { fx }.into()),
-            )
-            .merge(
-                reaper
-                    .track_volume_touched()
-                    .map(move |track| TrackVolume { track }.into()),
-            )
-            .merge(
-                reaper
-                    .track_pan_touched()
-                    .map(move |track| TrackPan { track }.into()),
-            )
-            .merge(
-                reaper
-                    .track_arm_changed()
-                    .map(move |track| TrackArm { track }.into()),
-            )
-            .merge(reaper.track_selected_changed().map(move |track| {
-                TrackSelection {
-                    track,
-                    select_exclusively: false,
-                }
-                .into()
-            }))
-            .merge(
-                reaper
-                    .track_mute_touched()
-                    .map(move |track| TrackMute { track }.into()),
-            )
-            .merge(
-                reaper
-                    .track_solo_changed()
-                    .map(move |track| TrackSolo { track }.into()),
-            )
-            .merge(
-                reaper
-                    .track_send_volume_touched()
-                    .map(move |send| TrackSendVolume { send }.into()),
-            )
-            .merge(
-                reaper
-                    .track_send_pan_touched()
-                    .map(move |send| TrackSendPan { send }.into()),
-            )
-            .merge(reaper.action_invoked().map(move |action| {
-                Action {
-                    action: (*action).clone(),
-                    invocation_type: ActionInvocationType::Trigger,
-                    project: reaper.current_project(),
-                }
-                .into()
-            }))
-            .merge(
-                reaper
-                    .master_tempo_touched()
-                    // TODO-low In future this might come from a certain project
-                    .map(move |_| {
-                        Tempo {
-                            project: reaper.current_project(),
-                        }
-                        .into()
-                    }),
-            )
-            .merge(
-                reaper
-                    .master_playrate_touched()
-                    // TODO-low In future this might come from a certain project
-                    .map(move |_| {
-                        Playrate {
-                            project: reaper.current_project(),
-                        }
-                        .into()
-                    }),
-            )
+impl RealearnTarget for ReaperTarget {
+    fn character(&self) -> TargetCharacter {
+        TargetCharacter::from_control_type(self.control_type())
     }
 
-    pub fn open(&self) {
+    fn open(&self) {
         if let ReaperTarget::Action {
             action: _, project, ..
         } = self
@@ -210,48 +139,130 @@ impl ReaperTarget {
                 .invoke_as_trigger(Some(track.project()));
         }
     }
-
-    pub fn character(&self) -> TargetCharacter {
+    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         use ReaperTarget::*;
-        use TargetCharacter::*;
         match self {
-            Action {
-                action,
-                invocation_type: _,
-                ..
-            } => match action.character() {
-                ActionCharacter::Trigger => Trigger,
-                ActionCharacter::Toggle => Switch,
-            },
-            FxParameter { param } => match param.character() {
-                FxParameterCharacter::Toggle => Switch,
-                FxParameterCharacter::Discrete => Discrete,
-                FxParameterCharacter::Continuous => Continuous,
-            },
-            TrackVolume { .. } => Continuous,
-            TrackSendVolume { .. } => Continuous,
-            TrackPan { .. } => Continuous,
-            TrackArm { .. } => Switch,
-            TrackSelection { .. } => Switch,
-            TrackMute { .. } => Switch,
-            TrackSolo { .. } => Switch,
-            TrackSendPan { .. } => Continuous,
-            Tempo { .. } => Continuous,
-            Playrate { .. } => Continuous,
-            FxEnable { .. } => Switch,
-            FxPreset { .. } => Discrete,
-            SelectedTrack { .. } => Discrete,
-            AllTrackFxEnable { .. } => Switch,
-            Transport { .. } => Switch,
+            TrackVolume { .. } | TrackSendVolume { .. } => parse_value_from_db(text),
+            TrackPan { .. } | TrackSendPan { .. } => parse_value_from_pan(text),
+            Playrate { .. } => parse_value_from_playback_speed_factor(text),
+            Tempo { .. } => parse_value_from_bpm(text),
+            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
+            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
+                self.parse_value_from_discrete_value(text)
+            }
+            _ => parse_from_percentage(text),
         }
     }
 
-    pub fn is_roundable(&self) -> bool {
-        matches!(self.control_type(), ControlType::AbsoluteContinuousRoundable { .. })
+    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+        use ReaperTarget::*;
+        match self {
+            Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
+            Tempo { .. } => parse_step_size_from_bpm(text),
+            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
+            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
+                self.parse_value_from_discrete_value(text)
+            }
+            _ => parse_from_percentage(text),
+        }
     }
 
-    /// Formats the value completely (including a possible unit).
-    pub fn format_value(&self, value: UnitValue) -> String {
+    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+        if self.control_type().is_relative() {
+            // Relative MIDI controllers support a maximum of 63 steps.
+            return Ok((input.get() * 63.0).round() as _);
+        }
+        use ReaperTarget::*;
+        let result = match self {
+            FxPreset { fx } => convert_unit_value_to_preset_index(fx, input)
+                .map(|i| i + 1)
+                .unwrap_or(0),
+            SelectedTrack { project } => convert_unit_value_to_track_index(*project, input)
+                .map(|i| i + 1)
+                .unwrap_or(0),
+            FxParameter { param } => {
+                // Example (target step size = 0.10):
+                // - 0    => 0
+                // - 0.05 => 1
+                // - 0.10 => 1
+                // - 0.15 => 2
+                // - 0.20 => 2
+                let step_size = param.step_size().ok_or("not supported")?;
+                (input.get() / step_size).round() as _
+            }
+            _ => return Err("not supported"),
+        };
+        Ok(result)
+    }
+
+    fn format_value_without_unit(&self, value: UnitValue) -> String {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db_without_unit(value),
+            TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
+            Tempo { .. } => format_value_as_bpm_without_unit(value),
+            Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
+            _ => format_as_percentage_without_unit(value),
+        }
+    }
+
+    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+        use ReaperTarget::*;
+        match self {
+            Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
+            Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
+            _ => format_as_percentage_without_unit(step_size),
+        }
+    }
+
+    fn hide_formatted_value(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackSendPan { .. }
+            | Playrate { .. }
+            | Tempo { .. } => true,
+            _ => false,
+        }
+    }
+
+    fn hide_formatted_step_size(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackSendPan { .. }
+            | Playrate { .. }
+            | Tempo { .. } => true,
+            _ => false,
+        }
+    }
+
+    fn value_unit(&self) -> &'static str {
+        use ReaperTarget::*;
+        match self {
+            TrackVolume { .. } | TrackSendVolume { .. } => "dB",
+            TrackPan { .. } | TrackSendPan { .. } => "",
+            Tempo { .. } => "bpm",
+            Playrate { .. } => "x",
+            _ => "%",
+        }
+    }
+
+    fn step_size_unit(&self) -> &'static str {
+        use ReaperTarget::*;
+        match self {
+            TrackPan { .. } | TrackSendPan { .. } => "",
+            Tempo { .. } => "bpm",
+            Playrate { .. } => "x",
+            _ => "%",
+        }
+    }
+
+    fn format_value(&self, value: UnitValue) -> String {
         use ReaperTarget::*;
         match self {
             Action { .. } => "".to_string(),
@@ -280,310 +291,7 @@ impl ReaperTarget {
         }
     }
 
-    fn format_value_generic(&self, value: UnitValue) -> String {
-        format!(
-            "{} {}",
-            self.format_value_without_unit(value),
-            self.value_unit()
-        )
-    }
-
-    /// Formats the given value without unit.
-    pub fn format_value_without_unit(&self, value: UnitValue) -> String {
-        use ReaperTarget::*;
-        match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db_without_unit(value),
-            TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
-            Tempo { .. } => format_value_as_bpm_without_unit(value),
-            Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
-            _ => format_as_percentage_without_unit(value),
-        }
-    }
-
-    /// Formats the given step size without unit.
-    pub fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
-        use ReaperTarget::*;
-        match self {
-            Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
-            Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
-            _ => format_as_percentage_without_unit(step_size),
-        }
-    }
-
-    /// This converts the given normalized value to a discrete value.
-    ///
-    /// Used for displaying discrete target values in edit fields.
-    /// Must be implemented for discrete targets only which don't support parsing according to
-    /// `can_parse_values()`, e.g. FX preset. This target reports a step size. If we want to
-    /// display an increment or a particular value in an edit field, we don't show normalized
-    /// values of course but a discrete number, by using this function. Should be the reverse of
-    /// `convert_discrete_value_to_unit_value()` because latter is used for parsing.
-    ///
-    /// In case the target wants increments, this takes 63 as the highest possible value.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if this target doesn't report a step size.
-    pub fn convert_unit_value_to_discrete_value(
-        &self,
-        input: UnitValue,
-    ) -> Result<u32, &'static str> {
-        if self.control_type().is_relative() {
-            // Relative MIDI controllers support a maximum of 63 steps.
-            return Ok((input.get() * 63.0).round() as _);
-        }
-        use ReaperTarget::*;
-        let result = match self {
-            FxPreset { fx } => convert_unit_value_to_preset_index(fx, input)
-                .map(|i| i + 1)
-                .unwrap_or(0),
-            SelectedTrack { project } => convert_unit_value_to_track_index(*project, input)
-                .map(|i| i + 1)
-                .unwrap_or(0),
-            FxParameter { param } => {
-                // Example (target step size = 0.10):
-                // - 0    => 0
-                // - 0.05 => 1
-                // - 0.10 => 1
-                // - 0.15 => 2
-                // - 0.20 => 2
-                let step_size = param.step_size().ok_or("not supported")?;
-                (input.get() / step_size).round() as _
-            }
-            _ => return Err("not supported"),
-        };
-        Ok(result)
-    }
-
-    /// Like `convert_unit_value_to_discrete_value()` but in the other direction.
-    ///
-    /// Used for parsing discrete values of discrete targets that can't do real parsing according to
-    /// `can_parse_values()`.
-    pub fn convert_discrete_value_to_unit_value(
-        &self,
-        value: u32,
-    ) -> Result<UnitValue, &'static str> {
-        if self.control_type().is_relative() {
-            return (value as f64 / 63.0).try_into();
-        }
-        use ReaperTarget::*;
-        let result = match self {
-            FxPreset { fx } => {
-                let index = if value == 0 { None } else { Some(value - 1) };
-                convert_preset_index_to_unit_value(fx, index)
-            }
-            SelectedTrack { project } => {
-                let index = if value == 0 { None } else { Some(value - 1) };
-                convert_track_index_to_unit_value(*project, index)
-            }
-            FxParameter { param } => {
-                let step_size = param.step_size().ok_or("not supported")?;
-                (value as f64 * step_size).try_into()?
-            }
-            _ => return Err("not supported"),
-        };
-        Ok(result)
-    }
-
-    /// If this returns true, a value will not be printed (e.g. because it's already in the edit
-    /// field).
-    pub fn hide_formatted_value(&self) -> bool {
-        use ReaperTarget::*;
-        match self {
-            TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackSendPan { .. }
-            | Playrate { .. }
-            | Tempo { .. } => true,
-            _ => false,
-        }
-    }
-
-    /// If this returns true, a step size will not be printed (e.g. because it's already in the
-    /// edit field).
-    pub fn hide_formatted_step_size(&self) -> bool {
-        use ReaperTarget::*;
-        match self {
-            TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackSendPan { .. }
-            | Playrate { .. }
-            | Tempo { .. } => true,
-            _ => false,
-        }
-    }
-
-    /// Parses the given text as a target value and returns it as unit value.
-    pub fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        use ReaperTarget::*;
-        match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => parse_value_from_db(text),
-            TrackPan { .. } | TrackSendPan { .. } => parse_value_from_pan(text),
-            Playrate { .. } => parse_value_from_playback_speed_factor(text),
-            Tempo { .. } => parse_value_from_bpm(text),
-            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
-            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
-                self.parse_value_from_discrete_value(text)
-            }
-            _ => parse_from_percentage(text),
-        }
-    }
-
-    /// Parses the given text as a target step size and returns it as unit value.
-    pub fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
-        use ReaperTarget::*;
-        match self {
-            Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
-            Tempo { .. } => parse_step_size_from_bpm(text),
-            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
-            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
-                self.parse_value_from_discrete_value(text)
-            }
-            _ => parse_from_percentage(text),
-        }
-    }
-
-    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
-    }
-
-    pub fn value_unit(&self) -> &'static str {
-        use ReaperTarget::*;
-        match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => "dB",
-            TrackPan { .. } | TrackSendPan { .. } => "",
-            Tempo { .. } => "bpm",
-            Playrate { .. } => "x",
-            _ => "%",
-        }
-    }
-
-    pub fn step_size_unit(&self) -> &'static str {
-        use ReaperTarget::*;
-        match self {
-            TrackPan { .. } | TrackSendPan { .. } => "",
-            Tempo { .. } => "bpm",
-            Playrate { .. } => "x",
-            _ => "%",
-        }
-    }
-
-    pub fn project(&self) -> Option<Project> {
-        use ReaperTarget::*;
-        let project = match self {
-            Action { .. } | Transport { .. } => return None,
-            FxParameter { param } => param.fx().project()?,
-            TrackVolume { track }
-            | TrackPan { track }
-            | TrackArm { track }
-            | TrackSelection { track, .. }
-            | TrackMute { track }
-            | TrackSolo { track }
-            | AllTrackFxEnable { track } => track.project(),
-            TrackSendPan { send } | TrackSendVolume { send } => send.source_track().project(),
-            Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
-            FxEnable { fx } | FxPreset { fx } => fx.project()?,
-        };
-        Some(project)
-    }
-
-    pub fn track(&self) -> Option<&Track> {
-        use ReaperTarget::*;
-        let track = match self {
-            FxParameter { param } => param.fx().track()?,
-            TrackVolume { track } => track,
-            TrackSendVolume { send } => send.source_track(),
-            TrackPan { track } => track,
-            TrackArm { track } => track,
-            TrackSelection { track, .. } => track,
-            TrackMute { track } => track,
-            TrackSolo { track } => track,
-            TrackSendPan { send } => send.source_track(),
-            FxEnable { fx } => fx.track()?,
-            FxPreset { fx } => fx.track()?,
-            AllTrackFxEnable { track } => track,
-            Action { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | SelectedTrack { .. }
-            | Transport { .. } => return None,
-        };
-        Some(track)
-    }
-
-    pub fn fx(&self) -> Option<&Fx> {
-        use ReaperTarget::*;
-        let fx = match self {
-            FxParameter { param } => param.fx(),
-            FxEnable { fx } => fx,
-            FxPreset { fx } => fx,
-            Action { .. }
-            | TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
-            | Transport { .. } => return None,
-        };
-        Some(fx)
-    }
-
-    pub fn send(&self) -> Option<&TrackSend> {
-        use ReaperTarget::*;
-        let send = match self {
-            TrackSendPan { send } | TrackSendVolume { send } => send,
-            FxParameter { .. }
-            | FxEnable { .. }
-            | FxPreset { .. }
-            | Action { .. }
-            | TrackVolume { .. }
-            | TrackPan { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackSolo { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
-            | Transport { .. } => return None,
-        };
-        Some(send)
-    }
-
-    pub fn supports_feedback(&self) -> bool {
-        use ReaperTarget::*;
-        match self {
-            Action { .. } => true,
-            FxParameter { .. } => true,
-            TrackVolume { .. } => true,
-            TrackSendVolume { .. } => true,
-            TrackPan { .. } => true,
-            TrackArm { .. } => true,
-            TrackSelection { .. } => true,
-            TrackMute { .. } => true,
-            TrackSolo { .. } => true,
-            TrackSendPan { .. } => true,
-            Tempo { .. } => true,
-            Playrate { .. } => true,
-            FxEnable { .. } => true,
-            FxPreset { .. } => true,
-            SelectedTrack { .. } => true,
-            AllTrackFxEnable { .. } => false,
-            Transport { .. } => true,
-        }
-    }
-
-    pub fn control(&self, value: ControlValue) -> Result<(), &'static str> {
+    fn control(&self, value: ControlValue) -> Result<(), &'static str> {
         use ControlValue::*;
         use ReaperTarget::*;
         match self {
@@ -745,6 +453,293 @@ impl ReaperTarget {
         Ok(())
     }
 
+    fn can_report_current_value(&self) -> bool {
+        true
+    }
+}
+
+impl ReaperTarget {
+    /// Notifies about other events which can affect the resulting `ReaperTarget`.
+    ///
+    /// The resulting `ReaperTarget` doesn't change only if one of our the model properties changes.
+    /// It can also change if a track is removed or FX focus changes. We don't include
+    /// those in `changed()` because they are global in nature. If we listen to n targets,
+    /// we don't want to listen to those global events n times. Just 1 time is enough!
+    pub fn potential_static_change_events() -> impl UnitEvent {
+        let reaper = Reaper::get();
+        reaper
+            // Considering fx_focused() as static event is okay as long as we don't have a target
+            // which switches focus between different FX. As soon as we have that, we must treat
+            // fx_focused() as a dynamic event, like track_selection_changed().
+            .fx_focused()
+            .map_to(())
+            .merge(reaper.track_removed().map_to(()))
+            .merge(reaper.fx_reordered().map_to(()))
+            .merge(reaper.fx_removed().map_to(()))
+    }
+
+    /// This contains all potential target-changing events which could also be fired by targets
+    /// themselves. Be careful with those. Reentrancy very likely.
+    ///
+    /// Previously we always reacted on selection changes. But this naturally causes issues,
+    /// which become most obvious with the "Selected track" target. If we resync all mappings
+    /// whenever another track is selected, this happens very often while turning an encoder
+    /// that navigates between tracks. This in turn renders throttling functionality
+    /// useless (because with a resync all runtime mode state is gone). Plus, reentrancy
+    /// issues will arise.
+    pub fn potential_dynamic_change_events() -> impl UnitEvent {
+        let reaper = Reaper::get();
+        reaper.track_selected_changed().map_to(())
+    }
+
+    pub fn touched() -> impl Event<Rc<ReaperTarget>> {
+        use ReaperTarget::*;
+        let reaper = Reaper::get();
+        observable::empty()
+            .merge(
+                reaper
+                    .fx_parameter_touched()
+                    .map(move |param| FxParameter { param }.into()),
+            )
+            .merge(
+                reaper
+                    .fx_enabled_changed()
+                    .map(move |fx| FxEnable { fx }.into()),
+            )
+            .merge(
+                reaper
+                    .fx_preset_changed()
+                    .map(move |fx| FxPreset { fx }.into()),
+            )
+            .merge(
+                reaper
+                    .track_volume_touched()
+                    .map(move |track| TrackVolume { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_pan_touched()
+                    .map(move |track| TrackPan { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_arm_changed()
+                    .map(move |track| TrackArm { track }.into()),
+            )
+            .merge(reaper.track_selected_changed().map(move |track| {
+                TrackSelection {
+                    track,
+                    select_exclusively: false,
+                }
+                .into()
+            }))
+            .merge(
+                reaper
+                    .track_mute_touched()
+                    .map(move |track| TrackMute { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_solo_changed()
+                    .map(move |track| TrackSolo { track }.into()),
+            )
+            .merge(
+                reaper
+                    .track_send_volume_touched()
+                    .map(move |send| TrackSendVolume { send }.into()),
+            )
+            .merge(
+                reaper
+                    .track_send_pan_touched()
+                    .map(move |send| TrackSendPan { send }.into()),
+            )
+            .merge(reaper.action_invoked().map(move |action| {
+                Action {
+                    action: (*action).clone(),
+                    invocation_type: ActionInvocationType::Trigger,
+                    project: reaper.current_project(),
+                }
+                .into()
+            }))
+            .merge(
+                reaper
+                    .master_tempo_touched()
+                    // TODO-low In future this might come from a certain project
+                    .map(move |_| {
+                        Tempo {
+                            project: reaper.current_project(),
+                        }
+                        .into()
+                    }),
+            )
+            .merge(
+                reaper
+                    .master_playrate_touched()
+                    // TODO-low In future this might come from a certain project
+                    .map(move |_| {
+                        Playrate {
+                            project: reaper.current_project(),
+                        }
+                        .into()
+                    }),
+            )
+    }
+
+    fn format_value_generic(&self, value: UnitValue) -> String {
+        format!(
+            "{} {}",
+            self.format_value_without_unit(value),
+            self.value_unit()
+        )
+    }
+
+    /// Like `convert_unit_value_to_discrete_value()` but in the other direction.
+    ///
+    /// Used for parsing discrete values of discrete targets that can't do real parsing according to
+    /// `can_parse_values()`.
+    pub fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+    ) -> Result<UnitValue, &'static str> {
+        if self.control_type().is_relative() {
+            return (value as f64 / 63.0).try_into();
+        }
+        use ReaperTarget::*;
+        let result = match self {
+            FxPreset { fx } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                convert_preset_index_to_unit_value(fx, index)
+            }
+            SelectedTrack { project } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                convert_track_index_to_unit_value(*project, index)
+            }
+            FxParameter { param } => {
+                let step_size = param.step_size().ok_or("not supported")?;
+                (value as f64 * step_size).try_into()?
+            }
+            _ => return Err("not supported"),
+        };
+        Ok(result)
+    }
+
+    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
+    }
+
+    pub fn project(&self) -> Option<Project> {
+        use ReaperTarget::*;
+        let project = match self {
+            Action { .. } | Transport { .. } => return None,
+            FxParameter { param } => param.fx().project()?,
+            TrackVolume { track }
+            | TrackPan { track }
+            | TrackArm { track }
+            | TrackSelection { track, .. }
+            | TrackMute { track }
+            | TrackSolo { track }
+            | AllTrackFxEnable { track } => track.project(),
+            TrackSendPan { send } | TrackSendVolume { send } => send.source_track().project(),
+            Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
+            FxEnable { fx } | FxPreset { fx } => fx.project()?,
+        };
+        Some(project)
+    }
+
+    pub fn track(&self) -> Option<&Track> {
+        use ReaperTarget::*;
+        let track = match self {
+            FxParameter { param } => param.fx().track()?,
+            TrackVolume { track } => track,
+            TrackSendVolume { send } => send.source_track(),
+            TrackPan { track } => track,
+            TrackArm { track } => track,
+            TrackSelection { track, .. } => track,
+            TrackMute { track } => track,
+            TrackSolo { track } => track,
+            TrackSendPan { send } => send.source_track(),
+            FxEnable { fx } => fx.track()?,
+            FxPreset { fx } => fx.track()?,
+            AllTrackFxEnable { track } => track,
+            Action { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | Transport { .. } => return None,
+        };
+        Some(track)
+    }
+
+    pub fn fx(&self) -> Option<&Fx> {
+        use ReaperTarget::*;
+        let fx = match self {
+            FxParameter { param } => param.fx(),
+            FxEnable { fx } => fx,
+            FxPreset { fx } => fx,
+            Action { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => return None,
+        };
+        Some(fx)
+    }
+
+    pub fn send(&self) -> Option<&TrackSend> {
+        use ReaperTarget::*;
+        let send = match self {
+            TrackSendPan { send } | TrackSendVolume { send } => send,
+            FxParameter { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | Action { .. }
+            | TrackVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => return None,
+        };
+        Some(send)
+    }
+
+    pub fn supports_feedback(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            Action { .. } => true,
+            FxParameter { .. } => true,
+            TrackVolume { .. } => true,
+            TrackSendVolume { .. } => true,
+            TrackPan { .. } => true,
+            TrackArm { .. } => true,
+            TrackSelection { .. } => true,
+            TrackMute { .. } => true,
+            TrackSolo { .. } => true,
+            TrackSendPan { .. } => true,
+            Tempo { .. } => true,
+            Playrate { .. } => true,
+            FxEnable { .. } => true,
+            FxPreset { .. } => true,
+            SelectedTrack { .. } => true,
+            AllTrackFxEnable { .. } => false,
+            Transport { .. } => true,
+        }
+    }
+
     pub fn value_changed(&self) -> BoxedUnitEvent {
         use ReaperTarget::*;
         match self {
@@ -874,9 +869,9 @@ impl ReaperTarget {
 }
 
 impl Target for ReaperTarget {
-    fn current_value(&self) -> UnitValue {
+    fn current_value(&self) -> Option<UnitValue> {
         use ReaperTarget::*;
-        match self {
+        let result = match self {
             Action { action, .. } => convert_bool_to_unit_value(action.is_on()),
             FxParameter { param } => {
                 let v = param
@@ -894,7 +889,7 @@ impl Target for ReaperTarget {
                         v,
                         param
                     );
-                    return UnitValue::MAX;
+                    return Some(UnitValue::MAX);
                 }
                 UnitValue::new(v)
             }
@@ -927,21 +922,56 @@ impl Target for ReaperTarget {
                     Repeat => convert_bool_to_unit_value(project.repeat_is_enabled()),
                 }
             }
-        }
+        };
+        Some(result)
     }
 
     fn control_type(&self) -> ControlType {
         use ReaperTarget::*;
         match self {
             Action {
-                invocation_type, ..
-            } if *invocation_type == ActionInvocationType::Relative => ControlType::Relative,
-            FxParameter { param } => match param.step_size() {
-                None => ControlType::AbsoluteContinuous,
-                Some(step_size) => ControlType::AbsoluteDiscrete {
-                    atomic_step_size: UnitValue::new(step_size),
-                },
-            },
+                invocation_type,
+                action,
+                ..
+            } => {
+                use ActionInvocationType::*;
+                match *invocation_type {
+                    Trigger => ControlType::AbsoluteTrigger,
+                    Absolute => match action.character() {
+                        ActionCharacter::Toggle => ControlType::AbsoluteSwitch,
+                        ActionCharacter::Trigger => ControlType::AbsoluteContinuous,
+                    },
+                    Relative => ControlType::Relative,
+                }
+            }
+            FxParameter { param } => {
+                use GetParameterStepSizesResult::*;
+                match param.step_sizes() {
+                    None => ControlType::AbsoluteContinuous,
+                    Some(Normal {
+                        normal_step,
+                        small_step,
+                        ..
+                    }) => {
+                        // The reported step sizes relate to the reported value range, which is not
+                        // always the unit interval! Easy to test with JS
+                        // FX.
+                        let range = param.value_range();
+                        // We are primarily interested in the smallest step size that makes sense.
+                        // We can always create multiples of it.
+                        let span = (range.max_val - range.min_val).abs();
+                        if span == 0.0 {
+                            return ControlType::AbsoluteContinuous;
+                        }
+                        let pref_step_size = small_step.unwrap_or(normal_step);
+                        let step_size = pref_step_size / span;
+                        ControlType::AbsoluteDiscrete {
+                            atomic_step_size: UnitValue::new(step_size),
+                        }
+                    }
+                    Some(Toggle) => ControlType::AbsoluteSwitch,
+                }
+            }
             Tempo { .. } => ControlType::AbsoluteContinuousRoundable {
                 rounding_step_size: UnitValue::new(1.0 / bpm_span()),
             },
@@ -956,7 +986,16 @@ impl Target for ReaperTarget {
             SelectedTrack { project } => ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
             },
-            _ => ControlType::AbsoluteContinuous,
+            TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. }
+            | TrackSolo { .. } => ControlType::AbsoluteSwitch,
+            TrackVolume { .. } | TrackSendVolume { .. } | TrackPan { .. } | TrackSendPan { .. } => {
+                ControlType::AbsoluteContinuous
+            }
         }
     }
 }
@@ -1007,17 +1046,6 @@ fn bpm_span() -> f64 {
 
 fn format_bpm(bpm: f64) -> String {
     format!("{:.4}", bpm)
-}
-
-fn format_as_percentage_without_unit(value: UnitValue) -> String {
-    let percent = value.get() * 100.0;
-    if (percent - percent.round()).abs() < FEEDBACK_EPSILON {
-        // No fraction. Omit zeros after dot.
-        format!("{:.0}", percent)
-    } else {
-        // Has fraction. We want to display these.
-        format!("{:.4}", percent)
-    }
 }
 
 fn format_value_as_db_without_unit(value: UnitValue) -> String {
@@ -1096,11 +1124,6 @@ fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> U
             UnitValue::new(value)
         }
     }
-}
-
-fn parse_from_percentage(text: &str) -> Result<UnitValue, &'static str> {
-    let percentage: f64 = text.parse().map_err(|_| "not a valid decimal value")?;
-    (percentage / 100.0).try_into()
 }
 
 fn parse_value_from_db(text: &str) -> Result<UnitValue, &'static str> {

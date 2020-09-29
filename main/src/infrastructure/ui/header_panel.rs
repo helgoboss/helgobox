@@ -1,5 +1,5 @@
 use crate::core::{toast, when};
-use crate::domain::ReaperTarget;
+use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::SharedMainState;
@@ -8,7 +8,9 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
-use reaper_medium::{MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
+use reaper_medium::{
+    MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
+};
 use rx_util::UnitEvent;
 
 use slog::debug;
@@ -17,8 +19,12 @@ use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::application::{SharedSession, WeakSession};
+use crate::application::{Controller, SharedSession, WeakSession};
 use crate::infrastructure::data::SessionData;
+use crate::infrastructure::plugin::App;
+use crate::infrastructure::ui::dialog_util;
+use enum_iterator::IntoEnumIterator;
+use std::convert::TryInto;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -44,6 +50,10 @@ impl HeaderPanel {
         self.session.upgrade().expect("session gone")
     }
 
+    fn active_compartment(&self) -> MappingCompartment {
+        self.main_state.borrow().active_compartment.get()
+    }
+
     fn toggle_learn_source_filter(&self) {
         let mut main_state = self.main_state.borrow_mut();
         let learning = &mut main_state.is_learning_source_filter;
@@ -58,7 +68,7 @@ impl HeaderPanel {
             when(
                 self.session()
                     .borrow()
-                    .midi_source_touched()
+                    .source_touched()
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )
@@ -138,9 +148,15 @@ impl HeaderPanel {
         );
     }
 
+    fn fill_all_controls(&self) {
+        self.fill_compartment_combo_box();
+    }
+
     fn invalidate_all_controls(&self) {
         self.invalidate_midi_control_input_combo_box();
         self.invalidate_midi_feedback_output_combo_box();
+        self.invalidate_compartment_combo_box();
+        self.invalidate_preset_controls();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_send_feedback_only_if_armed_check_box();
@@ -152,6 +168,89 @@ impl HeaderPanel {
     fn invalidate_midi_control_input_combo_box(&self) {
         self.invalidate_midi_control_input_combo_box_options();
         self.invalidate_midi_control_input_combo_box_value();
+    }
+
+    fn invalidate_compartment_combo_box(&self) {
+        self.view
+            .require_control(root::ID_COMPARTMENT_COMBO_BOX)
+            .select_combo_box_item(self.active_compartment().into());
+    }
+
+    fn invalidate_preset_controls(&self) {
+        let label = self.view.require_control(root::ID_PRESET_LABEL_TEXT);
+        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
+        let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
+        let save_as_button = self.view.require_control(root::ID_PRESET_SAVE_AS_BUTTON);
+        if self.main_state.borrow().active_compartment.get()
+            == MappingCompartment::ControllerMappings
+        {
+            label.show();
+            combo.show();
+            delete_button.show();
+            save_button.show();
+            save_as_button.show();
+            self.invalidate_preset_combo_box();
+            self.invalidate_preset_buttons();
+        } else {
+            label.hide();
+            combo.hide();
+            delete_button.hide();
+            save_button.hide();
+            save_as_button.hide();
+        }
+    }
+
+    fn invalidate_preset_combo_box(&self) {
+        self.fill_preset_combo_box();
+        self.invalidate_preset_combo_box_value();
+    }
+
+    fn invalidate_preset_buttons(&self) {
+        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
+        let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
+        let session = self.session();
+        let session = session.borrow();
+        let controller_is_active = session.active_controller_id().is_some();
+        delete_button.set_enabled(controller_is_active);
+        let controller_mappings_are_dirty = session.controller_mappings_are_dirty();
+        save_button.set_enabled(controller_is_active && controller_mappings_are_dirty);
+    }
+
+    fn fill_preset_combo_box(&self) {
+        self.view
+            .require_control(root::ID_PRESET_COMBO_BOX)
+            .fill_combo_box_with_data_small(
+                vec![(-1isize, "<None>".to_string())].into_iter().chain(
+                    App::get()
+                        .controller_manager()
+                        .borrow()
+                        .controllers()
+                        .enumerate()
+                        .map(|(i, c)| (i as isize, c.to_string())),
+                ),
+            );
+    }
+
+    fn invalidate_preset_combo_box_value(&self) {
+        let index = match self.session().borrow().active_controller_id() {
+            None => -1isize,
+            Some(id) => App::get()
+                .controller_manager()
+                .borrow()
+                .find_index_by_id(id)
+                .expect("no controller found for ID") as isize,
+        };
+        self.view
+            .require_control(root::ID_PRESET_COMBO_BOX)
+            .select_combo_box_item_by_data(index)
+            .unwrap();
+    }
+
+    fn fill_compartment_combo_box(&self) {
+        self.view
+            .require_control(root::ID_COMPARTMENT_COMBO_BOX)
+            .fill_combo_box(MappingCompartment::into_enum_iter());
     }
 
     fn invalidate_midi_control_input_combo_box_options(&self) {
@@ -273,6 +372,45 @@ impl HeaderPanel {
         self.session().borrow_mut().midi_feedback_output.set(value);
     }
 
+    fn update_compartment(&self) {
+        self.main_state.borrow_mut().active_compartment.set(
+            self.view
+                .require_control(root::ID_COMPARTMENT_COMBO_BOX)
+                .selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid compartment"),
+        );
+    }
+
+    fn update_preset(&self) {
+        if self.session().borrow().controller_mappings_are_dirty() {
+            let result = Reaper::get().medium_reaper().show_message_box(
+                "Your changes of the current controller mappings will be lost. Consider to save them first. Do you really want to continue?",
+                "ReaLearn",
+                MessageBoxType::YesNo,
+            );
+            if result == MessageBoxResult::No {
+                self.invalidate_preset_combo_box_value();
+                return;
+            }
+        }
+        let controller_manager = App::get().controller_manager();
+        let controller_manager = controller_manager.borrow();
+        let controller = match self
+            .view
+            .require_control(root::ID_PRESET_COMBO_BOX)
+            .selected_combo_box_item_data()
+        {
+            -1 => None,
+            i if i >= 0 => controller_manager.find_by_index(i as usize),
+            _ => unreachable!(),
+        };
+        self.session()
+            .borrow_mut()
+            .activate_controller(controller.map(|c| c.id().to_string()), self.session.clone())
+            .unwrap();
+    }
+
     fn invalidate_let_matched_events_through_check_box(&self) {
         let b = self
             .view
@@ -390,6 +528,72 @@ impl HeaderPanel {
             .expect("couldn't set clipboard contents");
     }
 
+    fn delete_active_preset(&self) -> Result<(), &'static str> {
+        let result = Reaper::get().medium_reaper().show_message_box(
+            "Do you really want to remove this controller?",
+            "ReaLearn",
+            MessageBoxType::YesNo,
+        );
+        if result == MessageBoxResult::No {
+            return Ok(());
+        }
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let active_controller_id = session
+            .active_controller_id()
+            .ok_or("no controller selected")?
+            .to_string();
+        session.activate_controller(None, self.session.clone())?;
+        App::get()
+            .controller_manager()
+            .borrow_mut()
+            .remove_controller(&active_controller_id)?;
+        Ok(())
+    }
+
+    fn save_active_preset(&self) -> Result<(), &'static str> {
+        let session = self.session();
+        let session = session.borrow();
+        match session.active_controller() {
+            None => Err("no active preset"),
+            Some(mut controller) => {
+                let mappings = session
+                    .mappings(MappingCompartment::ControllerMappings)
+                    .map(|ptr| ptr.borrow().clone())
+                    .collect();
+                controller.update_mappings(mappings);
+                App::get()
+                    .controller_manager()
+                    .borrow_mut()
+                    .update_controller(controller)?;
+                Ok(())
+            }
+        }
+    }
+
+    fn save_as_preset(&self) -> Result<(), &'static str> {
+        let controller_name = match dialog_util::prompt_for("Controller name") {
+            None => return Ok(()),
+            Some(n) => n,
+        };
+        let controller_id = slug::slugify(&controller_name);
+        let mappings = self
+            .session()
+            .borrow()
+            .mappings(MappingCompartment::ControllerMappings)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
+        let controller = Controller::new(controller_id.clone(), controller_name, mappings);
+        App::get()
+            .controller_manager()
+            .borrow_mut()
+            .add_controller(controller)?;
+        self.session()
+            .borrow_mut()
+            .activate_controller(Some(controller_id), self.session.clone())?;
+        Ok(())
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -443,6 +647,33 @@ impl HeaderPanel {
                 view.invalidate_source_filter_buttons();
             },
         );
+        self.when(main_state.active_compartment.changed(), |view| {
+            view.invalidate_compartment_combo_box();
+            view.invalidate_preset_controls();
+        });
+        when(
+            App::get()
+                .controller_manager()
+                .borrow()
+                .changed()
+                .take_until(self.view.closed()),
+        )
+        .with(Rc::downgrade(&self))
+        .do_async(move |view, _| {
+            view.invalidate_preset_controls();
+        });
+        when(
+            session
+                .mapping_list_changed()
+                .merge(session.mapping_changed())
+                .take_until(self.view.closed()),
+        )
+        .with(Rc::downgrade(&self))
+        .do_sync(move |view, compartment| {
+            if compartment == MappingCompartment::ControllerMappings {
+                view.invalidate_preset_buttons();
+            }
+        });
     }
 
     fn when(
@@ -466,6 +697,7 @@ impl View for HeaderPanel {
     }
 
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
+        self.fill_all_controls();
         self.invalidate_all_controls();
         self.invalidate_search_expression();
         self.register_listeners();
@@ -476,7 +708,9 @@ impl View for HeaderPanel {
         use root::*;
         match resource_id {
             ID_ADD_MAPPING_BUTTON => {
-                self.session().borrow_mut().add_default_mapping();
+                self.session()
+                    .borrow_mut()
+                    .add_default_mapping(self.active_compartment());
             }
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
@@ -493,11 +727,20 @@ impl View for HeaderPanel {
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
-            ID_LOG_BUTTON => self.session().borrow().log_debug_info(),
+            ID_LOG_BUTTON => self.session().borrow_mut().log_debug_info(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
             ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX => self.update_always_auto_detect(),
+            ID_PRESET_DELETE_BUTTON => {
+                self.delete_active_preset().unwrap();
+            }
+            ID_PRESET_SAVE_AS_BUTTON => {
+                self.save_as_preset().unwrap();
+            }
+            ID_PRESET_SAVE_BUTTON => {
+                self.save_active_preset().unwrap();
+            }
             _ => {}
         }
     }
@@ -507,6 +750,8 @@ impl View for HeaderPanel {
         match resource_id {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
+            ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
+            ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
     }
