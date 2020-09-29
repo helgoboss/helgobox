@@ -41,7 +41,7 @@ impl RealearnServer {
             return;
         }
         let clients: ServerClients = Default::default();
-        let cloned_clients = clients.clone();
+        let clients_clone = clients.clone();
         let port = self.port;
         std::thread::spawn(move || {
             let mut runtime = tokio::runtime::Builder::new()
@@ -49,20 +49,7 @@ impl RealearnServer {
                 .enable_all()
                 .build()
                 .unwrap();
-            runtime.block_on(async {
-                use warp::Filter;
-                // Turn our state into a new Filter.
-                let clients = warp::any().map(move || cloned_clients.clone());
-                let projection_websocket_route = warp::path!("realearn" / String / "projection")
-                    .and(warp::ws())
-                    .and(clients)
-                    .map(|realearn_session_id: String, ws: warp::ws::Ws, clients| {
-                        ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
-                    });
-                warp::serve(projection_websocket_route)
-                    .run(([0, 0, 0, 0], port))
-                    .await;
-            });
+            runtime.block_on(start_server(port, clients_clone));
         });
         self.state = ServerState::Started { clients };
     }
@@ -77,6 +64,21 @@ impl RealearnServer {
 }
 
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
+
+async fn start_server(port: u16, clients: ServerClients) {
+    use warp::Filter;
+    // Turn our state into a new Filter.
+    let clients = warp::any().map(move || clients.clone());
+    let projection_websocket_route = warp::path!("realearn" / String / "projection")
+        .and(warp::ws())
+        .and(clients)
+        .map(|realearn_session_id: String, ws: warp::ws::Ws, clients| {
+            ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
+        });
+    warp::serve(projection_websocket_route)
+        .run(([0, 0, 0, 0], port))
+        .await;
+}
 
 async fn client_connected(ws: WebSocket, realearn_session_id: String, clients: ServerClients) {
     use futures::{FutureExt, StreamExt};
