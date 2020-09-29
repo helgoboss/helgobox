@@ -5,7 +5,7 @@ use crate::infrastructure::plugin::App;
 use futures::SinkExt;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -13,6 +13,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
 use tokio::sync::{mpsc, RwLock};
+use warp::http::Response;
+use warp::http::StatusCode;
 use warp::ws::{Message, WebSocket};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
@@ -67,17 +69,53 @@ static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 async fn start_server(port: u16, clients: ServerClients) {
     use warp::Filter;
-    // Turn our state into a new Filter.
-    let clients = warp::any().map(move || clients.clone());
-    let projection_websocket_route = warp::path!("realearn" / String / "projection")
-        .and(warp::ws())
-        .and(clients)
-        .map(|realearn_session_id: String, ws: warp::ws::Ws, clients| {
-            ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
+    let controller_route = warp::path!("realearn" / String / "controller")
+        .map(|session_id| format!("Hello, {}!", session_id));
+    let controller_routing_route =
+        warp::path!("realearn" / String / "controller-routing").map(|session_id: String| {
+            match session_manager::find_session_by_id(&session_id) {
+                None => Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body("session not found".to_string()),
+                Some(session) => match get_controller_projection_as_json(&session.borrow()) {
+                    Ok(json) => Response::builder().body(json),
+                    Err(error) => Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(error.to_string()),
+                },
+            }
         });
-    warp::serve(projection_websocket_route)
-        .run(([0, 0, 0, 0], port))
-        .await;
+    let patch_controller_route = warp::patch()
+        .and(warp::path!("realearn" / String / "controller"))
+        .and(warp::body::json())
+        .map(|session_id, req: PatchRequest| format!("Hello, {}!", session_id));
+    let ws_route = {
+        let clients = warp::any().map(move || clients.clone());
+        warp::path!("realearn" / String / "projection")
+            .and(warp::ws())
+            .and(clients)
+            .map(|realearn_session_id, ws: warp::ws::Ws, clients| {
+                ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
+            })
+    };
+    let routes = controller_route
+        .or(controller_routing_route)
+        .or(patch_controller_route)
+        .or(ws_route);
+    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
+}
+
+#[derive(Deserialize)]
+struct PatchRequest {
+    op: PatchRequestOp,
+    path: String,
+    value: serde_json::value::Value,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum PatchRequestOp {
+    Replace,
 }
 
 async fn client_connected(ws: WebSocket, realearn_session_id: String, clients: ServerClients) {
