@@ -9,7 +9,6 @@ use crate::domain::{
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
-use crate::infrastructure::projection;
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
@@ -30,6 +29,8 @@ use std::sync::Arc;
 
 use crate::application::{session_manager, Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
+use crate::infrastructure::server;
+use crate::infrastructure::server::RealearnServer;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -258,7 +259,8 @@ impl RealearnPlugin {
             Reaper::setup_with_defaults(context, self.logger.clone(), "info@helgoboss.org");
             session_manager::register_global_learn_action();
             debug_util::register_resolve_symbols_action();
-            projection::start_server();
+            // TODO-medium Do this on demand
+            App::get().server().borrow_mut().start();
         })
     }
 
@@ -309,7 +311,7 @@ impl RealearnPlugin {
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
-                projection::keep_projecting(&shared_session);
+                server::keep_informing_clients(&shared_session);
                 session_manager::register_session(weak_session.clone());
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());

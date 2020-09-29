@@ -6,41 +6,85 @@ use futures::SinkExt;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use serde::Serialize;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::thread::{JoinHandle, Thread};
 use tokio::sync::{mpsc, RwLock};
 use warp::ws::{Message, WebSocket};
 
-pub fn start_server() {
-    let clients = App::get().projection_clients();
-    std::thread::spawn(move || {
-        let mut runtime = tokio::runtime::Builder::new()
-            .basic_scheduler()
-            .enable_all()
-            .build()
-            .unwrap();
-        runtime.block_on(async {
-            use warp::Filter;
-            // Turn our state into a new Filter.
-            let clients = warp::any().map(move || clients.clone());
-            let projection_websocket_route = warp::path!("realearn" / String / "projection")
-                .and(warp::ws())
-                .and(clients)
-                .map(|realearn_session_id: String, ws: warp::ws::Ws, clients| {
-                    ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
-                });
-            warp::serve(projection_websocket_route)
-                .run(([0, 0, 0, 0], 3030))
-                .await;
+pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
+
+pub struct RealearnServer {
+    port: u16,
+    state: ServerState,
+}
+
+enum ServerState {
+    Stopped,
+    Started {
+        join_handle: Option<JoinHandle<()>>,
+        clients: ServerClients,
+    },
+}
+
+impl RealearnServer {
+    pub fn new(port: u16) -> RealearnServer {
+        RealearnServer {
+            port,
+            state: ServerState::Stopped,
+        }
+    }
+
+    /// Idempotent
+    pub fn start(&mut self) {
+        if let ServerState::Started { .. } = self.state {
+            return;
+        }
+        let clients: ServerClients = Default::default();
+        let cloned_clients = clients.clone();
+        let port = self.port;
+        let join_handle = std::thread::spawn(move || {
+            let mut runtime = tokio::runtime::Builder::new()
+                .basic_scheduler()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                use warp::Filter;
+                // Turn our state into a new Filter.
+                let clients = warp::any().map(move || cloned_clients.clone());
+                let projection_websocket_route = warp::path!("realearn" / String / "projection")
+                    .and(warp::ws())
+                    .and(clients)
+                    .map(|realearn_session_id: String, ws: warp::ws::Ws, clients| {
+                        ws.on_upgrade(move |ws| client_connected(ws, realearn_session_id, clients))
+                    });
+                warp::serve(projection_websocket_route)
+                    .run(([0, 0, 0, 0], port))
+                    .await;
+            });
         });
-    });
+        self.state = ServerState::Started {
+            join_handle: Some(join_handle),
+            clients,
+        };
+    }
+
+    pub fn clients(&self) -> Result<&ServerClients, &'static str> {
+        if let ServerState::Started { clients, .. } = &self.state {
+            Ok(clients)
+        } else {
+            Err("server not running")
+        }
+    }
 }
 
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
-async fn client_connected(ws: WebSocket, realearn_session_id: String, clients: ProjectionClients) {
+async fn client_connected(ws: WebSocket, realearn_session_id: String, clients: ServerClients) {
     use futures::{FutureExt, StreamExt};
     use warp::Filter;
     let (ws_sender_sink, mut ws_receiver_stream) = ws.split();
@@ -92,9 +136,9 @@ impl ProjectionClient {
 }
 
 // We don't take the async RwLock by Tokio because we need to access this in sync code, too!
-pub type ProjectionClients = Arc<std::sync::RwLock<HashMap<usize, ProjectionClient>>>;
+pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, ProjectionClient>>>;
 
-pub fn keep_projecting(shared_session: &SharedSession) {
+pub fn keep_informing_clients(shared_session: &SharedSession) {
     let session = shared_session.borrow();
     when(
         session
@@ -110,13 +154,14 @@ pub fn keep_projecting(shared_session: &SharedSession) {
 }
 
 fn send_updated_controller_projection(session: &Session) -> Result<(), &'static str> {
-    let json = get_controller_projection_as_json(session)?;
-    // TODO-high Remove soon
-    println!("{}", json);
-    let clients = App::get().projection_clients();
+    let clients = App::get().server().borrow().clients()?.clone();
     let clients = clients
         .read()
         .map_err(|_| "couldn't get read lock for client")?;
+    if clients.is_empty() {
+        return Ok(());
+    }
+    let json = get_controller_projection_as_json(session)?;
     for client in clients.values() {
         if client.realearn_session_id != session.id() {
             continue;
