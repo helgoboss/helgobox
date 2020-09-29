@@ -24,10 +24,7 @@ pub struct RealearnServer {
 
 enum ServerState {
     Stopped,
-    Started {
-        join_handle: Option<JoinHandle<()>>,
-        clients: ServerClients,
-    },
+    Started { clients: ServerClients },
 }
 
 impl RealearnServer {
@@ -46,7 +43,7 @@ impl RealearnServer {
         let clients: ServerClients = Default::default();
         let cloned_clients = clients.clone();
         let port = self.port;
-        let join_handle = std::thread::spawn(move || {
+        std::thread::spawn(move || {
             let mut runtime = tokio::runtime::Builder::new()
                 .basic_scheduler()
                 .enable_all()
@@ -67,10 +64,7 @@ impl RealearnServer {
                     .await;
             });
         });
-        self.state = ServerState::Started {
-            join_handle: Some(join_handle),
-            clients,
-        };
+        self.state = ServerState::Started { clients };
     }
 
     pub fn clients(&self) -> Result<&ServerClients, &'static str> {
