@@ -17,8 +17,9 @@ use tokio::sync::{mpsc, RwLock};
 use warp::http::Response;
 use warp::http::StatusCode;
 use warp::reject::Reject;
+use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
-use warp::{http, reject, Rejection};
+use warp::{http, reject, reply, Rejection, Reply};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
@@ -78,7 +79,7 @@ impl Reject for InternalServerError {}
 struct SenderDropped;
 impl Reject for SenderDropped {}
 
-async fn in_main_thread<R: Debug + 'static>(
+async fn in_main_thread<R: 'static>(
     op: impl FnOnce() -> Result<R, Rejection> + 'static,
 ) -> Result<R, Rejection> {
     Reaper::get()
@@ -87,11 +88,10 @@ async fn in_main_thread<R: Debug + 'static>(
         .unwrap_or_else(|_| Err(reject::custom(SenderDropped)))
 }
 
-fn handle_controller_routing_route(session_id: String) -> Result<String, Rejection> {
+fn handle_controller_routing_route(session_id: String) -> Result<impl Reply, Rejection> {
     let session = session_manager::find_session_by_id(&session_id).ok_or_else(reject::not_found)?;
-    let json = get_controller_projection_as_json(&session.borrow())
-        .map_err(|e| reject::custom(InternalServerError(e.to_string())))?;
-    Ok(json)
+    let projection = get_controller_projection(&session.borrow());
+    Ok(reply::json(&projection))
 }
 
 async fn start_server(port: u16, clients: ServerClients) {
@@ -228,11 +228,11 @@ fn send_initial_controller_projection(client: &ProjectionClient) -> Result<(), &
 }
 
 fn get_controller_projection_as_json(session: &Session) -> Result<String, &'static str> {
-    let projection = get_controller_projection(session)?;
+    let projection = get_controller_projection(session);
     serde_json::to_string(&projection).map_err(|_| "couldn't serialize")
 }
 
-fn get_controller_projection(session: &Session) -> Result<ControllerProjection, &'static str> {
+fn get_controller_projection(session: &Session) -> ControllerProjection {
     let mapping_projections = session
         .mappings(MappingCompartment::ControllerMappings)
         .map(|m| {
@@ -280,10 +280,9 @@ fn get_controller_projection(session: &Session) -> Result<ControllerProjection, 
             }
         })
         .collect();
-    let controller_projection = ControllerProjection {
+    ControllerProjection {
         mapping_projections,
-    };
-    Ok(controller_projection)
+    }
 }
 
 #[derive(Serialize)]
