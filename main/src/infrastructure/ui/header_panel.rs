@@ -233,18 +233,24 @@ impl HeaderPanel {
     }
 
     fn invalidate_preset_combo_box_value(&self) {
+        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
         let index = match self.session().borrow().active_controller_id() {
             None => -1isize,
-            Some(id) => App::get()
-                .controller_manager()
-                .borrow()
-                .find_index_by_id(id)
-                .expect("no controller found for ID") as isize,
+            Some(id) => {
+                let index_option = App::get()
+                    .controller_manager()
+                    .borrow()
+                    .find_index_by_id(id);
+                match index_option {
+                    None => {
+                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                        return;
+                    }
+                    Some(i) => i as isize,
+                }
+            }
         };
-        self.view
-            .require_control(root::ID_PRESET_COMBO_BOX)
-            .select_combo_box_item_by_data(index)
-            .unwrap();
+        combo.select_combo_box_item_by_data(index).unwrap();
     }
 
     fn fill_compartment_combo_box(&self) {
