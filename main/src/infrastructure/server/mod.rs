@@ -16,11 +16,10 @@ use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
 use tokio::sync::{mpsc, RwLock};
 use warp::http::Response;
-use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
-use warp::{http, reject, reply, Rejection, Reply};
+use warp::{reject, reply, Rejection, Reply};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
@@ -72,35 +71,52 @@ impl RealearnServer {
 
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
-#[derive(Debug)]
-struct InternalServerError(String);
-impl Reject for InternalServerError {}
-
-#[derive(Debug)]
-struct SenderDropped;
-impl Reject for SenderDropped {}
-
-async fn in_main_thread<R: 'static>(
-    op: impl FnOnce() -> Result<R, Rejection> + 'static,
-) -> Result<R, Rejection> {
-    Reaper::get()
-        .main_thread_future(move || op())
-        .await
-        .unwrap_or_else(|_| Err(reject::custom(SenderDropped)))
+async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
+    op: impl FnOnce() -> Result<O, E> + 'static,
+) -> Result<Box<dyn Reply>, Rejection> {
+    let send_result = Reaper::get().main_thread_future(move || op()).await;
+    let response_result = match send_result {
+        Ok(r) => r,
+        Err(_) => {
+            return Ok(Box::new(
+                Response::builder()
+                    .status(500)
+                    .body("sender dropped")
+                    .unwrap(),
+            ));
+        }
+    };
+    let raw: Box<dyn Reply> = match response_result {
+        Ok(r) => Box::new(r),
+        Err(r) => Box::new(r),
+    };
+    Ok(raw)
 }
 
-fn handle_controller_routing_route(session_id: String) -> Result<impl Reply, Rejection> {
-    let session = session_manager::find_session_by_id(&session_id).ok_or_else(reject::not_found)?;
+fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<&'static str>> {
+    let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
     let projection = get_controller_projection(&session.borrow());
     Ok(reply::json(&projection))
 }
 
-fn handle_controller_route(session_id: String) -> Result<impl Reply, Rejection> {
-    let session = session_manager::find_session_by_id(&session_id).ok_or_else(reject::not_found)?;
+fn session_not_found() -> Response<&'static str> {
+    not_found("session not found")
+}
+
+fn controller_not_found_or_not_present() -> Response<&'static str> {
+    not_found("session doesn't have controller or controller not present")
+}
+
+fn not_found(msg: &'static str) -> Response<&'static str> {
+    Response::builder().status(404).body(msg).unwrap()
+}
+
+fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static str>> {
+    let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
     let controller = session
         .borrow()
         .active_controller()
-        .ok_or_else(reject::not_found)?;
+        .ok_or_else(controller_not_found_or_not_present)?;
     let controller_data = ControllerData::from_model(&controller);
     Ok(reply::json(&controller_data))
 }
