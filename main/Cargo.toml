@@ -48,7 +48,7 @@ enum-map = "0.6.3"
 slug = "0.1.4"
 nanoid = "0.3.0"
 futures = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["rt-core"] }
+tokio = { version = "0.2", features = ["rt-core", "sync"] }
 warp = "0.2"
 
 [build-dependencies]
