@@ -70,29 +70,26 @@ impl RealearnServer {
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug)]
+struct InternalServerError(String);
+impl Reject for InternalServerError {}
+
+#[derive(Debug)]
 struct SenderDropped;
 impl Reject for SenderDropped {}
 
-async fn handle_controller_routing_route(
-    session_id: String,
-) -> Result<Response<String>, Rejection> {
+async fn handle_controller_routing_route(session_id: String) -> Result<String, Rejection> {
     let (tx, rx) = oneshot::channel();
     Reaper::get().do_later_in_main_thread_asap(move || {
-        let response = match session_manager::find_session_by_id(&session_id) {
-            None => Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body("session not found".to_string()),
-            Some(session) => match get_controller_projection_as_json(&session.borrow()) {
-                Ok(json) => Response::builder().body(json),
-                Err(error) => Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(error.to_string()),
-            },
+        let result = match session_manager::find_session_by_id(&session_id) {
+            None => Err(warp::reject::not_found()),
+            Some(session) => get_controller_projection_as_json(&session.borrow())
+                .map_err(|e| warp::reject::custom(InternalServerError(e.to_string()))),
         };
-        tx.send(response.unwrap());
+        tx.send(result);
     });
     // TODO-low Maybe we can just convert this to a http::Error
-    rx.await.map_err(|_| warp::reject::custom(SenderDropped))
+    rx.await
+        .unwrap_or_else(|_| Err(warp::reject::custom(SenderDropped)))
 }
 
 async fn start_server(port: u16, clients: ServerClients) {
