@@ -80,16 +80,20 @@ impl Reject for SenderDropped {}
 async fn handle_controller_routing_route(session_id: String) -> Result<String, Rejection> {
     let (tx, rx) = oneshot::channel();
     Reaper::get().do_later_in_main_thread_asap(move || {
-        let result = match session_manager::find_session_by_id(&session_id) {
-            None => Err(warp::reject::not_found()),
-            Some(session) => get_controller_projection_as_json(&session.borrow())
-                .map_err(|e| warp::reject::custom(InternalServerError(e.to_string()))),
-        };
+        let result = handle_controller_routing_route_sync(session_id);
         tx.send(result);
     });
     // TODO-low Maybe we can just convert this to a http::Error
     rx.await
         .unwrap_or_else(|_| Err(warp::reject::custom(SenderDropped)))
+}
+
+fn handle_controller_routing_route_sync(session_id: String) -> Result<String, Rejection> {
+    let session =
+        session_manager::find_session_by_id(&session_id).ok_or_else(warp::reject::not_found)?;
+    let json = get_controller_projection_as_json(&session.borrow())
+        .map_err(|e| warp::reject::custom(InternalServerError(e.to_string())))?;
+    Ok(json)
 }
 
 async fn start_server(port: u16, clients: ServerClients) {
