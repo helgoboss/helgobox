@@ -8,6 +8,7 @@ use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -77,14 +78,16 @@ impl Reject for InternalServerError {}
 struct SenderDropped;
 impl Reject for SenderDropped {}
 
-async fn handle_controller_routing_route(session_id: String) -> Result<String, Rejection> {
+async fn in_main_thread<R: Debug + 'static>(
+    op: impl FnOnce() -> Result<R, Rejection> + 'static,
+) -> Result<R, Rejection> {
     Reaper::get()
-        .main_thread_future(move || handle_controller_routing_route_sync(session_id))
+        .main_thread_future(move || op())
         .await
         .unwrap_or_else(|_| Err(reject::custom(SenderDropped)))
 }
 
-fn handle_controller_routing_route_sync(session_id: String) -> Result<String, Rejection> {
+fn handle_controller_routing_route(session_id: String) -> Result<String, Rejection> {
     let session = session_manager::find_session_by_id(&session_id).ok_or_else(reject::not_found)?;
     let json = get_controller_projection_as_json(&session.borrow())
         .map_err(|e| reject::custom(InternalServerError(e.to_string())))?;
@@ -96,7 +99,7 @@ async fn start_server(port: u16, clients: ServerClients) {
     let controller_route = warp::path!("realearn" / String / "controller")
         .map(|session_id| format!("Hello, {}!", session_id));
     let controller_routing_route = warp::path!("realearn" / String / "controller-routing")
-        .and_then(handle_controller_routing_route);
+        .and_then(|session_id| in_main_thread(|| handle_controller_routing_route(session_id)));
     let patch_controller_route = warp::patch()
         .and(warp::path!("realearn" / String / "controller"))
         .and(warp::body::json())
