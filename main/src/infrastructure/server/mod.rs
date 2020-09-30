@@ -1,6 +1,7 @@
 use crate::application::{session_manager, Session, SharedSession, SourceCategory, TargetCategory};
 use crate::core::when;
 use crate::domain::MappingCompartment;
+use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
 use futures::SinkExt;
 use reaper_high::Reaper;
@@ -94,10 +95,20 @@ fn handle_controller_routing_route(session_id: String) -> Result<impl Reply, Rej
     Ok(reply::json(&projection))
 }
 
+fn handle_controller_route(session_id: String) -> Result<impl Reply, Rejection> {
+    let session = session_manager::find_session_by_id(&session_id).ok_or_else(reject::not_found)?;
+    let controller = session
+        .borrow()
+        .active_controller()
+        .ok_or_else(reject::not_found)?;
+    let controller_data = ControllerData::from_model(&controller);
+    Ok(reply::json(&controller_data))
+}
+
 async fn start_server(port: u16, clients: ServerClients) {
     use warp::Filter;
     let controller_route = warp::path!("realearn" / String / "controller")
-        .map(|session_id| format!("Hello, {}!", session_id));
+        .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
     let controller_routing_route = warp::path!("realearn" / String / "controller-routing")
         .and_then(|session_id| in_main_thread(|| handle_controller_routing_route(session_id)));
     let patch_controller_route = warp::patch()
