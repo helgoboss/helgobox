@@ -17,7 +17,7 @@ use warp::http::Response;
 use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::ws::{Message, WebSocket};
-use warp::{http, Rejection};
+use warp::{http, reject, Rejection};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
@@ -85,14 +85,13 @@ async fn handle_controller_routing_route(session_id: String) -> Result<String, R
     });
     // TODO-low Maybe we can just convert this to a http::Error
     rx.await
-        .unwrap_or_else(|_| Err(warp::reject::custom(SenderDropped)))
+        .unwrap_or_else(|_| Err(reject::custom(SenderDropped)))
 }
 
 fn handle_controller_routing_route_sync(session_id: String) -> Result<String, Rejection> {
-    let session =
-        session_manager::find_session_by_id(&session_id).ok_or_else(warp::reject::not_found)?;
+    let session = session_manager::find_session_by_id(&session_id).ok_or_else(reject::not_found)?;
     let json = get_controller_projection_as_json(&session.borrow())
-        .map_err(|e| warp::reject::custom(InternalServerError(e.to_string())))?;
+        .map_err(|e| reject::custom(InternalServerError(e.to_string())))?;
     Ok(json)
 }
 
