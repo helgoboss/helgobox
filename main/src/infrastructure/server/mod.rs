@@ -12,7 +12,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
-use tokio::sync::{mpsc, oneshot, RwLock};
+use tokio::sync::{mpsc, RwLock};
 use warp::http::Response;
 use warp::http::StatusCode;
 use warp::reject::Reject;
@@ -78,13 +78,9 @@ struct SenderDropped;
 impl Reject for SenderDropped {}
 
 async fn handle_controller_routing_route(session_id: String) -> Result<String, Rejection> {
-    let (tx, rx) = oneshot::channel();
-    Reaper::get().do_later_in_main_thread_asap(move || {
-        let result = handle_controller_routing_route_sync(session_id);
-        tx.send(result);
-    });
-    // TODO-low Maybe we can just convert this to a http::Error
-    rx.await
+    Reaper::get()
+        .main_thread_future(move || handle_controller_routing_route_sync(session_id))
+        .await
         .unwrap_or_else(|_| Err(reject::custom(SenderDropped)))
 }
 
