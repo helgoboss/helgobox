@@ -156,6 +156,8 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerData {
+    #[serde(skip_deserializing)]
+    id: Option<String>,
     name: String,
     #[serde(default)]
     mappings: Vec<MappingModelData>,
@@ -166,6 +168,7 @@ pub struct ControllerData {
 impl ControllerData {
     pub fn from_model(controller: &Controller) -> ControllerData {
         ControllerData {
+            id: Some(controller.id().to_string()),
             mappings: controller
                 .mappings()
                 .map(|m| MappingModelData::from_model(&m))
