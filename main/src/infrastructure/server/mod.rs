@@ -98,8 +98,8 @@ async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
 
 fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<&'static str>> {
     let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
-    let projection = get_controller_projection(&session.borrow());
-    Ok(reply::json(&projection))
+    let routing = get_controller_routing(&session.borrow());
+    Ok(reply::json(&routing))
 }
 
 fn handle_patch_controller_route(
@@ -293,7 +293,7 @@ fn send_updated_controller_projection(session: &Session) -> Result<(), &'static 
     if clients.is_empty() {
         return Ok(());
     }
-    let json = get_controller_projection_as_json(session)?;
+    let json = get_controller_routing_as_json(session)?;
     for client in clients.values() {
         if client.realearn_session_id != session.id() {
             continue;
@@ -306,21 +306,21 @@ fn send_updated_controller_projection(session: &Session) -> Result<(), &'static 
 fn send_initial_controller_projection(client: &ProjectionClient) -> Result<(), &'static str> {
     let session = session_manager::find_session_by_id(&client.realearn_session_id)
         .ok_or("couldn't find that session")?;
-    let json = get_controller_projection_as_json(&session.borrow())?;
+    let json = get_controller_routing_as_json(&session.borrow())?;
     client.send(&json)
 }
 
-fn get_controller_projection_as_json(session: &Session) -> Result<String, &'static str> {
-    let projection = get_controller_projection(session);
-    serde_json::to_string(&projection).map_err(|_| "couldn't serialize")
+fn get_controller_routing_as_json(session: &Session) -> Result<String, &'static str> {
+    let routing = get_controller_routing(session);
+    serde_json::to_string(&routing).map_err(|_| "couldn't serialize")
 }
 
-fn get_controller_projection(session: &Session) -> ControllerProjection {
-    let mapping_projections = session
+fn get_controller_routing(session: &Session) -> ControllerRouting {
+    let routes = session
         .mappings(MappingCompartment::ControllerMappings)
-        .map(|m| {
+        .filter_map(|m| {
             let m = m.borrow();
-            let target_projection = if session.mapping_is_on(m.id()) {
+            let target_descriptor = if session.mapping_is_on(m.id()) {
                 if m.target_model.category.get() == TargetCategory::Virtual {
                     let control_element = m.target_model.create_control_element();
                     let matching_primary_mappings: Vec<_> = session
@@ -344,46 +344,32 @@ fn get_controller_projection(session: &Session) -> ControllerProjection {
                                 matching_primary_mappings.len() - 1
                             )
                         };
-                        Some(TargetProjection { label })
+                        TargetDescriptor { label }
                     } else {
-                        None
+                        return None;
                     }
                 } else {
-                    Some(TargetProjection {
+                    TargetDescriptor {
                         label: m.name.get_ref().clone(),
-                    })
+                    }
                 }
             } else {
-                None
+                return None;
             };
-            MappingProjection {
-                id: m.id().to_string(),
-                name: m.name.get_ref().clone(),
-                target_projection,
-            }
+            Some((m.id().to_string(), target_descriptor))
         })
         .collect();
-    ControllerProjection {
-        mapping_projections,
-    }
+    ControllerRouting { routes }
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ControllerProjection {
-    mapping_projections: Vec<MappingProjection>,
+struct ControllerRouting {
+    routes: HashMap<String, TargetDescriptor>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct MappingProjection {
-    id: String,
-    name: String,
-    target_projection: Option<TargetProjection>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TargetProjection {
+struct TargetDescriptor {
     label: String,
 }
