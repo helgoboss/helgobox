@@ -578,7 +578,7 @@ impl HeaderPanel {
     }
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
-        let controller_name = match dialog_util::prompt_for("Controller name") {
+        let controller_name = match dialog_util::prompt_for("Controller name", "") {
             None => return Ok(()),
             Some(n) => n,
         };
