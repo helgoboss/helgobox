@@ -17,6 +17,8 @@ use std::ops::Deref;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SessionData {
+    // Since ReaLearn 1.12.0
+    id: Option<String>,
     let_matched_events_through: bool,
     let_unmatched_events_through: bool,
     always_auto_detect_mode: bool,
@@ -36,6 +38,7 @@ pub struct SessionData {
 impl Default for SessionData {
     fn default() -> Self {
         Self {
+            id: None,
             let_matched_events_through: false,
             let_unmatched_events_through: true,
             always_auto_detect_mode: true,
@@ -60,6 +63,7 @@ impl SessionData {
                 .collect()
         };
         SessionData {
+            id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             always_auto_detect_mode: session.always_auto_detect.get(),
@@ -134,6 +138,9 @@ impl SessionData {
             }
         };
         // Mutation
+        if let Some(id) = &self.id {
+            session.set_id_without_notification(id.clone())
+        };
         session
             .let_matched_events_through
             .set_without_notification(self.let_matched_events_through);

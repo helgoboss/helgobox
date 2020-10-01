@@ -86,7 +86,7 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::unbounded();
             let (control_main_task_sender, control_main_task_receiver) =
                 crossbeam_channel::unbounded();
-            let instance_id = nanoid::nanoid!(4);
+            let instance_id = nanoid::nanoid!(8);
             let logger = create_terminal_logger()
                 .new(o!("app" => "ReaLearn", "instance" => instance_id.clone()));
             Self {
