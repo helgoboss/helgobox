@@ -583,20 +583,27 @@ impl HeaderPanel {
             Some(n) => n,
         };
         let controller_id = slug::slugify(&controller_name);
-        let mappings = self
-            .session()
-            .borrow()
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let custom_data = session
+            .active_controller()
+            .map(|c| c.custom_data().clone())
+            .unwrap_or_default();
+        let mappings = session
             .mappings(MappingCompartment::ControllerMappings)
             .map(|ptr| ptr.borrow().clone())
             .collect();
-        let controller = Controller::new(controller_id.clone(), controller_name, mappings);
+        let controller = Controller::new(
+            controller_id.clone(),
+            controller_name,
+            mappings,
+            custom_data,
+        );
         App::get()
             .controller_manager()
             .borrow_mut()
             .add_controller(controller)?;
-        self.session()
-            .borrow_mut()
-            .activate_controller(Some(controller_id), self.session.clone())?;
+        session.activate_controller(Some(controller_id), self.session.clone())?;
         Ok(())
     }
 

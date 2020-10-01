@@ -1,4 +1,6 @@
-use crate::application::{session_manager, Session, SharedSession, SourceCategory, TargetCategory};
+use crate::application::{
+    session_manager, ControllerManager, Session, SharedSession, SourceCategory, TargetCategory,
+};
 use crate::core::when;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControllerData;
@@ -10,12 +12,13 @@ use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
 use tokio::sync::{mpsc, RwLock};
-use warp::http::Response;
+use warp::http::{Response, StatusCode};
 use warp::reject::Reject;
 use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
@@ -99,38 +102,91 @@ fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<
     Ok(reply::json(&projection))
 }
 
+fn handle_patch_controller_route(
+    session_id: String,
+    req: PatchRequest,
+) -> Result<StatusCode, Response<&'static str>> {
+    if req.op != PatchRequestOp::Replace {
+        return Err(Response::builder()
+            .status(StatusCode::METHOD_NOT_ALLOWED)
+            .body("only 'replace' is supported as op")
+            .unwrap());
+    }
+    let split_path: Vec<_> = req.path.split('/').collect();
+    let custom_data_key = if let ["", "customData", key] = split_path.as_slice() {
+        key
+    } else {
+        return Err(Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body("only '/customData/{key}' is supported as path")
+            .unwrap());
+    };
+    let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
+    let session = session.borrow();
+    let controller_id = session
+        .active_controller_id()
+        .ok_or_else(session_has_no_active_controller)?;
+    let controller_manager = App::get().controller_manager();
+    let mut controller_manager = controller_manager.borrow_mut();
+    let mut controller = controller_manager
+        .find_by_id(controller_id)
+        .ok_or_else(controller_not_found)?;
+    controller.update_custom_data(custom_data_key.to_string(), req.value);
+    controller_manager
+        .update_controller(controller)
+        .map_err(|_| internal_server_error("couldn't update controller"))?;
+    Ok(StatusCode::OK)
+}
+
 fn session_not_found() -> Response<&'static str> {
     not_found("session not found")
 }
 
-fn controller_not_found_or_not_present() -> Response<&'static str> {
-    not_found("session doesn't have controller or controller not present")
+fn session_has_no_active_controller() -> Response<&'static str> {
+    not_found("session doesn't have an active controller")
+}
+
+fn controller_not_found() -> Response<&'static str> {
+    not_found("session has controller but controller not found")
 }
 
 fn not_found(msg: &'static str) -> Response<&'static str> {
     Response::builder().status(404).body(msg).unwrap()
 }
 
+fn internal_server_error(msg: &'static str) -> Response<&'static str> {
+    Response::builder().status(500).body(msg).unwrap()
+}
+
 fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static str>> {
     let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
-    let controller = session
+    let session = session.borrow();
+    let controller_id = session
+        .active_controller_id()
+        .ok_or_else(session_has_no_active_controller)?;
+    let controller = App::get()
+        .controller_manager()
         .borrow()
-        .active_controller()
-        .ok_or_else(controller_not_found_or_not_present)?;
+        .find_by_id(controller_id)
+        .ok_or_else(controller_not_found)?;
     let controller_data = ControllerData::from_model(&controller);
     Ok(reply::json(&controller_data))
 }
 
 async fn start_server(port: u16, clients: ServerClients) {
     use warp::Filter;
-    let controller_route = warp::path!("realearn" / String / "controller")
+    let controller_route = warp::get()
+        .and(warp::path!("realearn" / String / "controller"))
         .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
-    let controller_routing_route = warp::path!("realearn" / String / "controller-routing")
+    let controller_routing_route = warp::get()
+        .and(warp::path!("realearn" / String / "controller-routing"))
         .and_then(|session_id| in_main_thread(|| handle_controller_routing_route(session_id)));
     let patch_controller_route = warp::patch()
         .and(warp::path!("realearn" / String / "controller"))
         .and(warp::body::json())
-        .map(|session_id, req: PatchRequest| format!("Hello, {}!", session_id));
+        .and_then(|session_id, req: PatchRequest| {
+            in_main_thread(|| handle_patch_controller_route(session_id, req))
+        });
     let ws_route = {
         let clients = warp::any().map(move || clients.clone());
         warp::path!("realearn" / String / "projection")
@@ -154,7 +210,7 @@ struct PatchRequest {
     value: serde_json::value::Value,
 }
 
-#[derive(Deserialize)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum PatchRequestOp {
     Replace,

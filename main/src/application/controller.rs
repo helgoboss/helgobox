@@ -1,4 +1,5 @@
 use crate::application::{MappingModel, SharedMapping};
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Debug)]
@@ -6,11 +7,22 @@ pub struct Controller {
     id: String,
     name: String,
     mappings: Vec<MappingModel>,
+    custom_data: HashMap<String, serde_json::Value>,
 }
 
 impl Controller {
-    pub fn new(id: String, name: String, mappings: Vec<MappingModel>) -> Controller {
-        Controller { id, name, mappings }
+    pub fn new(
+        id: String,
+        name: String,
+        mappings: Vec<MappingModel>,
+        custom_data: HashMap<String, serde_json::Value>,
+    ) -> Controller {
+        Controller {
+            id,
+            name,
+            mappings,
+            custom_data,
+        }
     }
 
     pub fn id(&self) -> &str {
@@ -23,6 +35,14 @@ impl Controller {
 
     pub fn mappings(&self) -> impl Iterator<Item = &MappingModel> + ExactSizeIterator {
         self.mappings.iter()
+    }
+
+    pub fn custom_data(&self) -> &HashMap<String, serde_json::Value> {
+        &self.custom_data
+    }
+
+    pub fn update_custom_data(&mut self, key: String, value: serde_json::Value) {
+        self.custom_data.insert(key, value);
     }
 
     pub fn update_mappings(&mut self, mappings: Vec<MappingModel>) {

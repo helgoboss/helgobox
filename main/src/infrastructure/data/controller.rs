@@ -7,6 +7,7 @@ use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -156,7 +157,10 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
 #[serde(rename_all = "camelCase")]
 pub struct ControllerData {
     name: String,
+    #[serde(default)]
     mappings: Vec<MappingModelData>,
+    #[serde(default)]
+    custom_data: HashMap<String, serde_json::Value>,
 }
 
 impl ControllerData {
@@ -167,6 +171,7 @@ impl ControllerData {
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
             name: controller.name().to_string(),
+            custom_data: controller.custom_data().clone(),
         }
     }
 
@@ -178,6 +183,7 @@ impl ControllerData {
                 .iter()
                 .map(|m| m.to_model(MappingCompartment::ControllerMappings, None))
                 .collect(),
+            self.custom_data.clone(),
         )
     }
 }
