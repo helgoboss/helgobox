@@ -104,7 +104,7 @@ fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<
 }
 
 fn handle_patch_controller_route(
-    session_id: String,
+    controller_id: String,
     req: PatchRequest,
 ) -> Result<StatusCode, Response<&'static str>> {
     if req.op != PatchRequestOp::Replace {
@@ -122,15 +122,10 @@ fn handle_patch_controller_route(
             .body("only '/customData/{key}' is supported as path")
             .unwrap());
     };
-    let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
-    let session = session.borrow();
-    let controller_id = session
-        .active_controller_id()
-        .ok_or_else(session_has_no_active_controller)?;
     let controller_manager = App::get().controller_manager();
     let mut controller_manager = controller_manager.borrow_mut();
     let mut controller = controller_manager
-        .find_by_id(controller_id)
+        .find_by_id(&controller_id)
         .ok_or_else(controller_not_found)?;
     controller.update_custom_data(custom_data_key.to_string(), req.value);
     controller_manager
@@ -190,16 +185,18 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
 async fn start_server(port: u16, clients: ServerClients) {
     use warp::Filter;
     let controller_route = warp::get()
-        .and(warp::path!("realearn" / String / "controller"))
+        .and(warp::path!("realearn" / "session" / String / "controller"))
         .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
     let controller_routing_route = warp::get()
-        .and(warp::path!("realearn" / String / "controller-routing"))
+        .and(warp::path!(
+            "realearn" / "session" / String / "controller-routing"
+        ))
         .and_then(|session_id| in_main_thread(|| handle_controller_routing_route(session_id)));
     let patch_controller_route = warp::patch()
-        .and(warp::path!("realearn" / String / "controller"))
+        .and(warp::path!("realearn" / "controller" / String))
         .and(warp::body::json())
-        .and_then(|session_id, req: PatchRequest| {
-            in_main_thread(|| handle_patch_controller_route(session_id, req))
+        .and_then(|controller_id, req: PatchRequest| {
+            in_main_thread(|| handle_patch_controller_route(controller_id, req))
         });
     let ws_route = {
         let clients = warp::any().map(move || clients.clone());
