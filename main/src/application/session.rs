@@ -733,7 +733,6 @@ impl Session {
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
-        session_manager::log_debug_info();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::LogDebugInfo)

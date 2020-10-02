@@ -3,6 +3,7 @@ use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::plugin::App;
 
+use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -86,6 +87,18 @@ impl FileBasedControllerManager {
 
     pub fn changed(&self) -> impl UnitEvent {
         self.changed_subject.clone()
+    }
+
+    pub fn log_debug_info(&self) {
+        let msg = format!(
+            "\n\
+            # Controller manager\n\
+            \n\
+            - Controller count: {}\n\
+            ",
+            self.controllers.len(),
+        );
+        Reaper::get().show_console_msg(msg);
     }
 
     fn notify_changed(&mut self) {

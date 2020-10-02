@@ -71,6 +71,36 @@ impl RealearnServer {
             Err("server not running")
         }
     }
+
+    pub fn generate_realearn_app_url(&self, session_id: &str) -> String {
+        let host = self.local_ip().unwrap_or("127.0.0.1".to_string());
+        format!(
+            "https://realearn.app/{}:{}/{}",
+            host,
+            self.port(),
+            session_id
+        )
+    }
+
+    pub fn local_ip(&self) -> Option<String> {
+        local_ipaddress::get()
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn log_debug_info(&self, session_id: &str) {
+        let msg = format!(
+            "\n\
+        # Server\n\
+        \n\
+        - ReaLearn app URL: {}
+        ",
+            self.generate_realearn_app_url(session_id)
+        );
+        Reaper::get().show_console_msg(msg);
+    }
 }
 
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);

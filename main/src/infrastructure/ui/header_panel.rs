@@ -15,17 +15,22 @@ use rx_util::UnitEvent;
 
 use slog::debug;
 
-use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::{io, iter};
 
 use crate::application::{Controller, SharedSession, WeakSession};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::dialog_util;
 use enum_iterator::IntoEnumIterator;
+use image::Luma;
+use once_cell::unsync::Lazy;
+use qrcode::QrCode;
 use std::convert::TryInto;
+use std::path::Path;
 use swell_ui::{SharedView, View, ViewContext, Window};
+use web_view::Content;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -33,6 +38,7 @@ pub struct HeaderPanel {
     view: ViewContext,
     session: WeakSession,
     main_state: SharedMainState,
+    qrcode_file_temp_path: Lazy<Option<tempfile::TempPath>>,
 }
 
 impl HeaderPanel {
@@ -41,6 +47,7 @@ impl HeaderPanel {
             view: Default::default(),
             session,
             main_state,
+            qrcode_file_temp_path: Lazy::new(|| create_qrcode_file().ok()),
         }
     }
 }
@@ -607,6 +614,73 @@ impl HeaderPanel {
         Ok(())
     }
 
+    fn log_debug_info(&self) {
+        let session = self.session();
+        let session = session.borrow();
+        session.log_debug_info();
+        App::get().log_debug_info(session.id());
+    }
+
+    fn show_projection_info(&self) {
+        let server = App::get().server().borrow();
+        let session = self.session();
+        let session = session.borrow();
+        let url_to_encode = server.generate_realearn_app_url(session.id());
+        let (file, width, height) = {
+            let file = self
+                .qrcode_file_temp_path
+                .as_ref()
+                .expect("couldn't create temp file for QR code");
+            let code = QrCode::new(url_to_encode).unwrap();
+            let image = code.render::<image::Luma<u8>>().build();
+            image
+                .save(file)
+                .expect("couldn't save QR code image to temporary file");
+            (file.to_string_lossy(), image.width(), image.height())
+        };
+        let html_content = format!(
+            r#"
+            <html>
+            <body>
+            <h1>ReaLearn</h1>
+            <img src="{}"/>
+            Or manually enter the following data:
+            <table>
+            <tr>
+            <td>Host:</td>
+            <td>{}</td>
+            </tr>
+            <tr>
+            <td>Port:</td>
+            <td>{}</td>
+            </tr>
+            <tr>
+            <td>Session:</td>
+            <td>{}</td>
+            </tr>
+            </table>
+            </body>
+            </html>
+            "#,
+            file,
+            server
+                .local_ip()
+                .unwrap_or("<could not be determined>".to_string()),
+            server.port(),
+            session.id()
+        );
+        let wv = web_view::builder()
+            .title("ReaLearn")
+            .content(Content::Html(html_content))
+            .size(800, 600)
+            .resizable(false)
+            .user_data(())
+            .invoke_handler(|_webview, _arg| Ok(()))
+            .build()
+            .expect("couldn't build WebView");
+        wv.run();
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -740,7 +814,7 @@ impl View for HeaderPanel {
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
-            ID_LOG_BUTTON => self.session().borrow_mut().log_debug_info(),
+            ID_LOG_BUTTON => self.log_debug_info(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
@@ -753,6 +827,9 @@ impl View for HeaderPanel {
             }
             ID_PRESET_SAVE_BUTTON => {
                 self.save_active_preset().unwrap();
+            }
+            ID_PROJECTION_BUTTON => {
+                self.show_projection_info();
             }
             _ => {}
         }
@@ -800,4 +877,9 @@ impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
     }
+}
+
+fn create_qrcode_file() -> io::Result<tempfile::TempPath> {
+    let mut file = tempfile::Builder::new().suffix(".png").tempfile()?;
+    Ok(file.into_temp_path())
 }

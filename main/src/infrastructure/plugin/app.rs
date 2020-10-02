@@ -1,3 +1,4 @@
+use crate::application::session_manager;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
 use crate::infrastructure::server::{RealearnServer, ServerClients, SharedRealearnServer};
 use once_cell::unsync::Lazy;
@@ -46,5 +47,12 @@ impl App {
 
     pub fn server(&self) -> &SharedRealearnServer {
         &self.server
+    }
+
+    /// Logging debug info is always initiated by a particular session.
+    pub fn log_debug_info(&self, session_id: &str) {
+        session_manager::log_debug_info();
+        self.server.borrow().log_debug_info(session_id);
+        self.controller_manager.borrow().log_debug_info();
     }
 }
