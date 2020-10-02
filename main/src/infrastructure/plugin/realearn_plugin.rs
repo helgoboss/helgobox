@@ -314,7 +314,7 @@ impl RealearnPlugin {
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
-                server::keep_informing_clients(&shared_session);
+                server::keep_informing_clients_about_session_events(&shared_session);
                 session_manager::register_session(weak_session.clone());
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());

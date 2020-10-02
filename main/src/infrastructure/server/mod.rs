@@ -262,7 +262,7 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
     };
     clients.write().unwrap().insert(client_id, client.clone());
     Reaper::get().do_later_in_main_thread_asap(move || {
-        send_initial_data(&client);
+        send_initial_events(&client);
     });
     // Keep receiving websocket receiver stream messages
     while let Some(result) = ws_receiver_stream.next().await {
@@ -287,9 +287,10 @@ pub struct WebSocketClient {
 }
 
 impl WebSocketClient {
-    fn send(&self, text: &str) -> Result<(), &'static str> {
+    fn send(&self, msg: impl Serialize) -> Result<(), &'static str> {
+        let json = serde_json::to_string(&msg).map_err(|_| "couldn't serialize")?;
         self.sender
-            .send(Ok(Message::text(text)))
+            .send(Ok(Message::text(json)))
             .map_err(|_| "couldn't send")
     }
 
@@ -301,7 +302,7 @@ impl WebSocketClient {
 // We don't take the async RwLock by Tokio because we need to access this in sync code, too!
 pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>;
 
-pub fn keep_informing_clients(shared_session: &SharedSession) {
+pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
     let session = shared_session.borrow();
     when(
         session
@@ -322,8 +323,15 @@ fn send_initial_controller_routing(
 ) -> Result<(), &'static str> {
     let session =
         session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
-    let json = get_controller_routing_updated_event_as_json(&session.borrow())?;
-    client.send(&json)
+    let event = get_controller_routing_updated_event(&session.borrow());
+    client.send(&event)
+}
+
+fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
+    let session =
+        session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
+    let event = get_active_controller_updated_event(&session.borrow());
+    client.send(&event)
 }
 
 fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str> {
@@ -331,13 +339,13 @@ fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),
         },
-        || get_controller_routing_updated_event_as_json(session),
+        || get_controller_routing_updated_event(session),
     )
 }
 
-fn send_to_clients_subscribed_to(
+fn send_to_clients_subscribed_to<T: Serialize>(
     topic: &Topic,
-    text: impl FnOnce() -> Result<String, &'static str>,
+    create_message: impl FnOnce() -> T,
 ) -> Result<(), &'static str> {
     let clients = App::get().server().borrow().clients()?.clone();
     let clients = clients
@@ -346,24 +354,27 @@ fn send_to_clients_subscribed_to(
     if clients.is_empty() {
         return Ok(());
     }
-    let text = text()?;
+    let msg = create_message();
     for client in clients.values().filter(|c| c.is_subscribed_to(topic)) {
-        let _ = client.send(&text);
+        let _ = client.send(&msg);
     }
     Ok(())
 }
 
-fn send_initial_data(client: &WebSocketClient) {
+fn send_initial_events(client: &WebSocketClient) {
     for topic in &client.topics {
-        let _ = send_topic(client, topic).unwrap();
+        let _ = send_initial_events_for_topic(client, topic).unwrap();
     }
 }
 
-fn send_topic(client: &WebSocketClient, topic: &Topic) -> Result<(), &'static str> {
+fn send_initial_events_for_topic(
+    client: &WebSocketClient,
+    topic: &Topic,
+) -> Result<(), &'static str> {
     use Topic::*;
     match topic {
         ControllerRouting { session_id } => send_initial_controller_routing(client, session_id),
-        ActiveController { .. } => todo!(),
+        ActiveController { session_id } => send_initial_controller(client, session_id),
     }
 }
 
@@ -391,13 +402,25 @@ impl TryFrom<&str> for Topic {
     }
 }
 
-fn get_controller_routing_updated_event_as_json(session: &Session) -> Result<String, &'static str> {
-    let event = Event::new(
+fn get_active_controller_updated_event(session: &Session) -> Event<Option<ControllerData>> {
+    Event::new(
+        EventType::Updated,
+        format!("/realearn/session/{}/controller", session.id()),
+        get_controller(session),
+    )
+}
+
+fn get_controller_routing_updated_event(session: &Session) -> Event<ControllerRouting> {
+    Event::new(
         EventType::Updated,
         format!("/realearn/session/{}/controller-routing", session.id()),
         get_controller_routing(session),
-    );
-    serde_json::to_string(&event).map_err(|_| "couldn't serialize")
+    )
+}
+
+fn get_controller(session: &Session) -> Option<ControllerData> {
+    let controller = session.active_controller()?;
+    Some(ControllerData::from_model(&controller))
 }
 
 fn get_controller_routing(session: &Session) -> ControllerRouting {
