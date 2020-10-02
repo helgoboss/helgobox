@@ -34,9 +34,6 @@ pub trait SessionUi {
 // TODO-low Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
-    /// An ID which is randomly generated on each start and is most relevant for log correlation.
-    /// It's also used in other ReaLearn singletons.
-    /// It also serves as initial value for the (persistent) session ID. Should be unique.
     instance_id: String,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
@@ -760,11 +757,15 @@ impl Session {
             "\n\
             # Session\n\
             \n\
+            - Instance ID (random): {}\n\
+            - ID (persistent, maybe custom): {}\n\
             - Primary mapping model count: {}\n\
             - Primary mapping subscription count: {}\n\
             - Controller mapping model count: {}\n\
             - Controller mapping subscription count: {}\n\
             ",
+            self.instance_id,
+            self.id,
             self.mappings[MappingCompartment::PrimaryMappings].len(),
             self.mapping_subscriptions[MappingCompartment::PrimaryMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),

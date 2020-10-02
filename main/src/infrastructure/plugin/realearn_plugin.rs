@@ -39,6 +39,9 @@ use vst::event::Event;
 reaper_vst_plugin!();
 
 pub struct RealearnPlugin {
+    /// An ID which is randomly generated on each start and is most relevant for log correlation.
+    /// It's also used in other ReaLearn singletons.
+    /// It also serves as initial value for the (persistent) session ID. Should be unique.
     instance_id: String,
     logger: slog::Logger,
     // This will be filled right at construction time. It won't have a session yet though.
