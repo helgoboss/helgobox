@@ -322,7 +322,7 @@ fn send_initial_controller_routing(
 ) -> Result<(), &'static str> {
     let session =
         session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
-    let json = get_controller_routing_as_json(&session.borrow())?;
+    let json = get_controller_routing_updated_event_as_json(&session.borrow())?;
     client.send(&json)
 }
 
@@ -331,7 +331,7 @@ fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),
         },
-        || get_controller_routing_as_json(session),
+        || get_controller_routing_updated_event_as_json(session),
     )
 }
 
@@ -391,9 +391,13 @@ impl TryFrom<&str> for Topic {
     }
 }
 
-fn get_controller_routing_as_json(session: &Session) -> Result<String, &'static str> {
-    let routing = get_controller_routing(session);
-    serde_json::to_string(&routing).map_err(|_| "couldn't serialize")
+fn get_controller_routing_updated_event_as_json(session: &Session) -> Result<String, &'static str> {
+    let event = Event::new(
+        EventType::Updated,
+        format!("/realearn/session/{}/controller-routing", session.id()),
+        get_controller_routing(session),
+    );
+    serde_json::to_string(&event).map_err(|_| "couldn't serialize")
 }
 
 fn get_controller_routing(session: &Session) -> ControllerRouting {
@@ -453,4 +457,28 @@ struct ControllerRouting {
 #[serde(rename_all = "camelCase")]
 struct TargetDescriptor {
     label: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Event<T> {
+    r#type: EventType,
+    path: String,
+    payload: T,
+}
+
+impl<T> Event<T> {
+    pub fn new(r#type: EventType, path: String, payload: T) -> Event<T> {
+        Event {
+            r#type,
+            path,
+            payload,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+enum EventType {
+    Updated,
 }
