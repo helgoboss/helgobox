@@ -319,7 +319,29 @@ pub fn keep_informing_clients(shared_session: &SharedSession) {
     });
 }
 
+fn send_initial_controller_routing(
+    client: &WebSocketClient,
+    session_id: &str,
+) -> Result<(), &'static str> {
+    let session =
+        session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
+    let json = get_controller_routing_as_json(&session.borrow())?;
+    client.send(&json)
+}
+
 fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str> {
+    send_to_clients_subscribed_to(
+        &Topic::ControllerRouting {
+            session_id: session.id().to_string(),
+        },
+        || get_controller_routing_as_json(session),
+    )
+}
+
+fn send_to_clients_subscribed_to(
+    topic: &Topic,
+    text: impl FnOnce() -> Result<String, &'static str>,
+) -> Result<(), &'static str> {
     let clients = App::get().server().borrow().clients()?.clone();
     let clients = clients
         .read()
@@ -327,13 +349,9 @@ fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str
     if clients.is_empty() {
         return Ok(());
     }
-    let json = get_controller_routing_as_json(session)?;
-    for client in clients.values().filter(|c| {
-        c.is_subscribed_to(&Topic::ControllerRouting {
-            session_id: session.id().to_string(),
-        })
-    }) {
-        let _ = client.send(&json);
+    let text = text()?;
+    for client in clients.values().filter(|c| c.is_subscribed_to(topic)) {
+        let _ = client.send(&text);
     }
     Ok(())
 }
@@ -374,16 +392,6 @@ impl TryFrom<&str> for Topic {
         };
         Ok(topic)
     }
-}
-
-fn send_initial_controller_routing(
-    client: &WebSocketClient,
-    session_id: &str,
-) -> Result<(), &'static str> {
-    let session =
-        session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
-    let json = get_controller_routing_as_json(&session.borrow())?;
-    client.send(&json)
 }
 
 fn get_controller_routing_as_json(session: &Session) -> Result<String, &'static str> {
