@@ -308,13 +308,18 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
         session
             .on_mappings_changed()
             .merge(session.mapping_list_changed().map_to(()))
-            .merge(session.mapping_changed().map_to(()))
-            .merge(session.everything_changed()),
+            .merge(session.mapping_changed().map_to(())),
     )
     .with(Rc::downgrade(shared_session))
     .do_async(|session, _| {
         let _ = send_updated_controller_routing(&session.borrow());
     });
+    when(session.everything_changed())
+        .with(Rc::downgrade(shared_session))
+        .do_async(|session, _| {
+            let _ = send_updated_active_controller(&session.borrow());
+            let _ = send_updated_controller_routing(&session.borrow());
+        });
 }
 
 fn send_initial_controller_routing(
@@ -332,6 +337,15 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
         session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
     let event = get_active_controller_updated_event(&session.borrow());
     client.send(&event)
+}
+
+fn send_updated_active_controller(session: &Session) -> Result<(), &'static str> {
+    send_to_clients_subscribed_to(
+        &Topic::ActiveController {
+            session_id: session.id().to_string(),
+        },
+        || get_active_controller_updated_event(session),
+    )
 }
 
 fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str> {
