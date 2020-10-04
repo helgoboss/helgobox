@@ -407,7 +407,7 @@ fn send_to_clients_subscribed_to<T: Serialize>(
 
 fn send_initial_events(client: &WebSocketClient) {
     for topic in &client.topics {
-        let _ = send_initial_events_for_topic(client, topic).unwrap();
+        let _ = send_initial_events_for_topic(client, topic);
     }
 }
 
