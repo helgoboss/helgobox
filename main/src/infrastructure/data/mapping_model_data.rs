@@ -1,7 +1,7 @@
 use crate::application::{
     ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel,
 };
-use crate::domain::{MappingCompartment, ProcessorContext};
+use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
 use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -9,6 +9,8 @@ use std::borrow::BorrowMut;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct MappingModelData {
+    // Saved since ReaLearn 1.12.0
+    id: Option<MappingId>,
     name: String,
     source: SourceModelData,
     mode: ModeModelData,
@@ -27,6 +29,7 @@ pub struct MappingModelData {
 impl Default for MappingModelData {
     fn default() -> Self {
         Self {
+            id: None,
             name: "".to_string(),
             source: Default::default(),
             mode: Default::default(),
@@ -47,6 +50,7 @@ impl Default for MappingModelData {
 impl MappingModelData {
     pub fn from_model(model: &MappingModel) -> MappingModelData {
         MappingModelData {
+            id: Some(model.id()),
             name: model.name.get_ref().clone(),
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
@@ -78,6 +82,9 @@ impl MappingModelData {
     /// The context is necessary only if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
     fn apply_to_model(&self, model: &mut MappingModel, context: Option<&ProcessorContext>) {
+        if let Some(id) = self.id {
+            model.set_id_without_notification(id);
+        }
         model.name.set_without_notification(self.name.clone());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());

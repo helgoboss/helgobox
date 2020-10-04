@@ -560,7 +560,7 @@ impl Session {
             .ok_or("mapping not found")?;
         let duplicate = {
             let mapping = mapping.borrow();
-            let mut duplicate = mapping.clone();
+            let mut duplicate = mapping.duplicate();
             duplicate
                 .name
                 .set(format!("Copy of {}", mapping.name.get_ref()));
