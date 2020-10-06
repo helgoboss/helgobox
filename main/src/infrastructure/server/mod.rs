@@ -411,12 +411,16 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
     .do_async(|session, _| {
         let _ = send_updated_controller_routing(&session.borrow());
     });
-    when(session.everything_changed())
-        .with(Rc::downgrade(shared_session))
-        .do_async(|session, _| {
-            let _ = send_updated_active_controller(&session.borrow());
-            let _ = send_updated_controller_routing(&session.borrow());
-        });
+    when(
+        session
+            .everything_changed()
+            .merge(App::get().controller_manager().borrow().changed()),
+    )
+    .with(Rc::downgrade(shared_session))
+    .do_async(|session, _| {
+        let _ = send_updated_active_controller(&session.borrow());
+        let _ = send_updated_controller_routing(&session.borrow());
+    });
 }
 
 fn send_initial_controller_routing(
