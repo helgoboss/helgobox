@@ -15,13 +15,15 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct FileBasedControllerManager {
+    controller_dir_path: PathBuf,
     controllers: Vec<Controller>,
     changed_subject: LocalSubject<'static, (), ()>,
 }
 
 impl FileBasedControllerManager {
-    pub fn new() -> FileBasedControllerManager {
+    pub fn new(controller_dir_path: PathBuf) -> FileBasedControllerManager {
         let mut manager = FileBasedControllerManager {
+            controller_dir_path,
             controllers: vec![],
             changed_subject: Default::default(),
         };
@@ -30,7 +32,7 @@ impl FileBasedControllerManager {
     }
 
     pub fn load_controllers(&mut self) -> Result<(), String> {
-        let controller_file_paths = fs::read_dir(App::controller_dir_path())
+        let controller_file_paths = fs::read_dir(&self.controller_dir_path)
             .map_err(|_| "couldn't read ReaLearn resource directory".to_string())?
             .filter_map(|result| {
                 let dir_entry = result.ok()?;
@@ -63,8 +65,8 @@ impl FileBasedControllerManager {
     }
 
     pub fn add_controller(&mut self, controller: Controller) -> Result<(), &'static str> {
-        let path = get_controller_file_path(controller.id());
-        fs::create_dir_all(App::controller_dir_path())
+        let path = self.get_controller_file_path(controller.id());
+        fs::create_dir_all(&self.controller_dir_path)
             .map_err(|_| "couldn't create controller directory")?;
         let data = ControllerData::from_model(&controller);
         let json =
@@ -75,7 +77,7 @@ impl FileBasedControllerManager {
     }
 
     pub fn remove_controller(&mut self, id: &str) -> Result<(), &'static str> {
-        let path = get_controller_file_path(id);
+        let path = self.get_controller_file_path(id);
         fs::remove_file(path).map_err(|_| "couldn't delete controller file")?;
         self.notify_changed();
         Ok(())
@@ -105,10 +107,10 @@ impl FileBasedControllerManager {
         let _ = self.load_controllers();
         self.changed_subject.next(());
     }
-}
 
-fn get_controller_file_path(id: &str) -> PathBuf {
-    App::controller_dir_path().join(format!("{}.json", id))
+    fn get_controller_file_path(&self, id: &str) -> PathBuf {
+        self.controller_dir_path.join(format!("{}.json", id))
+    }
 }
 
 impl ControllerManager for FileBasedControllerManager {
@@ -169,6 +171,7 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerData {
+    // TODO-medium We want to serialize this only for the server, not for the file
     #[serde(skip_deserializing)]
     id: Option<String>,
     name: String,

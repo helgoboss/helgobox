@@ -665,6 +665,7 @@ impl HeaderPanel {
             file,
             server
                 .local_ip()
+                .map(|ip| ip.to_string())
                 .unwrap_or("<could not be determined>".to_string()),
             server.port(),
             session.id()

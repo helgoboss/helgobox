@@ -6,6 +6,7 @@ use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
 use futures::SinkExt;
+use rcgen::{Certificate, CertificateParams, SanType};
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,9 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt::Debug;
-use std::path::PathBuf;
+use std::fs;
+use std::net::{IpAddr, Ipv4Addr};
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -30,6 +33,7 @@ pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 pub struct RealearnServer {
     port: u16,
     state: ServerState,
+    cert_dir_path: PathBuf,
 }
 
 enum ServerState {
@@ -38,10 +42,11 @@ enum ServerState {
 }
 
 impl RealearnServer {
-    pub fn new(port: u16) -> RealearnServer {
+    pub fn new(port: u16, cert_dir_path: PathBuf) -> RealearnServer {
         RealearnServer {
             port,
             state: ServerState::Stopped,
+            cert_dir_path,
         }
     }
 
@@ -52,14 +57,16 @@ impl RealearnServer {
         }
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
+        let ip = self.local_ip();
         let port = self.port;
+        let cert_dir_path = self.cert_dir_path.clone();
         std::thread::spawn(move || {
             let mut runtime = tokio::runtime::Builder::new()
                 .basic_scheduler()
                 .enable_all()
                 .build()
                 .unwrap();
-            runtime.block_on(start_server(port, clients_clone));
+            runtime.block_on(start_server(port, clients_clone, ip, &cert_dir_path));
         });
         self.state = ServerState::Started { clients };
     }
@@ -73,17 +80,20 @@ impl RealearnServer {
     }
 
     pub fn generate_realearn_app_url(&self, session_id: &str) -> String {
-        let host = self.local_ip().unwrap_or("127.0.0.1".to_string());
+        let host = self
+            .local_ip()
+            .map(|ip| ip.to_string())
+            .unwrap_or("127.0.0.1".to_string());
         format!(
-            "https://realearn.app/{}:{}/{}",
+            "https://www.helgoboss.org/projects/realearn/app/#{}:{}/{}",
             host,
             self.port(),
             session_id
         )
     }
 
-    pub fn local_ip(&self) -> Option<String> {
-        local_ipaddress::get()
+    pub fn local_ip(&self) -> Option<IpAddr> {
+        get_local_ip()
     }
 
     pub fn port(&self) -> u16 {
@@ -212,7 +222,7 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
     Ok(reply::json(&controller_data))
 }
 
-async fn start_server(port: u16, clients: ServerClients) {
+async fn start_server(port: u16, clients: ServerClients, ip: Option<IpAddr>, cert_dir_path: &Path) {
     use warp::Filter;
     let controller_route = warp::get()
         .and(warp::path!("realearn" / "session" / String / "controller"))
@@ -250,7 +260,64 @@ async fn start_server(port: u16, clients: ServerClients) {
         .or(controller_routing_route)
         .or(patch_controller_route)
         .or(ws_route);
-    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
+    if let Some(ip) = ip {
+        let (key, cert) = get_key_and_cert(ip, cert_dir_path);
+        warp::serve(routes)
+            .tls()
+            .key(key)
+            .cert(cert)
+            .run(([0, 0, 0, 0], port))
+            .await;
+    } else {
+        // TODO-high In this case we should consider binding to localhost only and give a
+        //  warning message on "Projection" screen. Or well, actually we can still create
+        //  a self-signed certificate and just ignore the host name mismatch on the client.
+        //  On Flutter, this works using badCertificateCallback. On the web it doesn't make
+        //  a real difference. Using a self-signed certificate will have to be manually accepted,
+        //  no matter if the host name is correct or not.
+        warp::serve(routes).run(([0, 0, 0, 0], port)).await;
+    }
+}
+
+fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {
+    if let Some(tuple) = find_key_and_cert(ip, cert_dir_path) {
+        return tuple;
+    }
+    // No key/cert yet for that host. Generate self-signed.
+    let (key, cert) = add_key_and_cert(ip);
+    fs::create_dir_all(cert_dir_path).expect("couldn't create certificate directory");
+    let (key_file_path, cert_file_path) = get_key_and_cert_paths(ip, cert_dir_path);
+    fs::write(key_file_path, &key).expect("couldn't save key");
+    fs::write(cert_file_path, &cert).expect("couldn't save certificate");
+    (key, cert)
+}
+
+fn add_key_and_cert(ip: IpAddr) -> (String, String) {
+    let mut params = CertificateParams::default();
+    params.subject_alt_names = vec![SanType::IpAddress(ip)];
+    let certificate = rcgen::Certificate::from_params(params)
+        .expect("couldn't create self-signed server certificate");
+    (
+        certificate.serialize_private_key_pem(),
+        certificate
+            .serialize_pem()
+            .expect("couldn't serialize self-signed server certificate"),
+    )
+}
+
+fn find_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> Option<(String, String)> {
+    let (key_file_path, cert_file_path) = get_key_and_cert_paths(ip, cert_dir_path);
+    Some((
+        fs::read_to_string(&key_file_path).ok()?,
+        fs::read_to_string(&cert_file_path).ok()?,
+    ))
+}
+
+fn get_key_and_cert_paths(ip: IpAddr, cert_dir_path: &Path) -> (PathBuf, PathBuf) {
+    let ip_string = ip.to_string();
+    let key_file_path = cert_dir_path.join(format!("{}.key", ip_string));
+    let cert_file_path = cert_dir_path.join(format!("{}.pem", ip_string));
+    (key_file_path, cert_file_path)
 }
 
 #[derive(Deserialize)]
@@ -548,4 +615,20 @@ impl<T> Event<T> {
 #[serde(rename_all = "camelCase")]
 enum EventType {
     Updated,
+}
+
+/// Inspired by local_ipaddress crate.
+pub fn get_local_ip() -> Option<std::net::IpAddr> {
+    let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {
+        Ok(s) => s,
+        Err(_) => return None,
+    };
+    match socket.connect("8.8.8.8:80") {
+        Ok(()) => (),
+        Err(_) => return None,
+    };
+    match socket.local_addr() {
+        Ok(addr) => return Some(addr.ip()),
+        Err(_) => return None,
+    };
 }

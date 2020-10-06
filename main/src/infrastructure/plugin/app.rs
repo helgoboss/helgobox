@@ -23,19 +23,15 @@ impl App {
         unsafe { &APP }
     }
 
-    pub fn resource_dir_path() -> PathBuf {
-        let reaper_resource_path = Reaper::get().resource_path();
-        reaper_resource_path.join("ReaLearn")
-    }
-
-    pub fn controller_dir_path() -> PathBuf {
-        App::resource_dir_path().join("controllers")
-    }
-
     fn new() -> App {
         App {
-            controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new())),
-            server: Rc::new(RefCell::new(RealearnServer::new(3030))),
+            controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
+                App::resource_dir_path().join("controllers"),
+            ))),
+            server: Rc::new(RefCell::new(RealearnServer::new(
+                3030,
+                App::resource_dir_path().join("certs"),
+            ))),
         }
     }
 
@@ -54,5 +50,10 @@ impl App {
         session_manager::log_debug_info();
         self.server.borrow().log_debug_info(session_id);
         self.controller_manager.borrow().log_debug_info();
+    }
+
+    fn resource_dir_path() -> PathBuf {
+        let reaper_resource_path = Reaper::get().resource_path();
+        reaper_resource_path.join("ReaLearn")
     }
 }
