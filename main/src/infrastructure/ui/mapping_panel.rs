@@ -1574,7 +1574,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 action_label.hide();
                 pick_button.hide();
                 label.set_text("Number");
-                combo.fill_combo_box_small(1..=16);
+                combo.fill_combo_box_small(1..=100);
                 combo.select_combo_box_item(self.target.control_element_index.get() as _);
             }
         };
@@ -2609,7 +2609,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 iter::once((-1isize, "<Any> (no feedback)".to_string()))
                     .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
             ),
-            Virtual => b.fill_combo_box_small(1..=16),
+            Virtual => b.fill_combo_box_small(1..=100),
         };
     }
 
