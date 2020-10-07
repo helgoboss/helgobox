@@ -624,7 +624,23 @@ impl HeaderPanel {
     }
 
     fn show_projection_info(&self) {
-        let server = App::get().server().borrow();
+        let mut server = App::get().server().borrow_mut();
+        if !server.is_running() {
+            let result = Reaper::get().medium_reaper().show_message_box(
+                "In order to use the projection feature, ReaLearn must start a web server to which \
+            mobile devices can connect. If you choose yes, the server will be started right now \
+            and in future whenever ReaLearn is loaded the first time. You can disable the server \
+            at any time in the context menu. \n\
+            \n\
+            Do you want to continue?",
+                "ReaLearn",
+                MessageBoxType::YesNo,
+            );
+            if result != MessageBoxResult::Yes {
+                return;
+            }
+            server.start();
+        }
         let session = self.session();
         let session = session.borrow();
         let url_to_encode = server.generate_realearn_app_url(session.id());

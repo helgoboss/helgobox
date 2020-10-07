@@ -81,7 +81,6 @@ impl RealearnServer {
                     &cert_dir_path,
                     shutdown_receiver,
                 ));
-                println!("RUNTIME BLOCKING ENDED")
             });
         self.state = ServerState::Started {
             clients,
