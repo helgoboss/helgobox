@@ -31,7 +31,7 @@ use reaper_low::{raw, Swell};
 use std::convert::TryInto;
 use std::path::Path;
 use std::ptr::{null, null_mut};
-use swell_ui::{Pixels, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 use web_view::Content;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -684,6 +684,15 @@ impl HeaderPanel {
         wv.run();
     }
 
+    fn toggle_server(&self) {
+        let mut server = App::get().server().borrow_mut();
+        if server.is_running() {
+            server.stop();
+        } else {
+            server.start();
+        }
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -858,16 +867,18 @@ impl View for HeaderPanel {
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
-        let result = match self
-            .view
-            .require_window()
-            .open_popup_menu(root::IDR_HEADER_PANEL_CONTEXT_MENU, location)
-        {
+        let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
+            .expect("menu bar couldn't be loaded");
+        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let server_is_running = App::get().server().borrow().is_running();
+        menu.set_item_checked(root::IDM_PROJECTION_SERVER, server_is_running);
+
+        let result = match self.view.require_window().open_popup_menu(menu, location) {
             None => return,
             Some(r) => r,
         };
         match result {
-            root::IDM_PROJECTION_SERVER => {}
+            root::IDM_PROJECTION_SERVER => self.toggle_server(),
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
             _ => unreachable!(),
         };

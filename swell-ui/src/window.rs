@@ -1,4 +1,4 @@
-use crate::{DialogUnits, Pixels, Point, SwellStringArg};
+use crate::{DialogUnits, Menu, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 use std::fmt::Display;
@@ -298,26 +298,18 @@ impl Window {
         }
     }
 
-    pub fn open_popup_menu(self, resource_id: u32, location: Point<Pixels>) -> Option<u32> {
+    pub fn open_popup_menu<'a>(self, menu: Menu<'a>, location: Point<Pixels>) -> Option<u32> {
         let swell = Swell::get();
         let result = unsafe {
-            // TODO-low One day we should cache this menu.
-            let menu = swell.LoadMenu(
-                swell.plugin_context().h_instance(),
-                resource_id as u16 as raw::ULONG_PTR as raw::LPSTR,
-            );
-            let sub_menu = swell.GetSubMenu(menu, 0);
-            let result = swell.TrackPopupMenu(
-                sub_menu,
+            swell.TrackPopupMenu(
+                menu.raw(),
                 raw::TPM_RETURNCMD as _,
                 location.x.get() as _,
                 location.y.get() as _,
                 0,
                 self.raw(),
                 null(),
-            );
-            swell.DestroyMenu(menu);
-            result
+            )
         };
         if result == 0 {
             return None;

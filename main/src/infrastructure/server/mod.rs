@@ -5,6 +5,7 @@ use crate::core::when;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
+use futures::channel::oneshot;
 use futures::SinkExt;
 use rcgen::{Certificate, CertificateParams, SanType};
 use reaper_high::Reaper;
@@ -15,6 +16,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::fs;
+use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -38,7 +40,10 @@ pub struct RealearnServer {
 
 enum ServerState {
     Stopped,
-    Started { clients: ServerClients },
+    Started {
+        clients: ServerClients,
+        shutdown_sender: oneshot::Sender<()>,
+    },
 }
 
 impl RealearnServer {
@@ -60,15 +65,40 @@ impl RealearnServer {
         let ip = self.local_ip();
         let port = self.port;
         let cert_dir_path = self.cert_dir_path.clone();
-        std::thread::spawn(move || {
-            let mut runtime = tokio::runtime::Builder::new()
-                .basic_scheduler()
-                .enable_all()
-                .build()
-                .unwrap();
-            runtime.block_on(start_server(port, clients_clone, ip, &cert_dir_path));
-        });
-        self.state = ServerState::Started { clients };
+        let (shutdown_sender, shutdown_receiver) = oneshot::channel();
+        std::thread::Builder::new()
+            .name("ReaLearn server".to_string())
+            .spawn(move || {
+                let mut runtime = tokio::runtime::Builder::new()
+                    .basic_scheduler()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(start_server(
+                    port,
+                    clients_clone,
+                    ip,
+                    &cert_dir_path,
+                    shutdown_receiver,
+                ));
+                println!("RUNTIME BLOCKING ENDED")
+            });
+        self.state = ServerState::Started {
+            clients,
+            shutdown_sender,
+        };
+    }
+
+    /// Idempotent
+    pub fn stop(&mut self) {
+        let old_state = std::mem::replace(&mut self.state, ServerState::Stopped);
+        let mut shutdown_sender = match old_state {
+            ServerState::Started {
+                shutdown_sender, ..
+            } => shutdown_sender,
+            ServerState::Stopped => return,
+        };
+        shutdown_sender.send(());
     }
 
     pub fn clients(&self) -> Result<&ServerClients, &'static str> {
@@ -76,6 +106,14 @@ impl RealearnServer {
             Ok(clients)
         } else {
             Err("server not running")
+        }
+    }
+
+    pub fn is_running(&self) -> bool {
+        if let ServerState::Started { .. } = &self.state {
+            true
+        } else {
+            false
         }
     }
 
@@ -222,7 +260,13 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
     Ok(reply::json(&controller_data))
 }
 
-async fn start_server(port: u16, clients: ServerClients, ip: Option<IpAddr>, cert_dir_path: &Path) {
+async fn start_server(
+    port: u16,
+    clients: ServerClients,
+    ip: Option<IpAddr>,
+    cert_dir_path: &Path,
+    shutdown_receiver: oneshot::Receiver<()>,
+) {
     use warp::Filter;
     let controller_route = warp::get()
         .and(warp::path!("realearn" / "session" / String / "controller"))
@@ -262,11 +306,12 @@ async fn start_server(port: u16, clients: ServerClients, ip: Option<IpAddr>, cer
         .or(ws_route);
     if let Some(ip) = ip {
         let (key, cert) = get_key_and_cert(ip, cert_dir_path);
-        warp::serve(routes)
-            .tls()
-            .key(key)
-            .cert(cert)
-            .run(([0, 0, 0, 0], port))
+        let server = warp::serve(routes).tls().key(key).cert(cert);
+        server
+            .bind_with_graceful_shutdown(([0, 0, 0, 0], port), async {
+                shutdown_receiver.await.unwrap()
+            })
+            .1
             .await;
     } else {
         // TODO-high In this case we should consider binding to localhost only and give a
@@ -275,8 +320,14 @@ async fn start_server(port: u16, clients: ServerClients, ip: Option<IpAddr>, cer
         //  On Flutter, this works using badCertificateCallback. On the web it doesn't make
         //  a real difference. Using a self-signed certificate will have to be manually accepted,
         //  no matter if the host name is correct or not.
-        warp::serve(routes).run(([0, 0, 0, 0], port)).await;
-    }
+        let server = warp::serve(routes);
+        server
+            .bind_with_graceful_shutdown(([0, 0, 0, 0], port), async {
+                shutdown_receiver.await.unwrap()
+            })
+            .1
+            .await;
+    };
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {

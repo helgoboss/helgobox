@@ -8,6 +8,9 @@ use view_manager::*;
 mod window;
 pub use window::*;
 
+mod menu;
+pub use menu::*;
+
 mod view;
 pub use view::*;
 
