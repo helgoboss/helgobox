@@ -1,5 +1,5 @@
 //! This file is supposed to encapsulate most of the (ugly) win32 API glue code
-use crate::{SharedView, View, WeakView, Window};
+use crate::{Pixels, Point, SharedView, View, WeakView, Window};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 
@@ -234,6 +234,12 @@ unsafe extern "C" fn view_dialog_proc(
                     if !processed {
                         window.destroy();
                     }
+                    1
+                }
+                raw::WM_CONTEXTMENU => {
+                    let x = loword(lparam as _);
+                    let y = hiword(lparam as _);
+                    view.context_menu_wanted(Point::new(Pixels(x as _), Pixels(y as _)));
                     1
                 }
                 _ => 0,

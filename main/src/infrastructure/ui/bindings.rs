@@ -9,10 +9,13 @@ pub mod root {
     pub const ID_MAPPING_ROW_DIALOG: u32 = 106;
     pub const ID_MAPPING_ROWS_DIALOG: u32 = 108;
     pub const ID_MAIN_DIALOG: u32 = 111;
+    pub const IDR_HEADER_PANEL_CONTEXT_MENU: u32 = 117;
+    pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 40000;
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
     pub const ID_TARGET_PICK_ACTION_BUTTON: u32 = 40000;
+    pub const IDM_PROJECTION_SERVER: u32 = 40001;
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
     pub const ID_MAPPING_ROW_EDIT_BUTTON: u32 = 40001;
     pub const ID_SETTINGS_REVERSE_CHECK_BOX: u32 = 40001;

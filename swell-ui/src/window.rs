@@ -3,7 +3,7 @@ use reaper_low::{raw, Swell};
 use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{null, null_mut, NonNull};
 
 /// Represents a window.
 ///
@@ -296,6 +296,33 @@ impl Window {
         unsafe {
             Swell::get().DestroyWindow(self.raw);
         }
+    }
+
+    pub fn open_popup_menu(self, resource_id: u32, location: Point<Pixels>) -> Option<u32> {
+        let swell = Swell::get();
+        let result = unsafe {
+            // TODO-low One day we should cache this menu.
+            let menu = swell.LoadMenu(
+                swell.plugin_context().h_instance(),
+                resource_id as u16 as raw::ULONG_PTR as raw::LPSTR,
+            );
+            let sub_menu = swell.GetSubMenu(menu, 0);
+            let result = swell.TrackPopupMenu(
+                sub_menu,
+                raw::TPM_RETURNCMD as _,
+                location.x.get() as _,
+                location.y.get() as _,
+                0,
+                self.raw(),
+                null(),
+            );
+            swell.DestroyMenu(menu);
+            result
+        };
+        if result == 0 {
+            return None;
+        }
+        Some(result as _)
     }
 
     pub fn move_to(self, point: Point<DialogUnits>) {

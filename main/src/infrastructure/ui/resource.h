@@ -7,10 +7,13 @@
 #define ID_MAPPING_ROW_DIALOG                   106
 #define ID_MAPPING_ROWS_DIALOG                  108
 #define ID_MAIN_DIALOG                          111
+#define IDR_HEADER_PANEL_CONTEXT_MENU           117
+#define IDM_LOG_DEBUG_INFO                      40000
 #define ID_ADD_MAPPING_BUTTON                   40000
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_TARGET_PICK_ACTION_BUTTON            40000
+#define IDM_PROJECTION_SERVER                   40001
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
 #define ID_MAPPING_ROW_EDIT_BUTTON              40001
 #define ID_SETTINGS_REVERSE_CHECK_BOX           40001
@@ -52,7 +55,6 @@
 #define ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL 40014
 #define ID_COMPARTMENT_COMBO_BOX                40015
 #define ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL 40015
-#define ID_LOG_BUTTON                           40016
 #define ID_TARGET_FX_FOCUS_CHECK_BOX            40016
 #define ID_PRESET_COMBO_BOX                     40017
 #define ID_SETTINGS_ROTATE_CHECK_BOX            40017

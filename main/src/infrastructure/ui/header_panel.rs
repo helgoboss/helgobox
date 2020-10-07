@@ -27,9 +27,11 @@ use enum_iterator::IntoEnumIterator;
 use image::Luma;
 use once_cell::unsync::Lazy;
 use qrcode::QrCode;
+use reaper_low::{raw, Swell};
 use std::convert::TryInto;
 use std::path::Path;
-use swell_ui::{SharedView, View, ViewContext, Window};
+use std::ptr::{null, null_mut};
+use swell_ui::{Pixels, Point, SharedView, View, ViewContext, Window};
 use web_view::Content;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -815,7 +817,6 @@ impl View for HeaderPanel {
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
-            ID_LOG_BUTTON => self.log_debug_info(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
@@ -854,6 +855,22 @@ impl View for HeaderPanel {
             _ => unreachable!(),
         }
         true
+    }
+
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+        let result = match self
+            .view
+            .require_window()
+            .open_popup_menu(root::IDR_HEADER_PANEL_CONTEXT_MENU, location)
+        {
+            None => return,
+            Some(r) => r,
+        };
+        match result {
+            root::IDM_PROJECTION_SERVER => {}
+            root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
+            _ => unreachable!(),
+        };
     }
 }
 
