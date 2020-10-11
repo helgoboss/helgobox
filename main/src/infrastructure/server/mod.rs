@@ -133,6 +133,16 @@ impl RealearnServer {
         get_local_ip()
     }
 
+    pub fn local_hostname(&self) -> Option<String> {
+        let hn = hostname::get().ok()?;
+        Some(hn.to_string_lossy().into())
+    }
+
+    pub fn local_hostname_dns(&self) -> Option<String> {
+        let ip = self.local_ip()?;
+        dns_lookup::lookup_addr(&ip).ok()
+    }
+
     pub fn port(&self) -> u16 {
         self.port
     }
@@ -142,9 +152,15 @@ impl RealearnServer {
             "\n\
         # Server\n\
         \n\
-        - ReaLearn app URL: {}
+        - ReaLearn app URL: {}\n\
+        - ReaLearn local hostname: {:?}\n\
+        - ReaLearn local hostname with DNS lookup: {:?}\n\
+        - ReaLearn local IP address: {:?}\n\
         ",
-            self.generate_realearn_app_url(session_id)
+            self.generate_realearn_app_url(session_id),
+            self.local_hostname(),
+            self.local_hostname_dns(),
+            self.local_ip()
         );
         Reaper::get().show_console_msg(msg);
     }
