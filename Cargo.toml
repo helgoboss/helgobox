@@ -10,3 +10,9 @@ members = [
 [profile.release]
 # This is important for having line numbers in bug reports.
 debug = true
+
+[patch.crates-io]
+# I absolutely need Flutter to be able to connect with ReaLearn based on a LAN IP address. Without this hack, Flutter
+# will fail to connect with a TLSV1_ALERT_DECODE_ERROR. As soon as webpki #54 is closed and Warp/Rustls has updated
+# the dependency, we should remove this!
+webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround/54-alert-decode-error" }
