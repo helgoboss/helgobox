@@ -28,11 +28,37 @@ use image::Luma;
 use once_cell::unsync::Lazy;
 use qrcode::QrCode;
 use reaper_low::{raw, Swell};
+use std::cell::RefCell;
 use std::convert::TryInto;
 use std::path::Path;
 use std::ptr::{null, null_mut};
+use std::thread::JoinHandle;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
-use web_view::Content;
+use web_view::{Content, Error, WebView};
+use wrap_debug::WrapDebug;
+
+type WebViewState = ();
+
+#[derive(Debug)]
+struct WebViewConnection {
+    sender: crossbeam_channel::Sender<WebViewTask>,
+    join_handle: JoinHandle<()>,
+}
+
+type WebViewTask = Box<dyn FnOnce(&mut WebView<WebViewState>) + Send + 'static>;
+
+impl WebViewConnection {
+    pub fn send(&mut self, task: impl FnOnce(&mut WebView<WebViewState>) + Send + 'static) {
+        let _ = self.sender.send(Box::new(task));
+    }
+
+    pub fn blocking_exit(mut self) {
+        self.send(|wv| wv.exit());
+        self.join_handle
+            .join()
+            .expect("couldn't join with web view thread");
+    }
+}
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -40,6 +66,7 @@ pub struct HeaderPanel {
     view: ViewContext,
     session: WeakSession,
     main_state: SharedMainState,
+    web_view_connection: RefCell<Option<WebViewConnection>>,
     qrcode_file_temp_path: Lazy<Option<tempfile::TempPath>>,
 }
 
@@ -49,6 +76,7 @@ impl HeaderPanel {
             view: Default::default(),
             session,
             main_state,
+            web_view_connection: Default::default(),
             qrcode_file_temp_path: Lazy::new(|| create_qrcode_file().ok()),
         }
     }
@@ -624,6 +652,7 @@ impl HeaderPanel {
     }
 
     fn show_projection_info(&self) {
+        self.exit_web_view_blocking();
         let mut server = App::get().server().borrow_mut();
         if !server.is_running() {
             let result = Reaper::get().medium_reaper().show_message_box(
@@ -688,16 +717,36 @@ impl HeaderPanel {
             server.port(),
             session.id()
         );
-        let wv = web_view::builder()
-            .title("ReaLearn")
-            .content(Content::Html(html_content))
-            .size(800, 600)
-            .resizable(false)
-            .user_data(())
-            .invoke_handler(|_webview, _arg| Ok(()))
-            .build()
-            .expect("couldn't build WebView");
-        wv.run();
+        let (sender, receiver): (
+            crossbeam_channel::Sender<WebViewTask>,
+            crossbeam_channel::Receiver<WebViewTask>,
+        ) = crossbeam_channel::unbounded();
+        let join_handle = std::thread::spawn(move || {
+            let mut wv = web_view::builder()
+                .title("ReaLearn")
+                .content(Content::Html(html_content))
+                .size(800, 600)
+                .resizable(false)
+                .user_data(())
+                .invoke_handler(|_webview, _arg| Ok(()))
+                .build()
+                .expect("couldn't build WebView");
+            loop {
+                for task in receiver.try_iter() {
+                    (task)(&mut wv);
+                }
+                match wv.step() {
+                    // WebView closed
+                    None => break,
+                    // WebView still running or error
+                    Some(res) => res.expect("error in projection web view"),
+                }
+            }
+        });
+        *self.web_view_connection.borrow_mut() = Some(WebViewConnection {
+            sender,
+            join_handle,
+        });
     }
 
     fn toggle_server(&self) {
@@ -799,6 +848,12 @@ impl HeaderPanel {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
+    }
+
+    fn exit_web_view_blocking(&self) {
+        if let Some(con) = self.web_view_connection.replace(None) {
+            con.blocking_exit();
+        }
     }
 }
 
@@ -921,6 +976,7 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
+        self.exit_web_view_blocking();
     }
 }
 
