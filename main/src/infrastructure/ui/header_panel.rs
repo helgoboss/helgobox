@@ -1,41 +1,38 @@
-use crate::core::{toast, when};
-use crate::domain::{MappingCompartment, ReaperTarget};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput};
-use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::SharedMainState;
-
-use clipboard::{ClipboardContext, ClipboardProvider};
-
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-
-use reaper_medium::{
-    MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
-};
-use rx_util::UnitEvent;
-
-use slog::debug;
-
+use std::cell::RefCell;
+use std::convert::TryInto;
 use std::ops::Deref;
+use std::path::Path;
+use std::ptr::{null, null_mut};
 use std::rc::Rc;
+use std::thread::JoinHandle;
 use std::{io, iter};
 
-use crate::application::{Controller, SharedSession, WeakSession};
-use crate::infrastructure::data::SessionData;
-use crate::infrastructure::plugin::App;
-use crate::infrastructure::ui::dialog_util;
+use clipboard::{ClipboardContext, ClipboardProvider};
 use enum_iterator::IntoEnumIterator;
 use image::Luma;
 use once_cell::unsync::Lazy;
 use qrcode::QrCode;
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_low::{raw, Swell};
-use std::cell::RefCell;
-use std::convert::TryInto;
-use std::path::Path;
-use std::ptr::{null, null_mut};
-use std::thread::JoinHandle;
-use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
+use reaper_medium::{
+    MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
+};
+use slog::debug;
 use web_view::{Content, Error, WebView};
 use wrap_debug::WrapDebug;
+
+use rx_util::UnitEvent;
+use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
+
+use crate::application::{Controller, SharedSession, WeakSession};
+use crate::core::{toast, when};
+use crate::domain::{MappingCompartment, ReaperTarget};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput};
+use crate::infrastructure::data::SessionData;
+use crate::infrastructure::plugin::App;
+use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::dialog_util;
+use crate::infrastructure::ui::SharedMainState;
 
 type WebViewState = ();
 
@@ -48,7 +45,7 @@ struct WebViewConnection {
 type WebViewTask = Box<dyn FnOnce(&mut WebView<WebViewState>) + Send + 'static>;
 
 impl WebViewConnection {
-    pub fn send(&mut self, task: impl FnOnce(&mut WebView<WebViewState>) + Send + 'static) {
+    pub fn send(&self, task: impl FnOnce(&mut WebView<WebViewState>) + Send + 'static) {
         let _ = self.sender.send(Box::new(task));
     }
 
@@ -685,38 +682,39 @@ impl HeaderPanel {
                 .expect("couldn't save QR code image to temporary file");
             (file.to_string_lossy(), image.width(), image.height())
         };
-        let html_content = format!(
-            r#"
-            <html>
-            <body>
-            <h1>ReaLearn</h1>
-            <img src="{}"/>
-            Or manually enter the following data:
-            <table>
-            <tr>
-            <td>Host:</td>
-            <td>{}</td>
-            </tr>
-            <tr>
-            <td>Port:</td>
-            <td>{}</td>
-            </tr>
-            <tr>
-            <td>Session:</td>
-            <td>{}</td>
-            </tr>
-            </table>
-            </body>
-            </html>
-            "#,
-            file,
-            server
-                .local_ip()
-                .map(|ip| ip.to_string())
-                .unwrap_or("<could not be determined>".to_string()),
-            server.port(),
-            session.id()
-        );
+        // let html_content = format!(
+        //     r#"
+        //     <html>
+        //     <body>
+        //     <h1>ReaLearn</h1>
+        //     <img src="{}"/>
+        //     Or manually enter the following data:
+        //     <table>
+        //     <tr>
+        //     <td>Host:</td>
+        //     <td>{}</td>
+        //     </tr>
+        //     <tr>
+        //     <td>Port:</td>
+        //     <td>{}</td>
+        //     </tr>
+        //     <tr>
+        //     <td>Session:</td>
+        //     <td>{}</td>
+        //     </tr>
+        //     </table>
+        //     </body>
+        //     </html>
+        //     "#,
+        //     file,
+        //     server
+        //         .local_ip()
+        //         .map(|ip| ip.to_string())
+        //         .unwrap_or("<could not be determined>".to_string()),
+        //     server.port(),
+        //     session.id()
+        // );
+        let html_content = include_str!("web_view_content.html");
         let (sender, receiver): (
             crossbeam_channel::Sender<WebViewTask>,
             crossbeam_channel::Receiver<WebViewTask>,
@@ -747,6 +745,15 @@ impl HeaderPanel {
             sender,
             join_handle,
         });
+        self.update_web_view();
+    }
+
+    fn update_web_view(&self) {
+        if let Some(c) = self.web_view_connection.borrow().as_ref() {
+            c.send(|wv| {
+                wv.eval("document.body.innerHTML = '<b>Test</b>';");
+            })
+        }
     }
 
     fn toggle_server(&self) {
