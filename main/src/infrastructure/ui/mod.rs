@@ -21,6 +21,9 @@ pub use mapping_panel::*;
 mod mapping_panel_manager;
 pub use mapping_panel_manager::*;
 
+mod web_view_manager;
+pub use web_view_manager::*;
+
 mod dialog_util;
 
 mod constants;

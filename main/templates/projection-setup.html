@@ -1,0 +1,209 @@
+{% let activation_class -%}
+{% if body_state.server_is_running -%}
+{% let activation_class = "active" -%}
+{% else -%}
+{% let activation_class = "inactive" -%}
+{% endif -%}
+
+{% if include_skeleton %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ReaLearn</title>
+    <!--        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/dark.css">-->
+    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" type="text/css">
+    <!--    <link rel="stylesheet" href="https://unpkg.com/marx-css/css/marx.min.css">-->
+    <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/yegor256/tacit@gh-pages/tacit-css-1.5.1.min.css"/>-->
+    <!--    <link rel="stylesheet" href="https://unpkg.com/awsm.css/dist/awsm_theme_big-stone.min.css">-->
+    <!--    <link rel="stylesheet" href="https://unpkg.com/98.css">-->
+    <!--    <link href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css" rel="stylesheet" />-->
+    <!--    <link rel="stylesheet" href="https://unpkg.com/wingcss"/>-->
+    <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">-->
+    <style>
+        html {
+            font-size: 55.0%;
+        }
+
+        body {
+            max-width: 60em;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .inactive, .inactive a {
+            color: #bbb;
+        }
+    </style>
+</head>
+<body>
+Loading...
+{% endif %}
+{% if include_body_content %}
+<div class="center">
+    <h1>ReaLearn Projection</h1>
+    {% if body_state.server_is_running %}
+    <div>
+        <img src="{{ body_state.qr_code_image_url }}" alt="{{ body_state.full_companion_app_url }}"/>
+    </div>
+    {% endif %}
+</div>
+
+<h2>Introduction</h2>
+<p>
+    Welcome to ReaLearn's projection feature. This allows you to project a schematic representation of your currently
+    active controller to a mobile device (e.g. a tablet computer). You can put this device close to your controller in
+    order to see immediately which control element is mapped to which parameter.
+</p>
+<h2>First-time setup</h2>
+<p>
+    In order to let your mobile device connect to ReaLearn, ReaLearn needs to act as a so-called <em>web
+    server</em>. By default, this server is switched off. In order to set it up correctly, please follow below
+    instructions. Don't worry, this needs to be done only once. After this initial effort, pairing your mobile device
+    with another ReaLearn instance is a matter of a few seconds (you just need to scan a QR code).
+</p>
+<ol>
+    <li>
+        Make sure the server is running.
+        {% if body_state.server_is_running %}
+        <span style="font-size: 200%">✔</span>
+        <ul>
+            <li>
+                Congratulations, the server seems to be running!
+            </li>
+            {% if body_state.server_is_enabled %}
+            <li>
+                It will automatically be started again next time you start REAPER with ReaLearn. If you decide to not
+                use the projection feature anymore, click
+                <button>here</button>
+                to disable the server.
+            </li>
+            {% else %}
+            <li>
+                The server has been successfully disabled. This will take effect on the next start of REAPER. Click
+                <button onclick="external.invoke('enable_server')">here</button>
+                to enable it again.
+            </li>
+            {% endif %}
+        </ul>
+        {% else %}
+        <ul>
+            <li>
+                The server is currently not running. Click
+                <button onclick="external.invoke('start_server')">here</button>
+                to start it! It's possible that your firewall
+                will ask you for permission to open a network port for external devices. In that case, say yes!
+            </li>
+        </ul>
+        {% endif %}
+    </li>
+    <li class="{{ activation_class }}">
+        Try to <a href="#">open the ReaLearn Companion web app on this computer</a>.
+        <ul>
+            <li>
+                If this works, you know the server is indeed running. That means you can already use projections right
+                here on this computer.
+            </li>
+            <li>
+                It's more useful however to project the controller routing to another device. Let's set this up in the
+                next steps.
+            </li>
+        </ul>
+    </li>
+    <li class="{{ activation_class }}">
+        Try to open ReaLearn's companion app on your mobile device.
+        <ul>
+            <li>
+                There's no native Android/iOS app (yet) so we are going to use the ReaLearn Companion web app again.
+            </li>
+            <li>
+                Simply use your device's QR code scanner, scan the QR code on the top of this page and open the
+                resulting address in your mobile browser.
+            </li>
+            <li>
+                If your device can't scan QR codes, point your mobile browser to the following address:
+                <code>{{ body_state.companion_app_url }}</code>. When asked, enter the following connection details:
+                <table>
+                    <tr>
+                        <th>Host:</th>
+                        <td>{{ body_state.server_host }}</td>
+                    </tr>
+                    <tr>
+                        <th>Port:</th>
+                        <td>{{ body_state.server_port }}</td>
+                    </tr>
+                    <tr>
+                        <th>Session ID:</th>
+                        <td>{{ body_state.session_id }}</td>
+                    </tr>
+                </table>
+            </li>
+        </ul>
+    </li>
+    <li class="{{ activation_class }}">
+        The app might ask you to open a port in your firewall. If so, follow below instructions:
+        <ul>
+            {% if body_state.os == "windows" %}
+            <li>
+                Click
+                <button>here</button>
+                to add an exception to your Windows Firewall.
+            </li>
+            {% else if body_state.os == "macos" %}
+            <li>Click
+                <button>here</button>
+                to add an exception to your macOS Firewall.
+            </li>
+            <li>
+                After that, check your mobile device for successful connection.
+            </li>
+            {% else %}
+            <li>
+                Please add a firewall rule manually that opens port {{ body_state.server_port }} for incoming TCP
+                connections.
+            </li>
+            {% endif %}
+            <li>
+                Troubleshooting:
+                <ul>
+                    <li>
+                        If your mobile device still cannot connect, you can temporarily switch off your firewall to see
+                        if that's the issue.
+                    </li>
+                    <li>
+                        If this helped, switch your Firewall on again and try to add a Firewall rule manually that opens
+                        port {{ body_state.server_port }} for incoming TCP connections.
+                    </li>
+                    <li>
+                        If it it still doesn't work, please make sure your mobile device is in the same network as your
+                        computer running REAPER/ReaLearn.
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ol>
+<h2>Can I use this on stage?</h2>
+<p>
+    At the moment this feature is optimized for usage in a studio environment, not for usage on stage. Before using it
+    in live scenarios, please consider the following hints:
+</p>
+<ul>
+    <li>
+        In order to connect to ReaLearn, your mobile device needs to be in the same network as this computer. At home
+        this is usually a no-brainer because you have a wireless access point that connects everything for you. On stage
+        you would need to establish an ad-hoc wireless network connection between your computer and the mobile device.
+        This is possible and not so difficult but ReaLearn won't set it up for you.
+    </li>
+    <li>
+        ReaLearn's server is not password-protected or rate-limited. Therefore you should make sure that your ad-hoc
+        network uses a strong password. Otherwise a hacker with bad intentions could possibly find ways to mess up your
+        stage performance.
+    </li>
+</ul>
+{% endif %}
+{% if include_skeleton %}
+</body>
+</html>
+{% endif %}

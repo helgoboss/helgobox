@@ -9,6 +9,7 @@ use futures::channel::oneshot;
 use futures::SinkExt;
 use rcgen::{Certificate, CertificateParams, SanType};
 use reaper_high::Reaper;
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -36,6 +37,7 @@ pub struct RealearnServer {
     port: u16,
     state: ServerState,
     cert_dir_path: PathBuf,
+    changed_subject: LocalSubject<'static, (), ()>,
 }
 
 enum ServerState {
@@ -46,12 +48,15 @@ enum ServerState {
     },
 }
 
+pub const COMPANION_APP_URL: &'static str = "https://www.helgoboss.org/projects/realearn/app";
+
 impl RealearnServer {
     pub fn new(port: u16, cert_dir_path: PathBuf) -> RealearnServer {
         RealearnServer {
             port,
             state: ServerState::Stopped,
             cert_dir_path,
+            changed_subject: Default::default(),
         }
     }
 
@@ -86,9 +91,14 @@ impl RealearnServer {
             clients,
             shutdown_sender,
         };
+        self.changed_subject.next(());
     }
 
-    /// Idempotent
+    /// Idempotent.
+    ///
+    /// Not used at the moment because sometimes it doesn't free the port and then restart fails.
+    /// Right now we ask the user to restart REAPER after having made changes that affect an
+    /// already running server.
     pub fn stop(&mut self) {
         let old_state = std::mem::replace(&mut self.state, ServerState::Stopped);
         let mut shutdown_sender = match old_state {
@@ -116,13 +126,14 @@ impl RealearnServer {
         }
     }
 
-    pub fn generate_realearn_app_url(&self, session_id: &str) -> String {
+    pub fn generate_full_companion_app_url(&self, session_id: &str) -> String {
         let host = self
             .local_ip()
             .map(|ip| ip.to_string())
             .unwrap_or("127.0.0.1".to_string());
         format!(
-            "https://www.helgoboss.org/projects/realearn/app/#{}:{}/{}",
+            "{}/#{}:{}/{}",
+            COMPANION_APP_URL,
             host,
             self.port(),
             session_id
@@ -157,12 +168,16 @@ impl RealearnServer {
         - ReaLearn local hostname with DNS lookup: {:?}\n\
         - ReaLearn local IP address: {:?}\n\
         ",
-            self.generate_realearn_app_url(session_id),
+            self.generate_full_companion_app_url(session_id),
             self.local_hostname(),
             self.local_hostname_dns(),
             self.local_ip()
         );
         Reaper::get().show_console_msg(msg);
+    }
+
+    pub fn changed(&self) -> impl UnitEvent {
+        self.changed_subject.clone()
     }
 }
 

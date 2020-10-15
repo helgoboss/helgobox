@@ -18,7 +18,6 @@ use reaper_medium::{
     MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
 };
 use slog::debug;
-use web_view::{Content, Error, WebView};
 use wrap_debug::WrapDebug;
 
 use rx_util::UnitEvent;
@@ -30,32 +29,10 @@ use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
+use crate::infrastructure::server::COMPANION_APP_URL;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::dialog_util;
 use crate::infrastructure::ui::SharedMainState;
-
-type WebViewState = ();
-
-#[derive(Debug)]
-struct WebViewConnection {
-    sender: crossbeam_channel::Sender<WebViewTask>,
-    join_handle: JoinHandle<()>,
-}
-
-type WebViewTask = Box<dyn FnOnce(&mut WebView<WebViewState>) + Send + 'static>;
-
-impl WebViewConnection {
-    pub fn send(&self, task: impl FnOnce(&mut WebView<WebViewState>) + Send + 'static) {
-        let _ = self.sender.send(Box::new(task));
-    }
-
-    pub fn blocking_exit(mut self) {
-        self.send(|wv| wv.exit());
-        self.join_handle
-            .join()
-            .expect("couldn't join with web view thread");
-    }
-}
+use crate::infrastructure::ui::{dialog_util, WebViewManager};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -63,18 +40,16 @@ pub struct HeaderPanel {
     view: ViewContext,
     session: WeakSession,
     main_state: SharedMainState,
-    web_view_connection: RefCell<Option<WebViewConnection>>,
-    qrcode_file_temp_path: Lazy<Option<tempfile::TempPath>>,
+    web_view_manager: SharedView<WebViewManager>,
 }
 
 impl HeaderPanel {
     pub fn new(session: WeakSession, main_state: SharedMainState) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
-            session,
+            session: session.clone(),
             main_state,
-            web_view_connection: Default::default(),
-            qrcode_file_temp_path: Lazy::new(|| create_qrcode_file().ok()),
+            web_view_manager: WebViewManager::new(session),
         }
     }
 }
@@ -648,123 +623,6 @@ impl HeaderPanel {
         App::get().log_debug_info(session.id());
     }
 
-    fn show_projection_info(&self) {
-        self.exit_web_view_blocking();
-        let mut server = App::get().server().borrow_mut();
-        if !server.is_running() {
-            let result = Reaper::get().medium_reaper().show_message_box(
-                "In order to use the projection feature, ReaLearn must start a web server to which \
-            mobile devices can connect. If you choose yes, the server will be started right now \
-            and in future whenever ReaLearn is loaded the first time. You can disable the server \
-            at any time in the context menu. \n\
-            \n\
-            Do you want to continue?",
-                "ReaLearn",
-                MessageBoxType::YesNo,
-            );
-            if result != MessageBoxResult::Yes {
-                return;
-            }
-            server.start();
-        }
-        let session = self.session();
-        let session = session.borrow();
-        let url_to_encode = server.generate_realearn_app_url(session.id());
-        let (file, width, height) = {
-            let file = self
-                .qrcode_file_temp_path
-                .as_ref()
-                .expect("couldn't create temp file for QR code");
-            let code = QrCode::new(url_to_encode).unwrap();
-            let image = code.render::<image::Luma<u8>>().build();
-            image
-                .save(file)
-                .expect("couldn't save QR code image to temporary file");
-            (file.to_string_lossy(), image.width(), image.height())
-        };
-        // let html_content = format!(
-        //     r#"
-        //     <html>
-        //     <body>
-        //     <h1>ReaLearn</h1>
-        //     <img src="{}"/>
-        //     Or manually enter the following data:
-        //     <table>
-        //     <tr>
-        //     <td>Host:</td>
-        //     <td>{}</td>
-        //     </tr>
-        //     <tr>
-        //     <td>Port:</td>
-        //     <td>{}</td>
-        //     </tr>
-        //     <tr>
-        //     <td>Session:</td>
-        //     <td>{}</td>
-        //     </tr>
-        //     </table>
-        //     </body>
-        //     </html>
-        //     "#,
-        //     file,
-        //     server
-        //         .local_ip()
-        //         .map(|ip| ip.to_string())
-        //         .unwrap_or("<could not be determined>".to_string()),
-        //     server.port(),
-        //     session.id()
-        // );
-        let html_content = include_str!("web_view_content.html");
-        let (sender, receiver): (
-            crossbeam_channel::Sender<WebViewTask>,
-            crossbeam_channel::Receiver<WebViewTask>,
-        ) = crossbeam_channel::unbounded();
-        let join_handle = std::thread::spawn(move || {
-            let mut wv = web_view::builder()
-                .title("ReaLearn")
-                .content(Content::Html(html_content))
-                .size(800, 600)
-                .resizable(false)
-                .user_data(())
-                .invoke_handler(|_webview, _arg| Ok(()))
-                .build()
-                .expect("couldn't build WebView");
-            loop {
-                for task in receiver.try_iter() {
-                    (task)(&mut wv);
-                }
-                match wv.step() {
-                    // WebView closed
-                    None => break,
-                    // WebView still running or error
-                    Some(res) => res.expect("error in projection web view"),
-                }
-            }
-        });
-        *self.web_view_connection.borrow_mut() = Some(WebViewConnection {
-            sender,
-            join_handle,
-        });
-        self.update_web_view();
-    }
-
-    fn update_web_view(&self) {
-        if let Some(c) = self.web_view_connection.borrow().as_ref() {
-            c.send(|wv| {
-                wv.eval("document.body.innerHTML = '<b>Test</b>';");
-            })
-        }
-    }
-
-    fn toggle_server(&self) {
-        let mut server = App::get().server().borrow_mut();
-        if server.is_running() {
-            server.stop();
-        } else {
-            server.start();
-        }
-    }
-
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -856,12 +714,6 @@ impl HeaderPanel {
             .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
     }
-
-    fn exit_web_view_blocking(&self) {
-        if let Some(con) = self.web_view_connection.replace(None) {
-            con.blocking_exit();
-        }
-    }
 }
 
 impl View for HeaderPanel {
@@ -918,7 +770,7 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             ID_PROJECTION_BUTTON => {
-                self.show_projection_info();
+                self.web_view_manager.show_projection_info();
             }
             _ => {}
         }
@@ -956,7 +808,6 @@ impl View for HeaderPanel {
             Some(r) => r,
         };
         match result {
-            root::IDM_PROJECTION_SERVER => self.toggle_server(),
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
             _ => unreachable!(),
         };
@@ -983,11 +834,5 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
-        self.exit_web_view_blocking();
     }
-}
-
-fn create_qrcode_file() -> io::Result<tempfile::TempPath> {
-    let mut file = tempfile::Builder::new().suffix(".png").tempfile()?;
-    Ok(file.into_temp_path())
 }

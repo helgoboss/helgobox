@@ -18,7 +18,6 @@ IDR_HEADER_PANEL_CONTEXT_MENU MENU
 BEGIN
     POPUP "Header panel context menu"
     BEGIN
-        MENUITEM "Enable/disable projection server", IDM_PROJECTION_SERVER
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
     END
 END
