@@ -58,6 +58,7 @@ rcgen = "0.8.5"
 dns-lookup = "1.0.4"
 hostname = "^0.3"
 askama = "0.8"
+base64 = "0.13.0"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }

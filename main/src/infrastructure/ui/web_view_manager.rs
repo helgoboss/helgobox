@@ -7,6 +7,7 @@ use crate::application::{SharedMapping, SharedSession, WeakSession};
 use crate::core::when;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::COMPANION_APP_URL;
+use image::Pixel;
 use once_cell::unsync::Lazy;
 use qrcode::QrCode;
 use rx_util::UnitEvent;
@@ -23,7 +24,6 @@ use web_view::{Content, WebView};
 pub struct WebViewManager {
     session: WeakSession,
     web_view_connection: RefCell<Option<WebViewConnection>>,
-    qrcode_file_temp_path: Lazy<Option<tempfile::TempPath>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
 }
 
@@ -32,7 +32,6 @@ impl WebViewManager {
         let m = WebViewManager {
             session,
             web_view_connection: Default::default(),
-            qrcode_file_temp_path: Lazy::new(|| create_qrcode_file().ok()),
             party_is_over_subject: Default::default(),
         };
         let shared = Rc::new(m);
@@ -65,7 +64,7 @@ impl WebViewManager {
             let session = session.borrow();
             let server = App::get().server().borrow();
             let full_companion_app_url = server.generate_full_companion_app_url(session.id());
-            let qr_code_file = self.regenerate_qr_code_file(&full_companion_app_url);
+            let qr_code_image_url = self.generate_qr_code_as_image_url(&full_companion_app_url);
             let server_is_running = server.is_running();
             let session_id = session.id().to_string();
             let state = ProjectionSetupState {
@@ -76,7 +75,7 @@ impl WebViewManager {
                     // TODO-high Set correctly
                     server_is_enabled: false,
                     full_companion_app_url,
-                    qr_code_image_url: qr_code_file,
+                    qr_code_image_url,
                     companion_app_url: COMPANION_APP_URL,
                     server_host: server
                         .local_ip()
@@ -96,21 +95,23 @@ impl WebViewManager {
         }
     }
 
-    fn regenerate_qr_code_file(&self, content: &str) -> String {
-        let file = self
-            .qrcode_file_temp_path
-            .as_ref()
-            .expect("couldn't create temp file for QR code");
+    fn generate_qr_code_as_image_url(&self, content: &str) -> String {
         let code = QrCode::new(content).unwrap();
+        type P = image::LumaA<u8>;
         let image = code
-            .render::<image::LumaA<u8>>()
+            .render::<P>()
             .light_color(image::LumaA([1, 0]))
             .module_dimensions(4, 4)
             .build();
-        image
-            .save(file)
-            .expect("couldn't save QR code image to temporary file");
-        file.to_string_lossy().to_string()
+        let mut buffer = Vec::new();
+        let encoder = image::png::PNGEncoder::new(&mut buffer);
+        encoder
+            .encode(&image, image.width(), image.height(), P::COLOR_TYPE)
+            .expect("couldn't encode QR code to PNG image");
+        format!(
+            "data:image/png;base64,{}",
+            base64::encode_config(&buffer, base64::URL_SAFE)
+        )
     }
 
     /// Closes and removes all mapping panels
@@ -206,11 +207,6 @@ struct BodyState {
     session_id: String,
     // Can't change at all
     os: &'static str,
-}
-
-fn create_qrcode_file() -> io::Result<tempfile::TempPath> {
-    let mut file = tempfile::Builder::new().suffix(".png").tempfile()?;
-    Ok(file.into_temp_path())
 }
 
 fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>) {
