@@ -43,11 +43,9 @@ Loading...
 {% if include_body_content %}
 <div class="center">
     <h1>ReaLearn Projection</h1>
-    {% if body_state.server_is_running %}
     <div>
         <img src="{{ body_state.qr_code_image_url }}" alt="{{ body_state.full_companion_app_url }}"/>
     </div>
-    {% endif %}
 </div>
 
 <h2>Introduction</h2>

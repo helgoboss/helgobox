@@ -64,8 +64,10 @@ impl WebViewManager {
             let session = session.borrow();
             let server = App::get().server().borrow();
             let full_companion_app_url = server.generate_full_companion_app_url(session.id());
-            let qr_code_image_url = self.generate_qr_code_as_image_url(&full_companion_app_url);
             let server_is_running = server.is_running();
+            let black_alpha = if server_is_running { 254 } else { 15 };
+            let qr_code_image_url =
+                self.generate_qr_code_as_image_url(&full_companion_app_url, black_alpha);
             let session_id = session.id().to_string();
             let state = ProjectionSetupState {
                 include_skeleton: false,
@@ -95,12 +97,13 @@ impl WebViewManager {
         }
     }
 
-    fn generate_qr_code_as_image_url(&self, content: &str) -> String {
+    fn generate_qr_code_as_image_url(&self, content: &str, black_alpha: u8) -> String {
         let code = QrCode::new(content).unwrap();
         type P = image::LumaA<u8>;
         let image = code
             .render::<P>()
-            .light_color(image::LumaA([1, 0]))
+            .dark_color(image::LumaA([0, black_alpha]))
+            .light_color(image::LumaA([255, 0]))
             .module_dimensions(4, 4)
             .build();
         let mut buffer = Vec::new();
