@@ -74,8 +74,7 @@ impl WebViewManager {
                 include_body_content: true,
                 body_state: BodyState {
                     server_is_running,
-                    // TODO-high Set correctly
-                    server_is_enabled: false,
+                    server_is_enabled: App::get().server_is_enabled(),
                     full_companion_app_url,
                     qr_code_image_url,
                     companion_app_url: COMPANION_APP_URL,
@@ -104,7 +103,7 @@ impl WebViewManager {
             .render::<P>()
             .dark_color(image::LumaA([0, black_alpha]))
             .light_color(image::LumaA([255, 0]))
-            .module_dimensions(4, 4)
+            .module_dimensions(6, 6)
             .build();
         let mut buffer = Vec::new();
         let encoder = image::png::PNGEncoder::new(&mut buffer);
@@ -113,7 +112,7 @@ impl WebViewManager {
             .expect("couldn't encode QR code to PNG image");
         format!(
             "data:image/png;base64,{}",
-            base64::encode_config(&buffer, base64::URL_SAFE)
+            base64::encode_config(&buffer, base64::URL_SAFE_NO_PAD)
         )
     }
 
