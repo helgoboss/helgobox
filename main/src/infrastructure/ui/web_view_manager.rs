@@ -10,6 +10,7 @@ use crate::infrastructure::server::COMPANION_APP_URL;
 use image::Pixel;
 use once_cell::unsync::Lazy;
 use qrcode::QrCode;
+use reaper_medium::MessageBoxType;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -46,9 +47,10 @@ impl WebViewManager {
             crossbeam_channel::Receiver<WebViewTask>,
         ) = crossbeam_channel::unbounded();
         let session_id = self.session().borrow().id().to_string();
+        let sender_clone = sender.clone();
         let join_handle = std::thread::Builder::new()
             .name("ReaLearn web view".to_string())
-            .spawn(move || run_web_view_blocking(receiver, session_id))
+            .spawn(move || run_web_view_blocking(sender_clone, receiver, session_id))
             .unwrap();
         let connection = WebViewConnection {
             sender,
@@ -219,7 +221,11 @@ struct BodyState {
     os: &'static str,
 }
 
-fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>, session_id: String) {
+fn run_web_view_blocking(
+    sender: crossbeam_channel::Sender<WebViewTask>,
+    receiver: crossbeam_channel::Receiver<WebViewTask>,
+    session_id: String,
+) {
     let html_skeleton = ProjectionSetupState {
         include_skeleton: true,
         include_body_content: false,
@@ -233,6 +239,19 @@ fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>, ses
         .user_data(())
         .invoke_handler(move |wv, arg| {
             match arg {
+                "add_firewall_rule" => {
+                    let sender = sender.clone();
+                    Reaper::get().do_later_in_main_thread_asap(move || {
+                        let server = App::get().server().borrow();
+                        let msg = match add_firewall_rule(server.port()) {
+                            Ok(_) => "Successfully added firewall rule.",
+                            Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
+                        };
+                        sender.send(Box::new(move |wv| {
+                            let _ = wv.eval(&format!("alert({});", web_view::escape(msg)));
+                        }));
+                    });
+                }
                 "open_companion_app" => {
                     let session_id = session_id.clone();
                     Reaper::get().do_later_in_main_thread_asap(move || {
@@ -277,4 +296,42 @@ fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>, ses
             Some(res) => res.expect("error in projection web view"),
         }
     }
+}
+
+#[cfg(target_os = "windows")]
+fn add_firewall_rule(port: u16) -> Result<(), &'static str> {
+    fn add(port: u16, direction: &str) -> Result<(), &'static str> {
+        let exit_status = runas::Command::new("netsh")
+            .args(&[
+                "advfirewall",
+                "firewall",
+                "add",
+                "rule",
+                "name=ReaLearn Server",
+                "action=allow",
+                "protocol=TCP",
+            ])
+            .arg(format!("dir={}", direction))
+            .arg(format!("localport={}", port))
+            .gui(true)
+            .show(false)
+            .status()
+            .map_err(|_| "couldn't execute command")?;
+        if !exit_status.success() {
+            return Err("command returned failure exit code");
+        }
+        Ok(())
+    }
+    add(port, "in")?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn add_firewall_rule(port: u16) -> Result<(), &'static str> {
+    todo!("not implemented yet for macOS")
+}
+
+#[cfg(target_os = "linux")]
+fn add_firewall_rule(port: u16) -> Result<(), &'static str> {
+    unimplemented!("This shouldn't be called!")
 }

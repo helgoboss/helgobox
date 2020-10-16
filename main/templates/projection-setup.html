@@ -401,12 +401,12 @@ Loading...
             {% if body_state.os == "windows" %}
             <li>
                 Click
-                <button>here</button>
+                <button onclick="external.invoke('add_firewall_rule')">here</button>
                 to add an exception to your Windows Firewall.
             </li>
             {% else if body_state.os == "macos" %}
             <li>Click
-                <button>here</button>
+                <button onclick="external.invoke('add_firewall_rule')">here</button>
                 to add an exception to your macOS Firewall.
             </li>
             <li>
@@ -430,8 +430,8 @@ Loading...
                         port {{ body_state.server_port }} for incoming TCP connections.
                     </li>
                     <li>
-                        If it it still doesn't work, please make sure your mobile device is in the same network as your
-                        computer running REAPER/ReaLearn.
+                        If it still doesn't work, please make sure your mobile device is in the same network as your
+                        computer running REAPER and ReaLearn.
                     </li>
                 </ul>
             </li>

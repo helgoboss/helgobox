@@ -45,22 +45,35 @@ smallvec = "1.4.0"
 backtrace = "0.3"
 regex = "1"
 enum-map = "0.6.3"
+# For generating controller file names from controller names
 slug = "0.1.4"
+# For generating random session IDs
 nanoid = "0.3.0"
+# For web server (e.g. for projection)
 futures = { version = "0.3", default-features = false }
 tokio = { version = "0.2", features = ["rt-core", "sync"] }
 warp = { version = "0.2", features = ["tls"] }
+# For rendering projection setup HTML page
 web-view = "0.6.3"
+# For generating projection QR code
 qrcode = { version = "0.11" }
+# For rendering projection QR code to PNG
 image = "0.22"
-tempfile = "3.1.0"
+# For generating self-signed certificate for projection web server
 rcgen = "0.8.5"
+# For showing different ways of connecting to this computer (projection feature)
 dns-lookup = "1.0.4"
 hostname = "^0.3"
+# For rendering projection setup HTML page template
 askama = "0.8"
+# For generating projection QR code data URI
 base64 = "0.13.0"
+# For persisting app configuration
 serde_ini = "0.2.0"
+# For opening companion app in local browser
 webbrowser = "0.5.5"
+# For adding firewall rules
+runas = "0.2.1"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }
