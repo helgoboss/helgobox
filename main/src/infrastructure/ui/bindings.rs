@@ -19,6 +19,7 @@ pub mod root {
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
     pub const ID_MAPPING_ROW_EDIT_BUTTON: u32 = 40001;
     pub const ID_SETTINGS_REVERSE_CHECK_BOX: u32 = 40001;
+    pub const IDM_CHANGE_SESSION_ID: u32 = 40002;
     pub const ID_IMPORT_BUTTON: u32 = 40002;
     pub const ID_MAPPING_ROW_DUPLICATE_BUTTON: u32 = 40002;
     pub const ID_SOURCE_CHANNEL_COMBO_BOX: u32 = 40002;
@@ -57,7 +58,6 @@ pub mod root {
     pub const ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL: u32 = 40014;
     pub const ID_COMPARTMENT_COMBO_BOX: u32 = 40015;
     pub const ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL: u32 = 40015;
-    pub const ID_LOG_BUTTON: u32 = 40016;
     pub const ID_TARGET_FX_FOCUS_CHECK_BOX: u32 = 40016;
     pub const ID_PRESET_COMBO_BOX: u32 = 40017;
     pub const ID_SETTINGS_ROTATE_CHECK_BOX: u32 = 40017;

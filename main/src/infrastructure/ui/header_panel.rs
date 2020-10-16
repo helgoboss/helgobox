@@ -586,6 +586,18 @@ impl HeaderPanel {
         }
     }
 
+    fn change_session_id(&self) -> Result<(), &'static str> {
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let current_session_id = session.id.get_ref();
+        let new_session_id = match dialog_util::prompt_for("Session ID", current_session_id) {
+            None => return Ok(()),
+            Some(n) => n,
+        };
+        session.id.set(new_session_id);
+        Ok(())
+    }
+
     fn save_as_preset(&self) -> Result<(), &'static str> {
         let controller_name = match dialog_util::prompt_for("Controller name", "") {
             None => return Ok(()),
@@ -809,6 +821,9 @@ impl View for HeaderPanel {
         };
         match result {
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
+            root::IDM_CHANGE_SESSION_ID => {
+                let _ = self.change_session_id();
+            }
             _ => unreachable!(),
         };
     }

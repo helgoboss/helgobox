@@ -139,9 +139,9 @@ impl WebViewManager {
     fn register_listeners(self: &SharedView<Self>) {
         let app = App::get();
         when(
-            // TODO-high There are more reasons to update a web view
             app.changed()
                 .merge(app.server().borrow().changed())
+                .merge(self.session().borrow().id.changed())
                 .take_until(self.party_is_over()),
         )
         .with(Rc::downgrade(self))

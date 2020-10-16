@@ -38,7 +38,7 @@ pub struct Session {
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
-    id: String,
+    pub id: Prop<String>,
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
@@ -93,7 +93,7 @@ impl Session {
         controller_manager: impl ControllerManager + 'static,
     ) -> Session {
         Self {
-            id: instance_id.clone(),
+            id: prop(instance_id.clone()),
             instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(false),
@@ -127,7 +127,7 @@ impl Session {
     }
 
     pub fn id(&self) -> &str {
-        &self.id
+        self.id.get_ref()
     }
 
     pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
@@ -152,10 +152,6 @@ impl Session {
             .0
             .send(NormalMainTask::UpdateParameter { index, value })
             .unwrap();
-    }
-
-    pub fn set_id_without_notification(&mut self, id: String) {
-        self.id = id;
     }
 
     pub fn set_parameter_settings_without_notification(
@@ -764,7 +760,7 @@ impl Session {
             - Controller mapping subscription count: {}\n\
             ",
             self.instance_id,
-            self.id,
+            self.id.get_ref(),
             self.mappings[MappingCompartment::PrimaryMappings].len(),
             self.mapping_subscriptions[MappingCompartment::PrimaryMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),

@@ -19,6 +19,7 @@ BEGIN
     POPUP "Header panel context menu"
     BEGIN
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
+        MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
     END
 END
 

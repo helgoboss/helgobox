@@ -17,6 +17,7 @@
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
 #define ID_MAPPING_ROW_EDIT_BUTTON              40001
 #define ID_SETTINGS_REVERSE_CHECK_BOX           40001
+#define IDM_CHANGE_SESSION_ID                   40002
 #define ID_IMPORT_BUTTON                        40002
 #define ID_MAPPING_ROW_DUPLICATE_BUTTON         40002
 #define ID_SOURCE_CHANNEL_COMBO_BOX             40002

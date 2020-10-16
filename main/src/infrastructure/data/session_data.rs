@@ -139,7 +139,7 @@ impl SessionData {
         };
         // Mutation
         if let Some(id) = &self.id {
-            session.set_id_without_notification(id.clone())
+            session.id.set_without_notification(id.clone())
         };
         session
             .let_matched_events_through

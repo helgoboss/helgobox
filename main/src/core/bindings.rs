@@ -9,11 +9,15 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
+    pub type INT_PTR = isize;
     pub mod std {
         #[allow(unused_imports)]
         use self::super::super::root;
     }
-    pub type INT_PTR = ::std::os::raw::c_longlong;
+    pub mod __gnu_cxx {
+        #[allow(unused_imports)]
+        use self::super::super::root;
+    }
     pub type EEL_F = f64;
     extern "C" {
         pub fn NSEEL_HOSTSTUB_EnterMutex();
