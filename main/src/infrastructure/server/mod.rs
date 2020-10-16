@@ -7,7 +7,7 @@ use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
 use futures::channel::oneshot;
 use futures::SinkExt;
-use rcgen::{Certificate, CertificateParams, SanType};
+use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, SanType, PKCS_RSA_SHA256};
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -336,6 +336,9 @@ async fn start_server(
     shutdown_receiver: oneshot::Receiver<()>,
 ) {
     use warp::Filter;
+    let welcome_route = warp::get()
+        .and(warp::path::end())
+        .map(|| warp::reply::html(include_str!("welcome_page.html")));
     let controller_route = warp::get()
         .and(warp::path!("realearn" / "session" / String / "controller"))
         .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
@@ -368,7 +371,8 @@ async fn start_server(
                 },
             )
     };
-    let routes = controller_route
+    let routes = welcome_route
+        .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
         .or(ws_route);
@@ -400,6 +404,9 @@ fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {
 fn add_key_and_cert(ip: IpAddr) -> (String, String) {
     let mut params = CertificateParams::default();
     params.subject_alt_names = vec![SanType::IpAddress(ip)];
+    let mut dn = DistinguishedName::new();
+    dn.push(DnType::CommonName, "ReaLearn");
+    params.distinguished_name = dn;
     let certificate = rcgen::Certificate::from_params(params)
         .expect("couldn't create self-signed server certificate");
     (
