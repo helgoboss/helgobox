@@ -154,7 +154,7 @@ impl AppConfig {
     }
 
     fn config_file_path() -> PathBuf {
-        App::resource_dir_path().join("config.ini")
+        App::resource_dir_path().join("realearn.ini")
     }
 }
 
