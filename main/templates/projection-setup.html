@@ -10,15 +10,237 @@
 <head>
     <meta charset="UTF-8">
     <title>ReaLearn</title>
-    <!--        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/dark.css">-->
-    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" type="text/css">
-    <!--    <link rel="stylesheet" href="https://unpkg.com/marx-css/css/marx.min.css">-->
-    <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/yegor256/tacit@gh-pages/tacit-css-1.5.1.min.css"/>-->
-    <!--    <link rel="stylesheet" href="https://unpkg.com/awsm.css/dist/awsm_theme_big-stone.min.css">-->
-    <!--    <link rel="stylesheet" href="https://unpkg.com/98.css">-->
-    <!--    <link href="https://unpkg.com/nes.css@2.3.0/css/nes.min.css" rel="stylesheet" />-->
-    <!--    <link rel="stylesheet" href="https://unpkg.com/wingcss"/>-->
-    <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">-->
+    <style>
+        /* Sakura.css v1.3.0
+         * ================
+         * Minimal css theme.
+         * Project: https://github.com/oxalorg/sakura/
+         */
+        /* Body */
+        html {
+            font-size: 62.5%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+
+        body {
+            font-size: 1.8rem;
+            line-height: 1.618;
+            max-width: 38em;
+            margin: auto;
+            color: #4a4a4a;
+            background-color: #f9f9f9;
+            padding: 13px;
+        }
+
+        @media (max-width: 684px) {
+            body {
+                font-size: 1.53rem;
+            }
+        }
+
+        @media (max-width: 382px) {
+            body {
+                font-size: 1.35rem;
+            }
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            line-height: 1.1;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            font-weight: 700;
+            margin-top: 3rem;
+            margin-bottom: 1.5rem;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            -ms-word-break: break-all;
+            word-break: break-word;
+            -ms-hyphens: auto;
+            -moz-hyphens: auto;
+            -webkit-hyphens: auto;
+            hyphens: auto;
+        }
+
+        h1 {
+            font-size: 2.35em;
+        }
+
+        h2 {
+            font-size: 2.00em;
+        }
+
+        h3 {
+            font-size: 1.75em;
+        }
+
+        h4 {
+            font-size: 1.5em;
+        }
+
+        h5 {
+            font-size: 1.25em;
+        }
+
+        h6 {
+            font-size: 1em;
+        }
+
+        p {
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        small, sub, sup {
+            font-size: 75%;
+        }
+
+        hr {
+            border-color: #2c8898;
+        }
+
+        a {
+            text-decoration: none;
+            color: #2c8898;
+        }
+
+        a:hover {
+            color: #982c61;
+            border-bottom: 2px solid #4a4a4a;
+        }
+
+        ul {
+            padding-left: 1.4em;
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        li {
+            margin-bottom: 0.4em;
+        }
+
+        blockquote {
+            margin-left: 0px;
+            margin-right: 0px;
+            padding-left: 1em;
+            padding-top: 0.8em;
+            padding-bottom: 0.8em;
+            padding-right: 0.8em;
+            border-left: 5px solid #2c8898;
+            margin-bottom: 2.5rem;
+            background-color: #f1f1f1;
+        }
+
+        blockquote p {
+            margin-bottom: 0;
+        }
+
+        img {
+            height: auto;
+            max-width: 100%;
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Pre and Code */
+        pre {
+            background-color: #f1f1f1;
+            display: block;
+            padding: 1em;
+            overflow-x: auto;
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        code {
+            font-size: 0.9em;
+            padding: 0 0.5em;
+            background-color: #f1f1f1;
+            white-space: pre-wrap;
+        }
+
+        pre > code {
+            padding: 0;
+            background-color: transparent;
+            white-space: pre;
+        }
+
+        /* Tables */
+        table {
+            text-align: justify;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: 0.5em;
+            border-bottom: 1px solid #f1f1f1;
+        }
+
+        /* Buttons, forms and input */
+        input, textarea {
+            border: 1px solid #4a4a4a;
+        }
+
+        input:focus, textarea:focus {
+            border: 1px solid #2c8898;
+        }
+
+        textarea {
+            width: 100%;
+        }
+
+        .button, button, input[type="submit"], input[type="reset"], input[type="button"] {
+            display: inline-block;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            white-space: nowrap;
+            background-color: #2c8898;
+            color: #f9f9f9;
+            border-radius: 1px;
+            border: 1px solid #2c8898;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .button[disabled], button[disabled], input[type="submit"][disabled], input[type="reset"][disabled], input[type="button"][disabled] {
+            cursor: default;
+            opacity: .5;
+        }
+
+        .button:focus:enabled, .button:hover:enabled, button:focus:enabled, button:hover:enabled, input[type="submit"]:focus:enabled, input[type="submit"]:hover:enabled, input[type="reset"]:focus:enabled, input[type="reset"]:hover:enabled, input[type="button"]:focus:enabled, input[type="button"]:hover:enabled {
+            background-color: #982c61;
+            border-color: #982c61;
+            color: #f9f9f9;
+            outline: 0;
+        }
+
+        textarea, select, input[type] {
+            color: #4a4a4a;
+            padding: 6px 10px;
+            /* The 6px vertically centers text on FF, ignored by Webkit */
+            margin-bottom: 10px;
+            background-color: #f1f1f1;
+            border: 1px solid #f1f1f1;
+            border-radius: 4px;
+            box-shadow: none;
+            box-sizing: border-box;
+        }
+
+        textarea:focus, select:focus, input[type]:focus {
+            border: 1px solid #2c8898;
+            outline: 0;
+        }
+
+        input[type="checkbox"]:focus {
+            outline: 1px dotted #2c8898;
+        }
+
+        label, legend, fieldset {
+            display: block;
+            margin-bottom: .5rem;
+            font-weight: 600;
+        }
+    </style>
     <style>
         html {
             font-size: 55.0%;
@@ -32,8 +254,36 @@
             text-align: center;
         }
 
-        .inactive, .inactive a {
+        .inactive, .inactive a, .inactive td, .inactive th {
             color: #bbb;
+        }
+
+        .absolute {
+            position: absolute;
+        }
+
+        .symbol {
+            font-size: 200%;
+        }
+
+        .qr-code-container {
+            width: 270px;
+            height: 270px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .qr-code-container img.inactive {
+            opacity: 0.05;
+        }
+
+        .qr-code-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -41,11 +291,17 @@
 Loading...
 {% endif %}
 {% if include_body_content %}
-<div class="center">
-    <h1>ReaLearn Projection</h1>
-    <div>
-        <img src="{{ body_state.qr_code_image_url }}" alt="{{ body_state.full_companion_app_url }}"/>
+<h1 class="center">ReaLearn Projection</h1>
+<div class="qr-code-container">
+    <img class="absolute {{ activation_class }}" src="{{ body_state.qr_code_image_url }}"
+         alt="ReaLearn server QR code"/>
+    {% if !body_state.server_is_running %}
+    <div class="qr-code-overlay">
+        Server <br>
+        not <br>
+        running <br>
     </div>
+    {% endif %}
 </div>
 
 <h2>Introduction</h2>
@@ -63,23 +319,24 @@ Loading...
 </p>
 <ol>
     <li>
-        Make sure the server is running.
         {% if body_state.server_is_running %}
-        <span style="font-size: 200%">✔</span>
+        Congratulations, the server is already running.
+        {% else %}
+        Start the server!
+        {% endif %}
+        {% if body_state.server_is_running %}
+        <span class="symbol">✔</span>
         <ul>
-            <li>
-                Congratulations, the server seems to be running!
-            </li>
             {% if body_state.server_is_enabled %}
             <li>
                 It will automatically be started again next time you start REAPER with ReaLearn. If you decide to not
                 use the projection feature anymore, click
-                <button>here</button>
+                <button onclick="external.invoke('disable_server')">here</button>
                 to disable the server.
             </li>
             {% else %}
             <li>
-                The server has been successfully disabled. This will take effect on the next start of REAPER. Click
+                It has been disabled though. This will take effect on the next start of REAPER. Click
                 <button onclick="external.invoke('enable_server')">here</button>
                 to enable it again.
             </li>
@@ -88,8 +345,7 @@ Loading...
         {% else %}
         <ul>
             <li>
-                The server is currently not running. Click
-                <button onclick="external.invoke('start_server')">here</button>
+                Click <button onclick="external.invoke('start_server')">here</button>
                 to start it! It's possible that your firewall
                 will ask you for permission to open a network port for external devices. In that case, say yes!
             </li>

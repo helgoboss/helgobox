@@ -45,7 +45,10 @@ impl WebViewManager {
             crossbeam_channel::Sender<WebViewTask>,
             crossbeam_channel::Receiver<WebViewTask>,
         ) = crossbeam_channel::unbounded();
-        let join_handle = std::thread::spawn(move || run_web_view_blocking(receiver));
+        let join_handle = std::thread::Builder::new()
+            .name("ReaLearn web view".to_string())
+            .spawn(move || run_web_view_blocking(receiver))
+            .unwrap();
         let connection = WebViewConnection {
             sender,
             join_handle,
@@ -65,18 +68,18 @@ impl WebViewManager {
             let server = App::get().server().borrow();
             let full_companion_app_url = server.generate_full_companion_app_url(session.id());
             let server_is_running = server.is_running();
-            let black_alpha = if server_is_running { 254 } else { 15 };
-            let qr_code_image_url =
-                self.generate_qr_code_as_image_url(&full_companion_app_url, black_alpha);
+            let (qr_code_image_url, qr_code_dimensions) =
+                self.generate_qr_code_as_image_url(&full_companion_app_url);
             let session_id = session.id().to_string();
             let state = ProjectionSetupState {
                 include_skeleton: false,
                 include_body_content: true,
                 body_state: BodyState {
                     server_is_running,
-                    server_is_enabled: App::get().server_is_enabled(),
+                    server_is_enabled: App::get().config().server_is_enabled(),
                     full_companion_app_url,
                     qr_code_image_url,
+                    qr_code_dimensions,
                     companion_app_url: COMPANION_APP_URL,
                     server_host: server
                         .local_ip()
@@ -96,24 +99,26 @@ impl WebViewManager {
         }
     }
 
-    fn generate_qr_code_as_image_url(&self, content: &str, black_alpha: u8) -> String {
+    fn generate_qr_code_as_image_url(&self, content: &str) -> (String, (u32, u32)) {
         let code = QrCode::new(content).unwrap();
         type P = image::LumaA<u8>;
         let image = code
             .render::<P>()
-            .dark_color(image::LumaA([0, black_alpha]))
+            // Background should be transparent
             .light_color(image::LumaA([255, 0]))
-            .module_dimensions(6, 6)
+            .min_dimensions(270, 270)
+            .max_dimensions(270, 270)
             .build();
         let mut buffer = Vec::new();
         let encoder = image::png::PNGEncoder::new(&mut buffer);
         encoder
             .encode(&image, image.width(), image.height(), P::COLOR_TYPE)
             .expect("couldn't encode QR code to PNG image");
-        format!(
+        let url = format!(
             "data:image/png;base64,{}",
             base64::encode_config(&buffer, base64::URL_SAFE_NO_PAD)
-        )
+        );
+        (url, (image.width(), image.height()))
     }
 
     /// Closes and removes all mapping panels
@@ -128,12 +133,11 @@ impl WebViewManager {
     }
 
     fn register_listeners(self: &SharedView<Self>) {
+        let app = App::get();
         when(
-            // TODO-high There are many more reasons to update a web view
-            App::get()
-                .server()
-                .borrow()
-                .changed()
+            // TODO-high There are more reasons to update a web view
+            app.changed()
+                .merge(app.server().borrow().changed())
                 .take_until(self.party_is_over()),
         )
         .with(Rc::downgrade(self))
@@ -199,6 +203,8 @@ struct BodyState {
     full_companion_app_url: String,
     // Can change per session
     qr_code_image_url: String,
+    // Can change per session
+    qr_code_dimensions: (u32, u32),
     // Can't change at all
     companion_app_url: &'static str,
     // Can only change after restart
@@ -225,16 +231,23 @@ fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>) {
         .user_data(())
         .invoke_handler(move |wv, arg| {
             match arg {
+                "disable_server" => {
+                    Reaper::get().do_later_in_main_thread_asap(move || {
+                        App::get().disable_server_persistently();
+                    });
+                }
                 "enable_server" => {
-                    // TODO-high
+                    Reaper::get().do_later_in_main_thread_asap(move || {
+                        App::get().enable_server_persistently();
+                    });
                 }
                 "start_server" => {
                     // TODO-high reaper-rs: We should require Send!!! For the special case
                     //  if we know that we are in main thread already, we should introduce
                     //  a method do_later_in_same_thread() which doesn't need Send. But it
                     //  should complain if not in main thread.
-                    Reaper::get().do_later_in_main_thread_asap(move || {
-                        App::get().server().borrow_mut().start();
+                    Reaper::get().do_later_in_main_thread_asap(|| {
+                        App::get().start_server_persistently();
                     });
                 }
                 _ => return Err(web_view::Error::custom("unknown invocation argument")),

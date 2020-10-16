@@ -3,9 +3,11 @@ use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerMa
 use crate::infrastructure::server::{RealearnServer, ServerClients, SharedRealearnServer};
 use once_cell::unsync::Lazy;
 use reaper_high::{create_terminal_logger, Reaper};
+use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use slog::{debug, o};
-use std::cell::RefCell;
+use std::cell::{Cell, Ref, RefCell};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -17,7 +19,8 @@ static mut APP: Lazy<App> = Lazy::new(App::load);
 pub struct App {
     controller_manager: SharedControllerManager,
     server: SharedRealearnServer,
-    server_is_enabled: bool,
+    config: RefCell<AppConfig>,
+    changed_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
 impl App {
@@ -28,21 +31,14 @@ impl App {
     }
 
     fn load() -> App {
-        let config = App::load_config().unwrap_or_else(|e| {
+        let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(App::logger(), "{}", e);
             Default::default()
         });
-        App::new(&config)
+        App::new(config)
     }
 
-    fn load_config() -> Result<AppConfig, String> {
-        let ini_content = fs::read_to_string(&App::preference_file_path())
-            .map_err(|_| "couldn't read preference file".to_string())?;
-        let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{:?}", e))?;
-        Ok(config)
-    }
-
-    fn new(config: &AppConfig) -> App {
+    fn new(config: AppConfig) -> App {
         let resource_dir = App::resource_dir_path();
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
@@ -52,7 +48,14 @@ impl App {
                 config.main.server_port,
                 resource_dir.join("certs"),
             ))),
-            server_is_enabled: config.main.server_enabled,
+            config: RefCell::new(config),
+            changed_subject: Default::default(),
+        }
+    }
+
+    pub fn init(&self) {
+        if self.config.borrow().server_is_enabled() {
+            self.server().borrow_mut().start();
         }
     }
 
@@ -72,8 +75,21 @@ impl App {
         &self.server
     }
 
-    pub fn server_is_enabled(&self) -> bool {
-        self.server_is_enabled
+    pub fn config(&self) -> Ref<AppConfig> {
+        self.config.borrow()
+    }
+
+    pub fn start_server_persistently(&self) {
+        self.server.borrow_mut().start();
+        self.change_config(AppConfig::enable_server);
+    }
+
+    pub fn disable_server_persistently(&self) {
+        self.change_config(AppConfig::disable_server);
+    }
+
+    pub fn enable_server_persistently(&self) {
+        self.change_config(AppConfig::enable_server);
     }
 
     /// Logging debug info is always initiated by a particular session.
@@ -83,33 +99,76 @@ impl App {
         self.controller_manager.borrow().log_debug_info();
     }
 
+    pub fn changed(&self) -> impl UnitEvent {
+        self.changed_subject.borrow().clone()
+    }
+
+    fn change_config(&self, op: impl FnOnce(&mut AppConfig)) {
+        let mut config = self.config.borrow_mut();
+        op(&mut config);
+        config.save().unwrap();
+        self.notify_changed();
+    }
+
     fn resource_dir_path() -> PathBuf {
         let reaper_resource_path = Reaper::get().resource_path();
         reaper_resource_path.join("ReaLearn")
     }
 
-    fn preference_file_path() -> PathBuf {
-        App::resource_dir_path().join("preferences.ini")
+    fn notify_changed(&self) {
+        self.changed_subject.borrow_mut().next(());
     }
 }
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
-struct AppConfig {
+pub struct AppConfig {
     main: MainConfig,
+}
+
+impl AppConfig {
+    pub fn load() -> Result<AppConfig, String> {
+        let ini_content = fs::read_to_string(&Self::config_file_path())
+            .map_err(|_| "couldn't read config file".to_string())?;
+        let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{:?}", e))?;
+        Ok(config)
+    }
+
+    pub fn save(&self) -> Result<(), &'static str> {
+        let ini_content = serde_ini::to_string(self).map_err(|_| "couldn't serialize config")?;
+        fs::write(Self::config_file_path(), ini_content)
+            .map_err(|_| "couldn't write config file")?;
+        Ok(())
+    }
+
+    pub fn enable_server(&mut self) {
+        self.main.server_enabled = 1;
+    }
+
+    pub fn disable_server(&mut self) {
+        self.main.server_enabled = 0;
+    }
+
+    pub fn server_is_enabled(&self) -> bool {
+        self.main.server_enabled > 0
+    }
+
+    fn config_file_path() -> PathBuf {
+        App::resource_dir_path().join("config.ini")
+    }
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
 struct MainConfig {
-    server_enabled: bool,
+    server_enabled: u8,
     server_port: u16,
 }
 
 impl Default for MainConfig {
     fn default() -> Self {
         MainConfig {
-            server_enabled: false,
+            server_enabled: 0,
             server_port: 49281,
         }
     }

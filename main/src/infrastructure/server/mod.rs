@@ -24,6 +24,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
+use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 use warp::http::{Response, StatusCode};
 use warp::reject::Reject;
@@ -42,10 +43,24 @@ pub struct RealearnServer {
 
 enum ServerState {
     Stopped,
-    Started {
+    Starting {
         clients: ServerClients,
         shutdown_sender: oneshot::Sender<()>,
     },
+    Running {
+        clients: ServerClients,
+        shutdown_sender: oneshot::Sender<()>,
+    },
+}
+
+impl ServerState {
+    pub fn is_starting_or_running(&self) -> bool {
+        use ServerState::*;
+        match self {
+            Starting { .. } | Running { .. } => true,
+            Stopped => false,
+        }
+    }
 }
 
 pub const COMPANION_APP_URL: &'static str = "https://www.helgoboss.org/projects/realearn/app";
@@ -62,7 +77,7 @@ impl RealearnServer {
 
     /// Idempotent
     pub fn start(&mut self) {
-        if let ServerState::Started { .. } = self.state {
+        if self.state.is_starting_or_running() {
             return;
         }
         let clients: ServerClients = Default::default();
@@ -87,10 +102,29 @@ impl RealearnServer {
                     shutdown_receiver,
                 ));
             });
-        self.state = ServerState::Started {
+        self.state = ServerState::Starting {
             clients,
             shutdown_sender,
         };
+        self.notify_changed();
+    }
+
+    fn notify_started(&mut self) {
+        // TODO-low Okay, temporarily replacing with Stopped just to gain ownership feels weird.
+        if let ServerState::Starting {
+            clients,
+            shutdown_sender,
+        } = std::mem::replace(&mut self.state, ServerState::Stopped)
+        {
+            self.state = ServerState::Running {
+                clients,
+                shutdown_sender,
+            };
+        }
+        self.notify_changed();
+    }
+
+    fn notify_changed(&mut self) {
         self.changed_subject.next(());
     }
 
@@ -102,7 +136,10 @@ impl RealearnServer {
     pub fn stop(&mut self) {
         let old_state = std::mem::replace(&mut self.state, ServerState::Stopped);
         let mut shutdown_sender = match old_state {
-            ServerState::Started {
+            ServerState::Running {
+                shutdown_sender, ..
+            }
+            | ServerState::Starting {
                 shutdown_sender, ..
             } => shutdown_sender,
             ServerState::Stopped => return,
@@ -111,7 +148,7 @@ impl RealearnServer {
     }
 
     pub fn clients(&self) -> Result<&ServerClients, &'static str> {
-        if let ServerState::Started { clients, .. } = &self.state {
+        if let ServerState::Running { clients, .. } = &self.state {
             Ok(clients)
         } else {
             Err("server not running")
@@ -119,7 +156,7 @@ impl RealearnServer {
     }
 
     pub fn is_running(&self) -> bool {
-        if let ServerState::Started { .. } = &self.state {
+        if let ServerState::Running { .. } = &self.state {
             true
         } else {
             false
@@ -334,30 +371,16 @@ async fn start_server(
         .or(controller_routing_route)
         .or(patch_controller_route)
         .or(ws_route);
-    if let Some(ip) = ip {
-        let (key, cert) = get_key_and_cert(ip, cert_dir_path);
-        let server = warp::serve(routes).tls().key(key).cert(cert);
-        server
-            .bind_with_graceful_shutdown(([0, 0, 0, 0], port), async {
-                shutdown_receiver.await.unwrap()
-            })
-            .1
-            .await;
-    } else {
-        // TODO-high In this case we should consider binding to localhost only and give a
-        //  warning message on "Projection" screen. Or well, actually we can still create
-        //  a self-signed certificate and just ignore the host name mismatch on the client.
-        //  On Flutter, this works using badCertificateCallback. On the web it doesn't make
-        //  a real difference. Using a self-signed certificate will have to be manually accepted,
-        //  no matter if the host name is correct or not.
-        let server = warp::serve(routes);
-        server
-            .bind_with_graceful_shutdown(([0, 0, 0, 0], port), async {
-                shutdown_receiver.await.unwrap()
-            })
-            .1
-            .await;
-    };
+    let ip = ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let (key, cert) = get_key_and_cert(ip, cert_dir_path);
+    let server = warp::serve(routes).tls().key(key).cert(cert);
+    let (_, future) = server.bind_with_graceful_shutdown(([0, 0, 0, 0], port), async {
+        shutdown_receiver.await.unwrap()
+    });
+    Reaper::get().do_later_in_main_thread_asap(|| {
+        App::get().server().borrow_mut().notify_started();
+    });
+    future.await;
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {

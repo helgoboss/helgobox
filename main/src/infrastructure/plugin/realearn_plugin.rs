@@ -261,6 +261,7 @@ impl RealearnPlugin {
             Reaper::setup_with_defaults(context, self.logger.clone(), "info@helgoboss.org");
             session_manager::register_global_learn_action();
             debug_util::register_resolve_symbols_action();
+            App::get().init();
         })
     }
 
