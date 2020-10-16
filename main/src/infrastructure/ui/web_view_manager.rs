@@ -45,9 +45,10 @@ impl WebViewManager {
             crossbeam_channel::Sender<WebViewTask>,
             crossbeam_channel::Receiver<WebViewTask>,
         ) = crossbeam_channel::unbounded();
+        let session_id = self.session().borrow().id().to_string();
         let join_handle = std::thread::Builder::new()
             .name("ReaLearn web view".to_string())
-            .spawn(move || run_web_view_blocking(receiver))
+            .spawn(move || run_web_view_blocking(receiver, session_id))
             .unwrap();
         let connection = WebViewConnection {
             sender,
@@ -66,7 +67,8 @@ impl WebViewManager {
             let session = self.session();
             let session = session.borrow();
             let server = App::get().server().borrow();
-            let full_companion_app_url = server.generate_full_companion_app_url(session.id());
+            let full_companion_app_url =
+                server.generate_full_companion_app_url(session.id(), false);
             let server_is_running = server.is_running();
             let (qr_code_image_url, qr_code_dimensions) =
                 self.generate_qr_code_as_image_url(&full_companion_app_url);
@@ -217,7 +219,7 @@ struct BodyState {
     os: &'static str,
 }
 
-fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>) {
+fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>, session_id: String) {
     let html_skeleton = ProjectionSetupState {
         include_skeleton: true,
         include_body_content: false,
@@ -231,6 +233,14 @@ fn run_web_view_blocking(receiver: crossbeam_channel::Receiver<WebViewTask>) {
         .user_data(())
         .invoke_handler(move |wv, arg| {
             match arg {
+                "open_companion_app" => {
+                    let session_id = session_id.clone();
+                    Reaper::get().do_later_in_main_thread_asap(move || {
+                        let server = App::get().server().borrow();
+                        let url = server.generate_full_companion_app_url(&session_id, true);
+                        let _ = webbrowser::open(&url);
+                    });
+                }
                 "disable_server" => {
                     Reaper::get().do_later_in_main_thread_asap(move || {
                         App::get().disable_server_persistently();

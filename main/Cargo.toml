@@ -60,6 +60,7 @@ hostname = "^0.3"
 askama = "0.8"
 base64 = "0.13.0"
 serde_ini = "0.2.0"
+webbrowser = "0.5.5"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }

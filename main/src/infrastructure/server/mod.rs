@@ -163,15 +163,16 @@ impl RealearnServer {
         }
     }
 
-    pub fn generate_full_companion_app_url(&self, session_id: &str) -> String {
-        let host = self
-            .local_ip()
-            .map(|ip| ip.to_string())
-            .unwrap_or("127.0.0.1".to_string());
+    pub fn generate_full_companion_app_url(&self, session_id: &str, localhost: bool) -> String {
+        let host = if localhost {
+            None
+        } else {
+            self.local_ip().map(|ip| ip.to_string())
+        };
         format!(
             "{}/#{}:{}/{}",
             COMPANION_APP_URL,
-            host,
+            host.unwrap_or_else(|| "localhost".to_string()),
             self.port(),
             session_id
         )
@@ -205,7 +206,7 @@ impl RealearnServer {
         - ReaLearn local hostname with DNS lookup: {:?}\n\
         - ReaLearn local IP address: {:?}\n\
         ",
-            self.generate_full_companion_app_url(session_id),
+            self.generate_full_companion_app_url(session_id, false),
             self.local_hostname(),
             self.local_hostname_dns(),
             self.local_ip()

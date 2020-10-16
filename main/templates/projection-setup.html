@@ -320,7 +320,7 @@ Loading...
 <ol>
     <li>
         {% if body_state.server_is_running %}
-        Congratulations, the server is already running.
+        Congratulations, the server is running.
         {% else %}
         Start the server!
         {% endif %}
@@ -353,7 +353,7 @@ Loading...
         {% endif %}
     </li>
     <li class="{{ activation_class }}">
-        Try to <a href="#">open the ReaLearn Companion web app on this computer</a>.
+        Try to <a href="#" onclick="external.invoke('open_companion_app')">open the ReaLearn Companion web app on this computer</a>.
         <ul>
             <li>
                 If this works, you know the server is indeed running. That means you can already use projections right
