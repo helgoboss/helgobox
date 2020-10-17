@@ -349,7 +349,8 @@ Loading...
         {% else %}
         <ul>
             <li>
-                Click <button onclick="external.invoke('start_server')">here</button>
+                Click
+                <button onclick="external.invoke('start_server')">here</button>
                 to start it! It's possible that your firewall
                 will ask you for permission to open a network port for external devices. In that case, say yes!
             </li>
@@ -357,7 +358,8 @@ Loading...
         {% endif %}
     </li>
     <li class="{{ activation_class }}">
-        Try to <a href="#" onclick="external.invoke('open_companion_app')">open the ReaLearn Companion web app on this computer</a>.
+        Try to <a href="#" onclick="external.invoke('open_companion_app')">open the ReaLearn Companion web app on this
+        computer</a> (usually requires internet connection).
         <ul>
             <li>
                 If this works, you know the server is indeed running. That means you can already use projections right
