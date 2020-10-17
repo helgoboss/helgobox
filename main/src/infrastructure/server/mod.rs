@@ -6,7 +6,7 @@ use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
 use futures::channel::oneshot;
-use futures::SinkExt;
+use futures::{SinkExt, StreamExt};
 use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, SanType, PKCS_RSA_SHA256};
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, watch, RwLock};
 use warp::http::{Response, StatusCode};
 use warp::reject::Reject;
 use warp::reply::Json;
@@ -35,7 +35,8 @@ use warp::{reject, reply, Rejection, Reply};
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
 pub struct RealearnServer {
-    port: u16,
+    http_port: u16,
+    https_port: u16,
     state: ServerState,
     cert_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
@@ -43,14 +44,8 @@ pub struct RealearnServer {
 
 enum ServerState {
     Stopped,
-    Starting {
-        clients: ServerClients,
-        shutdown_sender: oneshot::Sender<()>,
-    },
-    Running {
-        clients: ServerClients,
-        shutdown_sender: oneshot::Sender<()>,
-    },
+    Starting { clients: ServerClients },
+    Running { clients: ServerClients },
 }
 
 impl ServerState {
@@ -66,9 +61,10 @@ impl ServerState {
 pub const COMPANION_APP_URL: &'static str = "https://www.helgoboss.org/projects/realearn/app";
 
 impl RealearnServer {
-    pub fn new(port: u16, cert_dir_path: PathBuf) -> RealearnServer {
+    pub fn new(http_port: u16, https_port: u16, cert_dir_path: PathBuf) -> RealearnServer {
         RealearnServer {
-            port,
+            http_port,
+            https_port,
             state: ServerState::Stopped,
             cert_dir_path,
             changed_subject: Default::default(),
@@ -83,9 +79,9 @@ impl RealearnServer {
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
         let ip = self.local_ip();
-        let port = self.port;
+        let http_port = self.http_port;
+        let https_port = self.https_port;
         let cert_dir_path = self.cert_dir_path.clone();
-        let (shutdown_sender, shutdown_receiver) = oneshot::channel();
         std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -95,56 +91,29 @@ impl RealearnServer {
                     .build()
                     .unwrap();
                 runtime.block_on(start_server(
-                    port,
+                    http_port,
+                    https_port,
                     clients_clone,
                     ip,
                     &cert_dir_path,
-                    shutdown_receiver,
                 ));
             });
-        self.state = ServerState::Starting {
-            clients,
-            shutdown_sender,
-        };
+        self.state = ServerState::Starting { clients };
         self.notify_changed();
     }
 
     fn notify_started(&mut self) {
         // TODO-low Okay, temporarily replacing with Stopped just to gain ownership feels weird.
-        if let ServerState::Starting {
-            clients,
-            shutdown_sender,
-        } = std::mem::replace(&mut self.state, ServerState::Stopped)
+        if let ServerState::Starting { clients } =
+            std::mem::replace(&mut self.state, ServerState::Stopped)
         {
-            self.state = ServerState::Running {
-                clients,
-                shutdown_sender,
-            };
+            self.state = ServerState::Running { clients };
         }
         self.notify_changed();
     }
 
     fn notify_changed(&mut self) {
         self.changed_subject.next(());
-    }
-
-    /// Idempotent.
-    ///
-    /// Not used at the moment because sometimes it doesn't free the port and then restart fails.
-    /// Right now we ask the user to restart REAPER after having made changes that affect an
-    /// already running server.
-    pub fn stop(&mut self) {
-        let old_state = std::mem::replace(&mut self.state, ServerState::Stopped);
-        let mut shutdown_sender = match old_state {
-            ServerState::Running {
-                shutdown_sender, ..
-            }
-            | ServerState::Starting {
-                shutdown_sender, ..
-            } => shutdown_sender,
-            ServerState::Stopped => return,
-        };
-        shutdown_sender.send(());
     }
 
     pub fn clients(&self) -> Result<&ServerClients, &'static str> {
@@ -169,11 +138,15 @@ impl RealearnServer {
         } else {
             self.local_ip().map(|ip| ip.to_string())
         };
+        // TODO-high Generate http or https URL depending on device!? Seems like Safari on iOS
+        //  doesn't accept self-signed certificates but is fine with http whereas Chrome on
+        //  Android doesn't accept http but is fine with whatever self-signed certificate that has
+        //  been once accepted.
         format!(
             "{}/#{}:{}/{}",
             COMPANION_APP_URL,
             host.unwrap_or_else(|| "localhost".to_string()),
-            self.port(),
+            self.https_port(),
             session_id
         )
     }
@@ -192,8 +165,12 @@ impl RealearnServer {
         dns_lookup::lookup_addr(&ip).ok()
     }
 
-    pub fn port(&self) -> u16 {
-        self.port
+    pub fn http_port(&self) -> u16 {
+        self.http_port
+    }
+
+    pub fn https_port(&self) -> u16 {
+        self.https_port
     }
 
     pub fn log_debug_info(&self, session_id: &str) {
@@ -329,11 +306,11 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
 }
 
 async fn start_server(
-    port: u16,
+    http_port: u16,
+    https_port: u16,
     clients: ServerClients,
     ip: Option<IpAddr>,
     cert_dir_path: &Path,
-    shutdown_receiver: oneshot::Receiver<()>,
 ) {
     use warp::Filter;
     let welcome_route = warp::get()
@@ -355,7 +332,7 @@ async fn start_server(
         });
     let ws_route = {
         let clients = warp::any().map(move || clients.clone());
-        warp::path::end()
+        warp::path("ws")
             .and(warp::ws())
             .and(warp::query::<WebSocketRequest>())
             .and(clients)
@@ -378,14 +355,16 @@ async fn start_server(
         .or(ws_route);
     let ip = ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
     let (key, cert) = get_key_and_cert(ip, cert_dir_path);
-    let server = warp::serve(routes).tls().key(key).cert(cert);
-    let (_, future) = server.bind_with_graceful_shutdown(([0, 0, 0, 0], port), async {
-        shutdown_receiver.await.unwrap()
-    });
+    let http_future = warp::serve(routes.clone()).bind(([0, 0, 0, 0], http_port));
+    let https_future = warp::serve(routes)
+        .tls()
+        .key(key)
+        .cert(cert)
+        .bind(([0, 0, 0, 0], https_port));
     Reaper::get().do_later_in_main_thread_asap(|| {
         App::get().server().borrow_mut().notify_started();
     });
-    future.await;
+    futures::future::join(http_future, https_future).await;
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {

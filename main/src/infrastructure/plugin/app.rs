@@ -45,7 +45,8 @@ impl App {
                 resource_dir.join("controllers"),
             ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
-                config.main.server_port,
+                config.main.server_http_port,
+                config.main.server_https_port,
                 resource_dir.join("certs"),
             ))),
             config: RefCell::new(config),
@@ -162,14 +163,16 @@ impl AppConfig {
 #[serde(default)]
 struct MainConfig {
     server_enabled: u8,
-    server_port: u16,
+    server_http_port: u16,
+    server_https_port: u16,
 }
 
 impl Default for MainConfig {
     fn default() -> Self {
         MainConfig {
             server_enabled: 0,
-            server_port: 49281,
+            server_http_port: 39080,
+            server_https_port: 39443,
         }
     }
 }

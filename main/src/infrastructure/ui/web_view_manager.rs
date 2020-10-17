@@ -89,7 +89,7 @@ impl WebViewManager {
                         .local_ip()
                         .map(|ip| ip.to_string())
                         .unwrap_or("<could not be determined>".to_string()),
-                    server_port: server.port(),
+                    server_port: server.https_port(),
                     session_id,
                     os: std::env::consts::OS,
                 },
@@ -243,7 +243,7 @@ fn run_web_view_blocking(
                     let sender = sender.clone();
                     Reaper::get().do_later_in_main_thread_asap(move || {
                         let server = App::get().server().borrow();
-                        let msg = match add_firewall_rule(server.port()) {
+                        let msg = match add_firewall_rule(server.https_port()) {
                             Ok(_) => "Successfully added firewall rule.",
                             Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
                         };
