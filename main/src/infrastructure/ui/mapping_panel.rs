@@ -282,7 +282,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn open_target(&self) {
         if let Some(t) = self.real_target() {
             Reaper::get()
-                .do_later_in_main_thread_asap(move || t.open())
+                .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
         }
     }

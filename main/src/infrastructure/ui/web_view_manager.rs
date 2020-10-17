@@ -271,10 +271,6 @@ fn run_web_view_blocking(
                     });
                 }
                 "start_server" => {
-                    // TODO-high reaper-rs: We should require Send!!! For the special case
-                    //  if we know that we are in main thread already, we should introduce
-                    //  a method do_later_in_same_thread() which doesn't need Send. But it
-                    //  should complain if not in main thread.
                     Reaper::get().do_later_in_main_thread_asap(|| {
                         App::get().start_server_persistently();
                     });

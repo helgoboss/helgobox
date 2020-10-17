@@ -222,7 +222,7 @@ impl RealearnServer {
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 
 async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
-    op: impl FnOnce() -> Result<O, E> + 'static,
+    op: impl FnOnce() -> Result<O, E> + 'static + Send,
 ) -> Result<Box<dyn Reply>, Rejection> {
     let send_result = Reaper::get().main_thread_future(move || op()).await;
     let response_result = match send_result {

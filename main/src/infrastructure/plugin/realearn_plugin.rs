@@ -282,7 +282,7 @@ impl RealearnPlugin {
         let logger = self.logger.clone();
         let instance_id = self.instance_id.clone();
         Reaper::get()
-            .do_later_in_main_thread_asap(move || {
+            .do_later_in_main_thread_from_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(&host) {
                     Ok(c) => c,
                     Err(msg) => {

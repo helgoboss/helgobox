@@ -114,7 +114,7 @@ where
             let weak_receiver = weak_receiver.clone();
             let reaction = reaction.clone();
             Reaper::get()
-                .do_later_in_main_thread_asap(move || {
+                .do_later_in_main_thread_from_main_thread_asap(move || {
                     if let Some(receiver) = upgrade(&weak_receiver) {
                         (reaction)(receiver, item);
                     }
@@ -168,7 +168,7 @@ where
                 let weak_receiver = weak_receiver.clone();
                 let finalizer = finalizer.clone();
                 Reaper::get()
-                    .do_later_in_main_thread_asap(move || {
+                    .do_later_in_main_thread_from_main_thread_asap(move || {
                         if let Some(receiver) = upgrade(&weak_receiver) {
                             (finalizer)(receiver);
                         }
