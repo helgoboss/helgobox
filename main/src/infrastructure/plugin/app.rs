@@ -1,6 +1,8 @@
 use crate::application::session_manager;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
-use crate::infrastructure::server::{RealearnServer, ServerClients, SharedRealearnServer};
+use crate::infrastructure::server::{
+    RealearnServer, ServerClients, SharedRealearnServer, COMPANION_WEB_APP_URL,
+};
 use once_cell::unsync::Lazy;
 use reaper_high::{create_terminal_logger, Reaper};
 use rx_util::UnitEvent;
@@ -154,6 +156,10 @@ impl AppConfig {
         self.main.server_enabled > 0
     }
 
+    pub fn companion_web_app_url(&self) -> &str {
+        &self.main.companion_web_app_url
+    }
+
     fn config_file_path() -> PathBuf {
         App::resource_dir_path().join("realearn.ini")
     }
@@ -165,6 +171,7 @@ struct MainConfig {
     server_enabled: u8,
     server_http_port: u16,
     server_https_port: u16,
+    companion_web_app_url: String,
 }
 
 impl Default for MainConfig {
@@ -173,6 +180,7 @@ impl Default for MainConfig {
             server_enabled: 0,
             server_http_port: 39080,
             server_https_port: 39443,
+            companion_web_app_url: COMPANION_WEB_APP_URL.to_string(),
         }
     }
 }

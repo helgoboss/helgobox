@@ -26,6 +26,7 @@ use std::sync::Arc;
 use std::thread::{JoinHandle, Thread};
 use std::time::Duration;
 use tokio::sync::{mpsc, watch, RwLock};
+use url::Url;
 use warp::http::{Response, StatusCode};
 use warp::reject::Reject;
 use warp::reply::Json;
@@ -58,7 +59,7 @@ impl ServerState {
     }
 }
 
-pub const COMPANION_APP_URL: &'static str = "https://www.helgoboss.org/projects/realearn/app";
+pub const COMPANION_WEB_APP_URL: &'static str = "https://realearn.helgoboss.org/";
 
 impl RealearnServer {
     pub fn new(http_port: u16, https_port: u16, cert_dir_path: PathBuf) -> RealearnServer {
@@ -138,17 +139,17 @@ impl RealearnServer {
         } else {
             self.local_ip().map(|ip| ip.to_string())
         };
-        // TODO-high Generate http or https URL depending on device!? Seems like Safari on iOS
-        //  doesn't accept self-signed certificates but is fine with http whereas Chrome on
-        //  Android doesn't accept http but is fine with whatever self-signed certificate that has
-        //  been once accepted.
-        format!(
-            "{}/#{}:{}/{}",
-            COMPANION_APP_URL,
-            host.unwrap_or_else(|| "localhost".to_string()),
-            self.https_port(),
-            session_id
+        Url::parse_with_params(
+            App::get().config().companion_web_app_url(),
+            &[
+                ("host", host.unwrap_or_else(|| "localhost".to_string())),
+                ("http_port", self.http_port().to_string()),
+                ("https_port", self.https_port().to_string()),
+                ("session_id", session_id.to_string()),
+            ],
         )
+        .expect("invalid URL")
+        .into_string()
     }
 
     pub fn local_ip(&self) -> Option<IpAddr> {

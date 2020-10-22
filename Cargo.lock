@@ -2246,6 +2246,7 @@ dependencies = [
  "smallvec",
  "swell-ui",
  "tokio",
+ "url",
  "uuid",
  "validator",
  "validator_derive",

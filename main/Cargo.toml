@@ -74,6 +74,8 @@ serde_ini = "0.2.0"
 webbrowser = "0.5.5"
 # For adding firewall rules
 runas = "0.2.1"
+# For building URls, e.g. companion web app URL
+url = "2.1.1"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }

@@ -29,7 +29,7 @@ use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::COMPANION_APP_URL;
+use crate::infrastructure::server::COMPANION_WEB_APP_URL;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::SharedMainState;
 use crate::infrastructure::ui::{dialog_util, WebViewManager};

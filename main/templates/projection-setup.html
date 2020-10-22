@@ -383,15 +383,19 @@ Loading...
             </li>
             <li>
                 If your device can't scan QR codes, point your mobile browser to the following address:
-                <code>{{ body_state.companion_app_url }}</code>. When asked, enter the following connection details:
+                <code>{{ body_state.companion_web_app_url }}</code>. When asked, enter the following connection details:
                 <table>
                     <tr>
                         <th>Host:</th>
                         <td>{{ body_state.server_host }}</td>
                     </tr>
                     <tr>
-                        <th>Port:</th>
-                        <td>{{ body_state.server_port }}</td>
+                        <th>HTTP port:</th>
+                        <td>{{ body_state.server_http_port }}</td>
+                    </tr>
+                    <tr>
+                        <th>HTTPS port:</th>
+                        <td>{{ body_state.server_https_port }}</td>
                     </tr>
                     <tr>
                         <th>Session ID:</th>
@@ -420,8 +424,8 @@ Loading...
             </li>
             {% else %}
             <li>
-                Please add a firewall rule manually that opens port {{ body_state.server_port }} for incoming TCP
-                connections.
+                Please add a firewall rule manually that opens ports {{ body_state.server_http_port }} and
+                {{ body_state.server_https_port }} for incoming TCP connections.
             </li>
             {% endif %}
             <li>
@@ -433,7 +437,8 @@ Loading...
                     </li>
                     <li>
                         If this helped, switch your Firewall on again and try to add a Firewall rule manually that opens
-                        port {{ body_state.server_port }} for incoming TCP connections.
+                        ports {{ body_state.server_http_port }} and {{ body_state.server_https_port }} for incoming TCP
+                        connections.
                     </li>
                     <li>
                         If it still doesn't work, please make sure your mobile device is in the same network as your

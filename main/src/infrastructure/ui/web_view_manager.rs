@@ -6,7 +6,7 @@ use slog::debug;
 use crate::application::{SharedMapping, SharedSession, WeakSession};
 use crate::core::when;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::COMPANION_APP_URL;
+use crate::infrastructure::server::COMPANION_WEB_APP_URL;
 use image::Pixel;
 use once_cell::unsync::Lazy;
 use qrcode::QrCode;
@@ -84,12 +84,13 @@ impl WebViewManager {
                     full_companion_app_url,
                     qr_code_image_url,
                     qr_code_dimensions,
-                    companion_app_url: COMPANION_APP_URL,
+                    companion_web_app_url: COMPANION_WEB_APP_URL,
                     server_host: server
                         .local_ip()
                         .map(|ip| ip.to_string())
                         .unwrap_or("<could not be determined>".to_string()),
-                    server_port: server.https_port(),
+                    server_http_port: server.http_port(),
+                    server_https_port: server.https_port(),
                     session_id,
                     os: std::env::consts::OS,
                 },
@@ -210,11 +211,13 @@ struct BodyState {
     // Can change per session
     qr_code_dimensions: (u32, u32),
     // Can't change at all
-    companion_app_url: &'static str,
+    companion_web_app_url: &'static str,
     // Can only change after restart
     server_host: String,
     // Can only change after restart
-    server_port: u16,
+    server_http_port: u16,
+    // Can only change after restart
+    server_https_port: u16,
     // Can change per session
     session_id: String,
     // Can't change at all
@@ -243,7 +246,7 @@ fn run_web_view_blocking(
                     let sender = sender.clone();
                     Reaper::get().do_later_in_main_thread_asap(move || {
                         let server = App::get().server().borrow();
-                        let msg = match add_firewall_rule(server.https_port()) {
+                        let msg = match add_firewall_rule(server.http_port(), server.https_port()) {
                             Ok(_) => "Successfully added firewall rule.",
                             Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
                         };
@@ -295,8 +298,8 @@ fn run_web_view_blocking(
 }
 
 #[cfg(target_os = "windows")]
-fn add_firewall_rule(port: u16) -> Result<(), &'static str> {
-    fn add(port: u16, direction: &str) -> Result<(), &'static str> {
+fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static str> {
+    fn add(http_port: u16, https_port: u16, direction: &str) -> Result<(), &'static str> {
         let exit_status = runas::Command::new("netsh")
             .args(&[
                 "advfirewall",
@@ -308,7 +311,7 @@ fn add_firewall_rule(port: u16) -> Result<(), &'static str> {
                 "protocol=TCP",
             ])
             .arg(format!("dir={}", direction))
-            .arg(format!("localport={}", port))
+            .arg(format!("localport={},{}", http_port, https_port))
             .gui(true)
             .show(false)
             .status()
@@ -318,7 +321,7 @@ fn add_firewall_rule(port: u16) -> Result<(), &'static str> {
         }
         Ok(())
     }
-    add(port, "in")?;
+    add(http_port, https_port, "in")?;
     Ok(())
 }
 
