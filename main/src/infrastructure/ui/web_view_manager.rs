@@ -68,23 +68,25 @@ impl WebViewManager {
         if let Some(c) = self.web_view_connection.borrow().as_ref() {
             let session = self.session();
             let session = session.borrow();
-            let server = App::get().server().borrow();
+            let app = App::get();
+            let server = app.server().borrow();
             let full_companion_app_url =
                 server.generate_full_companion_app_url(session.id(), false);
             let server_is_running = server.is_running();
             let (qr_code_image_url, qr_code_dimensions) =
                 self.generate_qr_code_as_image_url(&full_companion_app_url);
             let session_id = session.id().to_string();
+            let config = app.config();
             let state = ProjectionSetupState {
                 include_skeleton: false,
                 include_body_content: true,
                 body_state: BodyState {
                     server_is_running,
-                    server_is_enabled: App::get().config().server_is_enabled(),
+                    server_is_enabled: config.server_is_enabled(),
                     full_companion_app_url,
                     qr_code_image_url,
                     qr_code_dimensions,
-                    companion_web_app_url: COMPANION_WEB_APP_URL,
+                    companion_web_app_url: config.companion_web_app_url().to_string(),
                     server_host: server
                         .local_ip()
                         .map(|ip| ip.to_string())
@@ -211,7 +213,7 @@ struct BodyState {
     // Can change per session
     qr_code_dimensions: (u32, u32),
     // Can't change at all
-    companion_web_app_url: &'static str,
+    companion_web_app_url: String,
     // Can only change after restart
     server_host: String,
     // Can only change after restart
