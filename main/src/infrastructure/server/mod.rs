@@ -44,6 +44,7 @@ pub struct RealearnServer {
     state: ServerState,
     cert_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
+    local_ip: Option<IpAddr>,
 }
 
 enum ServerState {
@@ -72,6 +73,7 @@ impl RealearnServer {
             state: ServerState::Stopped,
             cert_dir_path,
             changed_subject: Default::default(),
+            local_ip: get_local_ip(),
         }
     }
 
@@ -82,10 +84,10 @@ impl RealearnServer {
         }
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
-        let ip = self.local_ip();
+        let ip = self.effective_ip();
         let http_port = self.http_port;
         let https_port = self.https_port;
-        let cert_dir_path = self.cert_dir_path.clone();
+        let key_and_cert = self.key_and_cert();
         std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -99,11 +101,20 @@ impl RealearnServer {
                     https_port,
                     clients_clone,
                     ip,
-                    &cert_dir_path,
+                    key_and_cert,
                 ));
             });
         self.state = ServerState::Starting { clients };
         self.notify_changed();
+    }
+
+    fn effective_ip(&self) -> IpAddr {
+        self.local_ip()
+            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST))
+    }
+
+    fn key_and_cert(&self) -> (String, String) {
+        get_key_and_cert(self.effective_ip(), &self.cert_dir_path)
     }
 
     fn notify_started(&mut self) {
@@ -142,7 +153,8 @@ impl RealearnServer {
         } else {
             self.local_ip().map(|ip| ip.to_string())
         };
-
+        let (_, cert) = self.key_and_cert();
+        let base64_encoded_cert = base64::encode_config(&cert, base64::URL_SAFE_NO_PAD);
         Url::parse_with_params(
             App::get()
                 .config()
@@ -159,6 +171,7 @@ impl RealearnServer {
                 // typos are out of question (for a proper error message if connection is not
                 // possible).
                 ("generated", "true".to_string()),
+                ("cert", base64_encoded_cert),
             ],
         )
         .expect("invalid URL")
@@ -166,7 +179,7 @@ impl RealearnServer {
     }
 
     pub fn local_ip(&self) -> Option<IpAddr> {
-        get_local_ip()
+        self.local_ip
     }
 
     pub fn local_hostname(&self) -> Option<String> {
@@ -323,8 +336,8 @@ async fn start_server(
     http_port: u16,
     https_port: u16,
     clients: ServerClients,
-    ip: Option<IpAddr>,
-    cert_dir_path: &Path,
+    ip: IpAddr,
+    (key, cert): (String, String),
 ) {
     use warp::Filter;
     let welcome_route = warp::path::end()
@@ -362,8 +375,6 @@ async fn start_server(
                 },
             )
     };
-    let ip = ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
-    let (key, cert) = get_key_and_cert(ip, cert_dir_path);
     let cert_clone = cert.clone();
     let cert_file_name = "realearn.cer";
     let cert_route = warp::get()
