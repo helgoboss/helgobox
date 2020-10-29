@@ -355,13 +355,25 @@ async fn start_server(
                 },
             )
     };
+    let ip = ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let (key, cert) = get_key_and_cert(ip, cert_dir_path);
+    let cert_clone = cert.clone();
+    let cert_route = warp::get()
+        .and(warp::path!("certificate.pem"))
+        .map(move || {
+            let cert_clone = cert_clone.clone();
+            Response::builder()
+                .status(200)
+                .header("Content-Type", "application/x-pem-file")
+                .body(cert_clone)
+                .unwrap()
+        });
     let routes = welcome_route
+        .or(cert_route)
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
         .or(ws_route);
-    let ip = ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
-    let (key, cert) = get_key_and_cert(ip, cert_dir_path);
     let http_future = warp::serve(routes.clone()).bind(([0, 0, 0, 0], http_port));
     let https_future = warp::serve(routes)
         .tls()
