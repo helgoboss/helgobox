@@ -139,13 +139,19 @@ impl RealearnServer {
         } else {
             self.local_ip().map(|ip| ip.to_string())
         };
+
         Url::parse_with_params(
-            App::get().config().companion_web_app_url(),
+            App::get()
+                .config()
+                .companion_web_app_url()
+                .join("controller-routing")
+                .unwrap()
+                .as_str(),
             &[
                 ("host", host.unwrap_or_else(|| "localhost".to_string())),
-                ("http_port", self.http_port().to_string()),
-                ("https_port", self.https_port().to_string()),
-                ("session_id", session_id.to_string()),
+                ("http-port", self.http_port().to_string()),
+                ("https-port", self.https_port().to_string()),
+                ("session-id", session_id.to_string()),
             ],
         )
         .expect("invalid URL")

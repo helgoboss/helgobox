@@ -13,6 +13,7 @@ use std::cell::{Cell, Ref, RefCell};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use url::Url;
 
 /// static mut maybe okay because we access this via `App::get()` function only and this one checks
 /// the thread before returning the reference.
@@ -156,8 +157,8 @@ impl AppConfig {
         self.main.server_enabled > 0
     }
 
-    pub fn companion_web_app_url(&self) -> &str {
-        &self.main.companion_web_app_url
+    pub fn companion_web_app_url(&self) -> url::Url {
+        Url::parse(&self.main.companion_web_app_url).expect("invalid companion web app URL")
     }
 
     fn config_file_path() -> PathBuf {
