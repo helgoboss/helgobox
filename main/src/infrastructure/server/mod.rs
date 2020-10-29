@@ -323,9 +323,9 @@ async fn start_server(
     cert_dir_path: &Path,
 ) {
     use warp::Filter;
-    let welcome_route = warp::get()
-        .and(warp::path::end())
-        .map(|| warp::reply::html(include_str!("welcome_page.html")));
+    let welcome_route = warp::path::end()
+        .and(warp::head().or(warp::get()))
+        .map(|_| warp::reply::html(include_str!("welcome_page.html")));
     let controller_route = warp::get()
         .and(warp::path!("realearn" / "session" / String / "controller"))
         .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
