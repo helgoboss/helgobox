@@ -443,8 +443,8 @@ fn find_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> Option<(String, String
 
 fn get_key_and_cert_paths(ip: IpAddr, cert_dir_path: &Path) -> (PathBuf, PathBuf) {
     let ip_string = ip.to_string();
-    let key_file_path = cert_dir_path.join(format!("{}-key.pem", ip_string));
-    let cert_file_path = cert_dir_path.join(format!("{}-cert.pem", ip_string));
+    let key_file_path = cert_dir_path.join(format!("{}.key", ip_string));
+    let cert_file_path = cert_dir_path.join(format!("{}.cer", ip_string));
     (key_file_path, cert_file_path)
 }
 
