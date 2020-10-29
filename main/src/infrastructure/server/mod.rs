@@ -7,7 +7,10 @@ use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
 use futures::channel::oneshot;
 use futures::{SinkExt, StreamExt};
-use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, SanType, PKCS_RSA_SHA256};
+use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType, IsCa, SanType,
+    PKCS_RSA_SHA256,
+};
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -402,6 +405,11 @@ fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {
 fn add_key_and_cert(ip: IpAddr) -> (String, String) {
     let mut params = CertificateParams::default();
     params.subject_alt_names = vec![SanType::IpAddress(ip)];
+    // This needs to be set to qualify as a root certificate, which is in turn important for being
+    // able to accept it on iOS as described in
+    // https://apple.stackexchange.com/questions/283348/how-do-i-trust-a-self-signed-certificate-in-ios-10-3
+    // and https://medium.com/collaborne-engineering/self-signed-certificates-in-ios-apps-ff489bf8b96e
+    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     let mut dn = DistinguishedName::new();
     dn.push(DnType::CommonName, "ReaLearn");
     params.distinguished_name = dn;
