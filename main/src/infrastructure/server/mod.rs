@@ -376,7 +376,8 @@ async fn start_server(
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
-        .or(ws_route);
+        .or(ws_route)
+        .with(warp::cors().allow_any_origin());
     let http_future = warp::serve(routes.clone()).bind(([0, 0, 0, 0], http_port));
     let https_future = warp::serve(routes)
         .tls()
