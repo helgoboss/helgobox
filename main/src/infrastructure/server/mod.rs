@@ -155,6 +155,10 @@ impl RealearnServer {
                 ("http-port", self.http_port().to_string()),
                 ("https-port", self.https_port().to_string()),
                 ("session-id", session_id.to_string()),
+                // In order to indicate that the URL has not been entered manually and therefore
+                // typos are out of question (for a proper error message if connection is not
+                // possible).
+                ("generated", "true".to_string()),
             ],
         )
         .expect("invalid URL")
