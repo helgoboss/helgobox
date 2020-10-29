@@ -365,13 +365,18 @@ async fn start_server(
     let ip = ip.unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
     let (key, cert) = get_key_and_cert(ip, cert_dir_path);
     let cert_clone = cert.clone();
+    let cert_file_name = "realearn.cer";
     let cert_route = warp::get()
-        .and(warp::path!("certificate.pem"))
+        .and(warp::path(cert_file_name).and(warp::path::end()))
         .map(move || {
             let cert_clone = cert_clone.clone();
             Response::builder()
                 .status(200)
-                .header("Content-Type", "application/x-pem-file")
+                .header("Content-Type", "application/pkix-cert")
+                .header(
+                    "Content-Disposition",
+                    format!("attachment; filename=\"{}\"", cert_file_name),
+                )
                 .body(cert_clone)
                 .unwrap()
         });
