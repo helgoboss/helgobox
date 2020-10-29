@@ -353,6 +353,7 @@ Loading...
                 <button onclick="external.invoke('start_server')">here</button>
                 to start it! It's possible that your firewall
                 will ask you for permission to open a network port for external devices. In that case, say yes!
+                That will save you the last step.
             </li>
         </ul>
         {% endif %}
@@ -406,7 +407,7 @@ Loading...
         </ul>
     </li>
     <li class="{{ activation_class }}">
-        The app might ask you to open a port in your firewall. If so, follow below instructions:
+        The app might ask you to open ports in your firewall. If so, follow below instructions:
         <ul>
             {% if body_state.os == "windows" %}
             <li>
