@@ -2628,10 +2628,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                     match grouped_mappings.get(&element) {
                         None => pos.to_string(),
                         Some(mappings) => {
+                            let first_mapping = mappings[0].borrow();
+                            let first_mapping_name = first_mapping.name.get_ref().clone();
                             if mappings.len() == 1 {
-                                format!("{} ({})", pos, mappings[0].borrow().name.get_ref().clone())
+                                format!("{} ({})", pos, first_mapping_name)
                             } else {
-                                format!("{} ({} control elements)", pos, mappings.len())
+                                format!("{} ({} + {})", pos, first_mapping_name, mappings.len() - 1)
                             }
                         }
                     }
