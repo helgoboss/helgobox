@@ -432,7 +432,10 @@ fn add_key_and_cert(ip: IpAddr) -> (String, String) {
     // and https://medium.com/collaborne-engineering/self-signed-certificates-in-ios-apps-ff489bf8b96e
     params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
     let mut dn = DistinguishedName::new();
-    dn.push(DnType::CommonName, "ReaLearn");
+    dn.push(
+        DnType::CommonName,
+        format!("ReaLearn on {}", ip.to_string()),
+    );
     params.distinguished_name = dn;
     let certificate = rcgen::Certificate::from_params(params)
         .expect("couldn't create self-signed server certificate");
