@@ -30,8 +30,11 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
-    TargetCharacter, TrackAnchor, TransportAction, VirtualTrack, PLUGIN_PARAMETER_COUNT,
+    TargetCharacter, TrackAnchor, TransportAction, VirtualControlElement, VirtualTrack,
+    PLUGIN_PARAMETER_COUNT,
 };
+use itertools::Itertools;
+use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
@@ -2609,7 +2612,32 @@ impl<'a> ImmutableMappingPanel<'a> {
                 iter::once((-1isize, "<Any> (no feedback)".to_string()))
                     .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
             ),
-            Virtual => b.fill_combo_box_small(1..=100),
+            Virtual => {
+                let controller_mappings = self
+                    .session
+                    .mappings(MappingCompartment::ControllerMappings);
+                let grouped_mappings =
+                    group_mappings_by_virtual_control_element(controller_mappings);
+                let options = (0..100).map(|i| {
+                    let element = self
+                        .source
+                        .control_element_type
+                        .get()
+                        .create_control_element(i);
+                    let pos = i + 1;
+                    match grouped_mappings.get(&element) {
+                        None => pos.to_string(),
+                        Some(mappings) => {
+                            if mappings.len() == 1 {
+                                format!("{} ({})", pos, mappings[0].borrow().name.get_ref().clone())
+                            } else {
+                                format!("{} ({} control elements)", pos, mappings.len())
+                            }
+                        }
+                    }
+                });
+                b.fill_combo_box_small(options);
+            }
         };
     }
 
@@ -2970,4 +2998,23 @@ enum PositiveOrSymmetricUnitValue {
 fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
     // If it doesn't work in some cases, so what.
     let _ = target.control(ControlValue::Absolute(value));
+}
+
+fn group_mappings_by_virtual_control_element<'a>(
+    mappings: impl Iterator<Item = &'a SharedMapping>,
+) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
+    use itertools::Itertools;
+    // Group by Option<VirtualControlElement>
+    let grouped_by_option = mappings.group_by(|m| {
+        let m = m.borrow();
+        match m.target_model.category.get() {
+            TargetCategory::Reaper => None,
+            TargetCategory::Virtual => Some(m.target_model.create_control_element()),
+        }
+    });
+    // Filter out None keys and collect to map with vector values
+    grouped_by_option
+        .into_iter()
+        .filter_map(|(key, group)| key.map(|k| (k, group.collect())))
+        .collect()
 }

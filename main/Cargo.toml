@@ -76,6 +76,8 @@ webbrowser = "0.5.5"
 runas = "0.2.1"
 # For building URls, e.g. companion web app URL
 url = "2.1.1"
+# For grouping mappings by virtual control elements
+itertools = "0.9"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }
