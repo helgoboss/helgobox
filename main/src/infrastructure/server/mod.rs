@@ -154,7 +154,7 @@ impl RealearnServer {
             self.local_ip().map(|ip| ip.to_string())
         };
         let (_, cert) = self.key_and_cert();
-        let base64_encoded_cert = base64::encode_config(&cert, base64::URL_SAFE_NO_PAD);
+        let base64_encoded_cert = base64::encode_config(&cert, base64::URL_SAFE);
         Url::parse_with_params(
             App::get()
                 .config()
