@@ -620,6 +620,8 @@ impl Target for CompoundMappingTarget {
 )]
 #[repr(usize)]
 pub enum MappingCompartment {
+    // It's important for `RealTimeProcessor` logic that this is the first element! We use array
+    // destructuring.
     #[display(fmt = "Controller mappings")]
     ControllerMappings,
     #[display(fmt = "Primary mappings")]

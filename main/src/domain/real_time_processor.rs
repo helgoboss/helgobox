@@ -365,7 +365,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(CompoundMappingSourceValue::Midi(source_value));
+                self.feed_source_scanner(source_value);
             }
         }
     }
@@ -376,10 +376,34 @@ impl RealTimeProcessor {
         }
     }
 
-    fn feed_source_scanner(&mut self, value: CompoundMappingSourceValue) {
-        if let Some(source) = self.source_scanner.feed(value) {
+    fn feed_source_scanner(&mut self, value: MidiSourceValue<RawShortMessage>) {
+        let compound_value = self.virtualize_if_possible(value);
+        if let Some(source) = self.source_scanner.feed(compound_value) {
             self.learn_source(source);
         }
+    }
+
+    fn virtualize_if_possible(
+        &mut self,
+        value: MidiSourceValue<RawShortMessage>,
+    ) -> CompoundMappingSourceValue {
+        // If this MIDI source value translates to a virtual source value, return the first match.
+        for m in self.mappings[MappingCompartment::ControllerMappings]
+            .values_mut()
+            .filter(|m| m.control_is_effectively_on())
+        {
+            if let Some(control_match) = m.control(value) {
+                use PartialControlMatch::*;
+                match control_match {
+                    ProcessVirtual(virtual_source_value) => {
+                        return CompoundMappingSourceValue::Virtual(virtual_source_value);
+                    }
+                    _ => {}
+                };
+            }
+        }
+        // Otherwise just return the MIDI source value as is.
+        CompoundMappingSourceValue::Midi(value)
     }
 
     fn learn_source(&mut self, source: CompoundMappingSource) {
@@ -405,7 +429,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(CompoundMappingSourceValue::Midi(source_value));
+                self.feed_source_scanner(source_value);
             }
         }
     }
@@ -425,7 +449,7 @@ impl RealTimeProcessor {
                 }
             }
             ControlState::LearningSource => {
-                self.feed_source_scanner(CompoundMappingSourceValue::Midi(source_value));
+                self.feed_source_scanner(source_value);
             }
         }
     }
@@ -642,7 +666,9 @@ pub enum MidiFeedbackOutput {
 
 fn control_midi_virtual_and_reaper_targets(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
+    // Controller mappings
     mappings_with_virtual_targets: &mut HashMap<MappingId, RealTimeMapping>,
+    // Primary mappings
     mappings_with_virtual_sources: &HashMap<MappingId, RealTimeMapping>,
     value: MidiSourceValue<RawShortMessage>,
 ) -> bool {
