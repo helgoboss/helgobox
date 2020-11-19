@@ -687,36 +687,34 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
             let m = m.borrow();
             let target_descriptor = if session.mapping_is_on(m.id()) {
                 if m.target_model.category.get() == TargetCategory::Virtual {
+                    // Virtual
                     let control_element = m.target_model.create_control_element();
-                    let matching_primary_mappings: Vec<_> = session
+                    let matching_primary_mappings = session
                         .mappings(MappingCompartment::PrimaryMappings)
                         .filter(|mp| {
                             let mp = mp.borrow();
                             mp.source_model.category.get() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
                                 && session.mapping_is_on(mp.id())
+                        });
+                    let descriptors: Vec<_> = matching_primary_mappings
+                        .map(|m| {
+                            let m = m.borrow();
+                            TargetDescriptor {
+                                label: m.name.get_ref().clone(),
+                            }
                         })
                         .collect();
-                    if let Some(first_mapping) = matching_primary_mappings.first() {
-                        let first_mapping = first_mapping.borrow();
-                        let first_mapping_name = first_mapping.name.get_ref();
-                        let label = if matching_primary_mappings.len() == 1 {
-                            first_mapping_name.clone()
-                        } else {
-                            format!(
-                                "{} +{}",
-                                first_mapping_name,
-                                matching_primary_mappings.len() - 1
-                            )
-                        };
-                        TargetDescriptor { label }
-                    } else {
+                    if descriptors.is_empty() {
                         return None;
                     }
+                    descriptors
                 } else {
-                    TargetDescriptor {
+                    // Direct
+                    let single_descriptor = TargetDescriptor {
                         label: m.name.get_ref().clone(),
-                    }
+                    };
+                    vec![single_descriptor]
                 }
             } else {
                 return None;
@@ -730,7 +728,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ControllerRouting {
-    routes: HashMap<String, TargetDescriptor>,
+    routes: HashMap<String, Vec<TargetDescriptor>>,
 }
 
 #[derive(Serialize)]
