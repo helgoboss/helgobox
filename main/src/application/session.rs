@@ -276,34 +276,28 @@ impl Session {
         // Enable source learning
         // TODO-low This could be handled by normal methods instead of observables, like source
         //  filter learning.
-        when(
-            // TODO-low Listen to values instead of change event only. Filter Some only and
-            // flatten.
-            self.mapping_which_learns_source.changed(),
-        )
-        .with(weak_session.clone())
-        .do_async(move |shared_session, _| {
-            let session = shared_session.borrow();
-            if session.mapping_which_learns_source.get_ref().is_none() {
-                return;
-            }
-            when(
-                session
-                    .source_touched()
-                    // We have this explicit stop criteria because we listen to global REAPER
-                    // events.
-                    .take_until(session.party_is_over())
-                    .take_until(session.mapping_which_learns_source.changed_to(None))
-                    .take(1),
-            )
-            .with(Rc::downgrade(&shared_session))
-            .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-            .do_async(|session, source| {
-                if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
-                    m.borrow_mut().source_model.apply_from_source(&source);
-                }
+        use rxrust::ops::filter_map::FilterMap;
+        when(self.mapping_which_learns_source.values().filter_map(|m| m))
+            .with(weak_session.clone())
+            .do_async(move |shared_session, mapping| {
+                let session = shared_session.borrow();
+                when(
+                    session
+                        .source_touched(mapping.borrow().compartment())
+                        // We have this explicit stop criteria because we listen to global REAPER
+                        // events.
+                        .take_until(session.party_is_over())
+                        .take_until(session.mapping_which_learns_source.changed_to(None))
+                        .take(1),
+                )
+                .with(Rc::downgrade(&shared_session))
+                .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
+                .do_async(|session, source| {
+                    if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
+                        m.borrow_mut().source_model.apply_from_source(&source);
+                    }
+                });
             });
-        });
         // Enable target learning
         when(
             self.target_touched_observables(weak_session.clone())
@@ -338,10 +332,13 @@ impl Session {
         self.source_touched_subject.next(source);
     }
 
-    pub fn source_touched(&self) -> impl Event<CompoundMappingSource> {
+    pub fn source_touched(
+        &self,
+        compartment: MappingCompartment,
+    ) -> impl Event<CompoundMappingSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource)
+            .send(NormalRealTimeTask::StartLearnSource(compartment))
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {

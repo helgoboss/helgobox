@@ -27,7 +27,16 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 #[derive(PartialEq, Debug)]
 pub(crate) enum ControlState {
     Controlling,
-    LearningSource,
+    LearningSource(MappingCompartment),
+}
+
+impl ControlState {
+    fn is_learning(&self) -> bool {
+        match self {
+            ControlState::LearningSource(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -174,9 +183,9 @@ impl RealTimeProcessor {
                     debug!(self.logger, "Updating sample rate");
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
-                StartLearnSource => {
+                StartLearnSource(compartment) => {
                     debug!(self.logger, "Start learn source");
-                    self.control_state = ControlState::LearningSource;
+                    self.control_state = ControlState::LearningSource(compartment);
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                     self.source_scanner.reset();
@@ -233,7 +242,7 @@ impl RealTimeProcessor {
             });
         }
         // Poll source scanner if we are learning a source currently
-        if self.control_state == ControlState::LearningSource {
+        if self.control_state.is_learning() {
             self.poll_source_scanner()
         }
     }
@@ -337,7 +346,8 @@ impl RealTimeProcessor {
     }
 
     fn process_incoming_midi_normal(&mut self, msg: RawShortMessage) {
-        // TODO-low This is probably unnecessary optimization, but we could switch off NRPN/CC14
+        // TODO-low This is probably unnecessary optimization, but we could switch off
+        // NRPN/CC14
         //  scanning if there's no such source.
         if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
             self.process_incoming_midi_normal_nrpn(nrpn_msg);
@@ -364,8 +374,8 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlState::LearningSource => {
-                self.feed_source_scanner(source_value);
+            ControlState::LearningSource(compartment) => {
+                self.feed_source_scanner(source_value, compartment);
             }
         }
     }
@@ -376,8 +386,19 @@ impl RealTimeProcessor {
         }
     }
 
-    fn feed_source_scanner(&mut self, value: MidiSourceValue<RawShortMessage>) {
-        let compound_value = self.virtualize_if_possible(value);
+    fn feed_source_scanner(
+        &mut self,
+        value: MidiSourceValue<RawShortMessage>,
+        compartment: MappingCompartment,
+    ) {
+        let compound_value = if compartment == MappingCompartment::ControllerMappings {
+            // Controller mappings can't have virtual sources, so we also don't want to learn them.
+            CompoundMappingSourceValue::Midi(value)
+        } else {
+            // All other mappings can have virtual sources and they should be preferred over direct
+            // ones.
+            self.virtualize_if_possible(value)
+        };
         if let Some(source) = self.source_scanner.feed(compound_value) {
             self.learn_source(source);
         }
@@ -428,8 +449,8 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlState::LearningSource => {
-                self.feed_source_scanner(source_value);
+            ControlState::LearningSource(compartment) => {
+                self.feed_source_scanner(source_value, compartment);
             }
         }
     }
@@ -448,8 +469,8 @@ impl RealTimeProcessor {
                     self.process_unmatched_short(msg);
                 }
             }
-            ControlState::LearningSource => {
-                self.feed_source_scanner(source_value);
+            ControlState::LearningSource(compartment) => {
+                self.feed_source_scanner(source_value, compartment);
             }
         }
     }
@@ -623,7 +644,7 @@ pub enum NormalRealTimeTask {
     UpdateMappingActivations(MappingCompartment, Vec<MappingActivationUpdate>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
-    StartLearnSource,
+    StartLearnSource(MappingCompartment),
     StopLearnSource,
 }
 
