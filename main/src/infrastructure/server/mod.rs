@@ -740,8 +740,18 @@ struct TargetDescriptor {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Event<T> {
+    /// Tells what happened to this resource, right now only `Updated`.
+    ///
+    /// This doesn't correspond to the HTTP method because there are many situations where it's
+    /// just difficult and irrelevant what caused this message to be sent. What matters is the
+    /// result.
     r#type: EventType,
+    /// Corresponds to the HTTP path of the resource.
     path: String,
+    /// Corresponds to the HTTP body.
+    ///
+    /// HTTP 404 corresponds to this value being `null` or undefined in JSON. If this is not enough
+    /// in future use cases, we can still add another field that resembles the HTTP status.
     payload: T,
 }
 
