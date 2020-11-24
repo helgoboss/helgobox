@@ -703,7 +703,20 @@ impl Session {
         compartment: MappingCompartment,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
-        self.mappings[compartment] = mappings.map(share_mapping).collect();
+        // If we import JSON from clipboard, we might stumble upon duplicate mapping IDs. Fix those!
+        // This is a feature for power users.
+        let mut used_ids = HashSet::new();
+        let fixed_mappings: Vec<_> = mappings
+            .map(|mut m| {
+                if used_ids.contains(&m.id()) {
+                    m.set_id_without_notification(MappingId::random());
+                } else {
+                    used_ids.insert(m.id());
+                }
+                m
+            })
+            .collect();
+        self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
     }
 
     fn add_mapping(
