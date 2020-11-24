@@ -1,4 +1,3 @@
-use crate::application::session_manager;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
 use crate::infrastructure::server::{
     RealearnServer, ServerClients, SharedRealearnServer, COMPANION_WEB_APP_URL,
@@ -98,7 +97,7 @@ impl App {
 
     /// Logging debug info is always initiated by a particular session.
     pub fn log_debug_info(&self, session_id: &str) {
-        session_manager::log_debug_info();
+        crate::application::App::get().log_debug_info();
         self.server.borrow().log_debug_info(session_id);
         self.controller_manager.borrow().log_debug_info();
     }

@@ -1,7 +1,7 @@
 use crate::application::{
-    session_manager, ControllerManager, Session, SharedSession, SourceCategory, TargetCategory,
+    ControllerManager, Session, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
-use crate::core::when;
+use crate::core::{when, AsyncNotifier};
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
@@ -248,7 +248,9 @@ async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
 }
 
 fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<&'static str>> {
-    let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
+    let session = crate::application::App::get()
+        .find_session_by_id(&session_id)
+        .ok_or_else(session_not_found)?;
     let routing = get_controller_routing(&session.borrow());
     Ok(reply::json(&routing))
 }
@@ -318,7 +320,9 @@ fn bad_request(msg: &'static str) -> Response<&'static str> {
 }
 
 fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static str>> {
-    let session = session_manager::find_session_by_id(&session_id).ok_or_else(session_not_found)?;
+    let session = crate::application::App::get()
+        .find_session_by_id(&session_id)
+        .ok_or_else(session_not_found)?;
     let session = session.borrow();
     let controller_id = session
         .active_controller_id()
@@ -332,6 +336,13 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
     Ok(reply::json(&controller_data))
 }
 
+fn handle_session_route(session_id: String) -> Result<Json, Response<&'static str>> {
+    let _ = crate::application::App::get()
+        .find_session_by_id(&session_id)
+        .ok_or_else(session_not_found)?;
+    Ok(reply::json(&SessionResponseData {}))
+}
+
 async fn start_server(
     http_port: u16,
     https_port: u16,
@@ -343,6 +354,9 @@ async fn start_server(
     let welcome_route = warp::path::end()
         .and(warp::head().or(warp::get()))
         .map(|_| warp::reply::html(include_str!("welcome_page.html")));
+    let session_route = warp::get()
+        .and(warp::path!("realearn" / "session" / String))
+        .and_then(|session_id| in_main_thread(|| handle_session_route(session_id)));
     let controller_route = warp::get()
         .and(warp::path!("realearn" / "session" / String / "controller"))
         .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
@@ -393,6 +407,7 @@ async fn start_server(
         });
     let routes = welcome_route
         .or(cert_route)
+        .or(session_route)
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
@@ -541,6 +556,27 @@ impl WebSocketClient {
 // We don't take the async RwLock by Tokio because we need to access this in sync code, too!
 pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>;
 
+pub fn keep_informing_clients_about_sessions() {
+    crate::application::App::get().changed().subscribe(|_| {
+        Reaper::get().do_later_in_main_thread_asap(|| {
+            send_sessions_to_subscribed_clients();
+        });
+    });
+}
+
+fn send_sessions_to_subscribed_clients() {
+    for_each_client(
+        |client, _| {
+            for t in client.topics.iter() {
+                if let Topic::Session { session_id } = t {
+                    let _ = send_initial_session(client, session_id);
+                }
+            }
+        },
+        || (),
+    );
+}
+
 pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
     let session = shared_session.borrow();
     when(
@@ -553,32 +589,50 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
     .do_async(|session, _| {
         let _ = send_updated_controller_routing(&session.borrow());
     });
-    when(
-        session
-            .everything_changed()
-            .merge(App::get().controller_manager().borrow().changed()),
-    )
-    .with(Rc::downgrade(shared_session))
-    .do_async(|session, _| {
-        let _ = send_updated_active_controller(&session.borrow());
-        let _ = send_updated_controller_routing(&session.borrow());
-    });
+    when(App::get().controller_manager().borrow().changed())
+        .with(Rc::downgrade(shared_session))
+        .do_async(|session, _| {
+            let _ = send_updated_active_controller(&session.borrow());
+        });
+    when(session.everything_changed().merge(session.id.changed()))
+        .with(Rc::downgrade(shared_session))
+        .do_async(|session, _| {
+            send_sessions_to_subscribed_clients();
+            let session = session.borrow();
+            let _ = send_updated_active_controller(&session);
+            let _ = send_updated_controller_routing(&session);
+        });
+}
+
+fn send_initial_session(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
+    let event = if let Some(_) = crate::application::App::get().find_session_by_id(session_id) {
+        get_session_updated_event(session_id, Some(SessionResponseData {}))
+    } else {
+        get_session_updated_event(session_id, None)
+    };
+    client.send(&event)
 }
 
 fn send_initial_controller_routing(
     client: &WebSocketClient,
     session_id: &str,
 ) -> Result<(), &'static str> {
-    let session =
-        session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
-    let event = get_controller_routing_updated_event(&session.borrow());
+    let event = if let Some(session) = crate::application::App::get().find_session_by_id(session_id)
+    {
+        get_controller_routing_updated_event(session_id, Some(&session.borrow()))
+    } else {
+        get_controller_routing_updated_event(session_id, None)
+    };
     client.send(&event)
 }
 
 fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
-    let session =
-        session_manager::find_session_by_id(session_id).ok_or("couldn't find that session")?;
-    let event = get_active_controller_updated_event(&session.borrow());
+    let event = if let Some(session) = crate::application::App::get().find_session_by_id(session_id)
+    {
+        get_active_controller_updated_event(session_id, Some(&session.borrow()))
+    } else {
+        get_active_controller_updated_event(session_id, None)
+    };
     client.send(&event)
 }
 
@@ -587,7 +641,7 @@ fn send_updated_active_controller(session: &Session) -> Result<(), &'static str>
         &Topic::ActiveController {
             session_id: session.id().to_string(),
         },
-        || get_active_controller_updated_event(session),
+        || get_active_controller_updated_event(session.id(), Some(session)),
     )
 }
 
@@ -596,11 +650,43 @@ fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),
         },
-        || get_controller_routing_updated_event(session),
+        || get_controller_routing_updated_event(session.id(), Some(session)),
     )
 }
 
 fn send_to_clients_subscribed_to<T: Serialize>(
+    topic: &Topic,
+    create_message: impl FnOnce() -> T,
+) -> Result<(), &'static str> {
+    for_each_client(
+        |client, cached| {
+            if client.is_subscribed_to(topic) {
+                let _ = client.send(cached);
+            }
+        },
+        create_message,
+    )
+}
+
+fn for_each_client<T: Serialize>(
+    op: impl Fn(&WebSocketClient, &T),
+    cache: impl FnOnce() -> T,
+) -> Result<(), &'static str> {
+    let clients = App::get().server().borrow().clients()?.clone();
+    let clients = clients
+        .read()
+        .map_err(|_| "couldn't get read lock for client")?;
+    if clients.is_empty() {
+        return Ok(());
+    }
+    let cached = cache();
+    for client in clients.values() {
+        op(client, &cached);
+    }
+    Ok(())
+}
+
+fn send_to_clients<T: Serialize>(
     topic: &Topic,
     create_message: impl FnOnce() -> T,
 ) -> Result<(), &'static str> {
@@ -630,6 +716,7 @@ fn send_initial_events_for_topic(
 ) -> Result<(), &'static str> {
     use Topic::*;
     match topic {
+        Session { session_id } => send_initial_session(client, session_id),
         ControllerRouting { session_id } => send_initial_controller_routing(client, session_id),
         ActiveController { session_id } => send_initial_controller(client, session_id),
     }
@@ -637,6 +724,7 @@ fn send_initial_events_for_topic(
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 enum Topic {
+    Session { session_id: String },
     ActiveController { session_id: String },
     ControllerRouting { session_id: String },
 }
@@ -653,25 +741,39 @@ impl TryFrom<&str> for Topic {
             ["realearn", "session", id, "controller"] => Topic::ActiveController {
                 session_id: id.to_string(),
             },
+            ["realearn", "session", id] => Topic::Session {
+                session_id: id.to_string(),
+            },
             _ => return Err("invalid topic expression"),
         };
         Ok(topic)
     }
 }
 
-fn get_active_controller_updated_event(session: &Session) -> Event<Option<ControllerData>> {
+fn get_active_controller_updated_event(
+    session_id: &str,
+    session: Option<&Session>,
+) -> Event<Option<ControllerData>> {
     Event::new(
-        EventType::Updated,
-        format!("/realearn/session/{}/controller", session.id()),
-        get_controller(session),
+        format!("/realearn/session/{}/controller", session_id),
+        session.and_then(get_controller),
     )
 }
 
-fn get_controller_routing_updated_event(session: &Session) -> Event<ControllerRouting> {
+fn get_session_updated_event(
+    session_id: &str,
+    session_data: Option<SessionResponseData>,
+) -> Event<Option<SessionResponseData>> {
+    Event::new(format!("/realearn/session/{}", session_id), session_data)
+}
+
+fn get_controller_routing_updated_event(
+    session_id: &str,
+    session: Option<&Session>,
+) -> Event<Option<ControllerRouting>> {
     Event::new(
-        EventType::Updated,
-        format!("/realearn/session/{}/controller-routing", session.id()),
-        get_controller_routing(session),
+        format!("/realearn/session/{}/controller-routing", session_id),
+        session.map(get_controller_routing),
     )
 }
 
@@ -733,6 +835,11 @@ struct ControllerRouting {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+// Right now just a placeholder
+struct SessionResponseData {}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct TargetDescriptor {
     label: String,
 }
@@ -740,28 +847,18 @@ struct TargetDescriptor {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Event<T> {
-    /// Tells what happened to this resource, right now only `Updated`.
-    ///
-    /// This doesn't correspond to the HTTP method because there are many situations where it's
-    /// just difficult and irrelevant what caused this message to be sent. What matters is the
-    /// result.
-    r#type: EventType,
     /// Corresponds to the HTTP path of the resource.
     path: String,
     /// Corresponds to the HTTP body.
     ///
     /// HTTP 404 corresponds to this value being `null` or undefined in JSON. If this is not enough
     /// in future use cases, we can still add another field that resembles the HTTP status.
-    payload: T,
+    body: T,
 }
 
 impl<T> Event<T> {
-    pub fn new(r#type: EventType, path: String, payload: T) -> Event<T> {
-        Event {
-            r#type,
-            path,
-            payload,
-        }
+    pub fn new(path: String, body: T) -> Event<T> {
+        Event { path, body }
     }
 }
 

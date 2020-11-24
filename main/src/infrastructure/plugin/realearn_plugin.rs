@@ -27,7 +27,7 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use crate::application::{session_manager, Session, SharedSession};
+use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
 use crate::infrastructure::server::RealearnServer;
@@ -259,7 +259,8 @@ impl RealearnPlugin {
                 PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
             Swell::make_available_globally(Swell::load(context));
             Reaper::setup_with_defaults(context, self.logger.clone(), "info@helgoboss.org");
-            session_manager::register_global_learn_action();
+            crate::application::App::get().register_global_learn_action();
+            server::keep_informing_clients_about_sessions();
             debug_util::register_resolve_symbols_action();
             App::get().init();
         })
@@ -313,7 +314,7 @@ impl RealearnPlugin {
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
                 server::keep_informing_clients_about_session_events(&shared_session);
-                session_manager::register_session(weak_session.clone());
+                crate::application::App::get().register_session(weak_session.clone());
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);
@@ -342,7 +343,7 @@ impl Drop for RealearnPlugin {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
-            session_manager::unregister_session(session.as_ptr());
+            crate::application::App::get().unregister_session(session.as_ptr());
             debug!(
                 self.logger,
                 "{} pointers are still referring to this session",

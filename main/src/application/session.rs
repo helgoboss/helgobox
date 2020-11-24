@@ -1,5 +1,5 @@
 use crate::application::{
-    session_manager, share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
+    app, share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -894,6 +894,10 @@ impl Session {
 
     fn generate_name_for_new_mapping(&self, compartment: MappingCompartment) -> String {
         format!("{}", self.mappings[compartment].len() + 1)
+    }
+
+    pub fn destroyed(&self) -> impl UnitEvent {
+        self.party_is_over_subject.clone()
     }
 
     fn party_is_over(&self) -> impl UnitEvent {
