@@ -9,6 +9,8 @@ use slog::debug;
 use std::cell::Cell;
 
 use crate::application::{MappingModel, SessionUi, WeakSession};
+use crate::core::when;
+use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
@@ -98,6 +100,20 @@ impl MainPanel {
         }
     }
 
+    fn invalidate_left_status_text(&self) {
+        let state = self.state.borrow();
+        self.view
+            .require_control(root::ID_MAIN_PANEL_LEFT_STATUS_TEXT)
+            .set_text(state.left_status_msg.get_ref().as_str());
+    }
+
+    fn invalidate_right_status_text(&self) {
+        let state = self.state.borrow();
+        self.view
+            .require_control(root::ID_MAIN_PANEL_RIGHT_STATUS_TEXT)
+            .set_text(state.right_status_msg.get_ref().as_str());
+    }
+
     fn invalidate_version_text(&self) {
         use crate::infrastructure::ui::built_info::*;
         let dirty_mark = if GIT_DIRTY.contains(&true) {
@@ -125,6 +141,32 @@ impl MainPanel {
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
             .set_text(version_text);
+    }
+
+    fn invalidate_all_controls(&self) {
+        self.invalidate_version_text();
+        self.invalidate_left_status_text();
+        self.invalidate_right_status_text();
+    }
+
+    fn register_listeners(self: SharedView<Self>) {
+        let state = self.state.borrow();
+        self.when(state.left_status_msg.changed(), |view| {
+            view.invalidate_left_status_text();
+        });
+        self.when(state.right_status_msg.changed(), |view| {
+            view.invalidate_right_status_text();
+        });
+    }
+
+    fn when(
+        self: &SharedView<Self>,
+        event: impl UnitEvent,
+        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+    ) {
+        when(event.take_until(self.view.closed()))
+            .with(Rc::downgrade(self))
+            .do_async(move |panel, _| reaction(panel));
     }
 }
 
@@ -154,7 +196,8 @@ impl View for MainPanel {
         }
         // Optimal dimensions have been calculated and window has been reopened. Now add sub panels!
         self.open_sub_panels(window);
-        self.invalidate_version_text();
+        self.invalidate_all_controls();
+        self.register_listeners();
         true
     }
 }

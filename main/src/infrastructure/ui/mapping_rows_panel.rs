@@ -94,11 +94,16 @@ impl MappingRowsPanel {
     }
 
     fn invalidate_scroll_info(&self) {
+        let count = self.filtered_mapping_count();
+        self.main_state
+            .borrow_mut()
+            .right_status_msg
+            .set(count.to_string());
         let scroll_info = raw::SCROLLINFO {
             cbSize: std::mem::size_of::<raw::SCROLLINFO>() as _,
             fMask: raw::SIF_PAGE | raw::SIF_RANGE,
             nMin: 0,
-            nMax: cmp::max(0, self.filtered_mapping_count() as isize - 1) as _,
+            nMax: cmp::max(0, count as isize - 1) as _,
             nPage: self.rows.len() as _,
             nPos: 0,
             nTrackPos: 0,
@@ -154,6 +159,10 @@ impl MappingRowsPanel {
             );
         }
         self.scroll_position.set(pos);
+        self.main_state
+            .borrow_mut()
+            .left_status_msg
+            .set(pos.to_string());
         self.invalidate_mapping_rows();
         true
     }

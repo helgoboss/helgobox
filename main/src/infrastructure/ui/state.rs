@@ -14,6 +14,8 @@ pub struct MainState {
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
     pub search_expression: Prop<String>,
+    pub left_status_msg: Prop<String>,
+    pub right_status_msg: Prop<String>,
 }
 
 impl Default for MainState {
@@ -25,6 +27,8 @@ impl Default for MainState {
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::PrimaryMappings),
             search_expression: Default::default(),
+            left_status_msg: Default::default(),
+            right_status_msg: Default::default(),
         }
     }
 }

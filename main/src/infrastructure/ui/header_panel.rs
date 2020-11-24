@@ -813,9 +813,6 @@ impl View for HeaderPanel {
         let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
             .expect("menu bar couldn't be loaded");
         let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
-        let server_is_running = App::get().server().borrow().is_running();
-        menu.set_item_checked(root::IDM_PROJECTION_SERVER, server_is_running);
-
         let result = match self.view.require_window().open_popup_menu(menu, location) {
             None => return,
             Some(r) => r,
