@@ -100,18 +100,11 @@ impl MainPanel {
         }
     }
 
-    fn invalidate_left_status_text(&self) {
+    fn invalidate_status_text(&self) {
         let state = self.state.borrow();
         self.view
-            .require_control(root::ID_MAIN_PANEL_LEFT_STATUS_TEXT)
-            .set_text(state.left_status_msg.get_ref().as_str());
-    }
-
-    fn invalidate_right_status_text(&self) {
-        let state = self.state.borrow();
-        self.view
-            .require_control(root::ID_MAIN_PANEL_RIGHT_STATUS_TEXT)
-            .set_text(state.right_status_msg.get_ref().as_str());
+            .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
+            .set_text(state.status_msg.get_ref().as_str());
     }
 
     fn invalidate_version_text(&self) {
@@ -145,17 +138,13 @@ impl MainPanel {
 
     fn invalidate_all_controls(&self) {
         self.invalidate_version_text();
-        self.invalidate_left_status_text();
-        self.invalidate_right_status_text();
+        self.invalidate_status_text();
     }
 
     fn register_listeners(self: SharedView<Self>) {
         let state = self.state.borrow();
-        self.when(state.left_status_msg.changed(), |view| {
-            view.invalidate_left_status_text();
-        });
-        self.when(state.right_status_msg.changed(), |view| {
-            view.invalidate_right_status_text();
+        self.when(state.status_msg.changed(), |view| {
+            view.invalidate_status_text();
         });
     }
 

@@ -94,16 +94,13 @@ impl MappingRowsPanel {
     }
 
     fn invalidate_scroll_info(&self) {
-        let count = self.filtered_mapping_count();
-        self.main_state
-            .borrow_mut()
-            .right_status_msg
-            .set(count.to_string());
+        let item_count = self.filtered_mapping_count();
+        self.update_scroll_status_msg(item_count);
         let scroll_info = raw::SCROLLINFO {
             cbSize: std::mem::size_of::<raw::SCROLLINFO>() as _,
             fMask: raw::SIF_PAGE | raw::SIF_RANGE,
             nMin: 0,
-            nMax: cmp::max(0, count as isize - 1) as _,
+            nMax: self.get_max_scroll_position(item_count) as _,
             nPage: self.rows.len() as _,
             nPos: 0,
             nTrackPos: 0,
@@ -145,7 +142,8 @@ impl MappingRowsPanel {
     }
 
     fn scroll(&self, pos: usize) -> bool {
-        let pos = pos.min(self.max_scroll_position());
+        let item_count = self.filtered_mapping_count();
+        let pos = pos.min(self.get_max_scroll_position(item_count));
         let scroll_pos = self.scroll_position.get();
         if pos == scroll_pos {
             return false;
@@ -159,19 +157,23 @@ impl MappingRowsPanel {
             );
         }
         self.scroll_position.set(pos);
-        self.main_state
-            .borrow_mut()
-            .left_status_msg
-            .set(pos.to_string());
+        self.update_scroll_status_msg(item_count);
         self.invalidate_mapping_rows();
         true
     }
 
-    fn max_scroll_position(&self) -> usize {
-        cmp::max(
-            0,
-            self.filtered_mapping_count() as isize - self.rows.len() as isize,
-        ) as usize
+    fn update_scroll_status_msg(&self, item_count: usize) {
+        let from_pos = cmp::min(self.scroll_position.get() + 1, item_count);
+        let to_pos = cmp::min(from_pos + self.rows.len() - 1, item_count);
+        let status_msg = format!(
+            "Showing mappings {} to {} of {}",
+            from_pos, to_pos, item_count
+        );
+        self.main_state.borrow_mut().status_msg.set(status_msg);
+    }
+
+    fn get_max_scroll_position(&self, item_count: usize) -> usize {
+        cmp::max(0, item_count as isize - 1) as usize
     }
 
     fn filtered_mapping_count(&self) -> usize {
@@ -226,18 +228,16 @@ impl MappingRowsPanel {
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
-        let mapping_count = self
-            .session()
-            .borrow()
-            .mapping_count(self.active_compartment());
+        let compartment = self.active_compartment();
+        let mapping_count = self.session().borrow().mapping_count(compartment);
+        let shared_session = self.session();
+        let session = shared_session.borrow();
         for i in self.scroll_position.get()..mapping_count {
             if row_index >= self.rows.len() {
                 break;
             }
-            let shared_session = self.session();
-            let session = shared_session.borrow();
             let mapping = session
-                .find_mapping_by_index(self.active_compartment(), i)
+                .find_mapping_by_index(compartment, i)
                 .expect("impossible");
             if !self.mapping_matches_filter(mapping) {
                 continue;
