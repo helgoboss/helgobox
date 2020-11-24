@@ -106,17 +106,21 @@ impl MappingRowPanel {
                             == mapping.source_model.create_control_element()
                 })
                 .collect();
-            let first_mapping = mappings[0].borrow();
-            let first_mapping_name = first_mapping.name.get_ref().clone();
-            if mappings.len() == 1 {
-                format!("{}\n({})", plain_label, first_mapping_name)
+            if mappings.len() == 0 {
+                plain_label
             } else {
-                format!(
-                    "{}({} + {})",
-                    plain_label,
-                    first_mapping_name,
-                    mappings.len() - 1
-                )
+                let first_mapping = mappings[0].borrow();
+                let first_mapping_name = first_mapping.name.get_ref().clone();
+                if mappings.len() == 1 {
+                    format!("{}\n({})", plain_label, first_mapping_name)
+                } else {
+                    format!(
+                        "{}({} + {})",
+                        plain_label,
+                        first_mapping_name,
+                        mappings.len() - 1
+                    )
+                }
             }
         } else {
             plain_label
