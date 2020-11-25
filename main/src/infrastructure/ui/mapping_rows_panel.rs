@@ -179,11 +179,7 @@ impl MappingRowsPanel {
     fn filtered_mapping_count(&self) -> usize {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let main_state = self.main_state.borrow();
-        if main_state.source_filter.get_ref().is_none()
-            && main_state.target_filter.get_ref().is_none()
-            && main_state.search_expression.get_ref().trim().is_empty()
-        {
+        if !self.main_state.borrow().filter_is_active() {
             return session.mapping_count(self.active_compartment());
         }
         session
@@ -229,19 +225,22 @@ impl MappingRowsPanel {
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
         let compartment = self.active_compartment();
-        let mapping_count = self.session().borrow().mapping_count(compartment);
         let shared_session = self.session();
         let session = shared_session.borrow();
-        for i in self.scroll_position.get()..mapping_count {
+        let main_state = self.main_state.borrow();
+        let mappings: Vec<_> = if main_state.filter_is_active() {
+            session
+                .mappings(compartment)
+                .filter(|m| self.mapping_matches_filter(*m))
+                .collect()
+        } else {
+            session.mappings(compartment).collect()
+        };
+        for i in self.scroll_position.get()..mappings.len() {
             if row_index >= self.rows.len() {
                 break;
             }
-            let mapping = session
-                .find_mapping_by_index(compartment, i)
-                .expect("impossible");
-            if !self.mapping_matches_filter(mapping) {
-                continue;
-            }
+            let mapping = mappings[i];
             self.rows
                 .get(row_index)
                 .expect("impossible")

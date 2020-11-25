@@ -44,4 +44,10 @@ impl MainState {
     pub fn clear_target_filter(&mut self) {
         self.target_filter.set(None)
     }
+
+    pub fn filter_is_active(&self) -> bool {
+        self.source_filter.get_ref().is_some()
+            || self.target_filter.get_ref().is_some()
+            || !self.search_expression.get_ref().trim().is_empty()
+    }
 }
