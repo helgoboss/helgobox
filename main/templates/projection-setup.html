@@ -311,7 +311,7 @@ Loading...
 <h2>Introduction</h2>
 <p>
     Welcome to ReaLearn's projection feature. This allows you to project a schematic representation of your currently
-    active controller to a mobile device (e.g. a tablet computer). You can put this device close to your controller in
+    active controller onto a mobile device (e.g. a tablet computer). You can put this device close to your controller in
     order to see immediately which control element is mapped to which parameter.
 </p>
 <h2>First-time setup</h2>
@@ -360,7 +360,7 @@ Loading...
     </li>
     <li class="{{ activation_class }}">
         Try to <a href="#" onclick="external.invoke('open_companion_app')">open the ReaLearn Companion web app on this
-        computer</a> (usually requires internet connection).
+        computer</a> (requires internet connection and takes a while to load when using it the first time).
         <ul>
             <li>
                 If this works, you know the server is indeed running. That means you can already use projections right
@@ -373,18 +373,26 @@ Loading...
         </ul>
     </li>
     <li class="{{ activation_class }}">
-        Try to open ReaLearn's companion app on your mobile device.
+        Try to open ReaLearn's Companion app on your mobile device.
         <ul>
             <li>
-                There's no native Android/iOS app (yet) so we are going to use the ReaLearn Companion web app again.
+                At the moment only Android devices are officially supported. The Android app is currently in beta stage
+                (not yet available in the Google Play store). If you want to be one of the beta testers, please send a
+                short email to info@helgoboss.org! Thanks.
             </li>
             <li>
-                Simply use your device's QR code scanner, scan the QR code on the top of this page and open the
-                resulting address in your mobile browser.
+                There's no iOS app at the moment. If you are interested in this, let me know on Twitter @helgoboss or by
+                writing an email to info@helgoboss.org.
             </li>
             <li>
-                If your device can't scan QR codes, point your mobile browser to the following address:
-                <code>{{ body_state.companion_web_app_url }}</code>. When asked, enter the following connection details:
+                <p>
+                    If you are adventurous and want to connect with a non-Android device, you can try opening the
+                    web app in your mobile browser. (Please note that this is not the preferred solution. It's probably
+                    a bit slow and things might not work as expected.) Simply use your device's QR code scanner, scan
+                    the QR code on the top of this page and open the resulting address in the browser. If your device
+                    can't scan QR codes, point your mobile browser to the following address:
+                    <code>{{ body_state.companion_web_app_url }}</code>. When asked, enter the following connection
+                    details:
                 <table>
                     <tr>
                         <th>Host:</th>
