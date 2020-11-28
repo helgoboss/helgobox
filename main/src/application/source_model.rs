@@ -486,8 +486,7 @@ impl MidiSourceType {
 )]
 #[repr(usize)]
 pub enum VirtualControlElementType {
-    // TODO-high rename to multi
-    #[serde(rename = "continuous")]
+    #[serde(rename = "multi")]
     #[display(fmt = "Multi")]
     Multi,
     #[serde(rename = "button")]
