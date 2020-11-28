@@ -42,7 +42,7 @@ pub struct RealearnServer {
     http_port: u16,
     https_port: u16,
     state: ServerState,
-    cert_dir_path: PathBuf,
+    tls_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
     local_ip: Option<IpAddr>,
 }
@@ -66,12 +66,12 @@ impl ServerState {
 pub const COMPANION_WEB_APP_URL: &'static str = "https://realearn.helgoboss.org/";
 
 impl RealearnServer {
-    pub fn new(http_port: u16, https_port: u16, cert_dir_path: PathBuf) -> RealearnServer {
+    pub fn new(http_port: u16, https_port: u16, tls_dir_path: PathBuf) -> RealearnServer {
         RealearnServer {
             http_port,
             https_port,
             state: ServerState::Stopped,
-            cert_dir_path,
+            tls_dir_path,
             changed_subject: Default::default(),
             local_ip: get_local_ip(),
         }
@@ -114,7 +114,7 @@ impl RealearnServer {
     }
 
     fn key_and_cert(&self) -> (String, String) {
-        get_key_and_cert(self.effective_ip(), &self.cert_dir_path)
+        get_key_and_cert(self.effective_ip(), &self.tls_dir_path)
     }
 
     fn notify_started(&mut self) {

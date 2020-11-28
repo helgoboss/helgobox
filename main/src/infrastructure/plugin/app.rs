@@ -42,15 +42,14 @@ impl App {
     }
 
     fn new(config: AppConfig) -> App {
-        let resource_dir = App::resource_dir_path();
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
-                resource_dir.join("controllers"),
+                App::realearn_resource_dir_path().join("controllers"),
             ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
-                resource_dir.join("certs"),
+                App::server_resource_dir_path().join("tls"),
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
@@ -114,9 +113,17 @@ impl App {
         self.notify_changed();
     }
 
-    fn resource_dir_path() -> PathBuf {
+    fn helgoboss_resource_dir_path() -> PathBuf {
         let reaper_resource_path = Reaper::get().resource_path();
-        reaper_resource_path.join("ReaLearn")
+        reaper_resource_path.join("Helgoboss")
+    }
+
+    fn realearn_resource_dir_path() -> PathBuf {
+        Self::helgoboss_resource_dir_path().join("ReaLearn")
+    }
+
+    fn server_resource_dir_path() -> PathBuf {
+        Self::helgoboss_resource_dir_path().join("Server")
     }
 
     fn notify_changed(&self) {
@@ -162,7 +169,7 @@ impl AppConfig {
     }
 
     fn config_file_path() -> PathBuf {
-        App::resource_dir_path().join("realearn.ini")
+        App::realearn_resource_dir_path().join("realearn.ini")
     }
 }
 
