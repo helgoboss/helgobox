@@ -76,18 +76,17 @@ impl WebViewManager {
             let (qr_code_image_url, qr_code_dimensions) =
                 self.generate_qr_code_as_image_url(&full_companion_app_url);
             let session_id = session.id().to_string();
-            let realearn_config = app.realearn_config();
-            let server_config = app.server_config();
+            let config = app.config();
             let state = ProjectionSetupState {
                 include_skeleton: false,
                 include_body_content: true,
                 body_state: BodyState {
                     server_is_running,
-                    server_is_enabled: server_config.server_is_enabled(),
+                    server_is_enabled: config.server_is_enabled(),
                     full_companion_app_url,
                     qr_code_image_url,
                     qr_code_dimensions,
-                    companion_web_app_url: realearn_config.companion_web_app_url().to_string(),
+                    companion_web_app_url: config.companion_web_app_url().to_string(),
                     server_host: server
                         .local_ip()
                         .map(|ip| ip.to_string())
