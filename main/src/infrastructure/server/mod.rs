@@ -157,7 +157,7 @@ impl RealearnServer {
         let base64_encoded_cert = base64::encode_config(&cert, base64::URL_SAFE);
         Url::parse_with_params(
             App::get()
-                .config()
+                .realearn_config()
                 .companion_web_app_url()
                 .join("controller-routing")
                 .unwrap()

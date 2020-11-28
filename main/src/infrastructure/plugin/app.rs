@@ -22,7 +22,8 @@ static mut APP: Lazy<App> = Lazy::new(App::load);
 pub struct App {
     controller_manager: SharedControllerManager,
     server: SharedRealearnServer,
-    config: RefCell<AppConfig>,
+    realearn_config: RefCell<RealearnConfig>,
+    server_config: RefCell<ServerConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
@@ -34,31 +35,35 @@ impl App {
     }
 
     fn load() -> App {
-        let config = AppConfig::load().unwrap_or_else(|e| {
+        let realearn_config = RealearnConfig::load().unwrap_or_else(|e| {
             debug!(App::logger(), "{}", e);
             Default::default()
         });
-        App::new(config)
+        let server_config = ServerConfig::load().unwrap_or_else(|e| {
+            debug!(App::logger(), "{}", e);
+            Default::default()
+        });
+        App::new(realearn_config, server_config)
     }
 
-    fn new(config: AppConfig) -> App {
-        let resource_dir = App::resource_dir_path();
+    fn new(realearn_config: RealearnConfig, server_config: ServerConfig) -> App {
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
-                resource_dir.join("controllers"),
+                App::realearn_resource_dir_path().join("controllers"),
             ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
-                config.main.server_http_port,
-                config.main.server_https_port,
-                resource_dir.join("certs"),
+                server_config.main.server_http_port,
+                server_config.main.server_https_port,
+                App::server_resource_dir_path().join("certs"),
             ))),
-            config: RefCell::new(config),
+            realearn_config: RefCell::new(realearn_config),
+            server_config: RefCell::new(server_config),
             changed_subject: Default::default(),
         }
     }
 
     pub fn init(&self) {
-        if self.config.borrow().server_is_enabled() {
+        if self.server_config.borrow().server_is_enabled() {
             self.server().borrow_mut().start();
         }
     }
@@ -79,21 +84,25 @@ impl App {
         &self.server
     }
 
-    pub fn config(&self) -> Ref<AppConfig> {
-        self.config.borrow()
+    pub fn realearn_config(&self) -> Ref<RealearnConfig> {
+        self.realearn_config.borrow()
+    }
+
+    pub fn server_config(&self) -> Ref<ServerConfig> {
+        self.server_config.borrow()
     }
 
     pub fn start_server_persistently(&self) {
         self.server.borrow_mut().start();
-        self.change_config(AppConfig::enable_server);
+        self.change_server_config(ServerConfig::enable_server);
     }
 
     pub fn disable_server_persistently(&self) {
-        self.change_config(AppConfig::disable_server);
+        self.change_server_config(ServerConfig::disable_server);
     }
 
     pub fn enable_server_persistently(&self) {
-        self.change_config(AppConfig::enable_server);
+        self.change_server_config(ServerConfig::enable_server);
     }
 
     /// Logging debug info is always initiated by a particular session.
@@ -107,16 +116,24 @@ impl App {
         self.changed_subject.borrow().clone()
     }
 
-    fn change_config(&self, op: impl FnOnce(&mut AppConfig)) {
-        let mut config = self.config.borrow_mut();
+    fn change_server_config(&self, op: impl FnOnce(&mut ServerConfig)) {
+        let mut config = self.server_config.borrow_mut();
         op(&mut config);
         config.save().unwrap();
         self.notify_changed();
     }
 
-    fn resource_dir_path() -> PathBuf {
+    fn helgoboss_resource_dir_path() -> PathBuf {
         let reaper_resource_path = Reaper::get().resource_path();
-        reaper_resource_path.join("ReaLearn")
+        reaper_resource_path.join("Helgoboss")
+    }
+
+    fn realearn_resource_dir_path() -> PathBuf {
+        Self::helgoboss_resource_dir_path().join("ReaLearn")
+    }
+
+    fn server_resource_dir_path() -> PathBuf {
+        Self::helgoboss_resource_dir_path().join("Server")
     }
 
     fn notify_changed(&self) {
@@ -126,22 +143,63 @@ impl App {
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct AppConfig {
-    main: MainConfig,
+pub struct RealearnConfig {
+    main: RealearnMainConfig,
 }
 
-impl AppConfig {
-    pub fn load() -> Result<AppConfig, String> {
+impl RealearnConfig {
+    pub fn load() -> Result<RealearnConfig, String> {
         let ini_content = fs::read_to_string(&Self::config_file_path())
-            .map_err(|_| "couldn't read config file".to_string())?;
+            .map_err(|_| "couldn't read ReaLearn config file".to_string())?;
         let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{:?}", e))?;
         Ok(config)
     }
 
     pub fn save(&self) -> Result<(), &'static str> {
-        let ini_content = serde_ini::to_string(self).map_err(|_| "couldn't serialize config")?;
+        let ini_content =
+            serde_ini::to_string(self).map_err(|_| "couldn't serialize ReaLearn config")?;
         fs::write(Self::config_file_path(), ini_content)
-            .map_err(|_| "couldn't write config file")?;
+            .map_err(|_| "couldn't write ReaLearn config file")?;
+        Ok(())
+    }
+
+    pub fn companion_web_app_url(&self) -> url::Url {
+        Url::parse(&self.main.companion_web_app_url).expect("invalid companion web app URL")
+    }
+
+    fn config_file_path() -> PathBuf {
+        App::realearn_resource_dir_path().join("realearn.ini")
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct RealearnMainConfig {
+    #[serde(
+        default = "default_companion_web_app_url",
+        skip_serializing_if = "is_default_companion_web_app_url"
+    )]
+    companion_web_app_url: String,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ServerConfig {
+    main: ServerMainConfig,
+}
+
+impl ServerConfig {
+    pub fn load() -> Result<ServerConfig, String> {
+        let ini_content = fs::read_to_string(&Self::config_file_path())
+            .map_err(|_| "couldn't read server config file".to_string())?;
+        let config = serde_ini::from_str(&ini_content).map_err(|e| format!("{:?}", e))?;
+        Ok(config)
+    }
+
+    pub fn save(&self) -> Result<(), &'static str> {
+        let ini_content =
+            serde_ini::to_string(self).map_err(|_| "couldn't serialize server config")?;
+        fs::write(Self::config_file_path(), ini_content)
+            .map_err(|_| "couldn't write server config file")?;
         Ok(())
     }
 
@@ -157,17 +215,13 @@ impl AppConfig {
         self.main.server_enabled > 0
     }
 
-    pub fn companion_web_app_url(&self) -> url::Url {
-        Url::parse(&self.main.companion_web_app_url).expect("invalid companion web app URL")
-    }
-
     fn config_file_path() -> PathBuf {
-        App::resource_dir_path().join("realearn.ini")
+        App::server_resource_dir_path().join("server.ini")
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct MainConfig {
+struct ServerMainConfig {
     #[serde(default, skip_serializing_if = "is_default")]
     server_enabled: u8,
     #[serde(
@@ -180,11 +234,6 @@ struct MainConfig {
         skip_serializing_if = "is_default_server_https_port"
     )]
     server_https_port: u16,
-    #[serde(
-        default = "default_companion_web_app_url",
-        skip_serializing_if = "is_default_companion_web_app_url"
-    )]
-    companion_web_app_url: String,
 }
 
 const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
@@ -209,13 +258,20 @@ fn is_default_companion_web_app_url(v: &String) -> bool {
     v == COMPANION_WEB_APP_URL
 }
 
-impl Default for MainConfig {
+impl Default for RealearnMainConfig {
     fn default() -> Self {
-        MainConfig {
+        RealearnMainConfig {
+            companion_web_app_url: default_companion_web_app_url(),
+        }
+    }
+}
+
+impl Default for ServerMainConfig {
+    fn default() -> Self {
+        ServerMainConfig {
             server_enabled: Default::default(),
             server_http_port: default_server_http_port(),
             server_https_port: default_server_https_port(),
-            companion_web_app_url: default_companion_web_app_url(),
         }
     }
 }
