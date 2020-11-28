@@ -1,50 +1,40 @@
 use crate::application::{
     ActivationType, MappingModel, ModifierConditionModel, ProgramConditionModel,
 };
+use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
 use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct MappingModelData {
     // Saved since ReaLearn 1.12.0
+    #[serde(default, skip_serializing_if = "is_default")]
     id: Option<MappingId>,
+    #[serde(default, skip_serializing_if = "is_default")]
     name: String,
     source: SourceModelData,
     mode: ModeModelData,
     target: TargetModelData,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     control_is_enabled: bool,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     feedback_is_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     prevent_echo_feedback: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     send_feedback_after_control: bool,
     activation_type: ActivationType,
+    #[serde(default, skip_serializing_if = "is_default")]
     modifier_condition_1: ModifierConditionModel,
+    #[serde(default, skip_serializing_if = "is_default")]
     modifier_condition_2: ModifierConditionModel,
+    #[serde(default, skip_serializing_if = "is_default")]
     program_condition: ProgramConditionModel,
+    #[serde(default, skip_serializing_if = "is_default")]
     eel_condition: String,
-}
-
-impl Default for MappingModelData {
-    fn default() -> Self {
-        Self {
-            id: None,
-            name: "".to_string(),
-            source: Default::default(),
-            mode: Default::default(),
-            target: Default::default(),
-            control_is_enabled: true,
-            feedback_is_enabled: true,
-            prevent_echo_feedback: false,
-            send_feedback_after_control: false,
-            activation_type: ActivationType::Always,
-            modifier_condition_1: Default::default(),
-            modifier_condition_2: Default::default(),
-            program_condition: Default::default(),
-            eel_condition: "".to_string(),
-        }
-    }
 }
 
 impl MappingModelData {

@@ -6,6 +6,7 @@ use crate::application::{
     get_guid_based_fx_at_index, ReaperTargetType, TargetCategory, TargetModel,
     VirtualControlElementType,
 };
+use crate::core::default_util::is_default;
 use crate::core::toast;
 use crate::domain::{
     ActionInvocationType, ProcessorContext, TrackAnchor, TransportAction, VirtualTrack,
@@ -15,67 +16,66 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
+    #[serde(default, skip_serializing_if = "is_default")]
     pub category: TargetCategory,
     // reaper_type would be a better name but we need backwards compatibility
+    #[serde(default, skip_serializing_if = "is_default")]
     r#type: ReaperTargetType,
     // Action target
+    #[serde(default, skip_serializing_if = "is_default")]
     command_name: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     invocation_type: ActionInvocationType,
     // Until ReaLearn 1.0.0-beta6
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     invoke_relative: Option<bool>,
     // Track target
     // None means "This" track
-    #[serde(rename = "trackGUID")]
+    #[serde(rename = "trackGUID", default, skip_serializing_if = "is_default")]
     track_guid: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     track_name: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     enable_only_if_track_is_selected: bool,
     // FX target
-    #[serde(deserialize_with = "none_if_minus_one")]
+    #[serde(
+        deserialize_with = "none_if_minus_one",
+        default,
+        skip_serializing_if = "is_default"
+    )]
     fx_index: Option<u32>,
-    #[serde(rename = "fxGUID")]
+    #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
     fx_guid: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     is_input_fx: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     enable_only_if_fx_has_focus: bool,
     // Track send target
-    #[serde(deserialize_with = "none_if_minus_one")]
+    #[serde(
+        deserialize_with = "none_if_minus_one",
+        default,
+        skip_serializing_if = "is_default"
+    )]
     send_index: Option<u32>,
     // FX parameter target
-    #[serde(deserialize_with = "f32_as_u32")]
+    #[serde(
+        deserialize_with = "f32_as_u32",
+        default,
+        skip_serializing_if = "is_default"
+    )]
     param_index: u32,
     // Track selection target
+    #[serde(default, skip_serializing_if = "is_default")]
     select_exclusively: bool,
     // Transport target
+    #[serde(default, skip_serializing_if = "is_default")]
     transport_action: TransportAction,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_index: u32,
-}
-
-impl Default for TargetModelData {
-    fn default() -> Self {
-        Self {
-            category: TargetCategory::Reaper,
-            r#type: ReaperTargetType::FxParameter,
-            command_name: None,
-            invocation_type: ActionInvocationType::Trigger,
-            invoke_relative: None,
-            track_guid: None,
-            track_name: None,
-            enable_only_if_track_is_selected: false,
-            fx_index: None,
-            fx_guid: None,
-            is_input_fx: false,
-            enable_only_if_fx_has_focus: false,
-            send_index: None,
-            param_index: 0,
-            select_exclusively: false,
-            transport_action: TransportAction::PlayStop,
-            control_element_type: VirtualControlElementType::Multi,
-            control_element_index: 0,
-        }
-    }
 }
 
 impl TargetModelData {

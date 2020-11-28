@@ -1,5 +1,6 @@
 use super::none_if_minus_one;
 use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
+use crate::core::default_util::{is_default, is_some_default, some_default};
 use crate::core::toast;
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -9,38 +10,37 @@ use std::convert::TryInto;
 /// This is the structure in which source settings are loaded and saved. It's optimized for being
 /// represented as JSON. The JSON representation must be 100% backward-compatible.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceModelData {
+    #[serde(default, skip_serializing_if = "is_default")]
     pub category: SourceCategory,
     // midi_type would be a better name but we need backwards compatibility
+    #[serde(default, skip_serializing_if = "is_default")]
     pub r#type: MidiSourceType,
-    #[serde(deserialize_with = "none_if_minus_one")]
+    #[serde(
+        deserialize_with = "none_if_minus_one",
+        default = "some_default",
+        skip_serializing_if = "is_some_default"
+    )]
     pub channel: Option<Channel>,
-    #[serde(deserialize_with = "none_if_minus_one")]
+    #[serde(
+        deserialize_with = "none_if_minus_one",
+        default = "some_default",
+        skip_serializing_if = "is_some_default"
+    )]
     pub number: Option<U14>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub character: SourceCharacter,
+    #[serde(default = "some_default", skip_serializing_if = "is_some_default")]
     pub is_registered: Option<bool>,
+    #[serde(default = "some_default", skip_serializing_if = "is_some_default")]
     pub is_14_bit: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub message: MidiClockTransportMessage,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_index: u32,
-}
-
-impl Default for SourceModelData {
-    fn default() -> Self {
-        Self {
-            category: SourceCategory::Midi,
-            r#type: MidiSourceType::ControlChangeValue,
-            channel: Some(Channel::new(0)),
-            number: Some(U14::new(0)),
-            character: SourceCharacter::Range,
-            is_registered: Some(false),
-            is_14_bit: Some(false),
-            message: MidiClockTransportMessage::Start,
-            control_element_type: VirtualControlElementType::Multi,
-            control_element_index: 0,
-        }
-    }
 }
 
 impl SourceModelData {

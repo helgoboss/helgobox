@@ -1203,6 +1203,12 @@ pub enum ActionInvocationType {
     Relative = 2,
 }
 
+impl Default for ActionInvocationType {
+    fn default() -> Self {
+        ActionInvocationType::Trigger
+    }
+}
+
 #[derive(
     Copy,
     Clone,
@@ -1230,4 +1236,10 @@ pub enum TransportAction {
     #[serde(rename = "repeat")]
     #[display(fmt = "Repeat")]
     Repeat,
+}
+
+impl Default for TransportAction {
+    fn default() -> Self {
+        TransportAction::PlayStop
+    }
 }

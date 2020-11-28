@@ -1,3 +1,4 @@
+use crate::core::default_util::is_default;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
 use crate::infrastructure::server::{
     RealearnServer, ServerClients, SharedRealearnServer, COMPANION_WEB_APP_URL,
@@ -166,21 +167,55 @@ impl AppConfig {
 }
 
 #[derive(Serialize, Deserialize)]
-#[serde(default)]
 struct MainConfig {
+    #[serde(default, skip_serializing_if = "is_default")]
     server_enabled: u8,
+    #[serde(
+        default = "default_server_http_port",
+        skip_serializing_if = "is_default_server_http_port"
+    )]
     server_http_port: u16,
+    #[serde(
+        default = "default_server_https_port",
+        skip_serializing_if = "is_default_server_https_port"
+    )]
     server_https_port: u16,
+    #[serde(
+        default = "default_companion_web_app_url",
+        skip_serializing_if = "is_default_companion_web_app_url"
+    )]
     companion_web_app_url: String,
+}
+
+const DEFAULT_SERVER_HTTP_PORT: u16 = 39080;
+const DEFAULT_SERVER_HTTPS_PORT: u16 = 39443;
+
+fn default_server_http_port() -> u16 {
+    DEFAULT_SERVER_HTTP_PORT
+}
+fn is_default_server_http_port(v: &u16) -> bool {
+    *v == DEFAULT_SERVER_HTTP_PORT
+}
+fn default_server_https_port() -> u16 {
+    DEFAULT_SERVER_HTTPS_PORT
+}
+fn is_default_server_https_port(v: &u16) -> bool {
+    *v == DEFAULT_SERVER_HTTPS_PORT
+}
+fn default_companion_web_app_url() -> String {
+    COMPANION_WEB_APP_URL.to_string()
+}
+fn is_default_companion_web_app_url(v: &String) -> bool {
+    v == COMPANION_WEB_APP_URL
 }
 
 impl Default for MainConfig {
     fn default() -> Self {
         MainConfig {
-            server_enabled: 0,
-            server_http_port: 39080,
-            server_https_port: 39443,
-            companion_web_app_url: COMPANION_WEB_APP_URL.to_string(),
+            server_enabled: Default::default(),
+            server_http_port: default_server_http_port(),
+            server_https_port: default_server_https_port(),
+            companion_web_app_url: default_companion_web_app_url(),
         }
     }
 }

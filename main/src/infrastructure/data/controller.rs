@@ -1,4 +1,5 @@
 use crate::application::{Controller, ControllerManager, SharedMapping};
+use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::plugin::App;
@@ -171,13 +172,13 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerData {
-    // TODO-medium We want to serialize this only for the server, not for the file
+    // TODO-high We want to serialize this only for the server, not for the file
     #[serde(skip_deserializing)]
     id: Option<String>,
     name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     custom_data: HashMap<String, serde_json::Value>,
 }
 
