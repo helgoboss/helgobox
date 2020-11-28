@@ -49,7 +49,7 @@ impl App {
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
-                App::server_resource_dir_path().join("tls"),
+                App::server_resource_dir_path().join("certificates"),
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
