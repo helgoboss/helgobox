@@ -69,7 +69,9 @@ impl FileBasedControllerManager {
         let path = self.get_controller_file_path(controller.id());
         fs::create_dir_all(&self.controller_dir_path)
             .map_err(|_| "couldn't create controller directory")?;
-        let data = ControllerData::from_model(&controller);
+        let mut data = ControllerData::from_model(&controller);
+        // We don't want to have the ID in the file - because the file name itself is the ID
+        data.id = None;
         let json =
             serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize controller")?;
         fs::write(path, json).map_err(|_| "couldn't write controller file")?;
@@ -172,8 +174,7 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerData {
-    // TODO-high We want to serialize this only for the server, not for the file
-    #[serde(skip_deserializing)]
+    #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
     #[serde(default, skip_serializing_if = "is_default")]
