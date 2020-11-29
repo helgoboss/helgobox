@@ -1,8 +1,6 @@
 use crate::core::default_util::is_default;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
-use crate::infrastructure::server::{
-    RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
-};
+use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
 use reaper_high::{create_terminal_logger, Reaper};
 use rx_util::UnitEvent;
@@ -212,7 +210,7 @@ fn is_default_server_https_port(v: &u16) -> bool {
 fn default_companion_web_app_url() -> String {
     COMPANION_WEB_APP_URL.to_string()
 }
-fn is_default_companion_web_app_url(v: &String) -> bool {
+fn is_default_companion_web_app_url(v: &str) -> bool {
     v == COMPANION_WEB_APP_URL
 }
 

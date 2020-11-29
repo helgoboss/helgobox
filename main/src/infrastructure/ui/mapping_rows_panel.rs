@@ -236,15 +236,14 @@ impl MappingRowsPanel {
         } else {
             session.mappings(compartment).collect()
         };
-        for i in self.scroll_position.get()..mappings.len() {
+        for mapping in &mappings[self.scroll_position.get()..] {
             if row_index >= self.rows.len() {
                 break;
             }
-            let mapping = mappings[i];
             self.rows
                 .get(row_index)
                 .expect("impossible")
-                .set_mapping(Some(mapping.clone()));
+                .set_mapping(Some((*mapping).clone()));
             row_index += 1;
         }
         // If there are unused rows, clear them

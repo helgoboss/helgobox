@@ -415,11 +415,8 @@ impl RealTimeProcessor {
         {
             if let Some(control_match) = m.control(value) {
                 use PartialControlMatch::*;
-                match control_match {
-                    ProcessVirtual(virtual_source_value) => {
-                        return CompoundMappingSourceValue::Virtual(virtual_source_value);
-                    }
-                    _ => {}
+                if let ProcessVirtual(virtual_source_value) = control_match {
+                    return CompoundMappingSourceValue::Virtual(virtual_source_value);
                 };
             }
         }

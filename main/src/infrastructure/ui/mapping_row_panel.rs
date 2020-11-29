@@ -106,7 +106,7 @@ impl MappingRowPanel {
                             == mapping.source_model.create_control_element()
                 })
                 .collect();
-            if mappings.len() == 0 {
+            if mappings.is_empty() {
                 plain_label
             } else {
                 let first_mapping = mappings[0].borrow();

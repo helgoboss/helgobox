@@ -59,7 +59,7 @@ impl ServerState {
     }
 }
 
-pub const COMPANION_WEB_APP_URL: &'static str = "https://realearn.helgoboss.org/";
+pub const COMPANION_WEB_APP_URL: &str = "https://realearn.helgoboss.org/";
 
 impl RealearnServer {
     pub fn new(http_port: u16, https_port: u16, certs_dir_path: PathBuf) -> RealearnServer {
@@ -607,7 +607,10 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
 }
 
 fn send_initial_session(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
-    let event = if let Some(_) = crate::application::App::get().find_session_by_id(session_id) {
+    let event = if crate::application::App::get()
+        .find_session_by_id(session_id)
+        .is_some()
+    {
         get_session_updated_event(session_id, Some(SessionResponseData {}))
     } else {
         get_session_updated_event(session_id, None)
@@ -857,7 +860,7 @@ pub fn get_local_ip() -> Option<std::net::IpAddr> {
         Err(_) => return None,
     };
     match socket.local_addr() {
-        Ok(addr) => return Some(addr.ip()),
-        Err(_) => return None,
-    };
+        Ok(addr) => Some(addr.ip()),
+        Err(_) => None,
+    }
 }

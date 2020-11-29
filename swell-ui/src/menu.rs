@@ -22,7 +22,7 @@ impl MenuBar {
         Ok(MenuBar { raw })
     }
 
-    pub fn get_menu<'a>(&'a self, index: u32) -> Option<Menu<'a>> {
+    pub fn get_menu(&self, index: u32) -> Option<Menu> {
         let menu = unsafe { Swell::get().GetSubMenu(self.raw, index as _) };
         if menu.is_null() {
             return None;

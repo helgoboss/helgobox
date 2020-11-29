@@ -87,7 +87,7 @@ impl WebViewManager {
                     server_host: server
                         .local_ip()
                         .map(|ip| ip.to_string())
-                        .unwrap_or("<could not be determined>".to_string()),
+                        .unwrap_or_else(|| "<could not be determined>".to_string()),
                     server_http_port: server.http_port(),
                     server_https_port: server.https_port(),
                     session_id,

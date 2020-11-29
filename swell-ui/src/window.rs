@@ -298,7 +298,7 @@ impl Window {
         }
     }
 
-    pub fn open_popup_menu<'a>(self, menu: Menu<'a>, location: Point<Pixels>) -> Option<u32> {
+    pub fn open_popup_menu(self, menu: Menu, location: Point<Pixels>) -> Option<u32> {
         let swell = Swell::get();
         let result = unsafe {
             swell.TrackPopupMenu(
