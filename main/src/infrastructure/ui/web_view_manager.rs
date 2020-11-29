@@ -340,11 +340,11 @@ fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static str
 }
 
 #[cfg(target_os = "macos")]
-fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static str> {
+fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
     todo!("not implemented yet for macOS")
 }
 
 #[cfg(target_os = "linux")]
-fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static str> {
+fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
     unimplemented!("This shouldn't be called!")
 }
