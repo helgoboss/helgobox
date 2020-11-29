@@ -557,11 +557,7 @@ pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>
 
 pub fn keep_informing_clients_about_sessions() {
     crate::application::App::get().changed().subscribe(|_| {
-        Reaper::get()
-            .do_later_in_main_thread_asap(|| {
-                send_sessions_to_subscribed_clients();
-            })
-            .unwrap();
+        send_sessions_to_subscribed_clients();
     });
 }
 
@@ -677,7 +673,11 @@ fn for_each_client<T: Serialize>(
     op: impl Fn(&WebSocketClient, &T),
     cache: impl FnOnce() -> T,
 ) -> Result<(), &'static str> {
-    let clients = App::get().server().borrow().clients()?.clone();
+    let server = App::get().server().borrow();
+    if !server.is_running() {
+        return Ok(());
+    }
+    let clients = server.clients()?.clone();
     let clients = clients
         .read()
         .map_err(|_| "couldn't get read lock for client")?;
