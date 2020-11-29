@@ -3005,7 +3005,6 @@ fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
 fn group_mappings_by_virtual_control_element<'a>(
     mappings: impl Iterator<Item = &'a SharedMapping>,
 ) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
-    use itertools::Itertools;
     // Group by Option<VirtualControlElement>
     let grouped_by_option = mappings.group_by(|m| {
         let m = m.borrow();

@@ -1,7 +1,7 @@
 use crate::core::default_util::is_default;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
 use crate::infrastructure::server::{
-    RealearnServer, ServerClients, SharedRealearnServer, COMPANION_WEB_APP_URL,
+    RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL,
 };
 use once_cell::unsync::Lazy;
 use reaper_high::{create_terminal_logger, Reaper};
@@ -9,7 +9,7 @@ use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use slog::{debug, o};
-use std::cell::{Cell, Ref, RefCell};
+use std::cell::{Ref, RefCell};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;

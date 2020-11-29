@@ -2,7 +2,7 @@ use crate::application::{Controller, ControllerManager, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
-use crate::infrastructure::plugin::App;
+
 
 use reaper_high::Reaper;
 use rx_util::UnitEvent;

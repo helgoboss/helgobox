@@ -12,7 +12,7 @@ use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginPar
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
-use reaper_high::{create_terminal_logger, Reaper, ReaperGuard};
+use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset};
 
@@ -30,7 +30,7 @@ use std::sync::Arc;
 use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
-use crate::infrastructure::server::RealearnServer;
+
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;

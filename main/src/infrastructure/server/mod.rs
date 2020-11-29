@@ -1,16 +1,13 @@
 use crate::application::{
-    ControllerManager, Session, SharedSession, SourceCategory, TargetCategory, WeakSession,
+    ControllerManager, Session, SharedSession, SourceCategory, TargetCategory,
 };
-use crate::core::{when, AsyncNotifier};
+use crate::core::when;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControllerData;
 use crate::infrastructure::plugin::App;
-use futures::channel::oneshot;
-use futures::{SinkExt, StreamExt};
-use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType, IsCa, SanType,
-    PKCS_RSA_SHA256,
-};
+
+use futures::StreamExt;
+use rcgen::{BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, SanType};
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -20,21 +17,20 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::fs;
-use std::future::Future;
+
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::thread::{JoinHandle, Thread};
-use std::time::Duration;
-use tokio::sync::{mpsc, watch, RwLock};
+
+use tokio::sync::mpsc;
 use url::Url;
 use warp::http::{Response, StatusCode};
-use warp::reject::Reject;
+
 use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
-use warp::{reject, reply, Rejection, Reply};
+use warp::{reply, Rejection, Reply};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
@@ -88,7 +84,7 @@ impl RealearnServer {
         let http_port = self.http_port;
         let https_port = self.https_port;
         let key_and_cert = self.key_and_cert();
-        std::thread::Builder::new()
+        let _ = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
                 let mut runtime = tokio::runtime::Builder::new()
@@ -347,7 +343,7 @@ async fn start_server(
     http_port: u16,
     https_port: u16,
     clients: ServerClients,
-    ip: IpAddr,
+    _ip: IpAddr,
     (key, cert): (String, String),
 ) {
     use warp::Filter;
@@ -419,9 +415,11 @@ async fn start_server(
         .key(key)
         .cert(cert)
         .bind(([0, 0, 0, 0], https_port));
-    Reaper::get().do_later_in_main_thread_asap(|| {
-        App::get().server().borrow_mut().notify_started();
-    });
+    Reaper::get()
+        .do_later_in_main_thread_asap(|| {
+            App::get().server().borrow_mut().notify_started();
+        })
+        .unwrap();
     futures::future::join(http_future, https_future).await;
 }
 
@@ -498,8 +496,7 @@ enum PatchRequestOp {
 type Topics = HashSet<Topic>;
 
 async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients) {
-    use futures::{FutureExt, StreamExt};
-    use warp::Filter;
+    use futures::FutureExt;
     let (ws_sender_sink, mut ws_receiver_stream) = ws.split();
     let (client_sender, client_receiver) = mpsc::unbounded_channel();
     // Keep forwarding received messages in client channel to websocket sender sink
@@ -515,13 +512,15 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
         sender: client_sender,
     };
     clients.write().unwrap().insert(client_id, client.clone());
-    Reaper::get().do_later_in_main_thread_asap(move || {
-        send_initial_events(&client);
-    });
+    Reaper::get()
+        .do_later_in_main_thread_asap(move || {
+            send_initial_events(&client);
+        })
+        .unwrap();
     // Keep receiving websocket receiver stream messages
     while let Some(result) = ws_receiver_stream.next().await {
         // We will need this as soon as we are interested in what the client says
-        let msg = match result {
+        let _msg = match result {
             Ok(msg) => msg,
             Err(e) => {
                 eprintln!("websocket error: {}", e);
@@ -558,9 +557,11 @@ pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>
 
 pub fn keep_informing_clients_about_sessions() {
     crate::application::App::get().changed().subscribe(|_| {
-        Reaper::get().do_later_in_main_thread_asap(|| {
-            send_sessions_to_subscribed_clients();
-        });
+        Reaper::get()
+            .do_later_in_main_thread_asap(|| {
+                send_sessions_to_subscribed_clients();
+            })
+            .unwrap();
     });
 }
 
@@ -574,7 +575,8 @@ fn send_sessions_to_subscribed_clients() {
             }
         },
         || (),
-    );
+    )
+    .unwrap();
 }
 
 pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
@@ -682,24 +684,6 @@ fn for_each_client<T: Serialize>(
     let cached = cache();
     for client in clients.values() {
         op(client, &cached);
-    }
-    Ok(())
-}
-
-fn send_to_clients<T: Serialize>(
-    topic: &Topic,
-    create_message: impl FnOnce() -> T,
-) -> Result<(), &'static str> {
-    let clients = App::get().server().borrow().clients()?.clone();
-    let clients = clients
-        .read()
-        .map_err(|_| "couldn't get read lock for client")?;
-    if clients.is_empty() {
-        return Ok(());
-    }
-    let msg = create_message();
-    for client in clients.values().filter(|c| c.is_subscribed_to(topic)) {
-        let _ = client.send(&msg);
     }
     Ok(())
 }
@@ -860,12 +844,6 @@ impl<T> Event<T> {
     pub fn new(path: String, body: T) -> Event<T> {
         Event { path, body }
     }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-enum EventType {
-    Updated,
 }
 
 /// Inspired by local_ipaddress crate.

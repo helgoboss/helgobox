@@ -1,23 +1,22 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel};
 use askama::Template;
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{SharedMapping, SharedSession, WeakSession};
+use crate::application::{SharedSession, WeakSession};
 use crate::core::when;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::COMPANION_WEB_APP_URL;
+
 use image::Pixel;
-use once_cell::unsync::Lazy;
+
 use qrcode::QrCode;
-use reaper_medium::MessageBoxType;
+
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use std::cell::RefCell;
-use std::io;
+
 use std::rc::Rc;
 use std::thread::JoinHandle;
-use swell_ui::{SharedView, View, WeakView, Window};
+use swell_ui::SharedView;
 use web_view::{Content, WebView};
 
 /// Responsible for managing the currently open web views.
@@ -73,7 +72,7 @@ impl WebViewManager {
             let full_companion_app_url =
                 server.generate_full_companion_app_url(session.id(), false);
             let server_is_running = server.is_running();
-            let (qr_code_image_url, qr_code_dimensions) =
+            let (qr_code_image_url, _) =
                 self.generate_qr_code_as_image_url(&full_companion_app_url);
             let session_id = session.id().to_string();
             let config = app.config();
@@ -83,9 +82,7 @@ impl WebViewManager {
                 body_state: BodyState {
                     server_is_running,
                     server_is_enabled: config.server_is_enabled(),
-                    full_companion_app_url,
                     qr_code_image_url,
-                    qr_code_dimensions,
                     companion_web_app_url: config.companion_web_app_url().to_string(),
                     server_host: server
                         .local_ip()
@@ -101,7 +98,8 @@ impl WebViewManager {
                 wv.eval(&format!(
                     "document.body.innerHTML = {};",
                     web_view::escape(&state.render().unwrap())
-                ));
+                ))
+                .unwrap();
             })
         }
     }
@@ -181,7 +179,7 @@ impl WebViewConnection {
         let _ = self.sender.send(Box::new(task));
     }
 
-    pub fn blocking_exit(mut self) {
+    pub fn blocking_exit(self) {
         self.send(|wv| wv.exit());
         self.join_handle
             .join()
@@ -207,11 +205,7 @@ struct BodyState {
     // Can change globally
     server_is_enabled: bool,
     // Can change per session
-    full_companion_app_url: String,
-    // Can change per session
     qr_code_image_url: String,
-    // Can change per session
-    qr_code_dimensions: (u32, u32),
     // Can't change at all
     companion_web_app_url: String,
     // Can only change after restart
@@ -242,43 +236,58 @@ fn run_web_view_blocking(
         .size(1024, 768)
         .resizable(true)
         .user_data(())
-        .invoke_handler(move |wv, arg| {
+        .invoke_handler(move |_wv, arg| {
             match arg {
                 "add_firewall_rule" => {
                     let sender = sender.clone();
-                    Reaper::get().do_later_in_main_thread_asap(move || {
-                        let server = App::get().server().borrow();
-                        let msg = match add_firewall_rule(server.http_port(), server.https_port()) {
-                            Ok(_) => "Successfully added firewall rule.",
-                            Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
-                        };
-                        sender.send(Box::new(move |wv| {
-                            let _ = wv.eval(&format!("alert({});", web_view::escape(msg)));
-                        }));
-                    });
+                    Reaper::get()
+                        .do_later_in_main_thread_asap(move || {
+                            let server = App::get().server().borrow();
+                            let msg =
+                                match add_firewall_rule(server.http_port(), server.https_port()) {
+                                    Ok(_) => "Successfully added firewall rule.",
+                                    Err(_) => {
+                                        "Couldn't add firewall rule. Please try to do it manually!"
+                                    }
+                                };
+                            sender
+                                .send(Box::new(move |wv| {
+                                    let _ = wv.eval(&format!("alert({});", web_view::escape(msg)));
+                                }))
+                                .unwrap();
+                        })
+                        .unwrap();
                 }
                 "open_companion_app" => {
                     let session_id = session_id.clone();
-                    Reaper::get().do_later_in_main_thread_asap(move || {
-                        let server = App::get().server().borrow();
-                        let url = server.generate_full_companion_app_url(&session_id, true);
-                        let _ = webbrowser::open(&url);
-                    });
+                    Reaper::get()
+                        .do_later_in_main_thread_asap(move || {
+                            let server = App::get().server().borrow();
+                            let url = server.generate_full_companion_app_url(&session_id, true);
+                            let _ = webbrowser::open(&url);
+                        })
+                        .unwrap();
                 }
                 "disable_server" => {
-                    Reaper::get().do_later_in_main_thread_asap(move || {
-                        App::get().disable_server_persistently();
-                    });
+                    Reaper::get()
+                        .do_later_in_main_thread_asap(move || {
+                            App::get().disable_server_persistently();
+                        })
+                        .unwrap();
                 }
                 "enable_server" => {
-                    Reaper::get().do_later_in_main_thread_asap(move || {
-                        App::get().enable_server_persistently();
-                    });
+                    Reaper::get()
+                        .do_later_in_main_thread_asap(move || {
+                            App::get().enable_server_persistently();
+                        })
+                        .unwrap();
                 }
                 "start_server" => {
-                    Reaper::get().do_later_in_main_thread_asap(|| {
-                        App::get().start_server_persistently();
-                    });
+                    Reaper::get()
+                        .do_later_in_main_thread_asap(|| {
+                            App::get().start_server_persistently();
+                        })
+                        .unwrap();
                 }
                 _ => return Err(web_view::Error::custom("unknown invocation argument")),
             };

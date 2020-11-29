@@ -1,24 +1,24 @@
-use std::cell::RefCell;
+
 use std::convert::TryInto;
 use std::ops::Deref;
-use std::path::Path;
-use std::ptr::{null, null_mut};
+
+
 use std::rc::Rc;
-use std::thread::JoinHandle;
-use std::{io, iter};
+
+use std::{iter};
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use enum_iterator::IntoEnumIterator;
-use image::Luma;
-use once_cell::unsync::Lazy;
-use qrcode::QrCode;
+
+
+
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-use reaper_low::{raw, Swell};
+
 use reaper_medium::{
     MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
 };
 use slog::debug;
-use wrap_debug::WrapDebug;
+
 
 use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -29,7 +29,7 @@ use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::COMPANION_WEB_APP_URL;
+
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::SharedMainState;
 use crate::infrastructure::ui::{dialog_util, WebViewManager};

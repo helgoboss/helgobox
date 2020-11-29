@@ -1,5 +1,5 @@
 use crate::application::{
-    app, share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
+    share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -437,14 +437,6 @@ impl Session {
 
     pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
         self.mappings[compartment].len()
-    }
-
-    pub fn find_mapping_by_index(
-        &self,
-        compartment: MappingCompartment,
-        index: usize,
-    ) -> Option<&SharedMapping> {
-        self.mappings[compartment].get(index)
     }
 
     pub fn find_mapping_by_address(
@@ -907,10 +899,6 @@ impl Session {
 
     fn generate_name_for_new_mapping(&self, compartment: MappingCompartment) -> String {
         format!("{}", self.mappings[compartment].len() + 1)
-    }
-
-    pub fn destroyed(&self) -> impl UnitEvent {
-        self.party_is_over_subject.clone()
     }
 
     fn party_is_over(&self) -> impl UnitEvent {
