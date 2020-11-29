@@ -89,13 +89,13 @@ fn compile_dialogs() {
     build
         .cpp(true)
         .warnings(false)
-        .file("src/infrastructure/ui/dialogs.cpp")
-        .compile("dialogs");
+        .file("src/infrastructure/ui/dialogs.cpp");
     if let Some(stdlib) = util::determine_cpp_stdlib() {
         // Settings this to None on Linux causes the linker to automatically link against C++
         // anymore, so we just invoke that on macOS.
         build.cpp_set_stdlib(stdlib);
     }
+    build.compile("dialogs");
 }
 
 /// On Windows we can directly embed the dialog resource file produced by ResEdit.
