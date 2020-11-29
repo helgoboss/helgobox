@@ -12,7 +12,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        artifact: [windows-x86_64, windows-i686, macos-x86_64, linux-x86_64]
+        artifact:
+          - windows-x86_64
+          - windows-i686
+          - macos-x86_64
+#          - linux-x86_64
         include:
           - artifact: windows-x86_64
             os: windows-latest
@@ -129,12 +133,12 @@ jobs:
           asset_path: ./macos-x86_64/librealearn.dylib
           asset_name: realearn-macos-x86_64.vst.dylib
           asset_content_type: application/octet-stream
-      - name: Upload linux-x86_64 release artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./linux-x86_64/librealearn.so
-          asset_name: realearn-linux-x86_64.so
-          asset_content_type: application/octet-stream
+#      - name: Upload linux-x86_64 release artifact
+#        uses: actions/upload-release-asset@v1
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          upload_url: ${{ steps.create_release.outputs.upload_url }}
+#          asset_path: ./linux-x86_64/librealearn.so
+#          asset_name: realearn-linux-x86_64.so
+#          asset_content_type: application/octet-stream
