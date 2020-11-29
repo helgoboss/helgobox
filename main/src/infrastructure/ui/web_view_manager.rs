@@ -1,3 +1,6 @@
+// This is is to prevent Clippy from complaining about the activation_class assignment in the
+// Askama template.
+#![allow(clippy::useless_let_if_seq)]
 use askama::Template;
 use reaper_high::Reaper;
 use slog::debug;
