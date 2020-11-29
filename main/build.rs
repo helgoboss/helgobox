@@ -85,12 +85,17 @@ fn compile_dialogs() {
     .unwrap();
     assert!(result.status.success(), "PHP dialog translator failed");
     // Compile the resulting C++ file
-    cc::Build::new()
+    let mut build = cc::Build::new();
+    build
         .cpp(true)
-        .cpp_set_stdlib(util::determine_cpp_stdlib())
         .warnings(false)
         .file("src/infrastructure/ui/dialogs.cpp")
         .compile("dialogs");
+    if let Some(stdlib) = util::determine_cpp_stdlib() {
+        // Settings this to None on Linux causes the linker to automatically link against C++
+        // anymore, so we just invoke that on macOS.
+        build.cpp_set_stdlib(stdlib);
+    }
 }
 
 /// On Windows we can directly embed the dialog resource file produced by ResEdit.

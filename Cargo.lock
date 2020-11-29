@@ -335,9 +335,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.61"
+version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed67cbde08356238e75fc4656be4749481eeffb09e19f320a25237d5221c985d"
+checksum = "95752358c8f7552394baf48cd82695b345628ad3f170d607de3ca03b8dacca15"
 dependencies = [
  "jobserver",
 ]
@@ -2270,7 +2270,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git#200e3cc1ed90728a743bc2696c389d590dd2c656"
+source = "git+https://github.com/helgoboss/reaper-rs.git#b3415fb99ea5b4c005b4d03aaafc6e5c89500abd"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2292,7 +2292,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git#200e3cc1ed90728a743bc2696c389d590dd2c656"
+source = "git+https://github.com/helgoboss/reaper-rs.git#b3415fb99ea5b4c005b4d03aaafc6e5c89500abd"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2305,7 +2305,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git#200e3cc1ed90728a743bc2696c389d590dd2c656"
+source = "git+https://github.com/helgoboss/reaper-rs.git#b3415fb99ea5b4c005b4d03aaafc6e5c89500abd"
 dependencies = [
  "darling",
  "quote 1.0.7",
@@ -2315,7 +2315,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git#200e3cc1ed90728a743bc2696c389d590dd2c656"
+source = "git+https://github.com/helgoboss/reaper-rs.git#b3415fb99ea5b4c005b4d03aaafc6e5c89500abd"
 dependencies = [
  "c_str_macro",
  "derive_more",

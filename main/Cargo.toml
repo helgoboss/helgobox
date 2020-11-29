@@ -55,6 +55,7 @@ tokio = { version = "0.2", features = ["rt-core", "sync"] }
 warp = { version = "0.2", features = ["tls"] }
 # For rendering projection setup HTML page
 web-view = "0.6.3"
+#web-view = { git = "https://github.com/helgoboss/web-view.git", branch = "workaround/issue-244-build-error" }
 # For generating projection QR code
 qrcode = { version = "0.11" }
 # For rendering projection QR code to PNG
