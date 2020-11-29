@@ -62,6 +62,7 @@ struct ImmutableMappingPanel<'a> {
     target: &'a TargetModel,
     view: &'a ViewContext,
     panel: &'a SharedView<MappingPanel>,
+    shared_mapping: &'a SharedMapping,
 }
 
 struct MutableMappingPanel<'a> {
@@ -189,6 +190,7 @@ impl MappingPanel {
             target: &mapping.target_model,
             view: &self.view,
             panel: &self,
+            shared_mapping: &shared_mapping,
         };
         Ok(op(&p))
     }
@@ -288,55 +290,6 @@ impl<'a> MutableMappingPanel<'a> {
                 .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
         }
-    }
-
-    fn pick_action(&self) {
-        let reaper = Reaper::get().medium_reaper();
-        use InitialAction::*;
-        let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
-            None => NoneSelected,
-            Some(a) => Selected(a.command_id()),
-        };
-        // TODO-low Add this to reaper-high with rxRust
-        if reaper.low().pointers().PromptForAction.is_none() {
-            reaper.show_message_box(
-                "Please update to REAPER >= 6.12 in order to pick actions!",
-                "ReaLearn",
-                MessageBoxType::Okay,
-            );
-            return;
-        }
-        reaper.prompt_for_action_create(initial_action, SectionId::new(0));
-        let shared_mapping = self.shared_mapping.clone();
-        Reaper::get()
-            .main_thread_idle()
-            .take_until(self.panel.party_is_over())
-            .map(|_| {
-                Reaper::get()
-                    .medium_reaper()
-                    .prompt_for_action_poll(SectionId::new(0))
-            })
-            .filter(|r| *r != PromptForActionResult::NoneSelected)
-            .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
-            .subscribe_complete(
-                move |r| {
-                    if let PromptForActionResult::Selected(command_id) = r {
-                        let action = Reaper::get()
-                            .main_section()
-                            .action_by_command_id(command_id);
-                        shared_mapping
-                            .borrow_mut()
-                            .target_model
-                            .action
-                            .set(Some(action));
-                    }
-                },
-                || {
-                    Reaper::get()
-                        .medium_reaper()
-                        .prompt_for_action_finish(SectionId::new(0));
-                },
-            );
     }
 
     fn toggle_learn_source(&mut self) {
@@ -1032,6 +985,55 @@ impl<'a> MutableMappingPanel<'a> {
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
+    fn pick_action(&self) {
+        let reaper = Reaper::get().medium_reaper();
+        use InitialAction::*;
+        let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
+            None => NoneSelected,
+            Some(a) => Selected(a.command_id()),
+        };
+        // TODO-low Add this to reaper-high with rxRust
+        if reaper.low().pointers().PromptForAction.is_none() {
+            reaper.show_message_box(
+                "Please update to REAPER >= 6.12 in order to pick actions!",
+                "ReaLearn",
+                MessageBoxType::Okay,
+            );
+            return;
+        }
+        reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+        let shared_mapping = self.shared_mapping.clone();
+        Reaper::get()
+            .main_thread_idle()
+            .take_until(self.panel.party_is_over())
+            .map(|_| {
+                Reaper::get()
+                    .medium_reaper()
+                    .prompt_for_action_poll(SectionId::new(0))
+            })
+            .filter(|r| *r != PromptForActionResult::NoneSelected)
+            .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
+            .subscribe_complete(
+                move |r| {
+                    if let PromptForActionResult::Selected(command_id) = r {
+                        let action = Reaper::get()
+                            .main_section()
+                            .action_by_command_id(command_id);
+                        shared_mapping
+                            .borrow_mut()
+                            .target_model
+                            .action
+                            .set(Some(action));
+                    }
+                },
+                || {
+                    Reaper::get()
+                        .medium_reaper()
+                        .prompt_for_action_finish(SectionId::new(0));
+                },
+            );
+    }
+
     fn fill_all_controls(&self) {
         self.fill_mapping_activation_type_combo_box();
         self.fill_source_category_combo_box();
@@ -2765,7 +2767,9 @@ impl View for MappingPanel {
             }
             ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
             ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
-            ID_TARGET_PICK_ACTION_BUTTON => self.write(|p| p.pick_action()),
+            ID_TARGET_PICK_ACTION_BUTTON => {
+                self.read(|p| p.pick_action()).unwrap();
+            }
             _ => unreachable!(),
         }
     }
