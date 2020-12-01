@@ -195,7 +195,7 @@ simply "disable" the mapping by disarming your track, a feature that is very des
 REAPER as live instrument. Or you can preprocess incoming MIDI (although that should rarely be
 necessary given ReaLearn's mapping customization possibilities).
 
-Another thing worth to point out that is different from built-in MIDI learn is that we didn't use
+Another thing worth to point out which is different from built-in MIDI learn is that we didn't use
 the action "Track: Set volume for track 01". Benefit: ReaLearn will let you control the volume of
 the track even if you move that track to another position. The track's position is irrelevant.
 
@@ -399,7 +399,7 @@ Additionally, it provides a context menu with the following entries:
   ReaLearn instances in each project. Just make sure to not have more than one ReaLearn instance with the same session 
   ID active at the same time because then it's not clear to which your mobile device will connect!
    
-##### Controller mappings
+#### Controller mappings
 
 By default, ReaLearn shows the list of primary mappings. If you select *Controller mappings* in the *Show*
 dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
@@ -408,29 +408,29 @@ by adding mappings. Almost everything in ReaLearn is a mapping :)
 
 Defining your own controllers can have a bunch of benefits:
 
+- You can use the awesome [controller projection feature](https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be)
+  to project your controller mapping to a mobile device.
+- You can use controller presets made by other users and thereby save precious setup time. Or you can contribute them
+  yourself!
 - You can make your primary mappings independent of the actual controller that you use. This is done using so-called
 *virtual* sources and targets.
-    - Example: Map a button on your controller to "Virtual Button 1" and map
-"Virtual Button 1" to your track volume.
 - This also allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
 - Even if you don't want to swap controllers, decoupling your mappings from the actual MIDI sources can give you the
   flexibility to change something about your controller elements (e.g. the source range) and thereby affecting 
   all primary mappings without even having to change them.
-- You can use the awesome *controller projection* feature to project your controller mapping to a mobile
-device.
 
-In this view, you have some more user interface elements at your disposable:
+In this view, you have some more user interface elements at your disposal:
 
 - **Controller:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
   can also define your own ones and add them to this list! By default, this is set to "&lt;None&gt;", which means that
   no particular controller is active. Both controller mappings and controller presets are completely optional. 
   If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
-- **-:** This permanently deletes the currently chosen controller preset. This also works for controller presets
-  shipped with ReaLearn. If you use ReaPack for installation, it should restore those built-in presets on next sync.
+- **-:** This permanently deletes the currently chosen controller preset. You can also delete built-in presets.
+  However, if you use ReaPack for installation, it should restore them on next sync.
 - **Save:** If you made changes to a preset, you can save them by pressing this button. This works for built-in presets
   as well but I would strongly recommend against changing them directly. Better use *Save as...* and choose a custom
   name.
- **Save as...** This allows you to save all currently visible controller mappings as a new controller preset. Please 
+- **Save as...** This allows you to save all currently visible controller mappings as a new controller preset. Please 
  choose a descriptive name.
     - Saving your controller mappings as a preset is optional. All controller mappings are saved together 
       with your current ReaLearn instance anyway, no worries. But as soon as you want to reuse these controller
@@ -462,9 +462,9 @@ controller mapping for each of its control elements:
       You can easily model that by assigning 8 multis and 8 buttons.
     - Maybe you have realized that the *Tuning* section is available for controller mappings as well! That opens all
       kinds of possibilities. You could for example restrict the target range for a certain control element. Or make
-      an encoder generally slower or faster. Or you could make two buttons on your controller present themselves as -/+
-      controls by mapping them to the same "Multi" in "Incremental buttons" mode - essentially simulating a 
-      rotary encoder that sends relative increments! 
+      an encoder generally slower or faster. Or you could simulate a rotary encoder by making two buttons on your
+      controller act as -/+ buttons emitting relative values. This is possible by mapping them to the same "Multi" in
+      "Incremental buttons" mode. 
       
 Before you go ahead and do that for each control element, you might want to check what this is good for: Navigate back
 to the primary mappings, learn the source of some primary mapping and touch the control element that you have just
@@ -614,7 +614,7 @@ it works. The beauty of this solution lies in how you can compose different ReaL
 obtain exactly the result you want. For example, the *absolute mode* of the mapping that controls the modifier
 parameter decides if the modifier button is momentary (has to be pressed all the time)
 or toggled (switches between on and off everytime you press it). You can also be more adventurous
-and let the modifier on/off state change over time, using REAPER's automation envelopes. 
+and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
 ##### When program selected
 
@@ -704,6 +704,22 @@ very convenient, hopefully future versions will improve on that):
 Parameter names are not global, they are always saved together with the REAPER project / FX preset /
 track template etc.
 
+##### Use case: Control A when a button is not pressed, control B when it is
+
+Here's how you would implement a typical use case. You want your rotary encoder to control target A when the button is
+not pressed and control target B when it's pressed.
+
+1. Create a mapping for the button
+    - As "Target", you need to choose ReaLearn itself (Type: "Track FX parameter", Track: `<This>`, FX: "... VSTi: ReaLearn (Helgoboss)"). As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1". 
+    - As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
+1. Create a mapping with target A
+    - Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it. Set "Modifier B" to `<None>`.
+    - This basically means "Hey, ReaLearn! Please activate this mapping only if ReaLearn Parameter 1 is **off**!" (remember, we control ReaLearn Parameter 1 using the button).
+    - At this point, turning your encoder should control target A, but only if you don't press the button!
+1. Create a mapping with target B
+    - Just as in step 2, set "Active" to "When modifiers on/off" and "Modifier A" to "Parameter 1". **But**: Now **enable** the checkbox beside it. Set "Modifier B" to `<None>`.
+    - This basically means "Hey, ReaLearn! Please activate this mapping only if ReaLearn Parameter 1 is **on**!"
+    - At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
 
 #### Source
 
@@ -1060,8 +1076,8 @@ several sub sections some of which make sense for all kinds of sources and other
 and *relative* values, no matter what's set as *Mode*! ReaLearn checks the type of each emitted source value
 and interprets it correctly. The *Mode* dropdown has been sort of "degraded" because now it only applies to
 incoming *absolute* values and determines how to handle them (see further below). This change has been made 
-to support virtual sources - because virtual sources can be either absolute or relative depending on the currently
-active controller. ReaLearn allows you to prepare your mapping for both cases by showing all possible settings.
+to support virtual sources - because virtual sources can be either absolute or relative depending on the current 
+controller mappings. ReaLearn allows you to prepare your mapping for both cases by showing all possible settings.
 
 *Relative* means that the current target value is relevant and the change of the target value is calculated in
 terms of increments or decrements. Control elements that can emit relative values are rotary encoders and
