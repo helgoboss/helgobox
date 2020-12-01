@@ -145,8 +145,10 @@ impl AppConfig {
 
     pub fn save(&self) -> Result<(), &'static str> {
         let ini_content = serde_ini::to_string(self).map_err(|_| "couldn't serialize config")?;
-        fs::write(Self::config_file_path(), ini_content)
-            .map_err(|_| "couldn't write config file")?;
+        let config_file_path = Self::config_file_path();
+        fs::create_dir_all(&config_file_path.parent().unwrap())
+            .expect("couldn't create config directory");
+        fs::write(config_file_path, ini_content).map_err(|_| "couldn't write config file")?;
         Ok(())
     }
 
