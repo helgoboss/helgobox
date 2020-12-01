@@ -37,7 +37,7 @@ pub struct MappingModel {
 impl Clone for MappingModel {
     fn clone(&self) -> Self {
         Self {
-            id: MappingId::random(),
+            id: self.id,
             compartment: self.compartment,
             name: self.name.clone(),
             control_is_enabled: self.control_is_enabled.clone(),
@@ -94,6 +94,19 @@ impl MappingModel {
 
     pub fn id(&self) -> MappingId {
         self.id
+    }
+
+    pub fn duplicate(&self) -> MappingModel {
+        MappingModel {
+            id: MappingId::random(),
+            ..self.clone()
+        }
+    }
+
+    // TODO-low Setting an ID is code smell. We should rather provide a second factory function.
+    //  Because we never map data on an existing Mapping anyway, we always create a new one.
+    pub fn set_id_without_notification(&mut self, id: MappingId) {
+        self.id = id;
     }
 
     pub fn compartment(&self) -> MappingCompartment {

@@ -6,6 +6,9 @@ on:
     branches:
       - master
   workflow_dispatch:
+  # For quickly detecting important differences in runner configurations
+  schedule:
+    - cron: '0 5 * * MON'
 
 name: Linux
 
@@ -20,7 +23,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
+          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -41,7 +44,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
+          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -86,7 +89,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev
+          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal

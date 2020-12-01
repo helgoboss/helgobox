@@ -1,4 +1,5 @@
 use crate::application::{ParameterSetting, Session};
+use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     MappingCompartment, MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT,
 };
@@ -15,40 +16,37 @@ use std::ops::Deref;
 /// It's optimized for being represented as JSON. The JSON representation must be 100%
 /// backward-compatible.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionData {
+    // Since ReaLearn 1.12.0
+    #[serde(default, skip_serializing_if = "is_default")]
+    id: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     let_matched_events_through: bool,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     let_unmatched_events_through: bool,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     always_auto_detect_mode: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    // false by default because in older versions, feedback was always sent no matter if armed or
+    // not
     send_feedback_only_if_armed: bool,
     /// `None` means "<FX input>"
+    #[serde(default, skip_serializing_if = "is_default")]
     control_device_id: Option<String>,
     ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
+    #[serde(default, skip_serializing_if = "is_default")]
     feedback_device_id: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
     controller_mappings: Vec<MappingModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
     active_controller_id: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
-}
-
-impl Default for SessionData {
-    fn default() -> Self {
-        Self {
-            let_matched_events_through: false,
-            let_unmatched_events_through: true,
-            always_auto_detect_mode: true,
-            // In older versions, feedback was always sent no matter if armed or not
-            send_feedback_only_if_armed: false,
-            control_device_id: None,
-            feedback_device_id: None,
-            mappings: vec![],
-            controller_mappings: vec![],
-            active_controller_id: None,
-            parameters: Default::default(),
-        }
-    }
 }
 
 impl SessionData {
@@ -60,6 +58,7 @@ impl SessionData {
                 .collect()
         };
         SessionData {
+            id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             always_auto_detect_mode: session.always_auto_detect.get(),
@@ -134,6 +133,9 @@ impl SessionData {
             }
         };
         // Mutation
+        if let Some(id) = &self.id {
+            session.id.set_without_notification(id.clone())
+        };
         session
             .let_matched_events_through
             .set_without_notification(self.let_matched_events_through);

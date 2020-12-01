@@ -1,0 +1,484 @@
+{% let activation_class -%}
+{% if body_state.server_is_running -%}
+{% let activation_class = "active" -%}
+{% else -%}
+{% let activation_class = "inactive" -%}
+{% endif -%}
+
+{% if include_skeleton %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ReaLearn</title>
+    <style>
+        /* Sakura.css v1.3.0
+         * ================
+         * Minimal css theme.
+         * Project: https://github.com/oxalorg/sakura/
+         */
+        /* Body */
+        html {
+            font-size: 62.5%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+
+        body {
+            font-size: 1.8rem;
+            line-height: 1.618;
+            max-width: 38em;
+            margin: auto;
+            color: #4a4a4a;
+            background-color: #f9f9f9;
+            padding: 13px;
+        }
+
+        @media (max-width: 684px) {
+            body {
+                font-size: 1.53rem;
+            }
+        }
+
+        @media (max-width: 382px) {
+            body {
+                font-size: 1.35rem;
+            }
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            line-height: 1.1;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+            font-weight: 700;
+            margin-top: 3rem;
+            margin-bottom: 1.5rem;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            -ms-word-break: break-all;
+            word-break: break-word;
+            -ms-hyphens: auto;
+            -moz-hyphens: auto;
+            -webkit-hyphens: auto;
+            hyphens: auto;
+        }
+
+        h1 {
+            font-size: 2.35em;
+        }
+
+        h2 {
+            font-size: 2.00em;
+        }
+
+        h3 {
+            font-size: 1.75em;
+        }
+
+        h4 {
+            font-size: 1.5em;
+        }
+
+        h5 {
+            font-size: 1.25em;
+        }
+
+        h6 {
+            font-size: 1em;
+        }
+
+        p {
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        small, sub, sup {
+            font-size: 75%;
+        }
+
+        hr {
+            border-color: #2c8898;
+        }
+
+        a {
+            text-decoration: none;
+            color: #2c8898;
+        }
+
+        a:hover {
+            color: #982c61;
+            border-bottom: 2px solid #4a4a4a;
+        }
+
+        ul {
+            padding-left: 1.4em;
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        li {
+            margin-bottom: 0.4em;
+        }
+
+        blockquote {
+            margin-left: 0px;
+            margin-right: 0px;
+            padding-left: 1em;
+            padding-top: 0.8em;
+            padding-bottom: 0.8em;
+            padding-right: 0.8em;
+            border-left: 5px solid #2c8898;
+            margin-bottom: 2.5rem;
+            background-color: #f1f1f1;
+        }
+
+        blockquote p {
+            margin-bottom: 0;
+        }
+
+        img {
+            height: auto;
+            max-width: 100%;
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Pre and Code */
+        pre {
+            background-color: #f1f1f1;
+            display: block;
+            padding: 1em;
+            overflow-x: auto;
+            margin-top: 0px;
+            margin-bottom: 2.5rem;
+        }
+
+        code {
+            font-size: 0.9em;
+            padding: 0 0.5em;
+            background-color: #f1f1f1;
+            white-space: pre-wrap;
+        }
+
+        pre > code {
+            padding: 0;
+            background-color: transparent;
+            white-space: pre;
+        }
+
+        /* Tables */
+        table {
+            text-align: justify;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td, th {
+            padding: 0.5em;
+            border-bottom: 1px solid #f1f1f1;
+        }
+
+        /* Buttons, forms and input */
+        input, textarea {
+            border: 1px solid #4a4a4a;
+        }
+
+        input:focus, textarea:focus {
+            border: 1px solid #2c8898;
+        }
+
+        textarea {
+            width: 100%;
+        }
+
+        .button, button, input[type="submit"], input[type="reset"], input[type="button"] {
+            display: inline-block;
+            padding: 5px 10px;
+            text-align: center;
+            text-decoration: none;
+            white-space: nowrap;
+            background-color: #2c8898;
+            color: #f9f9f9;
+            border-radius: 1px;
+            border: 1px solid #2c8898;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .button[disabled], button[disabled], input[type="submit"][disabled], input[type="reset"][disabled], input[type="button"][disabled] {
+            cursor: default;
+            opacity: .5;
+        }
+
+        .button:focus:enabled, .button:hover:enabled, button:focus:enabled, button:hover:enabled, input[type="submit"]:focus:enabled, input[type="submit"]:hover:enabled, input[type="reset"]:focus:enabled, input[type="reset"]:hover:enabled, input[type="button"]:focus:enabled, input[type="button"]:hover:enabled {
+            background-color: #982c61;
+            border-color: #982c61;
+            color: #f9f9f9;
+            outline: 0;
+        }
+
+        textarea, select, input[type] {
+            color: #4a4a4a;
+            padding: 6px 10px;
+            /* The 6px vertically centers text on FF, ignored by Webkit */
+            margin-bottom: 10px;
+            background-color: #f1f1f1;
+            border: 1px solid #f1f1f1;
+            border-radius: 4px;
+            box-shadow: none;
+            box-sizing: border-box;
+        }
+
+        textarea:focus, select:focus, input[type]:focus {
+            border: 1px solid #2c8898;
+            outline: 0;
+        }
+
+        input[type="checkbox"]:focus {
+            outline: 1px dotted #2c8898;
+        }
+
+        label, legend, fieldset {
+            display: block;
+            margin-bottom: .5rem;
+            font-weight: 600;
+        }
+    </style>
+    <style>
+        html {
+            font-size: 55.0%;
+        }
+
+        body {
+            max-width: 60em;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .inactive, .inactive a, .inactive td, .inactive th {
+            color: #bbb;
+        }
+
+        .absolute {
+            position: absolute;
+        }
+
+        .symbol {
+            font-size: 200%;
+        }
+
+        .qr-code-container {
+            width: 270px;
+            height: 270px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .qr-code-container img.inactive {
+            opacity: 0.05;
+        }
+
+        .qr-code-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-weight: bold;
+        }
+
+        th {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+Loading...
+{% endif %}
+{% if include_body_content %}
+<h1 class="center">ReaLearn Projection</h1>
+<div class="qr-code-container">
+    <img class="absolute {{ activation_class }}" src="{{ body_state.qr_code_image_url }}"
+         alt="ReaLearn server QR code"/>
+    {% if !body_state.server_is_running %}
+    <div class="qr-code-overlay">
+        Server <br>
+        not <br>
+        running <br>
+    </div>
+    {% endif %}
+</div>
+
+<h2>Introduction</h2>
+<p>
+    Welcome to ReaLearn's projection feature. This allows you to project a schematic representation of your currently
+    active controller onto a mobile device (e.g. a tablet computer). You can put this device close to your controller in
+    order to see immediately which control element is mapped to which parameter.
+</p>
+<h2>First-time setup</h2>
+<p>
+    In order to let your mobile device connect to ReaLearn, ReaLearn needs to act as a so-called <em>web
+    server</em>. By default, this server is switched off. In order to set it up correctly, please follow below
+    instructions. Don't worry, this needs to be done only once. After this initial effort, pairing your mobile device
+    with another ReaLearn instance is a matter of a few seconds (you just need to scan a QR code).
+</p>
+<ol>
+    <li>
+        {% if body_state.server_is_running %}
+        Congratulations, the server is running.
+        {% else %}
+        Start the server!
+        {% endif %}
+        {% if body_state.server_is_running %}
+        <span class="symbol">😃</span>
+        <ul>
+            {% if body_state.server_is_enabled %}
+            <li>
+                It will automatically be started again next time you start REAPER with ReaLearn. If you decide to not
+                use the projection feature anymore, click
+                <button onclick="external.invoke('disable_server')">here</button>
+                to disable the server.
+            </li>
+            {% else %}
+            <li>
+                You have disabled it though. This will take effect on the next start of REAPER. Click
+                <button onclick="external.invoke('enable_server')">here</button>
+                to enable it again.
+            </li>
+            {% endif %}
+        </ul>
+        {% else %}
+        <ul>
+            <li>
+                Click
+                <button onclick="external.invoke('start_server')">here</button>
+                to start it! It's possible that your firewall
+                will ask you for permission to open a network port for external devices. In that case, say yes!
+                That will save you the last step.
+            </li>
+        </ul>
+        {% endif %}
+    </li>
+    <li class="{{ activation_class }}">
+        Try to <a href="#" onclick="external.invoke('open_companion_app')">open the ReaLearn Companion web app on this
+        computer</a> (requires internet connection and takes a while to load when using it the first time).
+        <ul>
+            <li>
+                If this works, you know the server is indeed running. That means you can already use projections right
+                here on this computer.
+            </li>
+            <li>
+                It's more interesting however to project the controller routing to another device. Let's set this up in
+                the next steps.
+            </li>
+        </ul>
+    </li>
+    <li class="{{ activation_class }}">
+        Try to open ReaLearn's Companion app on your mobile device.
+        <ul>
+            <li>
+                At the moment there's an Android app and a web app, both still in beta stage. If you have an Android
+                device, you are lucky because it received most attention so far from the developer. Although it's not
+                yet available in Google Play store at the time of this writing (2020-11-28), you can check it out as
+                beta tester! Just send a short email to info@helgoboss.org if you are interested. Thanks.
+            </li>
+            <li>
+                There's no iOS app at the moment. If you are interested in this, let me know on Twitter @helgoboss or by
+                writing an email to info@helgoboss.org.
+            </li>
+            <li>
+                If you are adventurous and want to connect with a non-Android device (e.g. iPad or iPhone) already
+                now, you can try opening the web app in your mobile browser. Simply use your device's QR code
+                scanner, scan the QR code on the top of this page and open the resulting address in the browser.
+            </li>
+            <li>
+                If your device can't scan QR codes, point your mobile browser to the following address:
+                <code>{{ body_state.companion_web_app_url }}</code>. When
+                asked, enter the following connection details:
+                <table>
+                    <tr>
+                        <th>Host:</th>
+                        <td>{{ body_state.server_host }}</td>
+                    </tr>
+                    <tr>
+                        <th>HTTP port:</th>
+                        <td>{{ body_state.server_http_port }}</td>
+                    </tr>
+                    <tr>
+                        <th>HTTPS port:</th>
+                        <td>{{ body_state.server_https_port }}</td>
+                    </tr>
+                    <tr>
+                        <th>Session ID:</th>
+                        <td>{{ body_state.session_id }}</td>
+                    </tr>
+                </table>
+            </li>
+        </ul>
+    </li>
+    <li class="{{ activation_class }}">
+        The app might ask you to open ports in your firewall. If so, follow below instructions:
+        <ul>
+            {% if body_state.os == "windows" %}
+            <li>
+                Click
+                <button onclick="external.invoke('add_firewall_rule')">here</button>
+                to add an exception to your Windows Firewall.
+            </li>
+            {% else if body_state.os == "macos" %}
+            <li>Click
+                <button onclick="external.invoke('add_firewall_rule')">here</button>
+                to add an exception to your macOS Firewall.
+            </li>
+            <li>
+                After that, check your mobile device for successful connection.
+            </li>
+            {% else %}
+            <li>
+                Please add a firewall rule manually that opens ports {{ body_state.server_http_port }} and
+                {{ body_state.server_https_port }} for incoming TCP connections.
+            </li>
+            {% endif %}
+            <li>
+                Troubleshooting:
+                <ul>
+                    <li>
+                        If your mobile device still cannot connect, you can temporarily switch off your firewall to see
+                        if that's the issue.
+                    </li>
+                    <li>
+                        If this helped, switch your Firewall on again and try to add a Firewall rule manually that opens
+                        ports {{ body_state.server_http_port }} and {{ body_state.server_https_port }} for incoming TCP
+                        connections.
+                    </li>
+                    <li>
+                        If it still doesn't work, please make sure your mobile device is in the same network as your
+                        computer running REAPER and ReaLearn.
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ol>
+<h2>Can I use this on stage?</h2>
+<p>
+    At the moment this feature is optimized for usage in a studio environment, not for usage on stage. Before using it
+    in live scenarios, please consider the following advice:
+</p>
+<ul>
+    <li>
+        In order to connect to ReaLearn, your mobile device needs to be in the same network as this computer. At home
+        this is usually a no-brainer because you have a wireless access point that connects everything for you. On stage
+        you would need to establish an ad-hoc wireless network connection between your computer and the mobile device.
+        This is possible and not really difficult but ReaLearn won't set it up for you.
+    </li>
+    <li>
+        ReaLearn's server is not password-protected or rate-limited. Therefore you should make sure that your ad-hoc
+        network uses a strong password. Otherwise a hacker with bad intentions could possibly find ways to mess up your
+        stage performance.
+    </li>
+</ul>
+{% endif %}
+{% if include_skeleton %}
+</body>
+</html>
+{% endif %}

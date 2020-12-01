@@ -1,9 +1,9 @@
-use crate::{DialogUnits, Pixels, Point, SwellStringArg};
+use crate::{DialogUnits, Menu, Pixels, Point, SwellStringArg};
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{null, null_mut, NonNull};
 
 /// Represents a window.
 ///
@@ -296,6 +296,25 @@ impl Window {
         unsafe {
             Swell::get().DestroyWindow(self.raw);
         }
+    }
+
+    pub fn open_popup_menu(self, menu: Menu, location: Point<Pixels>) -> Option<u32> {
+        let swell = Swell::get();
+        let result = unsafe {
+            swell.TrackPopupMenu(
+                menu.raw(),
+                raw::TPM_RETURNCMD as _,
+                location.x.get() as _,
+                location.y.get() as _,
+                0,
+                self.raw(),
+                null(),
+            )
+        };
+        if result == 0 {
+            return None;
+        }
+        Some(result as _)
     }
 
     pub fn move_to(self, point: Point<DialogUnits>) {

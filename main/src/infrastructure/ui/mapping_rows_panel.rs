@@ -94,11 +94,13 @@ impl MappingRowsPanel {
     }
 
     fn invalidate_scroll_info(&self) {
+        let item_count = self.filtered_mapping_count();
+        self.update_scroll_status_msg(item_count);
         let scroll_info = raw::SCROLLINFO {
             cbSize: std::mem::size_of::<raw::SCROLLINFO>() as _,
             fMask: raw::SIF_PAGE | raw::SIF_RANGE,
             nMin: 0,
-            nMax: cmp::max(0, self.filtered_mapping_count() as isize - 1) as _,
+            nMax: self.get_max_scroll_position(item_count) as _,
             nPage: self.rows.len() as _,
             nPos: 0,
             nTrackPos: 0,
@@ -140,7 +142,8 @@ impl MappingRowsPanel {
     }
 
     fn scroll(&self, pos: usize) -> bool {
-        let pos = pos.min(self.max_scroll_position());
+        let item_count = self.filtered_mapping_count();
+        let pos = pos.min(self.get_max_scroll_position(item_count));
         let scroll_pos = self.scroll_position.get();
         if pos == scroll_pos {
             return false;
@@ -154,25 +157,29 @@ impl MappingRowsPanel {
             );
         }
         self.scroll_position.set(pos);
+        self.update_scroll_status_msg(item_count);
         self.invalidate_mapping_rows();
         true
     }
 
-    fn max_scroll_position(&self) -> usize {
-        cmp::max(
-            0,
-            self.filtered_mapping_count() as isize - self.rows.len() as isize,
-        ) as usize
+    fn update_scroll_status_msg(&self, item_count: usize) {
+        let from_pos = cmp::min(self.scroll_position.get() + 1, item_count);
+        let to_pos = cmp::min(from_pos + self.rows.len() - 1, item_count);
+        let status_msg = format!(
+            "Showing mappings {} to {} of {}",
+            from_pos, to_pos, item_count
+        );
+        self.main_state.borrow_mut().status_msg.set(status_msg);
+    }
+
+    fn get_max_scroll_position(&self, item_count: usize) -> usize {
+        cmp::max(0, item_count as isize - 1) as usize
     }
 
     fn filtered_mapping_count(&self) -> usize {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let main_state = self.main_state.borrow();
-        if main_state.source_filter.get_ref().is_none()
-            && main_state.target_filter.get_ref().is_none()
-            && main_state.search_expression.get_ref().trim().is_empty()
-        {
+        if !self.main_state.borrow().filter_is_active() {
             return session.mapping_count(self.active_compartment());
         }
         session
@@ -217,26 +224,26 @@ impl MappingRowsPanel {
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
-        let mapping_count = self
-            .session()
-            .borrow()
-            .mapping_count(self.active_compartment());
-        for i in self.scroll_position.get()..mapping_count {
+        let compartment = self.active_compartment();
+        let shared_session = self.session();
+        let session = shared_session.borrow();
+        let main_state = self.main_state.borrow();
+        let mappings: Vec<_> = if main_state.filter_is_active() {
+            session
+                .mappings(compartment)
+                .filter(|m| self.mapping_matches_filter(*m))
+                .collect()
+        } else {
+            session.mappings(compartment).collect()
+        };
+        for mapping in &mappings[self.scroll_position.get()..] {
             if row_index >= self.rows.len() {
                 break;
-            }
-            let shared_session = self.session();
-            let session = shared_session.borrow();
-            let mapping = session
-                .find_mapping_by_index(self.active_compartment(), i)
-                .expect("impossible");
-            if !self.mapping_matches_filter(mapping) {
-                continue;
             }
             self.rows
                 .get(row_index)
                 .expect("impossible")
-                .set_mapping(Some(mapping.clone()));
+                .set_mapping(Some((*mapping).clone()));
             row_index += 1;
         }
         // If there are unused rows, clear them

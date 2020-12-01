@@ -391,6 +391,12 @@ pub enum SourceCategory {
     Virtual,
 }
 
+impl Default for SourceCategory {
+    fn default() -> Self {
+        SourceCategory::Midi
+    }
+}
+
 /// Type of a MIDI source
 #[derive(
     Clone,
@@ -427,6 +433,12 @@ pub enum MidiSourceType {
     ClockTempo = 8,
     #[display(fmt = "MIDI clock transport")]
     ClockTransport = 9,
+}
+
+impl Default for MidiSourceType {
+    fn default() -> Self {
+        MidiSourceType::ControlChangeValue
+    }
 }
 
 impl MidiSourceType {
@@ -474,13 +486,18 @@ impl MidiSourceType {
 )]
 #[repr(usize)]
 pub enum VirtualControlElementType {
-    // TODO-high rename to multi
-    #[serde(rename = "continuous")]
+    #[serde(rename = "multi")]
     #[display(fmt = "Multi")]
     Multi,
     #[serde(rename = "button")]
     #[display(fmt = "Button")]
     Button,
+}
+
+impl Default for VirtualControlElementType {
+    fn default() -> Self {
+        VirtualControlElementType::Multi
+    }
 }
 
 impl VirtualControlElementType {

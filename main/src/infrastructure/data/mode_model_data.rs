@@ -1,59 +1,66 @@
 use crate::application::ModeModel;
+use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
 use helgoboss_learn::{AbsoluteMode, Interval, OutOfRangeBehavior, SymmetricUnitValue, UnitValue};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct ModeModelData {
+    #[serde(default, skip_serializing_if = "is_default")]
     r#type: AbsoluteMode,
+    #[serde(default, skip_serializing_if = "is_default")]
     min_source_value: UnitValue,
+    #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
     max_source_value: UnitValue,
+    #[serde(default, skip_serializing_if = "is_default")]
     min_target_value: UnitValue,
+    #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
     max_target_value: UnitValue,
+    #[serde(default, skip_serializing_if = "is_default")]
     min_target_jump: UnitValue,
+    #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
     max_target_jump: UnitValue,
+    #[serde(
+        default = "default_step_size",
+        skip_serializing_if = "is_default_step_size"
+    )]
     min_step_size: SymmetricUnitValue,
+    #[serde(
+        default = "default_step_size",
+        skip_serializing_if = "is_default_step_size"
+    )]
     max_step_size: SymmetricUnitValue,
+    #[serde(default, skip_serializing_if = "is_default")]
     min_press_millis: u64,
+    #[serde(default, skip_serializing_if = "is_default")]
     max_press_millis: u64,
+    #[serde(default, skip_serializing_if = "is_default")]
     eel_control_transformation: String,
+    #[serde(default, skip_serializing_if = "is_default")]
     eel_feedback_transformation: String,
+    #[serde(default, skip_serializing_if = "is_default")]
     reverse_is_enabled: bool,
     // Serialization skipped because this is deprecated in favor of out_of_range_behavior
     // since ReaLearn v1.11.0.
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     ignore_out_of_range_source_values_is_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     out_of_range_behavior: OutOfRangeBehavior,
+    #[serde(default, skip_serializing_if = "is_default")]
     round_target_value: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     scale_mode_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     rotate_is_enabled: bool,
 }
 
-impl Default for ModeModelData {
-    fn default() -> Self {
-        Self {
-            r#type: AbsoluteMode::Normal,
-            min_source_value: UnitValue::MIN,
-            max_source_value: UnitValue::MAX,
-            min_target_value: UnitValue::MIN,
-            max_target_value: UnitValue::MAX,
-            min_target_jump: UnitValue::MIN,
-            max_target_jump: UnitValue::MAX,
-            min_step_size: SymmetricUnitValue::new(0.01),
-            max_step_size: SymmetricUnitValue::new(0.01),
-            min_press_millis: 0,
-            max_press_millis: 0,
-            eel_control_transformation: "".to_string(),
-            eel_feedback_transformation: "".to_string(),
-            reverse_is_enabled: false,
-            ignore_out_of_range_source_values_is_enabled: false,
-            out_of_range_behavior: OutOfRangeBehavior::MinOrMax,
-            round_target_value: false,
-            scale_mode_enabled: false,
-            rotate_is_enabled: false,
-        }
-    }
+fn default_step_size() -> SymmetricUnitValue {
+    SymmetricUnitValue::new(0.01)
+}
+
+fn is_default_step_size(v: &SymmetricUnitValue) -> bool {
+    *v == default_step_size()
 }
 
 impl ModeModelData {

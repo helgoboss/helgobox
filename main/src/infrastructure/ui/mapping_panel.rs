@@ -30,8 +30,11 @@ use crate::application::{
 };
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
-    TargetCharacter, TrackAnchor, TransportAction, VirtualTrack, PLUGIN_PARAMETER_COUNT,
+    TargetCharacter, TrackAnchor, TransportAction, VirtualControlElement, VirtualTrack,
+    PLUGIN_PARAMETER_COUNT,
 };
+use itertools::Itertools;
+use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
@@ -59,6 +62,7 @@ struct ImmutableMappingPanel<'a> {
     target: &'a TargetModel,
     view: &'a ViewContext,
     panel: &'a SharedView<MappingPanel>,
+    shared_mapping: &'a SharedMapping,
 }
 
 struct MutableMappingPanel<'a> {
@@ -186,6 +190,7 @@ impl MappingPanel {
             target: &mapping.target_model,
             view: &self.view,
             panel: &self,
+            shared_mapping: &shared_mapping,
         };
         Ok(op(&p))
     }
@@ -282,58 +287,9 @@ impl<'a> MutableMappingPanel<'a> {
     fn open_target(&self) {
         if let Some(t) = self.real_target() {
             Reaper::get()
-                .do_later_in_main_thread_asap(move || t.open())
+                .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
         }
-    }
-
-    fn pick_action(&self) {
-        let reaper = Reaper::get().medium_reaper();
-        use InitialAction::*;
-        let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
-            None => NoneSelected,
-            Some(a) => Selected(a.command_id()),
-        };
-        // TODO-low Add this to reaper-high with rxRust
-        if reaper.low().pointers().PromptForAction.is_none() {
-            reaper.show_message_box(
-                "Please update to REAPER >= 6.12 in order to pick actions!",
-                "ReaLearn",
-                MessageBoxType::Okay,
-            );
-            return;
-        }
-        reaper.prompt_for_action_create(initial_action, SectionId::new(0));
-        let shared_mapping = self.shared_mapping.clone();
-        Reaper::get()
-            .main_thread_idle()
-            .take_until(self.panel.party_is_over())
-            .map(|_| {
-                Reaper::get()
-                    .medium_reaper()
-                    .prompt_for_action_poll(SectionId::new(0))
-            })
-            .filter(|r| *r != PromptForActionResult::NoneSelected)
-            .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
-            .subscribe_complete(
-                move |r| {
-                    if let PromptForActionResult::Selected(command_id) = r {
-                        let action = Reaper::get()
-                            .main_section()
-                            .action_by_command_id(command_id);
-                        shared_mapping
-                            .borrow_mut()
-                            .target_model
-                            .action
-                            .set(Some(action));
-                    }
-                },
-                || {
-                    Reaper::get()
-                        .medium_reaper()
-                        .prompt_for_action_finish(SectionId::new(0));
-                },
-            );
     }
 
     fn toggle_learn_source(&mut self) {
@@ -1029,6 +985,55 @@ impl<'a> MutableMappingPanel<'a> {
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
+    fn pick_action(&self) {
+        let reaper = Reaper::get().medium_reaper();
+        use InitialAction::*;
+        let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
+            None => NoneSelected,
+            Some(a) => Selected(a.command_id()),
+        };
+        // TODO-low Add this to reaper-high with rxRust
+        if reaper.low().pointers().PromptForAction.is_none() {
+            reaper.show_message_box(
+                "Please update to REAPER >= 6.12 in order to pick actions!",
+                "ReaLearn",
+                MessageBoxType::Okay,
+            );
+            return;
+        }
+        reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+        let shared_mapping = self.shared_mapping.clone();
+        Reaper::get()
+            .main_thread_idle()
+            .take_until(self.panel.party_is_over())
+            .map(|_| {
+                Reaper::get()
+                    .medium_reaper()
+                    .prompt_for_action_poll(SectionId::new(0))
+            })
+            .filter(|r| *r != PromptForActionResult::NoneSelected)
+            .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
+            .subscribe_complete(
+                move |r| {
+                    if let PromptForActionResult::Selected(command_id) = r {
+                        let action = Reaper::get()
+                            .main_section()
+                            .action_by_command_id(command_id);
+                        shared_mapping
+                            .borrow_mut()
+                            .target_model
+                            .action
+                            .set(Some(action));
+                    }
+                },
+                || {
+                    Reaper::get()
+                        .medium_reaper()
+                        .prompt_for_action_finish(SectionId::new(0));
+                },
+            );
+    }
+
     fn fill_all_controls(&self) {
         self.fill_mapping_activation_type_combo_box();
         self.fill_source_category_combo_box();
@@ -1574,7 +1579,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 action_label.hide();
                 pick_button.hide();
                 label.set_text("Number");
-                combo.fill_combo_box_small(1..=16);
+                combo.fill_combo_box_small(1..=100);
                 combo.select_combo_box_item(self.target.control_element_index.get() as _);
             }
         };
@@ -2609,7 +2614,34 @@ impl<'a> ImmutableMappingPanel<'a> {
                 iter::once((-1isize, "<Any> (no feedback)".to_string()))
                     .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
             ),
-            Virtual => b.fill_combo_box_small(1..=16),
+            Virtual => {
+                let controller_mappings = self
+                    .session
+                    .mappings(MappingCompartment::ControllerMappings);
+                let grouped_mappings =
+                    group_mappings_by_virtual_control_element(controller_mappings);
+                let options = (0..100).map(|i| {
+                    let element = self
+                        .source
+                        .control_element_type
+                        .get()
+                        .create_control_element(i);
+                    let pos = i + 1;
+                    match grouped_mappings.get(&element) {
+                        None => pos.to_string(),
+                        Some(mappings) => {
+                            let first_mapping = mappings[0].borrow();
+                            let first_mapping_name = first_mapping.name.get_ref().clone();
+                            if mappings.len() == 1 {
+                                format!("{} ({})", pos, first_mapping_name)
+                            } else {
+                                format!("{} ({} + {})", pos, first_mapping_name, mappings.len() - 1)
+                            }
+                        }
+                    }
+                });
+                b.fill_combo_box_small(options);
+            }
         };
     }
 
@@ -2735,7 +2767,9 @@ impl View for MappingPanel {
             }
             ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
             ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
-            ID_TARGET_PICK_ACTION_BUTTON => self.write(|p| p.pick_action()),
+            ID_TARGET_PICK_ACTION_BUTTON => {
+                self.read(|p| p.pick_action()).unwrap();
+            }
             _ => unreachable!(),
         }
     }
@@ -2970,4 +3004,22 @@ enum PositiveOrSymmetricUnitValue {
 fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
     // If it doesn't work in some cases, so what.
     let _ = target.control(ControlValue::Absolute(value));
+}
+
+fn group_mappings_by_virtual_control_element<'a>(
+    mappings: impl Iterator<Item = &'a SharedMapping>,
+) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
+    // Group by Option<VirtualControlElement>
+    let grouped_by_option = mappings.group_by(|m| {
+        let m = m.borrow();
+        match m.target_model.category.get() {
+            TargetCategory::Reaper => None,
+            TargetCategory::Virtual => Some(m.target_model.create_control_element()),
+        }
+    });
+    // Filter out None keys and collect to map with vector values
+    grouped_by_option
+        .into_iter()
+        .filter_map(|(key, group)| key.map(|k| (k, group.collect())))
+        .collect()
 }

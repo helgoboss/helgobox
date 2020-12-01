@@ -9,11 +9,10 @@ use crate::domain::{
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
-use crate::infrastructure::projection;
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
-use reaper_high::{create_terminal_logger, Reaper, ReaperGuard};
+use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset};
 
@@ -28,8 +27,10 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use crate::application::{session_manager, Session, SharedSession};
+use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
+use crate::infrastructure::server;
+
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -38,6 +39,10 @@ use vst::event::Event;
 reaper_vst_plugin!();
 
 pub struct RealearnPlugin {
+    /// An ID which is randomly generated on each start and is most relevant for log correlation.
+    /// It's also used in other ReaLearn singletons.
+    /// It also serves as initial value for the (persistent) session ID. Should be unique.
+    instance_id: String,
     logger: slog::Logger,
     // This will be filled right at construction time. It won't have a session yet though.
     main_panel: SharedView<MainPanel>,
@@ -84,10 +89,10 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::unbounded();
             let (control_main_task_sender, control_main_task_receiver) =
                 crossbeam_channel::unbounded();
-            let instance_id = nanoid::nanoid!(4);
-            let logger =
-                create_terminal_logger().new(o!("app" => "ReaLearn", "instance" => instance_id));
+            let instance_id = nanoid::nanoid!(8);
+            let logger = App::logger().new(o!("instance" => instance_id.clone()));
             Self {
+                instance_id,
                 logger: logger.clone(),
                 host,
                 session: Rc::new(LazyCell::new()),
@@ -254,8 +259,10 @@ impl RealearnPlugin {
                 PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
             Swell::make_available_globally(Swell::load(context));
             Reaper::setup_with_defaults(context, self.logger.clone(), "info@helgoboss.org");
-            session_manager::register_global_learn_action();
+            crate::application::App::get().register_global_learn_action();
+            server::keep_informing_clients_about_sessions();
             debug_util::register_resolve_symbols_action();
+            App::get().init();
         })
     }
 
@@ -274,8 +281,9 @@ impl RealearnPlugin {
         let normal_main_task_channel = self.normal_main_task_channel.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
         let logger = self.logger.clone();
+        let instance_id = self.instance_id.clone();
         Reaper::get()
-            .do_later_in_main_thread_asap(move || {
+            .do_later_in_main_thread_from_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(&host) {
                     Ok(c) => c,
                     Err(msg) => {
@@ -288,6 +296,7 @@ impl RealearnPlugin {
                     }
                 };
                 let session = Session::new(
+                    instance_id,
                     &logger,
                     processor_context,
                     normal_real_time_task_sender,
@@ -304,8 +313,8 @@ impl RealearnPlugin {
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
-                projection::register_session(&shared_session);
-                session_manager::register_session(weak_session.clone());
+                server::keep_informing_clients_about_session_events(&shared_session);
+                crate::application::App::get().register_session(weak_session.clone());
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);
@@ -334,7 +343,7 @@ impl Drop for RealearnPlugin {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
-            session_manager::unregister_session(session.as_ptr());
+            crate::application::App::get().unregister_session(session.as_ptr());
             debug!(
                 self.logger,
                 "{} pointers are still referring to this session",

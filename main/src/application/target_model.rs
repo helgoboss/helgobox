@@ -543,6 +543,12 @@ pub enum ReaperTargetType {
     Transport = 16,
 }
 
+impl Default for ReaperTargetType {
+    fn default() -> Self {
+        ReaperTargetType::FxParameter
+    }
+}
+
 impl ReaperTargetType {
     pub fn from_target(target: &ReaperTarget) -> ReaperTargetType {
         use ReaperTarget::*;
@@ -618,6 +624,12 @@ pub enum TargetCategory {
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
     Virtual,
+}
+
+impl Default for TargetCategory {
+    fn default() -> Self {
+        TargetCategory::Reaper
+    }
 }
 
 fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {

@@ -1,5 +1,5 @@
 use crate::application::{
-    session_manager, share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
+    share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -34,6 +34,11 @@ pub trait SessionUi {
 // TODO-low Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
+    instance_id: String,
+    /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
+    /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
+    /// session will be picked. Most relevant for HTTP/WS API.
+    pub id: Prop<String>,
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
@@ -74,6 +79,7 @@ pub struct Session {
 impl Session {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        instance_id: String,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
@@ -87,6 +93,8 @@ impl Session {
         controller_manager: impl ControllerManager + 'static,
     ) -> Session {
         Self {
+            id: prop(instance_id.clone()),
+            instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(false),
             let_unmatched_events_through: prop(true),
@@ -116,6 +124,10 @@ impl Session {
             controller_manager: Box::new(controller_manager),
             on_mappings: Default::default(),
         }
+    }
+
+    pub fn id(&self) -> &str {
+        self.id.get_ref()
     }
 
     pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
@@ -264,34 +276,28 @@ impl Session {
         // Enable source learning
         // TODO-low This could be handled by normal methods instead of observables, like source
         //  filter learning.
-        when(
-            // TODO-low Listen to values instead of change event only. Filter Some only and
-            // flatten.
-            self.mapping_which_learns_source.changed(),
-        )
-        .with(weak_session.clone())
-        .do_async(move |shared_session, _| {
-            let session = shared_session.borrow();
-            if session.mapping_which_learns_source.get_ref().is_none() {
-                return;
-            }
-            when(
-                session
-                    .source_touched()
-                    // We have this explicit stop criteria because we listen to global REAPER
-                    // events.
-                    .take_until(session.party_is_over())
-                    .take_until(session.mapping_which_learns_source.changed_to(None))
-                    .take(1),
-            )
-            .with(Rc::downgrade(&shared_session))
-            .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-            .do_async(|session, source| {
-                if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
-                    m.borrow_mut().source_model.apply_from_source(&source);
-                }
+        use rxrust::ops::filter_map::FilterMap;
+        when(self.mapping_which_learns_source.values().filter_map(|m| m))
+            .with(weak_session.clone())
+            .do_async(move |shared_session, mapping| {
+                let session = shared_session.borrow();
+                when(
+                    session
+                        .source_touched(mapping.borrow().compartment())
+                        // We have this explicit stop criteria because we listen to global REAPER
+                        // events.
+                        .take_until(session.party_is_over())
+                        .take_until(session.mapping_which_learns_source.changed_to(None))
+                        .take(1),
+                )
+                .with(Rc::downgrade(&shared_session))
+                .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
+                .do_async(|session, source| {
+                    if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
+                        m.borrow_mut().source_model.apply_from_source(&source);
+                    }
+                });
             });
-        });
         // Enable target learning
         when(
             self.target_touched_observables(weak_session.clone())
@@ -326,10 +332,13 @@ impl Session {
         self.source_touched_subject.next(source);
     }
 
-    pub fn source_touched(&self) -> impl Event<CompoundMappingSource> {
+    pub fn source_touched(
+        &self,
+        compartment: MappingCompartment,
+    ) -> impl Event<CompoundMappingSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource)
+            .send(NormalRealTimeTask::StartLearnSource(compartment))
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {
@@ -428,14 +437,6 @@ impl Session {
 
     pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
         self.mappings[compartment].len()
-    }
-
-    pub fn find_mapping_by_index(
-        &self,
-        compartment: MappingCompartment,
-        index: usize,
-    ) -> Option<&SharedMapping> {
-        self.mappings[compartment].get(index)
     }
 
     pub fn find_mapping_by_address(
@@ -544,7 +545,7 @@ impl Session {
             .ok_or("mapping not found")?;
         let duplicate = {
             let mapping = mapping.borrow();
-            let mut duplicate = mapping.clone();
+            let mut duplicate = mapping.duplicate();
             duplicate
                 .name
                 .set(format!("Copy of {}", mapping.name.get_ref()));
@@ -694,7 +695,20 @@ impl Session {
         compartment: MappingCompartment,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
-        self.mappings[compartment] = mappings.map(share_mapping).collect();
+        // If we import JSON from clipboard, we might stumble upon duplicate mapping IDs. Fix those!
+        // This is a feature for power users.
+        let mut used_ids = HashSet::new();
+        let fixed_mappings: Vec<_> = mappings
+            .map(|mut m| {
+                if used_ids.contains(&m.id()) {
+                    m.set_id_without_notification(MappingId::random());
+                } else {
+                    used_ids.insert(m.id());
+                }
+                m
+            })
+            .collect();
+        self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
     }
 
     fn add_mapping(
@@ -717,7 +731,6 @@ impl Session {
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
-        session_manager::log_debug_info();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::LogDebugInfo)
@@ -741,11 +754,15 @@ impl Session {
             "\n\
             # Session\n\
             \n\
+            - Instance ID (random): {}\n\
+            - ID (persistent, maybe custom): {}\n\
             - Primary mapping model count: {}\n\
             - Primary mapping subscription count: {}\n\
             - Controller mapping model count: {}\n\
             - Controller mapping subscription count: {}\n\
             ",
+            self.instance_id,
+            self.id.get_ref(),
             self.mappings[MappingCompartment::PrimaryMappings].len(),
             self.mapping_subscriptions[MappingCompartment::PrimaryMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),

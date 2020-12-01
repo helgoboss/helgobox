@@ -1,4 +1,6 @@
-use crate::application::{MappingModel, SharedMapping, SharedSession, WeakSession};
+use crate::application::{
+    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
+};
 use crate::core::when;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::ui::bindings::root;
@@ -91,10 +93,42 @@ impl MappingRowPanel {
     }
 
     fn invalidate_source_label(&self, mapping: &MappingModel) {
+        let plain_label = mapping.source_model.to_string();
+        let rich_label = if mapping.source_model.category.get() == SourceCategory::Virtual {
+            let session = self.session();
+            let session = session.borrow();
+            let controller_mappings = session.mappings(MappingCompartment::ControllerMappings);
+            let mappings: Vec<_> = controller_mappings
+                .filter(|m| {
+                    let m = m.borrow();
+                    m.target_model.category.get() == TargetCategory::Virtual
+                        && m.target_model.create_control_element()
+                            == mapping.source_model.create_control_element()
+                })
+                .collect();
+            if mappings.is_empty() {
+                plain_label
+            } else {
+                let first_mapping = mappings[0].borrow();
+                let first_mapping_name = first_mapping.name.get_ref().clone();
+                if mappings.len() == 1 {
+                    format!("{}\n({})", plain_label, first_mapping_name)
+                } else {
+                    format!(
+                        "{}({} + {})",
+                        plain_label,
+                        first_mapping_name,
+                        mappings.len() - 1
+                    )
+                }
+            }
+        } else {
+            plain_label
+        };
         self.view
             .require_window()
             .require_control(root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT)
-            .set_text(mapping.source_model.to_string());
+            .set_text(rich_label);
     }
 
     fn invalidate_target_label(&self, mapping: &MappingModel) {

@@ -1,4 +1,4 @@
 mod data;
 mod plugin;
-mod projection;
+mod server;
 mod ui;

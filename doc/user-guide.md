@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-09-10 (v1.11.0)</code></td>
+  <td><code>2020-10-21 (v1.12.0-pre1)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -94,14 +94,14 @@ what you need. More so if the controller supports feedback (e.g. motorized fader
 
 ### Videos
 
-If you want to get a first impression of ReaLearn, a video is surely a good way. I've never made a
-ReaLearn video myself but other users luckily did. Here a short, non-complete list:
+If you want to get a first impression of ReaLearn, a video is surely a good way. Here a short, non-complete list:
 
 - [How To: ReaLearn and MIDI Controller for Track Sends in REAPER - Tutorial](https://www.youtube.com/watch?v=WKF2LmIueY8)
 - [using ReaLearn to assign MIDI controllers to (VST) plugin parameters in Cockos Reaper](https://www.youtube.com/watch?v=UrYrAxnB19I)
 - [MIDI Controller Feedback in REAPER with ReaLearn and LBX SmartKnobs - Tutorial](https://www.youtube.com/watch?v=p0LBdXXcg7g)
+- [Demonstration of the projection feature](https://www.youtube.com/watch?v=omuYBznEShk)
 
-Keep in mind that the mentioned videos still use older versions of ReaLearn.
+Keep in mind that some of the mentioned videos still use older versions of ReaLearn.
 
 ## Basics
 
@@ -128,8 +128,10 @@ running. It's important to include this information in bug reports.
 
 **Let's see how to add and use our first mapping:**
 
-1. Press the "Add mapping" button
+1. Press the "Add mapping" button.
    - A new mapping called "1" should appear in the mapping rows panel.
+   - For now it's greyed out because it's not complete yet. The default target is a *Track FX parameter* target
+     which doesn't yet refer to any specific FX. 
 2. Press the "Learn source" button of that new mapping.
    - Its label will change to "Stop".
 3. Touch some control element on your MIDI controller (knob, encoder, fader, button, key, pitch
@@ -142,6 +144,7 @@ running. It's important to include this information in bug reports.
 5. Touch the volume fader of your newly created REAPER track.
    - The button label should jump back to "Learn target" and "Track volume" should appear in the
      _target label_.
+   - At this point the mapping should not be greyed out anymore because it's complete and enabled. 
 6. Now you should be able to control the touched target with your control element.
 
 #### Troubleshooting
@@ -192,7 +195,7 @@ simply "disable" the mapping by disarming your track, a feature that is very des
 REAPER as live instrument. Or you can preprocess incoming MIDI (although that should rarely be
 necessary given ReaLearn's mapping customization possibilities).
 
-Another thing worth to point out that is different from built-in MIDI learn is that we didn't use
+Another thing worth to point out which is different from built-in MIDI learn is that we didn't use
 the action "Track: Set volume for track 01". Benefit: ReaLearn will let you control the volume of
 the track even if you move that track to another position. The track's position is irrelevant.
 
@@ -271,12 +274,13 @@ This panel has 4 sections:
   particular control element on your controller (e.g. a fader).
 - **Target:** Allows to edit the _target_ of the mapping and optionally some target-related
   activation conditions. A target essentially is the parameter in REAPER that should be controlled.
-- **Mode:** Allows to edit everything related to the _mode_ of this mapping. A mode is the glue
-  between source and target. It defines _how_ incoming control values from the source should be
+- **Tuning:** Allows to change in detail how your source and target will be glued together. This
+  defines _how_ incoming control values from the source should be
   applied to the target (and vice versa, if feedback is used). This is where it gets interesting.
-  Unlike REAPER's built-in MIDI learn modes, ReaLearn modes are deeply customizable.
+  Whereas REAPER's built-in MIDI learn provides just some basic modes like Absolute or Toggle, ReaLearn
+  allows you to customize many more aspects of a mapping.
 
-By design, source, mode and target are independent concepts in ReaLearn. They can be combined
+By design, source, tuning and target are independent concepts in ReaLearn. They can be combined
 freely - although there are some combinations that don't make too much sense.
 
 Changes in the mapping panel are applied immediately. Pressing the _OK_ button just closes the
@@ -292,8 +296,8 @@ the following hints:
 - Put your controller's buttons into momentary mode, *not* toggle mode.
 - If you are in the lucky situation of owning a controller with endless rotary encoders, by all
   means, configure them to transmit relative values, not absolute ones!
-  - Otherwise you can't take advantage of "Relative mode" features such as the "Step size" or
-    "Speed" setting.
+  - Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting 
+    relative values, such as the "Step size" or "Speed" setting.
 
 ## Reference
 
@@ -303,6 +307,25 @@ So far we've covered the basics. Now let's look into everything in detail.
 
 #### Header panel
 
+The header panel provides the following user interface elements, no matter if *primary mappings* or
+*controller mappings* are shown:
+
+- **Let matched events through / Let unmatched events through:** These settings only apply if MIDI
+  control input is set to _&lt;FX input&gt;_. By default, ReaLearn "eats" incoming MIDI events for
+  which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events
+  which are used to control a target parameter. All other MIDI events are forwarded to ReaLearn's FX
+  output. Use these checkboxes to change that behavior.
+- **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
+  ReaLearn by default disables feedback if the track is not armed (unarming will naturally disable
+  control, so disabling feedback is just consequent). However, if MIDI control input is set to a
+  hardware device, the default is to _not_ disable feedback when unarmed (same reasoning). You can
+  override this behavior with this checkbox. At the moment, it can only be unchecked if ReaLearn is
+  on the normal FX chain. If it's on the input FX chain, unarming naturally disables feedback
+  because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed.
+- **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
+  figure out if your combination of settings makes sense. If not, it makes an adjustment. 
+  This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
+  is your checkbox.
 - **MIDI control input:** By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
   consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
   Alternatively, ReaLearn can capture events directly from a MIDI hardware input. This dropdown lets
@@ -313,31 +336,31 @@ So far we've covered the basics. Now let's look into everything in detail.
   output device here. Keep in mind that _Enable output to this device_ must be checked in REAPER's
   MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
   feedback MIDI events stream down to the next FX in the chain or to the track's MIDI output.
-- **Let matched events through / Let unmatched events through:** These settings only apply if MIDI
-  control input is set to _&lt;FX input&gt;_. By default, ReaLearn "eats" incoming MIDI events for
-  which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events
-  which are used to control a target parameter. All other MIDI events are forwarded to ReaLearn's FX
-  output. Use these checkboxes to change that behavior.
-- **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
-  figure out if your combination of settings makes sense. If not, it makes an adjustment. E.g. if
-  you pick a source which emits relative increments, it will automatically select a relative mode
-  for you - because nothing else makes sense. This auto-correction is usually very helpful,
-  especially if you _learn_ a source instead of selecting it manually. Auto-correction is what gives
-  _learning_ a snappy user experience. If for some reason you want to disable auto-correction, this
-  is your checkbox.
-- **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
-  ReaLearn by default disables feedback if the track is not armed (unarming will naturally disable
-  control, so disabling feedback is just consequent). However, if MIDI control input is set to a
-  hardware device, the default is to _not_ disable feedback when unarmed (same reasoning). You can
-  override this behavior with this checkbox. At the moment, it can only be unchecked if ReaLearn is
-  on the normal FX chain. If it's on the input FX chain, unarming naturally disables feedback
-  because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
   or motorized faders of your controller in sync with REAPER at all times. There might be situations
   where it doesn't work though. In this case you can send feedback manually using this button.
-- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
-  investigating bugs or understanding how this plug-in works.
+- **Projection:** This is a quite interesting feature that allows you to project a schematic representation
+  of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close 
+  to your controller in order to see immediately which control element is mapped to which parameter.
+  This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control
+  element is mapped to which target parameter. If you want to use this feature, just click this button
+  and you will see detailed instructions how to set this up.
+- **Import to clipboard / Export to clipboard:** Pressing the export button copies a _complete_ dump
+  of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. Pressing the 
+  import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard. This
+  is a very powerful feature because the dump's data format is
+  [JSON](https://www.json.org/json-en.html), a wide-spread data exchange format. It's a text format,
+  so if you are familiar with the search&replace feature of your favorite text editor, this is your
+  entrance ticket to batch editing. You can also use it for some very basic A/B testing (1. Press
+  _Export to clipboard_, 2. change some settings and test them, 3. Restore the old settings by
+  pressing _Import from clipboard_).
 - **Add mapping:** Inserts a default mapping at the end of the current mapping list.
+- **Show:** This lets you choose which mapping compartment ReaLearn should display. A mapping compartment is a list
+  of mappings. Initially, it shows the list of so-called "Primary mappings", which are the bread and butter of
+  ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell, this compartment
+  lets you define which hardware controllers you have at your disposal and which control elements they have. Learn
+  more about that feature in section "Controller mappings".
+- **Search:** Enter some text here in order to display just mappings whose name matches the text.
 - **Learn source filter:** If you work with many mappings and you have problems memorizing them, you
   will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI
   events and temporarily disable all target control. You can play around freely on your controller
@@ -355,18 +378,117 @@ So far we've covered the basics. Now let's look into everything in detail.
   list will show all mappings with that target. Unlike _Learn source filter_, ReaLearn will
   automatically stop learning as soon as a target was touched. Press the **X** button to remove the
   filter and show all mappings again.
-- **Export to clipboard / Import to clipboard:** Pressing the export button copies a _complete_ dump
-  of ReaLearn's current settings (including all mappings) to the clipboard. Pressing the import
-  button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard. This
-  is a very powerful feature because the dump's data format is
-  [JSON](https://www.json.org/json-en.html), a wide-spread data exchange format. It's a text format,
-  so if you are familiar with the search&replace feature of your favorite text editor, this is your
-  entrance ticket to batch editing. You can also use it for some very basic A/B testing (1. Press
-  _Export to clipboard_, 2. change some settings and test them, 3. Restore the old settings by
-  pressing _Import from clipboard_).
-- **Search:** Enter some text here in order to display just mappings whose name matches the text.
+
+Additionally, it provides a context menu with the following entries:
+- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+  investigating bugs or understanding how this plug-in works.
+- **Change session ID...:** This lets you customize the ID used to address this particular ReaLearn
+  instance when using the projection feature. By default, the session ID is a random cryptic string
+  which ensures that every instance is uniquely addressable. The result is that scanning the QR code
+  of this ReaLearn instance will let your mobile device connect for sure with this unique 
+  instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
+  is usually what you want. But a side effect is that with every new ReaLearn instance that you create,
+  you first have to point your mobile device to it in order to see its
+  projection (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
+  that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
+  your mobile device that it should always show the projection of this very ReaLearn instance -
+  no matter in which REAPER project you are and even if they control the volumes of totally
+  different tracks. You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
+  to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
+  You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
+  ReaLearn instances in each project. Just make sure to not have more than one ReaLearn instance with the same session 
+  ID active at the same time because then it's not clear to which your mobile device will connect!
+   
+#### Controller mappings
+
+By default, ReaLearn shows the list of primary mappings. If you select *Controller mappings* in the *Show*
+dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
+element on your hardware controller, e.g. a button or fader. This view lets you describe your controller by - well -
+by adding mappings. Almost everything in ReaLearn is a mapping :)
+
+Defining your own controllers can have a bunch of benefits:
+
+- You can use the awesome [controller projection feature](https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be)
+  to project your controller mapping to a mobile device.
+- You can use controller presets made by other users and thereby save precious setup time. Or you can contribute them
+  yourself!
+- You can make your primary mappings independent of the actual controller that you use. This is done using so-called
+*virtual* sources and targets.
+- This also allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
+- Even if you don't want to swap controllers, decoupling your mappings from the actual MIDI sources can give you the
+  flexibility to change something about your controller elements (e.g. the source range) and thereby affecting 
+  all primary mappings without even having to change them.
+
+In this view, you have some more user interface elements at your disposal:
+
+- **Controller:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
+  can also define your own ones and add them to this list! By default, this is set to "&lt;None&gt;", which means that
+  no particular controller is active. Both controller mappings and controller presets are completely optional. 
+  If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
+- **-:** This permanently deletes the currently chosen controller preset. You can also delete built-in presets.
+  However, if you use ReaPack for installation, it should restore them on next sync.
+- **Save:** If you made changes to a preset, you can save them by pressing this button. This works for built-in presets
+  as well but I would strongly recommend against changing them directly. Better use *Save as...* and choose a custom
+  name.
+- **Save as...** This allows you to save all currently visible controller mappings as a new controller preset. Please 
+ choose a descriptive name.
+    - Saving your controller mappings as a preset is optional. All controller mappings are saved together 
+      with your current ReaLearn instance anyway, no worries. But as soon as you want to reuse these controller
+      mappings in other ReaLearn instances, it makes of course sense to save them as a preset! 
+    - All of your presets end up in the REAPER resource directory 
+      (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) at
+      `Helgoboss/ReaLearn/controllers`. They are JSON files and very similar to what you get when you press
+      *Export to clipboard*.
+    - The JSON files contain controller mappings but can also contain custom data sections. For example, the ReaLearn
+      Companion app adds a custom data section in order to memorize the positions and shapes of all control elements.
+  
+If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable
+controller mapping for each of its control elements:
+
+1. Press the "Add mapping" button.
+1. Learn the source by press the "Learn source" button and touching the control element.
+1. Press the "Edit" button.
+1. Enter a descriptive name for the control element.
+    - *Hint:* This name will appear in many places so you want it to be short, clear and unique!
+1. Assign a unique virtual target.
+    - At this point we don't want to assign a *concrete* target yet. The point of controller presets is
+      to make them as reusable as possible, that's why we choose a so-called *virtual* target.
+    - In the *Category* dropdown, choose *Virtual*.
+    - As *Type*, choose *Button* if your control element is a sort of button (something which you can press)
+      and *Multi* in all other cases.
+    - Use for each control element a unique combination of *Type* and *Number*, starting with number *1* and counting.
+        - Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
+    - Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
+      You can easily model that by assigning 8 multis and 8 buttons.
+    - Maybe you have realized that the *Tuning* section is available for controller mappings as well! That opens all
+      kinds of possibilities. You could for example restrict the target range for a certain control element. Or make
+      an encoder generally slower or faster. Or you could simulate a rotary encoder by making two buttons on your
+      controller act as -/+ buttons emitting relative values. This is possible by mapping them to the same "Multi" in
+      "Incremental buttons" mode. 
+      
+Before you go ahead and do that for each control element, you might want to check what this is good for: Navigate back
+to the primary mappings, learn the source of some primary mapping and touch the control element that you have just
+mapped: Take note how ReaLearn will assign a *virtual* source this time, not a MIDI source! It will also display the
+name of the control element as source label. Now, let's say at some point you swap your controller device with another
+one that has a similar layout, all you need to do is switch the controller preset and you are golden! You have
+decoupled your primary mappings from the actual controller. Plus, as soon as you have saved your controller mappings as
+a preset, you can take full advantage of the *Projection* feature.
+
+All of this might be a bit of an effort but it's well worth it.
+You can share your preset with other users by sending them to info@helgoboss.org. I will add it to [this
+list](https://github.com/helgoboss/realearn/tree/master/resources/controllers).
+
 
 #### Mapping row
+
+The source and target label of a mapping row is greyed out whenever the mapping is *off*. A mapping is considered as 
+*on* only if the following is true:
+
+1. The mapping is complete, that is, both source and target are completely specified.
+2. The mapping has control and/or feedback enabled.
+3. The mapping is active (see *conditional activation*).
+
+If a mapping is *off*, it doesn't have any effect.
 
 - **Up / Down:** Use these buttons to move this mapping up or down the list.
 - **→ / ←:** Use these checkboxes to enable/disable control and/or feedback for this mapping.
@@ -375,6 +497,7 @@ So far we've covered the basics. Now let's look into everything in detail.
 - **Remove:** Removes this mapping from the list.
 - **Learn source:** Starts or stops learning the source of this mapping.
 - **Learn target:** Starts or stops learning the target of this mapping.
+
 
 ### Mapping panel
 
@@ -393,9 +516,9 @@ A control value can be either absolute or relative, depending on the source char
   E.g. -2 means a decrement of 2.
 
 After having translated the incoming event to a control value, ReaLearn feeds it to the mapping's
-_mode_. The mode is responsible for transforming control values before they reach the _target_. This
-transformation can change the type of the control value, e.g. from relative to absolute - it depends
-on the mapping's target character. The mode can even "eat" control values so that they don't arrive
+tuning section. The tuning section is responsible for transforming control values before they reach the _target_.
+This transformation can change the type of the control value, e.g. from relative to absolute - it depends
+on the mapping's target character. The tuning section can even "eat" control values so that they don't arrive
 at the target at all.
 
 Finally, ReaLearn converts the transformed control value into some target instruction (e.g. "set
@@ -488,17 +611,17 @@ and "Parameter 2" are "on".
 Now you just have to map 2 controller buttons to "Parameter 1" and "Parameter 2" via ReaLearn (by
 creating 2 additional mappings - in the same ReaLearn instance or another one, up to you) et voilà,
 it works. The beauty of this solution lies in how you can compose different ReaLearn features to
-obtain exactly the result you want. For example, the mode of the mapping that controls the modifier
+obtain exactly the result you want. For example, the *absolute mode* of the mapping that controls the modifier
 parameter decides if the modifier button is momentary (has to be pressed all the time)
 or toggled (switches between on and off everytime you press it). You can also be more adventurous
-and let the modifier on/off state change over time, using REAPER's automation envelopes. 
+and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
 ##### When program selected
 
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
 The certain parameter is called "Bank" and the particular value is called "Program". Why? Let's
 assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the "Bank" parameter 
-(by using "Relative" mode, you will learn how to do that further below). And you have multiple
+(by using "Incremental buttons" mode, you will learn how to do that further below). And you have multiple
 mappings where each one uses "When program selected" with the same "Bank" parameter but a different "Program".
 Then the result is that you can press "Previous" and "Next" and it will switch between different 
 mappings (programs) within that bank. If you assign the same "Program" to multiple mappings, it's like putting
@@ -508,9 +631,9 @@ Switching between different programs via "Previous" and "Next" buttons is just o
 Here are some other ones:
 
 - **Navigate between programs using a rotary encoder:** Just map the rotary encoder
-  to the "Bank" parameter ("Relative" mode) and restrict the target range as desired.
+  to the "Bank" parameter and restrict the target range as desired.
 - **Activate each program with a separate button:** Map each button to the "Bank"
-  parameter ("Absolute" mode) and set "Target Min/Max" to a distinct value. E.g. set button
+  parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value. E.g. set button
   1 min/max both to 0% and button 2 min/max both to 1%. Then pressing button 1
   will activate program 1 and pressing button 2 will activate program 2.
 
@@ -581,6 +704,22 @@ very convenient, hopefully future versions will improve on that):
 Parameter names are not global, they are always saved together with the REAPER project / FX preset /
 track template etc.
 
+##### Use case: Control A when a button is not pressed, control B when it is
+
+Here's how you would implement a typical use case. You want your rotary encoder to control target A when the button is
+not pressed and control target B when it's pressed.
+
+1. Create a mapping for the button
+    - As "Target", you need to choose ReaLearn itself (Type: "Track FX parameter", Track: `<This>`, FX: "... VSTi: ReaLearn (Helgoboss)"). As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1". 
+    - As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
+1. Create a mapping with target A
+    - Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it. Set "Modifier B" to `<None>`.
+    - This basically means "Hey, ReaLearn! Please activate this mapping only if ReaLearn Parameter 1 is **off**!" (remember, we control ReaLearn Parameter 1 using the button).
+    - At this point, turning your encoder should control target A, but only if you don't press the button!
+1. Create a mapping with target B
+    - Just as in step 2, set "Active" to "When modifiers on/off" and "Modifier A" to "Parameter 1". **But**: Now **enable** the checkbox beside it. Set "Modifier B" to `<None>`.
+    - This basically means "Hey, ReaLearn! Please activate this mapping only if ReaLearn Parameter 1 is **on**!"
+    - At this point, turning your encoder should control target A if you don't press the button and control target B if you press the button.
 
 #### Source
 
@@ -588,13 +727,24 @@ As mentioned before, a source usually represents a single control element on you
 Sources share the following common settings and functions:
 
 - **Learn:** Starts or stops learning the source of this mapping.
-- **Type:** Let's you choose the MIDI source type.
+- **Category:** Lets you choose the source category.
+    - **MIDI:** Incoming MIDI events.
+    - **Virtual:** Invocations of virtual control elements (coming from controller mappings). This source
+      category is available for primary mappings only. 
+- **Type:** Let's you choose the source type. Available types depend on the selected category.
+  
+All other UI elements in this section depend on the chosen category. 
+
+##### Category "MIDI"
+
+All types in the MIDI category have the following UI elements in common:
+
 - **Channel:** Optionally restricts this source to messages from a certain MIDI channel. Only
   available for sources that emit MIDI channel messages.
 
-All other UI elements in this section depend on the chosen source type.
+The remaining UI elements in this section depend on the chosen source type.
 
-##### CC value source
+###### CC value source
 
 This source reacts to incoming MIDI control-change messages.
 
@@ -637,7 +787,7 @@ This source reacts to incoming MIDI control-change messages.
   resolution (usually the case). If checked, it reacts to MIDI control-change messages with 14-bit
   resolution. This is not so common but sometimes used by controllers with high-precision faders.
 
-##### Note velocity source
+###### Note velocity source
 
 This source reacts to incoming MIDI note-on and note-off messages. The higher the velocity of the
 incoming note-on message, the higher the absolute control value. Note-off messages are always
@@ -646,7 +796,7 @@ translated to 0%, even if there's a note-off velocity.
 - **Note:** Optionally restricts this source to messages with a certain note number (note numbers
   represent keys on the MIDI keyboard, e.g. 60 corresponds to C4).
 
-##### Note number source
+###### Note number source
 
 This source reacts to incoming MIDI note-on messages. The higher the note number (= key on a MIDI
 keyboard), the higher the absolute control value.
@@ -654,23 +804,23 @@ keyboard), the higher the absolute control value.
 This essentially turns your MIDI keyboard into a "huge fader" with the advantage that you can jump
 to any value at any time.
 
-##### Pitch wheel source
+###### Pitch wheel source
 
 This source reacts to incoming MIDI pitch-bend change messages. The higher the pitch-wheel position,
 the higher the absolute control value. The center position corresponds to an absolute control value
 of 50%.
 
-##### Channel after touch source
+###### Channel after touch source
 
 This source reacts to incoming MIDI channel-pressure messages. The higher the pressure, the higher
 the absolute control value.
 
-##### Program change source
+###### Program change source
 
 This source reacts to incoming MIDI program-change messages. The higher the program number, the
 higher the absolute control value.
 
-##### (N)RPN value source
+###### (N)RPN value source
 
 This source reacts to incoming non-registered (NRPN) or registered (RPN) MIDI parameter-number
 messages. The higher the emitted value, the higher the absolute control value.
@@ -686,14 +836,14 @@ resolution.
 - **14-bit values:** If unchecked, this source reacts to (N)RPN messages with 7-bit resolution. If
   checked, it reacts to those with 14-bit resolution. In practice, this if often checked.
 
-##### Polyphonic after touch source
+###### Polyphonic after touch source
 
 This source reacts to incoming MIDI polyphonic-key-pressure messages. The higher the pressure, the
 higher the absolute control value.
 
 - **Note:** Optionally restricts this source to messages with a certain note number.
 
-##### MIDI clock tempo source
+###### MIDI clock tempo source
 
 This source reacts to incoming MIDI clock (MTC) tempo messages. These are metronome-beat-like
 messages which can be regularly transmitted by some DAWs and MIDI devices. The frequency with which
@@ -710,23 +860,73 @@ suitable if you need super accurate and instant tempo synchronization. Additiona
 algorithm for calculating the tempo could probably be improved (that's why this source is marked as
 experimental).
 
-##### MIDI clock transport source
+###### MIDI clock transport source
 
 This source reacts to incoming MIDI clock (MTC) transport messages. These are simple start, continue
 and stop messages which can be sent by some DAWs and MIDI devices.
 
 - **Message:** The specific transport message to which this source should react.
 
+##### Category "Virtual"
+
+As pointed out before, *virtual* sources exist in order to decouple your mappings from the actual
+MIDI source.
+
+
+The following virtual source types are kind of the lowest common denominator of possible controls. They
+are inspired by the popular 8-knobs/8-buttons layout. Sometimes the knobs are just knobs, sometimes they are rotary
+encoders - it doesn't really matter in most cases. The most important distinction is "something which you can move"
+or "something which you can press".
+
+Both types have:
+
+- **Number:** The logical number of the control element. In a row of 8 knobs one would typically assign number 1 to the
+  leftmost one and number 8 to the rightmost one. It's your choice.
+
+###### Multi
+
+Represents a control element that you can "move", that is, something that allows you to choose between more than 2
+values. Usually everything which is *not* a button :) Here's a list of typical *multis*:  
+
+- Fader
+- Knob
+- Pitch wheel
+- Mod wheel
+- Endless encoder
+- XY pad (1 axis)
+- Touch strip
+- (Endless) rotary encoder
+
+###### Button
+
+Represents a control element that you can "press", that is, something which is just a trigger or has only 2 states
+(on/off). Usually everything which is a button. Here's a list of typical *multis*:
+
+- Play button
+- Switch
+- Sustain pedal
+
+It's not 100% clear sometimes, e.g. velocity-sensitive keys could be either a multi or a button. Choose what is suited
+best for your musical use case. 
+
 #### Target
 
 A target is a thing that is supposed to be controlled. The following settings and functions are
 shared among all targets:
 
-- **Learn:** Starts or stops learning the target of this mapping.
+- **Category:** Lets you choose the target category.
+    - **REAPER:** Targets that are about changing something in REAPER.
+    - **Virtual:** Targets that invoke virtual control elements. This source
+      category is available for controller mappings only. 
+- **Learn:** Starts or stops learning the target of this mapping. 
 - **Go there:** If applicable, pressing this button makes the target of this mapping visible in
   REAPER. E.g. if the target is a track FX parameter, the corresponding track FX window will be
   displayed.
 - **Type:** Let's you choose the target type.
+
+##### Category "REAPER"
+
+REAPER targets additionally have this:
 - **Value:** Reflects the current value of this mapping target and lets you change it.
 
 Only available for targets that are associated with a particular REAPER track:
@@ -760,7 +960,7 @@ Only available for targets associated with a particular FX instance:
 
 All other UI elements in this section depend on the chosen target type.
 
-##### Action target
+###### Action target
 
 Triggers or sets the value of a particular REAPER action in the main section.
 
@@ -775,31 +975,31 @@ Triggers or sets the value of a particular REAPER action in the main section.
   - **Relative:** Invokes the action with the incoming relative control value (absolute ones are
     ignored). Only works for actions that are annotated with ("MIDI CC relative only") or similar.
 
-##### Track FX parameter target
+###### Track FX parameter target
 
 Sets the value of a particular track FX parameter.
 
 - **Parameter:** The parameter to be controlled.
 
-##### Track volume target
+###### Track volume target
 
 Sets the track's volume.
 
-##### Track send volume target
+###### Track send volume target
 
 Sets the track send's volume.
 
-##### Track pan target
+###### Track pan target
 
 Sets the track's pan value.
 
-##### Track arm target
+###### Track arm target
 
 Arms the track for recording if the incoming absolute control value is greater than 0%, otherwise
 disarms the track. This disables "Automatic record-arm when track selected". If you don't want that,
 use the _Track selection_ target instead.
 
-##### Track selection target
+###### Track selection target
 
 Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the
 track.
@@ -807,47 +1007,47 @@ track.
 - **Select exclusively:** If unchecked, this leaves all other tracks' selection state untouched. If
   checked, this unselects all other tracks when selecting this track.
 
-##### Track mute target
+###### Track mute target
 
 Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the
 track.
 
-##### Track solo target
+###### Track solo target
 
 Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the
 track.
 
-##### Track send pan target
+###### Track send pan target
 
 Sets the track send's pan value.
 
-##### Master tempo target
+###### Master tempo target
 
 Sets REAPER's master tempo.
 
-##### Master playrate target
+###### Master playrate target
 
 Sets REAPER's master playrate.
 
-##### Track FX enable target
+###### Track FX enable target
 
 Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise
 disables it.
 
-##### Track FX preset target
+###### Track FX preset target
 
 Steps through FX presets.
 
-##### Selected track target
+###### Selected track target
 
 Steps through tracks.
 
-##### Track FX all enable
+###### Track FX all enable
 
 Enables all the track's FX instances if the incoming absolute control value is greater than
 0%, otherwise disables them.
 
-##### Transport
+###### Transport
 
 Invokes a transport-related action.
 
@@ -861,25 +1061,61 @@ Invokes a transport-related action.
   - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%, 
     otherwise disables it.
 
-#### Mode
+##### Category "Virtual"
 
-As mentioned before, a mode is the glue between a source and a target. Modes share the following
-common settings and functions:
+This is exactly the counterpart of the possible virtual sources. Choosing a virtual target here is like
+placing cables between a control element and all corresponding primary mappings that use this
+virtual control element as source.      
 
-- **Reset to defaults:** Resets the settings for the chosen mode type to some sensible defaults.
-- **Type:** Let's you choose the mode type.
-- **Source Min/Max:** The observed range of absolute source control values. By restricting that
-  range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only
-  the upper half of a fader or only the lower velocity layer of a key press. In relative mode, this
-  only has an effect on absolute source control values, not on relative ones. This range also 
-  determines the minimum and maximum feedback value.
+#### Tuning
+
+As mentioned before, the tuning section defines the glue between a source and a target. It's divided into
+several sub sections some of which make sense for all kinds of sources and others only for some.
+
+**At first something important to understand:** Since ReaLearn 1.12.0, a mapping can deal with both *absolute*
+and *relative* values, no matter what's set as *Mode*! ReaLearn checks the type of each emitted source value
+and interprets it correctly. The *Mode* dropdown has been sort of "degraded" because now it only applies to
+incoming *absolute* values and determines how to handle them (see further below). This change has been made 
+to support virtual sources - because virtual sources can be either absolute or relative depending on the current 
+controller mappings. ReaLearn allows you to prepare your mapping for both cases by showing all possible settings.
+
+*Relative* means that the current target value is relevant and the change of the target value is calculated in
+terms of increments or decrements. Control elements that can emit relative values are rotary encoders and
+virtual multis.
+
+No matter which kind of source, the following UI elements are always relevant:
+
+- **Reset to defaults:** Resets the settings to some sensible defaults. 
+
+##### For all source characters (control and feedback)
+
+The following elements are relevant for all kinds of sources, both in *control* and *feedback* direction.
+
 - **Target Min/Max:** The controlled range of absolute target values. This enables you to "squeeze"
   target values into a specific value range. E.g. if you set this to "-6 dB to 0 dB" for a _Track
   volume_ target, the volume will always stay within that dB range if controlled via this mapping.
   This wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself. This
   setting applies to targets which are controlled via absolute control values (= all targets with
   the exception of the "Action target" if invocation type is _Relative_).
-- **Out of range:** This determines ReaLearn's behavior if the source value is not within
+- **Feedback transformation (EEL):** This is like _Control transformation (EEL)_ (see further below) but used for
+  translating a target value back to a source value for feedback purposes. It usually makes most
+  sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
+  source value (= output value) and `y` is the current target value (= input value), so you must
+  assign the desired source value to `x`. Example: `x = y * 2`.
+  
+##### For all source characters (but encoders feedback only)
+
+The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
+*feedback* direction, not in *control* direction.
+
+- **Source Min/Max:** The observed range of absolute source control values. By restricting that
+  range, you basically tell ReaLearn to react only to a sub range of a control element, e.g. only
+  the upper half of a fader or only the lower velocity layer of a key press. In relative mode, this
+  only has an effect on absolute source control values, not on relative ones. This range also 
+  determines the minimum and maximum feedback value.
+- **Reverse:** If checked, this inverses the direction of the change. E.g. the target value will
+  decrease when moving the fader upward and increase when moving it downward.
+- **Out-of-range behavior:** This determines ReaLearn's behavior if the source value is not within
   "Source Min/Max" or the target value not within "Target Min/Max". There are these variants:
   
   |                | Control direction (absolute mode only)                                                                                                                                                                                                       | Feedback direction                                                                                                                                                                                                                 |
@@ -888,30 +1124,28 @@ common settings and functions:
   | **Min**        | ReaLearn will behave as if "Source Min" was received (or 0% if min = max).                                                                                                                                                                   | ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).                                                                                                                                                                   |
   | **Ignore**     | Target value won't be touched.                                                                                                                                                                                                               | No feedback will be sent.                                                                                                                                                                                                                    |
 
-All other UI elements in this section depend on the chosen mode type.
+##### For knobs/faders and buttons (control only)
 
-##### Absolute (for range elements and buttons)
+These are elements which are relevant only for sources that emit absolute values - knobs, faders, buttons etc.
+They don't apply to rotary encoders for example. They don't affect *feedback*. 
 
-Absolute mode takes and optionally transforms absolute source control values. _Absolute_ means that
-the current target value is irrelevant and the target will just be set to whatever control value is
-coming in (potentially transformed). If incoming source control values are relative, they will be
-ignored.
-
-- **Length Min/Max:** This decides how long a button needs to be pressed to have an effect.
-  Obviously, this setting makes sense for button-like control elements only (keys, pads, buttons,
-  ...), not for knobs or faders.
-  - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
-    both press (> 0%) and release (0%) will be instantly forwarded. If you change _Length Min_ to
-    e.g. 1000 ms and _Length Max_ to 5000 ms, it will behave as follows:
-    - If you press the control element and instantly release it, nothing will happen.
-    - If you press the control element, wait for a maximum of 5 seconds and then release it, the
-      control value of the press (> 0%) will be forwarded.
-    - It will never forward the control value of a release (0%), so this is probably only useful for
-      targets with trigger character.
-  - The main use case of this setting is to assign multiple functions to one control element,
-    depending on how long it has been pressed. For this, use settings like the following:
-    - Short press: 0 ms - 250 ms
-    - Long press: 250 ms - 5000 ms
+- **Mode:** Let's you choose an *absolute mode*, that is, the way incoming absolute source values are handled.
+  - **Normal:** Takes and optionally transforms absolute source control values *the normal way*. _Normal_ means that
+    the current target value is irrelevant and the target will just be set to whatever absolute control value is
+    coming in (potentially transformed).
+  - **Incremental buttons:** With this you can "go relative" without having encoders, provided your control elements
+    are buttons. Let's assume you use the _MIDI Note velocity_ and select *Incremental buttons* mode. 
+    Then it works like this: Each time you press the key, the target value will increase, according to the mode's
+    settings. You can even make the amount of change velocity-sensitive! If you want the target value to decrease,
+    just check the _Reverse_ checkbox. 
+  - **Toggle:** Toggle mode is a very simple mode that takes and optionally transforms absolute source control
+    values. It's used to toggle a target between _on_ and _off_ states. Only makes sense for button-like
+    control elements.
+    - **Important:** Sometimes the controller itself provides a toggle mode for buttons. Don't use this!
+    Always set up your controller buttons to work in momentary mode! It's impossible for the controller
+    to know which state (on/off) a target currently has. Therefore, if you use the controller's built-in
+    toggle function, it's quite likely that it gets out of sync with the actual target state at some point.
+    ReaLearn's own toggle mode has a clear advantage here.  
 - **Jump Min/Max:** If you are not using motorized faders, absolute mode is inherently prone to
   parameter jumps. A parameter jump occurs if you touch a control element (e.g. fader) whose
   position in no way reflects the current target value. This can result in audible jumps because the
@@ -931,8 +1165,6 @@ ignored.
   that the current target value will gradually "come your way". This results in pretty seemless
   target value adjustments but can feel weird at times because the target value can temporarily move
   in the opposite direction of the fader movement.
-- **Reverse:** If checked, this inverses the direction of the change. E.g. the target value will
-  decrease when moving the fader upward and increase when moving it downward.
 - **Control transformation (EEL):** This feature definitely belongs in the "expert" category. It
   allows you to write a formula that transforms incoming control values before they are passed on to
   the target. While very powerful because it allows for arbitrary transformations (velocity curves,
@@ -946,26 +1178,12 @@ ignored.
   complicated than the mentioned examples and make use of all built-in EEL2 language features. The
   important thing is to assign the desired value to `y` at some point. Please note that the initial
   value of `y` is the current target value, so you can even "go relative" in absolute mode.
-- **Feedback transformation (EEL):** This is like _Control transformation (EEL)_ but used for
-  translating a target value back to a source value for feedback purposes. It usually makes most
-  sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
-  source value (= output value) and `y` is the current target value (= input value), so you must
-  assign the desired source value to `x`. Example: `x = y * 2`.
 
-##### Relative (for encoders and buttons)
 
-Relative mode takes and optionally transforms relative or absolute source control values. _Relative_
-means that the current target value is relevant and the change of the target value is calculated in
-terms of increments or decrements. This is most often used with control elements that emit relative
-control values, such as rotary encoders. In fact, this is the only mode that works with rotary
-encoders. Therefore, if _Auto-correct settings_ is enabled, this mode will automatically be
-activated if the source is known to emit relative values (increments/decrements).
+##### For encoders and incremental buttons (control only)
 
-You read correctly, ReaLarn's relative mode can also deal with incoming absolute control values -
-provided they are emitted by button-like control elements. Let's assume you use the _Note velocity_
-source together with relative mode. Then it works like this: Each time you press the key, the target
-value will increase, according to the mode's settings (you can even make it velocity-sensitive). If
-you want the target value to decrease, you need to check the _Reverse_ checkbox.
+These are elements which are relevant only for sources that emit relative values or whose values
+can be converted to relative values - rotary encoders and buttons. They don't affect *feedback*.
 
 - **Step size Min/Max:** When you deal with relative adjustments of target values in terms of
   increments/decrements, then you have great flexibility because you can influence the _amount_ of
@@ -996,31 +1214,31 @@ you want the target value to decrease, you need to check the _Reverse_ checkbox.
     need to make your encoder send 2 increments in order to move to the next preset. Or -5: You need
     to make your encoder send 5 increments to move to the next preset. This is like slowing down the
     encoder movement.
-- **Reverse:** If checked, this inverses the direction of the change. Increments will be translated
-  to decrements and vice versa.
 - **Rotate:** If unchecked, the target value will not change anymore if there's an incoming
   decrement but the target already reached its minimum value. If checked, the target value will jump
   to its maximum value instead. It works analogously if there's an incoming increment and the target
   already reached its maximum value.
-- **Feedback transformation (EEL):** This has the same effect like in absolute mode (feedback is
-  always absolute, never relative).
 
-##### Toggle (for buttons only)
+##### For buttons (control only)
 
-Toggle mode is a very simple mode that takes and optionally transforms absolute source control
-values. It's used to toggle a target between _on_ and _off_ states. Only makes sense for button-like
-control elements.
+The following UI elements are relevant only for button-like sources. Also, they only affect *control*
+direction.
 
-- **Length Min/Max:** Just like in _Absolute mode_, this decides how long a button needs to be
-  pressed to have an effect. Unlike in _Absolute mode_, here the achieved effect is not _triggering_
-  but _toggling_ the target.
-- **Feedback transformation (EEL):** This has the same effect like in absolute mode.
-
-**Important:** Sometimes the controller itself provides a toggle mode for buttons. Don't use this!
-Always set up your controller buttons to work in momentary mode! It's impossible for the controller
-to know which state (on/off) a target currently has. Therefore, if you use the controller's built-in
-toggle function, it's quite likely that it gets out of sync with the actual target state at some point.
-ReaLearn's own toggle mode has a clear advantage here.  
+- **Length Min/Max:** This decides how long a button needs to be pressed to have an effect.
+  Obviously, this setting makes sense for button-like control elements only (keys, pads, buttons,
+  ...), not for knobs or faders.
+  - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
+    both press (> 0%) and release (0%) will be instantly forwarded. If you change _Length Min_ to
+    e.g. 1000 ms and _Length Max_ to 5000 ms, it will behave as follows:
+    - If you press the control element and instantly release it, nothing will happen.
+    - If you press the control element, wait for a maximum of 5 seconds and then release it, the
+      control value of the press (> 0%) will be forwarded.
+    - It will never forward the control value of a release (0%), so this is probably only useful for
+      targets with trigger character.
+  - The main use case of this setting is to assign multiple functions to one control element,
+    depending on how long it has been pressed. For this, use settings like the following:
+    - Short press: 0 ms - 250 ms
+    - Long press: 250 ms - 5000 ms
 
 ## Automation and rendering
 

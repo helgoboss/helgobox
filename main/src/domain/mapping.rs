@@ -11,6 +11,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::fmt::Display;
@@ -41,7 +42,8 @@ impl ProcessorMappingOptions {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct MappingId {
     uuid: Uuid,
 }
@@ -618,6 +620,8 @@ impl Target for CompoundMappingTarget {
 )]
 #[repr(usize)]
 pub enum MappingCompartment {
+    // It's important for `RealTimeProcessor` logic that this is the first element! We use array
+    // destructuring.
     #[display(fmt = "Controller mappings")]
     ControllerMappings,
     #[display(fmt = "Primary mappings")]

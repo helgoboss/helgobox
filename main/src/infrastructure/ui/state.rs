@@ -14,6 +14,7 @@ pub struct MainState {
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
     pub search_expression: Prop<String>,
+    pub status_msg: Prop<String>,
 }
 
 impl Default for MainState {
@@ -25,6 +26,7 @@ impl Default for MainState {
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::PrimaryMappings),
             search_expression: Default::default(),
+            status_msg: Default::default(),
         }
     }
 }
@@ -41,5 +43,11 @@ impl MainState {
 
     pub fn clear_target_filter(&mut self) {
         self.target_filter.set(None)
+    }
+
+    pub fn filter_is_active(&self) -> bool {
+        self.source_filter.get_ref().is_some()
+            || self.target_filter.get_ref().is_some()
+            || !self.search_expression.get_ref().trim().is_empty()
     }
 }

@@ -1,4 +1,4 @@
-use crate::{create_window, SharedView, Window};
+use crate::{create_window, Pixels, Point, SharedView, Window};
 use reaper_low::raw;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -124,6 +124,9 @@ pub trait View {
     fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
         false
     }
+
+    /// WM_CONTEXTMENU
+    fn context_menu_wanted(self: SharedView<Self>, _location: Point<Pixels>) {}
 
     /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback
     /// method.

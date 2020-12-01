@@ -1,7 +1,8 @@
 mod session;
 pub use session::*;
 
-pub mod session_manager;
+mod app;
+pub use app::*;
 
 mod source_model;
 pub use source_model::*;

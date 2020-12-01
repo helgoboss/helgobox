@@ -184,6 +184,13 @@ where
             .filter(move |v| *v == value)
             .map_to(())
     }
+
+    pub fn values(&self) -> impl LocalObservable<'a, Item = T, Err = ()>
+    where
+        T: Clone + 'static,
+    {
+        self.value_subject.clone()
+    }
 }
 
 impl<T, N, N2> SharedProp<T, N, N2>

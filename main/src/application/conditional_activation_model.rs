@@ -32,6 +32,12 @@ pub enum ActivationType {
     Eel,
 }
 
+impl Default for ActivationType {
+    fn default() -> Self {
+        ActivationType::Always
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct ModifierConditionModel {
     #[serde(rename = "paramIndex")]

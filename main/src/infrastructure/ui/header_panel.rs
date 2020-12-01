@@ -1,31 +1,38 @@
-use crate::core::{toast, when};
-use crate::domain::{MappingCompartment, ReaperTarget};
-use crate::domain::{MidiControlInput, MidiFeedbackOutput};
-use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::SharedMainState;
+
+use std::convert::TryInto;
+use std::ops::Deref;
+
+
+use std::rc::Rc;
+
+use std::{iter};
 
 use clipboard::{ClipboardContext, ClipboardProvider};
+use enum_iterator::IntoEnumIterator;
+
+
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
 use reaper_medium::{
     MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
 };
-use rx_util::UnitEvent;
-
 use slog::debug;
 
-use std::iter;
-use std::ops::Deref;
-use std::rc::Rc;
+
+use rx_util::UnitEvent;
+use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{Controller, SharedSession, WeakSession};
+use crate::core::{toast, when};
+use crate::domain::{MappingCompartment, ReaperTarget};
+use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::ui::dialog_util;
-use enum_iterator::IntoEnumIterator;
-use std::convert::TryInto;
-use swell_ui::{SharedView, View, ViewContext, Window};
+
+use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::SharedMainState;
+use crate::infrastructure::ui::{dialog_util, WebViewManager};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -33,14 +40,16 @@ pub struct HeaderPanel {
     view: ViewContext,
     session: WeakSession,
     main_state: SharedMainState,
+    web_view_manager: SharedView<WebViewManager>,
 }
 
 impl HeaderPanel {
     pub fn new(session: WeakSession, main_state: SharedMainState) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
-            session,
+            session: session.clone(),
             main_state,
+            web_view_manager: WebViewManager::new(session),
         }
     }
 }
@@ -56,6 +65,7 @@ impl HeaderPanel {
 
     fn toggle_learn_source_filter(&self) {
         let mut main_state = self.main_state.borrow_mut();
+        let compartment = main_state.active_compartment.get();
         let learning = &mut main_state.is_learning_source_filter;
         if learning.get() {
             // Stop learning
@@ -68,7 +78,7 @@ impl HeaderPanel {
             when(
                 self.session()
                     .borrow()
-                    .source_touched()
+                    .source_touched(compartment)
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )
@@ -233,18 +243,24 @@ impl HeaderPanel {
     }
 
     fn invalidate_preset_combo_box_value(&self) {
+        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
         let index = match self.session().borrow().active_controller_id() {
             None => -1isize,
-            Some(id) => App::get()
-                .controller_manager()
-                .borrow()
-                .find_index_by_id(id)
-                .expect("no controller found for ID") as isize,
+            Some(id) => {
+                let index_option = App::get()
+                    .controller_manager()
+                    .borrow()
+                    .find_index_by_id(id);
+                match index_option {
+                    None => {
+                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                        return;
+                    }
+                    Some(i) => i as isize,
+                }
+            }
         };
-        self.view
-            .require_control(root::ID_PRESET_COMBO_BOX)
-            .select_combo_box_item_by_data(index)
-            .unwrap();
+        combo.select_combo_box_item_by_data(index).unwrap();
     }
 
     fn fill_compartment_combo_box(&self) {
@@ -571,27 +587,53 @@ impl HeaderPanel {
         }
     }
 
+    fn change_session_id(&self) -> Result<(), &'static str> {
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let current_session_id = session.id.get_ref();
+        let new_session_id = match dialog_util::prompt_for("Session ID", current_session_id) {
+            None => return Ok(()),
+            Some(n) => n,
+        };
+        session.id.set(new_session_id);
+        Ok(())
+    }
+
     fn save_as_preset(&self) -> Result<(), &'static str> {
-        let controller_name = match dialog_util::prompt_for("Controller name") {
+        let controller_name = match dialog_util::prompt_for("Controller name", "") {
             None => return Ok(()),
             Some(n) => n,
         };
         let controller_id = slug::slugify(&controller_name);
-        let mappings = self
-            .session()
-            .borrow()
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let custom_data = session
+            .active_controller()
+            .map(|c| c.custom_data().clone())
+            .unwrap_or_default();
+        let mappings = session
             .mappings(MappingCompartment::ControllerMappings)
             .map(|ptr| ptr.borrow().clone())
             .collect();
-        let controller = Controller::new(controller_id.clone(), controller_name, mappings);
+        let controller = Controller::new(
+            controller_id.clone(),
+            controller_name,
+            mappings,
+            custom_data,
+        );
         App::get()
             .controller_manager()
             .borrow_mut()
             .add_controller(controller)?;
-        self.session()
-            .borrow_mut()
-            .activate_controller(Some(controller_id), self.session.clone())?;
+        session.activate_controller(Some(controller_id), self.session.clone())?;
         Ok(())
+    }
+
+    fn log_debug_info(&self) {
+        let session = self.session();
+        let session = session.borrow();
+        session.log_debug_info();
+        App::get().log_debug_info(session.id());
     }
 
     fn register_listeners(self: SharedView<Self>) {
@@ -727,7 +769,6 @@ impl View for HeaderPanel {
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
             ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
-            ID_LOG_BUTTON => self.session().borrow_mut().log_debug_info(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
             ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
@@ -740,6 +781,9 @@ impl View for HeaderPanel {
             }
             ID_PRESET_SAVE_BUTTON => {
                 self.save_active_preset().unwrap();
+            }
+            ID_PROJECTION_BUTTON => {
+                self.web_view_manager.show_projection_info();
             }
             _ => {}
         }
@@ -763,6 +807,23 @@ impl View for HeaderPanel {
             _ => unreachable!(),
         }
         true
+    }
+
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+        let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
+            .expect("menu bar couldn't be loaded");
+        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let result = match self.view.require_window().open_popup_menu(menu, location) {
+            None => return,
+            Some(r) => r,
+        };
+        match result {
+            root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
+            root::IDM_CHANGE_SESSION_ID => {
+                let _ = self.change_session_id();
+            }
+            _ => unreachable!(),
+        };
     }
 }
 

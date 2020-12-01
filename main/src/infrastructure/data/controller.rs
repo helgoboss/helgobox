@@ -1,25 +1,30 @@
 use crate::application::{Controller, ControllerManager, SharedMapping};
+use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::MappingModelData;
-use crate::infrastructure::plugin::App;
 
+
+use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct FileBasedControllerManager {
+    controller_dir_path: PathBuf,
     controllers: Vec<Controller>,
     changed_subject: LocalSubject<'static, (), ()>,
 }
 
 impl FileBasedControllerManager {
-    pub fn new() -> FileBasedControllerManager {
+    pub fn new(controller_dir_path: PathBuf) -> FileBasedControllerManager {
         let mut manager = FileBasedControllerManager {
+            controller_dir_path,
             controllers: vec![],
             changed_subject: Default::default(),
         };
@@ -28,7 +33,7 @@ impl FileBasedControllerManager {
     }
 
     pub fn load_controllers(&mut self) -> Result<(), String> {
-        let controller_file_paths = fs::read_dir(App::controller_dir_path())
+        let controller_file_paths = fs::read_dir(&self.controller_dir_path)
             .map_err(|_| "couldn't read ReaLearn resource directory".to_string())?
             .filter_map(|result| {
                 let dir_entry = result.ok()?;
@@ -61,10 +66,12 @@ impl FileBasedControllerManager {
     }
 
     pub fn add_controller(&mut self, controller: Controller) -> Result<(), &'static str> {
-        let path = get_controller_file_path(controller.id());
-        fs::create_dir_all(App::controller_dir_path())
+        let path = self.get_controller_file_path(controller.id());
+        fs::create_dir_all(&self.controller_dir_path)
             .map_err(|_| "couldn't create controller directory")?;
-        let data = ControllerData::from_model(&controller);
+        let mut data = ControllerData::from_model(&controller);
+        // We don't want to have the ID in the file - because the file name itself is the ID
+        data.id = None;
         let json =
             serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize controller")?;
         fs::write(path, json).map_err(|_| "couldn't write controller file")?;
@@ -73,7 +80,7 @@ impl FileBasedControllerManager {
     }
 
     pub fn remove_controller(&mut self, id: &str) -> Result<(), &'static str> {
-        let path = get_controller_file_path(id);
+        let path = self.get_controller_file_path(id);
         fs::remove_file(path).map_err(|_| "couldn't delete controller file")?;
         self.notify_changed();
         Ok(())
@@ -87,14 +94,26 @@ impl FileBasedControllerManager {
         self.changed_subject.clone()
     }
 
+    pub fn log_debug_info(&self) {
+        let msg = format!(
+            "\n\
+            # Controller manager\n\
+            \n\
+            - Controller count: {}\n\
+            ",
+            self.controllers.len(),
+        );
+        Reaper::get().show_console_msg(msg);
+    }
+
     fn notify_changed(&mut self) {
         let _ = self.load_controllers();
         self.changed_subject.next(());
     }
-}
 
-fn get_controller_file_path(id: &str) -> PathBuf {
-    App::controller_dir_path().join(format!("{}.json", id))
+    fn get_controller_file_path(&self, id: &str) -> PathBuf {
+        self.controller_dir_path.join(format!("{}.json", id))
+    }
 }
 
 impl ControllerManager for FileBasedControllerManager {
@@ -155,18 +174,25 @@ fn load_controller(path: impl AsRef<Path>) -> Result<Controller, String> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerData {
+    #[serde(skip_deserializing, skip_serializing_if = "is_default")]
+    id: Option<String>,
     name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    custom_data: HashMap<String, serde_json::Value>,
 }
 
 impl ControllerData {
     pub fn from_model(controller: &Controller) -> ControllerData {
         ControllerData {
+            id: Some(controller.id().to_string()),
             mappings: controller
                 .mappings()
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
             name: controller.name().to_string(),
+            custom_data: controller.custom_data().clone(),
         }
     }
 
@@ -178,6 +204,7 @@ impl ControllerData {
                 .iter()
                 .map(|m| m.to_model(MappingCompartment::ControllerMappings, None))
                 .collect(),
+            self.custom_data.clone(),
         )
     }
 }
