@@ -183,10 +183,17 @@ impl WebViewConnection {
     }
 
     pub fn blocking_exit(self) {
+        debug!(App::logger(), "Ask web view to exit");
         self.send(|wv| wv.exit());
-        self.join_handle
-            .join()
-            .expect("couldn't join with web view thread");
+        // TODO-low If we join here, this might block REAPER and ReaLearn exit due to
+        //  https://github.com/Boscop/web-view/issues/241. So right now we are okay with
+        //  orphan web view staying open until user clicks it. At least it's automatically
+        //  closed when REAPER closes.
+        // debug!(App::logger(), "Joining web view thread...");
+        // self.join_handle
+        //     .join()
+        //     .expect("couldn't join with web view thread");
+        // debug!(App::logger(), "Joined web view thread");
     }
 }
 
@@ -302,6 +309,13 @@ fn run_web_view_blocking(
         for task in receiver.try_iter() {
             (task)(&mut wv);
         }
+        // In web-view 0.6.3 this is blocking, which is not ideal because graceful exit doesn't
+        // work if the web view window is in background
+        // (https://github.com/Boscop/web-view/issues/210). In web-view 0.7.1 it's not blocking but
+        // the CPU consumption is very high (https://github.com/Boscop/web-view/issues/241). For
+        // now we stick to 0.6.3 and live with a web view that doesn't disappear before brought to
+        // foreground.
+        // TODO-low-wait
         match wv.step() {
             // WebView closed
             None => break,

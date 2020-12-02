@@ -2,7 +2,7 @@ use crate::core::default_util::is_default;
 use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
-use reaper_high::{create_terminal_logger, Reaper};
+use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};

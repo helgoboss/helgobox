@@ -70,7 +70,6 @@ struct MutableMappingPanel<'a> {
     mapping: &'a mut MappingModel,
     shared_mapping: &'a SharedMapping,
     view: &'a ViewContext,
-    panel: &'a SharedView<MappingPanel>,
 }
 
 #[derive(Debug)]
@@ -206,7 +205,6 @@ impl MappingPanel {
             mapping: &mut mapping,
             shared_mapping: &shared_mapping,
             view: &self.view,
-            panel: &self,
         };
         op(&mut p)
     }

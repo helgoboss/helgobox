@@ -28,7 +28,6 @@ use tokio::sync::mpsc;
 use url::Url;
 use warp::http::{Method, Response, StatusCode};
 
-use warp::hyper::header::HeaderName;
 use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
 use warp::{reply, Rejection, Reply};
