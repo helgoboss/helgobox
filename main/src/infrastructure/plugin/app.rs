@@ -66,27 +66,11 @@ impl App {
     // TODO-low In future it might be wise to turn to a different logger as soon as REAPER API
     //  available. Then we can also do file logging to ReaLearn resource folder.
     pub fn logger() -> &'static slog::Logger {
-        static APP_LOGGER: once_cell::sync::Lazy<(slog::Logger, slog_scope::GlobalLoggerGuard)> =
-            once_cell::sync::Lazy::new(|| {
-                // We want to write logs to stdout
-                let stdout_sink = std::io::stdout();
-                // Formatted for terminal output in plain-text format, no coloring
-                let plain_decorator = slog_term::PlainSyncDecorator::new(stdout_sink);
-                let term_drain = slog_term::FullFormat::new(plain_decorator).build().fuse();
-                // Configurable by environment variable RUST_LOG
-                let env_drain = slog_envlogger::new(term_drain);
-                // Async because otherwise there's an error connected to unwind safety (TODO-low)
-                let async_drain = slog_async::Async::new(env_drain)
-                    .thread_name("ReaLearn logger".to_string())
-                    .build();
-                // Create the logger and make visible in each log message that it's about ReaLearn
-                let logger = slog::Logger::root(async_drain.fuse(), o!("app" => "ReaLearn"));
-                // Forward standard logging to slog (so we can debug used crates as well)
-                let guard = slog_scope::set_global_logger(logger.clone());
-                slog_stdlog::init().unwrap();
-                (logger, guard)
-            });
-        &APP_LOGGER.0
+        static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
+            env_logger::init();
+            slog::Logger::root(slog_stdlog::StdLog.fuse(), o!("app" => "ReaLearn"))
+        });
+        &APP_LOGGER
     }
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn

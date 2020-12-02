@@ -18,7 +18,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                {"name": "RUST_LOG", "value": "warp=debug"}
+                {"name": "RUST_LOG", "value": "debug,vst=info"}
             ],
             "externalConsole": false
         },

@@ -79,16 +79,10 @@ runas = "0.2.1"
 url = "2.1.1"
 # For grouping mappings by virtual control elements
 itertools = "0.9"
-# For being able to log to terminal
-slog-term = "2.5.0"
 # For being able to configure logging via environment variable RUST_LOG
-slog-envlogger = "2.2.0"
-# Using envlogger also requires async (logging happens in dedicated thread, global, not per ReaLearn instance)
-slog-async = "2.5.0"
-# We want to forward standard logging messages to slog (e.g. warp logging is interesting)
+env_logger = "0.8.2"
+# We want to forward slog logging to standard logging
 slog-stdlog = "4.1.0"
-# If we want to forward, we also need a global logger
-slog-scope = "4.3.0"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }
