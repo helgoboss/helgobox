@@ -17,7 +17,9 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "environment": [
+                {"name": "RUST_LOG", "value": "warp=debug"}
+            ],
             "externalConsole": false
         },
         {
