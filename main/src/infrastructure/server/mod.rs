@@ -568,7 +568,11 @@ pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>
 
 pub fn keep_informing_clients_about_sessions() {
     crate::application::App::get().changed().subscribe(|_| {
-        send_sessions_to_subscribed_clients();
+        Reaper::get()
+            .do_later_in_main_thread_asap(|| {
+                send_sessions_to_subscribed_clients();
+            })
+            .unwrap();
     });
 }
 
