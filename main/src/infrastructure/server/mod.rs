@@ -26,8 +26,9 @@ use std::sync::Arc;
 
 use tokio::sync::mpsc;
 use url::Url;
-use warp::http::{Response, StatusCode};
+use warp::http::{Method, Response, StatusCode};
 
+use warp::hyper::header::HeaderName;
 use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
 use warp::{reply, Rejection, Reply};
@@ -401,6 +402,16 @@ async fn start_server(
                 .body(cert_clone)
                 .unwrap()
         });
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(&[
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::PATCH,
+        ])
+        .allow_header("Content-Type");
     let routes = welcome_route
         .or(cert_route)
         .or(session_route)
@@ -408,7 +419,7 @@ async fn start_server(
         .or(controller_routing_route)
         .or(patch_controller_route)
         .or(ws_route)
-        .with(warp::cors().allow_any_origin());
+        .with(cors);
     let http_future = warp::serve(routes.clone()).bind(([0, 0, 0, 0], http_port));
     let https_future = warp::serve(routes)
         .tls()
