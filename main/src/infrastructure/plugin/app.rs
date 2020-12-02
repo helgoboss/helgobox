@@ -67,7 +67,7 @@ impl App {
     //  available. Then we can also do file logging to ReaLearn resource folder.
     pub fn logger() -> &'static slog::Logger {
         static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
-            env_logger::init();
+            env_logger::init_from_env("REALEARN_LOG");
             slog::Logger::root(slog_stdlog::StdLog.fuse(), o!("app" => "ReaLearn"))
         });
         &APP_LOGGER
