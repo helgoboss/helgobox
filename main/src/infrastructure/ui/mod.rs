@@ -27,8 +27,3 @@ pub use web_view_manager::*;
 mod dialog_util;
 
 mod constants;
-
-#[allow(unused)]
-mod built_info {
-    include!(concat!(env!("OUT_DIR"), "/built.rs"));
-}

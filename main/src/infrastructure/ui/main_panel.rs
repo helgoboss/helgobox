@@ -10,6 +10,7 @@ use std::cell::Cell;
 
 use crate::application::{MappingModel, SessionUi, WeakSession};
 use crate::core::when;
+use crate::infrastructure::plugin::App;
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
@@ -108,32 +109,9 @@ impl MainPanel {
     }
 
     fn invalidate_version_text(&self) {
-        use crate::infrastructure::ui::built_info::*;
-        let dirty_mark = if GIT_DIRTY.contains(&true) {
-            "-dirty"
-        } else {
-            ""
-        };
-        let date_info = if let Ok(d) = chrono::DateTime::parse_from_rfc2822(BUILT_TIME_UTC) {
-            d.format("%Y-%m-%d %H:%M:%S UTC").to_string()
-        } else {
-            BUILT_TIME_UTC.to_string()
-        };
-        let debug_mark = if PROFILE == "debug" { "-debug" } else { "" };
-        let version_text = format!(
-            "ReaLearn v{}/{}{} rev {}{} ({})",
-            PKG_VERSION,
-            CFG_TARGET_ARCH,
-            debug_mark,
-            GIT_COMMIT_HASH
-                .map(|h| h[0..6].to_string())
-                .unwrap_or_else(|| "unknown".to_string()),
-            dirty_mark,
-            date_info
-        );
         self.view
             .require_control(root::ID_MAIN_PANEL_VERSION_TEXT)
-            .set_text(version_text);
+            .set_text(format!("ReaLearn {}", App::detailed_version_label()));
     }
 
     fn invalidate_all_controls(&self) {

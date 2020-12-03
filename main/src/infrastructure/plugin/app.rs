@@ -39,6 +39,12 @@ impl App {
         App::new(config)
     }
 
+    pub fn detailed_version_label() -> &'static str {
+        static DETAILED_VERSION: once_cell::sync::Lazy<String> =
+            once_cell::sync::Lazy::new(build_detailed_version);
+        &DETAILED_VERSION
+    }
+
     fn new(config: AppConfig) -> App {
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
@@ -237,4 +243,30 @@ impl Default for MainConfig {
             companion_web_app_url: default_companion_web_app_url(),
         }
     }
+}
+
+fn build_detailed_version() -> String {
+    use crate::infrastructure::plugin::built_info::*;
+    let dirty_mark = if GIT_DIRTY.contains(&true) {
+        "-dirty"
+    } else {
+        ""
+    };
+    let date_info = if let Ok(d) = chrono::DateTime::parse_from_rfc2822(BUILT_TIME_UTC) {
+        d.format("%Y-%m-%d %H:%M:%S UTC").to_string()
+    } else {
+        BUILT_TIME_UTC.to_string()
+    };
+    let debug_mark = if PROFILE == "debug" { "-debug" } else { "" };
+    format!(
+        "v{}/{}{} rev {}{} ({})",
+        PKG_VERSION,
+        CFG_TARGET_ARCH,
+        debug_mark,
+        GIT_COMMIT_HASH
+            .map(|h| h[0..6].to_string())
+            .unwrap_or_else(|| "unknown".to_string()),
+        dirty_mark,
+        date_info
+    )
 }

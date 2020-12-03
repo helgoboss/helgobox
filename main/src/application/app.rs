@@ -40,13 +40,17 @@ impl App {
     pub fn log_debug_info(&self) {
         let msg = format!(
             "\n\
-        # Session manager\n\
+        # App\n\
         \n\
-        - Session count: {}
+        - Session count: {}\n\
+        - Module base address: {:?}\n\
+        - Backtrace (GENERATED INTENTIONALLY!)
         ",
-            self.sessions.borrow().len()
+            self.sessions.borrow().len(),
+            determine_module_base_address().map(|addr| format!("0x{:x}", addr)),
         );
         Reaper::get().show_console_msg(msg);
+        panic!("Backtrace");
     }
 
     pub fn register_session(&self, session: WeakSession) {
@@ -184,3 +188,11 @@ impl App {
 }
 
 type SharedReaperTarget = Rc<RefCell<Option<ReaperTarget>>>;
+
+fn determine_module_base_address() -> Option<usize> {
+    let hinstance = Reaper::get()
+        .medium_reaper()
+        .plugin_context()
+        .h_instance()?;
+    Some(hinstance.as_ptr() as usize)
+}
