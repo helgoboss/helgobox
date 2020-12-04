@@ -415,15 +415,12 @@ Defining your own controllers can have a bunch of benefits:
 - You can make your primary mappings independent of the actual controller that you use. This is done using so-called
 *virtual* sources and targets.
 - This also allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
-- Even if you don't want to swap controllers, decoupling your mappings from the actual MIDI sources can give you the
-  flexibility to change something about your controller elements (e.g. the source range) and thereby affecting 
-  all primary mappings without even having to change them.
 
 In this view, you have some more user interface elements at your disposal:
 
 - **Controller:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
   can also define your own ones and add them to this list! By default, this is set to "&lt;None&gt;", which means that
-  no particular controller is active. Both controller mappings and controller presets are completely optional. 
+  no particular controller is active. Both, controller mappings and controller presets are completely optional. 
   If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
 - **-:** This permanently deletes the currently chosen controller preset. You can also delete built-in presets.
   However, if you use ReaPack for installation, it should restore them on next sync.
