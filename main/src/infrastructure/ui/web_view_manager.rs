@@ -75,7 +75,7 @@ impl WebViewManager {
             let full_companion_app_url =
                 server.generate_full_companion_app_url(session.id(), false);
             let server_is_running = server.is_running();
-            let (qr_code_image_url, _) =
+            let (qr_code_image_url, (width, height)) =
                 self.generate_qr_code_as_image_url(&full_companion_app_url);
             let session_id = session.id().to_string();
             let config = app.config();
@@ -86,6 +86,8 @@ impl WebViewManager {
                     server_is_running,
                     server_is_enabled: config.server_is_enabled(),
                     qr_code_image_url,
+                    qr_code_image_width: width,
+                    qr_code_image_height: height,
                     companion_web_app_url: config.companion_web_app_url().to_string(),
                     server_host: server
                         .local_ip()
@@ -216,6 +218,8 @@ struct BodyState {
     server_is_enabled: bool,
     // Can change per session
     qr_code_image_url: String,
+    qr_code_image_width: u32,
+    qr_code_image_height: u32,
     // Can't change at all
     companion_web_app_url: String,
     // Can only change after restart

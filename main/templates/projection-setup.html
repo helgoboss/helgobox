@@ -267,8 +267,6 @@
         }
 
         .qr-code-container {
-            width: 270px;
-            height: 270px;
             margin: 0 auto;
             position: relative;
         }
@@ -296,7 +294,7 @@ Loading...
 {% endif %}
 {% if include_body_content %}
 <h1 class="center">ReaLearn Projection</h1>
-<div class="qr-code-container">
+<div class="qr-code-container" style="width: {{ body_state.qr_code_image_width }}px; height: {{ body_state.qr_code_image_height }}px;">
     <img class="absolute {{ activation_class }}" src="{{ body_state.qr_code_image_url }}"
          alt="ReaLearn server QR code"/>
     {% if !body_state.server_is_running %}
@@ -353,7 +351,6 @@ Loading...
                 <button onclick="external.invoke('start_server')">here</button>
                 to start it! It's possible that your firewall
                 will ask you for permission to open a network port for external devices. In that case, say yes!
-                That will save you the last step.
             </li>
         </ul>
         {% endif %}
@@ -442,17 +439,18 @@ Loading...
                 Troubleshooting:
                 <ul>
                     <li>
+                        Check the obvious: Make sure your mobile device is in the same network as your computer running
+                        REAPER and ReaLearn (both should use Wi-Fi).
+                    </li>
+                    <li>
                         If your mobile device still cannot connect, you can temporarily switch off your firewall to see
                         if that's the issue.
                     </li>
                     <li>
-                        If this helped, switch your Firewall on again and try to add a Firewall rule manually that opens
+                        If this helped, switch your Firewall on again and check if there's a firewall rule that blocks
+                        REAPER. Remove it! If that still doesn't help, try to add a Firewall rule manually that opens
                         ports {{ body_state.server_http_port }} and {{ body_state.server_https_port }} for incoming TCP
                         connections.
-                    </li>
-                    <li>
-                        If it still doesn't work, please make sure your mobile device is in the same network as your
-                        computer running REAPER and ReaLearn.
                     </li>
                 </ul>
             </li>
