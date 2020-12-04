@@ -211,9 +211,12 @@ impl Plugin for RealearnPlugin {
                     .expect("received invalid MIDI message");
                     // This is called in real-time audio thread, so we can just call the
                     // real-time processor.
-                    let offset = MidiFrameOffset::new(
-                        u32::try_from(me.delta_frames).expect("negative MIDI frame offset"),
-                    );
+                    // Negative offset was observed in the wild, see
+                    // https://github.com/helgoboss/realearn/issues/54. Don't know what that's
+                    // supposed to mean but falling back to zero is totally okay in our case
+                    // because we use the frame offset for MIDI clock calculation only and that's
+                    // just an experimental feature.
+                    let offset = MidiFrameOffset::new(u32::try_from(me.delta_frames).unwrap_or(0));
                     self.real_time_processor
                         .process_incoming_midi_from_fx_input(offset, msg);
                 }
