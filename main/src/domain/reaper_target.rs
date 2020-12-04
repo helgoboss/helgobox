@@ -893,10 +893,13 @@ impl Target for ReaperTarget {
                 }
                 UnitValue::new(v)
             }
-            // TODO-medium This will panic if the "soft" normalized value is > 1
-            TrackVolume { track } => UnitValue::new(track.volume().soft_normalized_value()),
-            // TODO-medium This will panic if the "soft" normalized value is > 1
-            TrackSendVolume { send } => UnitValue::new(send.volume().soft_normalized_value()),
+            // The soft-normalized value can be > 1.0, e.g. when we have a volume of 12 dB and then
+            // lower the volume fader limit to a lower value. In that case we just report the
+            // highest possible value ... not much else we can do.
+            TrackVolume { track } => UnitValue::new_clamped(track.volume().soft_normalized_value()),
+            TrackSendVolume { send } => {
+                UnitValue::new_clamped(send.volume().soft_normalized_value())
+            }
             TrackPan { track } => UnitValue::new(track.pan().normalized_value()),
             TrackArm { track } => convert_bool_to_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => convert_bool_to_unit_value(track.is_selected()),
