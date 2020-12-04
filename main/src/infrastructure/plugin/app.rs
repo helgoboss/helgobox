@@ -62,7 +62,10 @@ impl App {
 
     pub fn init(&self) {
         if self.config.borrow().server_is_enabled() {
-            self.server().borrow_mut().start();
+            self.server()
+                .borrow_mut()
+                .start()
+                .unwrap_or_else(warn_about_failed_server_start);
         }
     }
 
@@ -94,7 +97,10 @@ impl App {
     }
 
     pub fn start_server_persistently(&self) {
-        self.server.borrow_mut().start();
+        if let Err(e) = self.server.borrow_mut().start() {
+            warn_about_failed_server_start(e);
+            return;
+        }
         self.change_config(AppConfig::enable_server);
     }
 
@@ -274,4 +280,11 @@ fn build_detailed_version() -> String {
         dirty_mark,
         date_info
     )
+}
+
+fn warn_about_failed_server_start(info: String) {
+    Reaper::get().show_console_msg(format!(
+        "Couldn't start ReaLearn projection server because {}",
+        info
+    ))
 }

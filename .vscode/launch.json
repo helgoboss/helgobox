@@ -14,7 +14,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "C:\\REAPER\\reaper.exe",
-            "args": [],
+            "args": ["-newinst"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [

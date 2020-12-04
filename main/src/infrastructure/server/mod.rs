@@ -74,10 +74,12 @@ impl RealearnServer {
     }
 
     /// Idempotent
-    pub fn start(&mut self) {
+    pub fn start(&mut self) -> Result<(), String> {
         if self.state.is_starting_or_running() {
-            return;
+            return Ok(());
         }
+        check_port(false, self.http_port)?;
+        check_port(true, self.https_port)?;
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
         let ip = self.effective_ip();
@@ -102,6 +104,7 @@ impl RealearnServer {
             });
         self.state = ServerState::Starting { clients };
         self.notify_changed();
+        Ok(())
     }
 
     fn effective_ip(&self) -> IpAddr {
@@ -876,5 +879,41 @@ pub fn get_local_ip() -> Option<std::net::IpAddr> {
     match socket.local_addr() {
         Ok(addr) => Some(addr.ip()),
         Err(_) => None,
+    }
+}
+
+fn check_port(is_https: bool, port: u16) -> Result<(), String> {
+    if !local_port_available(port) {
+        let msg = format!(
+            r#"{upper_case_port_label} port {port} is not available. Possible causes and solutions:
+
+(1) You are already running another instance of REAPER with ReaLearn.
+
+If you don't use ReaLearn's projection feature, switch the ReaLearn server off by clicking the Projection button and following the instructions. If you use ReaLearn's projection feature, you should not use more than one REAPER instance at once. If you really need that, you can make it work using multiple portable REAPER installations.
+
+(2) There's some kind of hickup.
+
+Restart REAPER and ReaLearn.
+
+(3) Another application grabbed the same port already (unlikely but possible).
+
+Set another {upper_case_port_label} port in "realearn.ini", for example:
+  
+    server_{lower_case_port_label}_port = {alternate_port}
+"#,
+            lower_case_port_label = if is_https { "https" } else { "http" },
+            upper_case_port_label = if is_https { "HTTPS" } else { "HTTP" },
+            port = port,
+            alternate_port = if is_https { 40443 } else { 40080 },
+        );
+        return Err(msg);
+    }
+    Ok(())
+}
+
+fn local_port_available(port: u16) -> bool {
+    match std::net::TcpListener::bind(("0.0.0.0", port)) {
+        Ok(_) => true,
+        Err(_) => false,
     }
 }
