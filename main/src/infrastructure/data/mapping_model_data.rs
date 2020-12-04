@@ -26,6 +26,7 @@ pub struct MappingModelData {
     prevent_echo_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     send_feedback_after_control: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     activation_type: ActivationType,
     #[serde(default, skip_serializing_if = "is_default")]
     modifier_condition_1: ModifierConditionModel,
