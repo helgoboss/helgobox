@@ -1,16 +1,12 @@
-
 use std::convert::TryInto;
 use std::ops::Deref;
 
-
 use std::rc::Rc;
 
-use std::{iter};
+use std::iter;
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use enum_iterator::IntoEnumIterator;
-
-
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
@@ -18,7 +14,6 @@ use reaper_medium::{
     MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
 };
 use slog::debug;
-
 
 use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
