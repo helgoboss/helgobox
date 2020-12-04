@@ -2,6 +2,7 @@ use crate::core::MovingAverageCalculator;
 use helgoboss_learn::Bpm;
 
 use reaper_medium::{Hz, MidiFrameOffset};
+use std::convert::TryInto;
 
 #[derive(Debug)]
 pub struct MidiClockCalculator {
@@ -56,7 +57,7 @@ impl MidiClockCalculator {
             Some(a) => a,
         };
         if self.bpm_calculator.value_count_so_far() % 24 == 0 {
-            Some(Bpm::new(moving_avg))
+            moving_avg.try_into().ok()
         } else {
             None
         }
