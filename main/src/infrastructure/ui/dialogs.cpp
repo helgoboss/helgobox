@@ -15,5 +15,9 @@
 #define WS_EX_LEFT
 #define SS_WORDELLIPSIS 0
 
-// This is the result of the RC file conversion (via PHP script).
+// This is the result of the dialog RC file conversion (via PHP script).
 #include "realearn.rc_mac_dlg"
+
+// Now let's take care of menus
+#include "../../../lib/WDL/WDL/swell/swell-menugen.h"
+#include "realearn.rc_mac_menu"

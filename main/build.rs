@@ -83,6 +83,11 @@ fn compile_dialogs() {
         "src/infrastructure/ui/realearn.rc_mac_dlg",
     )
     .unwrap();
+    std::fs::copy(
+        "../target/realearn.modified.rc_mac_menu",
+        "src/infrastructure/ui/realearn.rc_mac_menu",
+    )
+    .unwrap();
     assert!(result.status.success(), "PHP dialog translator failed");
     // Compile the resulting C++ file
     let mut build = cc::Build::new();
