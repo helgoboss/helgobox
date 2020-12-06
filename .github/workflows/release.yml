@@ -25,10 +25,10 @@ jobs:
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: librealearn.dylib
-#          - artifact: linux-x86_64
-#            os: ubuntu-latest
-#            toolchain-suffix: x86_64-unknown-linux-gnu
-#            lib-file-name: librealearn.so
+          - artifact: linux-x86_64
+            os: ubuntu-latest
+            toolchain-suffix: x86_64-unknown-linux-gnu
+            lib-file-name: librealearn.so
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only
     steps:
@@ -128,12 +128,12 @@ jobs:
           asset_path: ./macos-x86_64/librealearn.dylib
           asset_name: realearn-macos-x86_64.vst.dylib
           asset_content_type: application/octet-stream
-#      - name: Upload linux-x86_64 release artifact
-#        uses: actions/upload-release-asset@v1
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          upload_url: ${{ steps.create_release.outputs.upload_url }}
-#          asset_path: ./linux-x86_64/librealearn.so
-#          asset_name: realearn-linux-x86_64.so
-#          asset_content_type: application/octet-stream
+      - name: Upload linux-x86_64 release artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-x86_64/librealearn.so
+          asset_name: realearn-linux-x86_64.so
+          asset_content_type: application/octet-stream
