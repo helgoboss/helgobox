@@ -131,7 +131,7 @@ including Rust setup:
 ```sh
 # Install native dependencies
 sudo apt update
-sudo apt install curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0 -y
+sudo apt install curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev -y
 
 # Install Rust (copied from the official Linux installation instructions)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
@@ -163,8 +163,6 @@ Some words about the native dependencies:
   [clipboard](https://crates.io/crates/clipboard) crate (previously ReaLearn
   [implemented](https://github.com/helgoboss/realearn/commit/c3e28e92b758a42339ebd5997be9a1368decacf4) its own
   clipboard code via SWELL but that had character encoding issues)
-- `libwebkit2gtk-4.0` is necessary for [web-view](https://github.com/Boscop/web-view), which powers ReaLearn's
-  projection setup page.
 
 #### macOS
 

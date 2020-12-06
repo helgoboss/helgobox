@@ -1,11 +1,10 @@
 {% let activation_class -%}
-{% if body_state.server_is_running -%}
+{% if server_is_running -%}
 {% let activation_class = "active" -%}
 {% else -%}
 {% let activation_class = "inactive" -%}
 {% endif -%}
 
-{% if include_skeleton %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -290,14 +289,11 @@
     </style>
 </head>
 <body>
-Loading...
-{% endif %}
-{% if include_body_content %}
 <h1 class="center">ReaLearn Projection</h1>
-<div class="qr-code-container" style="width: {{ body_state.qr_code_image_width }}px; height: {{ body_state.qr_code_image_height }}px;">
-    <img class="absolute {{ activation_class }}" src="{{ body_state.qr_code_image_url }}"
+<div class="qr-code-container" style="width: {{ qr_code_image_width }}px; height: {{ qr_code_image_height }}px;">
+    <img class="absolute {{ activation_class }}" src="{{ qr_code_image_uri }}"
          alt="ReaLearn server QR code"/>
-    {% if !body_state.server_is_running %}
+    {% if !server_is_running %}
     <div class="qr-code-overlay">
         Server <br>
         not <br>
@@ -321,42 +317,44 @@ Loading...
 </p>
 <ol>
     <li>
-        {% if body_state.server_is_running %}
+        {% if server_is_running %}
         Congratulations, the server is running.
         {% else %}
         Start the server!
         {% endif %}
-        {% if body_state.server_is_running %}
+        {% if server_is_running %}
         <span class="symbol">😃</span>
         <ul>
-            {% if body_state.server_is_enabled %}
+            {% if server_is_enabled %}
             <li>
                 It will automatically be started again next time you start REAPER with ReaLearn. If you decide to not
-                use the projection feature anymore, click
-                <button onclick="external.invoke('disable_server')">here</button>
-                to disable the server.
+                use the projection feature anymore, disable the server in the context menu of ReaLearn's
+                header panel.
             </li>
             {% else %}
             <li>
-                You have disabled it though. This will take effect on the next start of REAPER. Click
-                <button onclick="external.invoke('enable_server')">here</button>
-                to enable it again.
+                You have disabled it though. This will take effect on the next start of REAPER. You can enable it again
+                using the context menu of ReaLearn's header panel.
             </li>
             {% endif %}
         </ul>
         {% else %}
         <ul>
             <li>
-                Click
-                <button onclick="external.invoke('start_server')">here</button>
-                to start it! It's possible that your firewall
-                will ask you for permission to open a network port for external devices. In that case, say yes!
+                Please open the context menu of ReaLearn's header panel in order to start the server. It's possible
+                that
+                your firewall will ask you for permission to open a network port for external devices. In that case,
+                say yes!
+            </li>
+            <li>
+                After you have done this, please refresh this page or click ReaLearn's <em>Projection</em>
+                button again.
             </li>
         </ul>
         {% endif %}
     </li>
     <li class="{{ activation_class }}">
-        Try to <a href="#" onclick="external.invoke('open_companion_app')">open the ReaLearn Companion web app on this
+        Try to <a href="{{ full_companion_web_app_url }}">open the ReaLearn Companion web app on this
         computer</a> (requires internet connection and takes a while to load when using it the first time).
         <ul>
             <li>
@@ -375,8 +373,8 @@ Loading...
             <li>
                 At the moment there's an Android app and a web app, both still in beta stage. If you have an Android
                 device, you are lucky because it received most attention so far from the developer. Although it's not
-                yet available in Google Play store at the time of this writing (2020-11-28), you can check it out as
-                beta tester! Just send a short email to info@helgoboss.org if you are interested. Thanks.
+                yet available in Google Play store at the time of this writing (2020-12-07), you can sign up for beta
+                testing already! Just send a short email to info@helgoboss.org if you are interested. Thanks.
             </li>
             <li>
                 There's no iOS app at the moment. If you are interested in this, let me know on Twitter @helgoboss or by
@@ -389,24 +387,24 @@ Loading...
             </li>
             <li>
                 If your device can't scan QR codes, point your mobile browser to the following address:
-                <code>{{ body_state.companion_web_app_url }}</code>. When
+                <code>{{ companion_web_app_url }}</code>. When
                 asked, enter the following connection details:
                 <table>
                     <tr>
                         <th>Host:</th>
-                        <td>{{ body_state.server_host }}</td>
+                        <td>{{ server_host }}</td>
                     </tr>
                     <tr>
                         <th>HTTP port:</th>
-                        <td>{{ body_state.server_http_port }}</td>
+                        <td>{{ server_http_port }}</td>
                     </tr>
                     <tr>
                         <th>HTTPS port:</th>
-                        <td>{{ body_state.server_https_port }}</td>
+                        <td>{{ server_https_port }}</td>
                     </tr>
                     <tr>
                         <th>Session ID:</th>
-                        <td>{{ body_state.session_id }}</td>
+                        <td>{{ session_id }}</td>
                     </tr>
                 </table>
             </li>
@@ -415,26 +413,25 @@ Loading...
     <li class="{{ activation_class }}">
         The app might ask you to open ports in your firewall. If so, follow below instructions:
         <ul>
-            {% if body_state.os == "windows" %}
+            {% if os == "windows" %}
             <li>
-                Click
-                <button onclick="external.invoke('add_firewall_rule')">here</button>
-                to add an exception to your Windows Firewall.
+                Let ReaLearn add an exception to your Windows Firewall using the corresponding action of ReaLearn's
+                header panel.
             </li>
-            {% else if body_state.os == "macos" %}
-            <li>Click
-                <button onclick="external.invoke('add_firewall_rule')">here</button>
-                to add an exception to your macOS Firewall.
-            </li>
+            {% else if os == "macos" %}
             <li>
-                After that, check your mobile device for successful connection.
+                Manually add a firewall rule that opens ports {{ server_http_port }} and
+                {{ server_https_port }} for incoming TCP connections.
             </li>
             {% else %}
             <li>
-                Please add a firewall rule manually that opens ports {{ body_state.server_http_port }} and
-                {{ body_state.server_https_port }} for incoming TCP connections.
+                Manually add a firewall rule that opens ports {{ server_http_port }} and
+                {{ server_https_port }} for incoming TCP connections.
             </li>
             {% endif %}
+            <li>
+                After that, retry connecting via mobile app.
+            </li>
             <li>
                 Troubleshooting:
                 <ul>
@@ -449,7 +446,7 @@ Loading...
                     <li>
                         If this helped, switch your Firewall on again and check if there's a firewall rule that blocks
                         REAPER. Remove it! If that still doesn't help, try to add a Firewall rule manually that opens
-                        ports {{ body_state.server_http_port }} and {{ body_state.server_https_port }} for incoming TCP
+                        ports {{ server_http_port }} and {{ server_https_port }} for incoming TCP
                         connections.
                     </li>
                 </ul>
@@ -475,8 +472,5 @@ Loading...
         stage performance.
     </li>
 </ul>
-{% endif %}
-{% if include_skeleton %}
 </body>
 </html>
-{% endif %}

@@ -13,6 +13,7 @@
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_TARGET_PICK_ACTION_BUTTON            40000
+#define IDM_SERVER_START                        40001
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
 #define ID_MAIN_PANEL_STATUS_TEXT               40001
 #define ID_MAPPING_ROW_EDIT_BUTTON              40001
@@ -21,6 +22,7 @@
 #define ID_IMPORT_BUTTON                        40002
 #define ID_MAPPING_ROW_DUPLICATE_BUTTON         40002
 #define ID_SOURCE_CHANNEL_COMBO_BOX             40002
+#define IDM_SERVER_ADD_FIREWALL_RULE            40003
 #define ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX 40003
 #define ID_MAPPING_ROW_LEARN_SOURCE_BUTTON      40003
 #define ID_SOURCE_LEARN_BUTTON                  40003

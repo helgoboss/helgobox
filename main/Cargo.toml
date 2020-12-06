@@ -53,9 +53,6 @@ nanoid = "0.3.0"
 futures = { version = "0.3", default-features = false }
 tokio = { version = "0.2", features = ["rt-core", "sync"] }
 warp = { version = "0.2", features = ["tls"] }
-# For rendering projection setup HTML page
-web-view = "0.6.3"
-#web-view = { git = "https://github.com/helgoboss/web-view.git", branch = "workaround/issue-244-build-error" }
 # For generating projection QR code
 qrcode = { version = "0.11" }
 # For rendering projection QR code to PNG
@@ -71,8 +68,10 @@ askama = "0.8"
 base64 = "0.13.0"
 # For persisting app configuration
 serde_ini = "0.2.0"
-# For opening companion app in local browser
+# For opening projection setup page and companion app in local browser
 webbrowser = "0.5.5"
+# For writing generated projection setup page to disk
+tempfile = "3.1.0"
 # For adding firewall rules
 runas = "0.2.1"
 # For building URls, e.g. companion web app URL

@@ -23,10 +23,10 @@ use crate::core::{toast, when};
 use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::{warn_about_failed_server_start, App};
 
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::SharedMainState;
+use crate::infrastructure::ui::{add_firewall_rule, SharedMainState};
 use crate::infrastructure::ui::{dialog_util, WebViewManager};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -808,6 +808,26 @@ impl View for HeaderPanel {
         let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
             .expect("menu bar couldn't be loaded");
         let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let app = App::get();
+        enum ServerAction {
+            Start,
+            Disable,
+            Enable,
+        }
+        let (next_server_action, http_port, https_port) = {
+            let server = app.server().borrow();
+            let server_is_enabled = app.config().server_is_enabled();
+            let next_server_action = {
+                use ServerAction::*;
+                if server.is_running() {
+                    if server_is_enabled { Disable } else { Enable }
+                } else {
+                    Start
+                }
+            };
+            menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
+            (next_server_action, server.http_port(), server.https_port())
+        };
         let result = match self.view.require_window().open_popup_menu(menu, location) {
             None => return,
             Some(r) => r,
@@ -816,6 +836,52 @@ impl View for HeaderPanel {
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
             root::IDM_CHANGE_SESSION_ID => {
                 let _ = self.change_session_id();
+            }
+            root::IDM_SERVER_START => {
+                use ServerAction::*;
+                match next_server_action {
+                    Start => {
+                        match App::start_server_persistently(app) {
+                            Ok(_) => {
+                                Reaper::get().medium_reaper().show_message_box(
+                                    "Successfully started projection server.",
+                                    "ReaLearn",
+                                    MessageBoxType::Okay,
+                                );
+                            }
+                            Err(info) => {
+                                warn_about_failed_server_start(info);
+                            }
+                        };
+                    }
+                    Disable => {
+                        app.disable_server_persistently();
+                        Reaper::get().medium_reaper().show_message_box(
+                            "Disabled projection server. This will take effect on the next start of REAPER.",
+                            "ReaLearn",
+                            MessageBoxType::Okay,
+                        );
+                    }
+                    Enable => {
+                        app.enable_server_persistently();
+                        Reaper::get().medium_reaper().show_message_box(
+                            "Enabled projection server again.",
+                            "ReaLearn",
+                            MessageBoxType::Okay,
+                        );
+                    }
+                }
+            }
+            root::IDM_SERVER_ADD_FIREWALL_RULE => {
+                let msg = match add_firewall_rule(http_port, https_port) {
+                    Ok(_) => "Successfully added firewall rule.",
+                    Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
+                };
+                Reaper::get().medium_reaper().show_message_box(
+                    msg,
+                    "ReaLearn",
+                    MessageBoxType::Okay,
+                );
             }
             _ => unreachable!(),
         };
