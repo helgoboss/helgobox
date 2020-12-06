@@ -27,7 +27,7 @@ use crate::infrastructure::plugin::{warn_about_failed_server_start, App};
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{add_firewall_rule, SharedMainState};
-use crate::infrastructure::ui::{dialog_util, WebViewManager};
+use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -35,7 +35,7 @@ pub struct HeaderPanel {
     view: ViewContext,
     session: WeakSession,
     main_state: SharedMainState,
-    web_view_manager: SharedView<WebViewManager>,
+    companion_app_presenter: Rc<CompanionAppPresenter>,
 }
 
 impl HeaderPanel {
@@ -44,7 +44,7 @@ impl HeaderPanel {
             view: Default::default(),
             session: session.clone(),
             main_state,
-            web_view_manager: WebViewManager::new(session),
+            companion_app_presenter: CompanionAppPresenter::new(session),
         }
     }
 }
@@ -778,7 +778,7 @@ impl View for HeaderPanel {
                 self.save_active_preset().unwrap();
             }
             ID_PROJECTION_BUTTON => {
-                self.web_view_manager.show_projection_info();
+                self.companion_app_presenter.show_app_info();
             }
             _ => {}
         }

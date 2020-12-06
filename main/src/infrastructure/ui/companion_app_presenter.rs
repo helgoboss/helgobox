@@ -15,85 +15,86 @@ use rx_util::UnitEvent;
 use rxrust::prelude::*;
 
 use once_cell::unsync::Lazy;
+use std::cell::Cell;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use swell_ui::SharedView;
 use tempfile::TempDir;
 
 #[derive(Debug)]
-pub struct WebViewManager {
+pub struct CompanionAppPresenter {
     session: WeakSession,
-    projection_setup_temp_dir: Lazy<Option<TempDir>>,
+    app_setup_temp_dir: Lazy<Option<TempDir>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
+    /// `true` as soon as requested within this ReaLearn session execution at least once
+    app_info_requested: Cell<bool>,
 }
 
-impl WebViewManager {
-    // TODO-low Mmh, this is not exactly a view.
-    pub fn new(session: WeakSession) -> SharedView<WebViewManager> {
-        let m = WebViewManager {
+impl CompanionAppPresenter {
+    pub fn new(session: WeakSession) -> Rc<CompanionAppPresenter> {
+        let m = CompanionAppPresenter {
             session,
-            projection_setup_temp_dir: Lazy::new(|| create_projection_setup_temp_dir().ok()),
+            app_setup_temp_dir: Lazy::new(|| create_app_setup_temp_dir().ok()),
             party_is_over_subject: Default::default(),
+            app_info_requested: Cell::new(false),
         };
         let shared = Rc::new(m);
         shared.register_listeners();
         shared
     }
 
-    pub fn show_projection_info(&self) {
-        let index_file = self.update_projection_info();
+    pub fn show_app_info(&self) {
+        self.app_info_requested.set(true);
+        let index_file = self.update_app_info();
         webbrowser::open(&index_file.to_string_lossy())
-            .expect("couldn't open projection setup page in browser");
+            .expect("couldn't open app setup page in browser");
     }
 
-    fn update_projection_info(&self) -> PathBuf {
-        if let Some(dir) = &*self.projection_setup_temp_dir {
-            let session = self.session();
-            let session = session.borrow();
-            let app = App::get();
-            let server = app.server().borrow();
-            let full_companion_app_url =
-                server.generate_full_companion_app_url(session.id(), false);
-            let server_is_running = server.is_running();
-            let qr_code_image_file_name = "qr-code.png";
-            let (width, height) = self
-                .generate_qr_code(
-                    &full_companion_app_url,
-                    &dir.path().join(qr_code_image_file_name),
-                )
-                .expect("couldn't generate QR code image file");
-            let config = app.config();
-            let state = ProjectionSetupState {
-                server_is_running,
-                server_is_enabled: config.server_is_enabled(),
-                qr_code_image_uri: qr_code_image_file_name.to_string(),
-                qr_code_image_width: width,
-                qr_code_image_height: height,
-                companion_web_app_url: config.companion_web_app_url().to_string(),
-                full_companion_web_app_url: server
-                    .generate_full_companion_app_url(session.id(), true),
-                server_host: server
-                    .local_ip()
-                    .map(|ip| ip.to_string())
-                    .unwrap_or_else(|| "<could not be determined>".to_string()),
-                server_http_port: server.http_port(),
-                server_https_port: server.https_port(),
-                session_id: session.id().to_string(),
-                os: std::env::consts::OS,
-            };
-            let index_file = dir.path().join("index.html");
-            std::fs::write(
-                &index_file,
-                state
-                    .render()
-                    .expect("couldn't render projection setup page template"),
+    fn update_app_info(&self) -> PathBuf {
+        let dir = self
+            .app_setup_temp_dir
+            .as_ref()
+            .expect("app setup temp dir not lazily created");
+        let session = self.session();
+        let session = session.borrow();
+        let app = App::get();
+        let server = app.server().borrow();
+        let full_companion_app_url = server.generate_full_companion_app_url(session.id(), false);
+        let server_is_running = server.is_running();
+        let qr_code_image_file_name = "qr-code.png";
+        let (width, height) = self
+            .generate_qr_code(
+                &full_companion_app_url,
+                &dir.path().join(qr_code_image_file_name),
             )
-            .expect("couldn't write project setup page to file");
-            index_file
-        } else {
-            panic!("projection setup temp dir not lazily created");
-        }
+            .expect("couldn't generate QR code image file");
+        let config = app.config();
+        let state = AppSetupState {
+            server_is_running,
+            server_is_enabled: config.server_is_enabled(),
+            qr_code_image_uri: qr_code_image_file_name.to_string(),
+            qr_code_image_width: width,
+            qr_code_image_height: height,
+            companion_web_app_url: config.companion_web_app_url().to_string(),
+            full_companion_web_app_url: server.generate_full_companion_app_url(session.id(), true),
+            server_host: server
+                .local_ip()
+                .map(|ip| ip.to_string())
+                .unwrap_or_else(|| "<could not be determined>".to_string()),
+            server_http_port: server.http_port(),
+            server_https_port: server.https_port(),
+            session_id: session.id().to_string(),
+            os: std::env::consts::OS,
+        };
+        let index_file = dir.path().join("index.html");
+        std::fs::write(
+            &index_file,
+            state
+                .render()
+                .expect("couldn't render app setup page template"),
+        )
+        .expect("couldn't write app setup page to file");
+        index_file
     }
 
     fn session(&self) -> SharedSession {
@@ -118,7 +119,7 @@ impl WebViewManager {
         Ok((image.width(), image.height()))
     }
 
-    fn register_listeners(self: &SharedView<Self>) {
+    fn register_listeners(self: &Rc<Self>) {
         let app = App::get();
         when(
             app.changed()
@@ -128,7 +129,9 @@ impl WebViewManager {
         )
         .with(Rc::downgrade(self))
         .do_async(move |view, _| {
-            view.update_projection_info();
+            if view.app_info_requested.get() {
+                view.update_app_info();
+            }
         });
     }
 
@@ -137,7 +140,7 @@ impl WebViewManager {
     }
 }
 
-impl Drop for WebViewManager {
+impl Drop for CompanionAppPresenter {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping mapping panel manager...");
         self.party_is_over_subject.next(());
@@ -145,8 +148,8 @@ impl Drop for WebViewManager {
 }
 
 #[derive(Template)]
-#[template(path = "projection-setup.html")]
-struct ProjectionSetupState {
+#[template(path = "companion-app-setup.html")]
+struct AppSetupState {
     // Can change globally
     server_is_running: bool,
     // Can change globally
@@ -209,7 +212,7 @@ pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'stat
     unimplemented!("This shouldn't be called!")
 }
 
-fn create_projection_setup_temp_dir() -> io::Result<TempDir> {
+fn create_app_setup_temp_dir() -> io::Result<TempDir> {
     let dir = tempfile::Builder::new().prefix("realearn-").tempdir()?;
     Ok(dir)
 }

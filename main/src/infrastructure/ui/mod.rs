@@ -21,8 +21,8 @@ pub use mapping_panel::*;
 mod mapping_panel_manager;
 pub use mapping_panel_manager::*;
 
-mod web_view_manager;
-pub use web_view_manager::*;
+mod companion_app_presenter;
+pub use companion_app_presenter::*;
 
 mod dialog_util;
 
