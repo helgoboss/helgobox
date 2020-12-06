@@ -912,8 +912,5 @@ Set another {upper_case_port_label} port in "realearn.ini", for example:
 }
 
 fn local_port_available(port: u16) -> bool {
-    match std::net::TcpListener::bind(("0.0.0.0", port)) {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    std::net::TcpListener::bind(("0.0.0.0", port)).is_ok()
 }
