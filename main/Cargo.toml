@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "1.12.0-pre4"
+version = "1.12.0-pre5"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -18,7 +18,7 @@ reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "mas
 #reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
-helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi", branch = "master", features = ["serde", "serde_repr"] }
+helgoboss-midi = { version = "0.1.2", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr"] }
 c_str_macro = "1.0.2"
