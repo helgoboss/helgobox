@@ -108,12 +108,14 @@ impl CompanionAppPresenter {
     ) -> Result<(u32, u32), Box<dyn std::error::Error>> {
         let code = QrCode::new(content)?;
         type P = image::LumaA<u8>;
+        let min_size = 250;
+        let max_size = 500;
         let image = code
             .render::<P>()
             // Background should be transparent
             .light_color(image::LumaA([255, 0]))
-            .min_dimensions(270, 270)
-            .max_dimensions(270, 270)
+            .min_dimensions(min_size, min_size)
+            .max_dimensions(max_size, max_size)
             .build();
         image.save(target_file)?;
         Ok((image.width(), image.height()))
