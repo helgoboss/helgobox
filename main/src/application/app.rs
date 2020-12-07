@@ -1,8 +1,9 @@
 use crate::application::{Session, SharedSession, WeakSession};
+use crate::core::notification;
 use crate::domain::{MappingCompartment, ReaperTarget};
 use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
-use reaper_medium::MessageBoxType;
+
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -135,11 +136,7 @@ impl App {
             .or_else(|| self.find_first_session_in_current_project());
         match session {
             None => {
-                Reaper::get().medium_reaper().show_message_box(
-                    "Please add a ReaLearn FX to this project first!",
-                    "ReaLearn",
-                    MessageBoxType::Okay,
-                );
+                notification::alert("Please add a ReaLearn FX to this project first!");
             }
             Some(s) => {
                 let mapping = s

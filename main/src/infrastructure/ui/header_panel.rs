@@ -19,14 +19,13 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{Controller, SharedSession, WeakSession};
-use crate::core::{toast, when};
+use crate::core::{notification, when};
 use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::{warn_about_failed_server_start, App};
 
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::dialog_util::alert;
 use crate::infrastructure::ui::{add_firewall_rule, SharedMainState};
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 
@@ -522,7 +521,7 @@ impl HeaderPanel {
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
         if let Err(e) = session_data.apply_to_model(&mut session) {
-            toast::warn(e)
+            notification::warn(e)
         }
         session.notify_everything_has_changed(self.session.clone());
         session.mark_project_as_dirty();
@@ -593,7 +592,9 @@ impl HeaderPanel {
             return;
         }
         if crate::application::App::get().has_session(&new_session_id) {
-            alert("There's another open ReaLearn session which already has this session ID!");
+            notification::alert(
+                "There's another open ReaLearn session which already has this session ID!",
+            );
             return;
         }
         let session = self.session();
@@ -766,11 +767,7 @@ impl View for HeaderPanel {
             ID_CLEAR_TARGET_FILTER_BUTTON => self.main_state.borrow_mut().clear_target_filter(),
             ID_IMPORT_BUTTON => {
                 if let Err(msg) = self.import_from_clipboard() {
-                    Reaper::get().medium_reaper().show_message_box(
-                        msg,
-                        "ReaLearn",
-                        MessageBoxType::Okay,
-                    );
+                    notification::alert(msg);
                 }
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
@@ -854,11 +851,7 @@ impl View for HeaderPanel {
                     Start => {
                         match App::start_server_persistently(app) {
                             Ok(_) => {
-                                Reaper::get().medium_reaper().show_message_box(
-                                    "Successfully started projection server.",
-                                    "ReaLearn",
-                                    MessageBoxType::Okay,
-                                );
+                                notification::alert("Successfully started projection server.");
                             }
                             Err(info) => {
                                 warn_about_failed_server_start(info);
@@ -867,19 +860,13 @@ impl View for HeaderPanel {
                     }
                     Disable => {
                         app.disable_server_persistently();
-                        Reaper::get().medium_reaper().show_message_box(
+                        notification::alert(
                             "Disabled projection server. This will take effect on the next start of REAPER.",
-                            "ReaLearn",
-                            MessageBoxType::Okay,
                         );
                     }
                     Enable => {
                         app.enable_server_persistently();
-                        Reaper::get().medium_reaper().show_message_box(
-                            "Enabled projection server again.",
-                            "ReaLearn",
-                            MessageBoxType::Okay,
-                        );
+                        notification::alert("Enabled projection server again.");
                     }
                 }
             }
@@ -888,11 +875,7 @@ impl View for HeaderPanel {
                     Ok(_) => "Successfully added firewall rule.",
                     Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
                 };
-                Reaper::get().medium_reaper().show_message_box(
-                    msg,
-                    "ReaLearn",
-                    MessageBoxType::Okay,
-                );
+                notification::alert(msg);
             }
             _ => unreachable!(),
         };

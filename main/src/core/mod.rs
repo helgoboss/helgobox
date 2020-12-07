@@ -13,7 +13,7 @@ pub use property::*;
 mod moving_average_calculator;
 pub use moving_average_calculator::*;
 
-pub mod toast;
+pub mod notification;
 
 pub mod eel;
 

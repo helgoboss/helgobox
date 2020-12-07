@@ -14,7 +14,7 @@ use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
 use reaper_high::{CrashInfo, Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
-use reaper_medium::{Hz, MessageBoxType, MidiFrameOffset};
+use reaper_medium::{Hz, MidiFrameOffset};
 
 use slog::{debug, o};
 use std::cell::RefCell;
@@ -31,6 +31,7 @@ use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
 
+use crate::core::notification;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -298,11 +299,7 @@ impl RealearnPlugin {
                 let processor_context = match ProcessorContext::from_host(&host) {
                     Ok(c) => c,
                     Err(msg) => {
-                        Reaper::get().medium_reaper().show_message_box(
-                            msg,
-                            "ReaLearn",
-                            MessageBoxType::Okay,
-                        );
+                        notification::alert(msg);
                         return;
                     }
                 };

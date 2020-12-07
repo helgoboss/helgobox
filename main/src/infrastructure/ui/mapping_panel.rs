@@ -1,4 +1,4 @@
-use crate::core::{when, Prop};
+use crate::core::{notification, when, Prop};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::MainPanel;
@@ -11,7 +11,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::Reaper;
 use reaper_low::raw;
-use reaper_medium::{InitialAction, MessageBoxType, PromptForActionResult, SectionId};
+use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use std::cell::{Cell, RefCell};
@@ -992,11 +992,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
         // TODO-low Add this to reaper-high with rxRust
         if reaper.low().pointers().PromptForAction.is_none() {
-            reaper.show_message_box(
-                "Please update to REAPER >= 6.12 in order to pick actions!",
-                "ReaLearn",
-                MessageBoxType::Okay,
-            );
+            notification::alert("Please update to REAPER >= 6.12 in order to pick actions!");
             return;
         }
         reaper.prompt_for_action_create(initial_action, SectionId::new(0));

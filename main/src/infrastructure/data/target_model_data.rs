@@ -7,7 +7,7 @@ use crate::application::{
     VirtualControlElementType,
 };
 use crate::core::default_util::is_default;
-use crate::core::toast;
+use crate::core::notification;
 use crate::domain::{
     ActionInvocationType, ProcessorContext, TrackAnchor, TransportAction, VirtualTrack,
 };
@@ -131,7 +131,7 @@ impl TargetModelData {
                 Ok(command_id_int) => match command_id_int.try_into() {
                     Ok(command_id) => Some(reaper.main_section().action_by_command_id(command_id)),
                     Err(_) => {
-                        toast::warn(&format!("Invalid command ID {}", command_id_int));
+                        notification::warn(&format!("Invalid command ID {}", command_id_int));
                         None
                     }
                 },
@@ -158,7 +158,7 @@ impl TargetModelData {
             Err(e) => {
                 use TrackDeserializationError::*;
                 match e {
-                    InvalidGuid(guid) => toast::warn(&format!(
+                    InvalidGuid(guid) => notification::warn(&format!(
                         "Invalid track GUID {}, falling back to <This>",
                         guid
                     )),
@@ -192,7 +192,7 @@ impl TargetModelData {
                     ) {
                         Ok(fx) => fx.guid(),
                         Err(e) => {
-                            toast::warn(e);
+                            notification::warn(e);
                             None
                         }
                     }
