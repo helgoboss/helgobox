@@ -93,6 +93,8 @@ impl Session {
         controller_manager: impl ControllerManager + 'static,
     ) -> Session {
         Self {
+            // As long not changed (by loading a preset or manually changing session ID), the
+            // session ID is equal to the instance ID.
             id: prop(instance_id.clone()),
             instance_id,
             logger: parent_logger.clone(),
@@ -473,6 +475,11 @@ impl Session {
             None => false,
             Some(m) => m.as_ptr() == mapping as _,
         }
+    }
+
+    /// Resets the session ID to the (hopefully) always unique instance ID.
+    pub fn reset_id(&mut self) {
+        self.id.set(self.instance_id.clone());
     }
 
     pub fn toggle_learn_source(&mut self, mapping: &SharedMapping) {

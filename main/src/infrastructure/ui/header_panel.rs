@@ -26,6 +26,7 @@ use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::{warn_about_failed_server_start, App};
 
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::dialog_util::alert;
 use crate::infrastructure::ui::{add_firewall_rule, SharedMainState};
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 
@@ -582,16 +583,26 @@ impl HeaderPanel {
         }
     }
 
-    fn change_session_id(&self) -> Result<(), &'static str> {
+    fn change_session_id(&self) {
+        let current_session_id = { self.session().borrow().id.get_ref().clone() };
+        let new_session_id = match dialog_util::prompt_for("Session ID", &current_session_id) {
+            None => return,
+            Some(n) => n.trim().to_string(),
+        };
+        if new_session_id == current_session_id {
+            return;
+        }
+        if crate::application::App::get().has_session(&new_session_id) {
+            alert("There's another open ReaLearn session which already has this session ID!");
+            return;
+        }
         let session = self.session();
         let mut session = session.borrow_mut();
-        let current_session_id = session.id.get_ref();
-        let new_session_id = match dialog_util::prompt_for("Session ID", current_session_id) {
-            None => return Ok(()),
-            Some(n) => n,
-        };
-        session.id.set(new_session_id);
-        Ok(())
+        if new_session_id.is_empty() {
+            session.reset_id();
+        } else {
+            session.id.set(new_session_id);
+        }
     }
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
@@ -835,7 +846,7 @@ impl View for HeaderPanel {
         match result {
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
             root::IDM_CHANGE_SESSION_ID => {
-                let _ = self.change_session_id();
+                self.change_session_id();
             }
             root::IDM_SERVER_START => {
                 use ServerAction::*;

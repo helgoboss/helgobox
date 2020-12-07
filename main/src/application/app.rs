@@ -30,6 +30,10 @@ impl App {
         self.changed_subject.borrow().clone()
     }
 
+    pub fn has_session(&self, session_id: &str) -> bool {
+        self.find_session_by_id(session_id).is_some()
+    }
+
     pub fn find_session_by_id(&self, session_id: &str) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
