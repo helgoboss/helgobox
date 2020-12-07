@@ -10,9 +10,7 @@ use enum_iterator::IntoEnumIterator;
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 
-use reaper_medium::{
-    MessageBoxResult, MessageBoxType, MidiInputDeviceId, MidiOutputDeviceId, ReaperString,
-};
+use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
 use rx_util::UnitEvent;
@@ -395,12 +393,8 @@ impl HeaderPanel {
 
     fn update_preset(&self) {
         if self.session().borrow().controller_mappings_are_dirty() {
-            let result = Reaper::get().medium_reaper().show_message_box(
-                "Your changes of the current controller mappings will be lost. Consider to save them first. Do you really want to continue?",
-                "ReaLearn",
-                MessageBoxType::YesNo,
-            );
-            if result == MessageBoxResult::No {
+            let msg = "Your changes of the current controller mappings will be lost. Consider to save them first. Do you really want to continue?";
+            if !self.view.require_window().confirm("ReaLearn", msg) {
                 self.invalidate_preset_combo_box_value();
                 return;
             }
@@ -540,12 +534,11 @@ impl HeaderPanel {
     }
 
     fn delete_active_preset(&self) -> Result<(), &'static str> {
-        let result = Reaper::get().medium_reaper().show_message_box(
-            "Do you really want to remove this controller?",
-            "ReaLearn",
-            MessageBoxType::YesNo,
-        );
-        if result == MessageBoxResult::No {
+        if !self
+            .view
+            .require_window()
+            .confirm("ReaLearn", "Do you really want to remove this controller?")
+        {
             return Ok(());
         }
         let session = self.session();

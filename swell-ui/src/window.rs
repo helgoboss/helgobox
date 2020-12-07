@@ -37,6 +37,37 @@ impl Window {
             .expect("required control not found")
     }
 
+    pub fn alert<'a>(
+        self,
+        caption: impl Into<SwellStringArg<'a>>,
+        msg: impl Into<SwellStringArg<'a>>,
+    ) {
+        unsafe {
+            Swell::get().MessageBox(
+                self.raw,
+                msg.into().as_ptr(),
+                caption.into().as_ptr(),
+                raw::MB_OK as _,
+            );
+        }
+    }
+
+    pub fn confirm<'a>(
+        self,
+        caption: impl Into<SwellStringArg<'a>>,
+        msg: impl Into<SwellStringArg<'a>>,
+    ) -> bool {
+        let result = unsafe {
+            Swell::get().MessageBox(
+                self.raw,
+                msg.into().as_ptr(),
+                caption.into().as_ptr(),
+                raw::MB_YESNO as _,
+            )
+        };
+        result == raw::IDYES as _
+    }
+
     pub fn set_checked(self, is_checked: bool) {
         unsafe {
             Swell::get().SendMessage(
