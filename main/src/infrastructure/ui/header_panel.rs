@@ -585,7 +585,8 @@ impl HeaderPanel {
             return;
         }
         if crate::application::App::get().has_session(&new_session_id) {
-            notification::alert(
+            self.view.require_window().alert(
+                "ReaLearn",
                 "There's another open ReaLearn session which already has this session ID!",
             );
             return;
@@ -760,7 +761,7 @@ impl View for HeaderPanel {
             ID_CLEAR_TARGET_FILTER_BUTTON => self.main_state.borrow_mut().clear_target_filter(),
             ID_IMPORT_BUTTON => {
                 if let Err(msg) = self.import_from_clipboard() {
-                    notification::alert(msg);
+                    self.view.require_window().alert("ReaLearn", msg);
                 }
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
@@ -844,7 +845,9 @@ impl View for HeaderPanel {
                     Start => {
                         match App::start_server_persistently(app) {
                             Ok(_) => {
-                                notification::alert("Successfully started projection server.");
+                                self.view
+                                    .require_window()
+                                    .alert("ReaLearn", "Successfully started projection server.");
                             }
                             Err(info) => {
                                 warn_about_failed_server_start(info);
@@ -853,13 +856,16 @@ impl View for HeaderPanel {
                     }
                     Disable => {
                         app.disable_server_persistently();
-                        notification::alert(
+                        self.view.require_window().alert(
+                            "ReaLearn",
                             "Disabled projection server. This will take effect on the next start of REAPER.",
                         );
                     }
                     Enable => {
                         app.enable_server_persistently();
-                        notification::alert("Enabled projection server again.");
+                        self.view
+                            .require_window()
+                            .alert("ReaLearn", "Enabled projection server again.");
                     }
                 }
             }
@@ -868,7 +874,7 @@ impl View for HeaderPanel {
                     Ok(_) => "Successfully added firewall rule.",
                     Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
                 };
-                notification::alert(msg);
+                self.view.require_window().alert("ReaLearn", msg);
             }
             _ => unreachable!(),
         };

@@ -1,4 +1,4 @@
-use crate::core::{notification, when, Prop};
+use crate::core::{when, Prop};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::MainPanel;
@@ -992,7 +992,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
         // TODO-low Add this to reaper-high with rxRust
         if reaper.low().pointers().PromptForAction.is_none() {
-            notification::alert("Please update to REAPER >= 6.12 in order to pick actions!");
+            self.view.require_window().alert(
+                "ReaLearn",
+                "Please update to REAPER >= 6.12 in order to pick actions!",
+            );
             return;
         }
         reaper.prompt_for_action_create(initial_action, SectionId::new(0));
