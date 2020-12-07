@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-10-21 (v1.12.0-pre1)</code></td>
+  <td><code>2020-12-07 (v1.12.0-pre5)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -382,22 +382,28 @@ The header panel provides the following user interface elements, no matter if *p
 Additionally, it provides a context menu with the following entries:
 - **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
   investigating bugs or understanding how this plug-in works.
-- **Change session ID...:** This lets you customize the ID used to address this particular ReaLearn
-  instance when using the projection feature. By default, the session ID is a random cryptic string
-  which ensures that every instance is uniquely addressable. The result is that scanning the QR code
-  of this ReaLearn instance will let your mobile device connect for sure with this unique 
-  instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
-  is usually what you want. But a side effect is that with every new ReaLearn instance that you create,
-  you first have to point your mobile device to it in order to see its
-  projection (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
-  that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
-  your mobile device that it should always show the projection of this very ReaLearn instance -
-  no matter in which REAPER project you are and even if they control the volumes of totally
-  different tracks. You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
-  to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
-  You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
-  ReaLearn instances in each project. Just make sure to not have more than one ReaLearn instance with the same session 
-  ID active at the same time because then it's not clear to which your mobile device will connect!
+- **Server**
+    - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn companion app to
+      connect to ReaLearn.
+    - **Add firewall rule:** Attempts to add a firewall rule for making the server accessible from other devices or
+      displays instructions how to do it.
+    - **Change session ID...:** This lets you customize the ID used to address this particular ReaLearn
+      instance when using the projection feature. By default, the session ID is a random cryptic string
+      which ensures that every instance is uniquely addressable. The result is that scanning the QR code
+      of this ReaLearn instance will let your mobile device connect for sure with this unique 
+      instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
+      is usually what you want. But a side effect is that with every new ReaLearn instance that you create,
+      you first have to point your mobile device to it in order to see its
+      projection (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
+      that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
+      your mobile device that it should always show the projection of this very ReaLearn instance -
+      no matter in which REAPER project you are and even if they control the volumes of totally
+      different tracks. You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
+      to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
+      You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
+      ReaLearn instances in each project. Just make sure to not have more than one ReaLearn instance with the same session 
+      ID active at the same time because then it's not clear to which your mobile device will connect!
+     
    
 #### Controller mappings
 
@@ -434,7 +440,7 @@ In this view, you have some more user interface elements at your disposal:
       mappings in other ReaLearn instances, it makes of course sense to save them as a preset! 
     - All of your presets end up in the REAPER resource directory 
       (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) at
-      `Helgoboss/ReaLearn/controllers`. They are JSON files and very similar to what you get when you press
+      `Data/helgoboss/realearn/controllers`. They are JSON files and very similar to what you get when you press
       *Export to clipboard*.
     - The JSON files contain controller mappings but can also contain custom data sections. For example, the ReaLearn
       Companion app adds a custom data section in order to memorize the positions and shapes of all control elements.
