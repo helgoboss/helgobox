@@ -5,7 +5,7 @@ use rx_util::UnitEvent;
 
 use crate::application::{
     convert_factor_to_unit_value, ActivationType, ModeModel, ModifierConditionModel,
-    ProgramConditionModel, SourceModel, TargetModel, TargetModelWithContext,
+    ProgramConditionModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
@@ -71,6 +71,14 @@ impl PartialEq for MappingModel {
     }
 }
 
+fn get_default_target_category_for_compartment(compartment: MappingCompartment) -> TargetCategory {
+    use MappingCompartment::*;
+    match compartment {
+        ControllerMappings => TargetCategory::Virtual,
+        PrimaryMappings => TargetCategory::Reaper,
+    }
+}
+
 impl MappingModel {
     pub fn new(compartment: MappingCompartment) -> Self {
         Self {
@@ -88,7 +96,10 @@ impl MappingModel {
             eel_condition: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
-            target_model: Default::default(),
+            target_model: TargetModel {
+                category: prop(get_default_target_category_for_compartment(compartment)),
+                ..Default::default()
+            },
         }
     }
 
