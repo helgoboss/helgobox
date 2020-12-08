@@ -26,7 +26,8 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
     ActivationType, MappingModel, MidiSourceType, ModeModel, ModifierConditionModel,
     ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
-    TargetCategory, TargetModel, TargetModelWithContext, VirtualControlElementType, WeakSession,
+    TargetCategory, TargetModel, TargetModelWithContext, TrackAnchorType,
+    VirtualControlElementType, WeakSession,
 };
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
@@ -901,14 +902,14 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_line_two_data(&mut self) -> Result<(), &'static str> {
-        let b = self
+        let main_combo = self
             .view
             .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX);
         use TargetCategory::*;
         match self.mapping.target_model.category.get() {
             Reaper => {
                 if self.mapping.target_model.supports_track() {
-                    let data = b.selected_combo_box_item_data();
+                    let data = main_combo.selected_combo_box_item_data();
                     use VirtualTrack::*;
                     let project = self.target_with_context().project();
                     let track = match data {
@@ -919,15 +920,18 @@ impl<'a> MutableMappingPanel<'a> {
                             let t = project
                                 .track_by_index(data as u32)
                                 .ok_or("track not existing")?;
-                            Particular(TrackAnchor::IdOrName(
-                                *t.guid(),
-                                t.name().expect("track must have name").into_string(),
-                            ))
+                            let anchor_type: TrackAnchorType = self
+                                .view
+                                .require_control(root::ID_TARGET_TRACK_ANCHOR_COMBO_BOX)
+                                .selected_combo_box_item_index()
+                                .try_into()
+                                .unwrap_or(TrackAnchorType::Id);
+                            Particular(anchor_type.to_anchor(t).unwrap())
                         }
                     };
                     self.mapping.target_model.track.set(track);
                 } else if self.mapping.target_model.r#type.get() == ReaperTargetType::Transport {
-                    let data = b.selected_combo_box_item_index();
+                    let data = main_combo.selected_combo_box_item_index();
                     self.mapping
                         .target_model
                         .transport_action
@@ -935,7 +939,7 @@ impl<'a> MutableMappingPanel<'a> {
                 }
             }
             Virtual => {
-                let index = b.selected_combo_box_item_index();
+                let index = main_combo.selected_combo_box_item_index();
                 self.mapping
                     .target_model
                     .control_element_index
@@ -1040,6 +1044,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_target_category_combo_box();
+        self.fill_target_track_anchor_combo_box();
     }
 
     fn invalidate_all_controls(&self) {
@@ -1529,9 +1534,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_PICK_ACTION_BUTTON);
         let action_label = self.view.require_control(root::ID_TARGET_ACTION_LABEL_TEXT);
-        let combo = self
+        let main_combo = self
             .view
             .require_control(root::ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX);
+        let anchor_combo = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_ANCHOR_COMBO_BOX);
         let label = self
             .view
             .require_control(root::ID_TARGET_TRACK_OR_CMD_LABEL_TEXT);
@@ -1541,43 +1549,46 @@ impl<'a> ImmutableMappingPanel<'a> {
             Reaper => {
                 if target.supports_track() {
                     label.show();
-                    combo.show();
+                    main_combo.show();
                     action_label.hide();
                     pick_button.hide();
                     label.set_text("Track");
-                    self.fill_target_track_combo_box(combo);
-                    self.set_target_track_combo_box_value(combo);
+                    self.fill_target_track_combo_box(main_combo);
+                    self.invalidate_target_track_combo_box_value(main_combo, anchor_combo);
                 } else if self.target.r#type.get() == ReaperTargetType::Action {
                     label.show();
                     action_label.show();
                     pick_button.show();
-                    combo.hide();
+                    main_combo.hide();
+                    anchor_combo.hide();
                     label.set_text("Action");
                     let action_name = self.target.action_name_label().to_string();
                     action_label.set_text(action_name);
                 } else if self.target.r#type.get() == ReaperTargetType::Transport {
                     label.show();
-                    combo.show();
+                    main_combo.show();
+                    anchor_combo.hide();
                     action_label.hide();
                     pick_button.hide();
                     label.set_text("Action");
-                    self.fill_target_transport_action_combo_box(combo);
-                    self.set_target_transport_action_combo_box_value(combo);
+                    self.fill_target_transport_action_combo_box(main_combo);
+                    self.set_target_transport_action_combo_box_value(main_combo);
                 } else {
                     label.hide();
-                    combo.hide();
+                    main_combo.hide();
+                    anchor_combo.hide();
                     action_label.hide();
                     pick_button.hide();
                 }
             }
             Virtual => {
                 label.show();
-                combo.show();
+                main_combo.show();
                 action_label.hide();
                 pick_button.hide();
                 label.set_text("Number");
-                combo.fill_combo_box_small(1..=100);
-                combo.select_combo_box_item(self.target.control_element_index.get() as _);
+                main_combo.fill_combo_box_small(1..=100);
+                main_combo.select_combo_box_item(self.target.control_element_index.get() as _);
             }
         };
     }
@@ -1612,22 +1623,39 @@ impl<'a> ImmutableMappingPanel<'a> {
             .with_context(self.session.context())
     }
 
-    fn set_target_track_combo_box_value(&self, combo: Window) {
+    fn invalidate_target_track_combo_box_value(&self, track_combo: Window, anchor_combo: Window) {
         use VirtualTrack::*;
-        let data: isize = match self.target.track.get_ref() {
-            This => -3,
-            Selected => -2,
-            Master => -1,
-            // TODO-high #23 Check if track is available, otherwise -1! Otherwise can panic when
-            //  closing project.
-            Particular(t) => {
-                let track = t
-                    .resolve(self.session.context().project())
-                    .expect("track not available");
-                track.index().map(|i| i as isize).unwrap_or(-1)
+        let virtual_track = self.target.track.get_ref();
+        let (track_item_data, anchor): (Option<isize>, Option<&TrackAnchor>) = match virtual_track {
+            This => (Some(-3), None),
+            Selected => (Some(-2), None),
+            Master => (Some(-1), None),
+            Particular(anchor) => {
+                if let Ok(track) = anchor.resolve(self.session.context().project()) {
+                    let track_item_data = track.index().map(|i| i as isize).unwrap_or(-1);
+                    (Some(track_item_data), Some(anchor))
+                } else {
+                    (None, Some(anchor))
+                }
             }
         };
-        combo.select_combo_box_item_by_data(data).unwrap();
+        // Track combo box
+        if let Some(d) = track_item_data {
+            track_combo.select_combo_box_item_by_data(d).unwrap();
+        } else {
+            let text = format!("<Not present> ({})", anchor.expect("can't happen"));
+            track_combo.select_new_combo_box_item(text.as_str());
+        }
+        // Anchor combo box
+        if let Some(a) = anchor {
+            let anchor_type = TrackAnchorType::from_anchor(a);
+            anchor_combo.show();
+            anchor_combo.select_combo_box_item(anchor_type.into());
+        } else {
+            anchor_combo.hide();
+            // We should at least initialize it so that it has a value. It's used for updating.
+            anchor_combo.select_combo_box_item(0);
+        }
     }
 
     fn set_target_transport_action_combo_box_value(&self, combo: Window) {
@@ -2587,6 +2615,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         b.fill_combo_box(SourceCategory::into_enum_iter());
     }
 
+    fn fill_target_track_anchor_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_ANCHOR_COMBO_BOX);
+        b.fill_combo_box(TrackAnchorType::into_enum_iter());
+    }
+
     fn fill_target_category_combo_box(&self) {
         let b = self
             .view
@@ -2803,7 +2838,7 @@ impl View for MappingPanel {
             // Target
             ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
             ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
-            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
+            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX | ID_TARGET_TRACK_ANCHOR_COMBO_BOX => {
                 self.write(|p| p.update_target_line_two_data()).unwrap();
             }
             ID_TARGET_FX_OR_SEND_COMBO_BOX => {

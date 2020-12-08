@@ -32,11 +32,8 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing)]
     invoke_relative: Option<bool>,
     // Track target
-    // None means "This" track
-    #[serde(rename = "trackGUID", default, skip_serializing_if = "is_default")]
-    track_guid: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    track_name: Option<String>,
+    #[serde(flatten)]
+    track_data: TrackData,
     #[serde(default, skip_serializing_if = "is_default")]
     enable_only_if_track_is_selected: bool,
     // FX target
@@ -80,7 +77,6 @@ pub struct TargetModelData {
 
 impl TargetModelData {
     pub fn from_model(model: &TargetModel) -> Self {
-        let (track_guid, track_name) = serialize_track(model.track.get_ref());
         Self {
             category: model.category.get(),
             r#type: model.r#type.get(),
@@ -98,8 +94,7 @@ impl TargetModelData {
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
-            track_guid,
-            track_name,
+            track_data: serialize_track(model.track.get_ref()),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_index: model.fx_index.get(),
             fx_guid: model
@@ -153,7 +148,7 @@ impl TargetModelData {
         model
             .action_invocation_type
             .set_without_notification(invocation_type);
-        let virtual_track = match deserialize_track(&self.track_guid, &self.track_name) {
+        let virtual_track = match deserialize_track(&self.track_data) {
             Ok(t) => t,
             Err(e) => {
                 use TrackDeserializationError::*;
@@ -223,19 +218,59 @@ impl TargetModelData {
     }
 }
 
-fn serialize_track(virtual_track: &VirtualTrack) -> (Option<String>, Option<String>) {
+fn serialize_track(virtual_track: &VirtualTrack) -> TrackData {
     use VirtualTrack::*;
     match virtual_track {
-        This => (None, None),
-        Selected => (Some("selected".to_string()), None),
-        Master => (Some("master".to_string()), None),
+        This => TrackData {
+            guid: None,
+            name: None,
+            index: None,
+        },
+        Selected => TrackData {
+            guid: Some("selected".to_string()),
+            name: None,
+            index: None,
+        },
+        Master => TrackData {
+            guid: Some("master".to_string()),
+            name: None,
+            index: None,
+        },
         Particular(anchor) => match anchor {
-            TrackAnchor::IdOrName(guid, name) => {
-                (Some(guid.to_string_without_braces()), Some(name.clone()))
-            }
-            TrackAnchor::Id(guid) => (Some(guid.to_string_without_braces()), None),
+            TrackAnchor::IdOrName(guid, name) => TrackData {
+                guid: Some(guid.to_string_without_braces()),
+                name: Some(name.clone()),
+                index: None,
+            },
+            TrackAnchor::Id(guid) => TrackData {
+                guid: Some(guid.to_string_without_braces()),
+                name: None,
+                index: None,
+            },
+            TrackAnchor::Name(name) => TrackData {
+                guid: None,
+                name: Some(name.clone()),
+                index: None,
+            },
+            TrackAnchor::Index(index) => TrackData {
+                guid: None,
+                name: None,
+                index: Some(*index),
+            },
         },
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TrackData {
+    // None means "This" track
+    #[serde(rename = "trackGUID", default, skip_serializing_if = "is_default")]
+    guid: Option<String>,
+    #[serde(rename = "trackName", default, skip_serializing_if = "is_default")]
+    name: Option<String>,
+    #[serde(rename = "trackIndex", default, skip_serializing_if = "is_default")]
+    index: Option<u32>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
@@ -243,23 +278,38 @@ pub enum TrackDeserializationError {
     InvalidGuid(#[error(not(source))] String),
 }
 
-fn deserialize_track(
-    id: &Option<String>,
-    name: &Option<String>,
-) -> Result<VirtualTrack, TrackDeserializationError> {
-    let virtual_track = match id.as_ref().map(String::as_str) {
-        None => VirtualTrack::This,
-        Some("master") => VirtualTrack::Master,
-        Some("selected") => VirtualTrack::Selected,
-        Some(s) => {
-            let guid = Guid::from_string_without_braces(s)
-                .map_err(|_| TrackDeserializationError::InvalidGuid(s.to_string()))?;
+fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, TrackDeserializationError> {
+    let virtual_track = match track_data {
+        TrackData {
+            guid: None,
+            name: None,
+            index: None,
+        } => VirtualTrack::This,
+        TrackData { guid: Some(g), .. } if g == "master" => VirtualTrack::Master,
+        TrackData { guid: Some(g), .. } if g == "selected" => VirtualTrack::Master,
+        TrackData {
+            guid: Some(g),
+            name,
+            ..
+        } => {
+            let guid = Guid::from_string_without_braces(g)
+                .map_err(|_| TrackDeserializationError::InvalidGuid(g.to_string()))?;
             let anchor = match name {
                 None => TrackAnchor::Id(guid),
                 Some(n) => TrackAnchor::IdOrName(guid, n.clone()),
             };
             VirtualTrack::Particular(anchor)
         }
+        TrackData {
+            guid: None,
+            name: Some(n),
+            ..
+        } => VirtualTrack::Particular(TrackAnchor::Name(n.clone())),
+        TrackData {
+            guid: None,
+            name: None,
+            index: Some(i),
+        } => VirtualTrack::Particular(TrackAnchor::Index(*i)),
     };
     Ok(virtual_track)
 }

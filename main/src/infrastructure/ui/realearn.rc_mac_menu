@@ -4,7 +4,7 @@ SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
         POPUP "Server"
         BEGIN
-            MENUITEM "Start", IDM_SERVER_START
+            MENUITEM "Enabled", IDM_SERVER_START
             MENUITEM "Add firewall rule", IDM_SERVER_ADD_FIREWALL_RULE
             MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
         END

@@ -2,6 +2,7 @@ use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, Transp
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Track, TrackSend};
 use reaper_medium::{MasterTrackBehavior, TrackLocation};
+use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -276,6 +277,20 @@ impl VirtualTrack {
 pub enum TrackAnchor {
     IdOrName(Guid, String),
     Id(Guid),
+    Name(String),
+    Index(u32),
+}
+
+impl fmt::Display for TrackAnchor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use TrackAnchor::*;
+        match self {
+            IdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
+            Id(id) => write!(f, "{}", id.to_string_without_braces()),
+            Name(name) => write!(f, "\"{}\"", name),
+            Index(i) => write!(f, "{}", i + 1),
+        }
+    }
 }
 
 impl TrackAnchor {
@@ -288,8 +303,9 @@ impl TrackAnchor {
                     t
                 } else {
                     find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                        guid: *guid,
+                        guid: Some(*guid),
                         name: Some(name.clone()),
+                        index: None,
                     })?
                 }
             }
@@ -297,11 +313,28 @@ impl TrackAnchor {
                 let t = project.track_by_guid(guid);
                 if !t.is_available() {
                     return Err(TrackResolveError::TrackNotFound {
-                        guid: *guid,
+                        guid: Some(*guid),
                         name: None,
+                        index: None,
                     });
                 }
                 t
+            }
+            Name(name) => {
+                find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
+                    guid: None,
+                    name: Some(name.clone()),
+                    index: None,
+                })?
+            }
+            Index(index) => {
+                project
+                    .track_by_index(*index)
+                    .ok_or(TrackResolveError::TrackNotFound {
+                        guid: None,
+                        name: None,
+                        index: Some(*index),
+                    })?
             }
         };
         Ok(track)
@@ -318,7 +351,11 @@ fn find_track_by_name(project: Project, name: &str) -> Option<Track> {
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
 pub enum TrackResolveError {
     #[display(fmt = "TrackNotFound")]
-    TrackNotFound { guid: Guid, name: Option<String> },
+    TrackNotFound {
+        guid: Option<Guid>,
+        name: Option<String>,
+        index: Option<u32>,
+    },
 }
 
 pub struct VirtualTrackWithContext<'a> {
@@ -332,10 +369,13 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
         match self.virtual_track {
             This | Selected | Master => write!(f, "{}", self.virtual_track),
             Particular(anchor) => {
-                let t = anchor
-                    .resolve(self.context.project())
-                    .map_err(|_| fmt::Error)?;
-                write!(f, "{}", get_track_label(&t))
+                // Here we don't want to log non-present tracks because this can be called pretty
+                // often.
+                if let Ok(t) = anchor.resolve(self.context.project()) {
+                    write!(f, "{}", get_track_label(&t))
+                } else {
+                    write!(f, "<Not present>")
+                }
             }
         }
     }

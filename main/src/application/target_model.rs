@@ -639,10 +639,52 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
             if track.is_master_track() {
                 VirtualTrack::Master
             } else {
-                let guid = track.guid();
-                let name = track.name().expect("track must have name").into_string();
-                VirtualTrack::Particular(TrackAnchor::IdOrName(*guid, name))
+                VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
             }
         }
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
+)]
+#[repr(usize)]
+pub enum TrackAnchorType {
+    #[display(fmt = "ID")]
+    Id,
+    #[display(fmt = "Name")]
+    Name,
+    #[display(fmt = "Position")]
+    Index,
+    #[display(fmt = "ID or name")]
+    IdOrName,
+}
+
+impl TrackAnchorType {
+    pub fn from_anchor(anchor: &TrackAnchor) -> Self {
+        use TrackAnchor::*;
+        match anchor {
+            IdOrName(_, _) => TrackAnchorType::IdOrName,
+            Id(_) => TrackAnchorType::Id,
+            Name(_) => TrackAnchorType::Name,
+            Index(_) => TrackAnchorType::Index,
+        }
+    }
+
+    pub fn to_anchor(self, track: Track) -> Result<TrackAnchor, &'static str> {
+        use TrackAnchorType::*;
+        let get_name = || {
+            track
+                .name()
+                .map(|n| n.into_string())
+                .ok_or("track must have name")
+        };
+        let anchor = match self {
+            Id => TrackAnchor::Id(*track.guid()),
+            Name => TrackAnchor::Name(get_name()?),
+            Index => TrackAnchor::Index(track.index().ok_or("track must have index")?),
+            IdOrName => TrackAnchor::IdOrName(*track.guid(), get_name()?),
+        };
+        Ok(anchor)
     }
 }
