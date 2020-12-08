@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-12-07 (v1.12.0-pre5)</code></td>
+  <td><code>2020-12-08 (v1.12.0-pre6)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -388,21 +388,29 @@ Additionally, it provides a context menu with the following entries:
     - **Add firewall rule:** Attempts to add a firewall rule for making the server accessible from other devices or
       displays instructions how to do it.
     - **Change session ID...:** This lets you customize the ID used to address this particular ReaLearn
-      instance when using the projection feature. By default, the session ID is a random cryptic string
-      which ensures that every instance is uniquely addressable. The result is that scanning the QR code
-      of this ReaLearn instance will let your mobile device connect for sure with this unique 
-      instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
-      is usually what you want. But a side effect is that with every new ReaLearn instance that you create,
-      you first have to point your mobile device to it in order to see its
-      projection (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
-      that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
-      your mobile device that it should always show the projection of this very ReaLearn instance -
-      no matter in which REAPER project you are and even if they control the volumes of totally
-      different tracks. You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
-      to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
-      You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
-      ReaLearn instances in each project. Just make sure to not have more than one ReaLearn instance with the same session 
-      ID active at the same time because then it's not clear to which your mobile device will connect!
+      instance when using the projection feature.
+        - By default, the session ID is a random cryptic string
+          which ensures that every instance is uniquely addressable. The result is that scanning the QR code
+          of this ReaLearn instance will let your mobile device connect for sure with this unique 
+          instance, not with another one - remember, you can use many instances of ReaLearn in parallel. This
+          is usually what you want.
+        - But a side effect is that with every new ReaLearn instance that you create,
+          you first have to point your mobile device to it in order to see its
+          projection (by scanning the QR code). Let's assume you have in many of your projects exactly one ReaLearn instance
+          that lets your favorite MIDI controller control track volumes. By customizing the session ID, you basically can tell
+          your mobile device that it should always show the projection of this very ReaLearn instance -
+          no matter in which REAPER project you are and even if they control the volumes of totally
+          different tracks.
+        - You can achieve this by setting the session ID of each volume-controlling ReaLearn instance
+          to exactly the same value, in each project. Ideally it's a descriptive name without spaces, such as "track-volumes".
+          You have to do the pairing only once et voilà, you have a dedicated device for monitoring your volume control
+          ReaLearn instances in each project.
+        - **Make sure to not have more than one ReaLearn instance with the same session 
+          ID active at the same time because then it's not clear to which your mobile device will connect!**
+        - **At the moment, the session ID is part of the ReaLearn preset!** That means, opening a preset, copying/cutting
+          a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change
+          future in favor of a more nuanced approach!
+      
      
    
 #### Controller mappings
@@ -942,6 +950,19 @@ Only available for targets that are associated with a particular REAPER track:
   - **&lt;Master track&gt;**: Master track of the project which hosts this ReaLearn instance. If
     ReaLearn is on the monitoring FX chain, this resolves to the master track of the current
     project.
+- **Track anchor:** If you select a concrete track, another dropdown will appear to the right of the
+  track dropdown. It lets you choose how ReaLearn will identify your track.
+  - **ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
+    very particular track even in case you move it somewhere else or rename it. Please note that it's *not possible*
+    with this setting to create a ReaLearn preset that is reusable among different projects. Because a track ID
+    is globally unique, even across projects. That also means it doesn't make sense to use this setting in a
+    ReaLearn monitoring FX instance.
+  - **Name:** Refers to the track by its name. In case there are multiple tracks with the same name, it will
+    always prefer the first one. This will allow you to use one ReaLearn preset across multiple projects that
+    have similar naming schemes, e.g. as monitoring FX.
+  - **Position:** Refers to the track by its position in the track list. This will allow preset reuse as well.
+  - **ID or name:** This refers to the track by its unique ID with its name as fallback. This was the default
+    behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 - **Track must be selected:** If checked, this mapping will be active only if the track set in
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
   _&lt;Selected&gt;_.
