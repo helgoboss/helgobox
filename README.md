@@ -201,12 +201,12 @@ Yes, there are some tests. No, not enough 😳 While ReaLearn's basic building b
 and [reaper-rs](https://github.com/helgoboss/reaper-rs) are tested pretty thouroughly, ReaLearn itself needs improvement in that aspect. In future, it 
 would be nice to have an integration test running directly in REAPER, similar to the one of *reaper-rs*.
 
-### Logging
+### Log
 
 It's possible to make ReaLearn output log messages to the console by setting the `REALEARN_LOG` environment variable,
 e.g. to `debug,vst=info`. It follows [this](https://docs.rs/env_logger/0.8.2/env_logger/index.html) format.
 
-### Debugging
+### Debug
 
 #### Obtain debug symbols
 
