@@ -369,12 +369,10 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
         match self.virtual_track {
             This | Selected | Master => write!(f, "{}", self.virtual_track),
             Particular(anchor) => {
-                // Here we don't want to log non-present tracks because this can be called pretty
-                // often.
                 if let Ok(t) = anchor.resolve(self.context.project()) {
                     write!(f, "{}", get_track_label(&t))
                 } else {
-                    write!(f, "<Not present>")
+                    write!(f, "<Not present> ({})", anchor)
                 }
             }
         }

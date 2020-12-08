@@ -8,8 +8,12 @@ pub fn some_default<T: Default>() -> Option<T> {
     Some(T::default())
 }
 
-pub fn is_some_default<T: Default + PartialEq>(v: &Option<T>) -> bool {
-    v == &Some(T::default())
+pub fn is_none_or_some_default<T: Default + PartialEq>(v: &Option<T>) -> bool {
+    if let Some(i) = v {
+        i == &T::default()
+    } else {
+        true
+    }
 }
 
 pub fn bool_true() -> bool {
