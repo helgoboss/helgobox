@@ -358,7 +358,12 @@ impl<'a> TargetModelWithContext<'a> {
     pub fn is_known_to_be_roundable(&self) -> bool {
         // TODO-low use cached
         self.create_target()
-            .map(|t| matches!(t.control_type(), ControlType::AbsoluteContinuousRoundable { .. }))
+            .map(|t| {
+                matches!(
+                    t.control_type(),
+                    ControlType::AbsoluteContinuousRoundable { .. }
+                )
+            })
             .unwrap_or(false)
     }
     // Returns an error if the FX doesn't exist.
