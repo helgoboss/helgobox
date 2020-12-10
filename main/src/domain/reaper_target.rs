@@ -882,14 +882,14 @@ impl Target for ReaperTarget {
                     // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
                     // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
                     // know. In future, we might offer further customization possibilities here.
-                    // For now, we just report it as 1.0 and log a warning.
+                    // For now, we just report it as 0.0 or 1.0 and log a warning.
                     warn!(
                         Reaper::get().logger(),
-                        "FX parameter reported normalized value {:?}, which is > 1.0: {:?}",
+                        "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
                         v,
                         param
                     );
-                    return Some(UnitValue::MAX);
+                    return Some(UnitValue::new_clamped(v));
                 }
                 UnitValue::new(v)
             }
