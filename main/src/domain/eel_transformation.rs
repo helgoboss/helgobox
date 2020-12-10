@@ -49,7 +49,11 @@ impl EelTransformation {
 }
 
 impl Transformation for EelTransformation {
-    fn transform(&self, input_value: UnitValue, output_value: UnitValue) -> Result<UnitValue, ()> {
+    fn transform(
+        &self,
+        input_value: UnitValue,
+        output_value: UnitValue,
+    ) -> Result<UnitValue, &'static str> {
         let result = unsafe {
             use OutputVariable::*;
             let (input_var, output_var) = match self.output_var {
@@ -61,6 +65,6 @@ impl Transformation for EelTransformation {
             self.eel_unit.program.execute();
             output_var.get()
         };
-        result.try_into().map_err(|_| ())
+        result.try_into().map_err(|_| "result is not a unit value")
     }
 }

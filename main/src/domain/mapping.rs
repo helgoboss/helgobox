@@ -283,10 +283,10 @@ impl RealTimeMapping {
     }
 
     pub fn has_reaper_target(&self) -> bool {
-        match self.core.unresolved_target {
-            Some(UnresolvedCompoundMappingTarget::Reaper(_)) => true,
-            _ => false,
-        }
+        matches!(
+            self.core.unresolved_target,
+            Some(UnresolvedCompoundMappingTarget::Reaper(_))
+        )
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {

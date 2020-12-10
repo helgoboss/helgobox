@@ -32,10 +32,7 @@ pub(crate) enum ControlState {
 
 impl ControlState {
     fn is_learning(&self) -> bool {
-        match self {
-            ControlState::LearningSource(_) => true,
-            _ => false,
-        }
+        matches!(self, ControlState::LearningSource(_))
     }
 }
 

@@ -217,28 +217,28 @@ impl RealearnTarget for ReaperTarget {
 
     fn hide_formatted_value(&self) -> bool {
         use ReaperTarget::*;
-        match self {
+        matches!(
+            self,
             TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackSendPan { .. }
-            | Playrate { .. }
-            | Tempo { .. } => true,
-            _ => false,
-        }
+                | TrackSendVolume { .. }
+                | TrackPan { .. }
+                | TrackSendPan { .. }
+                | Playrate { .. }
+                | Tempo { .. }
+        )
     }
 
     fn hide_formatted_step_size(&self) -> bool {
         use ReaperTarget::*;
-        match self {
+        matches!(
+            self,
             TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackSendPan { .. }
-            | Playrate { .. }
-            | Tempo { .. } => true,
-            _ => false,
-        }
+                | TrackSendVolume { .. }
+                | TrackPan { .. }
+                | TrackSendPan { .. }
+                | Playrate { .. }
+                | Tempo { .. }
+        )
     }
 
     fn value_unit(&self) -> &'static str {

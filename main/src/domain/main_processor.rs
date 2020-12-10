@@ -232,7 +232,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
             match task {
                 UpdateAllParameters(parameters) => {
                     debug!(self.logger, "Updating all parameters...");
-                    self.parameters = parameters;
+                    self.parameters = *parameters;
                     // Activation is only supported for primary mappings
                     let compartment = MappingCompartment::PrimaryMappings;
                     let mut activation_updates: Vec<MappingActivationUpdate> = vec![];
@@ -622,7 +622,7 @@ pub enum NormalMainTask {
 #[derive(Debug)]
 pub enum ParameterMainTask {
     UpdateParameter { index: u32, value: f32 },
-    UpdateAllParameters(ParameterArray),
+    UpdateAllParameters(Box<ParameterArray>),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).

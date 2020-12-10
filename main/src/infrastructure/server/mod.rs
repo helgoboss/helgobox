@@ -108,8 +108,7 @@ impl RealearnServer {
     }
 
     fn effective_ip(&self) -> IpAddr {
-        self.local_ip()
-            .unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST))
+        self.local_ip().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST))
     }
 
     fn key_and_cert(&self) -> (String, String) {
@@ -139,11 +138,7 @@ impl RealearnServer {
     }
 
     pub fn is_running(&self) -> bool {
-        if let ServerState::Running { .. } = &self.state {
-            true
-        } else {
-            false
-        }
+        matches!(&self.state, ServerState::Running { .. })
     }
 
     pub fn generate_full_companion_app_url(&self, session_id: &str, localhost: bool) -> String {
@@ -449,6 +444,7 @@ fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {
     (key, cert)
 }
 
+#[allow(clippy::field_reassign_with_default)]
 fn add_key_and_cert(ip: IpAddr) -> (String, String) {
     let mut params = CertificateParams::default();
     params.subject_alt_names = vec![SanType::IpAddress(ip)];

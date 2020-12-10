@@ -67,7 +67,7 @@ impl Clone for MappingModel {
 // comparison internally calls `borrow()`!).
 impl PartialEq for MappingModel {
     fn eq(&self, other: &Self) -> bool {
-        self as *const _ == other as *const _
+        std::ptr::eq(self as _, other as _)
     }
 }
 

@@ -69,7 +69,7 @@ impl RealearnPluginParameters {
         // Update parameters
         let parameters = session_data.parameters_as_array();
         self.parameter_main_task_sender
-            .send(ParameterMainTask::UpdateAllParameters(parameters))
+            .send(ParameterMainTask::UpdateAllParameters(Box::new(parameters)))
             .unwrap();
         *self.parameters_mut() = parameters;
         // Update session

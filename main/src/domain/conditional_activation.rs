@@ -17,10 +17,7 @@ pub enum ActivationCondition {
 impl ActivationCondition {
     /// Returns if this activation condition can be affected by parameter changes in general.
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        match self {
-            ActivationCondition::Always => false,
-            _ => true,
-        }
+        !matches!(self, ActivationCondition::Always)
     }
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
@@ -170,7 +167,7 @@ impl EelCondition {
                 unsafe {
                     // We initialize this to zero. It will be constantly updated to current values
                     // in main processor.
-                    variable.set(0.0 as f64);
+                    variable.set(0.0);
                 }
                 array[i as usize] = Some(variable);
             }
