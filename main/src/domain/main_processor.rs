@@ -25,7 +25,7 @@ type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
 type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
 // TODO-low Making this a usize might save quite some code
-pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
+pub const PLUGIN_PARAMETER_COUNT: u32 = 100;
 pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
 pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
 

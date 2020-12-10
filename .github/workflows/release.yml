@@ -40,7 +40,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-05-15-${{ matrix.toolchain-suffix }}
+          toolchain: nightly-2020-12-10-${{ matrix.toolchain-suffix }}
           override: true
       - name: Install native Linux dependencies
         if: matrix.os == 'ubuntu-latest'
