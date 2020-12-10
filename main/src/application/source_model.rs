@@ -161,10 +161,12 @@ impl SourceModel {
                         if self.is_14_bit.get() == Some(true) {
                             MidiSource::ControlChange14BitValue {
                                 channel,
-                                msb_controller_number: self
-                                    .midi_message_number
-                                    .get()
-                                    .map(|n| n.into()),
+                                msb_controller_number: self.midi_message_number.get().map(|n| {
+                                    // We accept even non-MSB numbers and convert them into them.
+                                    // https://github.com/helgoboss/realearn/issues/30
+                                    let msb_controller_number = U7::new(n.get() % 32);
+                                    msb_controller_number.into()
+                                }),
                             }
                         } else {
                             MidiSource::ControlChangeValue {
