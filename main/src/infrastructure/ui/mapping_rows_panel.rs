@@ -62,13 +62,17 @@ impl MappingRowsPanel {
     pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let index = match session.index_of_mapping(self.active_compartment(), mapping) {
+        let (compartment, index) = match session.location_of_mapping(mapping) {
             None => return,
             Some(i) => i,
         };
-        self.main_state.borrow_mut().clear_filters();
         if !self.is_open() {
             session.show_in_floating_window();
+        }
+        {
+            let mut main_state = self.main_state.borrow_mut();
+            main_state.active_compartment.set(compartment);
+            main_state.clear_filters();
         }
         self.scroll(index);
     }

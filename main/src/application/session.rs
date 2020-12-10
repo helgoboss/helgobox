@@ -559,6 +559,16 @@ impl Session {
             .position(|m| m.as_ptr() == mapping as _)
     }
 
+    pub fn location_of_mapping(
+        &self,
+        mapping: *const MappingModel,
+    ) -> Option<(MappingCompartment, usize)> {
+        MappingCompartment::into_enum_iter().find_map(|compartment| {
+            let index = self.index_of_mapping(compartment, mapping)?;
+            Some((compartment, index))
+        })
+    }
+
     pub fn show_in_floating_window(&self) {
         self.context().containing_fx().show_in_floating_window();
     }
