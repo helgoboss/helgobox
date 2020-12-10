@@ -4,7 +4,8 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 
 use super::RealearnEditor;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, ProcessorContext, PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, ParameterMainTask, ProcessorContext,
+    PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::debug_util;
@@ -63,6 +64,8 @@ pub struct RealearnPlugin {
     // Will be cloned to session as soon as it gets created.
     control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     // Will be cloned to session as soon as it gets created.
+    parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+    // Will be cloned to session as soon as it gets created.
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     // Will be cloned to session as soon as it gets created.
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
@@ -90,16 +93,20 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::unbounded();
             let (control_main_task_sender, control_main_task_receiver) =
                 crossbeam_channel::unbounded();
+            let (parameter_main_task_sender, parameter_main_task_receiver) =
+                crossbeam_channel::unbounded();
             let instance_id = nanoid::nanoid!(8);
             let logger = App::logger().new(o!("instance" => instance_id.clone()));
+            let plugin_parameters =
+                Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
             Self {
                 instance_id,
                 logger: logger.clone(),
                 host,
                 session: Rc::new(LazyCell::new()),
-                main_panel: Default::default(),
+                main_panel: SharedView::new(MainPanel::new(Arc::downgrade(&plugin_parameters))),
                 reaper_guard: None,
-                plugin_parameters: Default::default(),
+                plugin_parameters,
                 normal_real_time_task_sender,
                 feedback_real_time_task_sender,
                 normal_main_task_channel: (
@@ -114,6 +121,7 @@ impl Plugin for RealearnPlugin {
                     control_main_task_sender,
                     host,
                 ),
+                parameter_main_task_receiver,
                 control_main_task_receiver,
             }
         })
@@ -292,6 +300,7 @@ impl RealearnPlugin {
         let feedback_real_time_task_sender = self.feedback_real_time_task_sender.clone();
         let normal_main_task_channel = self.normal_main_task_channel.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
+        let parameter_main_task_receiver = self.parameter_main_task_receiver.clone();
         let logger = self.logger.clone();
         let instance_id = self.instance_id.clone();
         Reaper::get()
@@ -311,6 +320,7 @@ impl RealearnPlugin {
                     feedback_real_time_task_sender,
                     normal_main_task_channel,
                     control_main_task_receiver,
+                    parameter_main_task_receiver,
                     // It's important that we use a weak pointer here. Otherwise the session keeps
                     // a strong reference to the UI and the UI keeps strong
                     // references to the session. This results in UI stuff not

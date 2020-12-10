@@ -39,6 +39,7 @@ uuid = { version = "0.8.1", features = ["v4", "serde"] }
 slog = "2.5.2"
 clipboard = "0.5.0"
 once_cell = "1.4.0"
+# For deriving Debug even HostCallback doesn't implement it
 wrap-debug = "0.1.1"
 chrono = "0.4.11"
 smallvec = "1.4.0"

@@ -1,6 +1,7 @@
 use crate::domain::{
-    ActivationCondition, ControlOptions, Mode, ProcessorContext, RealearnTarget, ReaperTarget,
-    TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
+    ActivationCondition, ControlOptions, Mode, ParameterArray, ProcessorContext, RealearnTarget,
+    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue,
+    VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -105,34 +106,26 @@ impl MainMapping {
 
     /// Returns `Some` if this affects the mapping's activation state and if the resulting state
     /// is on or off.
-    pub fn notify_param_changed(
+    pub fn is_fulfilled_single(
         &self,
-        params: &[f32],
+        params: &ParameterArray,
         index: u32,
         previous_value: f32,
-        value: f32,
     ) -> Option<bool> {
-        if self
-            .activation_condition
-            .notify_param_changed(index, previous_value, value)
-        {
-            let is_fulfilled = self.activation_condition.is_fulfilled(params);
-            Some(is_fulfilled)
-        } else {
-            None
-        }
+        self.activation_condition
+            .is_fulfilled_single(params, index, previous_value)
     }
 
     /// Returns if this activation condition is affected by parameter changes in general.
-    pub fn is_affected_by_parameters(&self) -> bool {
-        self.activation_condition.is_affected_by_parameters()
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        self.activation_condition.can_be_affected_by_parameters()
     }
 
     pub fn update_activation(&mut self, is_active: bool) {
         self.core.options.mapping_is_active = is_active;
     }
 
-    pub fn refresh_all(&mut self, context: &ProcessorContext, params: &[f32]) {
+    pub fn refresh_all(&mut self, context: &ProcessorContext, params: &ParameterArray) {
         self.refresh_target(context);
         self.refresh_activation(params);
     }
@@ -153,7 +146,7 @@ impl MainMapping {
         is_active
     }
 
-    pub fn refresh_activation(&mut self, params: &[f32]) {
+    pub fn refresh_activation(&mut self, params: &ParameterArray) {
         self.core.options.mapping_is_active = self.activation_condition.is_fulfilled(params);
     }
 

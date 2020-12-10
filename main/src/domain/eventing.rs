@@ -6,7 +6,7 @@ use std::fmt::Debug;
 #[derive(Debug)]
 pub enum DomainEvent {
     LearnedSource(CompoundMappingSource),
-    UpdateOnMappings(HashSet<MappingId>),
+    UpdatedOnMappings(HashSet<MappingId>),
 }
 
 pub trait DomainEventHandler: Debug {

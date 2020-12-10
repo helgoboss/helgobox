@@ -5,6 +5,7 @@ mod app;
 pub use app::*;
 mod realearn_plugin;
 mod realearn_plugin_parameters;
+pub use realearn_plugin_parameters::*;
 
 #[allow(unused)]
 mod built_info {

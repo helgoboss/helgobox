@@ -180,12 +180,12 @@ impl MappingModel {
     }
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(&self, params: &[f32]) -> MainMapping {
+    pub fn create_main_mapping(&self) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
         let unresolved_target = self.target_model.create_target().ok();
-        let activation_condition = self.create_activation_condition(params);
+        let activation_condition = self.create_activation_condition();
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             mapping_is_active: false,
@@ -206,7 +206,7 @@ impl MappingModel {
         )
     }
 
-    fn create_activation_condition(&self, params: &[f32]) -> ActivationCondition {
+    fn create_activation_condition(&self) -> ActivationCondition {
         if self.compartment == MappingCompartment::ControllerMappings {
             // Controller mappings are always active, no matter what weird stuff is in the model.
             return ActivationCondition::Always;
@@ -225,7 +225,7 @@ impl MappingModel {
                 param_index: self.program_condition.get().param_index(),
                 program_index: self.program_condition.get().program_index(),
             },
-            Eel => match EelCondition::compile(self.eel_condition.get_ref(), params) {
+            Eel => match EelCondition::compile(self.eel_condition.get_ref()) {
                 Ok(c) => ActivationCondition::Eel(Box::new(c)),
                 Err(_) => ActivationCondition::Always,
             },

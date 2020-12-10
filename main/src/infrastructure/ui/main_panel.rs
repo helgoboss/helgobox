@@ -10,9 +10,10 @@ use std::cell::Cell;
 
 use crate::application::{MappingModel, SessionUi, WeakSession};
 use crate::core::when;
-use crate::infrastructure::plugin::App;
+use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
+use std::sync;
 use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
@@ -23,6 +24,7 @@ pub struct MainPanel {
     active_data: LazyCell<ActiveData>,
     dimensions: Cell<Option<Dimensions<Pixels>>>,
     state: SharedMainState,
+    plugin_parameters: sync::Weak<RealearnPluginParameters>,
 }
 
 #[derive(Debug)]
@@ -32,23 +34,27 @@ struct ActiveData {
     mapping_rows_panel: SharedView<MappingRowsPanel>,
 }
 
-impl Default for MainPanel {
-    fn default() -> Self {
+impl MainPanel {
+    pub fn new(plugin_parameters: sync::Weak<RealearnPluginParameters>) -> Self {
         Self {
             view: Default::default(),
             active_data: LazyCell::new(),
             dimensions: None.into(),
             state: Default::default(),
+            plugin_parameters,
         }
     }
-}
 
-impl MainPanel {
     pub fn notify_session_is_available(self: Rc<Self>, session: WeakSession) {
         // Finally, the session is available. First, save its reference and create sub panels.
         let active_data = ActiveData {
             session: session.clone(),
-            header_panel: HeaderPanel::new(session.clone(), self.state.clone()).into(),
+            header_panel: HeaderPanel::new(
+                session.clone(),
+                self.state.clone(),
+                self.plugin_parameters.clone(),
+            )
+            .into(),
             mapping_rows_panel: MappingRowsPanel::new(
                 session,
                 Rc::downgrade(&self),

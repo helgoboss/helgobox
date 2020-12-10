@@ -1,7 +1,8 @@
 use crate::application::{ParameterSetting, Session};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    MappingCompartment, MidiControlInput, MidiFeedbackOutput, PLUGIN_PARAMETER_COUNT,
+    MappingCompartment, MidiControlInput, MidiFeedbackOutput, ParameterArray,
+    PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{MappingModelData, ParameterData};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
@@ -15,6 +16,8 @@ use std::ops::Deref;
 ///
 /// It's optimized for being represented as JSON. The JSON representation must be 100%
 /// backward-compatible.
+// TODO-low Maybe call PluginData because it also contains parameter values (which are not part of
+// the session.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionData {
@@ -50,7 +53,7 @@ pub struct SessionData {
 }
 
 impl SessionData {
-    pub fn from_model(session: &Session) -> SessionData {
+    pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
         let from_mappings = |compartment| {
             session
                 .mappings(compartment)
@@ -82,7 +85,7 @@ impl SessionData {
             active_controller_id: session.active_controller_id().map(|id| id.to_string()),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
-                    let value = session.get_parameter(i);
+                    let value = parameters[i as usize];
                     let settings = session.get_parameter_settings(i);
                     if value == 0.0 && settings.custom_name.is_none() {
                         return None;
@@ -169,16 +172,21 @@ impl SessionData {
         );
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         // Parameters
-        let mut parameters = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
         let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
         for (i, p) in self.parameters.iter() {
-            parameters[*i as usize] = p.value;
             parameter_settings[*i as usize] = ParameterSetting {
                 custom_name: p.name.clone(),
             };
         }
-        session.set_parameters_without_notification(parameters);
         session.set_parameter_settings_without_notification(parameter_settings);
         Ok(())
+    }
+
+    pub fn parameters_as_array(&self) -> ParameterArray {
+        let mut parameters = ZEROED_PLUGIN_PARAMETERS;
+        for (i, p) in self.parameters.iter() {
+            parameters[*i as usize] = p.value;
+        }
+        parameters
     }
 }

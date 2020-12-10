@@ -157,13 +157,6 @@ impl TargetModelData {
                         "Invalid track GUID {}, falling back to <This>",
                         guid
                     )),
-                    /* TODO-high Add to whatever infrastructure code calls TrackAnchor::resolve()
-                     * TrackNotFound { guid, name } => toast::warn(&format!(
-                     *     "Track not found by GUID {} and name {}, falling back to <This>",
-                     *     guid.to_string_with_braces(),
-                     *     name.map(|n| format!("\"{}\"", n))
-                     *         .unwrap_or_else(|| "-".to_string())
-                     * )), */
                 }
                 VirtualTrack::This
             }

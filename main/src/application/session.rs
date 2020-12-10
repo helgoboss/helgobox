@@ -5,8 +5,8 @@ use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
     MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
-    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget,
-    PLUGIN_PARAMETER_COUNT,
+    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask, ProcessorContext,
+    ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -64,12 +64,12 @@ pub struct Session {
         crossbeam_channel::Sender<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
     ),
+    parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
-    parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
     parameter_settings: Vec<ParameterSetting>,
     controller_manager: Box<dyn ControllerManager>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
@@ -89,6 +89,7 @@ impl Session {
             crossbeam_channel::Receiver<NormalMainTask>,
         ),
         control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         ui: impl SessionUi + 'static,
         controller_manager: impl ControllerManager + 'static,
     ) -> Session {
@@ -116,12 +117,12 @@ impl Session {
             mapping_subscriptions: Default::default(),
             main_processor_registration: None,
             normal_main_task_channel,
+            parameter_main_task_receiver,
             control_main_task_receiver,
             normal_real_time_task_sender,
             feedback_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
-            parameters: [0.0; PLUGIN_PARAMETER_COUNT as usize],
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_manager: Box::new(controller_manager),
             on_mappings: Default::default(),
@@ -144,30 +145,11 @@ impl Session {
         }
     }
 
-    pub fn get_parameter(&self, index: u32) -> f32 {
-        self.parameters[index as usize]
-    }
-
-    pub fn set_parameter(&mut self, index: u32, value: f32) {
-        self.parameters[index as usize] = value;
-        self.normal_main_task_channel
-            .0
-            .send(NormalMainTask::UpdateParameter { index, value })
-            .unwrap();
-    }
-
     pub fn set_parameter_settings_without_notification(
         &mut self,
         parameter_settings: Vec<ParameterSetting>,
     ) {
         self.parameter_settings = parameter_settings;
-    }
-
-    pub fn set_parameters_without_notification(
-        &mut self,
-        parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
-    ) {
-        self.parameters = parameters;
     }
 
     fn initial_sync(&mut self, weak_session: WeakSession) {
@@ -188,10 +170,10 @@ impl Session {
             &self.logger,
             self.normal_main_task_channel.0.clone(),
             self.normal_main_task_channel.1.clone(),
+            self.parameter_main_task_receiver.clone(),
             self.control_main_task_receiver.clone(),
             self.normal_real_time_task_sender.clone(),
             self.feedback_real_time_task_sender.clone(),
-            self.parameters,
             weak_session.clone(),
             self.context.clone(),
         );
@@ -842,7 +824,7 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let main_mapping = m.create_main_mapping(&self.parameters);
+        let main_mapping = m.create_main_mapping();
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
@@ -878,13 +860,6 @@ impl Session {
             .unwrap();
     }
 
-    fn sync_all_parameters(&self) {
-        self.normal_main_task_channel
-            .0
-            .send(NormalMainTask::UpdateAllParameters(self.parameters))
-            .unwrap();
-    }
-
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
         let main_mappings = self.create_main_mappings(compartment);
@@ -900,7 +875,7 @@ impl Session {
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
         self.mappings(compartment)
-            .map(|m| m.borrow().create_main_mapping(&self.parameters))
+            .map(|m| m.borrow().create_main_mapping())
             .collect()
     }
 
@@ -930,7 +905,6 @@ impl Session {
         self.initial_sync(weak_session);
         // Not sure why this is not included in initial sync
         self.sync_feedback_is_globally_enabled();
-        self.sync_all_parameters();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
@@ -973,7 +947,7 @@ impl DomainEventHandler for WeakSession {
             LearnedSource(source) => {
                 session.learn_source(source);
             }
-            UpdateOnMappings(on_mappings) => {
+            UpdatedOnMappings(on_mappings) => {
                 session.on_mappings.set(on_mappings);
             }
         }

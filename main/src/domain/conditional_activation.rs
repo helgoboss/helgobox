@@ -1,5 +1,5 @@
 use crate::core::eel;
-use crate::domain::PLUGIN_PARAMETER_COUNT;
+use crate::domain::{ParameterArray, PLUGIN_PARAMETER_COUNT};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -15,57 +15,98 @@ pub enum ActivationCondition {
 }
 
 impl ActivationCondition {
-    /// Returns if this activation condition is fulfilled in presence of the given set of
-    /// parameters.
-    pub fn is_fulfilled(&self, params: &[f32]) -> bool {
-        use ActivationCondition::*;
-        match self {
-            Always => true,
-            Modifiers(conditions) => conditions
-                .iter()
-                .all(|condition| condition.is_fulfilled(params)),
-            Program {
-                param_index,
-                program_index,
-            } => {
-                let param_value = params[*param_index as usize];
-                let current_program_index = (param_value * 99.0).round() as u32;
-                current_program_index == *program_index
-            }
-            Eel(condition) => condition.is_fulfilled(),
-        }
-    }
-
-    /// Returns if this activation condition is affected by parameter changes in general.
-    pub fn is_affected_by_parameters(&self) -> bool {
+    /// Returns if this activation condition can be affected by parameter changes in general.
+    pub fn can_be_affected_by_parameters(&self) -> bool {
         match self {
             ActivationCondition::Always => false,
             _ => true,
         }
     }
 
-    /// Returns if this activation condition is affected by the given parameter update.
-    ///
-    /// This is a bit hacky because in case of EEL, this actually writes something - but in EEL
-    /// world, not in Rust world, so we don't need mutable (which is important in order to avoid
-    /// a combination of mutable borrow of mapping and immutable borrow of parameter array
-    /// in `MainProcessor`).
-    //
-    // TODO-low Maybe there's better solution.
-    pub fn notify_param_changed(&self, index: u32, previous_value: f32, value: f32) -> bool {
+    /// Returns if this activation condition is fulfilled in presence of the given set of
+    /// parameters.
+    pub fn is_fulfilled(&self, params: &ParameterArray) -> bool {
         use ActivationCondition::*;
         match self {
-            Always => false,
-            Modifiers(conditions) => conditions
-                .iter()
-                .any(|c| c.is_affected_by_param_change(index, previous_value, value)),
+            Always => true,
+            Modifiers(conditions) => modifier_conditions_are_fulfilled(conditions, params),
             Program {
-                param_index: bank_param_index,
-                ..
-            } => index == *bank_param_index,
-            Eel(condition) => condition.notify_param_changed(index, value),
+                param_index,
+                program_index,
+            } => program_condition_is_fulfilled(*param_index, *program_index, params),
+            Eel(condition) => {
+                condition.notify_params_changed(params);
+                condition.is_fulfilled()
+            }
         }
     }
+
+    /// Returns `Some` if the given value change affects the mapping's activation state and if the
+    /// resulting state is on or off.
+    ///
+    /// Other parameters in the given array should not have changed! That's especially important
+    /// for the EEL activation condition which will ignore the other values in the array for
+    /// performance reasons and just look at the difference (because it has the array already
+    /// stored in the EEL VM). For performance reasons as well, the other activation condition types
+    /// don't store anything and read the given parameter array.
+    pub fn is_fulfilled_single(
+        &self,
+        params: &ParameterArray,
+        // Changed index
+        index: u32,
+        // Previous value at changed index
+        previous_value: f32,
+    ) -> Option<bool> {
+        use ActivationCondition::*;
+        let is_fulfilled = match self {
+            Modifiers(conditions) => {
+                let is_affected = conditions.iter().any(|c| {
+                    c.is_affected_by_param_change(index, previous_value, params[index as usize])
+                });
+                if !is_affected {
+                    return None;
+                }
+                modifier_conditions_are_fulfilled(conditions, params)
+            }
+            Program {
+                param_index,
+                program_index,
+            } => {
+                if index != *param_index {
+                    return None;
+                }
+                program_condition_is_fulfilled(*param_index, *program_index, params)
+            }
+            Eel(condition) => {
+                let is_affected = condition.notify_param_changed(index, params[index as usize]);
+                if !is_affected {
+                    return None;
+                }
+                condition.is_fulfilled()
+            }
+            Always => return None,
+        };
+        Some(is_fulfilled)
+    }
+}
+
+fn modifier_conditions_are_fulfilled(
+    conditions: &[ModifierCondition],
+    params: &ParameterArray,
+) -> bool {
+    conditions
+        .iter()
+        .all(|condition| condition.is_fulfilled(params))
+}
+
+fn program_condition_is_fulfilled(
+    param_index: u32,
+    program_index: u32,
+    params: &ParameterArray,
+) -> bool {
+    let param_value = params[param_index as usize];
+    let current_program_index = (param_value * 99.0).round() as u32;
+    current_program_index == program_index
 }
 
 fn param_value_is_on(value: f32) -> bool {
@@ -89,7 +130,7 @@ impl ModifierCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &[f32]) -> bool {
+    pub fn is_fulfilled(&self, params: &ParameterArray) -> bool {
         let param_value = match params.get(self.param_index as usize) {
             // Parameter doesn't exist. Shouldn't happen but handle gracefully.
             None => return false,
@@ -111,7 +152,7 @@ pub struct EelCondition {
 
 impl EelCondition {
     // Compiles the given script and creates an appropriate condition.
-    pub fn compile(eel_script: &str, initial_params: &[f32]) -> Result<EelCondition, String> {
+    pub fn compile(eel_script: &str) -> Result<EelCondition, String> {
         if eel_script.trim().is_empty() {
             return Err("script empty".to_string());
         }
@@ -127,7 +168,9 @@ impl EelCondition {
                 // compilation. All subsequent parameter value changes are done incrementally via
                 // single parameter updates (which is more efficient).
                 unsafe {
-                    variable.set(initial_params[i as usize] as f64);
+                    // We initialize this to zero. It will be constantly updated to current values
+                    // in main processor.
+                    variable.set(0.0 as f64);
                 }
                 array[i as usize] = Some(variable);
             }
@@ -139,6 +182,16 @@ impl EelCondition {
             params,
             y,
         })
+    }
+
+    pub fn notify_params_changed(&self, params: &ParameterArray) {
+        for (i, p) in self.params.iter().enumerate() {
+            if let Some(v) = p {
+                unsafe {
+                    v.set(params[i] as f64);
+                }
+            }
+        }
     }
 
     /// Returns true if activation might have changed.

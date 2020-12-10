@@ -19,12 +19,15 @@ use std::collections::{HashMap, HashSet};
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
+const PARAMETER_TASK_BULK_SIZE: usize = 32;
 
 type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
 type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
 // TODO-low Making this a usize might save quite some code
 pub const PLUGIN_PARAMETER_COUNT: u32 = 20;
+pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
+pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
 
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
@@ -38,10 +41,11 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
+    parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
+    parameters: ParameterArray,
     event_handler: EH,
     context: ProcessorContext,
     party_is_over_subject: LocalSubject<'static, (), ()>,
@@ -198,6 +202,34 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     self.event_handler
                         .handle_event(DomainEvent::LearnedSource(source));
                 }
+                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
+                    self.feedback_is_globally_enabled = is_enabled;
+                    if is_enabled {
+                        for compartment in MappingCompartment::into_enum_iter() {
+                            self.handle_feedback_after_batch_mapping_update(
+                                compartment,
+                                &HashSet::new(),
+                            );
+                        }
+                    } else {
+                        for compartment in MappingCompartment::into_enum_iter() {
+                            self.feedback_subscriptions[compartment].clear();
+                        }
+                        self.feedback_buffer.reset_all();
+                        self.send_feedback(self.feedback_all_zero());
+                    }
+                }
+            }
+        }
+        // Process parameter tasks
+        let parameter_tasks: SmallVec<[ParameterMainTask; PARAMETER_TASK_BULK_SIZE]> = self
+            .parameter_task_receiver
+            .try_iter()
+            .take(PARAMETER_TASK_BULK_SIZE)
+            .collect();
+        for task in parameter_tasks {
+            use ParameterMainTask::*;
+            match task {
                 UpdateAllParameters(parameters) => {
                     debug!(self.logger, "Updating all parameters...");
                     self.parameters = parameters;
@@ -206,7 +238,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     let mut activation_updates: Vec<MappingActivationUpdate> = vec![];
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     for m in &mut self.mappings[compartment].values_mut() {
-                        if m.is_affected_by_parameters() {
+                        if m.can_be_affected_by_parameters() {
                             m.refresh_activation(&self.parameters);
                             activation_updates.push(MappingActivationUpdate {
                                 id: m.id(),
@@ -226,6 +258,7 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 }
                 UpdateParameter { index, value } => {
                     debug!(self.logger, "Updating parameter {} to {}...", index, value);
+                    // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
                     // Activation is only supported for primary mappings
@@ -239,12 +272,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         [compartment]
                         .values()
                         .filter_map(|m| {
-                            let result = m.notify_param_changed(
-                                &self.parameters,
-                                index,
-                                previous_value,
-                                value,
-                            );
+                            let result =
+                                m.is_fulfilled_single(&self.parameters, index, previous_value);
                             result.map(|is_active| MappingActivationUpdate {
                                 id: m.id(),
                                 is_active,
@@ -269,23 +298,6 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                         activation_updates,
                         &unused_sources,
                     )
-                }
-                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
-                    self.feedback_is_globally_enabled = is_enabled;
-                    if is_enabled {
-                        for compartment in MappingCompartment::into_enum_iter() {
-                            self.handle_feedback_after_batch_mapping_update(
-                                compartment,
-                                &HashSet::new(),
-                            );
-                        }
-                    } else {
-                        for compartment in MappingCompartment::into_enum_iter() {
-                            self.feedback_subscriptions[compartment].clear();
-                        }
-                        self.feedback_buffer.reset_all();
-                        self.send_feedback(self.feedback_all_zero());
-                    }
                 }
             }
         }
@@ -353,10 +365,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         parent_logger: &slog::Logger,
         self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+        parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        parameters: [f32; PLUGIN_PARAMETER_COUNT as usize],
         event_handler: EH,
         context: ProcessorContext,
     ) -> MainProcessor<EH> {
@@ -368,13 +380,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             normal_task_receiver,
             feedback_task_receiver,
             control_task_receiver,
+            parameter_task_receiver,
             normal_real_time_task_sender,
             feedback_real_time_task_sender,
             mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
             feedback_is_globally_enabled: false,
-            parameters,
+            parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
             context,
             party_is_over_subject: Default::default(),
@@ -437,7 +450,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .map(MainMapping::id)
             .collect();
         self.event_handler
-            .handle_event(DomainEvent::UpdateOnMappings(on_mappings));
+            .handle_event(DomainEvent::UpdatedOnMappings(on_mappings));
     }
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = CompoundMappingSourceValue>) {
@@ -599,15 +612,17 @@ pub enum NormalMainTask {
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
     RefreshAllTargets,
-    UpdateAllParameters([f32; PLUGIN_PARAMETER_COUNT as usize]),
-    UpdateParameter {
-        index: u32,
-        value: f32,
-    },
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
     LearnSource(CompoundMappingSource),
+}
+
+/// A parameter-related task (which is potentially sent very frequently, just think of automation).
+#[derive(Debug)]
+pub enum ParameterMainTask {
+    UpdateParameter { index: u32, value: f32 },
+    UpdateAllParameters(ParameterArray),
 }
 
 /// A feedback-related task (which is potentially sent very frequently).

@@ -1,9 +1,8 @@
 use std::convert::TryInto;
-use std::ops::Deref;
 
 use std::rc::Rc;
 
-use std::iter;
+use std::{iter, sync};
 
 use clipboard::{ClipboardContext, ClipboardProvider};
 use enum_iterator::IntoEnumIterator;
@@ -17,11 +16,13 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{Controller, SharedSession, WeakSession};
-use crate::core::{notification, when};
+use crate::core::when;
 use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::SessionData;
-use crate::infrastructure::plugin::{warn_about_failed_server_start, App};
+use crate::infrastructure::plugin::{
+    warn_about_failed_server_start, App, RealearnPluginParameters,
+};
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{add_firewall_rule, SharedMainState};
@@ -34,15 +35,21 @@ pub struct HeaderPanel {
     session: WeakSession,
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
+    plugin_parameters: sync::Weak<RealearnPluginParameters>,
 }
 
 impl HeaderPanel {
-    pub fn new(session: WeakSession, main_state: SharedMainState) -> HeaderPanel {
+    pub fn new(
+        session: WeakSession,
+        main_state: SharedMainState,
+        plugin_parameters: sync::Weak<RealearnPluginParameters>,
+    ) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
             session: session.clone(),
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
+            plugin_parameters,
         }
     }
 }
@@ -512,18 +519,20 @@ impl HeaderPanel {
                 e
             )
         })?;
-        let shared_session = self.session();
-        let mut session = shared_session.borrow_mut();
-        if let Err(e) = session_data.apply_to_model(&mut session) {
-            notification::warn(e)
-        }
-        session.notify_everything_has_changed(self.session.clone());
-        session.mark_project_as_dirty();
+        let plugin_parameters = self
+            .plugin_parameters
+            .upgrade()
+            .expect("plugin params gone");
+        plugin_parameters.apply_session_data(&session_data);
         Ok(())
     }
 
     pub fn export_to_clipboard(&self) {
-        let session_data = SessionData::from_model(self.session().borrow().deref());
+        let plugin_parameters = self
+            .plugin_parameters
+            .upgrade()
+            .expect("plugin params gone");
+        let session_data = plugin_parameters.create_session_data();
         let json =
             serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
         let mut clipboard: ClipboardContext =
