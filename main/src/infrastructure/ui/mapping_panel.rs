@@ -1205,7 +1205,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
                     .fill_combo_box_with_data_vec(
-                        (1..=100).map(|i| (i as isize, i.to_string())).collect(),
+                        (0..=99).map(|i| (i as isize, i.to_string())).collect(),
                     )
             }
             _ => {}
