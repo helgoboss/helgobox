@@ -8,8 +8,8 @@ use crate::domain::{
     PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
-use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
+use crate::infrastructure::plugin::{debug_util, SET_STATE_PARAM_NAME};
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
@@ -188,21 +188,10 @@ impl Plugin for RealearnPlugin {
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
         firewall(|| {
             let opcode = plugin::OpCode::from(index);
-            use plugin::OpCode::*;
-            match opcode {
-                // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
-                GetData if value != 0 => {
-                    let param_name = unsafe { CStr::from_ptr(value as *const c_char) };
-                    let param_name = match param_name.to_str() {
-                        Ok(n) => n,
-                        Err(_) => return 0,
-                    };
-                    let buffer =
-                        unsafe { std::slice::from_raw_parts_mut(ptr as *mut c_char, opt as _) };
-                    let supported = self.get_named_config_param(param_name, buffer);
-                    if supported { 0xf00d } else { 0 }
-                }
-                _ => 0,
+            if self.handle_vendor_specific(opcode, value, ptr, opt).is_ok() {
+                0xf00d
+            } else {
+                0
             }
         })
         .unwrap_or(0)
@@ -344,16 +333,64 @@ impl RealearnPlugin {
             .unwrap();
     }
 
-    fn get_named_config_param(&self, param_name: &str, buffer: &mut [c_char]) -> bool {
+    fn get_named_config_param(
+        &self,
+        param_name: &str,
+        buffer: &mut [c_char],
+    ) -> Result<(), &'static str> {
         if buffer.is_empty() {
-            return false;
+            return Err("empty buffer");
         }
         match param_name {
             crate::domain::WAITING_FOR_SESSION_PARAM_NAME => {
                 buffer[0] = if self.session.filled() { 0 } else { 1 };
-                true
+                Ok(())
             }
-            _ => false,
+            _ => Err("unhandled config param"),
+        }
+    }
+
+    fn set_named_config_param(
+        &self,
+        param_name: &str,
+        buffer: *const c_char,
+    ) -> Result<(), &'static str> {
+        match param_name {
+            SET_STATE_PARAM_NAME => {
+                let c_str = unsafe { CStr::from_ptr(buffer) };
+                let rust_str = c_str.to_str().expect("not valid UTF-8");
+                self.plugin_parameters.load_state(rust_str);
+                Ok(())
+            }
+            _ => Err("unhandled config param"),
+        }
+    }
+
+    fn handle_vendor_specific(
+        &mut self,
+        opcode: plugin::OpCode,
+        value: isize,
+        ptr: *mut c_void,
+        opt: f32,
+    ) -> Result<(), &'static str> {
+        use plugin::OpCode::*;
+        fn interpret_as_param_name(value: isize) -> Result<&'static str, &'static str> {
+            let param_name = unsafe { CStr::from_ptr(value as *const c_char) };
+            param_name.to_str().map_err(|_| "invalid parameter name")
+        }
+        match opcode {
+            // Cockos named_parameter_name (http://reaper.fm/sdk/vst/vst_ext.php)
+            GetData if value != 0 => {
+                let param_name = interpret_as_param_name(value)?;
+                let buffer =
+                    unsafe { std::slice::from_raw_parts_mut(ptr as *mut c_char, opt as _) };
+                self.get_named_config_param(param_name, buffer)
+            }
+            SetData if value != 0 => {
+                let param_name = interpret_as_param_name(value)?;
+                self.set_named_config_param(param_name, ptr as *const c_char)
+            }
+            _ => Err("unhandled opcode"),
         }
     }
 }

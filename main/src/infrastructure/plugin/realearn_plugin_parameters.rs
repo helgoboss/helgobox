@@ -58,6 +58,12 @@ impl RealearnPluginParameters {
         self.apply_session_data_internal(session_data);
     }
 
+    pub fn load_state(&self, json: &str) {
+        let session_data: SessionData =
+            serde_json::from_str(json).expect("couldn't deserialize session data");
+        self.apply_session_data_internal(&session_data);
+    }
+
     fn create_session_data_internal(&self) -> SessionData {
         let session = self.session().expect("session gone");
         let session = session.borrow();
@@ -191,3 +197,5 @@ impl PluginParameters for RealearnPluginParameters {
         });
     }
 }
+
+pub const SET_STATE_PARAM_NAME: &str = "realearn/set-state";
