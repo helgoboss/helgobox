@@ -33,6 +33,8 @@ impl Test {
 
     pub async fn test(&mut self) {
         self.step("Basics", basics()).await;
+        self.step("Track by ID", track_by_id()).await;
+        self.step("Track by position", track_by_position()).await;
         self.step(
             "Conditional activation - Modifiers",
             conditional_activation_modifiers(),
@@ -101,6 +103,55 @@ async fn basics() {
         send_midi(note_on(0, 127, 100)).await;
         // Then
         assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
+    }
+}
+
+/// Tests that non-existing track ID doesn't cause errors.
+async fn track_by_id() {
+    // Given
+    let realearn = setup().await;
+    load_realearn_preset(&realearn, include_str!("presets/track-by-id.json"));
+    let realearn_track = realearn.track().unwrap();
+    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+    }
+    {
+        // When
+        let track_2 = realearn_track.project().add_track();
+        moment().await;
+        assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+        assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    }
+}
+
+async fn track_by_position() {
+    // Given
+    let realearn = setup().await;
+    load_realearn_preset(&realearn, include_str!("presets/track-by-position.json"));
+    let realearn_track = realearn.track().unwrap();
+    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+    }
+    {
+        // When
+        let track_2 = realearn_track.project().add_track();
+        moment().await;
+        assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+        assert_eq!(track_2.volume().db(), Db::MINUS_INF);
     }
 }
 
