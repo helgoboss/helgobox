@@ -79,7 +79,7 @@ impl RealearnPluginParameters {
             .unwrap();
         *self.parameters_mut() = parameters;
         // Update session
-        let shared_session = self.session().expect("should exist already");
+        let shared_session = self.session().expect("session should exist already");
         let mut session = shared_session.borrow_mut();
         if let Err(e) = session_data.apply_to_model(&mut session) {
             notification::warn(e)
