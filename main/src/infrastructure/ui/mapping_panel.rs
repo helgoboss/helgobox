@@ -1585,6 +1585,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 label.show();
                 main_combo.show();
                 action_label.hide();
+                anchor_combo.hide();
                 pick_button.hide();
                 label.set_text("Number");
                 main_combo.fill_combo_box_small(1..=100);
