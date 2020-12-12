@@ -48,6 +48,7 @@ impl Test {
         .await;
         self.step("Conditional activation - EEL", conditional_activation_eel())
             .await;
+        self.step("Virtual", virtual_mapping()).await;
         log("\nTests executed successfully!")
     }
 
@@ -91,6 +92,26 @@ async fn basics() {
     // Given
     let realearn = setup().await;
     load_realearn_preset(&realearn, include_str!("presets/basics.json"));
+    let realearn_track = realearn.track().unwrap();
+    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
+    }
+    {
+        // When
+        send_midi(note_on(0, 127, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
+    }
+}
+
+async fn virtual_mapping() {
+    // Given
+    let realearn = setup().await;
+    load_realearn_preset(&realearn, include_str!("presets/virtual.json"));
     let realearn_track = realearn.track().unwrap();
     assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
     {

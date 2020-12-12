@@ -1,0 +1,32 @@
+{
+  "id": "I3iqzlfV",
+  "sendFeedbackOnlyIfArmed": true,
+  "controlDeviceId": "62",
+  "mappings": [
+    {
+      "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+      "name": "1",
+      "source": {
+        "category": "virtual",
+        "type": 2
+      },
+      "mode": {},
+      "target": {
+        "type": 2
+      }
+    }
+  ],
+  "controllerMappings": [
+    {
+      "id": "e586e1e3-53f5-48c8-b594-4635668722eb",
+      "name": "1",
+      "source": {
+        "type": 2
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual"
+      }
+    }
+  ]
+}
