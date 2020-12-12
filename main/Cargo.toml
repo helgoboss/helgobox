@@ -83,6 +83,8 @@ itertools = "0.9"
 env_logger = "0.8.2"
 # We want to forward slog logging to standard logging
 slog-stdlog = "4.1.0"
+# To be able to yield to main thread in async functions.
+futures-timer = "3.0.2"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }

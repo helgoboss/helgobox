@@ -197,9 +197,11 @@ cargo fmt
 
 ### Test
 
-Yes, there are some tests. No, not enough 😳 While ReaLearn's basic building blocks [helgoboss-learn](https://github.com/helgoboss/helgoboss-learn) 
-and [reaper-rs](https://github.com/helgoboss/reaper-rs) are tested pretty thouroughly, ReaLearn itself needs improvement in that aspect. In future, it 
-would be nice to have an integration test running directly in REAPER, similar to the one of *reaper-rs*.
+Yes, there are test but there should be more. While ReaLearn's basic building blocks
+[helgoboss-learn](https://github.com/helgoboss/helgoboss-learn) and [reaper-rs](https://github.com/helgoboss/reaper-rs)
+are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect. There's a built-in integration
+test, launchable via action `[developer] ReaLearn: Run integration test`. In future, it would be nice to run this
+integration test during continuous integration, just like in *reaper-rs*.
 
 ### Log
 

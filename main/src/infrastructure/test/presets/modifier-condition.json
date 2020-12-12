@@ -1,0 +1,27 @@
+{
+  "id": "I3iqzlfV",
+  "sendFeedbackOnlyIfArmed": true,
+  "controlDeviceId": "62",
+  "mappings": [
+    {
+      "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+      "name": "1",
+      "source": {
+        "type": 2
+      },
+      "mode": {},
+      "target": {
+        "type": 2
+      },
+      "activationType": "modifiers",
+      "modifierCondition1": {
+        "paramIndex": 82,
+        "isOn": true
+      },
+      "modifierCondition2": {
+        "paramIndex": 13,
+        "isOn": false
+      }
+    }
+  ]
+}
