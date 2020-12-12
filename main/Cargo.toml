@@ -85,6 +85,8 @@ env_logger = "0.8.2"
 slog-stdlog = "4.1.0"
 # To be able to yield to main thread in async functions.
 futures-timer = "3.0.2"
+# To open user guide in local PDF app
+open = "1"
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }
