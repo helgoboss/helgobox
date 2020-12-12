@@ -475,6 +475,7 @@ impl ReaperTarget {
             .map_to(())
             .merge(reaper.track_added().map_to(()))
             .merge(reaper.track_removed().map_to(()))
+            .merge(reaper.track_name_changed().map_to(()))
             .merge(reaper.fx_reordered().map_to(()))
             .merge(reaper.fx_removed().map_to(()))
     }
