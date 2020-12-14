@@ -592,7 +592,7 @@ For details, see below.
 
 At this occasion some words about ReaLearn's plug-in parameters. ReaLearn itself isn't just able to
 control parameters of other FX, it also offers FX parameters itself. At the moment these are
-"Parameter 1" to "Parameter 20". You can control them just like parameters in other FX: Via automation
+"Parameter 1" to "Parameter 100". You can control them just like parameters in other FX: Via automation
 envelopes, via track controls, via REAPER's own MIDI learn ... and of course via ReaLearn itself.
 Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
 in conditional activation. In future, ReaLearn will provide additional ways to make use of parameters.
@@ -676,7 +676,7 @@ y = p1 > 0 && p2 > 0
 ```
 
 `y` represents the result. If `y` is greater than zero, the mapping will become active, otherwise
-it will become inactive. `p1` to `p20` contain the current parameter values. Each of them has a
+it will become inactive. `p1` to `p100` contain the current parameter values. Each of them has a
 value between 0.0 (= 0%) and 1.0 (= 100%).
 
 This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing
