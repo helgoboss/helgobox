@@ -640,7 +640,7 @@ impl HeaderPanel {
     }
 
     fn open_user_guide_offline(&self) {
-        let user_guide_pdf = App::realearn_resource_dir_path().join("realearn-user-guide.pdf");
+        let user_guide_pdf = App::realearn_data_dir_path().join("doc/realearn-user-guide.pdf");
         if open::that(user_guide_pdf).is_err() {
             self.view.require_window().alert(
                 "ReaLearn",

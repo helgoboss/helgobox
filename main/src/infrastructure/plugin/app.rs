@@ -132,11 +132,11 @@ impl App {
         Reaper::get().resource_path().join("Helgoboss")
     }
 
-    pub fn realearn_resource_dir_path() -> PathBuf {
+    fn realearn_resource_dir_path() -> PathBuf {
         App::helgoboss_resource_dir_path().join("ReaLearn")
     }
 
-    fn realearn_data_dir_path() -> PathBuf {
+    pub fn realearn_data_dir_path() -> PathBuf {
         Reaper::get()
             .resource_path()
             .join("Data/helgoboss/realearn")
