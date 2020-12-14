@@ -382,8 +382,7 @@ The header panel provides the following user interface elements, no matter if *p
   filter and show all mappings again.
 
 Additionally, it provides a context menu with the following entries:
-- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
-  investigating bugs or understanding how this plug-in works.
+- **Help:** As the name says.
 - **Server**
     - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn companion app to
       connect to ReaLearn.
@@ -412,7 +411,8 @@ Additionally, it provides a context menu with the following entries:
         - **At the moment, the session ID is part of the ReaLearn preset!** That means, opening a preset, copying/cutting
           a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change
           future in favor of a more nuanced approach!
-      
+- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+  investigating bugs or understanding how this plug-in works.
      
    
 #### Controller mappings

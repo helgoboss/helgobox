@@ -25,6 +25,7 @@ BEGIN
             MENUITEM "Forum", IDM_FORUM
             MENUITEM "Contact developer", IDM_CONTACT_DEVELOPER
             MENUITEM "Website", IDM_WEBSITE
+            MENUITEM "Donate!", IDM_DONATE
         END
         POPUP "Server"
         BEGIN
@@ -32,7 +33,6 @@ BEGIN
             MENUITEM "Add firewall rule", IDM_SERVER_ADD_FIREWALL_RULE
             MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
         END
-        MENUITEM "Donate!", IDM_DONATE
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
     END
 END
