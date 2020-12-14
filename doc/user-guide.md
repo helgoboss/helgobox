@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-12-08 (v1.12.0-pre6)</code></td>
+  <td><code>2020-12-14 (v1.12.0-pre7)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
