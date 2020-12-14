@@ -249,6 +249,12 @@ impl Window {
         Swell::get().GetFocus() == self.raw
     }
 
+    pub fn focus(&self) {
+        unsafe {
+            Swell::get().SetFocus(self.raw);
+        }
+    }
+
     pub fn set_slider_range(&self, min: u32, max: u32) {
         unsafe {
             Swell::get().SendMessage(self.raw, raw::TBM_SETRANGE, 0, make_long(min, max));

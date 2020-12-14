@@ -133,6 +133,11 @@ impl MappingPanel {
             self.stop_party();
             self.mapping.replace(Some(mapping));
             self.clone().start_party();
+            // If this is the first time the window is opened, the following is unnecessary, but if
+            // we reuse a window it's important to reset focus for better keyboard control.
+            self.view
+                .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
+                .focus();
             self.bring_to_foreground();
         });
     }
