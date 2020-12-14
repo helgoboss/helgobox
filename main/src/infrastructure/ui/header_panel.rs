@@ -437,16 +437,9 @@ impl HeaderPanel {
     }
 
     fn invalidate_let_unmatched_events_through_check_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
-        if self.session().borrow().midi_control_input.get() == MidiControlInput::FxInput {
-            b.enable();
-            b.set_checked(self.session().borrow().let_unmatched_events_through.get());
-        } else {
-            b.disable();
-            b.uncheck();
-        }
+        self.view
+            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
+            .set_checked(self.session().borrow().let_unmatched_events_through.get());
     }
 
     fn invalidate_send_feedback_only_if_armed_check_box(&self) {

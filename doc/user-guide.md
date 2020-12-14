@@ -310,11 +310,13 @@ So far we've covered the basics. Now let's look into everything in detail.
 The header panel provides the following user interface elements, no matter if *primary mappings* or
 *controller mappings* are shown:
 
-- **Let matched events through / Let unmatched events through:** These settings only apply if MIDI
-  control input is set to _&lt;FX input&gt;_. By default, ReaLearn "eats" incoming MIDI events for
-  which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events
-  which are used to control a target parameter. All other MIDI events are forwarded to ReaLearn's FX
-  output. Use these checkboxes to change that behavior.
+- **Let matched events through / Let unmatched events through:** By default, ReaLearn "eats" MIDI events
+  for which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events
+  which are used to control a target parameter. Unmatched MIDI events, however, are forwarded to ReaLearn's FX
+  output. This default setting usually makes much sense if you put the ReaLearn FX in front of 
+  another instrument FX. Use these checkboxes to change that behavior. Please note that this refers to MIDI events 
+  coming from *FX input* only. MIDI events captured from a MIDI hardware input are never forwarded to
+  ReaLearn's FX output. 
 - **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
   ReaLearn by default disables feedback if the track is not armed (unarming will naturally disable
   control, so disabling feedback is just consequent). However, if MIDI control input is set to a
