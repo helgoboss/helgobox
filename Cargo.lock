@@ -1746,6 +1746,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
+name = "open"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c283bf0114efea9e42f1a60edea9859e8c47528eae09d01df4b29c1e489cc48"
+dependencies = [
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2121,6 +2130,7 @@ dependencies = [
  "nanoid",
  "num_enum 0.5.1",
  "once_cell",
+ "open",
  "qrcode",
  "rcgen",
  "reaper-high",
@@ -2155,7 +2165,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d8e04d719eb526abe14ad6790b5f5929eece25e9"
+source = "git+https://github.com/helgoboss/reaper-rs.git#d8e04d719eb526abe14ad6790b5f5929eece25e9"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2178,7 +2188,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d8e04d719eb526abe14ad6790b5f5929eece25e9"
+source = "git+https://github.com/helgoboss/reaper-rs.git#d8e04d719eb526abe14ad6790b5f5929eece25e9"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2191,7 +2201,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d8e04d719eb526abe14ad6790b5f5929eece25e9"
+source = "git+https://github.com/helgoboss/reaper-rs.git#d8e04d719eb526abe14ad6790b5f5929eece25e9"
 dependencies = [
  "darling",
  "quote 1.0.7",
@@ -2201,7 +2211,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d8e04d719eb526abe14ad6790b5f5929eece25e9"
+source = "git+https://github.com/helgoboss/reaper-rs.git#d8e04d719eb526abe14ad6790b5f5929eece25e9"
 dependencies = [
  "c_str_macro",
  "derive_more",

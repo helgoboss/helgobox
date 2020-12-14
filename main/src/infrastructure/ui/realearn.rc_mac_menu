@@ -1,13 +1,24 @@
 SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
     POPUP "Header panel context menu"
     BEGIN
-        MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
+        POPUP "Help"
+        BEGIN
+            MENUITEM "User guide for this version (PDF, offline)", IDM_USER_GUIDE_OFFLINE
+            MENUITEM "User guide for latest version (HTML, online)", IDM_USER_GUIDE_ONLINE
+            MENUITEM "Forum", IDM_FORUM
+            MENUITEM "Contact developer", IDM_CONTACT_DEVELOPER
+            MENUITEM "Website", IDM_WEBSITE
+        END
+        MENUITEM SEPARATOR
         POPUP "Server"
         BEGIN
             MENUITEM "Enabled", IDM_SERVER_START
             MENUITEM "Add firewall rule", IDM_SERVER_ADD_FIREWALL_RULE
             MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
         END
+        MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
+        MENUITEM SEPARATOR
+        MENUITEM "Donate!", IDM_DONATE
     END
 SWELL_DEFINE_MENU_RESOURCE_END(IDR_HEADER_PANEL_CONTEXT_MENU)
 

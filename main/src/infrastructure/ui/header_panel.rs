@@ -646,6 +646,44 @@ impl HeaderPanel {
         App::get().log_debug_info(session.id());
     }
 
+    fn open_user_guide_offline(&self) {
+        let user_guide_pdf = App::realearn_resource_dir_path().join("realearn-user-guide.pdf");
+        if open::that(user_guide_pdf).is_err() {
+            self.view.require_window().alert(
+                "ReaLearn",
+                "Couldn't open offline user guide. Please try the online version!",
+            )
+        }
+    }
+
+    fn open_user_guide_online(&self) {
+        self.open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md");
+    }
+
+    fn donate(&self) {
+        self.open_in_browser("https://paypal.me/helgoboss");
+    }
+
+    fn open_forum(&self) {
+        self.open_in_browser("https://forum.cockos.com/showthread.php?t=178015");
+    }
+
+    fn contact_developer(&self) {
+        self.open_in_browser("mailto:info@helgoboss.org");
+    }
+
+    fn open_website(&self) {
+        self.open_in_browser("https://www.helgoboss.org/projects/realearn/");
+    }
+
+    fn open_in_browser(&self, url: &str) {
+        if webbrowser::open(url).is_err() {
+            Reaper::get().show_console_msg(
+                format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
+            );
+        }
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -844,6 +882,12 @@ impl View for HeaderPanel {
             Some(r) => r,
         };
         match result {
+            root::IDM_DONATE => self.donate(),
+            root::IDM_USER_GUIDE_OFFLINE => self.open_user_guide_offline(),
+            root::IDM_USER_GUIDE_ONLINE => self.open_user_guide_online(),
+            root::IDM_FORUM => self.open_forum(),
+            root::IDM_CONTACT_DEVELOPER => self.contact_developer(),
+            root::IDM_WEBSITE => self.open_website(),
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
             root::IDM_CHANGE_SESSION_ID => {
                 self.change_session_id();
