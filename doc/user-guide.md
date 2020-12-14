@@ -646,7 +646,7 @@ Here are some other ones:
 - **Activate each program with a separate button:** Map each button to the "Bank"
   parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value. E.g. set button
   1 min/max both to 0% and button 2 min/max both to 1%. Then pressing button 1
-  will activate program 1 and pressing button 2 will activate program 2.
+  will activate program 0 and pressing button 2 will activate program 1.
 
 In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always
 involved using multiple ReaLearn instances:
