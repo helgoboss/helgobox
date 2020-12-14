@@ -84,7 +84,7 @@ designed as independent library and could be used to provide similar MIDI-learn 
 | `/main`         | Main crate (`realearn`)                                                              |
 | `/rx-util`      | Utility crate providing primitives for reactive programming (`rx-util`)              |
 | `/swell-ui`     | Minimalistic UI framework based on [SWELL](https://www.cockos.com/wdl/) (`swell-ui`) |
-| `/test/manual`  | Various REAPER test projects for manual testing                                      |
+| `/resources`    | REAPER projects for manual testing, controller preset files                          |
 
 ### Build
 
