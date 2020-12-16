@@ -9,7 +9,8 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, ProcessorContext, TrackAnchor, TransportAction, VirtualTrack,
+    ActionInvocationType, FxAnchor, ProcessorContext, TrackAnchor, TransportAction, VirtualFx,
+    VirtualTrack,
 };
 use derive_more::{Display, Error};
 use serde::{Deserialize, Serialize};
@@ -37,16 +38,8 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     enable_only_if_track_is_selected: bool,
     // FX target
-    #[serde(
-        deserialize_with = "none_if_minus_one",
-        default,
-        skip_serializing_if = "is_default"
-    )]
-    fx_index: Option<u32>,
-    #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
-    fx_guid: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    is_input_fx: bool,
+    #[serde(flatten)]
+    fx_data: FxData,
     #[serde(default, skip_serializing_if = "is_default")]
     enable_only_if_fx_has_focus: bool,
     // Track send target
@@ -96,13 +89,7 @@ impl TargetModelData {
             invoke_relative: None,
             track_data: serialize_track(model.track.get_ref()),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
-            fx_index: model.fx_index.get(),
-            fx_guid: model
-                .fx_guid
-                .get_ref()
-                .as_ref()
-                .map(Guid::to_string_without_braces),
-            is_input_fx: model.is_input_fx.get(),
+            fx_data: serialize_fx(model.fx.get_ref().as_ref()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             send_index: model.send_index.get(),
             param_index: model.param_index.get(),
@@ -151,7 +138,7 @@ impl TargetModelData {
         let virtual_track = match deserialize_track(&self.track_data) {
             Ok(t) => t,
             Err(e) => {
-                use TrackDeserializationError::*;
+                use DeserializationError::*;
                 match e {
                     InvalidGuid(guid) => notification::warn(&format!(
                         "Invalid track GUID {}, falling back to <This>",
@@ -165,32 +152,20 @@ impl TargetModelData {
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
-        model.fx_index.set_without_notification(self.fx_index);
-        if self.r#type.supports_fx() {
-            let fx_guid = match &self.fx_guid {
-                // Before ReaLearn 1.12.0
-                None => self.fx_index.and_then(|fx_index| {
-                    match get_guid_based_fx_at_index(
-                        context.expect(
-                            "trying to load pre-1.12.0 FX target without processor context",
-                        ),
-                        &virtual_track,
-                        self.is_input_fx,
-                        fx_index,
-                    ) {
-                        Ok(fx) => fx.guid(),
-                        Err(e) => {
-                            notification::warn(e);
-                            None
-                        }
-                    }
-                }),
-                // Since ReaLearn 1.12.0
-                Some(s) => Guid::from_string_without_braces(s).ok(),
-            };
-            model.fx_guid.set(fx_guid);
-        }
-        model.is_input_fx.set_without_notification(self.is_input_fx);
+        let virtual_fx = match deserialize_fx(&self.fx_data, context, &virtual_track) {
+            Ok(f) => f,
+            Err(e) => {
+                use DeserializationError::*;
+                match e {
+                    InvalidGuid(guid) => notification::warn(&format!(
+                        "Invalid FX GUID {}, falling back to <None>",
+                        guid
+                    )),
+                }
+                None
+            }
+        };
+        model.fx.set_without_notification(virtual_fx);
         model
             .enable_only_if_fx_has_focus
             .set_without_notification(self.enable_only_if_fx_has_focus);
@@ -254,6 +229,53 @@ fn serialize_track(virtual_track: &VirtualTrack) -> TrackData {
     }
 }
 
+fn serialize_fx(virtual_fx: Option<&VirtualFx>) -> FxData {
+    let virtual_fx = match virtual_fx {
+        None => {
+            return FxData {
+                guid: None,
+                index: None,
+                is_input_fx: false,
+            };
+        }
+        Some(f) => f,
+    };
+    use VirtualFx::*;
+    match virtual_fx {
+        Focused => FxData {
+            guid: Some("focused".to_string()),
+            index: None,
+            is_input_fx: false,
+        },
+        Particular {
+            is_input_fx,
+            anchor,
+        } => match anchor {
+            FxAnchor::IdOrIndex(guid, index) => FxData {
+                index: Some(*index),
+                guid: guid.as_ref().map(Guid::to_string_without_braces),
+                is_input_fx: *is_input_fx,
+            },
+        },
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FxData {
+    #[serde(
+        rename = "fxIndex",
+        deserialize_with = "none_if_minus_one",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    index: Option<u32>,
+    #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
+    guid: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    is_input_fx: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TrackData {
@@ -267,11 +289,11 @@ struct TrackData {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
-pub enum TrackDeserializationError {
+pub enum DeserializationError {
     InvalidGuid(#[error(not(source))] String),
 }
 
-fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, TrackDeserializationError> {
+fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, DeserializationError> {
     let virtual_track = match track_data {
         TrackData {
             guid: None,
@@ -286,7 +308,7 @@ fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, TrackDeseri
             ..
         } => {
             let guid = Guid::from_string_without_braces(g)
-                .map_err(|_| TrackDeserializationError::InvalidGuid(g.to_string()))?;
+                .map_err(|_| DeserializationError::InvalidGuid(g.to_string()))?;
             let anchor = match name {
                 None => TrackAnchor::Id(guid),
                 Some(n) => TrackAnchor::IdOrName(guid, n.clone()),
@@ -305,4 +327,52 @@ fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, TrackDeseri
         } => VirtualTrack::Particular(TrackAnchor::Index(*i)),
     };
     Ok(virtual_track)
+}
+
+fn deserialize_fx(
+    fx_data: &FxData,
+    context: Option<&ProcessorContext>,
+    virtual_track: &VirtualTrack,
+) -> Result<Option<VirtualFx>, DeserializationError> {
+    let virtual_fx = match fx_data {
+        FxData { guid: Some(g), .. } if g == "focused" => Some(VirtualFx::Focused),
+        FxData { index: None, .. } => None,
+        // Since ReaLearn 1.12.0
+        FxData {
+            guid: Some(g),
+            index: Some(i),
+            is_input_fx,
+        } => {
+            let guid = Guid::from_string_without_braces(g)
+                .map_err(|_| DeserializationError::InvalidGuid(g.clone()))?;
+            Some(VirtualFx::Particular {
+                is_input_fx: *is_input_fx,
+                anchor: FxAnchor::IdOrIndex(Some(guid), *i),
+            })
+        }
+        // Before ReaLearn 1.12.0
+        FxData {
+            guid: None,
+            index: Some(i),
+            is_input_fx,
+        } => {
+            match get_guid_based_fx_at_index(
+                context.expect("trying to load pre-1.12.0 FX target without processor context"),
+                virtual_track,
+                *is_input_fx,
+                *i,
+            ) {
+                Ok(fx) => Some(VirtualFx::Particular {
+                    is_input_fx: *is_input_fx,
+                    anchor: FxAnchor::IdOrIndex(fx.guid(), *i),
+                }),
+                Err(e) => {
+                    // TODO-low We should rather return an error.
+                    notification::warn(e);
+                    None
+                }
+            }
+        }
+    };
+    Ok(virtual_fx)
 }

@@ -975,14 +975,16 @@ Only available for targets associated with a particular track send:
 
 Only available for targets associated with a particular FX instance:
 
-- **FX:** The FX instance associated with this target.
 - **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
   chain. If checked, it will show FX instances in the track's input FX chain.
+- **FX:** The FX instance associated with this target. In addition to concrete FX instances, the following options are
+  possible:
+    - **&lt;Focused&gt;**: Currently or last focused FX. *Track* and *Input FX* settings are ignored.
 - **FX must have focus:** If checked, this mapping will be active only if the FX instance set in
   _FX_ is currently focused. If the FX instance is displayed in a floating window, _focused_ means
   that the floating window is active. If it's displayed within the FX chain window, _focused_ means
   that the FX chain window is currently open and the FX instance is the currently selected FX in
-  that FX chain.
+  that FX chain. Of course, this flag doesn't have any effect if you chose _&lt;Focused&gt;_ FX.
 
 All other UI elements in this section depend on the chosen target type.
 

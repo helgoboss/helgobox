@@ -1,6 +1,6 @@
 use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, TransportAction};
 use derive_more::{Display, Error};
-use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Track, TrackSend};
+use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
 use reaper_medium::{MasterTrackBehavior, TrackLocation};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
@@ -239,9 +239,7 @@ pub struct TrackDescriptor {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxDescriptor {
     pub track_descriptor: TrackDescriptor,
-    pub is_input_fx: bool,
-    pub fx_index: u32,
-    pub fx_guid: Option<Guid>,
+    pub fx: VirtualFx,
     pub enable_only_if_fx_has_focus: bool,
 }
 
@@ -261,6 +259,16 @@ pub enum VirtualTrack {
     Particular(TrackAnchor),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Display)]
+pub enum VirtualFx {
+    /// Focused or last focused FX.
+    #[display(fmt = "<Focused>")]
+    Focused,
+    /// Particular FX.
+    #[display(fmt = "<Particular>")]
+    Particular { is_input_fx: bool, anchor: FxAnchor },
+}
+
 impl VirtualTrack {
     pub fn with_context<'a>(
         &'a self,
@@ -275,10 +283,22 @@ impl VirtualTrack {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TrackAnchor {
+    /// This is the old default and exists solely for backward compatibility.
     IdOrName(Guid, String),
+    /// This is the new default.
     Id(Guid),
     Name(String),
     Index(u32),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FxAnchor {
+    /// This is the old and new default.
+    ///
+    /// The index comes into play as fallback whenever track is "<Selected>" or the GUID can't be
+    /// determined (is `None`). I'm not sure how latter is possible but I keep it for backward
+    /// compatibility.
+    IdOrIndex(Option<Guid>, u32),
 }
 
 impl fmt::Display for TrackAnchor {
@@ -411,48 +431,64 @@ pub fn get_fx_param(
 
 // Returns an error if the FX doesn't exist.
 pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
-    // Actually it's not that important whether we create an index-based or GUID-based FX.
-    // The session listeners will recreate and resync the FX whenever something has
-    // changed anyway. But for monitoring FX it could still be good (which we don't get notified
-    // about unfortunately).
-    if descriptor.track_descriptor.track == VirtualTrack::Selected {
-        // When the target relates to the selected track, GUID-based FX doesn't make sense.
-        get_index_based_fx(
-            context,
-            &descriptor.track_descriptor.track,
-            descriptor.is_input_fx,
-            descriptor.fx_index,
-        )
-    } else {
-        let guid = descriptor.fx_guid.as_ref();
-        match guid {
-            None => get_index_based_fx(
-                context,
-                &descriptor.track_descriptor.track,
-                descriptor.is_input_fx,
-                descriptor.fx_index,
-            ),
-            Some(guid) => {
-                // Track by GUID because target relates to a very particular FX
-                get_guid_based_fx_by_guid_with_index_hint(
-                    context,
-                    &descriptor.track_descriptor.track,
-                    descriptor.is_input_fx,
-                    guid,
-                    descriptor.fx_index,
-                )
-                // Fall back to index-based (otherwise this could have the unpleasant effect
-                // that mapping panel FX menu doesn't find any FX anymore.
-                .or_else(|_| {
-                    get_index_based_fx(
-                        context,
-                        &descriptor.track_descriptor.track,
-                        descriptor.is_input_fx,
-                        descriptor.fx_index,
-                    )
-                })
+    match &descriptor.fx {
+        VirtualFx::Particular {
+            is_input_fx,
+            anchor,
+        } => {
+            match &anchor {
+                FxAnchor::IdOrIndex(guid, index) => {
+                    // Actually it's not that important whether we create an index-based or
+                    // GUID-based FX. The session listeners will recreate and
+                    // resync the FX whenever something has changed anyway. But
+                    // for monitoring FX it could still be good (which we don't get notified
+                    // about unfortunately).
+                    if descriptor.track_descriptor.track == VirtualTrack::Selected {
+                        // When the target relates to the selected track, GUID-based FX doesn't make
+                        // sense.
+                        get_index_based_fx(
+                            context,
+                            &descriptor.track_descriptor.track,
+                            *is_input_fx,
+                            *index,
+                        )
+                    } else {
+                        match guid {
+                            None => get_index_based_fx(
+                                context,
+                                &descriptor.track_descriptor.track,
+                                *is_input_fx,
+                                *index,
+                            ),
+                            Some(guid) => {
+                                // Track by GUID because target relates to a very particular FX
+                                get_guid_based_fx_by_guid_with_index_hint(
+                                    context,
+                                    &descriptor.track_descriptor.track,
+                                    *is_input_fx,
+                                    guid,
+                                    *index,
+                                )
+                                // Fall back to index-based (otherwise this could have the
+                                // unpleasant effect that mapping
+                                // panel FX menu doesn't find any FX anymore.
+                                .or_else(|_| {
+                                    get_index_based_fx(
+                                        context,
+                                        &descriptor.track_descriptor.track,
+                                        *is_input_fx,
+                                        *index,
+                                    )
+                                })
+                            }
+                        }
+                    }
+                }
             }
         }
+        VirtualFx::Focused => Reaper::get()
+            .focused_fx()
+            .ok_or("couldn't get (last) focused FX"),
     }
 }
 
