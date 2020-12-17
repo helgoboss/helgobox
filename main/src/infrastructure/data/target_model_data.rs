@@ -235,6 +235,7 @@ fn serialize_fx(virtual_fx: Option<&VirtualFx>) -> FxData {
             return FxData {
                 guid: None,
                 index: None,
+                name: None,
                 is_input_fx: false,
             };
         }
@@ -245,15 +246,29 @@ fn serialize_fx(virtual_fx: Option<&VirtualFx>) -> FxData {
         Focused => FxData {
             guid: Some("focused".to_string()),
             index: None,
+            name: None,
             is_input_fx: false,
         },
         Particular {
             is_input_fx,
             anchor,
         } => match anchor {
-            FxAnchor::IdOrIndex(guid, index) => FxData {
+            FxAnchor::Id(guid, index) => FxData {
                 index: Some(*index),
                 guid: guid.as_ref().map(Guid::to_string_without_braces),
+                name: None,
+                is_input_fx: *is_input_fx,
+            },
+            FxAnchor::Name(name) => FxData {
+                index: None,
+                guid: None,
+                name: Some(name.clone()),
+                is_input_fx: *is_input_fx,
+            },
+            FxAnchor::Index(index) => FxData {
+                index: Some(*index),
+                guid: None,
+                name: None,
                 is_input_fx: *is_input_fx,
             },
         },
@@ -272,6 +287,8 @@ struct FxData {
     index: Option<u32>,
     #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
     guid: Option<String>,
+    #[serde(rename = "fxName", default, skip_serializing_if = "is_default")]
+    name: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     is_input_fx: bool,
 }
@@ -336,25 +353,31 @@ fn deserialize_fx(
 ) -> Result<Option<VirtualFx>, DeserializationError> {
     let virtual_fx = match fx_data {
         FxData { guid: Some(g), .. } if g == "focused" => Some(VirtualFx::Focused),
-        FxData { index: None, .. } => None,
+        FxData {
+            index: None,
+            name: None,
+            ..
+        } => None,
         // Since ReaLearn 1.12.0
         FxData {
             guid: Some(g),
             index: Some(i),
             is_input_fx,
+            ..
         } => {
             let guid = Guid::from_string_without_braces(g)
                 .map_err(|_| DeserializationError::InvalidGuid(g.clone()))?;
             Some(VirtualFx::Particular {
                 is_input_fx: *is_input_fx,
-                anchor: FxAnchor::IdOrIndex(Some(guid), *i),
+                anchor: FxAnchor::Id(Some(guid), *i),
             })
         }
         // Before ReaLearn 1.12.0
         FxData {
-            guid: None,
+            guid: _,
             index: Some(i),
             is_input_fx,
+            ..
         } => {
             match get_guid_based_fx_at_index(
                 context.expect("trying to load pre-1.12.0 FX target without processor context"),
@@ -364,7 +387,7 @@ fn deserialize_fx(
             ) {
                 Ok(fx) => Some(VirtualFx::Particular {
                     is_input_fx: *is_input_fx,
-                    anchor: FxAnchor::IdOrIndex(fx.guid(), *i),
+                    anchor: FxAnchor::Id(fx.guid(), *i),
                 }),
                 Err(e) => {
                     // TODO-low We should rather return an error.
@@ -373,6 +396,15 @@ fn deserialize_fx(
                 }
             }
         }
+        FxData {
+            index: _,
+            guid: _,
+            name: Some(name),
+            is_input_fx,
+        } => Some(VirtualFx::Particular {
+            is_input_fx: *is_input_fx,
+            anchor: FxAnchor::Name(name.clone()),
+        }),
     };
     Ok(virtual_fx)
 }

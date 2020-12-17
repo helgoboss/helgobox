@@ -298,7 +298,9 @@ pub enum FxAnchor {
     /// The index comes into play as fallback whenever track is "<Selected>" or the GUID can't be
     /// determined (is `None`). I'm not sure how latter is possible but I keep it for backward
     /// compatibility.
-    IdOrIndex(Option<Guid>, u32),
+    Id(Option<Guid>, u32),
+    Name(String),
+    Index(u32),
 }
 
 impl fmt::Display for TrackAnchor {
@@ -309,6 +311,17 @@ impl fmt::Display for TrackAnchor {
             Id(id) => write!(f, "{}", id.to_string_without_braces()),
             Name(name) => write!(f, "\"{}\"", name),
             Index(i) => write!(f, "{}", i + 1),
+        }
+    }
+}
+
+impl fmt::Display for FxAnchor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use FxAnchor::*;
+        match self {
+            Id(Some(guid), i) => write!(f, "{} ({})", guid.to_string_without_braces(), i + 1),
+            Name(name) => write!(f, "\"{}\"", name),
+            Id(None, i) | Index(i) => write!(f, "{}", i + 1),
         }
     }
 }
@@ -378,6 +391,54 @@ pub enum TrackResolveError {
     },
 }
 
+impl FxAnchor {
+    pub fn resolve(&self, fx_chain: &FxChain) -> Result<Fx, FxResolveError> {
+        use FxAnchor::*;
+        let fx = match self {
+            Id(Some(guid), index) => {
+                // Track by GUID because target relates to a very particular FX
+                get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, *index)
+                    // Fall back to index-based (otherwise this could have the
+                    // unpleasant effect that mapping panel FX menu doesn't find any FX anymore.
+                    .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
+                    .map_err(|_| FxResolveError::FxNotFound {
+                        guid: Some(*guid),
+                        name: None,
+                        index: Some(*index),
+                    })?
+            }
+            Name(name) => {
+                find_fx_by_name(fx_chain, name).ok_or_else(|| FxResolveError::FxNotFound {
+                    guid: None,
+                    name: Some(name.clone()),
+                    index: None,
+                })?
+            }
+            Id(None, index) | Index(index) => get_index_based_fx_on_chain(fx_chain, *index)
+                .map_err(|_| FxResolveError::FxNotFound {
+                    guid: None,
+                    name: None,
+                    index: Some(*index),
+                })?,
+        };
+        Ok(fx)
+    }
+}
+
+fn find_fx_by_name(chain: &FxChain, name: &str) -> Option<Fx> {
+    chain.fxs().find(|fx| fx.name().to_str() == name)
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+pub enum FxResolveError {
+    #[display(fmt = "FxNotFound")]
+    FxNotFound {
+        guid: Option<Guid>,
+        name: Option<String>,
+        index: Option<u32>,
+    },
+}
+
 pub struct VirtualTrackWithContext<'a> {
     virtual_track: &'a VirtualTrack,
     context: &'a ProcessorContext,
@@ -436,55 +497,25 @@ pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<F
             is_input_fx,
             anchor,
         } => {
-            match &anchor {
-                FxAnchor::IdOrIndex(guid, index) => {
+            let actual_anchor = match anchor {
+                FxAnchor::Id(_, index) => {
                     // Actually it's not that important whether we create an index-based or
                     // GUID-based FX. The session listeners will recreate and
                     // resync the FX whenever something has changed anyway. But
                     // for monitoring FX it could still be good (which we don't get notified
                     // about unfortunately).
                     if descriptor.track_descriptor.track == VirtualTrack::Selected {
-                        // When the target relates to the selected track, GUID-based FX doesn't make
-                        // sense.
-                        get_index_based_fx(
-                            context,
-                            &descriptor.track_descriptor.track,
-                            *is_input_fx,
-                            *index,
-                        )
+                        FxAnchor::Index(*index)
                     } else {
-                        match guid {
-                            None => get_index_based_fx(
-                                context,
-                                &descriptor.track_descriptor.track,
-                                *is_input_fx,
-                                *index,
-                            ),
-                            Some(guid) => {
-                                // Track by GUID because target relates to a very particular FX
-                                get_guid_based_fx_by_guid_with_index_hint(
-                                    context,
-                                    &descriptor.track_descriptor.track,
-                                    *is_input_fx,
-                                    guid,
-                                    *index,
-                                )
-                                // Fall back to index-based (otherwise this could have the
-                                // unpleasant effect that mapping
-                                // panel FX menu doesn't find any FX anymore.
-                                .or_else(|_| {
-                                    get_index_based_fx(
-                                        context,
-                                        &descriptor.track_descriptor.track,
-                                        *is_input_fx,
-                                        *index,
-                                    )
-                                })
-                            }
-                        }
+                        anchor.clone()
                     }
                 }
-            }
+                _ => anchor.clone(),
+            };
+            let fx_chain = get_fx_chain(context, &descriptor.track_descriptor.track, *is_input_fx)?;
+            actual_anchor
+                .resolve(&fx_chain)
+                .map_err(|_| "couldn't resolve particular FX")
         }
         VirtualFx::Focused => Reaper::get()
             .focused_fx()
@@ -492,13 +523,7 @@ pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<F
     }
 }
 
-pub fn get_index_based_fx(
-    context: &ProcessorContext,
-    track: &VirtualTrack,
-    is_input_fx: bool,
-    fx_index: u32,
-) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+fn get_index_based_fx_on_chain(fx_chain: &FxChain, fx_index: u32) -> Result<Fx, &'static str> {
     let fx = fx_chain.fx_by_index_untracked(fx_index);
     if !fx.is_available() {
         return Err("no FX at that index");
@@ -520,14 +545,11 @@ pub fn get_fx_chain(
     Ok(result)
 }
 
-fn get_guid_based_fx_by_guid_with_index_hint(
-    context: &ProcessorContext,
-    track: &VirtualTrack,
-    is_input_fx: bool,
+fn get_guid_based_fx_by_guid_on_chain_with_index_hint(
+    fx_chain: &FxChain,
     guid: &Guid,
     fx_index: u32,
 ) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
     let fx = fx_chain.fx_by_guid_and_index(guid, fx_index);
     // is_available() also invalidates the index if necessary
     // TODO-low This is too implicit.

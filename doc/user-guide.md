@@ -975,11 +975,18 @@ Only available for targets associated with a particular track send:
 
 Only available for targets associated with a particular FX instance:
 
-- **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
-  chain. If checked, it will show FX instances in the track's input FX chain.
 - **FX:** The FX instance associated with this target. In addition to concrete FX instances, the following options are
   possible:
     - **&lt;Focused&gt;**: Currently or last focused FX. *Track* and *Input FX* settings are ignored.
+- **FX anchor:** If you select a concrete FX, another dropdown will appear to the right of the
+  FX dropdown. It lets you choose how ReaLearn will identify your FX instance.
+  - **ID:** Refers to the FX instance by its unique ID (the default). Choose this if you want ReaLearn to always control
+    this very particular FX instance even in case you move it somewhere else within the FX chain or rename it.
+  - **Name:** Refers to the FX instance by its name. In case there are multiple instances with the same name, it will
+    always prefer the first one.
+  - **Position:** Refers to the FX instance by its position within the FX chain.
+- **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
+  chain. If checked, it will show FX instances in the track's input FX chain.
 - **FX must have focus:** If checked, this mapping will be active only if the FX instance set in
   _FX_ is currently focused. If the FX instance is displayed in a floating window, _focused_ means
   that the floating window is active. If it's displayed within the FX chain window, _focused_ means

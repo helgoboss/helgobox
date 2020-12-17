@@ -86,10 +86,11 @@ impl TargetModel {
                             is_input_fx,
                             anchor,
                         } => match anchor {
-                            FxAnchor::IdOrIndex(guid, _) => Some(VirtualFx::Particular {
+                            FxAnchor::Id(guid, _) => Some(VirtualFx::Particular {
                                 is_input_fx: *is_input_fx,
-                                anchor: FxAnchor::IdOrIndex(*guid, actual_fx.index()),
+                                anchor: FxAnchor::Id(*guid, actual_fx.index()),
                             }),
+                            _ => None,
                         },
                         // No update necessary
                         VirtualFx::Focused => None,
@@ -114,7 +115,7 @@ impl TargetModel {
         if let Some(actual_fx) = target.fx() {
             let virtual_fx = VirtualFx::Particular {
                 is_input_fx: actual_fx.is_input_fx(),
-                anchor: FxAnchor::IdOrIndex(actual_fx.guid(), actual_fx.index()),
+                anchor: FxAnchor::Id(actual_fx.guid(), actual_fx.index()),
             };
             self.fx.set(Some(virtual_fx));
         }
@@ -328,16 +329,14 @@ pub fn get_virtual_fx_label(fx: Option<&Fx>, virtual_fx: Option<&VirtualFx>) -> 
     };
     match virtual_fx {
         VirtualFx::Focused => "<Focused>".into(),
-        VirtualFx::Particular { anchor, .. } => match anchor {
-            FxAnchor::IdOrIndex(_, index) => get_optional_fx_label(*index, fx).into(),
-        },
+        VirtualFx::Particular { anchor, .. } => get_optional_fx_label(anchor, fx).into(),
     }
 }
 
-pub fn get_optional_fx_label(index: u32, fx: Option<&Fx>) -> String {
+pub fn get_optional_fx_label(anchor: &FxAnchor, fx: Option<&Fx>) -> String {
     match fx {
-        None => format!("{}. <Not present>", index + 1),
-        Some(fx) => get_fx_label(index, fx),
+        None => format!("<Not present> ({})", anchor),
+        Some(fx) => get_fx_label(fx.index(), fx),
     }
 }
 
@@ -702,5 +701,38 @@ impl TrackAnchorType {
             IdOrName => TrackAnchor::IdOrName(*track.guid(), get_name()?),
         };
         Ok(anchor)
+    }
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
+)]
+#[repr(usize)]
+pub enum FxAnchorType {
+    #[display(fmt = "ID")]
+    Id,
+    #[display(fmt = "Name")]
+    Name,
+    #[display(fmt = "Position")]
+    Index,
+}
+
+impl FxAnchorType {
+    pub fn from_anchor(anchor: &FxAnchor) -> Self {
+        use FxAnchor::*;
+        match anchor {
+            Id(_, _) => FxAnchorType::Id,
+            Name(_) => FxAnchorType::Name,
+            Index(_) => FxAnchorType::Index,
+        }
+    }
+
+    pub fn to_anchor(self, fx: &Fx) -> FxAnchor {
+        use FxAnchorType::*;
+        match self {
+            Id => FxAnchor::Id(fx.guid(), fx.index()),
+            Name => FxAnchor::Name(fx.name().into_string()),
+            Index => FxAnchor::Index(fx.index()),
+        }
     }
 }
