@@ -954,16 +954,16 @@ Only available for targets that are associated with a particular REAPER track:
     project.
 - **Track anchor:** If you select a concrete track, another dropdown will appear to the right of the
   track dropdown. It lets you choose how ReaLearn will identify your track.
-  - **ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
+  - **By ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
     very particular track even in case you move it somewhere else or rename it. Please note that it's *not possible*
     with this setting to create a ReaLearn preset that is reusable among different projects. Because a track ID
     is globally unique, even across projects. That also means it doesn't make sense to use this setting in a
     ReaLearn monitoring FX instance.
-  - **Name:** Refers to the track by its name. In case there are multiple tracks with the same name, it will
+  - **Ny name:** Refers to the track by its name. In case there are multiple tracks with the same name, it will
     always prefer the first one. This will allow you to use one ReaLearn preset across multiple projects that
     have similar naming schemes, e.g. as monitoring FX.
-  - **Position:** Refers to the track by its position in the track list. This will allow preset reuse as well.
-  - **ID or name:** This refers to the track by its unique ID with its name as fallback. This was the default
+  - **By position:** Refers to the track by its position in the track list. This will allow preset reuse as well.
+  - **By ID or name:** This refers to the track by its unique ID with its name as fallback. This was the default
     behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 - **Track must be selected:** If checked, this mapping will be active only if the track set in
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
@@ -980,11 +980,11 @@ Only available for targets associated with a particular FX instance:
     - **&lt;Focused&gt;**: Currently or last focused FX. *Track* and *Input FX* settings are ignored.
 - **FX anchor:** If you select a concrete FX, another dropdown will appear to the right of the
   FX dropdown. It lets you choose how ReaLearn will identify your FX instance.
-  - **ID:** Refers to the FX instance by its unique ID (the default). Choose this if you want ReaLearn to always control
+  - **By ID:** Refers to the FX instance by its unique ID (the default). Choose this if you want ReaLearn to always control
     this very particular FX instance even in case you move it somewhere else within the FX chain or rename it.
-  - **Name:** Refers to the FX instance by its name. In case there are multiple instances with the same name, it will
+  - **By name:** Refers to the FX instance by its name. In case there are multiple instances with the same name, it will
     always prefer the first one.
-  - **Position:** Refers to the FX instance by its position within the FX chain.
+  - **By position:** Refers to the FX instance by its position within the FX chain.
 - **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
   chain. If checked, it will show FX instances in the track's input FX chain.
 - **FX must have focus:** If checked, this mapping will be active only if the FX instance set in

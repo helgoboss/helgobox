@@ -665,13 +665,13 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
 )]
 #[repr(usize)]
 pub enum TrackAnchorType {
-    #[display(fmt = "ID")]
+    #[display(fmt = "By ID")]
     Id,
-    #[display(fmt = "Name")]
+    #[display(fmt = "By name")]
     Name,
-    #[display(fmt = "Position")]
+    #[display(fmt = "By position")]
     Index,
-    #[display(fmt = "ID or name")]
+    #[display(fmt = "By ID or name")]
     IdOrName,
 }
 
@@ -709,11 +709,11 @@ impl TrackAnchorType {
 )]
 #[repr(usize)]
 pub enum FxAnchorType {
-    #[display(fmt = "ID")]
+    #[display(fmt = "By ID")]
     Id,
-    #[display(fmt = "Name")]
+    #[display(fmt = "By name")]
     Name,
-    #[display(fmt = "Position")]
+    #[display(fmt = "By position")]
     Index,
 }
 
