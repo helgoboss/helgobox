@@ -475,9 +475,11 @@ impl ReaperTarget {
             .map_to(())
             .merge(reaper.track_added().map_to(()))
             .merge(reaper.track_removed().map_to(()))
+            .merge(reaper.tracks_reordered().map_to(()))
             .merge(reaper.track_name_changed().map_to(()))
-            .merge(reaper.fx_reordered().map_to(()))
+            .merge(reaper.fx_added().map_to(()))
             .merge(reaper.fx_removed().map_to(()))
+            .merge(reaper.fx_reordered().map_to(()))
     }
 
     /// This contains all potential target-changing events which could also be fired by targets
