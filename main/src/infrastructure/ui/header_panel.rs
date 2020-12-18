@@ -772,7 +772,7 @@ impl HeaderPanel {
 
 impl View for HeaderPanel {
     fn dialog_resource_id(&self) -> u32 {
-        root::ID_MAPPINGS_DIALOG
+        root::ID_HEADER_PANEL
     }
 
     fn view_context(&self) -> &ViewContext {

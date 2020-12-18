@@ -2,12 +2,12 @@
 #define IDC_STATIC (-1)
 #endif
 
-#define ID_MAPPING_DIALOG                       101
-#define ID_MAPPINGS_DIALOG                      104
-#define ID_MAPPING_ROW_DIALOG                   106
-#define ID_MAPPING_ROWS_DIALOG                  108
-#define ID_MAIN_DIALOG                          111
 #define IDR_HEADER_PANEL_CONTEXT_MENU           117
+#define ID_HEADER_PANEL                         119
+#define ID_MAIN_PANEL                           120
+#define ID_MAPPING_PANEL                        121
+#define ID_MAPPING_ROW_PANEL                    122
+#define ID_MAPPING_ROWS_PANEL                   123
 #define IDM_LOG_DEBUG_INFO                      40000
 #define ID_ADD_MAPPING_BUTTON                   40000
 #define ID_MAIN_PANEL_VERSION_TEXT              40000

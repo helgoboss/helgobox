@@ -4,12 +4,12 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
-    pub const ID_MAPPING_DIALOG: u32 = 101;
-    pub const ID_MAPPINGS_DIALOG: u32 = 104;
-    pub const ID_MAPPING_ROW_DIALOG: u32 = 106;
-    pub const ID_MAPPING_ROWS_DIALOG: u32 = 108;
-    pub const ID_MAIN_DIALOG: u32 = 111;
     pub const IDR_HEADER_PANEL_CONTEXT_MENU: u32 = 117;
+    pub const ID_HEADER_PANEL: u32 = 119;
+    pub const ID_MAIN_PANEL: u32 = 120;
+    pub const ID_MAPPING_PANEL: u32 = 121;
+    pub const ID_MAPPING_ROW_PANEL: u32 = 122;
+    pub const ID_MAPPING_ROWS_PANEL: u32 = 123;
     pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 40000;

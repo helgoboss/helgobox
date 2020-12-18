@@ -2842,7 +2842,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
 impl View for MappingPanel {
     fn dialog_resource_id(&self) -> u32 {
-        root::ID_MAPPING_DIALOG
+        root::ID_MAPPING_PANEL
     }
 
     fn view_context(&self) -> &ViewContext {

@@ -145,7 +145,7 @@ impl MainPanel {
 
 impl View for MainPanel {
     fn dialog_resource_id(&self) -> u32 {
-        root::ID_MAIN_DIALOG
+        root::ID_MAIN_PANEL
     }
 
     fn view_context(&self) -> &ViewContext {
