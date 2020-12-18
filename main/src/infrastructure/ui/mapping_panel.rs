@@ -30,8 +30,8 @@ use crate::application::{
     TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakSession,
 };
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, ProcessorContext,
-    RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
+    ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
+    ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
     VirtualControlElement, VirtualFx, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
 use itertools::Itertools;
@@ -68,6 +68,7 @@ struct ImmutableMappingPanel<'a> {
 
 struct MutableMappingPanel<'a> {
     session: &'a mut Session,
+    shared_session: &'a SharedSession,
     mapping: &'a mut MappingModel,
     shared_mapping: &'a SharedMapping,
     view: &'a ViewContext,
@@ -115,11 +116,20 @@ impl MappingPanel {
         }
     }
 
-    pub fn scroll_to_mapping_in_main_panel(&self) {
-        self.main_panel
-            .upgrade()
-            .expect("main view gone")
-            .scroll_to_mapping(self.mapping_ptr());
+    fn mapping_id(&self) -> Option<MappingId> {
+        let mapping = self.mapping.borrow();
+        let mapping = mapping.as_ref()?;
+        let mapping = mapping.borrow();
+        Some(mapping.id())
+    }
+
+    pub fn force_scroll_to_mapping_in_main_panel(&self) {
+        if let Some(id) = self.mapping_id() {
+            self.main_panel
+                .upgrade()
+                .expect("main view gone")
+                .force_scroll_to_mapping(id);
+        }
     }
 
     pub fn hide(&self) {
@@ -208,6 +218,7 @@ impl MappingPanel {
         let mut mapping = shared_mapping.borrow_mut();
         let mut p = MutableMappingPanel {
             session: &mut session,
+            shared_session: &shared_session,
             mapping: &mut mapping,
             shared_mapping: &shared_mapping,
             view: &self.view,
@@ -297,7 +308,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn toggle_learn_source(&mut self) {
-        self.session.toggle_learn_source(&self.shared_mapping);
+        self.session
+            .toggle_learning_source(&self.shared_session, &self.shared_mapping);
     }
 
     fn update_mapping_control_enabled(&mut self) {
@@ -884,7 +896,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn toggle_learn_target(&mut self) {
-        self.session.toggle_learn_target(self.shared_mapping);
+        self.session
+            .toggle_learning_target(self.shared_session, self.shared_mapping);
     }
 
     fn update_target_category(&mut self) {
@@ -1991,11 +2004,11 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_session_listeners(&self) {
         self.panel
-            .when_do_sync(self.session.mapping_which_learns_source.changed(), |view| {
+            .when_do_sync(self.session.mapping_which_learns_source_changed(), |view| {
                 view.invalidate_source_learn_button();
             });
         self.panel
-            .when_do_sync(self.session.mapping_which_learns_target.changed(), |view| {
+            .when_do_sync(self.session.mapping_which_learns_target_changed(), |view| {
                 view.invalidate_target_learn_button();
             });
         let reaper = Reaper::get();
@@ -2880,7 +2893,7 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mapping_send_feedback_after_control())
             }
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
-                self.scroll_to_mapping_in_main_panel();
+                self.force_scroll_to_mapping_in_main_panel();
             }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
                 self.write(|p| p.update_mapping_activation_setting_1_on())

@@ -14,7 +14,6 @@ use enum_map::EnumMap;
 use reaper_high::Reaper;
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
-use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::RefCell;
@@ -47,13 +46,16 @@ pub struct Session {
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
     // We want that learn works independently of the UI, so they are session properties.
-    pub mapping_which_learns_source: Prop<Option<SharedMapping>>,
-    pub mapping_which_learns_target: Prop<Option<SharedMapping>>,
+    mapping_which_learns_source: Prop<Option<SharedMapping>>,
+    mapping_which_learns_target: Prop<Option<SharedMapping>>,
+    // Is set when in the state of learning multiple mappings ("batch learn")
+    learn_many_compartment: Prop<Option<MappingCompartment>>,
     active_controller_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
-    mapping_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
+    mapping_list_changed_subject:
+        LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
@@ -107,6 +109,7 @@ impl Session {
             midi_feedback_output: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
+            learn_many_compartment: prop(None),
             active_controller_id: None,
             context,
             mappings: Default::default(),
@@ -199,7 +202,7 @@ impl Session {
         // Whenever something in a specific mapping list changes, resubscribe to those mappings.
         when(self.mapping_list_changed())
             .with(weak_session.clone())
-            .do_async(|shared_session, compartment| {
+            .do_async(|shared_session, (compartment, _)| {
                 shared_session
                     .borrow_mut()
                     .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
@@ -209,7 +212,7 @@ impl Session {
         // all mappings to *all* processors.
         when(self.mapping_list_changed())
             .with(weak_session.clone())
-            .do_async(move |session, compartment| {
+            .do_async(move |session, (compartment, _)| {
                 session.borrow_mut().sync_all_mappings_full(compartment);
             });
         // Whenever something changes that determines if feedback is enabled in general, let the
@@ -253,45 +256,9 @@ impl Session {
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
         )
-        .with(weak_session.clone())
+        .with(weak_session)
         .do_sync(move |s, _| {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
-        });
-        // Enable source learning
-        // TODO-low This could be handled by normal methods instead of observables, like source
-        //  filter learning.
-        use rxrust::ops::filter_map::FilterMap;
-        when(self.mapping_which_learns_source.values().filter_map(|m| m))
-            .with(weak_session.clone())
-            .do_async(move |shared_session, mapping| {
-                let session = shared_session.borrow();
-                when(
-                    session
-                        .source_touched(mapping.borrow().compartment())
-                        // We have this explicit stop criteria because we listen to global REAPER
-                        // events.
-                        .take_until(session.party_is_over())
-                        .take_until(session.mapping_which_learns_source.changed_to(None))
-                        .take(1),
-                )
-                .with(Rc::downgrade(&shared_session))
-                .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-                .do_async(|session, source| {
-                    if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
-                        m.borrow_mut().source_model.apply_from_source(&source);
-                    }
-                });
-            });
-        // Enable target learning
-        when(
-            self.target_touched_observables(weak_session.clone())
-                .switch_on_next()
-                // We have this explicit stop criteria because we listen to global REAPER events.
-                .take_until(self.party_is_over()),
-        )
-        .with(weak_session)
-        .do_async(|session, target| {
-            session.borrow_mut().learn_target(target.as_ref());
         });
     }
 
@@ -319,6 +286,7 @@ impl Session {
     pub fn source_touched(
         &self,
         compartment: MappingCompartment,
+        reenable_control_after_touched: bool,
     ) -> impl Event<CompoundMappingSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
@@ -326,7 +294,11 @@ impl Session {
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {
-            rt_sender.send(NormalRealTimeTask::StopLearnSource).unwrap();
+            if reenable_control_after_touched {
+                rt_sender
+                    .send(NormalRealTimeTask::ReturnToControlMode)
+                    .unwrap();
+            }
         })
     }
 
@@ -419,6 +391,72 @@ impl Session {
         self.add_mapping(compartment, mapping)
     }
 
+    pub fn start_learning_many_mappings(
+        &mut self,
+        session: &SharedSession,
+        compartment: MappingCompartment,
+    ) {
+        // Prepare
+        self.disable_control();
+        self.learn_many_compartment.set(Some(compartment));
+        // Add initial mapping and start learning its source
+        self.add_and_learn_mapping(session, compartment);
+        // After target learned, add new mapping and start learning its source
+        when(
+            self.mapping_which_learns_target
+                .changed_to(None)
+                .take_until(self.learn_many_compartment.changed_to(None)),
+        )
+        .with(Rc::downgrade(session))
+        .do_async(move |session, _| {
+            session
+                .borrow_mut()
+                .add_and_learn_mapping(&session, compartment);
+        });
+    }
+
+    fn add_and_learn_mapping(&mut self, session: &SharedSession, compartment: MappingCompartment) {
+        let mapping = self.add_default_mapping(compartment);
+        toast("Please touch the control element that you want to map to a target parameter!");
+        self.start_learning_source(Rc::downgrade(session), mapping.clone(), false);
+        // After source learned, start learning target
+        when(
+            self.mapping_which_learns_source
+                .changed_to(None)
+                .take_until(self.learn_many_compartment.changed_to(None))
+                .take(1),
+        )
+        .with(Rc::downgrade(session))
+        .do_async(move |session, _| {
+            toast("Now please change the target parameter!");
+            session.borrow_mut().start_learning_target(
+                Rc::downgrade(&session),
+                mapping.clone(),
+                false,
+            );
+        });
+    }
+
+    pub fn stop_learning_many_mappings(&mut self) {
+        self.learn_many_compartment.set(None);
+        let source_learning_mapping = self.mapping_which_learns_source.get_ref().clone();
+        self.stop_learning_source();
+        self.stop_learning_target();
+        self.enable_control();
+        // Remove last added mapping if source not learned already
+        if let Some(mapping) = source_learning_mapping {
+            self.remove_mapping(mapping.borrow().compartment(), mapping.as_ptr());
+        }
+    }
+
+    pub fn many_mapping_learning_changed(&self) -> impl UnitEvent {
+        self.learn_many_compartment.changed()
+    }
+
+    pub fn is_learning_many_mappings(&self) -> bool {
+        self.learn_many_compartment.get().is_some()
+    }
+
     pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
         self.mappings[compartment].len()
     }
@@ -464,12 +502,106 @@ impl Session {
         self.id.set(self.instance_id.clone());
     }
 
-    pub fn toggle_learn_source(&mut self, mapping: &SharedMapping) {
-        toggle_learn(&mut self.mapping_which_learns_source, mapping);
+    pub fn mapping_which_learns_source_changed(&self) -> impl UnitEvent {
+        self.mapping_which_learns_source.changed()
     }
 
-    pub fn toggle_learn_target(&mut self, mapping: &SharedMapping) {
-        toggle_learn(&mut self.mapping_which_learns_target, mapping);
+    pub fn mapping_which_learns_target_changed(&self) -> impl UnitEvent {
+        self.mapping_which_learns_target.changed()
+    }
+
+    pub fn toggle_learning_source(&mut self, session: &SharedSession, mapping: &SharedMapping) {
+        if self.mapping_which_learns_source.get_ref().is_none() {
+            self.start_learning_source(Rc::downgrade(session), mapping.clone(), true);
+        } else {
+            self.stop_learning_source();
+        }
+    }
+
+    fn start_learning_source(
+        &mut self,
+        session: WeakSession,
+        mapping: SharedMapping,
+        reenable_control_after_touched: bool,
+    ) {
+        self.mapping_which_learns_source.set(Some(mapping.clone()));
+        when(
+            self.source_touched(
+                mapping.borrow().compartment(),
+                reenable_control_after_touched,
+            )
+            // We have this explicit stop criteria because we listen to global REAPER
+            // events.
+            .take_until(self.party_is_over())
+            .take_until(self.mapping_which_learns_source.changed_to(None))
+            .take(1),
+        )
+        .with(session)
+        .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
+        .do_async(|session, source| {
+            if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
+                m.borrow_mut().source_model.apply_from_source(&source);
+            }
+        });
+    }
+
+    fn stop_learning_source(&mut self) {
+        self.mapping_which_learns_source.set(None);
+    }
+
+    pub fn toggle_learning_target(&mut self, session: &SharedSession, mapping: &SharedMapping) {
+        if self.mapping_which_learns_target.get_ref().is_none() {
+            self.start_learning_target(Rc::downgrade(session), mapping.clone(), true);
+        } else {
+            self.stop_learning_target();
+        }
+    }
+
+    fn start_learning_target(
+        &mut self,
+        session: WeakSession,
+        mapping: SharedMapping,
+        handle_control_disabling: bool,
+    ) {
+        self.mapping_which_learns_target.set(Some(mapping));
+        if handle_control_disabling {
+            self.disable_control();
+        }
+        when(
+            ReaperTarget::touched()
+                // We have this explicit stop criteria because we listen to global REAPER
+                // events.
+                .take_until(self.party_is_over())
+                .take_until(self.mapping_which_learns_target.changed_to(None))
+                .take(1),
+        )
+        .with(session)
+        .finally(move |session| {
+            let mut session = session.borrow_mut();
+            if handle_control_disabling {
+                session.enable_control();
+            }
+            session.mapping_which_learns_target.set(None);
+        })
+        .do_async(|session, target| {
+            session.borrow_mut().learn_target(target.as_ref());
+        });
+    }
+
+    fn disable_control(&self) {
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::DisableControl)
+            .unwrap();
+    }
+
+    fn enable_control(&self) {
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::ReturnToControlMode)
+            .unwrap();
+    }
+
+    fn stop_learning_target(&mut self) {
+        self.mapping_which_learns_target.set(None);
     }
 
     pub fn move_mapping_up(
@@ -509,7 +641,7 @@ impl Session {
             return Err("too far down");
         }
         self.mappings[compartment].swap(current_index, new_index);
-        self.notify_mapping_list_changed(compartment);
+        self.notify_mapping_list_changed(compartment, None);
         Ok(())
     }
 
@@ -519,7 +651,7 @@ impl Session {
         mapping: *const MappingModel,
     ) {
         self.mappings[compartment].retain(|m| m.as_ptr() != mapping as _);
-        self.notify_mapping_list_changed(compartment);
+        self.notify_mapping_list_changed(compartment, None);
     }
 
     pub fn duplicate_mapping(
@@ -540,8 +672,9 @@ impl Session {
                 .set(format!("Copy of {}", mapping.name.get_ref()));
             duplicate
         };
+        let duplicate_id = duplicate.id();
         self.mappings[compartment].insert(index + 1, share_mapping(duplicate));
-        self.notify_mapping_list_changed(compartment);
+        self.notify_mapping_list_changed(compartment, Some(duplicate_id));
         Ok(())
     }
 
@@ -549,22 +682,22 @@ impl Session {
         self.all_mappings().any(|m| m.as_ptr() == mapping as _)
     }
 
-    pub fn index_of_mapping(
+    fn index_of_mapping(
         &self,
         compartment: MappingCompartment,
-        mapping: *const MappingModel,
+        mapping_id: MappingId,
     ) -> Option<usize> {
         self.mappings[compartment]
             .iter()
-            .position(|m| m.as_ptr() == mapping as _)
+            .position(|m| m.borrow().id() == mapping_id)
     }
 
     pub fn location_of_mapping(
         &self,
-        mapping: *const MappingModel,
+        mapping_id: MappingId,
     ) -> Option<(MappingCompartment, usize)> {
         MappingCompartment::into_enum_iter().find_map(|compartment| {
-            let index = self.index_of_mapping(compartment, mapping)?;
+            let index = self.index_of_mapping(compartment, mapping_id)?;
             Some((compartment, index))
         })
     }
@@ -660,33 +793,15 @@ impl Session {
     /// Fires if a mapping has been added, removed or changed its position in the list.
     ///
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
-    pub fn mapping_list_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    pub fn mapping_list_changed(
+        &self,
+    ) -> impl SharedItemEvent<(MappingCompartment, Option<MappingId>)> {
         self.mapping_list_changed_subject.clone()
     }
 
     /// Fires if a mapping itself has been changed.
     pub fn mapping_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
         self.mapping_changed_subject.clone()
-    }
-
-    /// Omits observables that omit touched targets as long as target learn is enabled.
-    // TODO-low Why not handle this in a more simple way? Like learning target filter.
-    //  That way we get rid of the switch_on_next() which is not part of the main rxRust
-    //  distribution  because we haven't fully implemented it yet.
-    fn target_touched_observables(
-        &self,
-        weak_session: WeakSession,
-    ) -> impl Event<LocalBoxOp<'static, Rc<ReaperTarget>, ()>> {
-        self.mapping_which_learns_target.changed().map(move |_| {
-            let shared_session = weak_session
-                .upgrade()
-                .expect("session not existing anymore");
-            let session = shared_session.borrow();
-            match session.mapping_which_learns_target.get_ref() {
-                None => observable::empty().box_it(),
-                Some(_) => ReaperTarget::touched().box_it(),
-            }
-        })
     }
 
     pub fn set_mappings_without_notification(
@@ -715,9 +830,10 @@ impl Session {
         compartment: MappingCompartment,
         mapping: MappingModel,
     ) -> SharedMapping {
+        let mapping_id = mapping.id();
         let shared_mapping = share_mapping(mapping);
         self.mappings[compartment].push(shared_mapping.clone());
-        self.notify_mapping_list_changed(compartment);
+        self.notify_mapping_list_changed(compartment, Some(mapping_id));
         shared_mapping
     }
 
@@ -790,6 +906,7 @@ impl Session {
 
     pub fn toggle_learn_source_for_target(
         &mut self,
+        session: &SharedSession,
         compartment: MappingCompartment,
         target: &ReaperTarget,
     ) -> SharedMapping {
@@ -803,7 +920,7 @@ impl Session {
             }
             Some(m) => m.clone(),
         };
-        self.toggle_learn_source(&mapping);
+        self.toggle_learning_source(session, &mapping);
         mapping
     }
 
@@ -814,8 +931,15 @@ impl Session {
     /// Notifies listeners async that something in a mapping list has changed.
     ///
     /// Shouldn't be used if the complete list has changed.
-    fn notify_mapping_list_changed(&mut self, compartment: MappingCompartment) {
-        AsyncNotifier::notify(&mut self.mapping_list_changed_subject, &compartment);
+    fn notify_mapping_list_changed(
+        &mut self,
+        compartment: MappingCompartment,
+        new_mapping_id: Option<MappingId>,
+    ) {
+        AsyncNotifier::notify(
+            &mut self.mapping_list_changed_subject,
+            &(compartment, new_mapping_id),
+        );
     }
 
     /// Notifies listeners async a mapping in a mapping list has changed.
@@ -941,13 +1065,6 @@ impl Drop for Session {
     }
 }
 
-fn toggle_learn(prop: &mut Prop<Option<SharedMapping>>, mapping: &SharedMapping) {
-    match prop.get_ref() {
-        Some(m) if m.as_ptr() == mapping.as_ptr() => prop.set(None),
-        _ => prop.set(Some(mapping.clone())),
-    };
-}
-
 impl DomainEventHandler for WeakSession {
     fn handle_event(&self, event: DomainEvent) {
         let session = self.upgrade().expect("session not existing anymore");
@@ -1012,3 +1129,9 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
+
+fn toast(msg: &str) {
+    let reaper = Reaper::get();
+    reaper.clear_console();
+    reaper.show_console_msg(msg);
+}

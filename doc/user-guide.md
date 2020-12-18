@@ -128,7 +128,7 @@ running. It's important to include this information in bug reports.
 
 **Let's see how to add and use our first mapping:**
 
-1. Press the "Add mapping" button.
+1. Press the "Add one" button.
    - A new mapping called "1" should appear in the mapping rows panel.
    - For now it's greyed out because it's not complete yet. The default target is a *Track FX parameter* target
      which doesn't yet refer to any specific FX. 
@@ -356,7 +356,9 @@ The header panel provides the following user interface elements, no matter if *p
   entrance ticket to batch editing. You can also use it for some very basic A/B testing (1. Press
   _Export to clipboard_, 2. change some settings and test them, 3. Restore the old settings by
   pressing _Import from clipboard_).
-- **Add mapping:** Inserts a default mapping at the end of the current mapping list.
+- **Add one:** Inserts a default mapping at the end of the current mapping list.
+- **Learn many:** Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
+  the on-screen instructions. Click *Stop* when you are finished with your bulk learning strike.
 - **Show:** This lets you choose which mapping compartment ReaLearn should display. A mapping compartment is a list
   of mappings. Initially, it shows the list of so-called "Primary mappings", which are the bread and butter of
   ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell, this compartment
@@ -458,7 +460,7 @@ In this view, you have some more user interface elements at your disposal:
 If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable
 controller mapping for each of its control elements:
 
-1. Press the "Add mapping" button.
+1. Press the "Add one" button.
 1. Learn the source by press the "Learn source" button and touching the control element.
 1. Press the "Edit" button.
 1. Enter a descriptive name for the control element.

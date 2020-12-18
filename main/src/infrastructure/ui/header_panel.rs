@@ -63,6 +63,16 @@ impl HeaderPanel {
         self.main_state.borrow().active_compartment.get()
     }
 
+    fn toggle_learn_many_mappings(&self) {
+        let shared_session = self.session();
+        let mut session = shared_session.borrow_mut();
+        if session.is_learning_many_mappings() {
+            session.stop_learning_many_mappings();
+        } else {
+            session.start_learning_many_mappings(&shared_session, self.active_compartment());
+        }
+    }
+
     fn toggle_learn_source_filter(&self) {
         let mut main_state = self.main_state.borrow_mut();
         let compartment = main_state.active_compartment.get();
@@ -78,7 +88,7 @@ impl HeaderPanel {
             when(
                 self.session()
                     .borrow()
-                    .source_touched(compartment)
+                    .source_touched(compartment, true)
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )
@@ -173,6 +183,7 @@ impl HeaderPanel {
         self.invalidate_always_auto_detect_check_box();
         self.invalidate_source_filter_buttons();
         self.invalidate_target_filter_buttons();
+        self.invalidate_learn_many_button();
     }
 
     fn invalidate_midi_control_input_combo_box(&self) {
@@ -461,6 +472,14 @@ impl HeaderPanel {
             .set_checked(self.session().borrow().always_auto_detect.get());
     }
 
+    fn invalidate_learn_many_button(&self) {
+        let is_learning = self.session().borrow().is_learning_many_mappings();
+        let learn_button_text = if is_learning { "Stop" } else { "Learn many" };
+        self.view
+            .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON)
+            .set_text(learn_button_text);
+    }
+
     fn invalidate_source_filter_buttons(&self) {
         let main_state = self.main_state.borrow();
         self.invalidate_filter_buttons(
@@ -684,16 +703,19 @@ impl HeaderPanel {
             view.invalidate_all_controls();
         });
         self.when(session.let_matched_events_through.changed(), |view| {
-            view.invalidate_let_matched_events_through_check_box()
+            view.invalidate_let_matched_events_through_check_box();
         });
         self.when(session.let_unmatched_events_through.changed(), |view| {
-            view.invalidate_let_unmatched_events_through_check_box()
+            view.invalidate_let_unmatched_events_through_check_box();
         });
         self.when(session.send_feedback_only_if_armed.changed(), |view| {
-            view.invalidate_send_feedback_only_if_armed_check_box()
+            view.invalidate_send_feedback_only_if_armed_check_box();
         });
         self.when(session.always_auto_detect.changed(), |view| {
-            view.invalidate_always_auto_detect_check_box()
+            view.invalidate_always_auto_detect_check_box();
+        });
+        self.when(session.many_mapping_learning_changed(), |view| {
+            view.invalidate_learn_many_button();
         });
         self.when(session.midi_control_input.changed(), |view| {
             view.invalidate_midi_control_input_combo_box();
@@ -733,6 +755,7 @@ impl HeaderPanel {
         self.when(main_state.active_compartment.changed(), |view| {
             view.invalidate_compartment_combo_box();
             view.invalidate_preset_controls();
+            view.invalidate_learn_many_button();
         });
         when(
             App::get()
@@ -748,6 +771,7 @@ impl HeaderPanel {
         when(
             session
                 .mapping_list_changed()
+                .map(|(compartment, _)| compartment)
                 .merge(session.mapping_changed())
                 .take_until(self.view.closed()),
         )
@@ -794,6 +818,9 @@ impl View for HeaderPanel {
                 self.session()
                     .borrow_mut()
                     .add_default_mapping(self.active_compartment());
+            }
+            ID_LEARN_MANY_MAPPINGS_BUTTON => {
+                self.toggle_learn_many_mappings();
             }
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),

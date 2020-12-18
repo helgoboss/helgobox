@@ -10,6 +10,7 @@ use std::cell::Cell;
 
 use crate::application::{MappingModel, SessionUi, WeakSession};
 use crate::core::when;
+use crate::domain::MappingId;
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
@@ -88,9 +89,9 @@ impl MainPanel {
         self.open(parent_window)
     }
 
-    pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
+    pub fn force_scroll_to_mapping(&self, mapping_id: MappingId) {
         if let Some(data) = self.active_data.borrow() {
-            data.mapping_rows_panel.scroll_to_mapping(mapping);
+            data.mapping_rows_panel.force_scroll_to_mapping(mapping_id);
         }
     }
 

@@ -226,8 +226,7 @@ impl MappingRowPanel {
         self.when(
             self.session()
                 .borrow()
-                .mapping_which_learns_source
-                .changed(),
+                .mapping_which_learns_source_changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_source_button);
             },
@@ -235,8 +234,7 @@ impl MappingRowPanel {
         self.when(
             self.session()
                 .borrow()
-                .mapping_which_learns_target
-                .changed(),
+                .mapping_which_learns_target_changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_target_button);
             },
@@ -310,15 +308,17 @@ impl MappingRowPanel {
     }
 
     fn toggle_learn_source(&self) {
-        self.session()
+        let shared_session = self.session();
+        shared_session
             .borrow_mut()
-            .toggle_learn_source(self.require_mapping().deref());
+            .toggle_learning_source(&shared_session, self.require_mapping().deref());
     }
 
     fn toggle_learn_target(&self) {
-        self.session()
+        let shared_session = self.session();
+        shared_session
             .borrow_mut()
-            .toggle_learn_target(self.require_mapping().deref());
+            .toggle_learning_target(&shared_session, self.require_mapping().deref());
     }
 
     fn update_control_is_enabled(&self) {

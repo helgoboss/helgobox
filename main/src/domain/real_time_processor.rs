@@ -25,14 +25,15 @@ const NORMAL_BULK_SIZE: usize = 100;
 const FEEDBACK_BULK_SIZE: usize = 100;
 
 #[derive(PartialEq, Debug)]
-pub(crate) enum ControlState {
+pub(crate) enum ControlMode {
+    Disabled,
     Controlling,
     LearningSource(MappingCompartment),
 }
 
-impl ControlState {
+impl ControlMode {
     fn is_learning(&self) -> bool {
-        matches!(self, ControlState::LearningSource(_))
+        matches!(self, ControlMode::LearningSource(_))
     }
 }
 
@@ -40,7 +41,7 @@ impl ControlState {
 pub struct RealTimeProcessor {
     logger: slog::Logger,
     // Synced processing settings
-    pub(crate) control_state: ControlState,
+    pub(crate) control_mode: ControlMode,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
     pub(crate) mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
@@ -76,7 +77,7 @@ impl RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
-            control_state: ControlState::Controlling,
+            control_mode: ControlMode::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
             normal_main_task_sender,
@@ -188,15 +189,19 @@ impl RealTimeProcessor {
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource(compartment) => {
-                    debug!(self.logger, "Start learn source");
-                    self.control_state = ControlState::LearningSource(compartment);
+                    debug!(self.logger, "Start learning source");
+                    self.control_mode = ControlMode::LearningSource(compartment);
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                     self.source_scanner.reset();
                 }
-                StopLearnSource => {
-                    debug!(self.logger, "Stop learn source");
-                    self.control_state = ControlState::Controlling;
+                DisableControl => {
+                    debug!(self.logger, "Disable control");
+                    self.control_mode = ControlMode::Disabled;
+                }
+                ReturnToControlMode => {
+                    debug!(self.logger, "Return to control mode");
+                    self.control_mode = ControlMode::Controlling;
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                 }
@@ -246,7 +251,7 @@ impl RealTimeProcessor {
             });
         }
         // Poll source scanner if we are learning a source currently
-        if self.control_state.is_learning() {
+        if self.control_mode.is_learning() {
             self.poll_source_scanner()
         }
     }
@@ -265,7 +270,7 @@ impl RealTimeProcessor {
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
-            self.control_state,
+            self.control_mode,
             self.mappings[MappingCompartment::PrimaryMappings].len(),
             self.mappings[MappingCompartment::PrimaryMappings]
                 .values()
@@ -364,8 +369,8 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        match self.control_state {
-            ControlState::Controlling => {
+        match self.control_mode {
+            ControlMode::Controlling => {
                 let matched = self.control_midi(source_value);
                 if self.midi_control_input != MidiControlInput::FxInput {
                     return;
@@ -378,9 +383,10 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlState::LearningSource(compartment) => {
+            ControlMode::LearningSource(compartment) => {
                 self.feed_source_scanner(source_value, compartment);
             }
+            ControlMode::Disabled => {}
         }
     }
 
@@ -436,8 +442,8 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        match self.control_state {
-            ControlState::Controlling => {
+        match self.control_mode {
+            ControlMode::Controlling => {
                 let matched = self.control_midi(source_value);
                 if self.midi_control_input != MidiControlInput::FxInput {
                     return;
@@ -450,16 +456,17 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlState::LearningSource(compartment) => {
+            ControlMode::LearningSource(compartment) => {
                 self.feed_source_scanner(source_value, compartment);
             }
+            ControlMode::Disabled => {}
         }
     }
 
     fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage) {
         let source_value = MidiSourceValue::Plain(msg);
-        match self.control_state {
-            ControlState::Controlling => {
+        match self.control_mode {
+            ControlMode::Controlling => {
                 if self.is_consumed(msg) {
                     return;
                 }
@@ -470,9 +477,10 @@ impl RealTimeProcessor {
                     self.process_unmatched_short(msg);
                 }
             }
-            ControlState::LearningSource(compartment) => {
+            ControlMode::LearningSource(compartment) => {
                 self.feed_source_scanner(source_value, compartment);
             }
+            ControlMode::Disabled => {}
         }
     }
 
@@ -646,7 +654,8 @@ pub enum NormalRealTimeTask {
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource(MappingCompartment),
-    StopLearnSource,
+    DisableControl,
+    ReturnToControlMode,
 }
 
 #[derive(Copy, Clone, Debug)]
