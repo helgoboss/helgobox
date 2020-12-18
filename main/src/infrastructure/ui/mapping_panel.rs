@@ -852,7 +852,7 @@ impl<'a> MutableMappingPanel<'a> {
         let new_virtual_fx = match self.mapping.target_model.fx.get_ref().as_ref() {
             None | Some(VirtualFx::Focused) => Some(VirtualFx::Particular {
                 is_input_fx,
-                anchor: FxAnchor::Id(None, 0),
+                anchor: FxAnchor::Index(0),
             }),
             Some(VirtualFx::Particular { anchor, .. }) => Some(VirtualFx::Particular {
                 anchor: anchor.clone(),
@@ -1018,12 +1018,12 @@ impl<'a> MutableMappingPanel<'a> {
                         .unwrap_or(FxAnchorType::Id);
                     VirtualFx::Particular {
                         is_input_fx,
-                        anchor: anchor_type.to_anchor(&fx),
+                        anchor: anchor_type.to_anchor(&fx).unwrap_or(FxAnchor::Index(i)),
                     }
                 } else {
                     VirtualFx::Particular {
                         is_input_fx,
-                        anchor: FxAnchor::Id(None, i),
+                        anchor: FxAnchor::Index(i),
                     }
                 }
             }

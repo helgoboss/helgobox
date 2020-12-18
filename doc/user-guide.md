@@ -985,6 +985,8 @@ Only available for targets associated with a particular FX instance:
   - **By name:** Refers to the FX instance by its name. In case there are multiple instances with the same name, it will
     always prefer the first one.
   - **By position:** Refers to the FX instance by its position within the FX chain.
+  - **By ID or position:** This refers to the FX by its unique ID with its position as fallback. This was the default
+    behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 - **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
   chain. If checked, it will show FX instances in the track's input FX chain.
 - **FX must have focus:** If checked, this mapping will be active only if the FX instance set in

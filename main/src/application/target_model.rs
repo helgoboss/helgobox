@@ -86,9 +86,9 @@ impl TargetModel {
                             is_input_fx,
                             anchor,
                         } => match anchor {
-                            FxAnchor::Id(guid, _) => Some(VirtualFx::Particular {
+                            FxAnchor::IdOrIndex(guid, _) => Some(VirtualFx::Particular {
                                 is_input_fx: *is_input_fx,
-                                anchor: FxAnchor::Id(*guid, actual_fx.index()),
+                                anchor: FxAnchor::IdOrIndex(*guid, actual_fx.index()),
                             }),
                             _ => None,
                         },
@@ -115,7 +115,7 @@ impl TargetModel {
         if let Some(actual_fx) = target.fx() {
             let virtual_fx = VirtualFx::Particular {
                 is_input_fx: actual_fx.is_input_fx(),
-                anchor: FxAnchor::Id(actual_fx.guid(), actual_fx.index()),
+                anchor: FxAnchor::IdOrIndex(actual_fx.guid(), actual_fx.index()),
             };
             self.fx.set(Some(virtual_fx));
         }
@@ -705,16 +705,32 @@ impl TrackAnchorType {
 }
 
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    Serialize,
+    Deserialize,
 )]
 #[repr(usize)]
 pub enum FxAnchorType {
     #[display(fmt = "By ID")]
+    #[serde(rename = "id")]
     Id,
     #[display(fmt = "By name")]
+    #[serde(rename = "name")]
     Name,
     #[display(fmt = "By position")]
+    #[serde(rename = "index")]
     Index,
+    #[display(fmt = "By ID or position")]
+    #[serde(rename = "id-or-index")]
+    IdOrIndex,
 }
 
 impl FxAnchorType {
@@ -724,15 +740,18 @@ impl FxAnchorType {
             Id(_, _) => FxAnchorType::Id,
             Name(_) => FxAnchorType::Name,
             Index(_) => FxAnchorType::Index,
+            IdOrIndex(_, _) => FxAnchorType::IdOrIndex,
         }
     }
 
-    pub fn to_anchor(self, fx: &Fx) -> FxAnchor {
+    pub fn to_anchor(self, fx: &Fx) -> Result<FxAnchor, &'static str> {
         use FxAnchorType::*;
-        match self {
-            Id => FxAnchor::Id(fx.guid(), fx.index()),
+        let anchor = match self {
+            Id => FxAnchor::Id(fx.guid().ok_or("FX not GUID-based")?, Some(fx.index())),
             Name => FxAnchor::Name(fx.name().into_string()),
             Index => FxAnchor::Index(fx.index()),
-        }
+            IdOrIndex => FxAnchor::IdOrIndex(fx.guid(), fx.index()),
+        };
+        Ok(anchor)
     }
 }

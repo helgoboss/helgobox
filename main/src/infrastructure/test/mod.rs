@@ -2,7 +2,7 @@ use crate::domain::PLUGIN_PARAMETER_COUNT;
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use helgoboss_midi::test_util::*;
 use helgoboss_midi::ShortMessage;
-use reaper_high::{ActionKind, Fx, Reaper};
+use reaper_high::{ActionKind, Fx, FxParameter, Reaper};
 use reaper_medium::{Db, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
@@ -36,6 +36,9 @@ impl Test {
         self.step("Track by ID", track_by_id()).await;
         self.step("Track by position", track_by_position()).await;
         self.step("Track by name", track_by_name()).await;
+        self.step("FX by ID", fx_by_id()).await;
+        self.step("FX by position", fx_by_position()).await;
+        self.step("FX by name", fx_by_name()).await;
         self.step(
             "Conditional activation - Modifiers",
             conditional_activation_modifiers(),
@@ -174,6 +177,121 @@ async fn track_by_position() {
         // Then
         assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
         assert_eq!(track_2.volume().db(), Db::MINUS_INF);
+    }
+}
+
+async fn fx_by_position() {
+    // Given
+    let realearn = setup().await;
+    let project = Reaper::get().current_project();
+    let chain = project.add_track().normal_fx_chain();
+    let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
+    let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
+    let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
+    load_realearn_preset(&realearn, include_str!("presets/fx-by-position.json"));
+    fn is_zero(param: FxParameter) -> bool {
+        param.reaper_normalized_value().unwrap().get() == 0.0
+    }
+    assert!(!is_zero(eq.parameter_by_index(1)));
+    assert!(!is_zero(synth.parameter_by_index(1)));
+    assert!(!is_zero(delay.parameter_by_index(1)));
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(is_zero(eq.parameter_by_index(1)));
+    }
+    {
+        // When
+        chain.remove_fx(&eq);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(is_zero(synth.parameter_by_index(1)));
+    }
+    {
+        // When
+        chain.move_fx(&delay, 1);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(is_zero(delay.parameter_by_index(1)));
+    }
+}
+
+async fn fx_by_name() {
+    // Given
+    let realearn = setup().await;
+    let project = Reaper::get().current_project();
+    let chain = project.add_track().normal_fx_chain();
+    let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
+    let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
+    let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
+    load_realearn_preset(&realearn, include_str!("presets/fx-by-name.json"));
+    fn is_zero(param: FxParameter) -> bool {
+        param.reaper_normalized_value().unwrap().get() == 0.0
+    }
+    assert!(!is_zero(eq.parameter_by_index(1)));
+    assert!(!is_zero(synth.parameter_by_index(1)));
+    assert!(!is_zero(delay.parameter_by_index(1)));
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(is_zero(eq.parameter_by_index(1)));
+    }
+    {
+        // When
+        chain.remove_fx(&eq);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(!is_zero(synth.parameter_by_index(1)));
+    }
+    {
+        // When
+        chain.move_fx(&delay, 1);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(!is_zero(delay.parameter_by_index(1)));
+    }
+}
+
+async fn fx_by_id() {
+    // Given
+    let realearn = setup().await;
+    let project = Reaper::get().current_project();
+    let chain = project.add_track().normal_fx_chain();
+    let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
+    let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
+    let eq_guid_string = eq.guid().unwrap().to_string_without_braces();
+    let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
+    load_realearn_preset(
+        &realearn,
+        &include_str!("presets/fx-by-id.json").replace("$EQ_GUID", &eq_guid_string),
+    );
+    fn is_zero(param: FxParameter) -> bool {
+        param.reaper_normalized_value().unwrap().get() == 0.0
+    }
+    assert!(!is_zero(eq.parameter_by_index(1)));
+    assert!(!is_zero(synth.parameter_by_index(1)));
+    assert!(!is_zero(delay.parameter_by_index(1)));
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(is_zero(eq.parameter_by_index(1)));
+    }
+    {
+        // When
+        chain.remove_fx(&eq);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(!is_zero(synth.parameter_by_index(1)));
+    }
+    {
+        // When
+        chain.move_fx(&delay, 1);
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert!(!is_zero(delay.parameter_by_index(1)));
     }
 }
 

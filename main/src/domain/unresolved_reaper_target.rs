@@ -293,14 +293,18 @@ pub enum TrackAnchor {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FxAnchor {
-    /// This is the old and new default.
+    /// This is the new default.
+    ///
+    /// The index is just used as performance hint, not as fallback.
+    Id(Guid, Option<u32>),
+    Name(String),
+    Index(u32),
+    /// This is the old default.
     ///
     /// The index comes into play as fallback whenever track is "<Selected>" or the GUID can't be
     /// determined (is `None`). I'm not sure how latter is possible but I keep it for backward
     /// compatibility.
-    Id(Option<Guid>, u32),
-    Name(String),
-    Index(u32),
+    IdOrIndex(Option<Guid>, u32),
 }
 
 impl fmt::Display for TrackAnchor {
@@ -319,9 +323,14 @@ impl fmt::Display for FxAnchor {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use FxAnchor::*;
         match self {
-            Id(Some(guid), i) => write!(f, "{} ({})", guid.to_string_without_braces(), i + 1),
+            Id(guid, _) => {
+                write!(f, "{}", guid.to_string_without_braces())
+            }
             Name(name) => write!(f, "\"{}\"", name),
-            Id(None, i) | Index(i) => write!(f, "{}", i + 1),
+            IdOrIndex(None, i) | Index(i) => write!(f, "{}", i + 1),
+            IdOrIndex(Some(guid), i) => {
+                write!(f, "{} ({})", guid.to_string_without_braces(), i + 1)
+            }
         }
     }
 }
@@ -395,18 +404,14 @@ impl FxAnchor {
     pub fn resolve(&self, fx_chain: &FxChain) -> Result<Fx, FxResolveError> {
         use FxAnchor::*;
         let fx = match self {
-            Id(Some(guid), index) => {
-                // Track by GUID because target relates to a very particular FX
-                get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, *index)
-                    // Fall back to index-based (otherwise this could have the
-                    // unpleasant effect that mapping panel FX menu doesn't find any FX anymore.
-                    .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
-                    .map_err(|_| FxResolveError::FxNotFound {
-                        guid: Some(*guid),
-                        name: None,
-                        index: Some(*index),
-                    })?
-            }
+            Id(guid, index) => get_guid_based_fx_by_guid_on_chain_with_index_hint(
+                fx_chain, guid, *index,
+            )
+            .map_err(|_| FxResolveError::FxNotFound {
+                guid: Some(*guid),
+                name: None,
+                index: None,
+            })?,
             Name(name) => {
                 find_fx_by_name(fx_chain, name).ok_or_else(|| FxResolveError::FxNotFound {
                     guid: None,
@@ -414,12 +419,23 @@ impl FxAnchor {
                     index: None,
                 })?
             }
-            Id(None, index) | Index(index) => get_index_based_fx_on_chain(fx_chain, *index)
+            IdOrIndex(None, index) | Index(index) => get_index_based_fx_on_chain(fx_chain, *index)
                 .map_err(|_| FxResolveError::FxNotFound {
                     guid: None,
                     name: None,
                     index: Some(*index),
                 })?,
+            IdOrIndex(Some(guid), index) => {
+                // Track by GUID because target relates to a very particular FX
+                get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, Some(*index))
+                    // Fall back to index-based
+                    .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
+                    .map_err(|_| FxResolveError::FxNotFound {
+                        guid: Some(*guid),
+                        name: None,
+                        index: Some(*index),
+                    })?
+            }
         };
         Ok(fx)
     }
@@ -498,7 +514,7 @@ pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<F
             anchor,
         } => {
             let actual_anchor = match anchor {
-                FxAnchor::Id(_, index) => {
+                FxAnchor::IdOrIndex(_, index) => {
                     // Actually it's not that important whether we create an index-based or
                     // GUID-based FX. The session listeners will recreate and
                     // resync the FX whenever something has changed anyway. But
@@ -548,9 +564,13 @@ pub fn get_fx_chain(
 fn get_guid_based_fx_by_guid_on_chain_with_index_hint(
     fx_chain: &FxChain,
     guid: &Guid,
-    fx_index: u32,
+    fx_index: Option<u32>,
 ) -> Result<Fx, &'static str> {
-    let fx = fx_chain.fx_by_guid_and_index(guid, fx_index);
+    let fx = if let Some(i) = fx_index {
+        fx_chain.fx_by_guid_and_index(guid, i)
+    } else {
+        fx_chain.fx_by_guid(guid)
+    };
     // is_available() also invalidates the index if necessary
     // TODO-low This is too implicit.
     if !fx.is_available() {
