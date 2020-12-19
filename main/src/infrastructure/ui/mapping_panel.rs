@@ -105,6 +105,14 @@ impl MappingPanel {
         }
     }
 
+    fn toggle_learn_source(&self) {
+        let session = self.session();
+        let mapping = self.mapping();
+        session
+            .borrow_mut()
+            .toggle_learning_source(&session, &mapping);
+    }
+
     pub fn is_free(&self) -> bool {
         self.mapping.borrow().is_none()
     }
@@ -185,6 +193,11 @@ impl MappingPanel {
 
     fn session(&self) -> SharedSession {
         self.session.upgrade().expect("session gone")
+    }
+
+    fn mapping(&self) -> SharedMapping {
+        let shared_mapping = self.mapping.borrow();
+        shared_mapping.as_ref().expect("mapping not filled").clone()
     }
 
     fn read<R>(
@@ -305,11 +318,6 @@ impl<'a> MutableMappingPanel<'a> {
                 .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
         }
-    }
-
-    fn toggle_learn_source(&mut self) {
-        self.session
-            .toggle_learning_source(&self.shared_session, &self.shared_mapping);
     }
 
     fn update_mapping_control_enabled(&mut self) {
@@ -2906,7 +2914,7 @@ impl View for MappingPanel {
                 self.hide();
             }
             // Source
-            ID_SOURCE_LEARN_BUTTON => self.write(|p| p.toggle_learn_source()),
+            ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),
             ID_SOURCE_RPN_CHECK_BOX => self.write(|p| p.update_source_is_registered()),
             ID_SOURCE_14_BIT_CHECK_BOX => self.write(|p| p.update_source_is_14_bit()),
             // Mode
