@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel};
+use crate::infrastructure::ui::{MainPanel, MappingPanel, OverlayPanel};
 use reaper_high::Reaper;
 use slog::debug;
 
@@ -13,6 +13,7 @@ pub struct MappingPanelManager {
     session: WeakSession,
     main_panel: WeakView<MainPanel>,
     open_panels: Vec<SharedView<MappingPanel>>,
+    overlay_panel: SharedView<OverlayPanel>,
 }
 
 impl MappingPanelManager {
@@ -21,6 +22,7 @@ impl MappingPanelManager {
             session,
             main_panel,
             open_panels: Default::default(),
+            overlay_panel: SharedView::new(OverlayPanel::new()),
         }
     }
 
@@ -39,6 +41,12 @@ impl MappingPanelManager {
         }
         let panel = self.request_panel();
         panel.show(mapping.clone());
+
+        {
+            // TODO-high
+            let reaper_main_window = Window::from_non_null(Reaper::get().main_window());
+            self.overlay_panel.clone().open(reaper_main_window);
+        }
     }
 
     /// Closes and removes panels of mappings which don't exist anymore.

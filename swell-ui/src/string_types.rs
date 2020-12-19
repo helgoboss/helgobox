@@ -6,7 +6,7 @@ use std::os::raw::c_char;
 pub struct SwellStringArg<'a>(Cow<'a, CStr>);
 
 impl<'a> SwellStringArg<'a> {
-    pub(super) fn as_ptr(&self) -> *const c_char {
+    pub fn as_ptr(&self) -> *const c_char {
         self.0.as_ptr()
     }
 

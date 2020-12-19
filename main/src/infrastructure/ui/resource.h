@@ -8,6 +8,7 @@
 #define ID_MAPPING_PANEL                        121
 #define ID_MAPPING_ROW_PANEL                    122
 #define ID_MAPPING_ROWS_PANEL                   123
+#define ID_OVERLAY                              125
 #define IDM_LOG_DEBUG_INFO                      40000
 #define ID_ADD_MAPPING_BUTTON                   40000
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
