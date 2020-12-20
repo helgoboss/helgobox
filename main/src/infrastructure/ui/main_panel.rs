@@ -1,12 +1,13 @@
 use crate::infrastructure::ui::{
-    bindings::root, constants, HeaderPanel, MappingRowsPanel, SharedMainState,
+    bindings::root, constants, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    SharedIndependentPanelManager, SharedMainState,
 };
 
 use lazycell::LazyCell;
 use reaper_high::Reaper;
 
 use slog::debug;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use crate::application::{MappingModel, SessionUi, WeakSession};
 use crate::core::when;
@@ -33,6 +34,7 @@ struct ActiveData {
     session: WeakSession,
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
+    panel_manager: SharedIndependentPanelManager,
 }
 
 impl MainPanel {
@@ -48,20 +50,24 @@ impl MainPanel {
 
     pub fn notify_session_is_available(self: Rc<Self>, session: WeakSession) {
         // Finally, the session is available. First, save its reference and create sub panels.
+        let panel_manager = IndependentPanelManager::new(session.clone(), Rc::downgrade(&self));
+        let panel_manager = Rc::new(RefCell::new(panel_manager));
         let active_data = ActiveData {
             session: session.clone(),
             header_panel: HeaderPanel::new(
                 session.clone(),
                 self.state.clone(),
                 self.plugin_parameters.clone(),
+                Rc::downgrade(&panel_manager),
             )
             .into(),
             mapping_rows_panel: MappingRowsPanel::new(
                 session,
-                Rc::downgrade(&self),
+                Rc::downgrade(&panel_manager),
                 self.state.clone(),
             )
             .into(),
+            panel_manager,
         };
         self.active_data.fill(active_data).unwrap();
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!

@@ -18,11 +18,11 @@ pub use mapping_row_panel::*;
 mod mapping_panel;
 pub use mapping_panel::*;
 
-mod overlay_panel;
-pub use overlay_panel::*;
+mod message_panel;
+pub use message_panel::*;
 
-mod mapping_panel_manager;
-pub use mapping_panel_manager::*;
+mod independent_panel_manager;
+pub use independent_panel_manager::*;
 
 mod companion_app_presenter;
 pub use companion_app_presenter::*;

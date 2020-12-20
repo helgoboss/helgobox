@@ -1,13 +1,13 @@
 use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use reaper_high::Reaper;
 use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, MainPanel, MainState, MappingPanelManager, MappingRowPanel, SharedMainState,
-    SharedMappingPanelManager,
+    bindings::root, IndependentPanelManager, MainState, MappingRowPanel,
+    SharedIndependentPanelManager, SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
@@ -15,7 +15,7 @@ use std::cmp;
 
 use crate::application::{MappingModel, Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -23,18 +23,16 @@ pub struct MappingRowsPanel {
     session: WeakSession,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
-    mapping_panel_manager: SharedMappingPanelManager,
+    panel_manager: Weak<RefCell<IndependentPanelManager>>,
     scroll_position: Cell<usize>,
 }
 
 impl MappingRowsPanel {
     pub fn new(
         session: WeakSession,
-        main_panel: WeakView<MainPanel>,
+        panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
     ) -> MappingRowsPanel {
-        let mapping_panel_manager = MappingPanelManager::new(session.clone(), main_panel);
-        let mapping_panel_manager = Rc::new(RefCell::new(mapping_panel_manager));
         MappingRowsPanel {
             view: Default::default(),
             rows: (0..6)
@@ -42,14 +40,14 @@ impl MappingRowsPanel {
                     let panel = MappingRowPanel::new(
                         session.clone(),
                         i,
-                        mapping_panel_manager.clone(),
+                        panel_manager.clone(),
                         main_state.clone(),
                     );
                     SharedView::new(panel)
                 })
                 .collect(),
             session,
-            mapping_panel_manager,
+            panel_manager,
             scroll_position: 0.into(),
             main_state,
         }
@@ -132,8 +130,12 @@ impl MappingRowsPanel {
             .borrow()
             .find_mapping_by_address(self.active_compartment(), mapping)
         {
-            self.mapping_panel_manager.borrow_mut().edit_mapping(m);
+            self.panel_manager().borrow_mut().edit_mapping(m);
         }
+    }
+
+    fn panel_manager(&self) -> SharedIndependentPanelManager {
+        self.panel_manager.upgrade().expect("panel manager gone")
     }
 
     fn active_compartment(&self) -> MappingCompartment {
@@ -359,9 +361,7 @@ impl MappingRowsPanel {
 
     fn invalidate_all_controls(&self) {
         self.invalidate_mapping_rows();
-        self.mapping_panel_manager
-            .borrow_mut()
-            .close_orphan_panels();
+        self.panel_manager().borrow_mut().close_orphan_panels();
         self.invalidate_scroll_info();
     }
 

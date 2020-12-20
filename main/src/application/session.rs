@@ -30,7 +30,6 @@ pub trait SessionUi {
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
-// TODO-low Probably belongs in application layer.
 #[derive(Debug)]
 pub struct Session {
     instance_id: String,
@@ -45,11 +44,11 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    // Is set when in the state of learning multiple mappings ("batch learn")
+    learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
     mapping_which_learns_source: Prop<Option<SharedMapping>>,
     mapping_which_learns_target: Prop<Option<SharedMapping>>,
-    // Is set when in the state of learning multiple mappings ("batch learn")
-    learn_many_compartment: Prop<Option<MappingCompartment>>,
     active_controller_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
@@ -76,6 +75,43 @@ pub struct Session {
     controller_manager: Box<dyn ControllerManager>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct LearnManyState {
+    pub compartment: MappingCompartment,
+    pub current_mapping_id: MappingId,
+    pub sub_state: LearnManySubState,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum LearnManySubState {
+    LearningSource,
+    LearningTarget,
+}
+
+impl LearnManyState {
+    pub fn learning_source(
+        compartment: MappingCompartment,
+        current_mapping_id: MappingId,
+    ) -> LearnManyState {
+        LearnManyState {
+            compartment,
+            current_mapping_id,
+            sub_state: LearnManySubState::LearningSource,
+        }
+    }
+
+    pub fn learning_target(
+        compartment: MappingCompartment,
+        current_mapping_id: MappingId,
+    ) -> LearnManyState {
+        LearnManyState {
+            compartment,
+            current_mapping_id,
+            sub_state: LearnManySubState::LearningTarget,
+        }
+    }
 }
 
 impl Session {
@@ -107,9 +143,9 @@ impl Session {
             send_feedback_only_if_armed: prop(true),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
+            learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
-            learn_many_compartment: prop(None),
             active_controller_id: None,
             context,
             mappings: Default::default(),
@@ -398,14 +434,15 @@ impl Session {
     ) {
         // Prepare
         self.disable_control();
-        self.learn_many_compartment.set(Some(compartment));
+        self.stop_learning_source();
+        self.stop_learning_target();
         // Add initial mapping and start learning its source
         self.add_and_learn_mapping(session, compartment);
         // After target learned, add new mapping and start learning its source
         when(
             self.mapping_which_learns_target
                 .changed_to(None)
-                .take_until(self.learn_many_compartment.changed_to(None)),
+                .take_until(self.learn_many_state.changed_to(None)),
         )
         .with(Rc::downgrade(session))
         .do_async(move |session, _| {
@@ -417,28 +454,35 @@ impl Session {
 
     fn add_and_learn_mapping(&mut self, session: &SharedSession, compartment: MappingCompartment) {
         let mapping = self.add_default_mapping(compartment);
-        toast("Please touch the control element that you want to map to a target parameter!");
+        let mapping_id = mapping.borrow().id();
+        self.learn_many_state
+            .set(Some(LearnManyState::learning_source(
+                compartment,
+                mapping_id,
+            )));
         self.start_learning_source(Rc::downgrade(session), mapping.clone(), false);
         // After source learned, start learning target
         when(
             self.mapping_which_learns_source
                 .changed_to(None)
-                .take_until(self.learn_many_compartment.changed_to(None))
+                .take_until(self.learn_many_state.changed_to(None))
                 .take(1),
         )
         .with(Rc::downgrade(session))
-        .do_async(move |session, _| {
-            toast("Now please change the target parameter!");
-            session.borrow_mut().start_learning_target(
-                Rc::downgrade(&session),
-                mapping.clone(),
-                false,
-            );
+        .do_async(move |shared_session, _| {
+            let mut session = shared_session.borrow_mut();
+            session
+                .learn_many_state
+                .set(Some(LearnManyState::learning_target(
+                    compartment,
+                    mapping_id,
+                )));
+            session.start_learning_target(Rc::downgrade(&shared_session), mapping.clone(), false);
         });
     }
 
     pub fn stop_learning_many_mappings(&mut self) {
-        self.learn_many_compartment.set(None);
+        self.learn_many_state.set(None);
         let source_learning_mapping = self.mapping_which_learns_source.get_ref().clone();
         self.stop_learning_source();
         self.stop_learning_target();
@@ -449,12 +493,16 @@ impl Session {
         }
     }
 
-    pub fn many_mapping_learning_changed(&self) -> impl UnitEvent {
-        self.learn_many_compartment.changed()
+    pub fn learn_many_state_changed(&self) -> impl UnitEvent {
+        self.learn_many_state.changed()
     }
 
     pub fn is_learning_many_mappings(&self) -> bool {
-        self.learn_many_compartment.get().is_some()
+        self.learn_many_state.get_ref().is_some()
+    }
+
+    pub fn learn_many_state(&self) -> Option<&LearnManyState> {
+        self.learn_many_state.get_ref().as_ref()
     }
 
     pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
@@ -468,6 +516,15 @@ impl Session {
     ) -> Option<&SharedMapping> {
         self.mappings(compartment)
             .find(|m| m.as_ptr() == mapping as _)
+    }
+
+    pub fn find_mapping_by_id(
+        &self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+    ) -> Option<&SharedMapping> {
+        self.mappings(compartment)
+            .find(|m| m.borrow().id() == mapping_id)
     }
 
     pub fn mappings(
@@ -1129,9 +1186,3 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
-
-fn toast(msg: &str) {
-    let reaper = Reaper::get();
-    reaper.clear_console();
-    reaper.show_console_msg(msg);
-}

@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use std::{iter, sync};
 
@@ -25,8 +25,11 @@ use crate::infrastructure::plugin::{
 };
 
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::{add_firewall_rule, SharedMainState};
+use crate::infrastructure::ui::{
+    add_firewall_rule, IndependentPanelManager, SharedIndependentPanelManager, SharedMainState,
+};
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use std::cell::RefCell;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -36,6 +39,7 @@ pub struct HeaderPanel {
     main_state: SharedMainState,
     companion_app_presenter: Rc<CompanionAppPresenter>,
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
+    panel_manager: Weak<RefCell<IndependentPanelManager>>,
 }
 
 impl HeaderPanel {
@@ -43,6 +47,7 @@ impl HeaderPanel {
         session: WeakSession,
         main_state: SharedMainState,
         plugin_parameters: sync::Weak<RealearnPluginParameters>,
+        panel_manager: Weak<RefCell<IndependentPanelManager>>,
     ) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
@@ -50,6 +55,7 @@ impl HeaderPanel {
             main_state,
             companion_app_presenter: CompanionAppPresenter::new(session),
             plugin_parameters,
+            panel_manager,
         }
     }
 }
@@ -63,13 +69,20 @@ impl HeaderPanel {
         self.main_state.borrow().active_compartment.get()
     }
 
+    fn panel_manager(&self) -> SharedIndependentPanelManager {
+        self.panel_manager.upgrade().expect("panel manager gone")
+    }
+
     fn toggle_learn_many_mappings(&self) {
-        let shared_session = self.session();
-        let mut session = shared_session.borrow_mut();
-        if session.is_learning_many_mappings() {
-            session.stop_learning_many_mappings();
+        let session = self.session();
+        if session.borrow().is_learning_many_mappings() {
+            session.borrow_mut().stop_learning_many_mappings();
+            self.panel_manager().borrow().close_message_panel();
         } else {
-            session.start_learning_many_mappings(&shared_session, self.active_compartment());
+            session
+                .borrow_mut()
+                .start_learning_many_mappings(&session, self.active_compartment());
+            self.panel_manager().borrow().open_message_panel();
         }
     }
 
@@ -714,7 +727,7 @@ impl HeaderPanel {
         self.when(session.always_auto_detect.changed(), |view| {
             view.invalidate_always_auto_detect_check_box();
         });
-        self.when(session.many_mapping_learning_changed(), |view| {
+        self.when(session.learn_many_state_changed(), |view| {
             view.invalidate_learn_many_button();
         });
         self.when(session.midi_control_input.changed(), |view| {
