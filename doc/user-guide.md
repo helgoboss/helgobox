@@ -1140,7 +1140,12 @@ The following elements are relevant for all kinds of sources, both in *control* 
   translating a target value back to a source value for feedback purposes. It usually makes most
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
   source value (= output value) and `y` is the current target value (= input value), so you must
-  assign the desired source value to `x`. Example: `x = y * 2`.
+  assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this
+  (ReaLearn versions < 1.12.0 contained a bug that caused step 2 and 3 to be swapped):
+  1. Apply reverse
+  2. Apply target interval
+  3. Apply transformation
+  4. Apply source interval
   
 ##### For all source characters (but encoders feedback only)
 
@@ -1216,7 +1221,13 @@ They don't apply to rotary encoders for example. They don't affect *feedback*.
   64-bit floating point numbers between 0.0 (0%) and 1.0 (100%). The script can be much more
   complicated than the mentioned examples and make use of all built-in EEL2 language features. The
   important thing is to assign the desired value to `y` at some point. Please note that the initial
-  value of `y` is the current target value, so you can even "go relative" in absolute mode.
+  value of `y` is the current target value, so you can even "go relative" in absolute mode. ReaLearn's
+  control processing order is like this:
+  1. Apply source interval
+  2. Apply transformation
+  3. Apply target interval
+  4. Apply reverse
+  5. Apply rounding
 
 
 ##### For encoders and incremental buttons (control only)
