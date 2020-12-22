@@ -1,4 +1,4 @@
-use crate::application::{Controller, Preset, PresetManager, SharedMapping};
+use crate::application::{Controller, Preset, PresetManager, PrimaryPreset, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{FileBasedPresetManager, MappingModelData, PresetData};
@@ -13,14 +13,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub type FileBasedControllerManager = FileBasedPresetManager<Controller, ControllerData>;
+pub type FileBasedPrimaryPresetManager = FileBasedPresetManager<PrimaryPreset, PrimaryPresetData>;
 
-pub type SharedControllerManager = Rc<RefCell<FileBasedControllerManager>>;
+pub type SharedPrimaryPresetManager = Rc<RefCell<FileBasedPrimaryPresetManager>>;
 
-impl PresetManager for SharedControllerManager {
-    type PresetType = Controller;
+impl PresetManager for SharedPrimaryPresetManager {
+    type PresetType = PrimaryPreset;
 
-    fn find_by_id(&self, id: &str) -> Option<Controller> {
+    fn find_by_id(&self, id: &str) -> Option<PrimaryPreset> {
         self.borrow().find_by_id(id)
     }
 
@@ -31,41 +31,37 @@ impl PresetManager for SharedControllerManager {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ControllerData {
+pub struct PrimaryPresetData {
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    custom_data: HashMap<String, serde_json::Value>,
 }
 
-impl PresetData for ControllerData {
-    type P = Controller;
+impl PresetData for PrimaryPresetData {
+    type P = PrimaryPreset;
 
-    fn from_model(controller: &Controller) -> ControllerData {
-        ControllerData {
-            id: Some(controller.id().to_string()),
-            mappings: controller
+    fn from_model(preset: &PrimaryPreset) -> PrimaryPresetData {
+        PrimaryPresetData {
+            id: Some(preset.id().to_string()),
+            mappings: preset
                 .mappings()
                 .iter()
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
-            name: controller.name().to_string(),
-            custom_data: controller.custom_data().clone(),
+            name: preset.name().to_string(),
         }
     }
 
-    fn to_model(&self, id: String) -> Controller {
-        Controller::new(
+    fn to_model(&self, id: String) -> PrimaryPreset {
+        PrimaryPreset::new(
             id,
             self.name.clone(),
             self.mappings
                 .iter()
-                .map(|m| m.to_model(MappingCompartment::ControllerMappings, None))
+                .map(|m| m.to_model(MappingCompartment::PrimaryMappings, None))
                 .collect(),
-            self.custom_data.clone(),
         )
     }
 

@@ -1,9 +1,7 @@
-use crate::application::{
-    ControllerManager, Session, SharedSession, SourceCategory, TargetCategory,
-};
+use crate::application::{PresetManager, Session, SharedSession, SourceCategory, TargetCategory};
 use crate::core::when;
 use crate::domain::MappingCompartment;
-use crate::infrastructure::data::ControllerData;
+use crate::infrastructure::data::{ControllerData, PresetData};
 use crate::infrastructure::plugin::App;
 
 use futures::StreamExt;
@@ -275,7 +273,7 @@ fn handle_patch_controller_route(
         .ok_or_else(controller_not_found)?;
     controller.update_custom_data(custom_data_key.to_string(), req.value);
     controller_manager
-        .update_controller(controller)
+        .update_preset(controller)
         .map_err(|_| internal_server_error("couldn't update controller"))?;
     Ok(StatusCode::OK)
 }

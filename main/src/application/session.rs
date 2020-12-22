@@ -1,6 +1,6 @@
 use crate::application::{
-    share_mapping, Controller, ControllerManager, MappingModel, SharedMapping, TargetCategory,
-    TargetModel, VirtualControlElementType,
+    share_mapping, Controller, MappingModel, Preset, PresetManager, PrimaryPreset, SharedMapping,
+    TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -51,6 +51,7 @@ pub struct Session {
     mapping_which_learns_source: Prop<Option<SharedMapping>>,
     mapping_which_learns_target: Prop<Option<SharedMapping>>,
     active_controller_id: Option<String>,
+    active_primary_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
@@ -73,7 +74,8 @@ pub struct Session {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameter_settings: Vec<ParameterSetting>,
-    controller_manager: Box<dyn ControllerManager>,
+    controller_manager: Box<dyn PresetManager<PresetType = Controller>>,
+    primary_preset_manager: Box<dyn PresetManager<PresetType = PrimaryPreset>>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
 }
@@ -136,7 +138,8 @@ impl Session {
         control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         ui: impl SessionUi + 'static,
-        controller_manager: impl ControllerManager + 'static,
+        controller_manager: impl PresetManager<PresetType = Controller> + 'static,
+        primary_preset_manager: impl PresetManager<PresetType = PrimaryPreset> + 'static,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -154,6 +157,7 @@ impl Session {
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
             active_controller_id: None,
+            active_primary_preset_id: None,
             context,
             mappings: Default::default(),
             everything_changed_subject: Default::default(),
@@ -171,6 +175,7 @@ impl Session {
             ui: WrapDebug(Box::new(ui)),
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_manager: Box::new(controller_manager),
+            primary_preset_manager: Box::new(primary_preset_manager),
             on_mappings: Default::default(),
         }
     }
@@ -868,13 +873,29 @@ impl Session {
         self.active_controller_id = active_controller_id;
     }
 
+    pub fn set_active_primary_preset_id_without_notification(
+        &mut self,
+        active_primary_preset_id: Option<String>,
+    ) {
+        self.active_primary_preset_id = active_primary_preset_id;
+    }
+
     pub fn active_controller_id(&self) -> Option<&str> {
         self.active_controller_id.as_deref()
+    }
+
+    pub fn active_primary_preset_id(&self) -> Option<&str> {
+        self.active_primary_preset_id.as_deref()
     }
 
     pub fn active_controller(&self) -> Option<Controller> {
         let id = self.active_controller_id()?;
         self.controller_manager.find_by_id(id)
+    }
+
+    pub fn active_primary_preset(&self) -> Option<PrimaryPreset> {
+        let id = self.active_primary_preset_id()?;
+        self.primary_preset_manager.find_by_id(id)
     }
 
     pub fn controller_mappings_are_dirty(&self) -> bool {
@@ -886,30 +907,54 @@ impl Session {
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
     }
 
+    pub fn primary_mappings_are_dirty(&self) -> bool {
+        let id = match &self.active_primary_preset_id {
+            None => return false,
+            Some(id) => id,
+        };
+        self.primary_preset_manager
+            .mappings_are_dirty(id, &self.mappings[MappingCompartment::PrimaryMappings])
+    }
+
     pub fn activate_controller(
         &mut self,
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
-        match id.as_ref() {
-            None => {
-                self.set_mappings_without_notification(
-                    MappingCompartment::ControllerMappings,
-                    std::iter::empty(),
-                );
-            }
-            Some(id) => {
-                let controller = self
+        self.active_controller_id = id.clone();
+        self.activate_preset(
+            MappingCompartment::ControllerMappings,
+            id,
+            weak_session,
+            |session, id| {
+                let controller = session
                     .controller_manager
                     .find_by_id(id)
                     .ok_or("controller not found")?;
-                self.set_mappings_without_notification(
-                    MappingCompartment::ControllerMappings,
-                    controller.mappings().cloned(),
-                );
+                Ok(controller.mappings().clone())
+            },
+        )
+    }
+
+    fn activate_preset(
+        &mut self,
+        compartment: MappingCompartment,
+        id: Option<String>,
+        weak_session: WeakSession,
+        get_mappings_by_preset_id: impl FnOnce(
+            &Session,
+            &str,
+        ) -> Result<Vec<MappingModel>, &'static str>,
+    ) -> Result<(), &'static str> {
+        match id.as_ref() {
+            None => {
+                self.set_mappings_without_notification(compartment, std::iter::empty());
+            }
+            Some(id) => {
+                let mappings = get_mappings_by_preset_id(self, id)?;
+                self.set_mappings_without_notification(compartment, mappings.into_iter());
             }
         };
-        self.active_controller_id = id;
         self.notify_everything_has_changed(weak_session);
         Ok(())
     }

@@ -49,6 +49,8 @@ pub struct SessionData {
     #[serde(default, skip_serializing_if = "is_default")]
     active_controller_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
+    active_primary_preset_id: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
 }
 
@@ -83,6 +85,7 @@ impl SessionData {
             mappings: from_mappings(MappingCompartment::PrimaryMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             active_controller_id: session.active_controller_id().map(|id| id.to_string()),
+            active_primary_preset_id: session.active_primary_preset_id().map(|id| id.to_string()),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = parameters[i as usize];
@@ -171,6 +174,9 @@ impl SessionData {
             &self.controller_mappings,
         );
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
+        session.set_active_primary_preset_id_without_notification(
+            self.active_primary_preset_id.clone(),
+        );
         // Parameters
         let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
         for (i, p) in self.parameters.iter() {

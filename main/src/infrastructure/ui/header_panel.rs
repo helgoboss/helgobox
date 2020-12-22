@@ -15,11 +15,13 @@ use slog::debug;
 use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
-use crate::application::{Controller, SharedSession, VirtualControlElementType, WeakSession};
+use crate::application::{
+    Controller, Preset, PresetManager, SharedSession, VirtualControlElementType, WeakSession,
+};
 use crate::core::when;
 use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
-use crate::infrastructure::data::SessionData;
+use crate::infrastructure::data::{FileBasedPresetManager, SessionData};
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
 };
@@ -241,28 +243,8 @@ impl HeaderPanel {
     }
 
     fn invalidate_preset_controls(&self) {
-        let label = self.view.require_control(root::ID_PRESET_LABEL_TEXT);
-        let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
-        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
-        let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
-        let save_as_button = self.view.require_control(root::ID_PRESET_SAVE_AS_BUTTON);
-        if self.main_state.borrow().active_compartment.get()
-            == MappingCompartment::ControllerMappings
-        {
-            label.show();
-            combo.show();
-            delete_button.show();
-            save_button.show();
-            save_as_button.show();
-            self.invalidate_preset_combo_box();
-            self.invalidate_preset_buttons();
-        } else {
-            label.hide();
-            combo.hide();
-            delete_button.hide();
-            save_button.hide();
-            save_as_button.hide();
-        }
+        self.invalidate_preset_combo_box();
+        self.invalidate_preset_buttons();
     }
 
     fn invalidate_preset_combo_box(&self) {
@@ -282,6 +264,10 @@ impl HeaderPanel {
     }
 
     fn fill_preset_combo_box(&self) {
+        // let preset_manager: FileBasedPresetManager<> = match self.active_compartment() {
+        //     MappingCompartment::ControllerMappings => App::get().controller_manager(),
+        //     MappingCompartment::PrimaryMappings => App::get().primary_preset_manager(),
+        // };
         self.view
             .require_control(root::ID_PRESET_COMBO_BOX)
             .fill_combo_box_with_data_small(
@@ -289,7 +275,7 @@ impl HeaderPanel {
                     App::get()
                         .controller_manager()
                         .borrow()
-                        .controllers()
+                        .presets()
                         .enumerate()
                         .map(|(i, c)| (i as isize, c.to_string())),
                 ),
@@ -615,7 +601,7 @@ impl HeaderPanel {
         App::get()
             .controller_manager()
             .borrow_mut()
-            .remove_controller(&active_controller_id)?;
+            .remove_preset(&active_controller_id)?;
         Ok(())
     }
 
@@ -633,7 +619,7 @@ impl HeaderPanel {
                 App::get()
                     .controller_manager()
                     .borrow_mut()
-                    .update_controller(controller)?;
+                    .update_preset(controller)?;
                 Ok(())
             }
         }
@@ -689,7 +675,7 @@ impl HeaderPanel {
         App::get()
             .controller_manager()
             .borrow_mut()
-            .add_controller(controller)?;
+            .add_preset(controller)?;
         session.activate_controller(Some(controller_id), self.session.clone())?;
         Ok(())
     }

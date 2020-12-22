@@ -1,5 +1,8 @@
 use crate::core::default_util::is_default;
-use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
+use crate::infrastructure::data::{
+    FileBasedControllerManager, FileBasedPrimaryPresetManager, SharedControllerManager,
+    SharedPrimaryPresetManager,
+};
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
 use reaper_high::Reaper;
@@ -19,6 +22,7 @@ static mut APP: Lazy<App> = Lazy::new(App::load);
 
 pub struct App {
     controller_manager: SharedControllerManager,
+    primary_preset_manager: SharedPrimaryPresetManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -49,6 +53,9 @@ impl App {
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
                 App::realearn_data_dir_path().join("controllers"),
+            ))),
+            primary_preset_manager: Rc::new(RefCell::new(FileBasedPrimaryPresetManager::new(
+                App::realearn_data_dir_path().join("primary-mapping-presets"),
             ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
@@ -86,6 +93,10 @@ impl App {
     //  this into a weak one.
     pub fn controller_manager(&self) -> SharedControllerManager {
         self.controller_manager.clone()
+    }
+
+    pub fn primary_preset_manager(&self) -> SharedPrimaryPresetManager {
+        self.primary_preset_manager.clone()
     }
 
     pub fn server(&self) -> &SharedRealearnServer {
