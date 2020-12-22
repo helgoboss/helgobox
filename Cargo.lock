@@ -1084,6 +1084,7 @@ name = "helgoboss-learn"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "derivative",
  "derive_more",
  "enum-iterator",
  "helgoboss-midi",

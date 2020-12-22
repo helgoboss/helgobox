@@ -1,5 +1,6 @@
 use crate::application::{
-    share_mapping, Controller, ControllerManager, MappingModel, SharedMapping,
+    share_mapping, Controller, ControllerManager, MappingModel, SharedMapping, TargetCategory,
+    TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -423,8 +424,41 @@ impl Session {
         let mut mapping = MappingModel::new(compartment);
         mapping
             .name
-            .set(self.generate_name_for_new_mapping(compartment));
+            .set_without_notification(self.generate_name_for_new_mapping(compartment));
+        if compartment == MappingCompartment::ControllerMappings {
+            let control_element_type = VirtualControlElementType::Multi;
+            let next_control_element_index =
+                self.get_next_control_element_index(control_element_type);
+            let target_model = TargetModel {
+                category: prop(TargetCategory::Virtual),
+                control_element_type: prop(control_element_type),
+                control_element_index: prop(next_control_element_index),
+                ..Default::default()
+            };
+            mapping.target_model = target_model;
+        }
         self.add_mapping(compartment, mapping)
+    }
+
+    fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
+        let max_index_so_far = self
+            .mappings(MappingCompartment::ControllerMappings)
+            .filter_map(|m| {
+                let m = m.borrow();
+                let target = &m.target_model;
+                if target.category.get() != TargetCategory::Virtual
+                    || target.control_element_type.get() != element_type
+                {
+                    return None;
+                }
+                Some(target.control_element_index.get())
+            })
+            .max();
+        if let Some(i) = max_index_so_far {
+            i + 1
+        } else {
+            0
+        }
     }
 
     pub fn start_learning_many_mappings(
@@ -437,10 +471,17 @@ impl Session {
         self.stop_learning_source();
         self.stop_learning_target();
         // Add initial mapping and start learning its source
-        self.add_and_learn_mapping(session, compartment);
+        self.add_and_learn_one_of_many_mappings(session, compartment);
         // After target learned, add new mapping and start learning its source
+        let prop_to_observe = match compartment {
+            // For controller mappings we don't need to learn a target so we move on to the next
+            // mapping as soon as the source has been learned.
+            MappingCompartment::ControllerMappings => &self.mapping_which_learns_source,
+            // For primary mappings we want to learn a target before moving on to the next mapping.
+            MappingCompartment::PrimaryMappings => &self.mapping_which_learns_target,
+        };
         when(
-            self.mapping_which_learns_target
+            prop_to_observe
                 .changed_to(None)
                 .take_until(self.learn_many_state.changed_to(None)),
         )
@@ -448,11 +489,26 @@ impl Session {
         .do_async(move |session, _| {
             session
                 .borrow_mut()
-                .add_and_learn_mapping(&session, compartment);
+                .add_and_learn_one_of_many_mappings(&session, compartment);
         });
     }
 
-    fn add_and_learn_mapping(&mut self, session: &SharedSession, compartment: MappingCompartment) {
+    fn add_and_learn_one_of_many_mappings(
+        &mut self,
+        session: &SharedSession,
+        compartment: MappingCompartment,
+    ) {
+        let ignore_sources = match compartment {
+            MappingCompartment::ControllerMappings => {
+                // When batch-learning controller mappings, we just want to learn sources that have
+                // not yet been learned. Otherwise when we move a fader, we create many mappings in
+                // one go.
+                self.mappings(compartment)
+                    .map(|m| m.borrow().source_model.create_source())
+                    .collect()
+            }
+            MappingCompartment::PrimaryMappings => HashSet::new(),
+        };
         let mapping = self.add_default_mapping(compartment);
         let mapping_id = mapping.borrow().id();
         self.learn_many_state
@@ -460,25 +516,39 @@ impl Session {
                 compartment,
                 mapping_id,
             )));
-        self.start_learning_source(Rc::downgrade(session), mapping.clone(), false);
-        // After source learned, start learning target
-        when(
-            self.mapping_which_learns_source
-                .changed_to(None)
-                .take_until(self.learn_many_state.changed_to(None))
-                .take(1),
-        )
-        .with(Rc::downgrade(session))
-        .do_async(move |shared_session, _| {
-            let mut session = shared_session.borrow_mut();
-            session
-                .learn_many_state
-                .set(Some(LearnManyState::learning_target(
-                    compartment,
-                    mapping_id,
-                )));
-            session.start_learning_target(Rc::downgrade(&shared_session), mapping.clone(), false);
-        });
+        self.start_learning_source(
+            Rc::downgrade(session),
+            mapping.clone(),
+            false,
+            ignore_sources,
+        );
+        // If this is a primary mapping, start learning target as soon as source learned. For
+        // controller mappings we don't need to do this because adding the default mapping will
+        // automatically increase the virtual target control element index (which is usually what
+        // one wants when creating a controller mapping).
+        if compartment == MappingCompartment::PrimaryMappings {
+            when(
+                self.mapping_which_learns_source
+                    .changed_to(None)
+                    .take_until(self.learn_many_state.changed_to(None))
+                    .take(1),
+            )
+            .with(Rc::downgrade(session))
+            .do_async(move |shared_session, _| {
+                let mut session = shared_session.borrow_mut();
+                session
+                    .learn_many_state
+                    .set(Some(LearnManyState::learning_target(
+                        compartment,
+                        mapping_id,
+                    )));
+                session.start_learning_target(
+                    Rc::downgrade(&shared_session),
+                    mapping.clone(),
+                    false,
+                );
+            });
+        }
     }
 
     pub fn stop_learning_many_mappings(&mut self) {
@@ -569,7 +639,12 @@ impl Session {
 
     pub fn toggle_learning_source(&mut self, session: &SharedSession, mapping: &SharedMapping) {
         if self.mapping_which_learns_source.get_ref().is_none() {
-            self.start_learning_source(Rc::downgrade(session), mapping.clone(), true);
+            self.start_learning_source(
+                Rc::downgrade(session),
+                mapping.clone(),
+                true,
+                HashSet::new(),
+            );
         } else {
             self.stop_learning_source();
         }
@@ -580,6 +655,7 @@ impl Session {
         session: WeakSession,
         mapping: SharedMapping,
         reenable_control_after_touched: bool,
+        ignore_sources: HashSet<CompoundMappingSource>,
     ) {
         self.mapping_which_learns_source.set(Some(mapping.clone()));
         when(
@@ -587,6 +663,7 @@ impl Session {
                 mapping.borrow().compartment(),
                 reenable_control_after_touched,
             )
+            .filter(move |s| !ignore_sources.contains(s))
             // We have this explicit stop criteria because we listen to global REAPER
             // events.
             .take_until(self.party_is_over())
