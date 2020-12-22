@@ -39,6 +39,18 @@ END
 
 
 
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU MENU
+BEGIN
+    POPUP "Header panel add-many-controller-mappings menu"
+    BEGIN
+        MENUITEM "Multis (faders, knobs, encoders, ...)", IDM_MULTIS
+        MENUITEM "Buttons", IDM_BUTTONS
+    END
+END
+
+
+
 //
 // Dialog resources
 //

@@ -9,12 +9,15 @@
 #define ID_MAPPING_ROW_PANEL                    122
 #define ID_MAPPING_ROWS_PANEL                   123
 #define ID_MESSAGE_PANEL                        126
+#define IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU 129
 #define IDM_LOG_DEBUG_INFO                      40000
+#define IDM_MULTIS                              40000
 #define ID_ADD_MAPPING_BUTTON                   40000
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_MESSAGE_TEXT                         40000
 #define ID_TARGET_PICK_ACTION_BUTTON            40000
+#define IDM_BUTTONS                             40001
 #define IDM_SERVER_START                        40001
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
 #define ID_MAIN_PANEL_STATUS_TEXT               40001

@@ -11,12 +11,15 @@ pub mod root {
     pub const ID_MAPPING_ROW_PANEL: u32 = 122;
     pub const ID_MAPPING_ROWS_PANEL: u32 = 123;
     pub const ID_MESSAGE_PANEL: u32 = 126;
+    pub const IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU: u32 = 129;
     pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
+    pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 40000;
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
     pub const ID_MESSAGE_TEXT: u32 = 40000;
     pub const ID_TARGET_PICK_ACTION_BUTTON: u32 = 40000;
+    pub const IDM_BUTTONS: u32 = 40001;
     pub const IDM_SERVER_START: u32 = 40001;
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
     pub const ID_MAIN_PANEL_STATUS_TEXT: u32 = 40001;

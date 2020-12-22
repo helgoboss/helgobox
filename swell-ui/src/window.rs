@@ -19,6 +19,12 @@ impl Window {
         NonNull::new(hwnd).map(Window::from_non_null)
     }
 
+    pub fn cursor_pos() -> Point<Pixels> {
+        let mut point = raw::POINT { x: 0, y: 0 };
+        unsafe { Swell::get().GetCursorPos(&mut point as _) };
+        Point::new(Pixels(point.x as _), Pixels(point.y as _))
+    }
+
     pub fn from_non_null(hwnd: NonNull<raw::HWND__>) -> Window {
         Window { raw: hwnd.as_ptr() }
     }

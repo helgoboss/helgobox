@@ -1,5 +1,8 @@
-use crate::application::{LearnManySubState, SharedSession, WeakSession};
+use crate::application::{
+    LearnManySubState, SharedSession, VirtualControlElementType, WeakSession,
+};
 use crate::core::when;
+use crate::domain::MappingCompartment;
 use crate::infrastructure::ui::bindings::root;
 use reaper_low::raw;
 use rxrust::prelude::*;
@@ -34,10 +37,25 @@ impl MessagePanel {
                 let mapping = mapping.borrow();
                 let mapping_label = format!("mapping {}", mapping.name.get_ref());
                 match state.sub_state {
-                    LearnManySubState::LearningSource => (
-                        format!("Learning source for {}", mapping_label),
-                        "Touch a control element!".to_string(),
-                    ),
+                    LearnManySubState::LearningSource {
+                        control_element_type,
+                    } => {
+                        let msg = match state.compartment {
+                            MappingCompartment::ControllerMappings => match control_element_type {
+                                VirtualControlElementType::Multi => {
+                                    "Move a multi-like control element!"
+                                }
+                                VirtualControlElementType::Button => {
+                                    "Press a button-like control element!"
+                                }
+                            },
+                            MappingCompartment::PrimaryMappings => "Touch a control element!",
+                        };
+                        (
+                            format!("Learning source for {}", mapping_label),
+                            msg.to_string(),
+                        )
+                    }
                     LearnManySubState::LearningTarget => (
                         format!("Learning target for {}", mapping_label),
                         "Now touch the target which you want to control!".to_string(),

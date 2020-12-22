@@ -87,7 +87,10 @@ pub struct LearnManyState {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum LearnManySubState {
-    LearningSource,
+    LearningSource {
+        // Only relevant in controller compartment
+        control_element_type: VirtualControlElementType,
+    },
     LearningTarget,
 }
 
@@ -95,11 +98,14 @@ impl LearnManyState {
     pub fn learning_source(
         compartment: MappingCompartment,
         current_mapping_id: MappingId,
+        control_element_type: VirtualControlElementType,
     ) -> LearnManyState {
         LearnManyState {
             compartment,
             current_mapping_id,
-            sub_state: LearnManySubState::LearningSource,
+            sub_state: LearnManySubState::LearningSource {
+                control_element_type,
+            },
         }
     }
 
@@ -420,13 +426,17 @@ impl Session {
         &self.context
     }
 
-    pub fn add_default_mapping(&mut self, compartment: MappingCompartment) -> SharedMapping {
+    pub fn add_default_mapping(
+        &mut self,
+        compartment: MappingCompartment,
+        // Only relevant for controller mapping compartment
+        control_element_type: VirtualControlElementType,
+    ) -> SharedMapping {
         let mut mapping = MappingModel::new(compartment);
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
         if compartment == MappingCompartment::ControllerMappings {
-            let control_element_type = VirtualControlElementType::Multi;
             let next_control_element_index =
                 self.get_next_control_element_index(control_element_type);
             let target_model = TargetModel {
@@ -465,13 +475,15 @@ impl Session {
         &mut self,
         session: &SharedSession,
         compartment: MappingCompartment,
+        // Only relevant for controller mapping compartment
+        control_element_type: VirtualControlElementType,
     ) {
         // Prepare
         self.disable_control();
         self.stop_learning_source();
         self.stop_learning_target();
         // Add initial mapping and start learning its source
-        self.add_and_learn_one_of_many_mappings(session, compartment);
+        self.add_and_learn_one_of_many_mappings(session, compartment, control_element_type);
         // After target learned, add new mapping and start learning its source
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
@@ -487,9 +499,11 @@ impl Session {
         )
         .with(Rc::downgrade(session))
         .do_async(move |session, _| {
-            session
-                .borrow_mut()
-                .add_and_learn_one_of_many_mappings(&session, compartment);
+            session.borrow_mut().add_and_learn_one_of_many_mappings(
+                &session,
+                compartment,
+                control_element_type,
+            );
         });
     }
 
@@ -497,6 +511,8 @@ impl Session {
         &mut self,
         session: &SharedSession,
         compartment: MappingCompartment,
+        // Only relevant for controller mapping compartment
+        control_element_type: VirtualControlElementType,
     ) {
         let ignore_sources = match compartment {
             MappingCompartment::ControllerMappings => {
@@ -509,12 +525,13 @@ impl Session {
             }
             MappingCompartment::PrimaryMappings => HashSet::new(),
         };
-        let mapping = self.add_default_mapping(compartment);
+        let mapping = self.add_default_mapping(compartment, control_element_type);
         let mapping_id = mapping.borrow().id();
         self.learn_many_state
             .set(Some(LearnManyState::learning_source(
                 compartment,
                 mapping_id,
+                control_element_type,
             )));
         self.start_learning_source(
             Rc::downgrade(session),
@@ -1046,7 +1063,7 @@ impl Session {
     ) -> SharedMapping {
         let mapping = match self.find_mapping_with_target(compartment, target) {
             None => {
-                let m = self.add_default_mapping(compartment);
+                let m = self.add_default_mapping(compartment, VirtualControlElementType::Multi);
                 m.borrow_mut()
                     .target_model
                     .apply_from_target(target, &self.context);

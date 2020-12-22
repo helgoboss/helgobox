@@ -15,7 +15,7 @@ use slog::debug;
 use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
-use crate::application::{Controller, SharedSession, WeakSession};
+use crate::application::{Controller, SharedSession, VirtualControlElementType, WeakSession};
 use crate::core::when;
 use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
@@ -29,6 +29,7 @@ use crate::infrastructure::ui::{
     add_firewall_rule, IndependentPanelManager, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use reaper_low::Swell;
 use std::cell::RefCell;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -79,11 +80,40 @@ impl HeaderPanel {
             session.borrow_mut().stop_learning_many_mappings();
             self.panel_manager().borrow().close_message_panel();
         } else {
-            session
-                .borrow_mut()
-                .start_learning_many_mappings(&session, self.active_compartment());
+            let compartment = self.active_compartment();
+            let control_element_type = match compartment {
+                MappingCompartment::ControllerMappings => {
+                    match self.prompt_for_control_element_type() {
+                        None => return,
+                        Some(t) => t,
+                    }
+                }
+                MappingCompartment::PrimaryMappings => {
+                    // Doesn't matter
+                    VirtualControlElementType::Multi
+                }
+            };
+            session.borrow_mut().start_learning_many_mappings(
+                &session,
+                compartment,
+                control_element_type,
+            );
             self.panel_manager().borrow().open_message_panel();
         }
+    }
+
+    fn prompt_for_control_element_type(&self) -> Option<VirtualControlElementType> {
+        let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
+            .expect("menu bar couldn't be loaded");
+        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let location = Window::cursor_pos();
+        let result = self.view.require_window().open_popup_menu(menu, location)?;
+        let control_element_type = match result {
+            root::IDM_MULTIS => VirtualControlElementType::Multi,
+            root::IDM_BUTTONS => VirtualControlElementType::Button,
+            _ => unreachable!(),
+        };
+        Some(control_element_type)
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -828,9 +858,10 @@ impl View for HeaderPanel {
         use root::*;
         match resource_id {
             ID_ADD_MAPPING_BUTTON => {
-                self.session()
-                    .borrow_mut()
-                    .add_default_mapping(self.active_compartment());
+                self.session().borrow_mut().add_default_mapping(
+                    self.active_compartment(),
+                    VirtualControlElementType::Multi,
+                );
             }
             ID_LEARN_MANY_MAPPINGS_BUTTON => {
                 self.toggle_learn_many_mappings();
