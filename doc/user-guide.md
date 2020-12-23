@@ -436,7 +436,7 @@ Defining your own controllers can have a bunch of benefits:
 
 In this view, you have some more user interface elements at your disposal:
 
-- **Controller:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
+- **Preset:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
   can also define your own ones and add them to this list! By default, this is set to "&lt;None&gt;", which means that
   no particular controller is active. Both, controller mappings and controller presets are completely optional. 
   If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.

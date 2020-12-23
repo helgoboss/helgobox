@@ -936,6 +936,26 @@ impl Session {
         )
     }
 
+    pub fn activate_primary_preset(
+        &mut self,
+        id: Option<String>,
+        weak_session: WeakSession,
+    ) -> Result<(), &'static str> {
+        self.active_primary_preset_id = id.clone();
+        self.activate_preset(
+            MappingCompartment::PrimaryMappings,
+            id,
+            weak_session,
+            |session, id| {
+                let primary_preset = session
+                    .primary_preset_manager
+                    .find_by_id(id)
+                    .ok_or("primary preset not found")?;
+                Ok(primary_preset.mappings().clone())
+            },
+        )
+    }
+
     fn activate_preset(
         &mut self,
         compartment: MappingCompartment,

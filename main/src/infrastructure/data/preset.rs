@@ -25,11 +25,9 @@ pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
 }
 
 pub trait ExtendedPresetManager {
-    type PresetType;
-
-    fn find_by_id(&self, id: &str) -> Option<Self::PresetType>;
-
-    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool;
+    fn find_index_by_id(&self, id: &str) -> Option<usize>;
+    fn find_id_by_index(&self, index: usize) -> Option<String>;
+    fn remove_preset(&mut self, id: &str) -> Result<(), &'static str>;
 }
 
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
@@ -73,10 +71,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.presets.get(index)
     }
 
-    pub fn find_index_by_id(&self, id: &str) -> Option<usize> {
-        self.presets.iter().position(|p| p.id() == id)
-    }
-
     pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
         let path = self.get_preset_file_path(preset.id());
         fs::create_dir_all(&self.preset_dir_path)
@@ -86,13 +80,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         data.clear_id();
         let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize preset")?;
         fs::write(path, json).map_err(|_| "couldn't write preset file")?;
-        self.notify_changed();
-        Ok(())
-    }
-
-    pub fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
-        let path = self.get_preset_file_path(id);
-        fs::remove_file(path).map_err(|_| "couldn't delete preset file")?;
         self.notify_changed();
         Ok(())
     }
@@ -143,6 +130,24 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             )
         })?;
         Ok(data.to_model(id))
+    }
+}
+
+impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
+    fn find_index_by_id(&self, id: &str) -> Option<usize> {
+        self.presets.iter().position(|p| p.id() == id)
+    }
+
+    fn find_id_by_index(&self, index: usize) -> Option<String> {
+        let preset = self.find_by_index(index)?;
+        Some(preset.id().to_string())
+    }
+
+    fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
+        let path = self.get_preset_file_path(id);
+        fs::remove_file(path).map_err(|_| "couldn't delete preset file")?;
+        self.notify_changed();
+        Ok(())
     }
 }
 

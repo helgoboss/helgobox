@@ -1,7 +1,9 @@
 use crate::application::{Controller, Preset, PresetManager, PrimaryPreset, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
-use crate::infrastructure::data::{FileBasedPresetManager, MappingModelData, PresetData};
+use crate::infrastructure::data::{
+    ExtendedPresetManager, FileBasedPresetManager, MappingModelData, PresetData,
+};
 
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
@@ -26,6 +28,20 @@ impl PresetManager for SharedPrimaryPresetManager {
 
     fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
         self.borrow().mappings_are_dirty(id, mappings)
+    }
+}
+
+impl ExtendedPresetManager for SharedPrimaryPresetManager {
+    fn find_index_by_id(&self, id: &str) -> Option<usize> {
+        self.borrow().find_index_by_id(id)
+    }
+
+    fn find_id_by_index(&self, index: usize) -> Option<String> {
+        self.borrow().find_id_by_index(index)
+    }
+
+    fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
+        self.borrow_mut().remove_preset(id)
     }
 }
 
