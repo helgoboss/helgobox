@@ -304,15 +304,18 @@ impl MappingRowsPanel {
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
         let filtered_mappings = Self::filtered_mappings(&session, &main_state, compartment);
-        for mapping in &filtered_mappings[self.scroll_position.get()..] {
-            if row_index >= self.rows.len() {
-                break;
+        let scroll_pos = self.scroll_position.get();
+        if scroll_pos < filtered_mappings.len() {
+            for mapping in &filtered_mappings[scroll_pos..] {
+                if row_index >= self.rows.len() {
+                    break;
+                }
+                self.rows
+                    .get(row_index)
+                    .expect("impossible")
+                    .set_mapping(Some((*mapping).clone()));
+                row_index += 1;
             }
-            self.rows
-                .get(row_index)
-                .expect("impossible")
-                .set_mapping(Some((*mapping).clone()));
-            row_index += 1;
         }
         // If there are unused rows, clear them
         for i in row_index..self.rows.len() {
