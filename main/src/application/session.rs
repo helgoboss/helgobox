@@ -900,7 +900,7 @@ impl Session {
 
     pub fn controller_mappings_are_dirty(&self) -> bool {
         let id = match &self.active_controller_id {
-            None => return false,
+            None => return self.mapping_count(MappingCompartment::ControllerMappings) > 0,
             Some(id) => id,
         };
         self.controller_manager
@@ -909,7 +909,7 @@ impl Session {
 
     pub fn primary_mappings_are_dirty(&self) -> bool {
         let id = match &self.active_primary_preset_id {
-            None => return false,
+            None => return self.mapping_count(MappingCompartment::PrimaryMappings) > 0,
             Some(id) => id,
         };
         self.primary_preset_manager

@@ -480,7 +480,7 @@ impl HeaderPanel {
                 ),
             };
         if mappings_are_dirty {
-            let msg = "Your preset changes will be lost. Consider to save them first. Do you really want to continue?";
+            let msg = "Your mapping changes will be lost. Consider to save them first. Do you really want to continue?";
             if !self.view.require_window().confirm("ReaLearn", msg) {
                 self.invalidate_preset_combo_box_value();
                 return;
