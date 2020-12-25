@@ -332,7 +332,7 @@ fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, Deserializa
             index: None,
         } => VirtualTrack::This,
         TrackData { guid: Some(g), .. } if g == "master" => VirtualTrack::Master,
-        TrackData { guid: Some(g), .. } if g == "selected" => VirtualTrack::Master,
+        TrackData { guid: Some(g), .. } if g == "selected" => VirtualTrack::Selected,
         TrackData {
             guid: Some(g),
             name,
