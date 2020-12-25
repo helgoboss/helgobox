@@ -5,14 +5,9 @@ use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedPresetManager, MappingModelData, PresetData,
 };
 
-use reaper_high::Reaper;
-use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub type FileBasedControllerManager = FileBasedPresetManager<Controller, ControllerData>;

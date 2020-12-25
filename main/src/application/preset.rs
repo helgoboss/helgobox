@@ -1,5 +1,4 @@
 use crate::application::{MappingModel, SharedMapping};
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 

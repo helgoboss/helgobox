@@ -1,28 +1,22 @@
-use crate::application::{Controller, Preset, PresetManager, PrimaryPreset, SharedMapping};
+use crate::application::{MainPreset, Preset, PresetManager, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedPresetManager, MappingModelData, PresetData,
 };
 
-use reaper_high::Reaper;
-use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub type FileBasedPrimaryPresetManager = FileBasedPresetManager<PrimaryPreset, PrimaryPresetData>;
+pub type FileBasedMainPresetManager = FileBasedPresetManager<MainPreset, MainPresetData>;
 
-pub type SharedPrimaryPresetManager = Rc<RefCell<FileBasedPrimaryPresetManager>>;
+pub type SharedMainPresetManager = Rc<RefCell<FileBasedMainPresetManager>>;
 
-impl PresetManager for SharedPrimaryPresetManager {
-    type PresetType = PrimaryPreset;
+impl PresetManager for SharedMainPresetManager {
+    type PresetType = MainPreset;
 
-    fn find_by_id(&self, id: &str) -> Option<PrimaryPreset> {
+    fn find_by_id(&self, id: &str) -> Option<MainPreset> {
         self.borrow().find_by_id(id)
     }
 
@@ -31,7 +25,7 @@ impl PresetManager for SharedPrimaryPresetManager {
     }
 }
 
-impl ExtendedPresetManager for SharedPrimaryPresetManager {
+impl ExtendedPresetManager for SharedMainPresetManager {
     fn find_index_by_id(&self, id: &str) -> Option<usize> {
         self.borrow().find_index_by_id(id)
     }
@@ -47,7 +41,7 @@ impl ExtendedPresetManager for SharedPrimaryPresetManager {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PrimaryPresetData {
+pub struct MainPresetData {
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
@@ -55,11 +49,11 @@ pub struct PrimaryPresetData {
     mappings: Vec<MappingModelData>,
 }
 
-impl PresetData for PrimaryPresetData {
-    type P = PrimaryPreset;
+impl PresetData for MainPresetData {
+    type P = MainPreset;
 
-    fn from_model(preset: &PrimaryPreset) -> PrimaryPresetData {
-        PrimaryPresetData {
+    fn from_model(preset: &MainPreset) -> MainPresetData {
+        MainPresetData {
             id: Some(preset.id().to_string()),
             mappings: preset
                 .mappings()
@@ -70,13 +64,13 @@ impl PresetData for PrimaryPresetData {
         }
     }
 
-    fn to_model(&self, id: String) -> PrimaryPreset {
-        PrimaryPreset::new(
+    fn to_model(&self, id: String) -> MainPreset {
+        MainPreset::new(
             id,
             self.name.clone(),
             self.mappings
                 .iter()
-                .map(|m| m.to_model(MappingCompartment::PrimaryMappings, None))
+                .map(|m| m.to_model(MappingCompartment::MainMappings, None))
                 .collect(),
         )
     }

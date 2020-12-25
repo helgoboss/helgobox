@@ -233,8 +233,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 UpdateAllParameters(parameters) => {
                     debug!(self.logger, "Updating all parameters...");
                     self.parameters = *parameters;
-                    // Activation is only supported for primary mappings
-                    let compartment = MappingCompartment::PrimaryMappings;
+                    // Activation is only supported for main mappings
+                    let compartment = MappingCompartment::MainMappings;
                     let mut activation_updates: Vec<MappingActivationUpdate> = vec![];
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     for m in &mut self.mappings[compartment].values_mut() {
@@ -261,8 +261,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
-                    // Activation is only supported for primary mappings
-                    let compartment = MappingCompartment::PrimaryMappings;
+                    // Activation is only supported for main mappings
+                    let compartment = MappingCompartment::MainMappings;
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // In order to avoid a mutable borrow of mappings and an immutable borrow of
                     // parameters at the same time, we need to separate the mapping updates into
@@ -544,9 +544,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             "\n\
                         # Main processor\n\
                         \n\
-                        - Total primary mapping count: {} \n\
-                        - Enabled primary mapping count: {} \n\
-                        - Primary mapping feedback subscription count: {} \n\
+                        - Total main mapping count: {} \n\
+                        - Enabled main mapping count: {} \n\
+                        - Main mapping feedback subscription count: {} \n\
                         - Total controller mapping count: {} \n\
                         - Enabled controller mapping count: {} \n\
                         - Controller mapping feedback subscription count: {} \n\
@@ -556,12 +556,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         - Feedback task count: {} \n\
                         - Parameter values: {:?} \n\
                         ",
-            self.mappings[MappingCompartment::PrimaryMappings].len(),
-            self.mappings[MappingCompartment::PrimaryMappings]
+            self.mappings[MappingCompartment::MainMappings].len(),
+            self.mappings[MappingCompartment::MainMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.feedback_subscriptions[MappingCompartment::PrimaryMappings].len(),
+            self.feedback_subscriptions[MappingCompartment::MainMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings]
                 .values()

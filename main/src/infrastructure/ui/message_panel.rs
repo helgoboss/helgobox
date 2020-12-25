@@ -49,7 +49,7 @@ impl MessagePanel {
                                     "Press a button-like control element!"
                                 }
                             },
-                            MappingCompartment::PrimaryMappings => "Touch a control element!",
+                            MappingCompartment::MainMappings => "Touch a control element!",
                         };
                         (
                             format!("Learning source for {}", mapping_label),

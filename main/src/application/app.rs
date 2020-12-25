@@ -112,7 +112,7 @@ impl App {
                     Some(t) => t,
                 };
                 App::get()
-                    .start_learning_source_for_target(MappingCompartment::PrimaryMappings, &target);
+                    .start_learning_source_for_target(MappingCompartment::MainMappings, &target);
             },
             ActionKind::NotToggleable,
         );

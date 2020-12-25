@@ -25,8 +25,8 @@ pub use preset::*;
 mod controller;
 pub use controller::*;
 
-mod primary_preset;
-pub use primary_preset::*;
+mod main_preset;
+pub use main_preset::*;
 
 mod conditional_activation_model;
 pub use conditional_activation_model::*;

@@ -1445,10 +1445,10 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_category_combo_box(&self) {
-        // Don't allow primary mappings to have virtual target
+        // Don't allow main mappings to have virtual target
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .set_enabled(self.mapping.compartment() != MappingCompartment::PrimaryMappings);
+            .set_enabled(self.mapping.compartment() != MappingCompartment::MainMappings);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
             .select_combo_box_item(self.target.category.get().into());

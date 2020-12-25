@@ -256,7 +256,7 @@ BEGIN
     LTEXT           "MIDI control input", 0, 7, 21, 57, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "MIDI feedback output", 0, 7, 40, 70, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "Show", 0, 97, 62, 19, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
-    LTEXT           "Preset", ID_PRESET_LABEL_TEXT, 212, 62, 21, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
+    LTEXT           "Preset", 0, 212, 62, 21, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "Search", 0, 7, 84, 24, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     PUSHBUTTON      "Learn many", ID_LEARN_MANY_MAPPINGS_BUTTON, 48, 59, 45, 14, 0, WS_EX_LEFT
 END

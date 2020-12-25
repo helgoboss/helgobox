@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-12-14 (v1.12.0-pre7)</code></td>
+  <td><code>2020-12-25 (v1.12.0-pre8)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -307,7 +307,7 @@ So far we've covered the basics. Now let's look into everything in detail.
 
 #### Header panel
 
-The header panel provides the following user interface elements, no matter if *primary mappings* or
+The header panel provides the following user interface elements, no matter if *main mappings* or
 *controller mappings* are shown:
 
 - **Let matched events through / Let unmatched events through:** By default, ReaLearn "eats" MIDI events
@@ -360,7 +360,7 @@ The header panel provides the following user interface elements, no matter if *p
 - **Learn many:** Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
   the on-screen instructions. Click *Stop* when you are finished with your bulk learning strike.
 - **Show:** This lets you choose which mapping compartment ReaLearn should display. A mapping compartment is a list
-  of mappings. Initially, it shows the list of so-called "Primary mappings", which are the bread and butter of
+  of mappings. Initially, it shows the list of so-called "Main mappings", which are the bread and butter of
   ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell, this compartment
   lets you define which hardware controllers you have at your disposal and which control elements they have. Learn
   more about that feature in section "Controller mappings".
@@ -419,7 +419,7 @@ Additionally, it provides a context menu with the following entries:
    
 #### Controller mappings
 
-By default, ReaLearn shows the list of primary mappings. If you select *Controller mappings* in the *Show*
+By default, ReaLearn shows the list of main mappings. If you select *Controller mappings* in the *Show*
 dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
 element on your hardware controller, e.g. a button or fader. This view lets you describe your controller by - well -
 by adding mappings. Almost everything in ReaLearn is a mapping :)
@@ -430,7 +430,7 @@ Defining your own controllers can have a bunch of benefits:
   to project your controller mapping to a mobile device.
 - You can use controller presets made by other users and thereby save precious setup time. Or you can contribute them
   yourself!
-- You can make your primary mappings independent of the actual controller that you use. This is done using so-called
+- You can make your main mappings independent of the actual controller that you use. This is done using so-called
 *virtual* sources and targets.
 - This also allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
 
@@ -482,11 +482,11 @@ controller mapping for each of its control elements:
       "Incremental buttons" mode. 
       
 Before you go ahead and do that for each control element, you might want to check what this is good for: Navigate back
-to the primary mappings, learn the source of some primary mapping and touch the control element that you have just
+to the main mappings, learn the source of some main mapping and touch the control element that you have just
 mapped: Take note how ReaLearn will assign a *virtual* source this time, not a MIDI source! It will also display the
 name of the control element as source label. Now, let's say at some point you swap your controller device with another
 one that has a similar layout, all you need to do is switch the controller preset and you are golden! You have
-decoupled your primary mappings from the actual controller. Plus, as soon as you have saved your controller mappings as
+decoupled your main mappings from the actual controller. Plus, as soon as you have saved your controller mappings as
 a preset, you can take full advantage of the *Projection* feature.
 
 All of this might be a bit of an effort but it's well worth it.
@@ -745,7 +745,7 @@ Sources share the following common settings and functions:
 - **Category:** Lets you choose the source category.
     - **MIDI:** Incoming MIDI events.
     - **Virtual:** Invocations of virtual control elements (coming from controller mappings). This source
-      category is available for primary mappings only. 
+      category is available for main mappings only. 
 - **Type:** Let's you choose the source type. Available types depend on the selected category.
   
 All other UI elements in this section depend on the chosen category. 
@@ -1103,7 +1103,7 @@ Invokes a transport-related action.
 ##### Category "Virtual"
 
 This is exactly the counterpart of the possible virtual sources. Choosing a virtual target here is like
-placing cables between a control element and all corresponding primary mappings that use this
+placing cables between a control element and all corresponding main mappings that use this
 virtual control element as source.      
 
 #### Tuning

@@ -16,13 +16,12 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    Controller, Preset, PresetManager, PrimaryPreset, SharedSession, VirtualControlElementType,
-    WeakSession,
+    Controller, MainPreset, PresetManager, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
 use crate::domain::{MappingCompartment, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
-use crate::infrastructure::data::{ExtendedPresetManager, FileBasedPresetManager, SessionData};
+use crate::infrastructure::data::{ExtendedPresetManager, SessionData};
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
 };
@@ -32,7 +31,6 @@ use crate::infrastructure::ui::{
     add_firewall_rule, IndependentPanelManager, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
-use reaper_low::Swell;
 use std::cell::RefCell;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
@@ -91,7 +89,7 @@ impl HeaderPanel {
                         Some(t) => t,
                     }
                 }
-                MappingCompartment::PrimaryMappings => {
+                MappingCompartment::MainMappings => {
                     // Doesn't matter
                     VirtualControlElementType::Multi
                 }
@@ -263,9 +261,9 @@ impl HeaderPanel {
                 session.active_controller_id().is_some(),
                 session.controller_mappings_are_dirty(),
             ),
-            MappingCompartment::PrimaryMappings => (
-                session.active_primary_preset().is_some(),
-                session.primary_mappings_are_dirty(),
+            MappingCompartment::MainMappings => (
+                session.active_main_preset().is_some(),
+                session.main_mappings_are_dirty(),
             ),
         };
         delete_button.set_enabled(preset_is_active);
@@ -286,10 +284,10 @@ impl HeaderPanel {
                         .map(|(i, c)| (i as isize, c.to_string())),
                 ),
             ),
-            MappingCompartment::PrimaryMappings => combo.fill_combo_box_with_data_small(
+            MappingCompartment::MainMappings => combo.fill_combo_box_with_data_small(
                 vec.into_iter().chain(
                     App::get()
-                        .primary_preset_manager()
+                        .main_preset_manager()
                         .borrow()
                         .presets()
                         .enumerate()
@@ -309,9 +307,9 @@ impl HeaderPanel {
                     Box::new(App::get().controller_manager()),
                     session.active_controller_id(),
                 ),
-                MappingCompartment::PrimaryMappings => (
-                    Box::new(App::get().primary_preset_manager()),
-                    session.active_primary_preset_id(),
+                MappingCompartment::MainMappings => (
+                    Box::new(App::get().main_preset_manager()),
+                    session.active_main_preset_id(),
                 ),
             };
         let index = match active_preset_id {
@@ -474,9 +472,9 @@ impl HeaderPanel {
                     Box::new(App::get().controller_manager()),
                     session.borrow().controller_mappings_are_dirty(),
                 ),
-                MappingCompartment::PrimaryMappings => (
-                    Box::new(App::get().primary_preset_manager()),
-                    session.borrow().primary_mappings_are_dirty(),
+                MappingCompartment::MainMappings => (
+                    Box::new(App::get().main_preset_manager()),
+                    session.borrow().main_mappings_are_dirty(),
                 ),
             };
         if mappings_are_dirty {
@@ -502,8 +500,8 @@ impl HeaderPanel {
                     .activate_controller(preset_id, self.session.clone())
                     .unwrap();
             }
-            MappingCompartment::PrimaryMappings => session
-                .activate_primary_preset(preset_id, self.session.clone())
+            MappingCompartment::MainMappings => session
+                .activate_main_preset(preset_id, self.session.clone())
                 .unwrap(),
         };
     }
@@ -645,18 +643,18 @@ impl HeaderPanel {
                     Box::new(App::get().controller_manager()),
                     session.active_controller_id(),
                 ),
-                MappingCompartment::PrimaryMappings => (
-                    Box::new(App::get().primary_preset_manager()),
-                    session.active_primary_preset_id(),
+                MappingCompartment::MainMappings => (
+                    Box::new(App::get().main_preset_manager()),
+                    session.active_main_preset_id(),
                 ),
             };
         let active_preset_id = active_preset_id.ok_or("no preset selected")?.to_string();
         match compartment {
             MappingCompartment::ControllerMappings => {
-                (session.activate_controller(None, self.session.clone())?)
+                session.activate_controller(None, self.session.clone())?
             }
-            MappingCompartment::PrimaryMappings => {
-                (session.activate_primary_preset(None, self.session.clone())?)
+            MappingCompartment::MainMappings => {
+                session.activate_main_preset(None, self.session.clone())?
             }
         };
         preset_manager.remove_preset(&active_preset_id)?;
@@ -669,7 +667,7 @@ impl HeaderPanel {
         let compartment = self.active_compartment();
         let preset_id = match compartment {
             MappingCompartment::ControllerMappings => session.active_controller_id(),
-            MappingCompartment::PrimaryMappings => session.active_primary_preset_id(),
+            MappingCompartment::MainMappings => session.active_main_preset_id(),
         };
         let preset_id = match preset_id {
             None => return Err("no active preset"),
@@ -688,13 +686,13 @@ impl HeaderPanel {
                 controller.update_mappings(mappings);
                 preset_manager.borrow_mut().update_preset(controller)?;
             }
-            MappingCompartment::PrimaryMappings => {
-                let preset_manager = App::get().primary_preset_manager();
-                let mut primary_preset = preset_manager
+            MappingCompartment::MainMappings => {
+                let preset_manager = App::get().main_preset_manager();
+                let mut main_preset = preset_manager
                     .find_by_id(preset_id)
-                    .ok_or("primary preset not found")?;
-                primary_preset.update_mappings(mappings);
-                preset_manager.borrow_mut().update_preset(primary_preset)?;
+                    .ok_or("main preset not found")?;
+                main_preset.update_mappings(mappings);
+                preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
         Ok(())
@@ -752,13 +750,13 @@ impl HeaderPanel {
                     .add_preset(controller)?;
                 session.activate_controller(Some(preset_id), self.session.clone())?;
             }
-            MappingCompartment::PrimaryMappings => {
-                let primary_preset = PrimaryPreset::new(preset_id.clone(), preset_name, mappings);
+            MappingCompartment::MainMappings => {
+                let main_preset = MainPreset::new(preset_id.clone(), preset_name, mappings);
                 App::get()
-                    .primary_preset_manager()
+                    .main_preset_manager()
                     .borrow_mut()
-                    .add_preset(primary_preset)?;
-                session.activate_primary_preset(Some(preset_id), self.session.clone())?;
+                    .add_preset(main_preset)?;
+                session.activate_main_preset(Some(preset_id), self.session.clone())?;
             }
         };
         Ok(())
@@ -875,7 +873,7 @@ impl HeaderPanel {
                 .controller_manager()
                 .borrow()
                 .changed()
-                .merge(App::get().primary_preset_manager().borrow().changed())
+                .merge(App::get().main_preset_manager().borrow().changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -890,7 +888,7 @@ impl HeaderPanel {
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
-        .do_sync(move |view, compartment| {
+        .do_sync(move |view, _| {
             view.invalidate_preset_buttons();
         });
     }

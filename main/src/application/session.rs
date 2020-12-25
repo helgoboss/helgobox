@@ -1,5 +1,5 @@
 use crate::application::{
-    share_mapping, Controller, MappingModel, Preset, PresetManager, PrimaryPreset, SharedMapping,
+    share_mapping, Controller, MainPreset, MappingModel, Preset, PresetManager, SharedMapping,
     TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
@@ -51,7 +51,7 @@ pub struct Session {
     mapping_which_learns_source: Prop<Option<SharedMapping>>,
     mapping_which_learns_target: Prop<Option<SharedMapping>>,
     active_controller_id: Option<String>,
-    active_primary_preset_id: Option<String>,
+    active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
@@ -75,7 +75,7 @@ pub struct Session {
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameter_settings: Vec<ParameterSetting>,
     controller_manager: Box<dyn PresetManager<PresetType = Controller>>,
-    primary_preset_manager: Box<dyn PresetManager<PresetType = PrimaryPreset>>,
+    main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
 }
@@ -139,7 +139,7 @@ impl Session {
         parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         ui: impl SessionUi + 'static,
         controller_manager: impl PresetManager<PresetType = Controller> + 'static,
-        primary_preset_manager: impl PresetManager<PresetType = PrimaryPreset> + 'static,
+        main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -157,7 +157,7 @@ impl Session {
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
             active_controller_id: None,
-            active_primary_preset_id: None,
+            active_main_preset_id: None,
             context,
             mappings: Default::default(),
             everything_changed_subject: Default::default(),
@@ -175,7 +175,7 @@ impl Session {
             ui: WrapDebug(Box::new(ui)),
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_manager: Box::new(controller_manager),
-            primary_preset_manager: Box::new(primary_preset_manager),
+            main_preset_manager: Box::new(main_preset_manager),
             on_mappings: Default::default(),
         }
     }
@@ -494,8 +494,8 @@ impl Session {
             // For controller mappings we don't need to learn a target so we move on to the next
             // mapping as soon as the source has been learned.
             MappingCompartment::ControllerMappings => &self.mapping_which_learns_source,
-            // For primary mappings we want to learn a target before moving on to the next mapping.
-            MappingCompartment::PrimaryMappings => &self.mapping_which_learns_target,
+            // For main mappings we want to learn a target before moving on to the next mapping.
+            MappingCompartment::MainMappings => &self.mapping_which_learns_target,
         };
         when(
             prop_to_observe
@@ -528,7 +528,7 @@ impl Session {
                     .map(|m| m.borrow().source_model.create_source())
                     .collect()
             }
-            MappingCompartment::PrimaryMappings => HashSet::new(),
+            MappingCompartment::MainMappings => HashSet::new(),
         };
         let mapping = self.add_default_mapping(compartment, control_element_type);
         let mapping_id = mapping.borrow().id();
@@ -544,11 +544,11 @@ impl Session {
             false,
             ignore_sources,
         );
-        // If this is a primary mapping, start learning target as soon as source learned. For
+        // If this is a main mapping, start learning target as soon as source learned. For
         // controller mappings we don't need to do this because adding the default mapping will
         // automatically increase the virtual target control element index (which is usually what
         // one wants when creating a controller mapping).
-        if compartment == MappingCompartment::PrimaryMappings {
+        if compartment == MappingCompartment::MainMappings {
             when(
                 self.mapping_which_learns_source
                     .changed_to(None)
@@ -873,19 +873,19 @@ impl Session {
         self.active_controller_id = active_controller_id;
     }
 
-    pub fn set_active_primary_preset_id_without_notification(
+    pub fn set_active_main_preset_id_without_notification(
         &mut self,
-        active_primary_preset_id: Option<String>,
+        active_main_preset_id: Option<String>,
     ) {
-        self.active_primary_preset_id = active_primary_preset_id;
+        self.active_main_preset_id = active_main_preset_id;
     }
 
     pub fn active_controller_id(&self) -> Option<&str> {
         self.active_controller_id.as_deref()
     }
 
-    pub fn active_primary_preset_id(&self) -> Option<&str> {
-        self.active_primary_preset_id.as_deref()
+    pub fn active_main_preset_id(&self) -> Option<&str> {
+        self.active_main_preset_id.as_deref()
     }
 
     pub fn active_controller(&self) -> Option<Controller> {
@@ -893,9 +893,9 @@ impl Session {
         self.controller_manager.find_by_id(id)
     }
 
-    pub fn active_primary_preset(&self) -> Option<PrimaryPreset> {
-        let id = self.active_primary_preset_id()?;
-        self.primary_preset_manager.find_by_id(id)
+    pub fn active_main_preset(&self) -> Option<MainPreset> {
+        let id = self.active_main_preset_id()?;
+        self.main_preset_manager.find_by_id(id)
     }
 
     pub fn controller_mappings_are_dirty(&self) -> bool {
@@ -907,13 +907,13 @@ impl Session {
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
     }
 
-    pub fn primary_mappings_are_dirty(&self) -> bool {
-        let id = match &self.active_primary_preset_id {
-            None => return self.mapping_count(MappingCompartment::PrimaryMappings) > 0,
+    pub fn main_mappings_are_dirty(&self) -> bool {
+        let id = match &self.active_main_preset_id {
+            None => return self.mapping_count(MappingCompartment::MainMappings) > 0,
             Some(id) => id,
         };
-        self.primary_preset_manager
-            .mappings_are_dirty(id, &self.mappings[MappingCompartment::PrimaryMappings])
+        self.main_preset_manager
+            .mappings_are_dirty(id, &self.mappings[MappingCompartment::MainMappings])
     }
 
     pub fn activate_controller(
@@ -936,22 +936,22 @@ impl Session {
         )
     }
 
-    pub fn activate_primary_preset(
+    pub fn activate_main_preset(
         &mut self,
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
-        self.active_primary_preset_id = id.clone();
+        self.active_main_preset_id = id.clone();
         self.activate_preset(
-            MappingCompartment::PrimaryMappings,
+            MappingCompartment::MainMappings,
             id,
             weak_session,
             |session, id| {
-                let primary_preset = session
-                    .primary_preset_manager
+                let main_preset = session
+                    .main_preset_manager
                     .find_by_id(id)
-                    .ok_or("primary preset not found")?;
-                Ok(primary_preset.mappings().clone())
+                    .ok_or("main preset not found")?;
+                Ok(main_preset.mappings().clone())
             },
         )
     }
@@ -1087,15 +1087,15 @@ impl Session {
             \n\
             - Instance ID (random): {}\n\
             - ID (persistent, maybe custom): {}\n\
-            - Primary mapping model count: {}\n\
-            - Primary mapping subscription count: {}\n\
+            - Main mapping model count: {}\n\
+            - Main mapping subscription count: {}\n\
             - Controller mapping model count: {}\n\
             - Controller mapping subscription count: {}\n\
             ",
             self.instance_id,
             self.id.get_ref(),
-            self.mappings[MappingCompartment::PrimaryMappings].len(),
-            self.mapping_subscriptions[MappingCompartment::PrimaryMappings].len(),
+            self.mappings[MappingCompartment::MainMappings].len(),
+            self.mapping_subscriptions[MappingCompartment::MainMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mapping_subscriptions[MappingCompartment::ControllerMappings].len(),
         );

@@ -84,7 +84,7 @@ impl RealTimeProcessor {
             control_main_task_sender,
             mappings: enum_map! {
                 ControllerMappings => HashMap::with_capacity(100),
-                PrimaryMappings => HashMap::with_capacity(500),
+                MainMappings => HashMap::with_capacity(500),
             },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
@@ -263,16 +263,16 @@ impl RealTimeProcessor {
             # Real-time processor\n\
             \n\
             - State: {:?} \n\
-            - Total primary mapping count: {} \n\
-            - Enabled primary mapping count: {} \n\
+            - Total main mapping count: {} \n\
+            - Enabled main mapping count: {} \n\
             - Total controller mapping count: {} \n\
             - Enabled controller mapping count: {} \n\
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
             self.control_mode,
-            self.mappings[MappingCompartment::PrimaryMappings].len(),
-            self.mappings[MappingCompartment::PrimaryMappings]
+            self.mappings[MappingCompartment::MainMappings].len(),
+            self.mappings[MappingCompartment::MainMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on())
                 .count(),
@@ -492,21 +492,21 @@ impl RealTimeProcessor {
 
     /// Returns whether this source value matched one of the mappings.
     fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
-        let matched_controller = if let [ref mut controller_mappings, ref primary_mappings] =
+        let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
             self.mappings.as_mut_slice()
         {
             control_midi_virtual_and_reaper_targets(
                 &self.control_main_task_sender,
                 controller_mappings,
-                primary_mappings,
+                main_mappings,
                 value,
             )
         } else {
             unreachable!()
         };
-        let matched_primary =
-            self.control_midi_reaper_targets(MappingCompartment::PrimaryMappings, value);
-        matched_primary || matched_controller
+        let matched_main =
+            self.control_midi_reaper_targets(MappingCompartment::MainMappings, value);
+        matched_main || matched_controller
     }
 
     fn control_midi_reaper_targets(
@@ -699,7 +699,7 @@ fn control_midi_virtual_and_reaper_targets(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     // Controller mappings
     mappings_with_virtual_targets: &mut HashMap<MappingId, RealTimeMapping>,
-    // Primary mappings
+    // Main mappings
     mappings_with_virtual_sources: &HashMap<MappingId, RealTimeMapping>,
     value: MidiSourceValue<RawShortMessage>,
 ) -> bool {
@@ -767,14 +767,14 @@ fn control_main(
 /// Returns whether this source value matched one of the mappings.
 fn control_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    primary_mappings: &HashMap<MappingId, RealTimeMapping>,
+    main_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
-    // primary mappings.
+    // main mappings.
     let mut matched = false;
-    for m in primary_mappings
+    for m in main_mappings
         .values()
         .filter(|m| m.control_is_effectively_on())
     {
@@ -784,7 +784,7 @@ fn control_virtual(
         {
             control_main(
                 sender,
-                MappingCompartment::PrimaryMappings,
+                MappingCompartment::MainMappings,
                 m.id(),
                 control_value,
                 options,

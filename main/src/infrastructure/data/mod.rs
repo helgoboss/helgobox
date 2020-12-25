@@ -22,8 +22,8 @@ pub use preset::*;
 mod controller;
 pub use controller::*;
 
-mod primary_preset;
-pub use primary_preset::*;
+mod main_preset;
+pub use main_preset::*;
 
 mod deserializers;
 use deserializers::*;

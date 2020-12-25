@@ -1,4 +1,4 @@
-use crate::application::{MappingModel, Preset, SharedMapping};
+use crate::application::{MappingModel, Preset};
 use std::collections::HashMap;
 use std::fmt;
 

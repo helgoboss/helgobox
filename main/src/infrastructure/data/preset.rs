@@ -1,6 +1,4 @@
-use crate::application::{MappingModel, Preset, PresetManager, SharedMapping};
-use crate::core::default_util::is_default;
-use crate::domain::MappingCompartment;
+use crate::application::{Preset, PresetManager, SharedMapping};
 use crate::infrastructure::data::MappingModelData;
 
 use reaper_high::Reaper;
@@ -8,13 +6,10 @@ use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::export::PhantomData;
-use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
-use std::collections::HashMap;
+use serde::Serialize;
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {

@@ -1,7 +1,7 @@
 use crate::core::default_util::is_default;
 use crate::infrastructure::data::{
-    FileBasedControllerManager, FileBasedPrimaryPresetManager, SharedControllerManager,
-    SharedPrimaryPresetManager,
+    FileBasedControllerManager, FileBasedMainPresetManager, SharedControllerManager,
+    SharedMainPresetManager,
 };
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
@@ -22,7 +22,7 @@ static mut APP: Lazy<App> = Lazy::new(App::load);
 
 pub struct App {
     controller_manager: SharedControllerManager,
-    primary_preset_manager: SharedPrimaryPresetManager,
+    main_preset_manager: SharedMainPresetManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -52,10 +52,10 @@ impl App {
     fn new(config: AppConfig) -> App {
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
-                App::realearn_data_dir_path().join("controllers"),
+                App::realearn_preset_dir_path().join("controller"),
             ))),
-            primary_preset_manager: Rc::new(RefCell::new(FileBasedPrimaryPresetManager::new(
-                App::realearn_data_dir_path().join("primary-mapping-presets"),
+            main_preset_manager: Rc::new(RefCell::new(FileBasedMainPresetManager::new(
+                App::realearn_preset_dir_path().join("main"),
             ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
@@ -95,8 +95,8 @@ impl App {
         self.controller_manager.clone()
     }
 
-    pub fn primary_preset_manager(&self) -> SharedPrimaryPresetManager {
-        self.primary_preset_manager.clone()
+    pub fn main_preset_manager(&self) -> SharedMainPresetManager {
+        self.main_preset_manager.clone()
     }
 
     pub fn server(&self) -> &SharedRealearnServer {
@@ -151,6 +151,10 @@ impl App {
         Reaper::get()
             .resource_path()
             .join("Data/helgoboss/realearn")
+    }
+
+    pub fn realearn_preset_dir_path() -> PathBuf {
+        Self::realearn_data_dir_path().join("presets")
     }
 
     fn server_resource_dir_path() -> PathBuf {
