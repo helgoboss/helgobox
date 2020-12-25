@@ -177,6 +177,21 @@ impl HeaderPanel {
         }
     }
 
+    fn clear_source_filter(&self) {
+        let mut main_state = self.main_state.borrow_mut();
+        main_state.clear_source_filter();
+        // When clearing the source filter while still learning, we want the learning to stop, too.
+        let learning = &mut main_state.is_learning_source_filter;
+        if learning.get() {
+            // Stop learning
+            learning.set(false);
+        }
+    }
+
+    fn clear_target_filter(&self) {
+        self.main_state.borrow_mut().clear_target_filter();
+    }
+
     fn update_let_matched_events_through(&self) {
         self.session().borrow_mut().let_matched_events_through.set(
             self.view
@@ -935,8 +950,8 @@ impl View for HeaderPanel {
             }
             ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
             ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
-            ID_CLEAR_SOURCE_FILTER_BUTTON => self.main_state.borrow_mut().clear_source_filter(),
-            ID_CLEAR_TARGET_FILTER_BUTTON => self.main_state.borrow_mut().clear_target_filter(),
+            ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
+            ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
             ID_IMPORT_BUTTON => {
                 if let Err(msg) = self.import_from_clipboard() {
                     self.view.require_window().alert("ReaLearn", msg);
