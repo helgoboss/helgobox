@@ -1,4 +1,4 @@
-use crate::application::{Controller, Preset, PresetManager, SharedMapping};
+use crate::application::{MainPreset, Preset, PresetManager, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
@@ -7,17 +7,16 @@ use crate::infrastructure::data::{
 
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
-pub type FileBasedControllerManager = FileBasedPresetManager<Controller, ControllerData>;
+pub type FileBasedMainPresetManager = FileBasedPresetManager<MainPreset, MainPresetData>;
 
-pub type SharedControllerManager = Rc<RefCell<FileBasedControllerManager>>;
+pub type SharedMainPresetManager = Rc<RefCell<FileBasedMainPresetManager>>;
 
-impl PresetManager for SharedControllerManager {
-    type PresetType = Controller;
+impl PresetManager for SharedMainPresetManager {
+    type PresetType = MainPreset;
 
-    fn find_by_id(&self, id: &str) -> Option<Controller> {
+    fn find_by_id(&self, id: &str) -> Option<MainPreset> {
         self.borrow().find_by_id(id)
     }
 
@@ -26,7 +25,7 @@ impl PresetManager for SharedControllerManager {
     }
 }
 
-impl ExtendedPresetManager for SharedControllerManager {
+impl ExtendedPresetManager for SharedMainPresetManager {
     fn find_index_by_id(&self, id: &str) -> Option<usize> {
         self.borrow().find_index_by_id(id)
     }
@@ -42,41 +41,37 @@ impl ExtendedPresetManager for SharedControllerManager {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ControllerData {
+pub struct MainPresetData {
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    custom_data: HashMap<String, serde_json::Value>,
 }
 
-impl PresetData for ControllerData {
-    type P = Controller;
+impl PresetData for MainPresetData {
+    type P = MainPreset;
 
-    fn from_model(controller: &Controller) -> ControllerData {
-        ControllerData {
-            id: Some(controller.id().to_string()),
-            mappings: controller
+    fn from_model(preset: &MainPreset) -> MainPresetData {
+        MainPresetData {
+            id: Some(preset.id().to_string()),
+            mappings: preset
                 .mappings()
                 .iter()
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
-            name: controller.name().to_string(),
-            custom_data: controller.custom_data().clone(),
+            name: preset.name().to_string(),
         }
     }
 
-    fn to_model(&self, id: String) -> Controller {
-        Controller::new(
+    fn to_model(&self, id: String) -> MainPreset {
+        MainPreset::new(
             id,
             self.name.clone(),
             self.mappings
                 .iter()
-                .map(|m| m.to_model(MappingCompartment::ControllerMappings, None))
+                .map(|m| m.to_model(MappingCompartment::MainMappings, None))
                 .collect(),
-            self.custom_data.clone(),
         )
     }
 

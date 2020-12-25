@@ -4,17 +4,22 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
-    pub const ID_MAPPING_DIALOG: u32 = 101;
-    pub const ID_MAPPINGS_DIALOG: u32 = 104;
-    pub const ID_MAPPING_ROW_DIALOG: u32 = 106;
-    pub const ID_MAPPING_ROWS_DIALOG: u32 = 108;
-    pub const ID_MAIN_DIALOG: u32 = 111;
     pub const IDR_HEADER_PANEL_CONTEXT_MENU: u32 = 117;
+    pub const ID_HEADER_PANEL: u32 = 119;
+    pub const ID_MAIN_PANEL: u32 = 120;
+    pub const ID_MAPPING_PANEL: u32 = 121;
+    pub const ID_MAPPING_ROW_PANEL: u32 = 122;
+    pub const ID_MAPPING_ROWS_PANEL: u32 = 123;
+    pub const ID_MESSAGE_PANEL: u32 = 126;
+    pub const IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU: u32 = 129;
     pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
+    pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 40000;
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
+    pub const ID_MESSAGE_TEXT: u32 = 40000;
     pub const ID_TARGET_PICK_ACTION_BUTTON: u32 = 40000;
+    pub const IDM_BUTTONS: u32 = 40001;
     pub const IDM_SERVER_START: u32 = 40001;
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
     pub const ID_MAIN_PANEL_STATUS_TEXT: u32 = 40001;
@@ -75,10 +80,10 @@ pub mod root {
     pub const ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL: u32 = 40019;
     pub const ID_PRESET_SAVE_BUTTON: u32 = 40020;
     pub const ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL: u32 = 40020;
-    pub const ID_PRESET_LABEL_TEXT: u32 = 40021;
     pub const ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL: u32 = 40021;
     pub const ID_PROJECTION_BUTTON: u32 = 40022;
     pub const ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL: u32 = 40022;
+    pub const ID_LEARN_MANY_MAPPINGS_BUTTON: u32 = 40023;
     pub const ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL: u32 = 40023;
     pub const ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL: u32 = 40024;
     pub const ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL: u32 = 40025;
@@ -142,6 +147,7 @@ pub mod root {
     pub const ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX: u32 = 40083;
     pub const ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX: u32 = 40084;
     pub const ID_TARGET_CATEGORY_COMBO_BOX: u32 = 40085;
+    pub const ID_TARGET_FX_ANCHOR_COMBO_BOX: u32 = 40086;
     pub const ID_MAPPING_ACTIVATION_EDIT_CONTROL: u32 = 40088;
     pub const ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT: u32 = 40089;
     pub const ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL: u32 = 40090;

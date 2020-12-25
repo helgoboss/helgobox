@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-12-14 (v1.12.0-pre7)</code></td>
+  <td><code>2020-12-25 (v1.12.0-pre8)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -128,7 +128,7 @@ running. It's important to include this information in bug reports.
 
 **Let's see how to add and use our first mapping:**
 
-1. Press the "Add mapping" button.
+1. Press the "Add one" button.
    - A new mapping called "1" should appear in the mapping rows panel.
    - For now it's greyed out because it's not complete yet. The default target is a *Track FX parameter* target
      which doesn't yet refer to any specific FX. 
@@ -307,7 +307,7 @@ So far we've covered the basics. Now let's look into everything in detail.
 
 #### Header panel
 
-The header panel provides the following user interface elements, no matter if *primary mappings* or
+The header panel provides the following user interface elements, no matter if *main mappings* or
 *controller mappings* are shown:
 
 - **Let matched events through / Let unmatched events through:** By default, ReaLearn "eats" MIDI events
@@ -356,9 +356,11 @@ The header panel provides the following user interface elements, no matter if *p
   entrance ticket to batch editing. You can also use it for some very basic A/B testing (1. Press
   _Export to clipboard_, 2. change some settings and test them, 3. Restore the old settings by
   pressing _Import from clipboard_).
-- **Add mapping:** Inserts a default mapping at the end of the current mapping list.
+- **Add one:** Inserts a default mapping at the end of the current mapping list.
+- **Learn many:** Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
+  the on-screen instructions. Click *Stop* when you are finished with your bulk learning strike.
 - **Show:** This lets you choose which mapping compartment ReaLearn should display. A mapping compartment is a list
-  of mappings. Initially, it shows the list of so-called "Primary mappings", which are the bread and butter of
+  of mappings. Initially, it shows the list of so-called "Main mappings", which are the bread and butter of
   ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell, this compartment
   lets you define which hardware controllers you have at your disposal and which control elements they have. Learn
   more about that feature in section "Controller mappings".
@@ -417,7 +419,7 @@ Additionally, it provides a context menu with the following entries:
    
 #### Controller mappings
 
-By default, ReaLearn shows the list of primary mappings. If you select *Controller mappings* in the *Show*
+By default, ReaLearn shows the list of main mappings. If you select *Controller mappings* in the *Show*
 dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
 element on your hardware controller, e.g. a button or fader. This view lets you describe your controller by - well -
 by adding mappings. Almost everything in ReaLearn is a mapping :)
@@ -428,13 +430,13 @@ Defining your own controllers can have a bunch of benefits:
   to project your controller mapping to a mobile device.
 - You can use controller presets made by other users and thereby save precious setup time. Or you can contribute them
   yourself!
-- You can make your primary mappings independent of the actual controller that you use. This is done using so-called
+- You can make your main mappings independent of the actual controller that you use. This is done using so-called
 *virtual* sources and targets.
 - This also allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
 
 In this view, you have some more user interface elements at your disposal:
 
-- **Controller:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
+- **Preset:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
   can also define your own ones and add them to this list! By default, this is set to "&lt;None&gt;", which means that
   no particular controller is active. Both, controller mappings and controller presets are completely optional. 
   If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
@@ -458,7 +460,7 @@ In this view, you have some more user interface elements at your disposal:
 If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable
 controller mapping for each of its control elements:
 
-1. Press the "Add mapping" button.
+1. Press the "Add one" button.
 1. Learn the source by press the "Learn source" button and touching the control element.
 1. Press the "Edit" button.
 1. Enter a descriptive name for the control element.
@@ -480,11 +482,11 @@ controller mapping for each of its control elements:
       "Incremental buttons" mode. 
       
 Before you go ahead and do that for each control element, you might want to check what this is good for: Navigate back
-to the primary mappings, learn the source of some primary mapping and touch the control element that you have just
+to the main mappings, learn the source of some main mapping and touch the control element that you have just
 mapped: Take note how ReaLearn will assign a *virtual* source this time, not a MIDI source! It will also display the
 name of the control element as source label. Now, let's say at some point you swap your controller device with another
 one that has a similar layout, all you need to do is switch the controller preset and you are golden! You have
-decoupled your primary mappings from the actual controller. Plus, as soon as you have saved your controller mappings as
+decoupled your main mappings from the actual controller. Plus, as soon as you have saved your controller mappings as
 a preset, you can take full advantage of the *Projection* feature.
 
 All of this might be a bit of an effort but it's well worth it.
@@ -743,7 +745,7 @@ Sources share the following common settings and functions:
 - **Category:** Lets you choose the source category.
     - **MIDI:** Incoming MIDI events.
     - **Virtual:** Invocations of virtual control elements (coming from controller mappings). This source
-      category is available for primary mappings only. 
+      category is available for main mappings only. 
 - **Type:** Let's you choose the source type. Available types depend on the selected category.
   
 All other UI elements in this section depend on the chosen category. 
@@ -954,16 +956,16 @@ Only available for targets that are associated with a particular REAPER track:
     project.
 - **Track anchor:** If you select a concrete track, another dropdown will appear to the right of the
   track dropdown. It lets you choose how ReaLearn will identify your track.
-  - **ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
+  - **By ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
     very particular track even in case you move it somewhere else or rename it. Please note that it's *not possible*
     with this setting to create a ReaLearn preset that is reusable among different projects. Because a track ID
     is globally unique, even across projects. That also means it doesn't make sense to use this setting in a
     ReaLearn monitoring FX instance.
-  - **Name:** Refers to the track by its name. In case there are multiple tracks with the same name, it will
+  - **Ny name:** Refers to the track by its name. In case there are multiple tracks with the same name, it will
     always prefer the first one. This will allow you to use one ReaLearn preset across multiple projects that
     have similar naming schemes, e.g. as monitoring FX.
-  - **Position:** Refers to the track by its position in the track list. This will allow preset reuse as well.
-  - **ID or name:** This refers to the track by its unique ID with its name as fallback. This was the default
+  - **By position:** Refers to the track by its position in the track list. This will allow preset reuse as well.
+  - **By ID or name:** This refers to the track by its unique ID with its name as fallback. This was the default
     behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 - **Track must be selected:** If checked, this mapping will be active only if the track set in
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
@@ -975,14 +977,25 @@ Only available for targets associated with a particular track send:
 
 Only available for targets associated with a particular FX instance:
 
-- **FX:** The FX instance associated with this target.
+- **FX:** The FX instance associated with this target. In addition to concrete FX instances, the following options are
+  possible:
+    - **&lt;Focused&gt;**: Currently or last focused FX. *Track* and *Input FX* settings are ignored.
+- **FX anchor:** If you select a concrete FX, another dropdown will appear to the right of the
+  FX dropdown. It lets you choose how ReaLearn will identify your FX instance.
+  - **By ID:** Refers to the FX instance by its unique ID (the default). Choose this if you want ReaLearn to always control
+    this very particular FX instance even in case you move it somewhere else within the FX chain or rename it.
+  - **By name:** Refers to the FX instance by its name. In case there are multiple instances with the same name, it will
+    always prefer the first one.
+  - **By position:** Refers to the FX instance by its position within the FX chain.
+  - **By ID or position:** This refers to the FX by its unique ID with its position as fallback. This was the default
+    behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 - **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
   chain. If checked, it will show FX instances in the track's input FX chain.
 - **FX must have focus:** If checked, this mapping will be active only if the FX instance set in
   _FX_ is currently focused. If the FX instance is displayed in a floating window, _focused_ means
   that the floating window is active. If it's displayed within the FX chain window, _focused_ means
   that the FX chain window is currently open and the FX instance is the currently selected FX in
-  that FX chain.
+  that FX chain. Of course, this flag doesn't have any effect if you chose _&lt;Focused&gt;_ FX.
 
 All other UI elements in this section depend on the chosen target type.
 
@@ -1090,7 +1103,7 @@ Invokes a transport-related action.
 ##### Category "Virtual"
 
 This is exactly the counterpart of the possible virtual sources. Choosing a virtual target here is like
-placing cables between a control element and all corresponding primary mappings that use this
+placing cables between a control element and all corresponding main mappings that use this
 virtual control element as source.      
 
 #### Tuning
@@ -1127,7 +1140,12 @@ The following elements are relevant for all kinds of sources, both in *control* 
   translating a target value back to a source value for feedback purposes. It usually makes most
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
   source value (= output value) and `y` is the current target value (= input value), so you must
-  assign the desired source value to `x`. Example: `x = y * 2`.
+  assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this
+  (ReaLearn versions < 1.12.0 contained a bug that caused step 2 and 3 to be swapped):
+  1. Apply reverse
+  2. Apply target interval
+  3. Apply transformation
+  4. Apply source interval
   
 ##### For all source characters (but encoders feedback only)
 
@@ -1203,7 +1221,13 @@ They don't apply to rotary encoders for example. They don't affect *feedback*.
   64-bit floating point numbers between 0.0 (0%) and 1.0 (100%). The script can be much more
   complicated than the mentioned examples and make use of all built-in EEL2 language features. The
   important thing is to assign the desired value to `y` at some point. Please note that the initial
-  value of `y` is the current target value, so you can even "go relative" in absolute mode.
+  value of `y` is the current target value, so you can even "go relative" in absolute mode. ReaLearn's
+  control processing order is like this:
+  1. Apply source interval
+  2. Apply transformation
+  3. Apply target interval
+  4. Apply reverse
+  5. Apply rounding
 
 
 ##### For encoders and incremental buttons (control only)

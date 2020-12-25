@@ -1,21 +1,21 @@
 use std::cell::{Cell, RefCell};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use reaper_high::Reaper;
 use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, MainPanel, MappingPanelManager, MappingRowPanel, SharedMainState,
-    SharedMappingPanelManager,
+    bindings::root, IndependentPanelManager, MainState, MappingRowPanel,
+    SharedIndependentPanelManager, SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
 use std::cmp;
 
-use crate::application::{MappingModel, SharedMapping, SharedSession, WeakSession};
-use crate::domain::{CompoundMappingTarget, MappingCompartment};
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
+use crate::application::{MappingModel, Session, SharedMapping, SharedSession, WeakSession};
+use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -23,18 +23,16 @@ pub struct MappingRowsPanel {
     session: WeakSession,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
-    mapping_panel_manager: SharedMappingPanelManager,
+    panel_manager: Weak<RefCell<IndependentPanelManager>>,
     scroll_position: Cell<usize>,
 }
 
 impl MappingRowsPanel {
     pub fn new(
         session: WeakSession,
-        main_panel: WeakView<MainPanel>,
+        panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
     ) -> MappingRowsPanel {
-        let mapping_panel_manager = MappingPanelManager::new(session.clone(), main_panel);
-        let mapping_panel_manager = Rc::new(RefCell::new(mapping_panel_manager));
         MappingRowsPanel {
             view: Default::default(),
             rows: (0..6)
@@ -42,14 +40,14 @@ impl MappingRowsPanel {
                     let panel = MappingRowPanel::new(
                         session.clone(),
                         i,
-                        mapping_panel_manager.clone(),
+                        panel_manager.clone(),
                         main_state.clone(),
                     );
                     SharedView::new(panel)
                 })
                 .collect(),
             session,
-            mapping_panel_manager,
+            panel_manager,
             scroll_position: 0.into(),
             main_state,
         }
@@ -59,10 +57,13 @@ impl MappingRowsPanel {
         self.session.upgrade().expect("session gone")
     }
 
-    pub fn scroll_to_mapping(&self, mapping: *const MappingModel) {
+    /// Also opens main panel, clears filters and switches compartment if necessary.
+    ///
+    /// Really tries to get mapping on top.
+    pub fn force_scroll_to_mapping(&self, mapping_id: MappingId) {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        let (compartment, index) = match session.location_of_mapping(mapping) {
+        let (compartment, index) = match session.location_of_mapping(mapping_id) {
             None => return,
             Some(i) => i,
         };
@@ -77,14 +78,64 @@ impl MappingRowsPanel {
         self.scroll(index);
     }
 
+    /// Doesn't switch compartment!
+    fn ensure_mapping_is_visible(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        let index = match self.determine_index_of_mapping_in_list(compartment, mapping_id) {
+            None => return,
+            Some(i) => i,
+        };
+        let amount = self.get_scroll_amount_to_make_item_visible(index);
+        self.scroll_relative(amount);
+    }
+
+    fn scroll_relative(&self, amount: isize) {
+        if amount == 0 {
+            return;
+        }
+        let new_scroll_pos = self.scroll_position.get() as isize + amount;
+        if new_scroll_pos >= 0 {
+            self.scroll(new_scroll_pos as usize);
+        }
+    }
+
+    fn get_scroll_amount_to_make_item_visible(&self, index: usize) -> isize {
+        let from_index = self.scroll_position.get();
+        if index < from_index {
+            return index as isize - from_index as isize;
+        }
+        let to_index = from_index + self.rows.len() - 1;
+        if index > to_index {
+            return index as isize - to_index as isize;
+        }
+        0
+    }
+
+    fn determine_index_of_mapping_in_list(
+        &self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+    ) -> Option<usize> {
+        let shared_session = self.session();
+        let session = shared_session.borrow();
+        let main_state = self.main_state.borrow();
+        let filtered_mappings = Self::filtered_mappings(&session, &main_state, compartment);
+        filtered_mappings
+            .iter()
+            .position(|m| m.borrow().id() == mapping_id)
+    }
+
     pub fn edit_mapping(&self, mapping: *const MappingModel) {
         if let Some(m) = self
             .session()
             .borrow()
             .find_mapping_by_address(self.active_compartment(), mapping)
         {
-            self.mapping_panel_manager.borrow_mut().edit_mapping(m);
+            self.panel_manager().borrow_mut().edit_mapping(m);
         }
+    }
+
+    fn panel_manager(&self) -> SharedIndependentPanelManager {
+        self.panel_manager.upgrade().expect("panel manager gone")
     }
 
     fn active_compartment(&self) -> MappingCompartment {
@@ -104,7 +155,7 @@ impl MappingRowsPanel {
             cbSize: std::mem::size_of::<raw::SCROLLINFO>() as _,
             fMask: raw::SIF_PAGE | raw::SIF_RANGE,
             nMin: 0,
-            nMax: self.get_max_scroll_position(item_count) as _,
+            nMax: self.get_max_item_index(item_count) as _,
             nPage: self.rows.len() as _,
             nPos: 0,
             nTrackPos: 0,
@@ -147,20 +198,20 @@ impl MappingRowsPanel {
 
     fn scroll(&self, pos: usize) -> bool {
         let item_count = self.filtered_mapping_count();
-        let pos = pos.min(self.get_max_scroll_position(item_count));
+        let fixed_pos = pos.min(self.get_max_scroll_position(item_count));
         let scroll_pos = self.scroll_position.get();
-        if pos == scroll_pos {
+        if fixed_pos == scroll_pos {
             return false;
         }
         unsafe {
             Reaper::get().medium_reaper().low().CoolSB_SetScrollPos(
                 self.view.require_window().raw() as _,
                 raw::SB_VERT as _,
-                pos as _,
+                fixed_pos as _,
                 1,
             );
         }
-        self.scroll_position.set(pos);
+        self.scroll_position.set(fixed_pos);
         self.update_scroll_status_msg(item_count);
         self.invalidate_mapping_rows();
         true
@@ -176,19 +227,24 @@ impl MappingRowsPanel {
         self.main_state.borrow_mut().status_msg.set(status_msg);
     }
 
-    fn get_max_scroll_position(&self, item_count: usize) -> usize {
+    fn get_max_item_index(&self, item_count: usize) -> usize {
         cmp::max(0, item_count as isize - 1) as usize
+    }
+
+    fn get_max_scroll_position(&self, item_count: usize) -> usize {
+        cmp::max(0, item_count as isize - self.rows.len() as isize) as usize
     }
 
     fn filtered_mapping_count(&self) -> usize {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        if !self.main_state.borrow().filter_is_active() {
+        let main_state = self.main_state.borrow();
+        if !main_state.filter_is_active() {
             return session.mapping_count(self.active_compartment());
         }
         session
             .mappings(self.active_compartment())
-            .filter(|m| self.mapping_matches_filter(*m))
+            .filter(|m| Self::mapping_matches_filter(&session, &main_state, *m))
             .count()
     }
 
@@ -225,6 +281,21 @@ impl MappingRowsPanel {
         Some(result as _)
     }
 
+    fn filtered_mappings<'a>(
+        session: &'a Session,
+        main_state: &MainState,
+        compartment: MappingCompartment,
+    ) -> Vec<&'a SharedMapping> {
+        if main_state.filter_is_active() {
+            session
+                .mappings(compartment)
+                .filter(|m| Self::mapping_matches_filter(session, main_state, *m))
+                .collect()
+        } else {
+            session.mappings(compartment).collect()
+        }
+    }
+
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
@@ -232,23 +303,19 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        let mappings: Vec<_> = if main_state.filter_is_active() {
-            session
-                .mappings(compartment)
-                .filter(|m| self.mapping_matches_filter(*m))
-                .collect()
-        } else {
-            session.mappings(compartment).collect()
-        };
-        for mapping in &mappings[self.scroll_position.get()..] {
-            if row_index >= self.rows.len() {
-                break;
+        let filtered_mappings = Self::filtered_mappings(&session, &main_state, compartment);
+        let scroll_pos = self.scroll_position.get();
+        if scroll_pos < filtered_mappings.len() {
+            for mapping in &filtered_mappings[scroll_pos..] {
+                if row_index >= self.rows.len() {
+                    break;
+                }
+                self.rows
+                    .get(row_index)
+                    .expect("impossible")
+                    .set_mapping(Some((*mapping).clone()));
+                row_index += 1;
             }
-            self.rows
-                .get(row_index)
-                .expect("impossible")
-                .set_mapping(Some((*mapping).clone()));
-            row_index += 1;
         }
         // If there are unused rows, clear them
         for i in row_index..self.rows.len() {
@@ -256,8 +323,11 @@ impl MappingRowsPanel {
         }
     }
 
-    fn mapping_matches_filter(&self, mapping: &SharedMapping) -> bool {
-        let main_state = self.main_state.borrow();
+    fn mapping_matches_filter(
+        session: &Session,
+        main_state: &MainState,
+        mapping: &SharedMapping,
+    ) -> bool {
         if let Some(filter_source) = main_state.source_filter.get_ref() {
             let mapping_source = mapping.borrow().source_model.create_source();
             if mapping_source != *filter_source {
@@ -268,7 +338,7 @@ impl MappingRowsPanel {
             let mapping_target = match mapping
                 .borrow()
                 .target_model
-                .with_context(self.session().borrow().context())
+                .with_context(session.context())
                 .create_target()
             {
                 Ok(CompoundMappingTarget::Reaper(t)) => t,
@@ -294,9 +364,7 @@ impl MappingRowsPanel {
 
     fn invalidate_all_controls(&self) {
         self.invalidate_mapping_rows();
-        self.mapping_panel_manager
-            .borrow_mut()
-            .close_orphan_panels();
+        self.panel_manager().borrow_mut().close_orphan_panels();
         self.invalidate_scroll_info();
     }
 
@@ -308,11 +376,17 @@ impl MappingRowsPanel {
             view.invalidate_all_controls();
         });
         let main_state_clone = self.main_state.clone();
-        self.when(session.mapping_list_changed(), move |view, compartment| {
-            if compartment == main_state_clone.borrow().active_compartment.get() {
-                view.invalidate_all_controls();
-            }
-        });
+        self.when(
+            session.mapping_list_changed(),
+            move |view, (compartment, new_mapping_id)| {
+                if compartment == main_state_clone.borrow().active_compartment.get() {
+                    view.invalidate_all_controls();
+                    if let Some(id) = new_mapping_id {
+                        view.ensure_mapping_is_visible(compartment, id);
+                    }
+                }
+            },
+        );
         self.when(
             main_state
                 .source_filter
@@ -344,7 +418,7 @@ impl MappingRowsPanel {
 
 impl View for MappingRowsPanel {
     fn dialog_resource_id(&self) -> u32 {
-        root::ID_MAPPING_ROWS_DIALOG
+        root::ID_MAPPING_ROWS_PANEL
     }
 
     fn view_context(&self) -> &ViewContext {

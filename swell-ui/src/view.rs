@@ -128,6 +128,13 @@ pub trait View {
     /// WM_CONTEXTMENU
     fn context_menu_wanted(self: SharedView<Self>, _location: Point<Pixels>) {}
 
+    /// WM_PAINT
+    ///
+    /// Should return `true` if custom-paint.
+    fn paint(self: SharedView<Self>) -> bool {
+        false
+    }
+
     /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback
     /// method.
     ///

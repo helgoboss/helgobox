@@ -8,17 +8,17 @@ use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::constants::symbols;
-use crate::infrastructure::ui::{MappingPanelManager, SharedMainState};
+use crate::infrastructure::ui::{IndependentPanelManager, SharedMainState};
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
 use std::ops::Deref;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
-pub type SharedMappingPanelManager = Rc<RefCell<MappingPanelManager>>;
+pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
 /// Panel containing the summary data of one mapping and buttons such as "Remove".
 #[derive(Debug)]
@@ -35,14 +35,14 @@ pub struct MappingRowPanel {
     mapping: RefCell<Option<SharedMapping>>,
     // Fires when a mapping is about to change.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
-    mapping_panel_manager: SharedMappingPanelManager,
+    panel_manager: Weak<RefCell<IndependentPanelManager>>,
 }
 
 impl MappingRowPanel {
     pub fn new(
         session: WeakSession,
         row_index: u32,
-        mapping_panel_manager: SharedMappingPanelManager,
+        panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
     ) -> MappingRowPanel {
         MappingRowPanel {
@@ -52,7 +52,7 @@ impl MappingRowPanel {
             row_index,
             party_is_over_subject: Default::default(),
             mapping: None.into(),
-            mapping_panel_manager,
+            panel_manager,
         }
     }
 
@@ -226,8 +226,7 @@ impl MappingRowPanel {
         self.when(
             self.session()
                 .borrow()
-                .mapping_which_learns_source
-                .changed(),
+                .mapping_which_learns_source_changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_source_button);
             },
@@ -235,8 +234,7 @@ impl MappingRowPanel {
         self.when(
             self.session()
                 .borrow()
-                .mapping_which_learns_target
-                .changed(),
+                .mapping_which_learns_target_changed(),
             |view| {
                 view.with_mapping(Self::invalidate_learn_target_button);
             },
@@ -268,9 +266,13 @@ impl MappingRowPanel {
     }
 
     fn edit_mapping(&self) {
-        self.mapping_panel_manager
+        self.panel_manager()
             .borrow_mut()
             .edit_mapping(self.require_mapping().deref());
+    }
+
+    fn panel_manager(&self) -> SharedIndependentPanelManager {
+        self.panel_manager.upgrade().expect("panel manager gone")
     }
 
     fn move_mapping_up(&self) {
@@ -310,15 +312,17 @@ impl MappingRowPanel {
     }
 
     fn toggle_learn_source(&self) {
-        self.session()
+        let shared_session = self.session();
+        shared_session
             .borrow_mut()
-            .toggle_learn_source(self.require_mapping().deref());
+            .toggle_learning_source(&shared_session, self.require_mapping().deref());
     }
 
     fn toggle_learn_target(&self) {
-        self.session()
+        let shared_session = self.session();
+        shared_session
             .borrow_mut()
-            .toggle_learn_target(self.require_mapping().deref());
+            .toggle_learning_target(&shared_session, self.require_mapping().deref());
     }
 
     fn update_control_is_enabled(&self) {
@@ -350,7 +354,7 @@ impl MappingRowPanel {
 
 impl View for MappingRowPanel {
     fn dialog_resource_id(&self) -> u32 {
-        root::ID_MAPPING_ROW_DIALOG
+        root::ID_MAPPING_ROW_PANEL
     }
 
     fn view_context(&self) -> &ViewContext {

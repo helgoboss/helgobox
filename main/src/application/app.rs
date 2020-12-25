@@ -112,7 +112,7 @@ impl App {
                     Some(t) => t,
                 };
                 App::get()
-                    .start_learning_source_for_target(MappingCompartment::PrimaryMappings, &target);
+                    .start_learning_source_for_target(MappingCompartment::MainMappings, &target);
             },
             ActionKind::NotToggleable,
         );
@@ -139,9 +139,9 @@ impl App {
                 notification::alert("Please add a ReaLearn FX to this project first!");
             }
             Some(s) => {
-                let mapping = s
-                    .borrow_mut()
-                    .toggle_learn_source_for_target(compartment, target);
+                let mapping =
+                    s.borrow_mut()
+                        .toggle_learn_source_for_target(&s, compartment, target);
                 s.borrow().show_mapping(mapping.as_ptr());
             }
         }

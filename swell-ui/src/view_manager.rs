@@ -242,6 +242,13 @@ unsafe extern "C" fn view_dialog_proc(
                     view.context_menu_wanted(Point::new(Pixels(x as _), Pixels(y as _)));
                     1
                 }
+                raw::WM_PAINT => {
+                    if view.paint() {
+                        1
+                    } else {
+                        0
+                    }
+                }
                 _ => 0,
             }
         })

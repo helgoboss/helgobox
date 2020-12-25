@@ -318,6 +318,7 @@ impl RealearnPlugin {
                     // doesn't result in a crash, but there's no cleanup.
                     Rc::downgrade(&main_panel),
                     App::get().controller_manager(),
+                    App::get().main_preset_manager(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);

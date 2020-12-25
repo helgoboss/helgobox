@@ -24,7 +24,7 @@ impl Default for MainState {
             is_learning_target_filter: prop(false),
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
-            active_compartment: prop(MappingCompartment::PrimaryMappings),
+            active_compartment: prop(MappingCompartment::MainMappings),
             search_expression: Default::default(),
             status_msg: Default::default(),
         }

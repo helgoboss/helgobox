@@ -1,9 +1,7 @@
-use crate::application::{
-    ControllerManager, Session, SharedSession, SourceCategory, TargetCategory,
-};
+use crate::application::{PresetManager, Session, SharedSession, SourceCategory, TargetCategory};
 use crate::core::when;
 use crate::domain::MappingCompartment;
-use crate::infrastructure::data::ControllerData;
+use crate::infrastructure::data::{ControllerData, PresetData};
 use crate::infrastructure::plugin::App;
 
 use futures::StreamExt;
@@ -275,7 +273,7 @@ fn handle_patch_controller_route(
         .ok_or_else(controller_not_found)?;
     controller.update_custom_data(custom_data_key.to_string(), req.value);
     controller_manager
-        .update_controller(controller)
+        .update_preset(controller)
         .map_err(|_| internal_server_error("couldn't update controller"))?;
     Ok(StatusCode::OK)
 }
@@ -791,15 +789,15 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                 if m.target_model.category.get() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
-                    let matching_primary_mappings = session
-                        .mappings(MappingCompartment::PrimaryMappings)
+                    let matching_main_mappings = session
+                        .mappings(MappingCompartment::MainMappings)
                         .filter(|mp| {
                             let mp = mp.borrow();
                             mp.source_model.category.get() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
                                 && session.mapping_is_on(mp.id())
                         });
-                    let descriptors: Vec<_> = matching_primary_mappings
+                    let descriptors: Vec<_> = matching_main_mappings
                         .map(|m| {
                             let m = m.borrow();
                             TargetDescriptor {

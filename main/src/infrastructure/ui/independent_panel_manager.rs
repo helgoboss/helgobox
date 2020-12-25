@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel};
+use crate::infrastructure::ui::{MainPanel, MappingPanel, MessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
@@ -9,19 +9,29 @@ const MAX_PANEL_COUNT: u32 = 4;
 
 /// Responsible for managing the currently open top-level mapping panels.
 #[derive(Debug)]
-pub struct MappingPanelManager {
+pub struct IndependentPanelManager {
     session: WeakSession,
     main_panel: WeakView<MainPanel>,
-    open_panels: Vec<SharedView<MappingPanel>>,
+    mapping_panels: Vec<SharedView<MappingPanel>>,
+    message_panel: SharedView<MessagePanel>,
 }
 
-impl MappingPanelManager {
-    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> MappingPanelManager {
+impl IndependentPanelManager {
+    pub fn new(session: WeakSession, main_panel: WeakView<MainPanel>) -> IndependentPanelManager {
         Self {
-            session,
+            session: session.clone(),
             main_panel,
-            open_panels: Default::default(),
+            mapping_panels: Default::default(),
+            message_panel: SharedView::new(MessagePanel::new(session)),
         }
+    }
+
+    pub fn open_message_panel(&self) {
+        self.message_panel.clone().open(reaper_main_window());
+    }
+
+    pub fn close_message_panel(&self) {
+        self.message_panel.clone().close();
     }
 
     /// Opens a panel for editing the given mapping.
@@ -29,7 +39,7 @@ impl MappingPanelManager {
     /// If the window is already open, it will be closed and reopened.
     pub fn edit_mapping(&mut self, mapping: &SharedMapping) {
         let existing_panel = self
-            .open_panels
+            .mapping_panels
             .iter()
             .find(|p| p.mapping_ptr() == mapping.as_ptr());
         if let Some(p) = existing_panel {
@@ -45,7 +55,7 @@ impl MappingPanelManager {
     pub fn close_orphan_panels(&mut self) {
         let shared_session = self.session.upgrade().expect("session gone");
         let session = shared_session.borrow();
-        self.open_panels.retain(|p| {
+        self.mapping_panels.retain(|p| {
             if session.has_mapping(p.mapping_ptr()) {
                 true
             } else {
@@ -55,12 +65,13 @@ impl MappingPanelManager {
         });
     }
 
-    /// Closes and removes all mapping panels
+    /// Closes and removes all independent panels
     pub fn close_all(&mut self) {
-        for p in &self.open_panels {
+        self.message_panel.close();
+        for p in &self.mapping_panels {
             p.close()
         }
-        self.open_panels.clear();
+        self.mapping_panels.clear();
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {
@@ -70,11 +81,11 @@ impl MappingPanelManager {
     }
 
     fn find_free_panel(&self) -> Option<SharedView<MappingPanel>> {
-        self.open_panels.iter().find(|p| p.is_free()).cloned()
+        self.mapping_panels.iter().find(|p| p.is_free()).cloned()
     }
 
     fn create_new_panel_if_not_exhausted(&mut self) -> Option<SharedView<MappingPanel>> {
-        if self.open_panels.len() < MAX_PANEL_COUNT as _ {
+        if self.mapping_panels.len() < MAX_PANEL_COUNT as _ {
             Some(self.create_new_panel())
         } else {
             None
@@ -88,22 +99,28 @@ impl MappingPanelManager {
         ));
         let panel_clone_1 = panel.clone();
         let panel_clone_2 = panel.clone();
-        self.open_panels.push(panel);
-        let reaper_main_window = Window::from_non_null(Reaper::get().main_window());
-        panel_clone_1.open(reaper_main_window);
+        self.mapping_panels.push(panel);
+        panel_clone_1.open(reaper_main_window());
         panel_clone_2
     }
 
     fn hijack_existing_panel(&self) -> SharedView<MappingPanel> {
-        self.open_panels.first().expect("no existing panel").clone()
+        self.mapping_panels
+            .first()
+            .expect("no existing panel")
+            .clone()
     }
 }
 
-impl Drop for MappingPanelManager {
+impl Drop for IndependentPanelManager {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping mapping panel manager...");
         // Those are (intentionally) REAPER child windows, not ReaLearn child windows. So we need to
         // close them manually as soon as ReaLearn is unloaded.
         self.close_all();
     }
+}
+
+fn reaper_main_window() -> Window {
+    Window::from_non_null(Reaper::get().main_window())
 }

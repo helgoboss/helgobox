@@ -2,17 +2,22 @@
 #define IDC_STATIC (-1)
 #endif
 
-#define ID_MAPPING_DIALOG                       101
-#define ID_MAPPINGS_DIALOG                      104
-#define ID_MAPPING_ROW_DIALOG                   106
-#define ID_MAPPING_ROWS_DIALOG                  108
-#define ID_MAIN_DIALOG                          111
 #define IDR_HEADER_PANEL_CONTEXT_MENU           117
+#define ID_HEADER_PANEL                         119
+#define ID_MAIN_PANEL                           120
+#define ID_MAPPING_PANEL                        121
+#define ID_MAPPING_ROW_PANEL                    122
+#define ID_MAPPING_ROWS_PANEL                   123
+#define ID_MESSAGE_PANEL                        126
+#define IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU 129
 #define IDM_LOG_DEBUG_INFO                      40000
+#define IDM_MULTIS                              40000
 #define ID_ADD_MAPPING_BUTTON                   40000
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
+#define ID_MESSAGE_TEXT                         40000
 #define ID_TARGET_PICK_ACTION_BUTTON            40000
+#define IDM_BUTTONS                             40001
 #define IDM_SERVER_START                        40001
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
 #define ID_MAIN_PANEL_STATUS_TEXT               40001
@@ -73,10 +78,10 @@
 #define ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL 40019
 #define ID_PRESET_SAVE_BUTTON                   40020
 #define ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL 40020
-#define ID_PRESET_LABEL_TEXT                    40021
 #define ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL 40021
 #define ID_PROJECTION_BUTTON                    40022
 #define ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL  40022
+#define ID_LEARN_MANY_MAPPINGS_BUTTON           40023
 #define ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL 40023
 #define ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL 40024
 #define ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL  40025
@@ -140,6 +145,7 @@
 #define ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX 40083
 #define ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX 40084
 #define ID_TARGET_CATEGORY_COMBO_BOX            40085
+#define ID_TARGET_FX_ANCHOR_COMBO_BOX           40086
 #define ID_MAPPING_ACTIVATION_EDIT_CONTROL      40088
 #define ID_MAPPING_ACTIVATION_EEL_LABEL_TEXT    40089
 #define ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL   40090

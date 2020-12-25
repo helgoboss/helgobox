@@ -24,15 +24,15 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    ActivationType, MappingModel, MidiSourceType, ModeModel, ModifierConditionModel,
-    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
-    TargetCategory, TargetModel, TargetModelWithContext, TrackAnchorType,
-    VirtualControlElementType, WeakSession,
+    get_guid_based_fx_at_index, get_optional_fx_label, ActivationType, FxAnchorType, MappingModel,
+    MidiSourceType, ModeModel, ModifierConditionModel, ReaperTargetType, Session, SharedMapping,
+    SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
+    TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakSession,
 };
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, MappingCompartment, RealearnTarget, ReaperTarget,
-    TargetCharacter, TrackAnchor, TransportAction, VirtualControlElement, VirtualTrack,
-    PLUGIN_PARAMETER_COUNT,
+    ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
+    ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
+    VirtualControlElement, VirtualFx, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -68,6 +68,7 @@ struct ImmutableMappingPanel<'a> {
 
 struct MutableMappingPanel<'a> {
     session: &'a mut Session,
+    shared_session: &'a SharedSession,
     mapping: &'a mut MappingModel,
     shared_mapping: &'a SharedMapping,
     view: &'a ViewContext,
@@ -104,6 +105,14 @@ impl MappingPanel {
         }
     }
 
+    fn toggle_learn_source(&self) {
+        let session = self.session();
+        let mapping = self.mapping();
+        session
+            .borrow_mut()
+            .toggle_learning_source(&session, &mapping);
+    }
+
     pub fn is_free(&self) -> bool {
         self.mapping.borrow().is_none()
     }
@@ -115,11 +124,20 @@ impl MappingPanel {
         }
     }
 
-    pub fn scroll_to_mapping_in_main_panel(&self) {
-        self.main_panel
-            .upgrade()
-            .expect("main view gone")
-            .scroll_to_mapping(self.mapping_ptr());
+    fn mapping_id(&self) -> Option<MappingId> {
+        let mapping = self.mapping.borrow();
+        let mapping = mapping.as_ref()?;
+        let mapping = mapping.borrow();
+        Some(mapping.id())
+    }
+
+    pub fn force_scroll_to_mapping_in_main_panel(&self) {
+        if let Some(id) = self.mapping_id() {
+            self.main_panel
+                .upgrade()
+                .expect("main view gone")
+                .force_scroll_to_mapping(id);
+        }
     }
 
     pub fn hide(&self) {
@@ -177,6 +195,11 @@ impl MappingPanel {
         self.session.upgrade().expect("session gone")
     }
 
+    fn mapping(&self) -> SharedMapping {
+        let shared_mapping = self.mapping.borrow();
+        shared_mapping.as_ref().expect("mapping not filled").clone()
+    }
+
     fn read<R>(
         self: SharedView<Self>,
         op: impl Fn(&ImmutableMappingPanel) -> R,
@@ -208,6 +231,7 @@ impl MappingPanel {
         let mut mapping = shared_mapping.borrow_mut();
         let mut p = MutableMappingPanel {
             session: &mut session,
+            shared_session: &shared_session,
             mapping: &mut mapping,
             shared_mapping: &shared_mapping,
             view: &self.view,
@@ -294,10 +318,6 @@ impl<'a> MutableMappingPanel<'a> {
                 .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
         }
-    }
-
-    fn toggle_learn_source(&mut self) {
-        self.session.toggle_learn_source(&self.shared_mapping);
     }
 
     fn update_mapping_control_enabled(&mut self) {
@@ -845,11 +865,21 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_is_input_fx(&mut self) {
-        self.mapping.target_model.is_input_fx.set(
-            self.view
-                .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX)
-                .is_checked(),
-        );
+        let is_input_fx = self
+            .view
+            .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX)
+            .is_checked();
+        let new_virtual_fx = match self.mapping.target_model.fx.get_ref().as_ref() {
+            None | Some(VirtualFx::Focused) => Some(VirtualFx::Particular {
+                is_input_fx,
+                anchor: FxAnchor::Index(0),
+            }),
+            Some(VirtualFx::Particular { anchor, .. }) => Some(VirtualFx::Particular {
+                anchor: anchor.clone(),
+                is_input_fx,
+            }),
+        };
+        self.mapping.target_model.fx.set(new_virtual_fx);
     }
 
     fn update_target_only_if_fx_has_focus(&mut self) {
@@ -874,7 +904,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn toggle_learn_target(&mut self) {
-        self.session.toggle_learn_target(self.shared_mapping);
+        self.session
+            .toggle_learning_target(self.shared_session, self.shared_mapping);
     }
 
     fn update_target_category(&mut self) {
@@ -961,24 +992,64 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_from_combo_box_three(&mut self) {
-        let combo = self
+        let main_combo = self
             .view
             .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
         let target = &mut self.mapping.target_model;
         if target.supports_fx() {
-            let data = combo.selected_combo_box_item_data();
-            let fx_index = if data == -1 { None } else { Some(data as u32) };
-            target.set_fx_index_and_memorize_guid(self.session.context(), fx_index);
+            let anchor_combo = self
+                .view
+                .require_control(root::ID_TARGET_FX_ANCHOR_COMBO_BOX);
+            Self::update_target_fx(self.session.context(), main_combo, anchor_combo, target);
         } else if target.supports_send() {
-            let data = combo.selected_combo_box_item_data();
+            let data = main_combo.selected_combo_box_item_data();
             let send_index = if data == -1 { None } else { Some(data as u32) };
             target.send_index.set(send_index);
         } else if target.r#type.get() == ReaperTargetType::Action {
-            let index = combo.selected_combo_box_item_index();
+            let index = main_combo.selected_combo_box_item_index();
             target
                 .action_invocation_type
                 .set(index.try_into().expect("invalid action invocation type"));
         }
+    }
+
+    fn update_target_fx(
+        context: &ProcessorContext,
+        main_combo: Window,
+        anchor_combo: Window,
+        target: &mut TargetModel,
+    ) {
+        let item_data = main_combo.selected_combo_box_item_data();
+        let virtual_fx = match item_data {
+            -1 => VirtualFx::Focused,
+            _ => {
+                let i = item_data as u32;
+                let track = target.track.get_ref();
+                let is_input_fx = match target.fx.get_ref() {
+                    None => false,
+                    Some(virtual_fx) => match virtual_fx {
+                        VirtualFx::Focused => false,
+                        VirtualFx::Particular { is_input_fx, .. } => *is_input_fx,
+                    },
+                };
+                if let Ok(fx) = get_guid_based_fx_at_index(context, track, is_input_fx, i) {
+                    let anchor_type: FxAnchorType = anchor_combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or(FxAnchorType::Id);
+                    VirtualFx::Particular {
+                        is_input_fx,
+                        anchor: anchor_type.to_anchor(&fx).unwrap_or(FxAnchor::Index(i)),
+                    }
+                } else {
+                    VirtualFx::Particular {
+                        is_input_fx,
+                        anchor: FxAnchor::Index(i),
+                    }
+                }
+            }
+        };
+        target.fx.set(Some(virtual_fx));
     }
 
     fn update_target_fx_parameter(&mut self) {
@@ -1050,6 +1121,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_target_category_combo_box();
         self.fill_target_track_anchor_combo_box();
+        self.fill_target_fx_anchor_combo_box();
     }
 
     fn invalidate_all_controls(&self) {
@@ -1373,10 +1445,10 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_category_combo_box(&self) {
-        // Don't allow primary mappings to have virtual target
+        // Don't allow main mappings to have virtual target
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .set_enabled(self.mapping.compartment() != MappingCompartment::PrimaryMappings);
+            .set_enabled(self.mapping.compartment() != MappingCompartment::MainMappings);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
             .select_combo_box_item(self.target.category.get().into());
@@ -1669,9 +1741,12 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_three(&self) {
-        let combo = self
+        let main_combo = self
             .view
             .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
+        let anchor_combo = self
+            .view
+            .require_control(root::ID_TARGET_FX_ANCHOR_COMBO_BOX);
         let label = self
             .view
             .require_control(root::ID_TARGET_FX_OR_SEND_LABEL_TEXT);
@@ -1680,26 +1755,29 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX);
         let target = self.target;
         if target.supports_fx() {
-            combo.show();
+            main_combo.show();
             label.show();
             input_fx_box.show();
-            self.fill_target_fx_combo_box(label, combo);
-            self.set_target_fx_combo_box_value(combo);
+            self.fill_target_fx_combo_box(label, main_combo);
+            self.invalidate_target_fx_combo_box_value(main_combo, input_fx_box, anchor_combo);
         } else if target.supports_send() {
-            combo.show();
+            main_combo.show();
+            anchor_combo.hide();
             label.show();
             input_fx_box.hide();
-            self.fill_target_send_combo_box(label, combo);
-            self.set_target_send_combo_box_value(combo);
+            self.fill_target_send_combo_box(label, main_combo);
+            self.set_target_send_combo_box_value(main_combo);
         } else if target.r#type.get() == ReaperTargetType::Action {
-            combo.show();
+            main_combo.show();
+            anchor_combo.hide();
             label.show();
             input_fx_box.hide();
-            self.fill_target_invocation_type_combo_box(label, combo);
-            self.set_target_invocation_type_combo_box_value(combo);
+            self.fill_target_invocation_type_combo_box(label, main_combo);
+            self.set_target_invocation_type_combo_box_value(main_combo);
         } else {
             label.hide();
-            combo.hide();
+            main_combo.hide();
+            anchor_combo.hide();
             input_fx_box.hide();
         }
     }
@@ -1774,35 +1852,84 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_target_fx_combo_box(&self, label: Window, combo: Window) {
         label.set_text("FX");
-        let track = match self.target_with_context().effective_track().ok() {
-            None => {
-                combo.clear_combo_box();
-                return;
+        let mut v = vec![(
+            -1isize,
+            format!("{} (ignores track and chain)", VirtualFx::Focused),
+        )];
+        let fx_chain = {
+            if let Ok(track) = self.target_with_context().effective_track() {
+                match self.target.fx.get_ref() {
+                    None | Some(VirtualFx::Focused) => Some(track.normal_fx_chain()),
+                    Some(VirtualFx::Particular { is_input_fx, .. }) => {
+                        if *is_input_fx {
+                            Some(track.input_fx_chain())
+                        } else {
+                            Some(track.normal_fx_chain())
+                        }
+                    }
+                }
+            } else {
+                None
             }
-            Some(t) => t,
         };
-        let fx_chain = if self.target.is_input_fx.get() {
-            track.input_fx_chain()
-        } else {
-            track.normal_fx_chain()
-        };
-        let fxs = fx_chain
-            .fxs()
-            .enumerate()
-            .map(|(i, fx)| (i as isize, get_fx_label(Some(&fx), Some(i as u32))));
-        combo.fill_combo_box_with_data_small(fxs);
+        if let Some(fx_chain) = fx_chain {
+            let fxs = fx_chain
+                .fxs()
+                .enumerate()
+                .map(|(i, fx)| (i as isize, get_fx_label(i as u32, &fx)));
+            v.extend(fxs);
+        }
+        combo.fill_combo_box_with_data_vec(v);
     }
 
-    fn set_target_fx_combo_box_value(&self, combo: Window) {
-        let target = self.target;
-        match target.fx_index.get() {
-            None => combo.select_new_combo_box_item("<None>"),
-            Some(i) => combo
-                .select_combo_box_item_by_data(i as isize)
-                .unwrap_or_else(|_| {
-                    combo.select_new_combo_box_item(get_fx_label(None, Some(i)).as_ref());
-                }),
+    fn invalidate_target_fx_combo_box_value(
+        &self,
+        combo: Window,
+        input_fx_box: Window,
+        anchor_combo: Window,
+    ) {
+        // FX combo box
+        let (is_input_fx, anchor) = match self.target.fx.get_ref() {
+            None => {
+                combo.select_new_combo_box_item("<None>");
+                (false, None)
+            }
+            Some(virtual_fx) => match virtual_fx {
+                VirtualFx::Focused => {
+                    let _ = combo.select_combo_box_item_by_data(-1);
+                    (false, None)
+                }
+                VirtualFx::Particular {
+                    anchor,
+                    is_input_fx,
+                } => {
+                    let successfully_selected_item =
+                        match self.target_with_context().fx().ok().map(|fx| fx.index()) {
+                            None => false,
+                            Some(index) => {
+                                combo.select_combo_box_item_by_data(index as isize).is_ok()
+                            }
+                        };
+                    if !successfully_selected_item {
+                        let label = get_optional_fx_label(anchor, None);
+                        combo.select_new_combo_box_item(label.as_str());
+                    }
+                    (*is_input_fx, Some(anchor.clone()))
+                }
+            },
+        };
+        // Anchor combo box
+        if let Some(a) = anchor {
+            let anchor_type = FxAnchorType::from_anchor(&a);
+            anchor_combo.show();
+            anchor_combo.select_combo_box_item(anchor_type.into());
+        } else {
+            anchor_combo.hide();
+            // We should at least initialize it so that it has a value. It's used for updating.
+            anchor_combo.select_combo_box_item(0);
         }
+        // Input FX checkbox
+        input_fx_box.set_checked(is_input_fx);
     }
 
     fn invalidate_target_only_if_fx_has_focus_check_box(&self) {
@@ -1885,11 +2012,11 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_session_listeners(&self) {
         self.panel
-            .when_do_sync(self.session.mapping_which_learns_source.changed(), |view| {
+            .when_do_sync(self.session.mapping_which_learns_source_changed(), |view| {
                 view.invalidate_source_learn_button();
             });
         self.panel
-            .when_do_sync(self.session.mapping_which_learns_target.changed(), |view| {
+            .when_do_sync(self.session.mapping_which_learns_target_changed(), |view| {
                 view.invalidate_target_learn_button();
             });
         let reaper = Reaper::get();
@@ -2508,18 +2635,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(target.transport_action.changed(), |view| {
                 view.invalidate_target_line_two();
             });
-        self.panel.when_do_sync(
-            target
-                .fx_index
-                .changed()
-                .merge(target.is_input_fx.changed()),
-            |view| {
-                view.invalidate_target_line_three();
-                view.invalidate_target_fx_param_combo_box();
-                view.invalidate_target_value_controls();
-                view.invalidate_mode_controls();
-            },
-        );
+        self.panel.when_do_sync(target.fx.changed(), |view| {
+            view.invalidate_target_line_three();
+            view.invalidate_target_fx_param_combo_box();
+            view.invalidate_target_value_controls();
+            view.invalidate_mode_controls();
+        });
         self.panel
             .when_do_sync(target.param_index.changed(), |view| {
                 view.invalidate_target_value_controls();
@@ -2626,6 +2747,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_TRACK_ANCHOR_COMBO_BOX);
         b.fill_combo_box(TrackAnchorType::into_enum_iter());
+    }
+
+    fn fill_target_fx_anchor_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_TARGET_FX_ANCHOR_COMBO_BOX);
+        b.fill_combo_box(FxAnchorType::into_enum_iter());
     }
 
     fn fill_target_category_combo_box(&self) {
@@ -2735,7 +2863,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
 impl View for MappingPanel {
     fn dialog_resource_id(&self) -> u32 {
-        root::ID_MAPPING_DIALOG
+        root::ID_MAPPING_PANEL
     }
 
     fn view_context(&self) -> &ViewContext {
@@ -2773,7 +2901,7 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mapping_send_feedback_after_control())
             }
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
-                self.scroll_to_mapping_in_main_panel();
+                self.force_scroll_to_mapping_in_main_panel();
             }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
                 self.write(|p| p.update_mapping_activation_setting_1_on())
@@ -2786,7 +2914,7 @@ impl View for MappingPanel {
                 self.hide();
             }
             // Source
-            ID_SOURCE_LEARN_BUTTON => self.write(|p| p.toggle_learn_source()),
+            ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),
             ID_SOURCE_RPN_CHECK_BOX => self.write(|p| p.update_source_is_registered()),
             ID_SOURCE_14_BIT_CHECK_BOX => self.write(|p| p.update_source_is_14_bit()),
             // Mode
@@ -2847,7 +2975,7 @@ impl View for MappingPanel {
             ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX | ID_TARGET_TRACK_ANCHOR_COMBO_BOX => {
                 self.write(|p| p.update_target_line_two_data()).unwrap();
             }
-            ID_TARGET_FX_OR_SEND_COMBO_BOX => {
+            ID_TARGET_FX_OR_SEND_COMBO_BOX | ID_TARGET_FX_ANCHOR_COMBO_BOX => {
                 self.write(|p| p.update_target_from_combo_box_three());
             }
             ID_TARGET_FX_PARAMETER_COMBO_BOX => self.write(|p| p.update_target_fx_parameter()),

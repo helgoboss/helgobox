@@ -75,7 +75,7 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
     use MappingCompartment::*;
     match compartment {
         ControllerMappings => TargetCategory::Virtual,
-        PrimaryMappings => TargetCategory::Reaper,
+        MainMappings => TargetCategory::Reaper,
     }
 }
 

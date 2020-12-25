@@ -1,5 +1,8 @@
 use crate::core::default_util::is_default;
-use crate::infrastructure::data::{FileBasedControllerManager, SharedControllerManager};
+use crate::infrastructure::data::{
+    FileBasedControllerManager, FileBasedMainPresetManager, SharedControllerManager,
+    SharedMainPresetManager,
+};
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
 use reaper_high::Reaper;
@@ -19,6 +22,7 @@ static mut APP: Lazy<App> = Lazy::new(App::load);
 
 pub struct App {
     controller_manager: SharedControllerManager,
+    main_preset_manager: SharedMainPresetManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -48,7 +52,10 @@ impl App {
     fn new(config: AppConfig) -> App {
         App {
             controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
-                App::realearn_data_dir_path().join("controllers"),
+                App::realearn_preset_dir_path().join("controller"),
+            ))),
+            main_preset_manager: Rc::new(RefCell::new(FileBasedMainPresetManager::new(
+                App::realearn_preset_dir_path().join("main"),
             ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
@@ -86,6 +93,10 @@ impl App {
     //  this into a weak one.
     pub fn controller_manager(&self) -> SharedControllerManager {
         self.controller_manager.clone()
+    }
+
+    pub fn main_preset_manager(&self) -> SharedMainPresetManager {
+        self.main_preset_manager.clone()
     }
 
     pub fn server(&self) -> &SharedRealearnServer {
@@ -140,6 +151,10 @@ impl App {
         Reaper::get()
             .resource_path()
             .join("Data/helgoboss/realearn")
+    }
+
+    pub fn realearn_preset_dir_path() -> PathBuf {
+        Self::realearn_data_dir_path().join("presets")
     }
 
     fn server_resource_dir_path() -> PathBuf {

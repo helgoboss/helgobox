@@ -25,14 +25,15 @@ const NORMAL_BULK_SIZE: usize = 100;
 const FEEDBACK_BULK_SIZE: usize = 100;
 
 #[derive(PartialEq, Debug)]
-pub(crate) enum ControlState {
+pub(crate) enum ControlMode {
+    Disabled,
     Controlling,
     LearningSource(MappingCompartment),
 }
 
-impl ControlState {
+impl ControlMode {
     fn is_learning(&self) -> bool {
-        matches!(self, ControlState::LearningSource(_))
+        matches!(self, ControlMode::LearningSource(_))
     }
 }
 
@@ -40,7 +41,7 @@ impl ControlState {
 pub struct RealTimeProcessor {
     logger: slog::Logger,
     // Synced processing settings
-    pub(crate) control_state: ControlState,
+    pub(crate) control_mode: ControlMode,
     pub(crate) midi_control_input: MidiControlInput,
     pub(crate) midi_feedback_output: Option<MidiFeedbackOutput>,
     pub(crate) mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
@@ -76,14 +77,14 @@ impl RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
-            control_state: ControlState::Controlling,
+            control_mode: ControlMode::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
             normal_main_task_sender,
             control_main_task_sender,
             mappings: enum_map! {
                 ControllerMappings => HashMap::with_capacity(100),
-                PrimaryMappings => HashMap::with_capacity(500),
+                MainMappings => HashMap::with_capacity(500),
             },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
@@ -188,15 +189,19 @@ impl RealTimeProcessor {
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource(compartment) => {
-                    debug!(self.logger, "Start learn source");
-                    self.control_state = ControlState::LearningSource(compartment);
+                    debug!(self.logger, "Start learning source");
+                    self.control_mode = ControlMode::LearningSource(compartment);
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                     self.source_scanner.reset();
                 }
-                StopLearnSource => {
-                    debug!(self.logger, "Stop learn source");
-                    self.control_state = ControlState::Controlling;
+                DisableControl => {
+                    debug!(self.logger, "Disable control");
+                    self.control_mode = ControlMode::Disabled;
+                }
+                ReturnToControlMode => {
+                    debug!(self.logger, "Return to control mode");
+                    self.control_mode = ControlMode::Controlling;
                     self.nrpn_scanner.reset();
                     self.cc_14_bit_scanner.reset();
                 }
@@ -246,7 +251,7 @@ impl RealTimeProcessor {
             });
         }
         // Poll source scanner if we are learning a source currently
-        if self.control_state.is_learning() {
+        if self.control_mode.is_learning() {
             self.poll_source_scanner()
         }
     }
@@ -258,16 +263,16 @@ impl RealTimeProcessor {
             # Real-time processor\n\
             \n\
             - State: {:?} \n\
-            - Total primary mapping count: {} \n\
-            - Enabled primary mapping count: {} \n\
+            - Total main mapping count: {} \n\
+            - Enabled main mapping count: {} \n\
             - Total controller mapping count: {} \n\
             - Enabled controller mapping count: {} \n\
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
-            self.control_state,
-            self.mappings[MappingCompartment::PrimaryMappings].len(),
-            self.mappings[MappingCompartment::PrimaryMappings]
+            self.control_mode,
+            self.mappings[MappingCompartment::MainMappings].len(),
+            self.mappings[MappingCompartment::MainMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on())
                 .count(),
@@ -364,8 +369,8 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        match self.control_state {
-            ControlState::Controlling => {
+        match self.control_mode {
+            ControlMode::Controlling => {
                 let matched = self.control_midi(source_value);
                 if self.midi_control_input != MidiControlInput::FxInput {
                     return;
@@ -378,9 +383,10 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlState::LearningSource(compartment) => {
+            ControlMode::LearningSource(compartment) => {
                 self.feed_source_scanner(source_value, compartment);
             }
+            ControlMode::Disabled => {}
         }
     }
 
@@ -436,8 +442,8 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_cc14(&mut self, msg: ControlChange14BitMessage) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        match self.control_state {
-            ControlState::Controlling => {
+        match self.control_mode {
+            ControlMode::Controlling => {
                 let matched = self.control_midi(source_value);
                 if self.midi_control_input != MidiControlInput::FxInput {
                     return;
@@ -450,16 +456,17 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlState::LearningSource(compartment) => {
+            ControlMode::LearningSource(compartment) => {
                 self.feed_source_scanner(source_value, compartment);
             }
+            ControlMode::Disabled => {}
         }
     }
 
     fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage) {
         let source_value = MidiSourceValue::Plain(msg);
-        match self.control_state {
-            ControlState::Controlling => {
+        match self.control_mode {
+            ControlMode::Controlling => {
                 if self.is_consumed(msg) {
                     return;
                 }
@@ -470,9 +477,10 @@ impl RealTimeProcessor {
                     self.process_unmatched_short(msg);
                 }
             }
-            ControlState::LearningSource(compartment) => {
+            ControlMode::LearningSource(compartment) => {
                 self.feed_source_scanner(source_value, compartment);
             }
+            ControlMode::Disabled => {}
         }
     }
 
@@ -484,21 +492,21 @@ impl RealTimeProcessor {
 
     /// Returns whether this source value matched one of the mappings.
     fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
-        let matched_controller = if let [ref mut controller_mappings, ref primary_mappings] =
+        let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
             self.mappings.as_mut_slice()
         {
             control_midi_virtual_and_reaper_targets(
                 &self.control_main_task_sender,
                 controller_mappings,
-                primary_mappings,
+                main_mappings,
                 value,
             )
         } else {
             unreachable!()
         };
-        let matched_primary =
-            self.control_midi_reaper_targets(MappingCompartment::PrimaryMappings, value);
-        matched_primary || matched_controller
+        let matched_main =
+            self.control_midi_reaper_targets(MappingCompartment::MainMappings, value);
+        matched_main || matched_controller
     }
 
     fn control_midi_reaper_targets(
@@ -646,7 +654,8 @@ pub enum NormalRealTimeTask {
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource(MappingCompartment),
-    StopLearnSource,
+    DisableControl,
+    ReturnToControlMode,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -690,7 +699,7 @@ fn control_midi_virtual_and_reaper_targets(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     // Controller mappings
     mappings_with_virtual_targets: &mut HashMap<MappingId, RealTimeMapping>,
-    // Primary mappings
+    // Main mappings
     mappings_with_virtual_sources: &HashMap<MappingId, RealTimeMapping>,
     value: MidiSourceValue<RawShortMessage>,
 ) -> bool {
@@ -758,14 +767,14 @@ fn control_main(
 /// Returns whether this source value matched one of the mappings.
 fn control_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    primary_mappings: &HashMap<MappingId, RealTimeMapping>,
+    main_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
-    // primary mappings.
+    // main mappings.
     let mut matched = false;
-    for m in primary_mappings
+    for m in main_mappings
         .values()
         .filter(|m| m.control_is_effectively_on())
     {
@@ -775,7 +784,7 @@ fn control_virtual(
         {
             control_main(
                 sender,
-                MappingCompartment::PrimaryMappings,
+                MappingCompartment::MainMappings,
                 m.id(),
                 control_value,
                 options,

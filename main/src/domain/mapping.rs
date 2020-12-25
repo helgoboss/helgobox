@@ -617,8 +617,8 @@ pub enum MappingCompartment {
     // destructuring.
     #[display(fmt = "Controller mappings")]
     ControllerMappings,
-    #[display(fmt = "Primary mappings")]
-    PrimaryMappings,
+    #[display(fmt = "Main mappings")]
+    MainMappings,
 }
 
 pub enum ExtendedSourceCharacter {
