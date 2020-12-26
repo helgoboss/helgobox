@@ -15,6 +15,12 @@ SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
             MENUITEM "Auto-correct settings", IDM_AUTO_CORRECT_SETTINGS
             MENUITEM "Send feedback only if track armed", IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED
         END
+        POPUP "Server"
+        BEGIN
+            MENUITEM "Enabled", IDM_SERVER_START
+            MENUITEM "Add firewall rule", IDM_SERVER_ADD_FIREWALL_RULE
+            MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
+        END
         POPUP "Help"
         BEGIN
             MENUITEM "User guide for this version (PDF, offline)", IDM_USER_GUIDE_OFFLINE
@@ -24,14 +30,9 @@ SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
             MENUITEM "Website", IDM_WEBSITE
             MENUITEM "Donate!", IDM_DONATE
         END
-        POPUP "Server"
-        BEGIN
-            MENUITEM "Enabled", IDM_SERVER_START
-            MENUITEM "Add firewall rule", IDM_SERVER_ADD_FIREWALL_RULE
-            MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
-        END
         MENUITEM "Send feedback now", IDM_SEND_FEEDBACK_NOW
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
+        MENUITEM "Link current preset to FX", IDM_LINK_TO_FX, INACTIVE
     END
 SWELL_DEFINE_MENU_RESOURCE_END(IDR_HEADER_PANEL_CONTEXT_MENU)
 

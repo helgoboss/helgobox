@@ -16,7 +16,8 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    Controller, MainPreset, PresetManager, SharedSession, VirtualControlElementType, WeakSession,
+    Controller, MainPreset, PresetManager, Session, SharedSession, VirtualControlElementType,
+    WeakSession,
 };
 use crate::core::when;
 use crate::domain::{MappingCompartment, ReaperTarget};
@@ -972,23 +973,56 @@ impl View for HeaderPanel {
             .expect("menu bar couldn't be loaded");
         let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
         let app = App::get();
+        // Invalidate some menu items without result
         {
             let session = self.session();
             let session = session.borrow();
+            // Invalidate "Send feedback only if track armed"
             {
+                let item_id = root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED;
                 let (enabled, checked) = if session.containing_fx_is_in_input_fx_chain() {
                     (false, true)
                 } else {
                     (true, session.send_feedback_only_if_armed.get())
                 };
-                menu.set_item_enabled(root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED, enabled);
-                menu.set_item_checked(root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED, checked);
+                menu.set_item_enabled(item_id, enabled);
+                menu.set_item_checked(item_id, checked);
             }
-            menu.set_item_checked(
-                root::IDM_AUTO_CORRECT_SETTINGS,
-                session.always_auto_detect.get(),
-            );
+            // Invalidate "Auto-correct settings"
+            {
+                menu.set_item_checked(
+                    root::IDM_AUTO_CORRECT_SETTINGS,
+                    session.always_auto_detect.get(),
+                );
+            }
         }
+        // Invalidate "Link current preset to FX"
+        let next_preset_fx_link_action = {
+            {
+                let item_id = root::IDM_LINK_TO_FX;
+                let action = determine_next_preset_fx_link_action(
+                    app,
+                    &self.session().borrow(),
+                    self.active_compartment(),
+                );
+                menu.set_item_enabled(item_id, action.is_some());
+                menu.set_item_checked(
+                    item_id,
+                    matches!(action, Some(PresetFxLinkAction::UnlinkFrom(_))),
+                );
+                let label = match action {
+                    None => "Link current preset fo FX...".to_string(),
+                    Some(PresetFxLinkAction::LinkTo(fx_name)) => {
+                        format!("Link current preset to FX \"{}\"", fx_name)
+                    }
+                    Some(PresetFxLinkAction::UnlinkFrom(fx_name)) => {
+                        format!("Unlink current preset from FX \"{}\"", fx_name)
+                    }
+                };
+                menu.set_item_text(item_id, label);
+            }
+        };
+        // Invalidate "Server enabled"
         enum ServerAction {
             Start,
             Disable,
@@ -1008,10 +1042,12 @@ impl View for HeaderPanel {
             menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
             (next_server_action, server.http_port(), server.https_port())
         };
+        // Open menu
         let result = match self.view.require_window().open_popup_menu(menu, location) {
             None => return,
             Some(r) => r,
         };
+        // Execute action
         match result {
             root::IDM_DONATE => self.donate(),
             root::IDM_USER_GUIDE_OFFLINE => self.open_user_guide_offline(),
@@ -1096,5 +1132,34 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
+    }
+}
+
+enum PresetFxLinkAction {
+    LinkTo(String),
+    UnlinkFrom(String),
+}
+
+fn determine_next_preset_fx_link_action(
+    app: &App,
+    session: &Session,
+    compartment: MappingCompartment,
+) -> Option<PresetFxLinkAction> {
+    if compartment != MappingCompartment::MainMappings {
+        // Not relevant for controller mappings.
+        return None;
+    }
+    // No preset means nothing can be linked.
+    let preset_id = session.active_main_preset_id()?;
+    if let Some(fx_name) = app.preset_link_manager().find_linked_fx(preset_id) {
+        Some(PresetFxLinkAction::UnlinkFrom(fx_name))
+    } else {
+        let last_fx = app.previously_focused_fx()?;
+        if !last_fx.is_available() {
+            return None;
+        }
+        let fx_info = last_fx.info();
+        let file_name = fx_info.file_name.to_str()?;
+        Some(PresetFxLinkAction::LinkTo(file_name.to_string()))
     }
 }

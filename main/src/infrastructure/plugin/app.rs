@@ -1,11 +1,11 @@
 use crate::core::default_util::is_default;
 use crate::infrastructure::data::{
-    FileBasedControllerManager, FileBasedMainPresetManager, SharedControllerManager,
-    SharedMainPresetManager,
+    FileBasedControllerManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
+    SharedControllerManager, SharedMainPresetManager,
 };
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
-use reaper_high::Reaper;
+use reaper_high::{Fx, Reaper};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -23,9 +23,25 @@ static mut APP: Lazy<App> = Lazy::new(App::load);
 pub struct App {
     controller_manager: SharedControllerManager,
     main_preset_manager: SharedMainPresetManager,
+    preset_link_manager: FileBasedPresetLinkManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
+    party_is_over_subject: LocalSubject<'static, (), ()>,
+}
+
+#[derive(Default)]
+struct ListOfRecentlyFocusedFx {
+    previous: Option<Fx>,
+    current: Option<Fx>,
+}
+
+impl ListOfRecentlyFocusedFx {
+    fn feed(&mut self, currently_focused_fx: Option<Fx>) {
+        self.previous = self.current.take();
+        self.current = currently_focused_fx;
+    }
 }
 
 impl App {
@@ -57,6 +73,7 @@ impl App {
             main_preset_manager: Rc::new(RefCell::new(FileBasedMainPresetManager::new(
                 App::realearn_preset_dir_path().join("main"),
             ))),
+            preset_link_manager: FileBasedPresetLinkManager::new(),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
@@ -64,16 +81,32 @@ impl App {
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
+            list_of_recently_focused_fx: Default::default(),
+            party_is_over_subject: Default::default(),
         }
     }
 
     pub fn init(&self) {
+        let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
+        Reaper::get()
+            .fx_focused()
+            .take_until(self.party_is_over())
+            .subscribe(move |fx| {
+                list_of_recently_focused_fx.borrow_mut().feed(fx);
+            });
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
                 .start()
                 .unwrap_or_else(warn_about_failed_server_start);
         }
+    }
+
+    /// The special thing about this is that this doesn't return the currently focused FX but the
+    /// last focused one. That's important because when queried from ReaLearn UI, the current one
+    /// is mostly ReaLearn itself - which is in most cases not what we want.
+    pub fn previously_focused_fx(&self) -> Option<Fx> {
+        self.list_of_recently_focused_fx.borrow().previous.clone()
     }
 
     // We need this to be static because we need it at plugin construction time, so we don't have
@@ -97,6 +130,10 @@ impl App {
 
     pub fn main_preset_manager(&self) -> SharedMainPresetManager {
         self.main_preset_manager.clone()
+    }
+
+    pub fn preset_link_manager(&self) -> &FileBasedPresetLinkManager {
+        &self.preset_link_manager
     }
 
     pub fn server(&self) -> &SharedRealearnServer {
@@ -163,6 +200,16 @@ impl App {
 
     fn notify_changed(&self) {
         self.changed_subject.borrow_mut().next(());
+    }
+
+    fn party_is_over(&self) -> impl UnitEvent {
+        self.party_is_over_subject.clone()
+    }
+}
+
+impl Drop for App {
+    fn drop(&mut self) {
+        self.party_is_over_subject.next(());
     }
 }
 
