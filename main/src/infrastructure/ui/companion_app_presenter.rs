@@ -196,7 +196,7 @@ pub fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static
             .status()
             .map_err(|_| "couldn't execute command")?;
         if !exit_status.success() {
-            return Err("command returned failure exit code");
+            return Err("command returned non-success exit code");
         }
         Ok(())
     }
@@ -206,12 +206,12 @@ pub fn add_firewall_rule(http_port: u16, https_port: u16) -> Result<(), &'static
 
 #[cfg(target_os = "macos")]
 pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
-    todo!("not implemented yet for macOS")
+    Err("not supported on macOS")
 }
 
 #[cfg(target_os = "linux")]
 pub fn add_firewall_rule(_http_port: u16, _https_port: u16) -> Result<(), &'static str> {
-    unimplemented!("This shouldn't be called!")
+    Err("not supported on Linux")
 }
 
 fn create_app_setup_temp_dir() -> io::Result<TempDir> {

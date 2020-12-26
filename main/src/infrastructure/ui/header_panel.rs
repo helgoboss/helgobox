@@ -1070,8 +1070,11 @@ impl View for HeaderPanel {
             }
             root::IDM_SERVER_ADD_FIREWALL_RULE => {
                 let msg = match add_firewall_rule(http_port, https_port) {
-                    Ok(_) => "Successfully added firewall rule.",
-                    Err(_) => "Couldn't add firewall rule. Please try to do it manually!",
+                    Ok(_) => "Successfully added firewall rule.".to_string(),
+                    Err(reason) => format!(
+                        "Couldn't add firewall rule because {}. Please try to do it manually!",
+                        reason
+                    ),
                 };
                 self.view.require_window().alert("ReaLearn", msg);
             }
