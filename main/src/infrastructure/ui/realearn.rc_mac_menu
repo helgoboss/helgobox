@@ -1,6 +1,20 @@
+SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
+    POPUP "Header panel add-many-controller-mappings menu"
+    BEGIN
+        MENUITEM "Multis (faders, knobs, encoders, ...)", IDM_MULTIS
+        MENUITEM "Buttons", IDM_BUTTONS
+    END
+SWELL_DEFINE_MENU_RESOURCE_END(IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
+
+
 SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
     POPUP "Header panel context menu"
     BEGIN
+        POPUP "Options"
+        BEGIN
+            MENUITEM "Auto-correct settings", IDM_AUTO_CORRECT_SETTINGS
+            MENUITEM "Send feedback only if track armed", IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED
+        END
         POPUP "Help"
         BEGIN
             MENUITEM "User guide for this version (PDF, offline)", IDM_USER_GUIDE_OFFLINE
@@ -16,18 +30,10 @@ SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
             MENUITEM "Add firewall rule", IDM_SERVER_ADD_FIREWALL_RULE
             MENUITEM "Change session ID...", IDM_CHANGE_SESSION_ID
         END
+        MENUITEM "Send feedback now", IDM_SEND_FEEDBACK_NOW
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
     END
 SWELL_DEFINE_MENU_RESOURCE_END(IDR_HEADER_PANEL_CONTEXT_MENU)
-
-
-SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
-    POPUP "Header panel add-many-controller-mappings menu"
-    BEGIN
-        MENUITEM "Multis (faders, knobs, encoders, ...)", IDM_MULTIS
-        MENUITEM "Buttons", IDM_BUTTONS
-    END
-SWELL_DEFINE_MENU_RESOURCE_END(IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
 
 
 

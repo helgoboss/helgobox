@@ -211,20 +211,18 @@ impl HeaderPanel {
             );
     }
 
-    fn update_send_feedback_only_if_armed(&self) {
-        self.session().borrow_mut().send_feedback_only_if_armed.set(
-            self.view
-                .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX)
-                .is_checked(),
-        );
+    fn toggle_send_feedback_only_if_armed(&self) {
+        self.session()
+            .borrow_mut()
+            .send_feedback_only_if_armed
+            .set_with(|prev| !*prev);
     }
 
-    fn update_always_auto_detect(&self) {
-        self.session().borrow_mut().always_auto_detect.set(
-            self.view
-                .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
-                .is_checked(),
-        );
+    fn toggle_always_auto_detect(&self) {
+        self.session()
+            .borrow_mut()
+            .always_auto_detect
+            .set_with(|prev| !*prev);
     }
 
     fn fill_all_controls(&self) {
@@ -238,8 +236,6 @@ impl HeaderPanel {
         self.invalidate_preset_controls();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
-        self.invalidate_send_feedback_only_if_armed_check_box();
-        self.invalidate_always_auto_detect_check_box();
         self.invalidate_source_filter_buttons();
         self.invalidate_target_filter_buttons();
         self.invalidate_learn_many_button();
@@ -540,25 +536,6 @@ impl HeaderPanel {
             .set_checked(self.session().borrow().let_unmatched_events_through.get());
     }
 
-    fn invalidate_send_feedback_only_if_armed_check_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
-        if self.session().borrow().containing_fx_is_in_input_fx_chain() {
-            b.disable();
-            b.check();
-        } else {
-            b.enable();
-            b.set_checked(self.session().borrow().send_feedback_only_if_armed.get());
-        }
-    }
-
-    fn invalidate_always_auto_detect_check_box(&self) {
-        self.view
-            .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
-            .set_checked(self.session().borrow().always_auto_detect.get());
-    }
-
     fn invalidate_learn_many_button(&self) {
         let is_learning = self.session().borrow().is_learning_many_mappings();
         let learn_button_text = if is_learning { "Stop" } else { "Learn many" };
@@ -572,7 +549,7 @@ impl HeaderPanel {
         self.invalidate_filter_buttons(
             main_state.is_learning_source_filter.get(),
             main_state.source_filter.get_ref().is_some(),
-            "Learn source filter",
+            "Filter source",
             root::ID_FILTER_BY_SOURCE_BUTTON,
             root::ID_CLEAR_SOURCE_FILTER_BUTTON,
         );
@@ -583,7 +560,7 @@ impl HeaderPanel {
         self.invalidate_filter_buttons(
             main_state.is_learning_target_filter.get(),
             main_state.target_filter.get_ref().is_some(),
-            "Learn target filter",
+            "Filter target",
             root::ID_FILTER_BY_TARGET_BUTTON,
             root::ID_CLEAR_TARGET_FILTER_BUTTON,
         );
@@ -834,12 +811,6 @@ impl HeaderPanel {
         self.when(session.let_unmatched_events_through.changed(), |view| {
             view.invalidate_let_unmatched_events_through_check_box();
         });
-        self.when(session.send_feedback_only_if_armed.changed(), |view| {
-            view.invalidate_send_feedback_only_if_armed_check_box();
-        });
-        self.when(session.always_auto_detect.changed(), |view| {
-            view.invalidate_always_auto_detect_check_box();
-        });
         self.when(session.learn_many_state_changed(), |view| {
             view.invalidate_learn_many_button();
         });
@@ -958,11 +929,8 @@ impl View for HeaderPanel {
                 }
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
-            ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
-            ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
-            ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX => self.update_always_auto_detect(),
             ID_PRESET_DELETE_BUTTON => {
                 self.delete_active_preset().unwrap();
             }
@@ -1004,6 +972,23 @@ impl View for HeaderPanel {
             .expect("menu bar couldn't be loaded");
         let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
         let app = App::get();
+        {
+            let session = self.session();
+            let session = session.borrow();
+            {
+                let (enabled, checked) = if session.containing_fx_is_in_input_fx_chain() {
+                    (false, true)
+                } else {
+                    (true, session.send_feedback_only_if_armed.get())
+                };
+                menu.set_item_enabled(root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED, enabled);
+                menu.set_item_checked(root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED, checked);
+            }
+            menu.set_item_checked(
+                root::IDM_AUTO_CORRECT_SETTINGS,
+                session.always_auto_detect.get(),
+            );
+        }
         enum ServerAction {
             Start,
             Disable,
@@ -1035,6 +1020,11 @@ impl View for HeaderPanel {
             root::IDM_CONTACT_DEVELOPER => self.contact_developer(),
             root::IDM_WEBSITE => self.open_website(),
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
+            root::IDM_SEND_FEEDBACK_NOW => self.session().borrow().send_feedback(),
+            root::IDM_AUTO_CORRECT_SETTINGS => self.toggle_always_auto_detect(),
+            root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED => {
+                self.toggle_send_feedback_only_if_armed()
+            }
             root::IDM_CHANGE_SESSION_ID => {
                 self.change_session_id();
             }

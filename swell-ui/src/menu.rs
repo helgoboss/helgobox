@@ -67,4 +67,18 @@ impl<'a> Menu<'a> {
             );
         }
     }
+
+    pub fn set_item_enabled(self, item_id: u32, enabled: bool) {
+        unsafe {
+            Swell::get().EnableMenuItem(
+                self.raw,
+                item_id as _,
+                if enabled {
+                    raw::MF_ENABLED
+                } else {
+                    raw::MF_DISABLED
+                } as _,
+            );
+        }
+    }
 }
