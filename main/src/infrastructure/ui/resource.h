@@ -48,6 +48,7 @@
 #define ID_MAPPING_ROW_GROUP_BOX                40007
 #define ID_TARGET_FX_PARAMETER_COMBO_BOX        40007
 #define IDM_WEBSITE                             40008
+#define ID_GROUP_COMBO_BOX                      40008
 #define ID_MAPPING_ROW_LEARN_TARGET_BUTTON      40008
 #define ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX    40008
 #define IDM_DONATE                              40009
