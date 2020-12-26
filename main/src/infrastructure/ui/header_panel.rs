@@ -1095,7 +1095,10 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
     format!(
         "{}. {}{}",
         raw_id,
-        name.to_str(),
+        // Here we don't rely on the string to be UTF-8 because REAPER doesn't have influence on
+        // how MIDI devices encode their name. Indeed a user reported an error related to that:
+        // https://github.com/helgoboss/realearn/issues/78
+        name.into_inner().to_string_lossy(),
         if connected { "" } else { " <not present>" }
     )
 }
