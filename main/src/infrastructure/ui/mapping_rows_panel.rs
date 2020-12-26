@@ -433,7 +433,7 @@ impl View for MappingRowsPanel {
                 .low()
                 .InitializeCoolSB(window.raw() as _);
         }
-        window.move_to(Point::new(DialogUnits(0), DialogUnits(100)));
+        window.move_to(Point::new(DialogUnits(0), DialogUnits(104)));
         self.open_mapping_rows(window);
         self.invalidate_mapping_rows();
         self.invalidate_scroll_info();

@@ -36,11 +36,10 @@
 #define ID_SOURCE_TYPE_COMBO_BOX                40004
 #define ID_UP_BUTTON                            40004
 #define IDM_USER_GUIDE_ONLINE                   40005
-#define ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX    40005
+#define ID_EXPORT_BUTTON                        40005
 #define ID_MAPPING_ROW_SOURCE_LABEL_TEXT        40005
 #define ID_SOURCE_CHARACTER_LABEL_TEXT          40005
 #define IDM_FORUM                               40006
-#define ID_EXPORT_BUTTON                        40006
 #define ID_MAPPING_ROW_TARGET_LABEL_TEXT        40006
 #define ID_TARGET_TYPE_COMBO_BOX                40006
 #define IDM_CONTACT_DEVELOPER                   40007
@@ -49,11 +48,9 @@
 #define ID_TARGET_FX_PARAMETER_COMBO_BOX        40007
 #define IDM_WEBSITE                             40008
 #define ID_MAPPING_ROW_LEARN_TARGET_BUTTON      40008
-#define ID_SEND_FEEDBACK_BUTTON                 40008
 #define ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX    40008
 #define IDM_DONATE                              40009
 #define ID_MAPPING_ROW_FEEDBACK_CHECK_BOX       40009
-#define ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX 40009
 #define ID_SETTINGS_STEP_SIZE_LABEL_TEXT        40009
 #define ID_FILTER_BY_TARGET_BUTTON              40010
 #define ID_MAPPING_ROW_CONTROL_CHECK_BOX        40010
