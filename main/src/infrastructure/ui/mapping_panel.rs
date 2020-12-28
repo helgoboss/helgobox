@@ -195,9 +195,12 @@ impl MappingPanel {
         self.session.upgrade().expect("session gone")
     }
 
+    pub fn displayed_mapping(&self) -> Option<SharedMapping> {
+        self.mapping.borrow().clone()
+    }
+
     fn mapping(&self) -> SharedMapping {
-        let shared_mapping = self.mapping.borrow();
-        shared_mapping.as_ref().expect("mapping not filled").clone()
+        self.displayed_mapping().expect("mapping not filled")
     }
 
     fn read<R>(

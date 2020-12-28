@@ -240,6 +240,7 @@ impl HeaderPanel {
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_source_filter_buttons();
         self.invalidate_target_filter_buttons();
+        self.invalidate_add_one_button();
         self.invalidate_learn_many_button();
     }
 
@@ -332,6 +333,7 @@ impl HeaderPanel {
 
     fn invalidate_preset_combo_box_value(&self) {
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+        let enabled = !self.mappings_are_read_only();
         let session = self.session();
         let session = session.borrow();
         let (preset_manager, active_preset_id): (Box<dyn ExtendedPresetManager>, _) =
@@ -359,6 +361,7 @@ impl HeaderPanel {
             }
         };
         combo.select_combo_box_item_by_data(index).unwrap();
+        combo.set_enabled(enabled);
     }
 
     fn fill_compartment_combo_box(&self) {
@@ -503,13 +506,28 @@ impl HeaderPanel {
     }
 
     fn update_preset_auto_load_mode(&self) {
-        self.session().borrow_mut().main_preset_auto_load_mode.set(
-            self.view
-                .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
-                .selected_combo_box_item_index()
-                .try_into()
-                .expect("invalid preset auto-load mode"),
-        );
+        let mode = self
+            .view
+            .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid preset auto-load mode");
+        let session = self.session();
+        if mode != MainPresetAutoLoadMode::Off {
+            if session.borrow().main_mappings_are_dirty() {
+                let msg = "Your mapping changes will be lost. Consider to save them first. Do you really want to continue?";
+                if !self.view.require_window().confirm("ReaLearn", msg) {
+                    self.invalidate_preset_auto_load_mode_combo_box();
+                    return;
+                }
+            }
+            self.panel_manager()
+                .borrow_mut()
+                .close_all_with_compartment(MappingCompartment::MainMappings);
+        }
+        self.session()
+            .borrow_mut()
+            .activate_main_preset_auto_load_mode(mode, self.session.clone());
     }
 
     fn update_preset(&self) {
@@ -574,12 +592,30 @@ impl HeaderPanel {
             .set_checked(self.session().borrow().let_unmatched_events_through.get());
     }
 
+    fn mappings_are_read_only(&self) -> bool {
+        let session = self.session();
+        let session = session.borrow();
+        session.is_learning_many_mappings()
+            || (self.active_compartment() == MappingCompartment::MainMappings
+                && session.main_preset_auto_load_is_active())
+    }
+
     fn invalidate_learn_many_button(&self) {
         let is_learning = self.session().borrow().is_learning_many_mappings();
         let learn_button_text = if is_learning { "Stop" } else { "Learn many" };
+        let button = self
+            .view
+            .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON);
+        button.set_text(learn_button_text);
+        let enabled = !(self.active_compartment() == MappingCompartment::MainMappings
+            && self.session().borrow().main_preset_auto_load_is_active());
+        button.set_enabled(enabled);
+    }
+
+    fn invalidate_add_one_button(&self) {
         self.view
-            .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON)
-            .set_text(learn_button_text);
+            .require_control(root::ID_ADD_MAPPING_BUTTON)
+            .set_enabled(!self.mappings_are_read_only());
     }
 
     fn invalidate_source_filter_buttons(&self) {
@@ -850,7 +886,7 @@ impl HeaderPanel {
             view.invalidate_let_unmatched_events_through_check_box();
         });
         self.when(session.learn_many_state_changed(), |view| {
-            view.invalidate_learn_many_button();
+            view.invalidate_all_controls();
         });
         self.when(session.midi_control_input.changed(), |view| {
             view.invalidate_midi_control_input_combo_box();
@@ -888,12 +924,10 @@ impl HeaderPanel {
             },
         );
         self.when(main_state.active_compartment.changed(), |view| {
-            view.invalidate_compartment_combo_box();
-            view.invalidate_preset_controls();
-            view.invalidate_learn_many_button();
+            view.invalidate_all_controls();
         });
         self.when(session.main_preset_auto_load_mode.changed(), |view| {
-            view.invalidate_preset_auto_load_mode_combo_box();
+            view.invalidate_all_controls();
         });
         when(
             App::get()

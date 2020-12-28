@@ -78,6 +78,7 @@ impl MappingRowPanel {
         self.invalidate_control_check_box(&mapping);
         self.invalidate_feedback_check_box(&mapping);
         self.invalidate_on_indicator(&mapping);
+        self.invalidate_button_enabled_states();
     }
 
     fn invalidate_name_label(&self, mapping: &MappingModel) {
@@ -200,7 +201,35 @@ impl MappingRowPanel {
             .set_enabled(is_on);
     }
 
+    fn mappings_are_read_only(&self) -> bool {
+        let session = self.session();
+        let session = session.borrow();
+        session.is_learning_many_mappings()
+            || (self.active_compartment() == MappingCompartment::MainMappings
+                && session.main_preset_auto_load_is_active())
+    }
+
+    fn invalidate_button_enabled_states(&self) {
+        let enabled = !self.mappings_are_read_only();
+        let buttons = [
+            root::ID_UP_BUTTON,
+            root::ID_DOWN_BUTTON,
+            root::ID_MAPPING_ROW_CONTROL_CHECK_BOX,
+            root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
+            root::ID_MAPPING_ROW_EDIT_BUTTON,
+            root::ID_MAPPING_ROW_DUPLICATE_BUTTON,
+            root::ID_MAPPING_ROW_REMOVE_BUTTON,
+            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON,
+            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON,
+        ];
+        for b in buttons.into_iter() {
+            self.view.require_control(*b).set_enabled(enabled);
+        }
+    }
+
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
+        let session = self.session();
+        let session = session.borrow();
         self.when(mapping.name.changed(), |view| {
             view.with_mapping(Self::invalidate_name_label);
         });
@@ -223,25 +252,24 @@ impl MappingRowPanel {
         self.when(mapping.feedback_is_enabled.changed(), |view| {
             view.with_mapping(Self::invalidate_feedback_check_box);
         });
-        self.when(
-            self.session()
-                .borrow()
-                .mapping_which_learns_source_changed(),
-            |view| {
-                view.with_mapping(Self::invalidate_learn_source_button);
-            },
-        );
-        self.when(
-            self.session()
-                .borrow()
-                .mapping_which_learns_target_changed(),
-            |view| {
-                view.with_mapping(Self::invalidate_learn_target_button);
-            },
-        );
-        self.when(self.session().borrow().on_mappings_changed(), |view| {
+        self.when(session.mapping_which_learns_source_changed(), |view| {
+            view.with_mapping(Self::invalidate_learn_source_button);
+        });
+        self.when(session.mapping_which_learns_target_changed(), |view| {
+            view.with_mapping(Self::invalidate_learn_target_button);
+        });
+        self.when(session.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
         });
+        self.when(
+            session
+                .main_preset_auto_load_mode
+                .changed()
+                .merge(session.learn_many_state_changed()),
+            |view| {
+                view.invalidate_button_enabled_states();
+            },
+        );
     }
 
     fn with_mapping(&self, use_mapping: impl Fn(&Self, &MappingModel)) {

@@ -327,6 +327,21 @@ impl Session {
             });
     }
 
+    pub fn activate_main_preset_auto_load_mode(
+        &mut self,
+        mode: MainPresetAutoLoadMode,
+        session: WeakSession,
+    ) {
+        if mode != MainPresetAutoLoadMode::Off {
+            self.activate_main_preset(None, session);
+        }
+        self.main_preset_auto_load_mode.set(mode);
+    }
+
+    pub fn main_preset_auto_load_is_active(&self) -> bool {
+        self.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::Off
+    }
+
     fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>, weak_session: WeakSession) {
         if let Some(fx_id) = fx_id {
             let preset_id = self
