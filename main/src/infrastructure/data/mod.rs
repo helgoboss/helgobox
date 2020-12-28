@@ -19,8 +19,8 @@ pub use parameter_data::*;
 mod preset;
 pub use preset::*;
 
-mod controller;
-pub use controller::*;
+mod controller_preset;
+pub use controller_preset::*;
 
 mod main_preset;
 pub use main_preset::*;

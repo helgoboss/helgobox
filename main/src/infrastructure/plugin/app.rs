@@ -1,7 +1,7 @@
 use crate::core::default_util::is_default;
 use crate::infrastructure::data::{
-    FileBasedControllerManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    SharedControllerManager, SharedMainPresetManager,
+    FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
+    SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use once_cell::unsync::Lazy;
@@ -21,9 +21,9 @@ use url::Url;
 static mut APP: Lazy<App> = Lazy::new(App::load);
 
 pub struct App {
-    controller_manager: SharedControllerManager,
+    controller_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
-    preset_link_manager: FileBasedPresetLinkManager,
+    preset_link_manager: SharedPresetLinkManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -67,13 +67,15 @@ impl App {
 
     fn new(config: AppConfig) -> App {
         App {
-            controller_manager: Rc::new(RefCell::new(FileBasedControllerManager::new(
+            controller_manager: Rc::new(RefCell::new(FileBasedControllerPresetManager::new(
                 App::realearn_preset_dir_path().join("controller"),
             ))),
             main_preset_manager: Rc::new(RefCell::new(FileBasedMainPresetManager::new(
                 App::realearn_preset_dir_path().join("main"),
             ))),
-            preset_link_manager: FileBasedPresetLinkManager::new(),
+            preset_link_manager: Rc::new(RefCell::new(FileBasedPresetLinkManager::new(
+                App::realearn_auto_load_configs_dir_path(),
+            ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
@@ -124,7 +126,7 @@ impl App {
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
     //  this into a weak one.
-    pub fn controller_manager(&self) -> SharedControllerManager {
+    pub fn controller_manager(&self) -> SharedControllerPresetManager {
         self.controller_manager.clone()
     }
 
@@ -132,8 +134,8 @@ impl App {
         self.main_preset_manager.clone()
     }
 
-    pub fn preset_link_manager(&self) -> &FileBasedPresetLinkManager {
-        &self.preset_link_manager
+    pub fn preset_link_manager(&self) -> SharedPresetLinkManager {
+        self.preset_link_manager.clone()
     }
 
     pub fn server(&self) -> &SharedRealearnServer {
@@ -192,6 +194,10 @@ impl App {
 
     pub fn realearn_preset_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("presets")
+    }
+
+    pub fn realearn_auto_load_configs_dir_path() -> PathBuf {
+        Self::realearn_data_dir_path().join("auto-load-configs")
     }
 
     fn server_resource_dir_path() -> PathBuf {

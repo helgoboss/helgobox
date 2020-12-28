@@ -319,6 +319,7 @@ impl RealearnPlugin {
                     Rc::downgrade(&main_panel),
                     App::get().controller_manager(),
                     App::get().main_preset_manager(),
+                    App::get().preset_link_manager(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);

@@ -16,8 +16,8 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    Controller, MainPreset, PresetManager, Session, SharedSession, VirtualControlElementType,
-    WeakSession,
+    ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, PresetManager, Session,
+    SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
 use crate::domain::{MappingCompartment, ReaperTarget};
@@ -228,6 +228,7 @@ impl HeaderPanel {
 
     fn fill_all_controls(&self) {
         self.fill_compartment_combo_box();
+        self.fill_preset_auto_load_mode_combo_box();
     }
 
     fn invalidate_all_controls(&self) {
@@ -253,9 +254,29 @@ impl HeaderPanel {
             .select_combo_box_item(self.active_compartment().into());
     }
 
+    fn invalidate_preset_auto_load_mode_combo_box(&self) {
+        let label = self.view.require_control(root::ID_AUTO_LOAD_LABEL_TEXT);
+        let combo = self.view.require_control(root::ID_AUTO_LOAD_COMBO_BOX);
+        if self.active_compartment() == MappingCompartment::MainMappings {
+            label.show();
+            combo.show();
+            combo.select_combo_box_item(
+                self.session()
+                    .borrow()
+                    .main_preset_auto_load_mode
+                    .get()
+                    .into(),
+            );
+        } else {
+            label.hide();
+            combo.hide();
+        }
+    }
+
     fn invalidate_preset_controls(&self) {
         self.invalidate_preset_combo_box();
         self.invalidate_preset_buttons();
+        self.invalidate_preset_auto_load_mode_combo_box();
     }
 
     fn invalidate_preset_combo_box(&self) {
@@ -344,6 +365,12 @@ impl HeaderPanel {
         self.view
             .require_control(root::ID_COMPARTMENT_COMBO_BOX)
             .fill_combo_box(MappingCompartment::into_enum_iter());
+    }
+
+    fn fill_preset_auto_load_mode_combo_box(&self) {
+        self.view
+            .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
+            .fill_combo_box(MainPresetAutoLoadMode::into_enum_iter());
     }
 
     fn invalidate_midi_control_input_combo_box_options(&self) {
@@ -472,6 +499,16 @@ impl HeaderPanel {
                 .selected_combo_box_item_index()
                 .try_into()
                 .expect("invalid compartment"),
+        );
+    }
+
+    fn update_preset_auto_load_mode(&self) {
+        self.session().borrow_mut().main_preset_auto_load_mode.set(
+            self.view
+                .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
+                .selected_combo_box_item_index()
+                .try_into()
+                .expect("invalid preset auto-load mode"),
         );
     }
 
@@ -736,7 +773,7 @@ impl HeaderPanel {
                     .map(|c| c.custom_data().clone())
                     .unwrap_or_default();
                 let controller =
-                    Controller::new(preset_id.clone(), preset_name, mappings, custom_data);
+                    ControllerPreset::new(preset_id.clone(), preset_name, mappings, custom_data);
                 App::get()
                     .controller_manager()
                     .borrow_mut()
@@ -855,6 +892,9 @@ impl HeaderPanel {
             view.invalidate_preset_controls();
             view.invalidate_learn_many_button();
         });
+        self.when(session.main_preset_auto_load_mode.changed(), |view| {
+            view.invalidate_preset_auto_load_mode_combo_box();
+        });
         when(
             App::get()
                 .controller_manager()
@@ -954,6 +994,7 @@ impl View for HeaderPanel {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
             ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
+            ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
             ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
@@ -998,29 +1039,28 @@ impl View for HeaderPanel {
         }
         // Invalidate "Link current preset to FX"
         let next_preset_fx_link_action = {
-            {
-                let item_id = root::IDM_LINK_TO_FX;
-                let action = determine_next_preset_fx_link_action(
-                    app,
-                    &self.session().borrow(),
-                    self.active_compartment(),
-                );
-                menu.set_item_enabled(item_id, action.is_some());
-                menu.set_item_checked(
-                    item_id,
-                    matches!(action, Some(PresetFxLinkAction::UnlinkFrom(_))),
-                );
-                let label = match action {
-                    None => "Link current preset fo FX...".to_string(),
-                    Some(PresetFxLinkAction::LinkTo(fx_name)) => {
-                        format!("Link current preset to FX \"{}\"", fx_name)
-                    }
-                    Some(PresetFxLinkAction::UnlinkFrom(fx_name)) => {
-                        format!("Unlink current preset from FX \"{}\"", fx_name)
-                    }
-                };
-                menu.set_item_text(item_id, label);
-            }
+            let item_id = root::IDM_LINK_TO_FX;
+            let action = determine_next_preset_fx_link_action(
+                app,
+                &self.session().borrow(),
+                self.active_compartment(),
+            );
+            menu.set_item_enabled(item_id, action.is_some());
+            menu.set_item_checked(
+                item_id,
+                matches!(action, Some(PresetFxLinkAction::UnlinkFrom { .. })),
+            );
+            let label = match &action {
+                None => "Link current preset fo FX...".to_string(),
+                Some(PresetFxLinkAction::LinkTo { fx_id: fx_name, .. }) => {
+                    format!("Link current preset to FX \"{}\"", fx_name)
+                }
+                Some(PresetFxLinkAction::UnlinkFrom { fx_id: fx_name, .. }) => {
+                    format!("Unlink current preset from FX \"{}\"", fx_name)
+                }
+            };
+            menu.set_item_text(item_id, label);
+            action
         };
         // Invalidate "Server enabled"
         enum ServerAction {
@@ -1058,6 +1098,18 @@ impl View for HeaderPanel {
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
             root::IDM_SEND_FEEDBACK_NOW => self.session().borrow().send_feedback(),
             root::IDM_AUTO_CORRECT_SETTINGS => self.toggle_always_auto_detect(),
+            root::IDM_LINK_TO_FX => {
+                use PresetFxLinkAction::*;
+                let manager = app.preset_link_manager();
+                match next_preset_fx_link_action.expect("impossible") {
+                    LinkTo { preset_id, fx_id } => {
+                        manager.borrow_mut().link_preset_to_fx(preset_id, fx_id)
+                    }
+                    UnlinkFrom { preset_id, .. } => {
+                        manager.borrow_mut().unlink_preset_from_fx(&preset_id)
+                    }
+                }
+            }
             root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED => {
                 self.toggle_send_feedback_only_if_armed()
             }
@@ -1136,8 +1188,8 @@ impl Drop for HeaderPanel {
 }
 
 enum PresetFxLinkAction {
-    LinkTo(String),
-    UnlinkFrom(String),
+    LinkTo { preset_id: String, fx_id: FxId },
+    UnlinkFrom { preset_id: String, fx_id: FxId },
 }
 
 fn determine_next_preset_fx_link_action(
@@ -1151,15 +1203,23 @@ fn determine_next_preset_fx_link_action(
     }
     // No preset means nothing can be linked.
     let preset_id = session.active_main_preset_id()?;
-    if let Some(fx_name) = app.preset_link_manager().find_linked_fx(preset_id) {
-        Some(PresetFxLinkAction::UnlinkFrom(fx_name))
+    if let Some(fx_id) = app
+        .preset_link_manager()
+        .borrow()
+        .find_fx_that_preset_is_linked_to(preset_id)
+    {
+        Some(PresetFxLinkAction::UnlinkFrom {
+            preset_id: preset_id.to_string(),
+            fx_id,
+        })
     } else {
         let last_fx = app.previously_focused_fx()?;
         if !last_fx.is_available() {
             return None;
         }
-        let fx_info = last_fx.info();
-        let file_name = fx_info.file_name.to_str()?;
-        Some(PresetFxLinkAction::LinkTo(file_name.to_string()))
+        Some(PresetFxLinkAction::LinkTo {
+            preset_id: preset_id.to_string(),
+            fx_id: FxId::from_fx(&last_fx),
+        })
     }
 }

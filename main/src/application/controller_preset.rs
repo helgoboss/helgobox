@@ -3,21 +3,21 @@ use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Debug)]
-pub struct Controller {
+pub struct ControllerPreset {
     id: String,
     name: String,
     mappings: Vec<MappingModel>,
     custom_data: HashMap<String, serde_json::Value>,
 }
 
-impl Controller {
+impl ControllerPreset {
     pub fn new(
         id: String,
         name: String,
         mappings: Vec<MappingModel>,
         custom_data: HashMap<String, serde_json::Value>,
-    ) -> Controller {
-        Controller {
+    ) -> ControllerPreset {
+        ControllerPreset {
             id,
             name,
             mappings,
@@ -41,7 +41,7 @@ impl Controller {
     }
 }
 
-impl Preset for Controller {
+impl Preset for ControllerPreset {
     fn id(&self) -> &str {
         &self.id
     }
@@ -51,7 +51,7 @@ impl Preset for Controller {
     }
 }
 
-impl fmt::Display for Controller {
+impl fmt::Display for ControllerPreset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())
     }

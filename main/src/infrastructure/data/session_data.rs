@@ -1,4 +1,4 @@
-use crate::application::{ParameterSetting, Session};
+use crate::application::{MainPresetAutoLoadMode, ParameterSetting, Session};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     MappingCompartment, MidiControlInput, MidiFeedbackOutput, ParameterArray,
@@ -51,6 +51,8 @@ pub struct SessionData {
     #[serde(default, skip_serializing_if = "is_default")]
     active_main_preset_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
+    main_preset_auto_load_mode: MainPresetAutoLoadMode,
+    #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
 }
 
@@ -86,6 +88,7 @@ impl SessionData {
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             active_controller_id: session.active_controller_id().map(|id| id.to_string()),
             active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
+            main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = parameters[i as usize];
@@ -175,6 +178,9 @@ impl SessionData {
         );
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         session.set_active_main_preset_id_without_notification(self.active_main_preset_id.clone());
+        session
+            .main_preset_auto_load_mode
+            .set_without_notification(self.main_preset_auto_load_mode);
         // Parameters
         let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
         for (i, p) in self.parameters.iter() {

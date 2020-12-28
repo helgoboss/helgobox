@@ -1,7 +1,7 @@
 use crate::application::{PresetManager, Session, SharedSession, SourceCategory, TargetCategory};
 use crate::core::when;
 use crate::domain::MappingCompartment;
-use crate::infrastructure::data::{ControllerData, PresetData};
+use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::App;
 
 use futures::StreamExt;
@@ -324,7 +324,7 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
         .borrow()
         .find_by_id(controller_id)
         .ok_or_else(controller_not_found)?;
-    let controller_data = ControllerData::from_model(&controller);
+    let controller_data = ControllerPresetData::from_model(&controller);
     Ok(reply::json(&controller_data))
 }
 
@@ -751,7 +751,7 @@ impl TryFrom<&str> for Topic {
 fn get_active_controller_updated_event(
     session_id: &str,
     session: Option<&Session>,
-) -> Event<Option<ControllerData>> {
+) -> Event<Option<ControllerPresetData>> {
     Event::new(
         format!("/realearn/session/{}/controller", session_id),
         session.and_then(get_controller),
@@ -775,9 +775,9 @@ fn get_controller_routing_updated_event(
     )
 }
 
-fn get_controller(session: &Session) -> Option<ControllerData> {
+fn get_controller(session: &Session) -> Option<ControllerPresetData> {
     let controller = session.active_controller()?;
-    Some(ControllerData::from_model(&controller))
+    Some(ControllerPresetData::from_model(&controller))
 }
 
 fn get_controller_routing(session: &Session) -> ControllerRouting {

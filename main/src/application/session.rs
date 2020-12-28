@@ -1,6 +1,7 @@
 use crate::application::{
-    share_mapping, Controller, MainPreset, MappingModel, Preset, PresetManager, SharedMapping,
-    TargetCategory, TargetModel, VirtualControlElementType,
+    share_mapping, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, MappingModel,
+    Preset, PresetLinkManager, PresetManager, SharedMapping, TargetCategory, TargetModel,
+    VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
@@ -12,7 +13,7 @@ use crate::domain::{
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 
-use reaper_high::Reaper;
+use reaper_high::{Fx, Reaper};
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
@@ -45,6 +46,7 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
@@ -74,8 +76,9 @@ pub struct Session {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameter_settings: Vec<ParameterSetting>,
-    controller_manager: Box<dyn PresetManager<PresetType = Controller>>,
+    controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
+    main_preset_link_manager: Box<dyn PresetLinkManager>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
 }
@@ -138,8 +141,9 @@ impl Session {
         control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         ui: impl SessionUi + 'static,
-        controller_manager: impl PresetManager<PresetType = Controller> + 'static,
+        controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
+        preset_link_manager: impl PresetLinkManager + 'static,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -153,6 +157,7 @@ impl Session {
             send_feedback_only_if_armed: prop(true),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
+            main_preset_auto_load_mode: Default::default(),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
@@ -174,8 +179,9 @@ impl Session {
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
-            controller_manager: Box::new(controller_manager),
+            controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
+            main_preset_link_manager: Box::new(preset_link_manager),
             on_mappings: Default::default(),
         }
     }
@@ -304,10 +310,32 @@ impl Session {
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
         )
-        .with(weak_session)
-        .do_sync(move |s, _| {
+        .with(weak_session.clone())
+        .do_sync(|s, _| {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
+        // When FX focus changes, maybe trigger main preset change
+        when(Reaper::get().fx_focused().take_until(self.party_is_over()))
+            .with(weak_session)
+            .do_sync(|s, fx| {
+                if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx
+                {
+                    let fx_id = fx.as_ref().map(FxId::from_fx);
+                    s.borrow_mut()
+                        .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+                }
+            });
+    }
+
+    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>, weak_session: WeakSession) {
+        if let Some(fx_id) = fx_id {
+            let preset_id = self
+                .main_preset_link_manager
+                .find_preset_linked_to_fx(&fx_id);
+            self.activate_main_preset(preset_id, weak_session);
+        } else {
+            self.activate_main_preset(None, weak_session);
+        }
     }
 
     fn invalidate_fx_indexes_of_mapping_targets(&self) {
@@ -325,6 +353,9 @@ impl Session {
             .merge(self.let_unmatched_events_through.changed())
             .merge(self.midi_control_input.changed())
             .merge(self.midi_feedback_output.changed())
+            .merge(self.always_auto_detect.changed())
+            .merge(self.send_feedback_only_if_armed.changed())
+            .merge(self.main_preset_auto_load_mode.changed())
     }
 
     pub fn learn_source(&mut self, source: CompoundMappingSource) {
@@ -888,9 +919,9 @@ impl Session {
         self.active_main_preset_id.as_deref()
     }
 
-    pub fn active_controller(&self) -> Option<Controller> {
+    pub fn active_controller(&self) -> Option<ControllerPreset> {
         let id = self.active_controller_id()?;
-        self.controller_manager.find_by_id(id)
+        self.controller_preset_manager.find_by_id(id)
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
@@ -903,7 +934,7 @@ impl Session {
             None => return self.mapping_count(MappingCompartment::ControllerMappings) > 0,
             Some(id) => id,
         };
-        self.controller_manager
+        self.controller_preset_manager
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
     }
 
@@ -928,7 +959,7 @@ impl Session {
             weak_session,
             |session, id| {
                 let controller = session
-                    .controller_manager
+                    .controller_preset_manager
                     .find_by_id(id)
                     .ok_or("controller not found")?;
                 Ok(controller.mappings().clone())
