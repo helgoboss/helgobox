@@ -1,5 +1,5 @@
 use helgoboss_learn::{
-    AbsoluteMode, ControlType, Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
+    AbsoluteMode, ControlType, Interval, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use rx_util::UnitEvent;
 
@@ -328,9 +328,9 @@ impl<'a> MappingModelWithContext<'a> {
         }
     }
 
-    fn preferred_step_interval(&self) -> Interval<SymmetricUnitValue> {
+    fn preferred_step_interval(&self) -> Interval<SoftSymmetricUnitValue> {
         if self.uses_step_counts() {
-            let one_step = convert_factor_to_unit_value(1).expect("impossible");
+            let one_step = convert_factor_to_unit_value(1);
             Interval::new(one_step, one_step)
         } else {
             match self.target_step_size() {

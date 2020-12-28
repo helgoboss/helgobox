@@ -5,8 +5,8 @@ use crate::infrastructure::ui::MainPanel;
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    AbsoluteMode, ControlValue, MidiClockTransportMessage, OutOfRangeBehavior, SourceCharacter,
-    SymmetricUnitValue, Target, UnitValue,
+    AbsoluteMode, ControlValue, MidiClockTransportMessage, OutOfRangeBehavior,
+    SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::Reaper;
@@ -731,10 +731,13 @@ impl<'a> MutableMappingPanel<'a> {
         text.parse::<u64>().ok().map(Duration::from_millis)
     }
 
-    fn get_value_from_step_edit_control(&self, edit_control_id: u32) -> Option<SymmetricUnitValue> {
+    fn get_value_from_step_edit_control(
+        &self,
+        edit_control_id: u32,
+    ) -> Option<SoftSymmetricUnitValue> {
         if self.mapping_uses_step_counts() {
             let text = self.view.require_control(edit_control_id).text().ok()?;
-            convert_factor_to_unit_value(text.parse().ok()?).ok()
+            Some(convert_factor_to_unit_value(text.parse().ok()?))
         } else {
             self.get_step_size_from_target_edit_control(edit_control_id)
                 .map(|v| v.to_symmetric())
@@ -744,7 +747,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn update_mode_max_step_from_edit_control(&mut self) {
         let value = self
             .get_value_from_step_edit_control(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL)
-            .unwrap_or(SymmetricUnitValue::MAX);
+            .unwrap_or(SoftSymmetricUnitValue::SOFT_MAX);
         self.mapping
             .mode_model
             .step_interval
@@ -2476,7 +2479,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         slider_control_id: u32,
         edit_control_id: u32,
         value_text_control_id: u32,
-        value: SymmetricUnitValue,
+        value: SoftSymmetricUnitValue,
     ) {
         let (val, edit_text, value_text) = match &self.real_target() {
             Some(target) => {
@@ -3124,10 +3127,10 @@ impl View for MappingPanel {
 
 trait WindowExt {
     fn slider_unit_value(&self) -> UnitValue;
-    fn slider_symmetric_unit_value(&self) -> SymmetricUnitValue;
+    fn slider_symmetric_unit_value(&self) -> SoftSymmetricUnitValue;
     fn slider_duration(&self) -> Duration;
     fn set_slider_unit_value(&self, value: UnitValue);
-    fn set_slider_symmetric_unit_value(&self, value: SymmetricUnitValue);
+    fn set_slider_symmetric_unit_value(&self, value: SoftSymmetricUnitValue);
     fn set_slider_duration(&self, value: Duration);
 }
 
@@ -3137,7 +3140,7 @@ impl WindowExt for Window {
         UnitValue::new(discrete_value as f64 / 100.0)
     }
 
-    fn slider_symmetric_unit_value(&self) -> SymmetricUnitValue {
+    fn slider_symmetric_unit_value(&self) -> SoftSymmetricUnitValue {
         self.slider_unit_value().map_to_symmetric_unit_interval()
     }
 
@@ -3153,7 +3156,7 @@ impl WindowExt for Window {
         self.set_slider_value(val);
     }
 
-    fn set_slider_symmetric_unit_value(&self, value: SymmetricUnitValue) {
+    fn set_slider_symmetric_unit_value(&self, value: SoftSymmetricUnitValue) {
         self.set_slider_unit_value(value.map_to_positive_unit_interval());
     }
 
@@ -3167,7 +3170,7 @@ impl WindowExt for Window {
 
 enum PositiveOrSymmetricUnitValue {
     Positive(UnitValue),
-    Symmetric(SymmetricUnitValue),
+    Symmetric(SoftSymmetricUnitValue),
 }
 
 fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {

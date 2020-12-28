@@ -3,7 +3,7 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
     full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
-    PressDurationProcessor, SymmetricUnitValue, UnitValue,
+    PressDurationProcessor, SoftSymmetricUnitValue, UnitValue,
 };
 
 use rx_util::UnitEvent;
@@ -41,7 +41,7 @@ pub struct ModeModel {
     /// is where the maximum comes in. The maximum is also important if using the relative mode
     /// with buttons. The harder you press the button, the higher the increment. It's limited
     /// by the maximum value.
-    pub step_interval: Prop<Interval<SymmetricUnitValue>>,
+    pub step_interval: Prop<Interval<SoftSymmetricUnitValue>>,
     pub rotate: Prop<bool>,
 }
 
@@ -69,8 +69,11 @@ impl Default for ModeModel {
 }
 
 impl ModeModel {
-    pub fn default_step_size_interval() -> Interval<SymmetricUnitValue> {
-        Interval::new(SymmetricUnitValue::new(0.01), SymmetricUnitValue::new(0.01))
+    pub fn default_step_size_interval() -> Interval<SoftSymmetricUnitValue> {
+        Interval::new(
+            SoftSymmetricUnitValue::new(0.01),
+            SoftSymmetricUnitValue::new(0.01),
+        )
     }
 
     /// This doesn't reset the mode type, just all the values.
@@ -197,19 +200,16 @@ impl ModeModel {
     }
 }
 
-pub fn convert_factor_to_unit_value(factor: i32) -> Result<SymmetricUnitValue, &'static str> {
-    if factor < -100 || factor > 100 {
-        return Err("invalid factor");
-    }
+pub fn convert_factor_to_unit_value(factor: i32) -> SoftSymmetricUnitValue {
     let result = if factor == 0 {
         0.01
     } else {
         factor as f64 / 100.0
     };
-    Ok(SymmetricUnitValue::new(result))
+    SoftSymmetricUnitValue::new(result)
 }
 
-pub fn convert_unit_value_to_factor(value: SymmetricUnitValue) -> i32 {
+pub fn convert_unit_value_to_factor(value: SoftSymmetricUnitValue) -> i32 {
     // -1.00 => -100
     // -0.01 =>   -1
     //  0.00 =>    1
@@ -219,6 +219,6 @@ pub fn convert_unit_value_to_factor(value: SymmetricUnitValue) -> i32 {
     if tmp == 0 { 1 } else { tmp }
 }
 
-fn convert_to_step_count(value: SymmetricUnitValue) -> DiscreteIncrement {
+fn convert_to_step_count(value: SoftSymmetricUnitValue) -> DiscreteIncrement {
     DiscreteIncrement::new(convert_unit_value_to_factor(value))
 }

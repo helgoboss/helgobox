@@ -1,6 +1,8 @@
 use crate::application::ModeModel;
 use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
-use helgoboss_learn::{AbsoluteMode, Interval, OutOfRangeBehavior, SymmetricUnitValue, UnitValue};
+use helgoboss_learn::{
+    AbsoluteMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, UnitValue,
+};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -25,12 +27,12 @@ pub struct ModeModelData {
         default = "default_step_size",
         skip_serializing_if = "is_default_step_size"
     )]
-    min_step_size: SymmetricUnitValue,
+    min_step_size: SoftSymmetricUnitValue,
     #[serde(
         default = "default_step_size",
         skip_serializing_if = "is_default_step_size"
     )]
-    max_step_size: SymmetricUnitValue,
+    max_step_size: SoftSymmetricUnitValue,
     #[serde(default, skip_serializing_if = "is_default")]
     min_press_millis: u64,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -55,11 +57,11 @@ pub struct ModeModelData {
     rotate_is_enabled: bool,
 }
 
-fn default_step_size() -> SymmetricUnitValue {
-    SymmetricUnitValue::new(0.01)
+fn default_step_size() -> SoftSymmetricUnitValue {
+    SoftSymmetricUnitValue::new(0.01)
 }
 
-fn is_default_step_size(v: &SymmetricUnitValue) -> bool {
+fn is_default_step_size(v: &SoftSymmetricUnitValue) -> bool {
     *v == default_step_size()
 }
 
