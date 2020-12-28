@@ -52,13 +52,13 @@ impl IndependentPanelManager {
         panel.show(mapping.clone());
     }
 
-    /// Closes panels of mappings which don't exist anymore.
+    /// Hides panels of mappings which don't exist anymore.
     pub fn close_orphan_panels(&mut self) {
         let shared_session = self.session.upgrade().expect("session gone");
         let session = shared_session.borrow();
         for p in &self.mapping_panels {
             if !session.has_mapping(p.mapping_ptr()) {
-                p.close();
+                p.hide();
             }
         }
     }
@@ -72,11 +72,11 @@ impl IndependentPanelManager {
         self.mapping_panels.clear();
     }
 
-    pub fn close_all_with_compartment(&mut self, compartment: MappingCompartment) {
+    pub fn hide_all_with_compartment(&mut self, compartment: MappingCompartment) {
         for p in &self.mapping_panels {
             if let Some(m) = p.displayed_mapping() {
                 if m.borrow().compartment() == compartment {
-                    p.close();
+                    p.hide();
                 }
             }
         }

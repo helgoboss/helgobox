@@ -523,7 +523,7 @@ impl HeaderPanel {
             }
             self.panel_manager()
                 .borrow_mut()
-                .close_all_with_compartment(MappingCompartment::MainMappings);
+                .hide_all_with_compartment(MappingCompartment::MainMappings);
         }
         self.session()
             .borrow_mut()
