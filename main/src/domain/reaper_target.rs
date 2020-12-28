@@ -876,7 +876,20 @@ impl Target for ReaperTarget {
     fn current_value(&self) -> Option<UnitValue> {
         use ReaperTarget::*;
         let result = match self {
-            Action { action, .. } => convert_bool_to_unit_value(action.is_on()),
+            Action { action, .. } => {
+                if let Some(state) = action.is_on() {
+                    // Toggle action: Return toggle state as 0 or 1.
+                    convert_bool_to_unit_value(state)
+                } else {
+                    // Non-toggle action. Try to return current absolute value if this is a
+                    // MIDI CC/mousewheel action.
+                    if let Some(value) = action.normalized_value() {
+                        UnitValue::new(value)
+                    } else {
+                        UnitValue::MIN
+                    }
+                }
+            }
             FxParameter { param } => {
                 let v = param
                     .reaper_normalized_value()
