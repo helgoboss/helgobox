@@ -8,13 +8,14 @@ use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, UnitValue};
 
-use reaper_high::Reaper;
+use reaper_high::{ControlSurfacePerformanceMonitor, Reaper};
 use reaper_medium::ControlSurface;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
@@ -49,6 +50,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     party_is_over_subject: LocalSubject<'static, (), ()>,
+    performance_monitor: reaper_high::ControlSurfacePerformanceMonitor,
+    log_next_metrics: bool,
 }
 
 impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
@@ -357,6 +360,14 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
             }
         }
     }
+
+    fn handle_metrics(&mut self, metrics: &reaper_medium::ControlSurfaceMetrics) {
+        self.performance_monitor.handle_metrics(metrics);
+        if self.log_next_metrics {
+            self.performance_monitor.log_metrics(metrics);
+            self.log_next_metrics = false;
+        }
+    }
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -373,8 +384,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         context: ProcessorContext,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
+        let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
-            logger: parent_logger.new(slog::o!("struct" => "MainProcessor")),
+            logger: logger.clone(),
             self_normal_sender,
             self_feedback_sender,
             normal_task_receiver,
@@ -391,6 +403,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             event_handler,
             context,
             party_is_over_subject: Default::default(),
+            performance_monitor: ControlSurfacePerformanceMonitor::new(
+                logger,
+                Duration::from_secs(30),
+            ),
+            log_next_metrics: false,
         }
     }
 
@@ -538,7 +555,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.send_feedback(self.feedback_all_in_compartment(compartment));
     }
 
-    fn log_debug_info(&self, task_count: usize) {
+    fn log_debug_info(&mut self, task_count: usize) {
+        // Trigger metrics logging
+        self.log_next_metrics = true;
         // Summary
         let msg = format!(
             "\n\

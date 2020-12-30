@@ -162,9 +162,11 @@ impl App {
 
     /// Logging debug info is always initiated by a particular session.
     pub fn log_debug_info(&self, session_id: &str) {
-        crate::application::App::get().log_debug_info();
         self.server.borrow().log_debug_info(session_id);
         self.controller_manager.borrow().log_debug_info();
+        Reaper::get().log_helper_metrics();
+        // Must be the last because it (intentionally) panics
+        crate::application::App::get().log_debug_info();
     }
 
     pub fn changed(&self) -> impl UnitEvent {
