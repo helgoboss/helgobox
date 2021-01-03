@@ -1,5 +1,5 @@
 use crate::application::{
-    share_mapping, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, MappingModel,
+    share_mapping, App, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, MappingModel,
     Preset, PresetLinkManager, PresetManager, SharedMapping, TargetCategory, TargetModel,
     VirtualControlElementType,
 };
@@ -62,9 +62,6 @@ pub struct Session {
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
-    // will stay around as a ghost after the plug-in is removed.
-    main_processor_registration: Option<RegistrationHandle<MainProcessor<WeakSession>>>,
     normal_main_task_channel: (
         crossbeam_channel::Sender<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
@@ -170,7 +167,6 @@ impl Session {
             mapping_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
             mapping_subscriptions: Default::default(),
-            main_processor_registration: None,
             normal_main_task_channel,
             parameter_main_task_receiver,
             control_main_task_receiver,
@@ -220,10 +216,11 @@ impl Session {
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
-        // Register the main processor. We instantiate it as control surface because it must be
-        // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
-        // callback is not suited.
+        // Register the main processor with the global ReaLearn control surface. We let it call by
+        // the control surface because it must be called regularly, even when the ReaLearn UI is
+        // closed. That means, the VST GUI idle callback is not suited.
         let main_processor = MainProcessor::new(
+            self.instance_id.clone(),
             &self.logger,
             self.normal_main_task_channel.0.clone(),
             self.normal_main_task_channel.1.clone(),
@@ -235,11 +232,7 @@ impl Session {
             self.context.clone(),
         );
         main_processor.activate();
-        let reg = Reaper::get()
-            .medium_session()
-            .plugin_register_add_csurf_inst(Box::new(main_processor))
-            .expect("couldn't register local control surface");
-        self.main_processor_registration = Some(reg);
+        App::get().register_main_processor(main_processor);
         // Initial sync
         self.initial_sync(weak_session.clone());
         // Whenever auto-correct setting changes, resubscribe to all mappings because
@@ -1317,15 +1310,7 @@ pub struct ParameterSetting {
 impl Drop for Session {
     fn drop(&mut self) {
         debug!(self.logger(), "Dropping session...");
-        if let Some(reg) = self.main_processor_registration {
-            unsafe {
-                // We can throw the unregistered control surface immediately because we are sure
-                // that we are currently not in a control surface call.
-                let _ = Reaper::get()
-                    .medium_session()
-                    .plugin_register_remove_csurf_inst(reg);
-            }
-        }
+        App::get().unregister_main_processor(self.instance_id.clone());
         self.party_is_over_subject.next(());
     }
 }

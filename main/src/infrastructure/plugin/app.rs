@@ -1,11 +1,14 @@
+use crate::application::WeakSession;
 use crate::core::default_util::is_default;
-use crate::domain::Global;
+use crate::domain::{Global, RealearnControlSurfaceMiddleware, RealearnControlSurfaceTask};
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
 };
+use crate::infrastructure::plugin::debug_util;
+use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
-use reaper_high::{Fx, Reaper};
+use reaper_high::{Fx, MiddlewareControlSurface, Reaper};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -32,7 +35,7 @@ pub struct App {
 impl Default for App {
     fn default() -> Self {
         let config = AppConfig::load().unwrap_or_else(|e| {
-            debug!(App::logger(), "{}", e);
+            debug!(crate::application::App::logger(), "{}", e);
             Default::default()
         });
         App::new(config)
@@ -82,7 +85,12 @@ impl App {
         }
     }
 
+    /// Executed globally just once as soon as we have access to global REAPER instance
     pub fn init(&self) {
+        crate::application::App::get().register_global_learn_action();
+        server::keep_informing_clients_about_sessions();
+        debug_util::register_resolve_symbols_action();
+        crate::infrastructure::test::register_test_action();
         let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
         Global::control_surface_rx()
             .fx_focused()
@@ -103,19 +111,6 @@ impl App {
     /// is mostly ReaLearn itself - which is in most cases not what we want.
     pub fn previously_focused_fx(&self) -> Option<Fx> {
         self.list_of_recently_focused_fx.borrow().previous.clone()
-    }
-
-    // We need this to be static because we need it at plugin construction time, so we don't have
-    // REAPER API access yet. App needs REAPER API to be constructed (e.g. in order to
-    // know where's the resource directory that contains the app configuration).
-    // TODO-low In future it might be wise to turn to a different logger as soon as REAPER API
-    //  available. Then we can also do file logging to ReaLearn resource folder.
-    pub fn logger() -> &'static slog::Logger {
-        static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
-            env_logger::init_from_env("REALEARN_LOG");
-            slog::Logger::root(slog_stdlog::StdLog.fuse(), o!("app" => "ReaLearn"))
-        });
-        &APP_LOGGER
     }
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn

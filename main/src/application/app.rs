@@ -1,23 +1,90 @@
 use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::notification;
-use crate::domain::{MappingCompartment, ReaperTarget};
-use reaper_high::{ActionKind, Reaper, Track};
+use crate::domain::{
+    MainProcessor, MappingCompartment, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceTask, ReaperTarget,
+};
+use reaper_high::{ActionKind, MiddlewareControlSurface, Reaper, Track};
 
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, o, Drain};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 make_available_globally_in_main_thread!(App);
 
-#[derive(Default)]
+pub type RealearnControlSurface =
+    Box<MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>>;
+
 pub struct App {
     sessions: RefCell<Vec<WeakSession>>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    /// `None` before global initialization and as long as at least one ReaLearn plugin instance
+    /// instance loaded. `Some` whenever no ReaLearn plugin instance loaded. It's important that
+    /// after unregistering, this is put back here, otherwise pending task executions might fail.
+    control_surface: RefCell<Option<RealearnControlSurface>>,
+    control_surface_task_sender: crossbeam_channel::Sender<RealearnControlSurfaceTask<WeakSession>>,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let (control_surface_task_sender, control_surface_task_receiver) =
+            crossbeam_channel::unbounded();
+        App {
+            sessions: Default::default(),
+            changed_subject: Default::default(),
+            control_surface: {
+                let s = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
+                    &App::logger(),
+                    control_surface_task_receiver,
+                ));
+                RefCell::new(Some(Box::new(s)))
+            },
+            control_surface_task_sender,
+        }
+    }
 }
 
 impl App {
+    pub fn take_control_surface(&self) -> RealearnControlSurface {
+        self.control_surface
+            .borrow_mut()
+            .take()
+            .expect("control surface already taken")
+    }
+
+    // We need this to be static because we need it at plugin construction time, so we don't have
+    // REAPER API access yet. App needs REAPER API to be constructed (e.g. in order to
+    // know where's the resource directory that contains the app configuration).
+    // TODO-low In future it might be wise to turn to a different logger as soon as REAPER API
+    //  available. Then we can also do file logging to ReaLearn resource folder.
+    pub fn logger() -> &'static slog::Logger {
+        static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
+            env_logger::init_from_env("REALEARN_LOG");
+            slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
+        });
+        &APP_LOGGER
+    }
+
+    pub fn put_control_surface_back(&self, control_surface: RealearnControlSurface) {
+        *self.control_surface.borrow_mut() = Some(control_surface);
+    }
+
+    pub fn register_main_processor(&self, p: MainProcessor<WeakSession>) {
+        self.control_surface_task_sender
+            .send(RealearnControlSurfaceTask::AddMainProcessor(p))
+            .unwrap();
+    }
+
+    pub fn unregister_main_processor(&self, processor_id: String) {
+        self.control_surface_task_sender
+            .send(RealearnControlSurfaceTask::RemoveMainProcessor(
+                processor_id,
+            ))
+            .unwrap();
+    }
+
     pub fn changed(&self) -> impl UnitEvent {
         self.changed_subject.borrow().clone()
     }

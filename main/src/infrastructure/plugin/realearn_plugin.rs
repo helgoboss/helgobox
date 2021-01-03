@@ -5,7 +5,8 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::domain::{
     ControlMainTask, FeedbackRealTimeTask, Global, NormalMainTask, ParameterMainTask,
-    ProcessorContext, RealearnControlSurfaceMiddleware, PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, RealearnControlSurfaceMiddleware, RealearnControlSurfaceTask,
+    PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -28,7 +29,7 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use crate::application::{Session, SharedSession};
+use crate::application::{Session, SharedSession, WeakSession};
 use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
 
@@ -97,7 +98,8 @@ impl Plugin for RealearnPlugin {
             let (parameter_main_task_sender, parameter_main_task_receiver) =
                 crossbeam_channel::unbounded();
             let instance_id = nanoid::nanoid!(8);
-            let logger = App::logger().new(o!("instance" => instance_id.clone()));
+            let logger =
+                crate::application::App::logger().new(o!("instance" => instance_id.clone()));
             let plugin_parameters =
                 Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
             Self {
@@ -271,10 +273,6 @@ impl RealearnPlugin {
                         support_email_address: "info@helgoboss.org".to_string(),
                     },
                 );
-                crate::application::App::get().register_global_learn_action();
-                server::keep_informing_clients_about_sessions();
-                debug_util::register_resolve_symbols_action();
-                crate::infrastructure::test::register_test_action();
                 App::get().init();
             },
             || {
@@ -285,15 +283,25 @@ impl RealearnPlugin {
                 session
                     .plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>()
                     .unwrap();
-                let surface =
-                    MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new());
+                let surface = crate::application::App::get().take_control_surface();
+                debug!(
+                    crate::application::App::logger(),
+                    "Registering ReaLearn control surface..."
+                );
                 let reg_handle = session
-                    .plugin_register_add_csurf_inst(Box::new(surface))
+                    .plugin_register_add_csurf_inst(surface)
                     .expect("couldn't register ReaLearn control surface");
                 move || {
                     let mut session = Reaper::get().medium_session();
+                    debug!(
+                        crate::application::App::logger(),
+                        "Unregistering ReaLearn control surface..."
+                    );
                     unsafe {
-                        let _ = session.plugin_register_remove_csurf_inst(reg_handle);
+                        let surface = session
+                            .plugin_register_remove_csurf_inst(reg_handle)
+                            .expect("conrol surface was not registered");
+                        crate::application::App::get().put_control_surface_back(surface);
                     }
                     session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
                     session

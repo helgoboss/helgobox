@@ -32,6 +32,7 @@ pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_C
 
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
+    instance_id: String,
     logger: slog::Logger,
     /// Contains all mappings except those where the target could not be resolved.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
@@ -50,12 +51,76 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     party_is_over_subject: LocalSubject<'static, (), ()>,
-    performance_monitor: reaper_high::ControlSurfacePerformanceMonitor,
-    log_next_metrics: bool,
 }
 
-impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
-    fn run(&mut self) {
+impl<EH: DomainEventHandler> MainProcessor<EH> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        instance_id: String,
+        parent_logger: &slog::Logger,
+        self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
+        normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+        parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+        control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+        event_handler: EH,
+        context: ProcessorContext,
+    ) -> MainProcessor<EH> {
+        let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
+        let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
+        MainProcessor {
+            instance_id,
+            logger: logger.clone(),
+            self_normal_sender,
+            self_feedback_sender,
+            normal_task_receiver,
+            feedback_task_receiver,
+            control_task_receiver,
+            parameter_task_receiver,
+            normal_real_time_task_sender,
+            feedback_real_time_task_sender,
+            mappings: Default::default(),
+            feedback_buffer: Default::default(),
+            feedback_subscriptions: Default::default(),
+            feedback_is_globally_enabled: false,
+            parameters: ZEROED_PLUGIN_PARAMETERS,
+            event_handler,
+            context,
+            party_is_over_subject: Default::default(),
+        }
+    }
+
+    pub fn instance_id(&self) -> &str {
+        &self.instance_id
+    }
+
+    pub fn activate(&self) {
+        // Handle dynamic target changes and target activation depending on REAPER state.
+        //
+        // Whenever anything changes that just affects the main processor targets, resync all
+        // targets to the main processor. We don't want to resync to the real-time processor
+        // just because another track has been selected. First, it would reset any source state
+        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
+        // We also don't want to resync modes to the main processor. First, it would reset any
+        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
+        // There are several global conditions which affect whether feedback will be sent
+        // from a target or not. Similar global conditions decide what exactly produces the
+        // feedback values (e.g. when there's a target which uses <Selected track>,
+        // then a track selection change changes the feedback value producer ... so
+        // the main processor needs to unsubscribe from the old producer and
+        // subscribe to the new one).
+        let self_sender = self.self_normal_sender.clone();
+        ReaperTarget::potential_static_change_events()
+            .merge(ReaperTarget::potential_dynamic_change_events())
+            // We have this explicit stop criteria because we listen to global REAPER events.
+            .take_until(self.party_is_over_subject.clone())
+            .subscribe(move |_| {
+                self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
+            });
+    }
+
+    pub fn run(&mut self) {
         // Process normal tasks
         // We could also iterate directly while keeping the receiver open. But that would (for
         // good reason) prevent us from calling other methods that mutably borrow
@@ -361,81 +426,6 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
         }
     }
 
-    fn handle_metrics(&mut self, metrics: &reaper_medium::ControlSurfaceMetrics) {
-        self.performance_monitor.handle_metrics(metrics);
-        if self.log_next_metrics {
-            self.performance_monitor.log_metrics(metrics);
-            self.log_next_metrics = false;
-        }
-    }
-}
-
-impl<EH: DomainEventHandler> MainProcessor<EH> {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        parent_logger: &slog::Logger,
-        self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
-        normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
-        parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-        control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        event_handler: EH,
-        context: ProcessorContext,
-    ) -> MainProcessor<EH> {
-        let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
-        let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
-        MainProcessor {
-            logger: logger.clone(),
-            self_normal_sender,
-            self_feedback_sender,
-            normal_task_receiver,
-            feedback_task_receiver,
-            control_task_receiver,
-            parameter_task_receiver,
-            normal_real_time_task_sender,
-            feedback_real_time_task_sender,
-            mappings: Default::default(),
-            feedback_buffer: Default::default(),
-            feedback_subscriptions: Default::default(),
-            feedback_is_globally_enabled: false,
-            parameters: ZEROED_PLUGIN_PARAMETERS,
-            event_handler,
-            context,
-            party_is_over_subject: Default::default(),
-            performance_monitor: ControlSurfacePerformanceMonitor::new(
-                logger,
-                Duration::from_secs(30),
-            ),
-            log_next_metrics: false,
-        }
-    }
-
-    pub fn activate(&self) {
-        // Handle dynamic target changes and target activation depending on REAPER state.
-        //
-        // Whenever anything changes that just affects the main processor targets, resync all
-        // targets to the main processor. We don't want to resync to the real-time processor
-        // just because another track has been selected. First, it would reset any source state
-        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
-        // We also don't want to resync modes to the main processor. First, it would reset any
-        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
-        // There are several global conditions which affect whether feedback will be sent
-        // from a target or not. Similar global conditions decide what exactly produces the
-        // feedback values (e.g. when there's a target which uses <Selected track>,
-        // then a track selection change changes the feedback value producer ... so
-        // the main processor needs to unsubscribe from the old producer and
-        // subscribe to the new one).
-        let self_sender = self.self_normal_sender.clone();
-        ReaperTarget::potential_static_change_events()
-            .merge(ReaperTarget::potential_dynamic_change_events())
-            // We have this explicit stop criteria because we listen to global REAPER events.
-            .take_until(self.party_is_over_subject.clone())
-            .subscribe(move |_| {
-                self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
-            });
-    }
-
     fn process_activation_updates(
         &mut self,
         compartment: MappingCompartment,
@@ -556,8 +546,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn log_debug_info(&mut self, task_count: usize) {
-        // Trigger metrics logging
-        self.log_next_metrics = true;
         // Summary
         let msg = format!(
             "\n\
