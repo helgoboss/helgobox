@@ -10,6 +10,12 @@ pub use feedback_buffer::*;
 mod mapping;
 pub use mapping::*;
 
+mod global;
+pub use global::*;
+
+mod control_surface;
+pub use control_surface::*;
+
 mod mode;
 pub use mode::*;
 

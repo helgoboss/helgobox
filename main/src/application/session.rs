@@ -6,14 +6,14 @@ use crate::application::{
 use crate::core::{prop, when, AsyncNotifier, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
-    MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
+    Global, MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
     MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask, ProcessorContext,
     ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 
-use reaper_high::{Fx, Reaper};
+use reaper_high::Reaper;
 use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
@@ -305,7 +305,7 @@ impl Session {
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
         // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
         when(
-            Reaper::get()
+            Global::control_surface_rx()
                 .fx_reordered()
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
@@ -315,16 +315,19 @@ impl Session {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
         // When FX focus changes, maybe trigger main preset change
-        when(Reaper::get().fx_focused().take_until(self.party_is_over()))
-            .with(weak_session)
-            .do_sync(|s, fx| {
-                if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx
-                {
-                    let fx_id = fx.as_ref().map(FxId::from_fx);
-                    s.borrow_mut()
-                        .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
-                }
-            });
+        when(
+            Global::control_surface_rx()
+                .fx_focused()
+                .take_until(self.party_is_over()),
+        )
+        .with(weak_session)
+        .do_sync(|s, fx| {
+            if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
+                let fx_id = fx.as_ref().map(FxId::from_fx);
+                s.borrow_mut()
+                    .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+            }
+        });
     }
 
     pub fn activate_main_preset_auto_load_mode(
@@ -1027,7 +1030,7 @@ impl Session {
 
     fn containing_fx_enabled_or_disabled(&self) -> impl UnitEvent {
         let containing_fx = self.context.containing_fx().clone();
-        Reaper::get()
+        Global::control_surface_rx()
             .fx_enabled_changed()
             .filter(move |fx| *fx == containing_fx)
             .map_to(())
@@ -1035,7 +1038,7 @@ impl Session {
 
     fn containing_track_armed_or_disarmed(&self) -> BoxedUnitEvent {
         if let Some(track) = self.context.containing_fx().track().cloned() {
-            Reaper::get()
+            Global::control_surface_rx()
                 .track_arm_changed()
                 .filter(move |t| *t == track)
                 .map_to(())

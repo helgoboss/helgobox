@@ -18,7 +18,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
-use crate::domain::RealearnTarget;
+use crate::domain::{Global, RealearnTarget};
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -466,20 +466,20 @@ impl ReaperTarget {
     /// those in `changed()` because they are global in nature. If we listen to n targets,
     /// we don't want to listen to those global events n times. Just 1 time is enough!
     pub fn potential_static_change_events() -> impl UnitEvent {
-        let reaper = Reaper::get();
-        reaper
+        let rx = Global::control_surface_rx();
+        rx
             // Considering fx_focused() as static event is okay as long as we don't have a target
             // which switches focus between different FX. As soon as we have that, we must treat
             // fx_focused() as a dynamic event, like track_selection_changed().
             .fx_focused()
             .map_to(())
-            .merge(reaper.track_added().map_to(()))
-            .merge(reaper.track_removed().map_to(()))
-            .merge(reaper.tracks_reordered().map_to(()))
-            .merge(reaper.track_name_changed().map_to(()))
-            .merge(reaper.fx_added().map_to(()))
-            .merge(reaper.fx_removed().map_to(()))
-            .merge(reaper.fx_reordered().map_to(()))
+            .merge(rx.track_added().map_to(()))
+            .merge(rx.track_removed().map_to(()))
+            .merge(rx.tracks_reordered().map_to(()))
+            .merge(rx.track_name_changed().map_to(()))
+            .merge(rx.fx_added().map_to(()))
+            .merge(rx.fx_removed().map_to(()))
+            .merge(rx.fx_reordered().map_to(()))
     }
 
     /// This contains all potential target-changing events which could also be fired by targets
@@ -492,45 +492,47 @@ impl ReaperTarget {
     /// useless (because with a resync all runtime mode state is gone). Plus, reentrancy
     /// issues will arise.
     pub fn potential_dynamic_change_events() -> impl UnitEvent {
-        let reaper = Reaper::get();
-        reaper.track_selected_changed().map_to(())
+        let rx = Global::control_surface_rx();
+        rx.track_selected_changed().map_to(())
     }
 
     pub fn touched() -> impl Event<Rc<ReaperTarget>> {
         use ReaperTarget::*;
         let reaper = Reaper::get();
+        let csurf_rx = Global::control_surface_rx();
+        let action_rx = Global::action_rx();
         observable::empty()
             .merge(
-                reaper
+                csurf_rx
                     .fx_parameter_touched()
                     .map(move |param| FxParameter { param }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .fx_enabled_changed()
                     .map(move |fx| FxEnable { fx }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .fx_preset_changed()
                     .map(move |fx| FxPreset { fx }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .track_volume_touched()
                     .map(move |track| TrackVolume { track }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .track_pan_touched()
                     .map(move |track| TrackPan { track }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .track_arm_changed()
                     .map(move |track| TrackArm { track }.into()),
             )
-            .merge(reaper.track_selected_changed().map(move |track| {
+            .merge(csurf_rx.track_selected_changed().map(move |track| {
                 TrackSelection {
                     track,
                     select_exclusively: false,
@@ -538,26 +540,26 @@ impl ReaperTarget {
                 .into()
             }))
             .merge(
-                reaper
+                csurf_rx
                     .track_mute_touched()
                     .map(move |track| TrackMute { track }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .track_solo_changed()
                     .map(move |track| TrackSolo { track }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .track_send_volume_touched()
                     .map(move |send| TrackSendVolume { send }.into()),
             )
             .merge(
-                reaper
+                csurf_rx
                     .track_send_pan_touched()
                     .map(move |send| TrackSendPan { send }.into()),
             )
-            .merge(reaper.action_invoked().map(move |action| {
+            .merge(action_rx.action_invoked().map(move |action| {
                 Action {
                     action: (*action).clone(),
                     invocation_type: ActionInvocationType::Trigger,
@@ -566,7 +568,7 @@ impl ReaperTarget {
                 .into()
             }))
             .merge(
-                reaper
+                csurf_rx
                     .master_tempo_touched()
                     // TODO-low In future this might come from a certain project
                     .map(move |_| {
@@ -577,7 +579,7 @@ impl ReaperTarget {
                     }),
             )
             .merge(
-                reaper
+                csurf_rx
                     .master_playrate_touched()
                     // TODO-low In future this might come from a certain project
                     .map(move |_| {
@@ -746,6 +748,8 @@ impl ReaperTarget {
 
     pub fn value_changed(&self) -> BoxedUnitEvent {
         use ReaperTarget::*;
+        let csurf_rx = Global::control_surface_rx();
+        let action_rx = Global::action_rx();
         match self {
             Action {
                 action,
@@ -755,7 +759,7 @@ impl ReaperTarget {
                 let action = action.clone();
                 // TODO-medium It's not cool that reaper-rs exposes some events as Rc<T>
                 //  and some not
-                Reaper::get()
+                action_rx
                     .action_invoked()
                     .filter(move |a| a.as_ref() == &action)
                     .map_to(())
@@ -763,7 +767,7 @@ impl ReaperTarget {
             }
             FxParameter { param } => {
                 let param = param.clone();
-                Reaper::get()
+                csurf_rx
                     .fx_parameter_value_changed()
                     .filter(move |p| p == &param)
                     .map_to(())
@@ -771,7 +775,7 @@ impl ReaperTarget {
             }
             TrackVolume { track } => {
                 let track = track.clone();
-                Reaper::get()
+                csurf_rx
                     .track_volume_changed()
                     .filter(move |t| t == &track)
                     .map_to(())
@@ -779,7 +783,7 @@ impl ReaperTarget {
             }
             TrackSendVolume { send } => {
                 let send = send.clone();
-                Reaper::get()
+                csurf_rx
                     .track_send_volume_changed()
                     .filter(move |s| s == &send)
                     .map_to(())
@@ -787,7 +791,7 @@ impl ReaperTarget {
             }
             TrackPan { track } => {
                 let track = track.clone();
-                Reaper::get()
+                csurf_rx
                     .track_pan_changed()
                     .filter(move |t| t == &track)
                     .map_to(())
@@ -795,7 +799,7 @@ impl ReaperTarget {
             }
             TrackArm { track } => {
                 let track = track.clone();
-                Reaper::get()
+                csurf_rx
                     .track_arm_changed()
                     .filter(move |t| t == &track)
                     .map_to(())
@@ -803,7 +807,7 @@ impl ReaperTarget {
             }
             TrackSelection { track, .. } => {
                 let track = track.clone();
-                Reaper::get()
+                csurf_rx
                     .track_selected_changed()
                     .filter(move |t| t == &track)
                     .map_to(())
@@ -811,7 +815,7 @@ impl ReaperTarget {
             }
             TrackMute { track } => {
                 let track = track.clone();
-                Reaper::get()
+                csurf_rx
                     .track_mute_changed()
                     .filter(move |t| t == &track)
                     .map_to(())
@@ -819,7 +823,7 @@ impl ReaperTarget {
             }
             TrackSolo { track } => {
                 let track = track.clone();
-                Reaper::get()
+                csurf_rx
                     .track_solo_changed()
                     .filter(move |t| t == &track)
                     .map_to(())
@@ -827,17 +831,17 @@ impl ReaperTarget {
             }
             TrackSendPan { send } => {
                 let send = send.clone();
-                Reaper::get()
+                csurf_rx
                     .track_send_pan_changed()
                     .filter(move |s| s == &send)
                     .map_to(())
                     .box_it()
             }
-            Tempo { .. } => Reaper::get().master_tempo_changed().map_to(()).box_it(),
-            Playrate { .. } => Reaper::get().master_playrate_changed().map_to(()).box_it(),
+            Tempo { .. } => csurf_rx.master_tempo_changed().map_to(()).box_it(),
+            Playrate { .. } => csurf_rx.master_playrate_changed().map_to(()).box_it(),
             FxEnable { fx } => {
                 let fx = fx.clone();
-                Reaper::get()
+                csurf_rx
                     .fx_enabled_changed()
                     .filter(move |f| f == &fx)
                     .map_to(())
@@ -845,7 +849,7 @@ impl ReaperTarget {
             }
             FxPreset { fx } => {
                 let fx = fx.clone();
-                Reaper::get()
+                csurf_rx
                     .fx_preset_changed()
                     .filter(move |f| f == &fx)
                     .map_to(())
@@ -853,7 +857,7 @@ impl ReaperTarget {
             }
             SelectedTrack { project } => {
                 let project = *project;
-                Reaper::get()
+                csurf_rx
                     .track_selected_changed()
                     .filter(move |t| t.project() == project)
                     .map_to(())
@@ -861,11 +865,10 @@ impl ReaperTarget {
             }
             AllTrackFxEnable { .. } => observable::never().box_it(),
             Transport { action, .. } => {
-                let reaper = Reaper::get();
                 if *action == TransportAction::Repeat {
-                    reaper.repeat_state_changed().box_it()
+                    csurf_rx.repeat_state_changed().box_it()
                 } else {
-                    reaper.play_state_changed().box_it()
+                    csurf_rx.play_state_changed().box_it()
                 }
             }
         }

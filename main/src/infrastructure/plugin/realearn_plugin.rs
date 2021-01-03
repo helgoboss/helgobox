@@ -4,8 +4,8 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 
 use super::RealearnEditor;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, ParameterMainTask, ProcessorContext,
-    PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, Global, NormalMainTask, ParameterMainTask,
+    ProcessorContext, RealearnControlSurfaceMiddleware, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -13,7 +13,7 @@ use crate::infrastructure::plugin::{debug_util, SET_STATE_PARAM_NAME};
 use crate::infrastructure::ui::MainPanel;
 use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
 use lazycell::LazyCell;
-use reaper_high::{CrashInfo, Reaper, ReaperGuard};
+use reaper_high::{CrashInfo, MiddlewareControlSurface, Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
 use reaper_medium::{Hz, MidiFrameOffset};
 
@@ -33,6 +33,7 @@ use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
 
 use crate::core::notification;
+use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
@@ -255,25 +256,52 @@ impl Plugin for RealearnPlugin {
 
 impl RealearnPlugin {
     fn ensure_reaper_setup(&mut self) -> Arc<ReaperGuard> {
-        Reaper::guarded(|| {
-            let context =
-                PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
-            Swell::make_available_globally(Swell::load(context));
-            Reaper::setup_with_defaults(
-                context,
-                self.logger.clone(),
-                CrashInfo {
-                    plugin_name: "ReaLearn".to_string(),
-                    plugin_version: App::detailed_version_label().to_string(),
-                    support_email_address: "info@helgoboss.org".to_string(),
-                },
-            );
-            crate::application::App::get().register_global_learn_action();
-            server::keep_informing_clients_about_sessions();
-            debug_util::register_resolve_symbols_action();
-            crate::infrastructure::test::register_test_action();
-            App::get().init();
-        })
+        Reaper::guarded(
+            || {
+                let context =
+                    PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context())
+                        .unwrap();
+                Swell::make_available_globally(Swell::load(context));
+                Reaper::setup_with_defaults(
+                    context,
+                    self.logger.clone(),
+                    CrashInfo {
+                        plugin_name: "ReaLearn".to_string(),
+                        plugin_version: App::detailed_version_label().to_string(),
+                        support_email_address: "info@helgoboss.org".to_string(),
+                    },
+                );
+                crate::application::App::get().register_global_learn_action();
+                server::keep_informing_clients_about_sessions();
+                debug_util::register_resolve_symbols_action();
+                crate::infrastructure::test::register_test_action();
+                App::get().init();
+            },
+            || {
+                let mut session = Reaper::get().medium_session();
+                session
+                    .plugin_register_add_hook_post_command::<ActionRxHookPostCommand<Global>>()
+                    .unwrap();
+                session
+                    .plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>()
+                    .unwrap();
+                let surface =
+                    MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new());
+                let reg_handle = session
+                    .plugin_register_add_csurf_inst(Box::new(surface))
+                    .expect("couldn't register ReaLearn control surface");
+                move || {
+                    let mut session = Reaper::get().medium_session();
+                    unsafe {
+                        let _ = session.plugin_register_remove_csurf_inst(reg_handle);
+                    }
+                    session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
+                    session
+                        .plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>(
+                        );
+                }
+            },
+        )
     }
 
     /// At this point, REAPER cannot reliably give us yet the containing FX. As a

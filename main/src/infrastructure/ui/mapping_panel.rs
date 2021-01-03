@@ -30,7 +30,7 @@ use crate::application::{
     TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakSession,
 };
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
+    ActionInvocationType, CompoundMappingTarget, FxAnchor, Global, MappingCompartment, MappingId,
     ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
     VirtualControlElement, VirtualFx, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
@@ -1086,7 +1086,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         reaper.prompt_for_action_create(initial_action, SectionId::new(0));
         let shared_mapping = self.shared_mapping.clone();
-        Reaper::get()
+        Global::control_surface_rx()
             .main_thread_idle()
             .take_until(self.panel.party_is_over())
             .map(|_| {
@@ -2025,18 +2025,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(self.session.mapping_which_learns_target_changed(), |view| {
                 view.invalidate_target_learn_button();
             });
-        let reaper = Reaper::get();
         self.panel.when_do_sync(
-            reaper
-                // Because we want to display new tracks in combo box as soon as they appear.
-                .track_added()
-                .map_to(())
-                // Because we want to display new FX in combo box as soon as they appear.
-                .merge(reaper.fx_added().map_to(()))
-                // Because we want a changed track name to be reflected immediately in the UI.
-                .merge(reaper.track_name_changed().map_to(()))
-                // Because we want to see any possible effective `ReaperTarget` change immediately.
-                .merge(ReaperTarget::potential_static_change_events())
+            ReaperTarget::potential_static_change_events()
                 .merge(ReaperTarget::potential_dynamic_change_events()),
             |view| {
                 // TODO-medium The C++ code yields here (when FX changed):

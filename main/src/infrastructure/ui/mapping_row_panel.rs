@@ -2,7 +2,7 @@ use crate::application::{
     MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
 use crate::core::when;
-use crate::domain::MappingCompartment;
+use crate::domain::{Global, MappingCompartment};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
@@ -241,7 +241,7 @@ impl MappingRowPanel {
                 .target_model
                 .changed()
                 // We also want to reflect track name changes immediately.
-                .merge(Reaper::get().track_name_changed().map_to(())),
+                .merge(Global::control_surface_rx().track_name_changed().map_to(())),
             |view| {
                 view.with_mapping(Self::invalidate_target_label);
             },

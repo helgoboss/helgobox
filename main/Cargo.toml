@@ -16,9 +16,11 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
+#reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 #reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde", "control-surface-meter"] }
 #reaper-medium= { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde", "control-surface-meter"] }
 #reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-rx = { path = "../../reaper-rs/main/rx" }
 reaper-high = { path = "../../reaper-rs/main/high", features = ["serde", "control-surface-meter"] }
 reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde", "control-surface-meter"] }
 reaper-low = { path = "../../reaper-rs/main/low" }

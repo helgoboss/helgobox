@@ -1,5 +1,4 @@
 use crate::application::{FxId, PresetLinkManager};
-use reaper_high::Fx;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;

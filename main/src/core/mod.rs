@@ -1,6 +1,9 @@
 #[macro_use]
 mod regex_util;
 
+#[macro_use]
+mod global;
+
 mod send_or_sync_whatever;
 pub use send_or_sync_whatever::*;
 

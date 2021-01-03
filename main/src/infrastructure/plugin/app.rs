@@ -1,10 +1,10 @@
 use crate::core::default_util::is_default;
+use crate::domain::Global;
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
-use once_cell::unsync::Lazy;
 use reaper_high::{Fx, Reaper};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -16,9 +16,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use url::Url;
 
-/// static mut maybe okay because we access this via `App::get()` function only and this one checks
-/// the thread before returning the reference.
-static mut APP: Lazy<App> = Lazy::new(App::load);
+make_available_globally_in_main_thread!(App);
 
 pub struct App {
     controller_manager: SharedControllerPresetManager,
@@ -29,6 +27,16 @@ pub struct App {
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let config = AppConfig::load().unwrap_or_else(|e| {
+            debug!(App::logger(), "{}", e);
+            Default::default()
+        });
+        App::new(config)
+    }
 }
 
 #[derive(Default)]
@@ -45,20 +53,6 @@ impl ListOfRecentlyFocusedFx {
 }
 
 impl App {
-    /// Panics if not in main thread.
-    pub fn get() -> &'static App {
-        Reaper::get().require_main_thread();
-        unsafe { &APP }
-    }
-
-    fn load() -> App {
-        let config = AppConfig::load().unwrap_or_else(|e| {
-            debug!(App::logger(), "{}", e);
-            Default::default()
-        });
-        App::new(config)
-    }
-
     pub fn detailed_version_label() -> &'static str {
         static DETAILED_VERSION: once_cell::sync::Lazy<String> =
             once_cell::sync::Lazy::new(build_detailed_version);
@@ -90,7 +84,7 @@ impl App {
 
     pub fn init(&self) {
         let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
-        Reaper::get()
+        Global::control_surface_rx()
             .fx_focused()
             .take_until(self.party_is_over())
             .subscribe(move |fx| {

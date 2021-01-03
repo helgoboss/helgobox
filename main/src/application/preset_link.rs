@@ -3,7 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
 use derive_more::Display;
-use reaper_high::{Fx, Reaper};
+use reaper_high::Fx;
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 

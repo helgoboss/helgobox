@@ -2402,6 +2402,7 @@ dependencies = [
  "reaper-high",
  "reaper-low",
  "reaper-medium",
+ "reaper-rx",
  "regex",
  "runas",
  "rx-util",
@@ -2443,7 +2444,6 @@ dependencies = [
  "reaper-low",
  "reaper-medium",
  "regex",
- "rxrust",
  "serde",
  "serde_yaml",
  "slog",
@@ -2486,6 +2486,18 @@ dependencies = [
  "reaper-macros",
  "serde",
  "vst",
+]
+
+[[package]]
+name = "reaper-rx"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel 0.4.4",
+ "helgoboss-midi",
+ "reaper-high",
+ "reaper-medium",
+ "rxrust",
+ "slog",
 ]
 
 [[package]]

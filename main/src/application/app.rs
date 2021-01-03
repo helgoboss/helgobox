@@ -1,7 +1,6 @@
 use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::notification;
 use crate::domain::{MappingCompartment, ReaperTarget};
-use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 
 use rx_util::UnitEvent;
@@ -10,9 +9,7 @@ use slog::debug;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// static mut maybe okay because we access this via `App::get()` function only and this one checks
-/// the thread before returning the reference.
-static mut APP: Lazy<App> = Lazy::new(Default::default);
+make_available_globally_in_main_thread!(App);
 
 #[derive(Default)]
 pub struct App {
@@ -21,12 +18,6 @@ pub struct App {
 }
 
 impl App {
-    /// Panics if not in main thread.
-    pub fn get() -> &'static App {
-        Reaper::get().require_main_thread();
-        unsafe { &APP }
-    }
-
     pub fn changed(&self) -> impl UnitEvent {
         self.changed_subject.borrow().clone()
     }
