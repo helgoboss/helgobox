@@ -282,6 +282,10 @@ fn session_not_found() -> Response<&'static str> {
     not_found("session not found")
 }
 
+fn metrics_not_supported() -> Response<&'static str> {
+    not_found("metrics not supported in this build")
+}
+
 fn session_has_no_active_controller() -> Response<&'static str> {
     not_found("session doesn't have an active controller")
 }
@@ -335,6 +339,19 @@ fn handle_session_route(session_id: String) -> Result<Json, Response<&'static st
     Ok(reply::json(&SessionResponseData {}))
 }
 
+fn handle_metrics_route() -> Result<String, Response<&'static str>> {
+    #[cfg(feature = "prometheus")]
+    {
+        let metrics: reaper_medium::ControlSurfaceMetrics = Default::default();
+        let text = serde_prometheus::to_string(&metrics, None, HashMap::new()).unwrap();
+        Ok(text)
+    }
+    #[cfg(not(feature = "prometheus"))]
+    {
+        Err(metrics_not_supported())
+    }
+}
+
 async fn start_server(
     http_port: u16,
     https_port: u16,
@@ -363,6 +380,9 @@ async fn start_server(
         .and_then(|controller_id, req: PatchRequest| {
             in_main_thread(|| handle_patch_controller_route(controller_id, req))
         });
+    let metrics_route = warp::get()
+        .and(warp::path!("realearn" / "metrics"))
+        .and_then(|| in_main_thread(|| handle_metrics_route()));
     let ws_route = {
         let clients = warp::any().map(move || clients.clone());
         warp::path("ws")
@@ -413,6 +433,7 @@ async fn start_server(
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
+        .or(metrics_route)
         .or(ws_route)
         .with(cors);
     let http_future = warp::serve(routes.clone()).bind(([0, 0, 0, 0], http_port));

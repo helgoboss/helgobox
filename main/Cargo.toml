@@ -7,7 +7,13 @@ build = "build.rs"
 license = "LGPL-3.0"
 
 [features]
+default = ["prometheus"]
+
+# Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
+
+# Expose metrics endpoint in prometheus format (via projection server)
+prometheus = ["serde_prometheus"]
 
 [dependencies]
 #reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde", "control-surface-meter"] }
@@ -87,6 +93,8 @@ slog-stdlog = "4.1.0"
 futures-timer = "3.0.2"
 # To open user guide in local PDF app
 open = "1"
+# For exposing metrics in Prometheus format
+serde_prometheus = { version = "0.1.5", optional = true }
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }
