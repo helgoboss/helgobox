@@ -1,6 +1,7 @@
 use crate::application::WeakSession;
 use crate::core::default_util::is_default;
-use crate::domain::{Global, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware};
+use crate::core::Global;
+use crate::domain::{RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware};
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,

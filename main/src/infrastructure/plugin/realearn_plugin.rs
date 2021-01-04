@@ -3,10 +3,10 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
+use crate::core::Global;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, Global, NormalMainTask, ParameterMainTask,
-    ProcessorContext, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, ParameterMainTask, ProcessorContext,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -330,7 +330,7 @@ impl RealearnPlugin {
         let parameter_main_task_receiver = self.parameter_main_task_receiver.clone();
         let logger = self.logger.clone();
         let instance_id = self.instance_id.clone();
-        Reaper::get()
+        Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(&host) {
                     Ok(c) => c,

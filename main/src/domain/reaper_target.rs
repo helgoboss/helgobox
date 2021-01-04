@@ -17,8 +17,9 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
+use crate::core::Global;
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
-use crate::domain::{Global, RealearnTarget};
+use crate::domain::RealearnTarget;
 use std::convert::TryInto;
 use std::rc::Rc;
 

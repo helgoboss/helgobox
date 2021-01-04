@@ -3,10 +3,10 @@ use crate::application::{
     Preset, PresetLinkManager, PresetManager, SharedMapping, TargetCategory, TargetModel,
     VirtualControlElementType,
 };
-use crate::core::{prop, when, AsyncNotifier, Prop};
+use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
-    Global, MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
+    MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
     MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask, ProcessorContext,
     ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };

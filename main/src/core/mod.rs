@@ -2,7 +2,10 @@
 mod regex_util;
 
 #[macro_use]
+mod global_macros;
+
 mod global;
+pub use global::*;
 
 mod send_or_sync_whatever;
 pub use send_or_sync_whatever::*;

@@ -1,7 +1,9 @@
-use crate::domain::{DomainEventHandler, Global, MainProcessor};
+use crate::core::Global;
+use crate::domain::{DomainEventHandler, MainProcessor};
 use crossbeam_channel::Receiver;
 use reaper_high::{
-    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, MeterMiddleware,
+    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, MainTaskMiddleware,
+    MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use std::collections::HashMap;
@@ -17,6 +19,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     meter_middleware: MeterMiddleware,
+    main_task_middleware: MainTaskMiddleware,
     counter: u64,
 }
 
@@ -44,12 +47,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_processors: Default::default(),
             main_task_receiver,
             server_task_receiver,
-            meter_middleware: MeterMiddleware::new(logger),
+            meter_middleware: MeterMiddleware::new(logger.clone()),
+            main_task_middleware: MainTaskMiddleware::new(
+                logger,
+                Global::get().task_sender(),
+                Global::get().task_receiver(),
+            ),
             counter: 0,
         }
     }
 
     pub fn reset(&self) {
+        self.main_task_middleware.reset();
         self.change_detection_middleware.reset(|e| {
             self.rx_middleware.handle_change(e);
         });
@@ -59,6 +68,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
         let elapsed = MeterMiddleware::measure(|| {
+            self.main_task_middleware.run();
             for t in self.main_task_receiver.try_iter().take(10) {
                 use RealearnControlSurfaceMainTask::*;
                 match t {

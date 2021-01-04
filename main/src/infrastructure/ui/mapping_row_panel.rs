@@ -2,7 +2,9 @@ use crate::application::{
     MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
 use crate::core::when;
-use crate::domain::{Global, MappingCompartment};
+use crate::domain::MappingCompartment;
+
+use crate::core::Global;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,

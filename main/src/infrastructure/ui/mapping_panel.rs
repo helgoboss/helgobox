@@ -29,8 +29,9 @@ use crate::application::{
     SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
     TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakSession,
 };
+use crate::core::Global;
 use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, FxAnchor, Global, MappingCompartment, MappingId,
+    ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
     ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
     VirtualControlElement, VirtualFx, VirtualTrack, PLUGIN_PARAMETER_COUNT,
 };
@@ -317,7 +318,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target(&self) {
         if let Some(t) = self.real_target() {
-            Reaper::get()
+            Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
         }

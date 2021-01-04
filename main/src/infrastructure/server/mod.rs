@@ -6,6 +6,8 @@ use crate::core::when;
 use crate::domain::{
     MappingCompartment, RealearnControlSurfaceMainTask, RealearnControlSurfaceServerTask,
 };
+
+use crate::core::Global;
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::App;
 
@@ -234,7 +236,9 @@ static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
 async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
     op: impl FnOnce() -> Result<O, E> + 'static + Send,
 ) -> Result<Box<dyn Reply>, Rejection> {
-    let send_result = Reaper::get().main_thread_future(move || op()).await;
+    let send_result = Global::task_support()
+        .main_thread_future(move || op())
+        .await;
     process_send_result(send_result).await
 }
 
@@ -472,7 +476,7 @@ async fn start_server(
         .key(key)
         .cert(cert)
         .bind(([0, 0, 0, 0], https_port));
-    Reaper::get()
+    Global::task_support()
         .do_later_in_main_thread_asap(|| {
             App::get().server().borrow_mut().notify_started();
         })
@@ -570,7 +574,7 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
         sender: client_sender,
     };
     clients.write().unwrap().insert(client_id, client.clone());
-    Reaper::get()
+    Global::task_support()
         .do_later_in_main_thread_asap(move || {
             send_initial_events(&client);
         })
@@ -615,7 +619,7 @@ pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>
 
 pub fn keep_informing_clients_about_sessions() {
     crate::application::App::get().changed().subscribe(|_| {
-        Reaper::get()
+        Global::task_support()
             .do_later_in_main_thread_asap(|| {
                 send_sessions_to_subscribed_clients();
             })

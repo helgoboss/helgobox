@@ -13,6 +13,7 @@ use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::debug;
 use std::collections::{HashMap, HashSet};
 
+use crate::core::Global;
 use enum_iterator::IntoEnumIterator;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
@@ -284,7 +285,7 @@ impl RealTimeProcessor {
             task_count,
             self.feedback_task_receiver.len(),
         );
-        Reaper::get()
+        Global::task_support()
             .do_in_main_thread_asap(move || {
                 Reaper::get().show_console_msg(msg);
             })
