@@ -1,6 +1,6 @@
 use crate::application::WeakSession;
 use crate::core::default_util::is_default;
-use crate::domain::{Global, RealearnControlSurfaceMiddleware, RealearnControlSurfaceTask};
+use crate::domain::{Global, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware};
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
@@ -77,6 +77,9 @@ impl App {
                 config.main.server_http_port,
                 config.main.server_https_port,
                 App::server_resource_dir_path().join("certificates"),
+                crate::application::App::get()
+                    .control_surface_server_task_sender()
+                    .clone(),
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),

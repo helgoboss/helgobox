@@ -1,8 +1,8 @@
 use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::notification;
 use crate::domain::{
-    MainProcessor, MappingCompartment, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceTask, ReaperTarget,
+    MainProcessor, MappingCompartment, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, ReaperTarget,
 };
 use reaper_high::{ActionKind, MiddlewareControlSurface, Reaper, Track};
 
@@ -18,6 +18,12 @@ make_available_globally_in_main_thread!(App);
 pub type RealearnControlSurface =
     Box<MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>>;
 
+pub type RealearnControlSurfaceMainTaskSender =
+    crossbeam_channel::Sender<RealearnControlSurfaceMainTask<WeakSession>>;
+
+pub type RealearnControlSurfaceServerTaskSender =
+    crossbeam_channel::Sender<RealearnControlSurfaceServerTask>;
+
 pub struct App {
     sessions: RefCell<Vec<WeakSession>>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -25,32 +31,27 @@ pub struct App {
     /// instance loaded. `Some` whenever no ReaLearn plugin instance loaded. It's important that
     /// after unregistering, this is put back here, otherwise pending task executions might fail.
     control_surface: RefCell<Option<RealearnControlSurface>>,
-    control_surface_task_sender: crossbeam_channel::Sender<RealearnControlSurfaceTask<WeakSession>>,
-    control_surface_metrics_snapshot: RefCell<String>,
+    control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
+    control_surface_server_task_sender: RealearnControlSurfaceServerTaskSender,
 }
 
 impl Default for App {
     fn default() -> Self {
-        let (control_surface_task_sender, control_surface_task_receiver) =
-            crossbeam_channel::unbounded();
+        let (main_sender, main_receiver) = crossbeam_channel::unbounded();
+        let (server_sender, server_receiver) = crossbeam_channel::unbounded();
         App {
             sessions: Default::default(),
             changed_subject: Default::default(),
             control_surface: {
                 let s = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
                     &App::logger(),
-                    control_surface_task_receiver,
-                    |metrics| {
-                        // TODO-high Do this only on demand (maybe after first queried).
-                        let text =
-                            serde_prometheus::to_string(metrics, None, HashMap::new()).unwrap();
-                        App::get().control_surface_metrics_snapshot.replace(text);
-                    },
+                    main_receiver,
+                    server_receiver,
                 ));
                 RefCell::new(Some(Box::new(s)))
             },
-            control_surface_task_sender,
-            control_surface_metrics_snapshot: Default::default(),
+            control_surface_main_task_sender: main_sender,
+            control_surface_server_task_sender: server_sender,
         }
     }
 }
@@ -61,6 +62,10 @@ impl App {
             .borrow_mut()
             .take()
             .expect("control surface already taken")
+    }
+
+    pub fn control_surface_server_task_sender(&self) -> &RealearnControlSurfaceServerTaskSender {
+        &self.control_surface_server_task_sender
     }
 
     // We need this to be static because we need it at plugin construction time, so we don't have
@@ -81,25 +86,17 @@ impl App {
     }
 
     pub fn register_main_processor(&self, p: MainProcessor<WeakSession>) {
-        self.control_surface_task_sender
-            .send(RealearnControlSurfaceTask::AddMainProcessor(p))
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::AddMainProcessor(p))
             .unwrap();
     }
 
     pub fn unregister_main_processor(&self, processor_id: String) {
-        self.control_surface_task_sender
-            .send(RealearnControlSurfaceTask::RemoveMainProcessor(
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::RemoveMainProcessor(
                 processor_id,
             ))
             .unwrap();
-    }
-
-    // TODO-high It's not cool that we offer the metrics snapshot in an already serialized form.
-    //  However, right now there's no real choice because Metrics doesn't implement Clone. Look into
-    //  writing custom metrics registry!
-    pub fn with_control_surface_metrics_snapshot<R>(&self, f: impl FnOnce(&str) -> R) -> R {
-        let snapshot = self.control_surface_metrics_snapshot.borrow();
-        f(&snapshot)
     }
 
     pub fn changed(&self) -> impl UnitEvent {
@@ -118,8 +115,8 @@ impl App {
     }
 
     pub fn log_debug_info(&self) {
-        self.control_surface_task_sender
-            .send(RealearnControlSurfaceTask::LogDebugInfo)
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::LogDebugInfo)
             .unwrap();
         let msg = format!(
             "\n\

@@ -1,6 +1,11 @@
-use crate::application::{PresetManager, Session, SharedSession, SourceCategory, TargetCategory};
+use crate::application::{
+    PresetManager, RealearnControlSurfaceMainTaskSender, RealearnControlSurfaceServerTaskSender,
+    Session, SharedSession, SourceCategory, TargetCategory, WeakSession,
+};
 use crate::core::when;
-use crate::domain::MappingCompartment;
+use crate::domain::{
+    MappingCompartment, RealearnControlSurfaceMainTask, RealearnControlSurfaceServerTask,
+};
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::App;
 
@@ -39,6 +44,7 @@ pub struct RealearnServer {
     certs_dir_path: PathBuf,
     changed_subject: LocalSubject<'static, (), ()>,
     local_ip: Option<IpAddr>,
+    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
 }
 
 enum ServerState {
@@ -60,7 +66,12 @@ impl ServerState {
 pub const COMPANION_WEB_APP_URL: &str = "https://realearn.helgoboss.org/";
 
 impl RealearnServer {
-    pub fn new(http_port: u16, https_port: u16, certs_dir_path: PathBuf) -> RealearnServer {
+    pub fn new(
+        http_port: u16,
+        https_port: u16,
+        certs_dir_path: PathBuf,
+        control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+    ) -> RealearnServer {
         RealearnServer {
             http_port,
             https_port,
@@ -68,6 +79,7 @@ impl RealearnServer {
             certs_dir_path,
             changed_subject: Default::default(),
             local_ip: get_local_ip(),
+            control_surface_task_sender,
         }
     }
 
@@ -84,6 +96,7 @@ impl RealearnServer {
         let http_port = self.http_port;
         let https_port = self.https_port;
         let key_and_cert = self.key_and_cert();
+        let control_surface_task_sender = self.control_surface_task_sender.clone();
         let _ = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -98,6 +111,7 @@ impl RealearnServer {
                     clients_clone,
                     ip,
                     key_and_cert,
+                    control_surface_task_sender,
                 ));
             });
         self.state = ServerState::Starting { clients };
@@ -221,15 +235,16 @@ async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
     op: impl FnOnce() -> Result<O, E> + 'static + Send,
 ) -> Result<Box<dyn Reply>, Rejection> {
     let send_result = Reaper::get().main_thread_future(move || op()).await;
+    process_send_result(send_result).await
+}
+
+async fn process_send_result<O: Reply + 'static, E: Reply + 'static, SE>(
+    send_result: Result<Result<O, E>, SE>,
+) -> Result<Box<dyn Reply>, Rejection> {
     let response_result = match send_result {
         Ok(r) => r,
         Err(_) => {
-            return Ok(Box::new(
-                Response::builder()
-                    .status(500)
-                    .body("sender dropped")
-                    .unwrap(),
-            ));
+            return Ok(Box::new(sender_dropped_response()));
         }
     };
     let raw: Box<dyn Reply> = match response_result {
@@ -237,6 +252,13 @@ async fn in_main_thread<O: Reply + 'static, E: Reply + 'static>(
         Err(r) => Box::new(r),
     };
     Ok(raw)
+}
+
+fn sender_dropped_response() -> Response<&'static str> {
+    Response::builder()
+        .status(500)
+        .body("sender dropped")
+        .unwrap()
 }
 
 fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<&'static str>> {
@@ -339,12 +361,19 @@ fn handle_session_route(session_id: String) -> Result<Json, Response<&'static st
     Ok(reply::json(&SessionResponseData {}))
 }
 
-fn handle_metrics_route() -> Result<String, Response<&'static str>> {
+async fn handle_metrics_route(
+    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+) -> Result<Box<dyn Reply>, Rejection> {
     #[cfg(feature = "prometheus")]
     {
-        let snapshot =
-            crate::application::App::get().with_control_surface_metrics_snapshot(|s| s.to_string());
-        Ok(snapshot)
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        control_surface_task_sender
+            .send(RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(
+                sender,
+            ))
+            .unwrap();
+        let snapshot: Result<Result<String, String>, _> = receiver.await.map(|r| Ok(r));
+        process_send_result(snapshot).await
     }
     #[cfg(not(feature = "prometheus"))]
     {
@@ -358,6 +387,7 @@ async fn start_server(
     clients: ServerClients,
     _ip: IpAddr,
     (key, cert): (String, String),
+    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
 ) {
     use warp::Filter;
     let welcome_route = warp::path::end()
@@ -382,7 +412,7 @@ async fn start_server(
         });
     let metrics_route = warp::get()
         .and(warp::path!("realearn" / "metrics"))
-        .and_then(|| in_main_thread(|| handle_metrics_route()));
+        .and_then(move || handle_metrics_route(control_surface_task_sender.clone()));
     let ws_route = {
         let clients = warp::any().map(move || clients.clone());
         warp::path("ws")

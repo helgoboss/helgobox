@@ -17,24 +17,26 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_processors: Vec<MainProcessor<EH>>,
     performance_monitor: reaper_high::ControlSurfacePerformanceMonitor,
     log_next_metrics: bool,
-    task_receiver: Receiver<RealearnControlSurfaceTask<EH>>,
-    counter: u64,
-    update_metrics_snapshot: WrapDebug<fn(&reaper_medium::ControlSurfaceMetrics)>,
+    main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
+    server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     meter_middleware: MeterControlSurfaceMiddleware,
 }
 
-pub enum RealearnControlSurfaceTask<EH: DomainEventHandler> {
+pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     AddMainProcessor(MainProcessor<EH>),
     RemoveMainProcessor(String),
     LogDebugInfo,
+}
+
+pub enum RealearnControlSurfaceServerTask {
     ProvidePrometheusMetrics(tokio::sync::oneshot::Sender<String>),
 }
 
 impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     pub fn new(
         parent_logger: &slog::Logger,
-        task_receiver: Receiver<RealearnControlSurfaceTask<EH>>,
-        update_metrics_snapshot: fn(&reaper_medium::ControlSurfaceMetrics),
+        main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
+        server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         Self {
@@ -47,19 +49,24 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 Duration::from_secs(30),
             ),
             log_next_metrics: false,
-            task_receiver,
-            counter: 0,
-            update_metrics_snapshot: WrapDebug(update_metrics_snapshot),
+            main_task_receiver,
+            server_task_receiver,
             meter_middleware: MeterControlSurfaceMiddleware::new(),
         }
+    }
+
+    pub fn reset(&self) {
+        self.change_detector.reset(|e| {
+            self.rx_driver.handle_change(e);
+        });
     }
 }
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
         let elapsed = MeterControlSurfaceMiddleware::measure(|| {
-            for t in self.task_receiver.try_iter().take(10) {
-                use RealearnControlSurfaceTask::*;
+            for t in self.main_task_receiver.try_iter().take(10) {
+                use RealearnControlSurfaceMainTask::*;
                 match t {
                     AddMainProcessor(p) => {
                         self.main_processors.push(p);
@@ -70,7 +77,20 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
                     LogDebugInfo => {
                         self.log_next_metrics = true;
                     }
-                    ProvidePrometheusMetrics(sender) => {}
+                }
+            }
+            for t in self.server_task_receiver.try_iter().take(10) {
+                use RealearnControlSurfaceServerTask::*;
+                match t {
+                    ProvidePrometheusMetrics(sender) => {
+                        let text = serde_prometheus::to_string(
+                            self.meter_middleware.metrics(),
+                            None,
+                            HashMap::new(),
+                        )
+                        .unwrap();
+                        sender.send(text);
+                    }
                 }
             }
             for mut p in &mut self.main_processors {
@@ -90,13 +110,6 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
     }
 
     fn handle_metrics(&mut self, metrics: &reaper_medium::ControlSurfaceMetrics) {
-        // We know it's called roughly 30 times a second.
-        if self.counter == 30 * 10 {
-            (self.update_metrics_snapshot)(metrics);
-            self.counter = 0;
-        } else {
-            self.counter += 1;
-        }
         self.performance_monitor.handle_metrics(metrics);
         if self.log_next_metrics {
             self.performance_monitor.log_metrics(metrics);

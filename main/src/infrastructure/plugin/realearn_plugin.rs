@@ -5,7 +5,7 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::domain::{
     ControlMainTask, FeedbackRealTimeTask, Global, NormalMainTask, ParameterMainTask,
-    ProcessorContext, RealearnControlSurfaceMiddleware, RealearnControlSurfaceTask,
+    ProcessorContext, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
@@ -284,6 +284,7 @@ impl RealearnPlugin {
                     .plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>()
                     .unwrap();
                 let surface = crate::application::App::get().take_control_surface();
+                surface.middleware().reset();
                 debug!(
                     crate::application::App::logger(),
                     "Registering ReaLearn control surface..."
