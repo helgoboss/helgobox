@@ -1,9 +1,9 @@
 use crate::domain::{DomainEventHandler, Global, MainProcessor};
 use crossbeam_channel::Receiver;
 use reaper_high::{
-    ChangeDetector, ControlSurfaceEvent, ControlSurfaceMiddleware, MeterControlSurfaceMiddleware,
+    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, MeterMiddleware,
 };
-use reaper_rx::ControlSurfaceRxDriver;
+use reaper_rx::ControlSurfaceRxMiddleware;
 use std::collections::HashMap;
 use std::time::Duration;
 use wrap_debug::WrapDebug;
@@ -11,12 +11,12 @@ use wrap_debug::WrapDebug;
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     logger: slog::Logger,
-    change_detector: ChangeDetector,
-    rx_driver: ControlSurfaceRxDriver,
+    change_detection_middleware: ChangeDetectionMiddleware,
+    rx_middleware: ControlSurfaceRxMiddleware,
     main_processors: Vec<MainProcessor<EH>>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
-    meter_middleware: MeterControlSurfaceMiddleware,
+    meter_middleware: MeterMiddleware,
     counter: u64,
 }
 
@@ -39,26 +39,26 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         Self {
             logger: logger.clone(),
-            change_detector: ChangeDetector::new(),
-            rx_driver: ControlSurfaceRxDriver::new(Global::control_surface_rx().clone()),
+            change_detection_middleware: ChangeDetectionMiddleware::new(),
+            rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
             main_processors: Default::default(),
             main_task_receiver,
             server_task_receiver,
-            meter_middleware: MeterControlSurfaceMiddleware::new(logger),
+            meter_middleware: MeterMiddleware::new(logger),
             counter: 0,
         }
     }
 
     pub fn reset(&self) {
-        self.change_detector.reset(|e| {
-            self.rx_driver.handle_change(e);
+        self.change_detection_middleware.reset(|e| {
+            self.rx_middleware.handle_change(e);
         });
     }
 }
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        let elapsed = MeterControlSurfaceMiddleware::measure(|| {
+        let elapsed = MeterMiddleware::measure(|| {
             for t in self.main_task_receiver.try_iter().take(10) {
                 use RealearnControlSurfaceMainTask::*;
                 match t {
@@ -101,9 +101,9 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) {
-        let elapsed = MeterControlSurfaceMiddleware::measure(|| {
-            self.change_detector.process(event, |e| {
-                self.rx_driver.handle_change(e);
+        let elapsed = MeterMiddleware::measure(|| {
+            self.change_detection_middleware.process(event, |e| {
+                self.rx_middleware.handle_change(e);
             });
         });
         self.meter_middleware.record_event(event, elapsed);
