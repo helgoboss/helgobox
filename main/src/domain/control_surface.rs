@@ -2,8 +2,8 @@ use crate::core::Global;
 use crate::domain::{DomainEventHandler, MainProcessor};
 use crossbeam_channel::Receiver;
 use reaper_high::{
-    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, MainTaskMiddleware,
-    MeterMiddleware,
+    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
+    MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use std::collections::HashMap;
@@ -20,6 +20,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     meter_middleware: MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
+    future_middleware: FutureMiddleware,
     counter: u64,
 }
 
@@ -49,19 +50,26 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             server_task_receiver,
             meter_middleware: MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
-                logger,
+                logger.clone(),
                 Global::get().task_sender(),
                 Global::get().task_receiver(),
+            ),
+            future_middleware: FutureMiddleware::new(
+                logger,
+                Global::get().executor(),
+                Global::get().local_executor(),
             ),
             counter: 0,
         }
     }
 
     pub fn reset(&self) {
-        self.main_task_middleware.reset();
         self.change_detection_middleware.reset(|e| {
             self.rx_middleware.handle_change(e);
         });
+        // We don't want to execute tasks which accumulated during the "downtime" of Reaper.
+        // So we just consume all without executing them.
+        self.main_task_middleware.reset();
     }
 }
 
@@ -69,6 +77,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
     fn run(&mut self) {
         let elapsed = MeterMiddleware::measure(|| {
             self.main_task_middleware.run();
+            self.future_middleware.run();
             for t in self.main_task_receiver.try_iter().take(10) {
                 use RealearnControlSurfaceMainTask::*;
                 match t {
