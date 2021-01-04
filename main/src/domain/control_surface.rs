@@ -79,7 +79,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
                     ProvidePrometheusMetrics(sender) => {
                         let text = serde_prometheus::to_string(
                             self.meter_middleware.metrics(),
-                            None,
+                            Some("realearn"),
                             HashMap::new(),
                         )
                         .unwrap();
