@@ -22,6 +22,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
+    metrics_enabled: bool,
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -39,6 +40,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
+        metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         Self {
@@ -60,6 +62,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 Global::get().local_executor(),
             ),
             counter: 0,
+            metrics_enabled,
         }
     }
 
@@ -71,60 +74,79 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // So we just consume all without executing them.
         self.main_task_middleware.reset();
     }
+
+    fn run_internal(&mut self) {
+        self.main_task_middleware.run();
+        self.future_middleware.run();
+        for t in self.main_task_receiver.try_iter().take(10) {
+            use RealearnControlSurfaceMainTask::*;
+            match t {
+                AddMainProcessor(p) => {
+                    self.main_processors.push(p);
+                }
+                RemoveMainProcessor(id) => {
+                    self.main_processors.retain(|p| p.instance_id() != id);
+                }
+                LogDebugInfo => {
+                    self.meter_middleware.log_metrics();
+                }
+            }
+        }
+        for t in self.server_task_receiver.try_iter().take(10) {
+            use RealearnControlSurfaceServerTask::*;
+            match t {
+                ProvidePrometheusMetrics(sender) => {
+                    let text = serde_prometheus::to_string(
+                        self.meter_middleware.metrics(),
+                        Some("realearn"),
+                        HashMap::new(),
+                    )
+                    .unwrap();
+                    sender.send(text);
+                }
+            }
+        }
+        for mut p in &mut self.main_processors {
+            p.run();
+        }
+        if self.metrics_enabled {
+            // Roughly every 10 seconds
+            if self.counter == 30 * 10 {
+                self.meter_middleware.warn_about_critical_metrics();
+                self.counter = 0;
+            } else {
+                self.counter += 1;
+            }
+        }
+    }
+
+    fn handle_event_internal(&self, event: ControlSurfaceEvent) {
+        self.change_detection_middleware.process(event, |e| {
+            self.rx_middleware.handle_change(e);
+        });
+    }
 }
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        let elapsed = MeterMiddleware::measure(|| {
-            self.main_task_middleware.run();
-            self.future_middleware.run();
-            for t in self.main_task_receiver.try_iter().take(10) {
-                use RealearnControlSurfaceMainTask::*;
-                match t {
-                    AddMainProcessor(p) => {
-                        self.main_processors.push(p);
-                    }
-                    RemoveMainProcessor(id) => {
-                        self.main_processors.retain(|p| p.instance_id() != id);
-                    }
-                    LogDebugInfo => {
-                        self.meter_middleware.log_metrics();
-                    }
-                }
-            }
-            for t in self.server_task_receiver.try_iter().take(10) {
-                use RealearnControlSurfaceServerTask::*;
-                match t {
-                    ProvidePrometheusMetrics(sender) => {
-                        let text = serde_prometheus::to_string(
-                            self.meter_middleware.metrics(),
-                            Some("realearn"),
-                            HashMap::new(),
-                        )
-                        .unwrap();
-                        sender.send(text);
-                    }
-                }
-            }
-            for mut p in &mut self.main_processors {
-                p.run();
-            }
-            // Roughly each 10 second
-            if self.counter == 30 * 10 {
-                self.meter_middleware.warn_about_critical_metrics();
-            } else {
-                self.counter += 1;
-            }
-        });
-        self.meter_middleware.record_run(elapsed);
+        if self.metrics_enabled {
+            let elapsed = MeterMiddleware::measure(|| {
+                self.run_internal();
+            });
+            self.meter_middleware.record_run(elapsed);
+        } else {
+            self.run_internal();
+        }
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) {
-        let elapsed = MeterMiddleware::measure(|| {
-            self.change_detection_middleware.process(event, |e| {
-                self.rx_middleware.handle_change(e);
+        if self.metrics_enabled {
+            let elapsed = MeterMiddleware::measure(|| {
+                self.handle_event_internal(event);
             });
-        });
-        self.meter_middleware.record_event(event, elapsed);
+            self.meter_middleware.record_event(event, elapsed);
+        } else {
+            self.handle_event_internal(event);
+        }
     }
 }

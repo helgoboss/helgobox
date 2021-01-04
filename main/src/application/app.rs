@@ -47,6 +47,7 @@ impl Default for App {
                     &App::logger(),
                     main_receiver,
                     server_receiver,
+                    std::env::var("REALEARN_METER").is_ok(),
                 ));
                 RefCell::new(Some(Box::new(s)))
             },

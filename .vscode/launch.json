@@ -26,7 +26,8 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                {"name": "REALEARN_LOG", "value": "debug,vst=info"}
+                {"name": "REALEARN_LOG", "value": "debug,vst=info"},
+                {"name": "REALEARN_METER", "value": "true"}
             ],
             "externalConsole": false
         },
