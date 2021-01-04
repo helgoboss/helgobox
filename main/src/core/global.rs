@@ -4,7 +4,6 @@ use reaper_high::{
     DEFAULT_MAIN_THREAD_TASK_CHANNEL_CAPACITY,
 };
 use reaper_rx::{ActionRx, ActionRxProvider, ControlSurfaceRx, MainRx};
-use std::cell::RefCell;
 
 make_available_globally_in_any_thread!(Global);
 

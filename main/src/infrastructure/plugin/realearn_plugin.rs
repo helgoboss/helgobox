@@ -204,12 +204,22 @@ impl Plugin for RealearnPlugin {
         firewall(|| {
             for e in events.events() {
                 if let Event::Midi(me) = e {
-                    let msg = RawShortMessage::from_bytes((
-                        me.data[0],
-                        U7::new(me.data[1]),
-                        U7::new(me.data[2]),
-                    ))
-                    .expect("received invalid MIDI message");
+                    fn to_short(me: vst::event::MidiEvent) -> Option<RawShortMessage> {
+                        use std::convert::TryInto;
+                        RawShortMessage::from_bytes((
+                            me.data[0],
+                            me.data[1].try_into().ok()?,
+                            me.data[2].try_into().ok()?,
+                        ))
+                        .ok()
+                    }
+                    let msg = if let Some(m) = to_short(me) {
+                        m
+                    } else {
+                        // Just ignore if not a valid MIDI message. Invalid MIDI message was
+                        // observed in the wild: https://github.com/helgoboss/realearn/issues/82.
+                        continue;
+                    };
                     // This is called in real-time audio thread, so we can just call the
                     // real-time processor.
                     // Negative offset was observed in the wild, see
