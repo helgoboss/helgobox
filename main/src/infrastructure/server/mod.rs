@@ -342,9 +342,9 @@ fn handle_session_route(session_id: String) -> Result<Json, Response<&'static st
 fn handle_metrics_route() -> Result<String, Response<&'static str>> {
     #[cfg(feature = "prometheus")]
     {
-        let metrics: reaper_medium::ControlSurfaceMetrics = Default::default();
-        let text = serde_prometheus::to_string(&metrics, None, HashMap::new()).unwrap();
-        Ok(text)
+        let snapshot =
+            crate::application::App::get().with_control_surface_metrics_snapshot(|s| s.to_string());
+        Ok(snapshot)
     }
     #[cfg(not(feature = "prometheus"))]
     {

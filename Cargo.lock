@@ -2439,6 +2439,7 @@ dependencies = [
  "crossbeam-channel 0.4.4",
  "futures",
  "helgoboss-midi",
+ "metered",
  "num_enum 0.4.3",
  "once_cell",
  "reaper-low",

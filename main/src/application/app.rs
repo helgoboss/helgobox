@@ -10,6 +10,7 @@ use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::{debug, o, Drain};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 make_available_globally_in_main_thread!(App);
@@ -25,6 +26,7 @@ pub struct App {
     /// after unregistering, this is put back here, otherwise pending task executions might fail.
     control_surface: RefCell<Option<RealearnControlSurface>>,
     control_surface_task_sender: crossbeam_channel::Sender<RealearnControlSurfaceTask<WeakSession>>,
+    control_surface_metrics_snapshot: RefCell<String>,
 }
 
 impl Default for App {
@@ -38,10 +40,17 @@ impl Default for App {
                 let s = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
                     &App::logger(),
                     control_surface_task_receiver,
+                    |metrics| {
+                        // TODO-high Do this only on demand (maybe after first queried).
+                        let text =
+                            serde_prometheus::to_string(metrics, None, HashMap::new()).unwrap();
+                        App::get().control_surface_metrics_snapshot.replace(text);
+                    },
                 ));
                 RefCell::new(Some(Box::new(s)))
             },
             control_surface_task_sender,
+            control_surface_metrics_snapshot: Default::default(),
         }
     }
 }
@@ -85,6 +94,14 @@ impl App {
             .unwrap();
     }
 
+    // TODO-high It's not cool that we offer the metrics snapshot in an already serialized form.
+    //  However, right now there's no real choice because Metrics doesn't implement Clone. Look into
+    //  writing custom metrics registry!
+    pub fn with_control_surface_metrics_snapshot<R>(&self, f: impl FnOnce(&str) -> R) -> R {
+        let snapshot = self.control_surface_metrics_snapshot.borrow();
+        f(&snapshot)
+    }
+
     pub fn changed(&self) -> impl UnitEvent {
         self.changed_subject.borrow().clone()
     }
@@ -101,6 +118,9 @@ impl App {
     }
 
     pub fn log_debug_info(&self) {
+        self.control_surface_task_sender
+            .send(RealearnControlSurfaceTask::LogDebugInfo)
+            .unwrap();
         let msg = format!(
             "\n\
         # App\n\
