@@ -2482,7 +2482,6 @@ dependencies = [
  "derive_more",
  "enumflags2",
  "helgoboss-midi",
- "metered",
  "reaper-low",
  "reaper-macros",
  "serde",

@@ -156,7 +156,6 @@ impl App {
     pub fn log_debug_info(&self, session_id: &str) {
         self.server.borrow().log_debug_info(session_id);
         self.controller_manager.borrow().log_debug_info();
-        Reaper::get().log_helper_metrics();
         // Must be the last because it (intentionally) panics
         crate::application::App::get().log_debug_info();
     }

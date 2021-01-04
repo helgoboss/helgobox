@@ -1,8 +1,7 @@
 use crate::domain::{DomainEventHandler, Global, MainProcessor};
 use crossbeam_channel::Receiver;
 use reaper_high::{
-    ChangeDetector, ControlSurfaceEvent, ControlSurfaceMiddleware,
-    ControlSurfacePerformanceMonitor, MeterControlSurfaceMiddleware,
+    ChangeDetector, ControlSurfaceEvent, ControlSurfaceMiddleware, MeterControlSurfaceMiddleware,
 };
 use reaper_rx::ControlSurfaceRxDriver;
 use std::collections::HashMap;
@@ -15,11 +14,10 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     change_detector: ChangeDetector,
     rx_driver: ControlSurfaceRxDriver,
     main_processors: Vec<MainProcessor<EH>>,
-    performance_monitor: reaper_high::ControlSurfacePerformanceMonitor,
-    log_next_metrics: bool,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     meter_middleware: MeterControlSurfaceMiddleware,
+    counter: u64,
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
@@ -44,14 +42,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             change_detector: ChangeDetector::new(),
             rx_driver: ControlSurfaceRxDriver::new(Global::control_surface_rx().clone()),
             main_processors: Default::default(),
-            performance_monitor: ControlSurfacePerformanceMonitor::new(
-                logger,
-                Duration::from_secs(30),
-            ),
-            log_next_metrics: false,
             main_task_receiver,
             server_task_receiver,
-            meter_middleware: MeterControlSurfaceMiddleware::new(),
+            meter_middleware: MeterControlSurfaceMiddleware::new(logger),
+            counter: 0,
         }
     }
 
@@ -75,7 +69,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
                         self.main_processors.retain(|p| p.instance_id() != id);
                     }
                     LogDebugInfo => {
-                        self.log_next_metrics = true;
+                        self.meter_middleware.log_metrics();
                     }
                 }
             }
@@ -96,6 +90,12 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
             for mut p in &mut self.main_processors {
                 p.run();
             }
+            // Roughly each 10 second
+            if self.counter == 30 * 10 {
+                self.meter_middleware.warn_about_critical_metrics();
+            } else {
+                self.counter += 1;
+            }
         });
         self.meter_middleware.record_run(elapsed);
     }
@@ -107,13 +107,5 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
             });
         });
         self.meter_middleware.record_event(event, elapsed);
-    }
-
-    fn handle_metrics(&mut self, metrics: &reaper_medium::ControlSurfaceMetrics) {
-        self.performance_monitor.handle_metrics(metrics);
-        if self.log_next_metrics {
-            self.performance_monitor.log_metrics(metrics);
-            self.log_next_metrics = false;
-        }
     }
 }

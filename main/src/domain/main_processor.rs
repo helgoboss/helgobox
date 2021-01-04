@@ -8,7 +8,7 @@ use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, UnitValue};
 
-use reaper_high::{ControlSurfacePerformanceMonitor, Reaper};
+use reaper_high::Reaper;
 use reaper_medium::ControlSurface;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
