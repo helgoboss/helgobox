@@ -1,4 +1,4 @@
-use crate::application::WeakSession;
+use crate::application::{RealearnControlSurface, WeakSession};
 use crate::core::default_util::is_default;
 use crate::core::Global;
 use crate::domain::{RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware};
@@ -10,6 +10,8 @@ use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use reaper_high::{Fx, MiddlewareControlSurface, Reaper};
+use reaper_medium::RegistrationHandle;
+use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -102,12 +104,48 @@ impl App {
             .subscribe(move |fx| {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
+    }
+
+    pub fn wake_up(&self) -> RegistrationHandle<RealearnControlSurface> {
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
                 .start()
                 .unwrap_or_else(warn_about_failed_server_start);
         }
+        let mut session = Reaper::get().medium_session();
+        session
+            .plugin_register_add_hook_post_command::<ActionRxHookPostCommand<Global>>()
+            .unwrap();
+        session
+            .plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>()
+            .unwrap();
+        let surface = crate::application::App::get().take_control_surface();
+        surface.middleware().reset();
+        debug!(
+            crate::application::App::logger(),
+            "Registering ReaLearn control surface..."
+        );
+        session
+            .plugin_register_add_csurf_inst(surface)
+            .expect("couldn't register ReaLearn control surface")
+    }
+
+    pub fn go_to_sleep(&self, reg_handle: RegistrationHandle<RealearnControlSurface>) {
+        let mut session = Reaper::get().medium_session();
+        debug!(
+            crate::application::App::logger(),
+            "Unregistering ReaLearn control surface..."
+        );
+        unsafe {
+            let surface = session
+                .plugin_register_remove_csurf_inst(reg_handle)
+                .expect("conrol surface was not registered");
+            crate::application::App::get().put_control_surface_back(surface);
+        }
+        session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
+        session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
+        self.server().borrow_mut().stop();
     }
 
     /// The special thing about this is that this doesn't return the currently focused FX but the

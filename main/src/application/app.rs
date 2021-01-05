@@ -16,7 +16,7 @@ use std::rc::Rc;
 make_available_globally_in_main_thread!(App);
 
 pub type RealearnControlSurface =
-    Box<MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>>;
+    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
 
 pub type RealearnControlSurfaceMainTaskSender =
     crossbeam_channel::Sender<RealearnControlSurfaceMainTask<WeakSession>>;
@@ -30,7 +30,7 @@ pub struct App {
     /// `None` before global initialization and as long as at least one ReaLearn plugin instance
     /// instance loaded. `Some` whenever no ReaLearn plugin instance loaded. It's important that
     /// after unregistering, this is put back here, otherwise pending task executions might fail.
-    control_surface: RefCell<Option<RealearnControlSurface>>,
+    control_surface: RefCell<Option<Box<RealearnControlSurface>>>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     control_surface_server_task_sender: RealearnControlSurfaceServerTaskSender,
 }
@@ -58,7 +58,7 @@ impl Default for App {
 }
 
 impl App {
-    pub fn take_control_surface(&self) -> RealearnControlSurface {
+    pub fn take_control_surface(&self) -> Box<RealearnControlSurface> {
         self.control_surface
             .borrow_mut()
             .take()
@@ -82,7 +82,7 @@ impl App {
         &APP_LOGGER
     }
 
-    pub fn put_control_surface_back(&self, control_surface: RealearnControlSurface) {
+    pub fn put_control_surface_back(&self, control_surface: Box<RealearnControlSurface>) {
         *self.control_surface.borrow_mut() = Some(control_surface);
     }
 

@@ -286,38 +286,9 @@ impl RealearnPlugin {
                 App::get().init();
             },
             || {
-                let mut session = Reaper::get().medium_session();
-                session
-                    .plugin_register_add_hook_post_command::<ActionRxHookPostCommand<Global>>()
-                    .unwrap();
-                session
-                    .plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>()
-                    .unwrap();
-                let surface = crate::application::App::get().take_control_surface();
-                surface.middleware().reset();
-                debug!(
-                    crate::application::App::logger(),
-                    "Registering ReaLearn control surface..."
-                );
-                let reg_handle = session
-                    .plugin_register_add_csurf_inst(surface)
-                    .expect("couldn't register ReaLearn control surface");
+                let reg_handle = App::get().wake_up();
                 move || {
-                    let mut session = Reaper::get().medium_session();
-                    debug!(
-                        crate::application::App::logger(),
-                        "Unregistering ReaLearn control surface..."
-                    );
-                    unsafe {
-                        let surface = session
-                            .plugin_register_remove_csurf_inst(reg_handle)
-                            .expect("conrol surface was not registered");
-                        crate::application::App::get().put_control_surface_back(surface);
-                    }
-                    session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
-                    session
-                        .plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>(
-                        );
+                    App::get().go_to_sleep(reg_handle);
                 }
             },
         )

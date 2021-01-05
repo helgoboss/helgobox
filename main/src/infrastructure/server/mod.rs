@@ -29,10 +29,12 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use url::Url;
 use warp::http::{Method, Response, StatusCode};
 
+use std::thread::JoinHandle;
+use std::time::Duration;
 use warp::reply::Json;
 use warp::ws::{Message, WebSocket};
 use warp::{reply, Rejection, Reply};
@@ -51,8 +53,14 @@ pub struct RealearnServer {
 
 enum ServerState {
     Stopped,
-    Starting { clients: ServerClients },
-    Running { clients: ServerClients },
+    Starting(ServerRuntimeData),
+    Running(ServerRuntimeData),
+}
+
+struct ServerRuntimeData {
+    clients: ServerClients,
+    shutdown_sender: broadcast::Sender<()>,
+    server_thread_join_handle: JoinHandle<()>,
 }
 
 impl ServerState {
@@ -99,11 +107,18 @@ impl RealearnServer {
         let https_port = self.https_port;
         let key_and_cert = self.key_and_cert();
         let control_surface_task_sender = self.control_surface_task_sender.clone();
-        let _ = std::thread::Builder::new()
+        let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
+        let https_shutdown_receiver = shutdown_sender.subscribe();
+        let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
                 let mut runtime = tokio::runtime::Builder::new()
-                    .basic_scheduler()
+                    // Using basic_scheduler() (current thread scheduler) makes our ports stay
+                    // occupied after graceful shutdown.
+                    // TODO-low Check if this problem occurs in latest tokio, too!
+                    .threaded_scheduler()
+                    .core_threads(1)
+                    .thread_name("ReaLearn server worker")
                     .enable_all()
                     .build()
                     .unwrap();
@@ -114,9 +129,18 @@ impl RealearnServer {
                     ip,
                     key_and_cert,
                     control_surface_task_sender,
+                    http_shutdown_receiver,
+                    https_shutdown_receiver,
                 ));
-            });
-        self.state = ServerState::Starting { clients };
+                runtime.shutdown_timeout(Duration::from_secs(1));
+            })
+            .map_err(|_| "couldn't start server thread".to_string())?;
+        let runtime_data = ServerRuntimeData {
+            clients,
+            shutdown_sender,
+            server_thread_join_handle,
+        };
+        self.state = ServerState::Starting(runtime_data);
         self.notify_changed();
         Ok(())
     }
@@ -131,12 +155,28 @@ impl RealearnServer {
 
     fn notify_started(&mut self) {
         // TODO-low Okay, temporarily replacing with Stopped just to gain ownership feels weird.
-        if let ServerState::Starting { clients } =
+        if let ServerState::Starting(runtime_data) =
             std::mem::replace(&mut self.state, ServerState::Stopped)
         {
-            self.state = ServerState::Running { clients };
+            self.state = ServerState::Running(runtime_data);
         }
         self.notify_changed();
+    }
+
+    /// Idempotent.
+    pub fn stop(&mut self) {
+        let old_state = std::mem::replace(&mut self.state, ServerState::Stopped);
+        let mut runtime_data = match old_state {
+            ServerState::Running(runtime_data) | ServerState::Starting(runtime_data) => {
+                runtime_data
+            }
+            ServerState::Stopped => return,
+        };
+        runtime_data.shutdown_sender.send(());
+        runtime_data
+            .server_thread_join_handle
+            .join()
+            .expect("couldn't wait for server thread to finish");
     }
 
     fn notify_changed(&mut self) {
@@ -144,8 +184,8 @@ impl RealearnServer {
     }
 
     pub fn clients(&self) -> Result<&ServerClients, &'static str> {
-        if let ServerState::Running { clients, .. } = &self.state {
-            Ok(clients)
+        if let ServerState::Running(runtime_data) = &self.state {
+            Ok(&runtime_data.clients)
         } else {
             Err("server not running")
         }
@@ -392,6 +432,8 @@ async fn start_server(
     _ip: IpAddr,
     (key, cert): (String, String),
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+    mut http_shutdown_receiver: broadcast::Receiver<()>,
+    mut https_shutdown_receiver: broadcast::Receiver<()>,
 ) {
     use warp::Filter;
     let welcome_route = warp::path::end()
@@ -470,12 +512,17 @@ async fn start_server(
         .or(metrics_route)
         .or(ws_route)
         .with(cors);
-    let http_future = warp::serve(routes.clone()).bind(([0, 0, 0, 0], http_port));
-    let https_future = warp::serve(routes)
+    let (_, http_future) = warp::serve(routes.clone())
+        .bind_with_graceful_shutdown(([0, 0, 0, 0], http_port), async move {
+            http_shutdown_receiver.recv().await.unwrap()
+        });
+    let (_, https_future) = warp::serve(routes)
         .tls()
         .key(key)
         .cert(cert)
-        .bind(([0, 0, 0, 0], https_port));
+        .bind_with_graceful_shutdown(([0, 0, 0, 0], https_port), async move {
+            https_shutdown_receiver.recv().await.unwrap()
+        });
     Global::task_support()
         .do_later_in_main_thread_asap(|| {
             App::get().server().borrow_mut().notify_started();
