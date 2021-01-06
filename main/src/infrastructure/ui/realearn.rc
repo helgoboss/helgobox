@@ -98,7 +98,7 @@ BEGIN
     LTEXT           "Let through:", 0, 270, 26, 39, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "Mappings", 0, 7, 86, 33, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     COMBOBOX        ID_GROUP_COMBO_BOX, 59, 64, 106, 16, WS_TABSTOP | WS_VSCROLL | CBS_DROPDOWNLIST | CBS_HASSTRINGS, WS_EX_LEFT
-    LTEXT           "Mapping group", 0, 7, 66, 50, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
+    LTEXT           "Mapping group", ID_GROUP_LABEL_TEXT, 7, 66, 50, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
 END
 
 

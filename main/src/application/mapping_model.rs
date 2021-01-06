@@ -178,6 +178,7 @@ impl MappingModel {
             .merge(self.eel_condition.changed())
             .merge(self.program_condition.changed())
     }
+
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
     pub fn create_main_mapping(&self) -> MainMapping {

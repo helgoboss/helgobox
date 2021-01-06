@@ -1,7 +1,7 @@
 use crate::application::{
-    share_mapping, App, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, MappingModel,
-    Preset, PresetLinkManager, PresetManager, SharedMapping, TargetCategory, TargetModel,
-    VirtualControlElementType,
+    share_mapping, App, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
+    MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
+    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
@@ -22,6 +22,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
+use itertools::Itertools;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
@@ -56,9 +57,11 @@ pub struct Session {
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
+    groups: Vec<SharedGroup>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject:
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
+    group_list_changed_subject: LocalSubject<'static, (), ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
@@ -162,8 +165,10 @@ impl Session {
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
+            groups: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
+            group_list_changed_subject: Default::default(),
             mapping_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
             mapping_subscriptions: Default::default(),
@@ -473,6 +478,35 @@ impl Session {
         &self.context
     }
 
+    pub fn add_default_group(&mut self, name: String) -> GroupId {
+        let group = GroupModel::new(name);
+        self.add_group(group)
+    }
+
+    fn add_group(&mut self, group: GroupModel) -> GroupId {
+        let id = group.id();
+        let shared_group = Rc::new(RefCell::new(group));
+        self.groups.push(shared_group);
+        self.notify_group_list_changed();
+        id
+    }
+
+    pub fn find_group_index_by_id(&self, id: GroupId) -> Option<usize> {
+        self.groups.iter().position(|g| g.borrow().id() == id)
+    }
+
+    pub fn find_group_by_index(&self, index: usize) -> Option<&SharedGroup> {
+        self.groups.get(index)
+    }
+
+    pub fn remove_group(&mut self, id: GroupId, delete_mappings: bool) {
+        self.groups.retain(|g| g.borrow().id() != id);
+        self.notify_group_list_changed();
+        if delete_mappings {
+            // TODO-high
+        }
+    }
+
     pub fn add_default_mapping(
         &mut self,
         compartment: MappingCompartment,
@@ -666,6 +700,10 @@ impl Session {
         compartment: MappingCompartment,
     ) -> impl Iterator<Item = &SharedMapping> {
         self.mappings[compartment].iter()
+    }
+
+    pub fn groups(&self) -> impl Iterator<Item = &SharedGroup> {
+        self.groups.iter()
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
@@ -1048,13 +1086,20 @@ impl Session {
         self.everything_changed_subject.clone()
     }
 
-    /// Fires if a mapping has been added, removed or changed its position in the list.
+    /// Fires when a mapping has been added, removed or changed its position in the list.
     ///
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
     pub fn mapping_list_changed(
         &self,
     ) -> impl SharedItemEvent<(MappingCompartment, Option<MappingId>)> {
         self.mapping_list_changed_subject.clone()
+    }
+
+    /// Fires when a group has been added or removed.
+    ///
+    /// Doesn't fire if a group in the list or if the complete list has changed.
+    pub fn group_list_changed(&self) -> impl UnitEvent {
+        self.group_list_changed_subject.clone()
     }
 
     /// Fires if a mapping itself has been changed.
@@ -1198,6 +1243,13 @@ impl Session {
             &mut self.mapping_list_changed_subject,
             &(compartment, new_mapping_id),
         );
+    }
+
+    /// Notifies listeners async that something in a group list has changed.
+    ///
+    /// Shouldn't be used if the complete list has changed.
+    fn notify_group_list_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.group_list_changed_subject, &());
     }
 
     /// Notifies listeners async a mapping in a mapping list has changed.

@@ -10,11 +10,14 @@ pub use source_model::*;
 mod mode_model;
 pub use mode_model::*;
 
+mod target_model;
+pub use target_model::*;
+
 mod mapping_model;
 pub use mapping_model::*;
 
-mod target_model;
-pub use target_model::*;
+mod group_model;
+pub use group_model::*;
 
 mod aliases;
 pub use aliases::*;

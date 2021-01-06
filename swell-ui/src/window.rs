@@ -74,6 +74,28 @@ impl Window {
         result == raw::IDYES as _
     }
 
+    pub fn ask_yes_no_or_cancel<'a>(
+        self,
+        caption: impl Into<SwellStringArg<'a>>,
+        msg: impl Into<SwellStringArg<'a>>,
+    ) -> Option<bool> {
+        let result = unsafe {
+            Swell::get().MessageBox(
+                self.raw,
+                msg.into().as_ptr(),
+                caption.into().as_ptr(),
+                raw::MB_YESNOCANCEL as _,
+            )
+        };
+        if result == raw::IDYES as _ {
+            Some(true)
+        } else if result == raw::IDNO as _ {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
     pub fn set_checked(self, is_checked: bool) {
         unsafe {
             Swell::get().SendMessage(

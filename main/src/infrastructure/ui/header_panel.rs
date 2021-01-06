@@ -29,7 +29,8 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
-    add_firewall_rule, IndependentPanelManager, SharedIndependentPanelManager, SharedMainState,
+    add_firewall_rule, GroupFilter, IndependentPanelManager, SharedIndependentPanelManager,
+    SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use std::cell::RefCell;
@@ -116,6 +117,19 @@ impl HeaderPanel {
             _ => unreachable!(),
         };
         Some(control_element_type)
+    }
+
+    fn add_group(&self) {
+        if let Some(name) = dialog_util::prompt_for("Group name", "") {
+            if name.is_empty() {
+                return;
+            }
+            let id = self.session().borrow_mut().add_default_group(name);
+            self.main_state
+                .borrow_mut()
+                .group_filter
+                .set(Some(GroupFilter::OtherGroup(id)));
+        }
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -236,6 +250,7 @@ impl HeaderPanel {
         self.invalidate_midi_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
+        self.invalidate_group_controls();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
         self.invalidate_source_filter_buttons();
@@ -272,6 +287,86 @@ impl HeaderPanel {
             label.hide();
             combo.hide();
         }
+    }
+
+    fn invalidate_group_controls(&self) {
+        self.invalidate_group_control_appearance();
+        if self.active_compartment() != MappingCompartment::MainMappings {
+            return;
+        }
+        self.invalidate_group_combo_box();
+        self.invalidate_group_buttons();
+    }
+
+    fn invalidate_group_control_appearance(&self) {
+        self.show_if(
+            self.active_compartment() == MappingCompartment::MainMappings,
+            &[
+                root::ID_GROUP_LABEL_TEXT,
+                root::ID_GROUP_COMBO_BOX,
+                root::ID_GROUP_ADD_BUTTON,
+                root::ID_GROUP_DELETE_BUTTON,
+                root::ID_GROUP_EDIT_BUTTON,
+            ],
+        );
+    }
+
+    fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
+        for id in control_resource_ids {
+            self.view.require_control(*id).set_visible(condition);
+        }
+    }
+
+    fn invalidate_group_combo_box(&self) {
+        self.fill_group_combo_box();
+        self.invalidate_group_combo_box_value();
+    }
+
+    fn fill_group_combo_box(&self) {
+        let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
+        let vec = vec![
+            (-2isize, "<All>".to_string()),
+            (-1isize, "<Main>".to_string()),
+        ];
+        combo.fill_combo_box_with_data_small(
+            vec.into_iter().chain(
+                self.session()
+                    .borrow()
+                    .groups()
+                    .enumerate()
+                    .map(|(i, g)| (i as isize, g.borrow().to_string())),
+            ),
+        );
+    }
+
+    fn invalidate_group_combo_box_value(&self) {
+        let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
+        let data = match self.main_state.borrow().group_filter.get() {
+            None => -2isize,
+            Some(GroupFilter::MainGroup) => -1isize,
+            Some(GroupFilter::OtherGroup(id)) => {
+                match self.session().borrow().find_group_index_by_id(id) {
+                    None => {
+                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                        return;
+                    }
+                    Some(i) => i as isize,
+                }
+            }
+        };
+        combo.select_combo_box_item_by_data(data).unwrap();
+    }
+
+    fn invalidate_group_buttons(&self) {
+        let remove_button = self.view.require_control(root::ID_GROUP_DELETE_BUTTON);
+        let edit_button = self.view.require_control(root::ID_GROUP_EDIT_BUTTON);
+        let (remove_enabled, edit_enabled) = match self.main_state.borrow().group_filter.get() {
+            None => (false, false),
+            Some(GroupFilter::MainGroup) => (false, true),
+            _ => (true, true),
+        };
+        remove_button.set_enabled(remove_enabled);
+        edit_button.set_enabled(edit_enabled);
     }
 
     fn invalidate_preset_controls(&self) {
@@ -347,20 +442,17 @@ impl HeaderPanel {
                     session.active_main_preset_id(),
                 ),
             };
-        let index = match active_preset_id {
+        let data = match active_preset_id {
             None => -1isize,
-            Some(id) => {
-                let index_option = preset_manager.find_index_by_id(id);
-                match index_option {
-                    None => {
-                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
-                        return;
-                    }
-                    Some(i) => i as isize,
+            Some(id) => match preset_manager.find_index_by_id(id) {
+                None => {
+                    combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                    return;
                 }
-            }
+                Some(i) => i as isize,
+            },
         };
-        combo.select_combo_box_item_by_data(index).unwrap();
+        combo.select_combo_box_item_by_data(data).unwrap();
         combo.set_enabled(enabled);
     }
 
@@ -484,12 +576,12 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
         let value = match b.selected_combo_box_item_data() {
+            -2 => Some(MidiFeedbackOutput::FxOutput),
             -1 => None,
             id if id >= 0 => {
                 let dev = Reaper::get().midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
                 Some(MidiFeedbackOutput::Device(dev))
             }
-            -2 => Some(MidiFeedbackOutput::FxOutput),
             _ => unreachable!(),
         };
         self.session().borrow_mut().midi_feedback_output.set(value);
@@ -503,6 +595,54 @@ impl HeaderPanel {
                 .try_into()
                 .expect("invalid compartment"),
         );
+    }
+
+    fn remove_group(&self) {
+        let id = match self.main_state.borrow().group_filter.get() {
+            Some(GroupFilter::OtherGroup(id)) => id,
+            _ => return,
+        };
+        match self.view.require_window().ask_yes_no_or_cancel(
+            "ReaLearn",
+            "Do you also want to delete all mappings in that group?",
+        ) {
+            None => return,
+            Some(delete_mappings) => {
+                self.main_state
+                    .borrow_mut()
+                    .group_filter
+                    .set(Some(GroupFilter::MainGroup));
+                self.session()
+                    .borrow_mut()
+                    .remove_group(id, delete_mappings);
+            }
+        }
+    }
+
+    fn edit_group(&self) {
+        // TODO-high
+    }
+
+    fn update_group(&self) {
+        let group_filter = match self
+            .view
+            .require_control(root::ID_GROUP_COMBO_BOX)
+            .selected_combo_box_item_data()
+        {
+            -2 => None,
+            -1 => Some(GroupFilter::MainGroup),
+            i if i >= 0 => {
+                let session = self.session();
+                let session = session.borrow();
+                let group = session
+                    .find_group_by_index(i as usize)
+                    .expect("group not existing")
+                    .borrow();
+                Some(GroupFilter::OtherGroup(group.id()))
+            }
+            _ => unreachable!(),
+        };
+        self.main_state.borrow_mut().group_filter.set(group_filter);
     }
 
     fn update_preset_auto_load_mode(&self) {
@@ -905,6 +1045,9 @@ impl HeaderPanel {
             view.invalidate_midi_feedback_output_combo_box()
         });
         let main_state = self.main_state.borrow();
+        self.when(main_state.group_filter.changed(), |view| {
+            view.invalidate_group_controls();
+        });
         self.when(
             main_state
                 .is_learning_target_filter
@@ -928,6 +1071,9 @@ impl HeaderPanel {
         });
         self.when(session.main_preset_auto_load_mode.changed(), |view| {
             view.invalidate_all_controls();
+        });
+        self.when(session.group_list_changed(), |view| {
+            view.invalidate_group_controls();
         });
         when(
             App::get()
@@ -985,6 +1131,9 @@ impl View for HeaderPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
+            ID_GROUP_ADD_BUTTON => self.add_group(),
+            ID_GROUP_DELETE_BUTTON => self.remove_group(),
+            ID_GROUP_EDIT_BUTTON => self.edit_group(),
             ID_ADD_MAPPING_BUTTON => {
                 self.session().borrow_mut().add_default_mapping(
                     self.active_compartment(),
@@ -1028,6 +1177,7 @@ impl View for HeaderPanel {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
             ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
+            ID_GROUP_COMBO_BOX => self.update_group(),
             ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
             ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),

@@ -1,6 +1,7 @@
 use crate::core::{prop, Prop};
 use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
 
+use crate::application::GroupId;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -13,8 +14,15 @@ pub struct MainState {
     pub source_filter: Prop<Option<CompoundMappingSource>>,
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
+    pub group_filter: Prop<Option<GroupFilter>>,
     pub search_expression: Prop<String>,
     pub status_msg: Prop<String>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub enum GroupFilter {
+    MainGroup,
+    OtherGroup(GroupId),
 }
 
 impl Default for MainState {
@@ -25,6 +33,7 @@ impl Default for MainState {
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::MainMappings),
+            group_filter: prop(Some(GroupFilter::MainGroup)),
             search_expression: Default::default(),
             status_msg: Default::default(),
         }
@@ -35,6 +44,7 @@ impl MainState {
     pub fn clear_filters(&mut self) {
         self.clear_source_filter();
         self.clear_target_filter();
+        self.group_filter.set(None);
     }
 
     pub fn clear_source_filter(&mut self) {
@@ -46,7 +56,8 @@ impl MainState {
     }
 
     pub fn filter_is_active(&self) -> bool {
-        self.source_filter.get_ref().is_some()
+        self.group_filter.get_ref().is_some()
+            || self.source_filter.get_ref().is_some()
             || self.target_filter.get_ref().is_some()
             || !self.search_expression.get_ref().trim().is_empty()
     }
