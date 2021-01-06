@@ -660,9 +660,40 @@ pub enum NormalRealTimeTask {
 }
 
 #[derive(Copy, Clone, Debug)]
+pub struct MappingActivationEffect {
+    pub id: MappingId,
+    pub active_1_effect: Option<bool>,
+    pub active_2_effect: Option<bool>,
+}
+
+impl MappingActivationEffect {
+    pub fn new(
+        id: MappingId,
+        active_1_effect: Option<bool>,
+        active_2_effect: Option<bool>,
+    ) -> Option<MappingActivationEffect> {
+        if active_1_effect.is_none() && active_2_effect.is_none() {
+            return None;
+        }
+        let and = MappingActivationEffect {
+            id,
+            active_1_effect,
+            active_2_effect,
+        };
+        Some(and)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub struct MappingActivationUpdate {
     pub id: MappingId,
     pub is_active: bool,
+}
+
+impl MappingActivationUpdate {
+    pub fn new(id: MappingId, is_active: bool) -> MappingActivationUpdate {
+        MappingActivationUpdate { id, is_active }
+    }
 }
 
 /// A feedback task (which is potentially sent very frequently).

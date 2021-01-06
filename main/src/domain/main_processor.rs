@@ -1,7 +1,8 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, DomainEvent,
-    DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationUpdate,
-    MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext, ReaperTarget,
+    DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
+    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext,
+    ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -308,10 +309,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     for m in &mut self.mappings[compartment].values_mut() {
                         if m.can_be_affected_by_parameters() {
                             m.refresh_activation(&self.parameters);
-                            activation_updates.push(MappingActivationUpdate {
-                                id: m.id(),
-                                is_active: m.is_active(),
-                            });
+                            let update = MappingActivationUpdate::new(m.id(), m.is_active());
+                            activation_updates.push(update);
                         }
                         if m.feedback_is_effectively_on() {
                             // Mark source as used
@@ -333,27 +332,24 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let compartment = MappingCompartment::MainMappings;
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // In order to avoid a mutable borrow of mappings and an immutable borrow of
-                    // parameters at the same time, we need to separate the mapping updates into
-                    // READ (read new activation state) and WRITE (write new activation state).
+                    // parameters at the same time, we need to separate into READ activation
+                    // affects and WRITE activation updates.
                     // 1. Read
-                    let activation_updates: Vec<MappingActivationUpdate> = self.mappings
+                    let activation_effects: Vec<MappingActivationEffect> = self.mappings
                         [compartment]
                         .values()
                         .filter_map(|m| {
-                            let result =
-                                m.is_fulfilled_single(&self.parameters, index, previous_value);
-                            result.map(|is_active| MappingActivationUpdate {
-                                id: m.id(),
-                                is_active,
-                            })
+                            m.check_activation_effect(&self.parameters, index, previous_value)
                         })
                         .collect();
                     // 2. Write
-                    for upd in activation_updates.iter() {
-                        if let Some(m) = self.mappings[compartment].get_mut(&upd.id) {
-                            m.update_activation(upd.is_active);
-                        }
-                    }
+                    let activation_updates: Vec<MappingActivationUpdate> = activation_effects
+                        .into_iter()
+                        .filter_map(|eff| {
+                            let m = self.mappings[compartment].get_mut(&eff.id)?;
+                            m.update_activation(eff)
+                        })
+                        .collect();
                     // Determine unused sources
                     for m in self.mappings[compartment].values() {
                         if m.feedback_is_effectively_on() {

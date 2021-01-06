@@ -46,6 +46,9 @@ impl ActivationCondition {
     /// performance reasons and just look at the difference (because it has the array already
     /// stored in the EEL VM). For performance reasons as well, the other activation condition types
     /// don't store anything and read the given parameter array.
+    ///
+    /// Attention: For EEL condition, this has a side effect!
+    /// TODO-low This is not visible because it's &self.
     pub fn is_fulfilled_single(
         &self,
         params: &ParameterArray,

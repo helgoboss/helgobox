@@ -188,8 +188,6 @@ impl MappingModel {
         let activation_condition = self.create_activation_condition();
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
-            mapping_is_active: false,
-            // TODO-medium Encapsulate, don't set here
             target_is_active: false,
             control_is_enabled: self.control_is_enabled.get(),
             feedback_is_enabled: self.feedback_is_enabled.get(),
@@ -201,6 +199,8 @@ impl MappingModel {
             source,
             mode,
             unresolved_target,
+            // TODO-high Replace with group activation condition
+            ActivationCondition::Always,
             activation_condition,
             options,
         )

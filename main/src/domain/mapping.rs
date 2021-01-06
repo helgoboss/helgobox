@@ -1,7 +1,7 @@
 use crate::domain::{
-    ActivationCondition, ControlOptions, Mode, ParameterArray, ProcessorContext, RealearnTarget,
-    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue,
-    VirtualTarget,
+    ActivationCondition, ControlOptions, MappingActivationEffect, MappingActivationUpdate, Mode,
+    ParameterArray, ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter,
+    UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -21,26 +21,11 @@ use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ProcessorMappingOptions {
-    pub mapping_is_active: bool,
     pub target_is_active: bool,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
     pub prevent_echo_feedback: bool,
     pub send_feedback_after_control: bool,
-}
-
-impl ProcessorMappingOptions {
-    fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.control_is_enabled
-    }
-
-    fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.feedback_is_enabled
-    }
-
-    fn is_effectively_active(&self) -> bool {
-        self.mapping_is_active && self.target_is_active
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -68,7 +53,10 @@ const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(20);
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
-    activation_condition: ActivationCondition,
+    activation_condition_1: ActivationCondition,
+    activation_condition_2: ActivationCondition,
+    is_active_1: bool,
+    is_active_2: bool,
 }
 
 impl MainMapping {
@@ -77,7 +65,8 @@ impl MainMapping {
         source: CompoundMappingSource,
         mode: Mode,
         unresolved_target: Option<UnresolvedCompoundMappingTarget>,
-        activation_condition: ActivationCondition,
+        activation_condition_1: ActivationCondition,
+        activation_condition_2: ActivationCondition,
         options: ProcessorMappingOptions,
     ) -> MainMapping {
         MainMapping {
@@ -90,7 +79,10 @@ impl MainMapping {
                 options,
                 time_of_last_control: None,
             },
-            activation_condition,
+            activation_condition_1,
+            activation_condition_2,
+            is_active_1: false,
+            is_active_2: false,
         }
     }
 
@@ -101,28 +93,52 @@ impl MainMapping {
     pub fn splinter_real_time_mapping(&self) -> RealTimeMapping {
         RealTimeMapping {
             core: self.core.clone(),
+            is_active: self.is_active(),
         }
     }
 
-    /// Returns `Some` if this affects the mapping's activation state and if the resulting state
-    /// is on or off.
-    pub fn is_fulfilled_single(
+    /// Returns `Some` if this affects the mapping's activation state in any way.
+    pub fn check_activation_effect(
         &self,
         params: &ParameterArray,
         index: u32,
         previous_value: f32,
-    ) -> Option<bool> {
-        self.activation_condition
-            .is_fulfilled_single(params, index, previous_value)
+    ) -> Option<MappingActivationEffect> {
+        let effect_1 =
+            self.activation_condition_1
+                .is_fulfilled_single(params, index, previous_value);
+        let effect_2 =
+            self.activation_condition_2
+                .is_fulfilled_single(params, index, previous_value);
+        MappingActivationEffect::new(self.id(), effect_1, effect_2)
     }
 
     /// Returns if this activation condition is affected by parameter changes in general.
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        self.activation_condition.can_be_affected_by_parameters()
+        self.activation_condition_1.can_be_affected_by_parameters()
+            || self.activation_condition_2.can_be_affected_by_parameters()
     }
 
-    pub fn update_activation(&mut self, is_active: bool) {
-        self.core.options.mapping_is_active = is_active;
+    pub fn update_activation(
+        &mut self,
+        activation_effect: MappingActivationEffect,
+    ) -> Option<MappingActivationUpdate> {
+        let was_active_before = self.is_active();
+        self.is_active_1 = activation_effect
+            .active_1_effect
+            .unwrap_or(self.is_active_1);
+        self.is_active_2 = activation_effect
+            .active_2_effect
+            .unwrap_or(self.is_active_2);
+        let now_is_active = self.is_active();
+        if now_is_active == was_active_before {
+            return None;
+        }
+        let update = MappingActivationUpdate {
+            id: self.id(),
+            is_active: now_is_active,
+        };
+        Some(update)
     }
 
     pub fn refresh_all(&mut self, context: &ProcessorContext, params: &ParameterArray) {
@@ -147,24 +163,29 @@ impl MainMapping {
     }
 
     pub fn refresh_activation(&mut self, params: &ParameterArray) {
-        self.core.options.mapping_is_active = self.activation_condition.is_fulfilled(params);
+        self.is_active_1 = self.activation_condition_1.is_fulfilled(params);
+        self.is_active_2 = self.activation_condition_2.is_fulfilled(params);
     }
 
     pub fn is_active(&self) -> bool {
-        self.core.options.mapping_is_active
+        self.is_active_1 && self.is_active_2
+    }
+
+    fn is_effectively_active(&self) -> bool {
+        self.is_active() && self.core.options.target_is_active
     }
 
     pub fn is_effectively_on(&self) -> bool {
-        self.core.options.is_effectively_active()
+        self.is_effectively_active()
             && (self.core.options.control_is_enabled || self.core.options.feedback_is_enabled)
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.core.options.control_is_effectively_on()
+        self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.core.options.feedback_is_effectively_on()
+        self.is_effectively_active() && self.core.options.feedback_is_enabled
     }
 
     pub fn source(&self) -> &CompoundMappingSource {
@@ -251,6 +272,7 @@ impl MainMapping {
 #[derive(Clone, Debug)]
 pub struct RealTimeMapping {
     core: MappingCore,
+    is_active: bool,
 }
 
 impl RealTimeMapping {
@@ -259,11 +281,15 @@ impl RealTimeMapping {
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.core.options.control_is_effectively_on()
+        self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.core.options.feedback_is_effectively_on()
+        self.is_effectively_active() && self.core.options.feedback_is_enabled
+    }
+
+    fn is_effectively_active(&self) -> bool {
+        self.is_active && self.core.options.target_is_active
     }
 
     pub fn update_target_activation(&mut self, is_active: bool) {
@@ -271,7 +297,7 @@ impl RealTimeMapping {
     }
 
     pub fn update_activation(&mut self, is_active: bool) {
-        self.core.options.mapping_is_active = is_active;
+        self.is_active = is_active
     }
 
     pub fn source(&self) -> &CompoundMappingSource {
