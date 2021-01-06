@@ -20,6 +20,7 @@ use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct MappingRowsPanel {
     view: ViewContext,
+    position: Point<DialogUnits>,
     session: WeakSession,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
@@ -32,6 +33,7 @@ impl MappingRowsPanel {
         session: WeakSession,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
+        position: Point<DialogUnits>,
     ) -> MappingRowsPanel {
         MappingRowsPanel {
             view: Default::default(),
@@ -50,6 +52,7 @@ impl MappingRowsPanel {
             panel_manager,
             scroll_position: 0.into(),
             main_state,
+            position,
         }
     }
 
@@ -433,7 +436,7 @@ impl View for MappingRowsPanel {
                 .low()
                 .InitializeCoolSB(window.raw() as _);
         }
-        window.move_to(Point::new(DialogUnits(0), DialogUnits(104)));
+        window.move_to(self.position);
         self.open_mapping_rows(window);
         self.invalidate_mapping_rows();
         self.invalidate_scroll_info();

@@ -15,8 +15,8 @@ pub use mapping_rows_panel::*;
 mod mapping_row_panel;
 pub use mapping_row_panel::*;
 
-mod shared_group_mapping_panel;
-pub use shared_group_mapping_panel::*;
+mod mapping_header_panel;
+pub use mapping_header_panel::*;
 
 mod mapping_panel;
 pub use mapping_panel::*;

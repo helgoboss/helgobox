@@ -16,7 +16,7 @@ use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
 use std::sync;
-use swell_ui::{Dimensions, Pixels, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
 
 /// The complete ReaLearn panel containing everything.
 // TODO-low Maybe call this SessionPanel
@@ -65,6 +65,7 @@ impl MainPanel {
                 session,
                 Rc::downgrade(&panel_manager),
                 self.state.clone(),
+                Point::new(DialogUnits(0), DialogUnits(104)),
             )
             .into(),
             panel_manager,

@@ -20,7 +20,7 @@ use std::convert::TryInto;
 use std::iter;
 
 use std::ptr::null;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
@@ -39,14 +39,18 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::Duration;
-use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
+
+type SharedItem = Rc<RefCell<dyn Item>>;
+type WeakItem = Weak<RefCell<dyn Item>>;
 
 #[derive(Debug)]
-pub struct SharedGroupMappingPanel {
+pub struct MappingHeaderPanel {
     view: ViewContext,
     session: WeakSession,
-    item: RefCell<Option<Box<dyn Item>>>,
+    item: RefCell<Option<WeakItem>>,
     is_invoked_programmatically: Cell<bool>,
+    position: Point<DialogUnits>,
 }
 
 pub trait Item: Debug {
@@ -58,15 +62,15 @@ pub trait Item: Debug {
     fn feedback_is_enabled(&self) -> bool;
     fn set_feedback_is_enabled(&mut self, value: bool);
     fn activation_type(&self) -> ActivationType;
-    fn set_activation_type(&self, value: ActivationType);
+    fn set_activation_type(&mut self, value: ActivationType);
     fn modifier_condition_1(&self) -> ModifierConditionModel;
-    fn set_modifier_condition_1(&self, value: ModifierConditionModel);
+    fn set_modifier_condition_1(&mut self, value: ModifierConditionModel);
     fn modifier_condition_2(&self) -> ModifierConditionModel;
-    fn set_modifier_condition_2(&self, value: ModifierConditionModel);
+    fn set_modifier_condition_2(&mut self, value: ModifierConditionModel);
     fn program_condition(&self) -> ProgramConditionModel;
-    fn set_program_condition(&self, value: ProgramConditionModel);
+    fn set_program_condition(&mut self, value: ProgramConditionModel);
     fn eel_condition(&self) -> &str;
-    fn set_eel_condition(&self, value: String);
+    fn set_eel_condition(&mut self, value: String);
 }
 
 pub enum ItemProp {
@@ -80,28 +84,25 @@ pub enum ItemProp {
     EelCondition,
 }
 
-impl SharedGroupMappingPanel {
-    pub fn new(session: WeakSession) -> SharedGroupMappingPanel {
-        SharedGroupMappingPanel {
+impl MappingHeaderPanel {
+    pub fn new(session: WeakSession, position: Point<DialogUnits>) -> MappingHeaderPanel {
+        MappingHeaderPanel {
             view: Default::default(),
             session,
             item: None.into(),
             is_invoked_programmatically: false.into(),
+            position,
         }
     }
 
-    pub fn is_free(&self) -> bool {
-        self.item.borrow().is_none()
-    }
-
-    pub fn hide(&self) {
+    pub fn clear_item(&self) {
         self.item.replace(None);
     }
 
-    pub fn show(self: SharedView<Self>, item: Box<dyn Item>) {
+    pub fn set_item(self: SharedView<Self>, item: SharedItem) {
         self.invoke_programmatically(|| {
-            self.invalidate_controls(&*item);
-            self.item.replace(Some(item));
+            self.invalidate_controls_internal(&*item.borrow());
+            self.item.replace(Some(Rc::downgrade(&item)));
             // If this is the first time the window is opened, the following is unnecessary, but if
             // we reuse a window it's important to reset focus for better keyboard control.
             self.view
@@ -120,7 +121,11 @@ impl SharedGroupMappingPanel {
         f();
     }
 
-    fn invalidate_controls(&self, item: &dyn Item) {
+    pub fn invalidate_controls(&self) {
+        self.with_item_if_set(Self::invalidate_controls_internal);
+    }
+
+    fn invalidate_controls_internal(&self, item: &dyn Item) {
         self.invalidate_name_edit_control(item);
         self.invalidate_control_enabled_check_box(item);
         self.invalidate_feedback_enabled_check_box(item);
@@ -391,8 +396,9 @@ impl SharedGroupMappingPanel {
             Modifiers => {
                 self.update_activation_setting_option(
                     root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
-                    || item.modifier_condition_1(),
-                    |c| item.set_modifier_condition_1(c),
+                    item,
+                    |it| it.modifier_condition_1(),
+                    |it, c| it.set_modifier_condition_1(c),
                 );
             }
             Program => {
@@ -412,8 +418,9 @@ impl SharedGroupMappingPanel {
             Modifiers => {
                 self.update_activation_setting_option(
                     root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
-                    || item.modifier_condition_2(),
-                    |c| item.set_modifier_condition_2(c),
+                    item,
+                    |it| it.modifier_condition_2(),
+                    |it, c| it.set_modifier_condition_2(c),
                 );
             }
             Program => {
@@ -430,15 +437,17 @@ impl SharedGroupMappingPanel {
     fn update_activation_setting_option(
         &self,
         combo_box_id: u32,
-        get: impl FnOnce() -> ModifierConditionModel,
-        set: impl FnOnce(ModifierConditionModel),
+        item: &mut dyn Item,
+        get: impl FnOnce(&dyn Item) -> ModifierConditionModel,
+        set: impl FnOnce(&mut dyn Item, ModifierConditionModel),
     ) {
         let b = self.view.require_control(combo_box_id);
         let value = match b.selected_combo_box_item_data() {
             -1 => None,
             id => Some(id as u32),
         };
-        set(get().with_param_index(value));
+        let current = get(item);
+        set(item, current.with_param_index(value));
     }
 
     fn invalidate_activation_eel_condition_edit_control(&self, item: &dyn Item) {
@@ -453,20 +462,23 @@ impl SharedGroupMappingPanel {
         }
     }
 
-    fn if_item_set(&self, f: impl FnOnce(&Self, &dyn Item)) {
-        if let Some(item) = self.item.borrow().as_ref() {
-            f(self, &(**item));
+    fn with_item_if_set(&self, f: impl FnOnce(&Self, &dyn Item)) {
+        if let Some(weak_item) = self.item.borrow().as_ref() {
+            if let Some(item) = weak_item.upgrade() {
+                f(self, &*item.borrow());
+            }
         }
     }
 
     fn with_mutable_item(&self, f: impl FnOnce(&Self, &mut dyn Item)) {
-        let mut item = self.item.borrow_mut();
-        let item = item.as_mut().expect("item not set");
-        f(self, &mut (**item));
+        let opt_item = self.item.borrow();
+        let weak_item = opt_item.as_ref().expect("item not set");
+        let item = weak_item.upgrade().expect("item gone");
+        f(self, &mut *item.borrow_mut());
     }
 
     pub fn invalidate_due_to_changed_prop(&self, prop: ItemProp) {
-        self.if_item_set(|_, item| {
+        self.with_item_if_set(|_, item| {
             self.invoke_programmatically(|| {
                 use ItemProp::*;
                 match prop {
@@ -510,7 +522,7 @@ impl SharedGroupMappingPanel {
     }
 }
 
-impl View for SharedGroupMappingPanel {
+impl View for MappingHeaderPanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_SHARED_GROUP_MAPPING_PANEL
     }
@@ -519,8 +531,14 @@ impl View for SharedGroupMappingPanel {
         &self.view
     }
 
-    fn opened(self: SharedView<Self>, _window: Window) -> bool {
+    fn opened(self: SharedView<Self>, window: Window) -> bool {
+        window.move_to(self.position);
         self.init_controls();
+        true
+    }
+
+    fn close_requested(self: SharedView<Self>) -> bool {
+        // If we return false, the child window is closed.
         true
     }
 
@@ -589,7 +607,77 @@ impl View for SharedGroupMappingPanel {
         // entered an invalid value. Because we are lazy and edit controls are not
         // manipulated very frequently, we just invalidate all controls.
         // If this fails (because the mapping is not filled anymore), it's not a problem.
-        self.if_item_set(Self::invalidate_controls);
+        self.with_item_if_set(Self::invalidate_controls_internal);
         false
+    }
+}
+
+impl Item for MappingModel {
+    fn supports_activation(&self) -> bool {
+        self.compartment() != MappingCompartment::ControllerMappings
+    }
+
+    fn name(&self) -> &str {
+        self.name.get_ref()
+    }
+
+    fn set_name(&mut self, name: String) {
+        self.name.set(name);
+    }
+
+    fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled.get()
+    }
+
+    fn set_control_is_enabled(&mut self, value: bool) {
+        self.control_is_enabled.set(value);
+    }
+
+    fn feedback_is_enabled(&self) -> bool {
+        self.feedback_is_enabled.get()
+    }
+
+    fn set_feedback_is_enabled(&mut self, value: bool) {
+        self.feedback_is_enabled.set(value);
+    }
+
+    fn activation_type(&self) -> ActivationType {
+        self.activation_type.get()
+    }
+
+    fn set_activation_type(&mut self, value: ActivationType) {
+        self.activation_type.set(value);
+    }
+
+    fn modifier_condition_1(&self) -> ModifierConditionModel {
+        self.modifier_condition_1.get()
+    }
+
+    fn set_modifier_condition_1(&mut self, value: ModifierConditionModel) {
+        self.modifier_condition_1.set(value);
+    }
+
+    fn modifier_condition_2(&self) -> ModifierConditionModel {
+        self.modifier_condition_2.get()
+    }
+
+    fn set_modifier_condition_2(&mut self, value: ModifierConditionModel) {
+        self.modifier_condition_2.set(value);
+    }
+
+    fn program_condition(&self) -> ProgramConditionModel {
+        self.program_condition.get()
+    }
+
+    fn set_program_condition(&mut self, value: ProgramConditionModel) {
+        self.program_condition.set(value);
+    }
+
+    fn eel_condition(&self) -> &str {
+        self.eel_condition.get_ref()
+    }
+
+    fn set_eel_condition(&mut self, value: String) {
+        self.eel_condition.set(value);
     }
 }
