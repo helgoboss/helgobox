@@ -12,6 +12,7 @@ pub mod root {
     pub const ID_MAPPING_ROWS_PANEL: u32 = 123;
     pub const ID_MESSAGE_PANEL: u32 = 126;
     pub const IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU: u32 = 129;
+    pub const ID_SHARED_GROUP_MAPPING_PANEL: u32 = 132;
     pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
     pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;

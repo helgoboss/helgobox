@@ -40,7 +40,6 @@ use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{SharedView, View, ViewContext, WeakView, Window};
 
-/// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
 pub struct MappingPanel {
     view: ViewContext,
