@@ -16,7 +16,7 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, PresetManager, Session,
+    ControllerPreset, FxId, GroupId, MainPreset, MainPresetAutoLoadMode, PresetManager, Session,
     SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
@@ -75,6 +75,11 @@ impl HeaderPanel {
         self.main_state.borrow().active_compartment.get()
     }
 
+    fn active_group(&self) -> Option<GroupId> {
+        let group_filter = self.main_state.borrow().group_filter.get()?;
+        group_filter.group_id()
+    }
+
     fn panel_manager(&self) -> SharedIndependentPanelManager {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
@@ -101,6 +106,7 @@ impl HeaderPanel {
             session.borrow_mut().start_learning_many_mappings(
                 &session,
                 compartment,
+                self.active_group(),
                 control_element_type,
             );
             self.panel_manager().borrow().open_message_panel();
@@ -132,6 +138,14 @@ impl HeaderPanel {
                 .group_filter
                 .set(Some(GroupFilter::OtherGroup(id)));
         }
+    }
+
+    fn add_mapping(&self) {
+        self.session().borrow_mut().add_default_mapping(
+            self.active_compartment(),
+            self.active_group(),
+            VirtualControlElementType::Multi,
+        );
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -1153,12 +1167,7 @@ impl View for HeaderPanel {
             ID_GROUP_ADD_BUTTON => self.add_group(),
             ID_GROUP_DELETE_BUTTON => self.remove_group(),
             ID_GROUP_EDIT_BUTTON => self.edit_group(),
-            ID_ADD_MAPPING_BUTTON => {
-                self.session().borrow_mut().add_default_mapping(
-                    self.active_compartment(),
-                    VirtualControlElementType::Multi,
-                );
-            }
+            ID_ADD_MAPPING_BUTTON => self.add_mapping(),
             ID_LEARN_MANY_MAPPINGS_BUTTON => {
                 self.toggle_learn_many_mappings();
             }

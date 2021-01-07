@@ -4,7 +4,7 @@ use helgoboss_learn::{
 use rx_util::UnitEvent;
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationType, ModeModel, ModifierConditionModel,
+    convert_factor_to_unit_value, ActivationType, GroupId, ModeModel, ModifierConditionModel,
     ProgramConditionModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
 };
 use crate::core::{prop, Prop};
@@ -20,6 +20,7 @@ pub struct MappingModel {
     id: MappingId,
     compartment: MappingCompartment,
     pub name: Prop<String>,
+    pub group_id: Prop<Option<GroupId>>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
@@ -40,6 +41,7 @@ impl Clone for MappingModel {
             id: self.id,
             compartment: self.compartment,
             name: self.name.clone(),
+            group_id: self.group_id.clone(),
             control_is_enabled: self.control_is_enabled.clone(),
             feedback_is_enabled: self.feedback_is_enabled.clone(),
             prevent_echo_feedback: self.prevent_echo_feedback.clone(),
@@ -80,11 +82,12 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
 }
 
 impl MappingModel {
-    pub fn new(compartment: MappingCompartment) -> Self {
+    pub fn new(compartment: MappingCompartment, initial_group_id: Option<GroupId>) -> Self {
         Self {
             id: MappingId::random(),
             compartment,
             name: Default::default(),
+            group_id: prop(initial_group_id),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),

@@ -65,7 +65,7 @@ impl MappingModelData {
         compartment: MappingCompartment,
         context: Option<&ProcessorContext>,
     ) -> MappingModel {
-        let mut model = MappingModel::new(compartment);
+        let mut model = MappingModel::new(compartment, None);
         self.apply_to_model(&mut model, context);
         model
     }

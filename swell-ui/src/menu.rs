@@ -70,6 +70,28 @@ impl<'a> Menu<'a> {
         }
     }
 
+    pub fn add_item<'b>(self, item_id: u32, text: impl Into<SwellStringArg<'b>>) {
+        unsafe {
+            let swell = Swell::get();
+            let swell_string_arg = text.into();
+            let mut mi = raw::MENUITEMINFO {
+                cbSize: 0,
+                fMask: raw::MIIM_TYPE | raw::MIIM_DATA | raw::MIIM_ID,
+                fType: 0,
+                fState: 0,
+                wID: item_id,
+                hSubMenu: null_mut(),
+                hbmpChecked: null_mut(),
+                hbmpUnchecked: null_mut(),
+                dwItemData: 0,
+                dwTypeData: swell_string_arg.as_ptr() as _,
+                cch: 0,
+                hbmpItem: null_mut(),
+            };
+            swell.InsertMenuItem(self.raw, -1, 1, &mut mi as _);
+        }
+    }
+
     pub fn set_item_text<'b>(self, item_id: u32, text: impl Into<SwellStringArg<'b>>) {
         unsafe {
             let mut mi = raw::MENUITEMINFO {

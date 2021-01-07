@@ -6,7 +6,7 @@ use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, IndependentPanelManager, MainState, MappingRowPanel,
+    bindings::root, GroupFilter, IndependentPanelManager, MainState, MappingRowPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};
@@ -331,15 +331,20 @@ impl MappingRowsPanel {
         main_state: &MainState,
         mapping: &SharedMapping,
     ) -> bool {
+        let mapping = mapping.borrow();
+        if let Some(group_filter) = main_state.group_filter.get() {
+            if !group_filter.matches(&mapping) {
+                return false;
+            }
+        }
         if let Some(filter_source) = main_state.source_filter.get_ref() {
-            let mapping_source = mapping.borrow().source_model.create_source();
+            let mapping_source = mapping.source_model.create_source();
             if mapping_source != *filter_source {
                 return false;
             }
         }
         if let Some(filter_target) = main_state.target_filter.get_ref() {
             let mapping_target = match mapping
-                .borrow()
                 .target_model
                 .with_context(session.context())
                 .create_target()
@@ -354,7 +359,6 @@ impl MappingRowsPanel {
         let search_expression = main_state.search_expression.get_ref().trim().to_lowercase();
         if !search_expression.is_empty()
             && !mapping
-                .borrow()
                 .name
                 .get_ref()
                 .to_lowercase()
@@ -396,7 +400,9 @@ impl MappingRowsPanel {
                 .changed()
                 .merge(main_state.target_filter.changed())
                 .merge(main_state.search_expression.changed())
-                .merge(main_state.active_compartment.changed()),
+                .merge(main_state.active_compartment.changed())
+                .merge(main_state.group_filter.changed())
+                .merge(session.group_list_changed()),
             |view, _| {
                 if !view.scroll(0) {
                     // No scrolling was necessary. But that also means, the rows were not

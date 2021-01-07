@@ -1,5 +1,6 @@
 use crate::application::{
-    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
+    GroupId, MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
+    WeakSession,
 };
 use crate::core::when;
 use crate::domain::MappingCompartment;
@@ -18,7 +19,7 @@ use slog::debug;
 use std::cell::{Ref, RefCell};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
@@ -371,6 +372,66 @@ impl MappingRowPanel {
         );
     }
 
+    fn start_moving_mapping_to_other_group(
+        &self,
+        location: Point<Pixels>,
+    ) -> Result<(), &'static str> {
+        let (mapping_id, dest_group_id) = {
+            let mapping = self.mapping.borrow();
+            let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
+            let mapping = mapping.borrow();
+            (
+                mapping.id(),
+                self.let_user_pick_destination_group(&mapping, location)?,
+            )
+        };
+        self.session()
+            .borrow_mut()
+            .move_mapping_to_group(mapping_id, dest_group_id);
+        Ok(())
+    }
+
+    fn let_user_pick_destination_group(
+        &self,
+        mapping: &MappingModel,
+        location: Point<Pixels>,
+    ) -> Result<Option<GroupId>, &'static str> {
+        let current_group_id = mapping.group_id.get();
+        let menu_bar =
+            MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be loaded");
+        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let session = self.session();
+        let session = session.borrow();
+        for (i, group) in session.groups().enumerate() {
+            let group = group.borrow();
+            let item_id = i as u32 + 2;
+            menu.add_item(item_id, format!("{}", group.name.get_ref()));
+            // Disable group if it's the current one.
+            if current_group_id == Some(group.id()) {
+                menu.set_item_enabled(item_id, false);
+            }
+        }
+        // Disable "<Main>" group if it's the current one.
+        if current_group_id.is_none() {
+            menu.set_item_enabled(1, false);
+        }
+        let picked_item_id = match self.view.require_window().open_popup_menu(menu, location) {
+            None => return Err("user didn't pick any group"),
+            Some(r) => r,
+        };
+        let desired_group_index = if picked_item_id == 1 {
+            None
+        } else {
+            Some(picked_item_id - 2)
+        };
+        let desired_group_id = desired_group_index.map(|i| {
+            session
+                .find_group_id_by_index(i as _)
+                .expect("no such group")
+        });
+        Ok(desired_group_id)
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -411,6 +472,10 @@ impl View for MappingRowPanel {
             root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
             _ => unreachable!(),
         }
+    }
+
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+        let _ = self.start_moving_mapping_to_other_group(location);
     }
 }
 

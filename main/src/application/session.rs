@@ -555,21 +555,49 @@ impl Session {
         self.groups.get(index)
     }
 
+    pub fn find_group_id_by_index(&self, index: usize) -> Option<GroupId> {
+        let group = self.find_group_by_index(index)?;
+        Some(group.borrow().id())
+    }
+
+    pub fn move_mapping_to_group(
+        &mut self,
+        mapping_id: MappingId,
+        group_id: Option<GroupId>,
+    ) -> Result<(), &'static str> {
+        let mapping = self
+            .find_mapping_by_id(MappingCompartment::MainMappings, mapping_id)
+            .ok_or("no such mapping")?;
+        mapping.borrow_mut().group_id.set(group_id);
+        self.notify_group_list_changed();
+        Ok(())
+    }
+
     pub fn remove_group(&mut self, id: GroupId, delete_mappings: bool) {
         self.groups.retain(|g| g.borrow().id() != id);
-        self.notify_group_list_changed();
         if delete_mappings {
-            // TODO-high
+            self.mappings[MappingCompartment::MainMappings]
+                .retain(|m| m.borrow().group_id.get() != Some(id));
+        } else {
+            for m in self.mappings(MappingCompartment::MainMappings) {
+                let mut m = m.borrow_mut();
+                if m.group_id.get() == Some(id) {
+                    m.group_id.set_without_notification(None);
+                }
+            }
         }
+        self.notify_group_list_changed();
     }
 
     pub fn add_default_mapping(
         &mut self,
         compartment: MappingCompartment,
+        // Only relevant for main mapping compartment
+        initial_group_id: Option<GroupId>,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment);
+        let mut mapping = MappingModel::new(compartment, initial_group_id);
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
@@ -612,6 +640,8 @@ impl Session {
         &mut self,
         session: &SharedSession,
         compartment: MappingCompartment,
+        // Only relevant for main mapping compartment
+        initial_group_id: Option<GroupId>,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
@@ -620,7 +650,12 @@ impl Session {
         self.stop_learning_source();
         self.stop_learning_target();
         // Add initial mapping and start learning its source
-        self.add_and_learn_one_of_many_mappings(session, compartment, control_element_type);
+        self.add_and_learn_one_of_many_mappings(
+            session,
+            compartment,
+            initial_group_id,
+            control_element_type,
+        );
         // After target learned, add new mapping and start learning its source
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
@@ -639,6 +674,7 @@ impl Session {
             session.borrow_mut().add_and_learn_one_of_many_mappings(
                 &session,
                 compartment,
+                initial_group_id,
                 control_element_type,
             );
         });
@@ -648,6 +684,8 @@ impl Session {
         &mut self,
         session: &SharedSession,
         compartment: MappingCompartment,
+        // Only relevant for main mapping compartment
+        initial_group_id: Option<GroupId>,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
@@ -662,7 +700,7 @@ impl Session {
             }
             MappingCompartment::MainMappings => HashSet::new(),
         };
-        let mapping = self.add_default_mapping(compartment, control_element_type);
+        let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
         let mapping_id = mapping.borrow().id();
         self.learn_many_state
             .set(Some(LearnManyState::learning_source(
@@ -1280,7 +1318,8 @@ impl Session {
     ) -> SharedMapping {
         let mapping = match self.find_mapping_with_target(compartment, target) {
             None => {
-                let m = self.add_default_mapping(compartment, VirtualControlElementType::Multi);
+                let m =
+                    self.add_default_mapping(compartment, None, VirtualControlElementType::Multi);
                 m.borrow_mut()
                     .target_model
                     .apply_from_target(target, &self.context);

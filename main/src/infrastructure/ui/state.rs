@@ -1,7 +1,7 @@
 use crate::core::{prop, Prop};
 use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
 
-use crate::application::GroupId;
+use crate::application::{GroupId, MappingModel};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -23,6 +23,25 @@ pub struct MainState {
 pub enum GroupFilter {
     MainGroup,
     OtherGroup(GroupId),
+}
+
+impl GroupFilter {
+    pub fn matches(&self, mapping: &MappingModel) -> bool {
+        let group_id = mapping.group_id.get();
+        use GroupFilter::*;
+        match self {
+            MainGroup => group_id.is_none(),
+            OtherGroup(id) => group_id.as_ref() == Some(id),
+        }
+    }
+
+    pub fn group_id(&self) -> Option<GroupId> {
+        use GroupFilter::*;
+        match self {
+            MainGroup => None,
+            OtherGroup(id) => Some(*id),
+        }
+    }
 }
 
 impl Default for MainState {

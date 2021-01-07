@@ -12,6 +12,7 @@
 #define IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU 129
 #define ID_SHARED_GROUP_MAPPING_PANEL           132
 #define ID_GROUP_PANEL                          134
+#define IDR_ROW_PANEL_CONTEXT_MENU              136
 #define IDM_LOG_DEBUG_INFO                      40000
 #define IDM_MULTIS                              40000
 #define ID_ADD_MAPPING_BUTTON                   40000
