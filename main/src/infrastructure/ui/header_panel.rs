@@ -1050,6 +1050,10 @@ impl HeaderPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         self.when(session.everything_changed(), |view| {
+            view.main_state
+                .borrow_mut()
+                .group_filter
+                .set(Some(GroupFilter::MainGroup));
             view.invalidate_all_controls();
         });
         self.when(session.let_matched_events_through.changed(), |view| {
