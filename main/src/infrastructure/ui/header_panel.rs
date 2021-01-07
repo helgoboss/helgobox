@@ -636,14 +636,17 @@ impl HeaderPanel {
     }
 
     fn edit_group(&self) {
-        let id = match self.main_state.borrow().group_filter.get() {
-            Some(GroupFilter::OtherGroup(id)) => id,
+        let weak_group = match self.main_state.borrow().group_filter.get() {
+            Some(GroupFilter::MainGroup) => Rc::downgrade(self.session().borrow().main_group()),
+            Some(GroupFilter::OtherGroup(id)) => {
+                let session = self.session();
+                let session = session.borrow();
+                let group = session.find_group_by_id(id).expect("group not existing");
+                Rc::downgrade(group)
+            }
             _ => return,
         };
-        let session = self.session();
-        let session = session.borrow();
-        let group = session.find_group_by_id(id).expect("group not existing");
-        let panel = GroupPanel::new(self.session.clone(), Rc::downgrade(group));
+        let panel = GroupPanel::new(self.session.clone(), weak_group);
         let shared_panel = Rc::new(panel);
         if let Some(already_open_panel) =
             self.group_panel.borrow_mut().replace(shared_panel.clone())

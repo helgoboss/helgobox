@@ -57,6 +57,7 @@ pub struct Session {
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
+    main_group: SharedGroup,
     groups: Vec<SharedGroup>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject:
@@ -167,6 +168,7 @@ impl Session {
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
+            main_group: Default::default(),
             groups: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
@@ -794,6 +796,10 @@ impl Session {
         compartment: MappingCompartment,
     ) -> impl Iterator<Item = &SharedMapping> {
         self.mappings[compartment].iter()
+    }
+
+    pub fn main_group(&self) -> &SharedGroup {
+        &self.main_group
     }
 
     pub fn groups(&self) -> impl Iterator<Item = &SharedGroup> {

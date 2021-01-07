@@ -22,6 +22,22 @@ pub struct GroupModel {
     pub eel_condition: Prop<String>,
 }
 
+impl Default for GroupModel {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            name: Default::default(),
+            control_is_enabled: prop(true),
+            feedback_is_enabled: prop(true),
+            activation_type: prop(ActivationType::Always),
+            modifier_condition_1: Default::default(),
+            modifier_condition_2: Default::default(),
+            program_condition: Default::default(),
+            eel_condition: Default::default(),
+        }
+    }
+}
+
 impl fmt::Display for GroupModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name.get_ref())
@@ -77,18 +93,16 @@ impl GroupModel {
         Self {
             id,
             name: prop(name),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
-            activation_type: prop(ActivationType::Always),
-            modifier_condition_1: Default::default(),
-            modifier_condition_2: Default::default(),
-            program_condition: Default::default(),
-            eel_condition: Default::default(),
+            ..Default::default()
         }
     }
 
     pub fn id(&self) -> GroupId {
         self.id
+    }
+
+    pub fn is_main_group(&self) -> bool {
+        self.id() == Default::default()
     }
 
     /// Fires whenever a property has changed that doesn't have an effect on control/feedback

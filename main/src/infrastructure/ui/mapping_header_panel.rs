@@ -55,6 +55,7 @@ pub struct MappingHeaderPanel {
 }
 
 pub trait Item: Debug {
+    fn supports_name_change(&self) -> bool;
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
     fn set_name(&mut self, name: String);
@@ -155,6 +156,7 @@ impl MappingHeaderPanel {
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL);
         c.set_text_if_not_focused(item.name());
+        c.set_enabled(item.supports_name_change());
     }
 
     fn invalidate_control_enabled_check_box(&self, item: &dyn Item) {
@@ -619,6 +621,10 @@ impl View for MappingHeaderPanel {
 }
 
 impl Item for MappingModel {
+    fn supports_name_change(&self) -> bool {
+        true
+    }
+
     fn supports_activation(&self) -> bool {
         self.compartment() != MappingCompartment::ControllerMappings
     }
@@ -689,12 +695,20 @@ impl Item for MappingModel {
 }
 
 impl Item for GroupModel {
+    fn supports_name_change(&self) -> bool {
+        !self.is_main_group()
+    }
+
     fn supports_activation(&self) -> bool {
         true
     }
 
     fn name(&self) -> &str {
-        self.name.get_ref()
+        if self.is_main_group() {
+            "<Main>"
+        } else {
+            self.name.get_ref()
+        }
     }
 
     fn set_name(&mut self, name: String) {
