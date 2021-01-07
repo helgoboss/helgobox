@@ -546,6 +546,7 @@ impl View for MappingHeaderPanel {
     }
 
     fn close_requested(self: SharedView<Self>) -> bool {
+        self.view.require_window().parent().unwrap().close();
         // If we return false, the child window is closed.
         true
     }
