@@ -99,7 +99,7 @@ impl GroupModel {
         self.id
     }
 
-    pub fn is_main_group(&self) -> bool {
+    pub fn is_default_group(&self) -> bool {
         self.id() == Default::default()
     }
 

@@ -411,7 +411,7 @@ impl MappingRowPanel {
                 menu.set_item_enabled(item_id, false);
             }
         }
-        // Disable "<Main>" group if it's the current one.
+        // Disable "<Default>" group if it's the current one.
         if current_group_id.is_default() {
             menu.set_item_enabled(1, false);
         }

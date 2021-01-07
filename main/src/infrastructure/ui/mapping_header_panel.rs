@@ -700,7 +700,7 @@ impl Item for MappingModel {
 
 impl Item for GroupModel {
     fn supports_name_change(&self) -> bool {
-        !self.is_main_group()
+        !self.is_default_group()
     }
 
     fn supports_activation(&self) -> bool {
@@ -708,8 +708,8 @@ impl Item for GroupModel {
     }
 
     fn name(&self) -> &str {
-        if self.is_main_group() {
-            "<Main>"
+        if self.is_default_group() {
+            "<Default>"
         } else {
             self.name.get_ref()
         }

@@ -57,7 +57,7 @@ pub struct Session {
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
-    main_group: SharedGroup,
+    default_group: SharedGroup,
     groups: Vec<SharedGroup>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject:
@@ -168,7 +168,7 @@ impl Session {
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
-            main_group: Default::default(),
+            default_group: Default::default(),
             groups: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
@@ -798,16 +798,16 @@ impl Session {
         self.mappings[compartment].iter()
     }
 
-    pub fn main_group(&self) -> &SharedGroup {
-        &self.main_group
+    pub fn default_group(&self) -> &SharedGroup {
+        &self.default_group
     }
 
     pub fn groups(&self) -> impl Iterator<Item = &SharedGroup> {
         self.groups.iter()
     }
 
-    fn groups_including_main_group(&self) -> impl Iterator<Item = &SharedGroup> {
-        std::iter::once(&self.main_group).chain(self.groups.iter())
+    fn groups_including_default_group(&self) -> impl Iterator<Item = &SharedGroup> {
+        std::iter::once(&self.default_group).chain(self.groups.iter())
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
@@ -1208,7 +1208,7 @@ impl Session {
 
     /// Fires if a group itself has been changed.
     pub fn group_changed(&self) -> impl UnitEvent {
-        self.main_group
+        self.default_group
             .borrow()
             .changed_processing_relevant()
             .merge(self.group_changed_subject.clone())
@@ -1420,7 +1420,7 @@ impl Session {
         if group_id.is_default() {
             self.find_group_by_id(group_id)
         } else {
-            Some(&self.main_group)
+            Some(&self.default_group)
         }
     }
 
@@ -1465,7 +1465,7 @@ impl Session {
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
         let group_activation_conditions: HashMap<GroupId, ActivationCondition> = self
-            .groups_including_main_group()
+            .groups_including_default_group()
             .map(|group| {
                 let group = group.borrow();
                 (

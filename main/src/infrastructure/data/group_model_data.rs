@@ -11,10 +11,10 @@ use std::borrow::BorrowMut;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupModelData {
-    // Because main group UUID is the default, it won't be serialized.
+    // Because default group UUID is the default, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
     id: GroupId,
-    // Because main group name is empty, it won't be serialized.
+    // Because default group name is empty, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
     name: String,
     #[serde(flatten)]

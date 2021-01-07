@@ -44,7 +44,7 @@ pub struct SessionData {
     feedback_device_id: Option<String>,
     // Not set before 1.12.0-pre9
     #[serde(default, skip_serializing_if = "is_default")]
-    main_group: Option<GroupModelData>,
+    default_group: Option<GroupModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
     groups: Vec<GroupModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -89,8 +89,8 @@ impl SessionData {
                     FxOutput => "fx-output".to_string(),
                 })
             },
-            main_group: Some(GroupModelData::from_model(
-                session.main_group().borrow().deref(),
+            default_group: Some(GroupModelData::from_model(
+                session.default_group().borrow().deref(),
             )),
             groups: session
                 .groups()
@@ -174,12 +174,12 @@ impl SessionData {
             .midi_feedback_output
             .set_without_notification(feedback_output);
         // Groups
-        let final_main_group = self
-            .main_group
+        let final_default_group = self
+            .default_group
             .as_ref()
             .map(|g| g.to_model())
             .unwrap_or_default();
-        session.main_group().replace(final_main_group);
+        session.default_group().replace(final_default_group);
         session.set_groups_without_notification(self.groups.iter().map(|g| g.to_model()));
         // Mappings
         let processor_context = session.context().clone();

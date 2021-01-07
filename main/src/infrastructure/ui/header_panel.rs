@@ -342,7 +342,7 @@ impl HeaderPanel {
         let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
         let vec = vec![
             (-2isize, "<All>".to_string()),
-            (-1isize, "<Main>".to_string()),
+            (-1isize, "<Default>".to_string()),
         ];
         combo.fill_combo_box_with_data_small(
             vec.into_iter().chain(
@@ -642,7 +642,7 @@ impl HeaderPanel {
         let weak_group = match self.main_state.borrow().group_filter.get() {
             Some(GroupFilter(id)) => {
                 if id.is_default() {
-                    Rc::downgrade(self.session().borrow().main_group())
+                    Rc::downgrade(self.session().borrow().default_group())
                 } else {
                     let session = self.session();
                     let session = session.borrow();
