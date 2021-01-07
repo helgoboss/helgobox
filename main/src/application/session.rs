@@ -63,8 +63,10 @@ pub struct Session {
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
     group_list_changed_subject: LocalSubject<'static, (), ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
+    group_changed_subject: LocalSubject<'static, (), ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
+    group_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
     normal_main_task_channel: (
         crossbeam_channel::Sender<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
@@ -170,8 +172,10 @@ impl Session {
             mapping_list_changed_subject: Default::default(),
             group_list_changed_subject: Default::default(),
             mapping_changed_subject: Default::default(),
+            group_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
             mapping_subscriptions: Default::default(),
+            group_subscriptions: Default::default(),
             normal_main_task_channel,
             parameter_main_task_receiver,
             control_main_task_receiver,
@@ -211,6 +215,7 @@ impl Session {
     }
 
     fn initial_sync(&mut self, weak_session: WeakSession) {
+        self.resubscribe_to_groups(weak_session.clone());
         for compartment in MappingCompartment::into_enum_iter() {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
@@ -258,6 +263,14 @@ impl Session {
                 shared_session
                     .borrow_mut()
                     .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
+            });
+        // Whenever something in the group list changes, resubscribe to those groups.
+        when(self.group_list_changed())
+            .with(weak_session.clone())
+            .do_async(|shared_session, _| {
+                shared_session
+                    .borrow_mut()
+                    .resubscribe_to_groups(Rc::downgrade(&shared_session));
             });
         // Whenever anything in a mapping list changes and other things which affect all
         // processors (including the real-time processor which takes care of sources only), resync
@@ -458,6 +471,45 @@ impl Session {
             .collect();
     }
 
+    fn resubscribe_to_groups(&mut self, weak_session: WeakSession) {
+        self.group_subscriptions = self
+            .groups
+            .iter()
+            .map(|shared_group| {
+                // We don't need to take until "party is over" because if the session disappears,
+                // we know the groups disappear as well.
+                let group = shared_group.borrow();
+                let shared_group_clone = shared_group.clone();
+                let mut all_subscriptions = LocalSubscription::default();
+                // Keep syncing to processors
+                {
+                    let subscription = when(group.changed_processing_relevant())
+                        .with(weak_session.clone())
+                        .do_sync(move |session, _| {
+                            let mut session = session.borrow_mut();
+                            // Change of a single group can affect many mappings
+                            session.sync_all_mappings_full(MappingCompartment::MainMappings);
+                            session.mark_project_as_dirty();
+                            session.notify_group_changed();
+                        });
+                    all_subscriptions.add(subscription);
+                }
+                // Keep marking project as dirty
+                {
+                    let subscription = when(group.changed_non_processing_relevant())
+                        .with(weak_session.clone())
+                        .do_sync(move |session, _| {
+                            let mut session = session.borrow_mut();
+                            session.mark_project_as_dirty();
+                            session.notify_group_changed();
+                        });
+                    all_subscriptions.add(subscription);
+                }
+                SubscriptionGuard::new(all_subscriptions)
+            })
+            .collect();
+    }
+
     fn learn_target(&mut self, target: &ReaperTarget) {
         // Prevent learning targets from in other project tabs (leads to weird effects, just think
         // about it)
@@ -493,6 +545,10 @@ impl Session {
 
     pub fn find_group_index_by_id(&self, id: GroupId) -> Option<usize> {
         self.groups.iter().position(|g| g.borrow().id() == id)
+    }
+
+    pub fn find_group_by_id(&self, id: GroupId) -> Option<&SharedGroup> {
+        self.groups.iter().find(|g| g.borrow().id() == id)
     }
 
     pub fn find_group_by_index(&self, index: usize) -> Option<&SharedGroup> {
@@ -1102,6 +1158,11 @@ impl Session {
         self.group_list_changed_subject.clone()
     }
 
+    /// Fires if a group itself has been changed.
+    pub fn group_changed(&self) -> impl UnitEvent {
+        self.group_changed_subject.clone()
+    }
+
     /// Fires if a mapping itself has been changed.
     pub fn mapping_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
         self.mapping_changed_subject.clone()
@@ -1174,8 +1235,10 @@ impl Session {
             \n\
             - Instance ID (random): {}\n\
             - ID (persistent, maybe custom): {}\n\
-            - Main mapping model count: {}\n\
+            - Main mapping count: {}\n\
             - Main mapping subscription count: {}\n\
+            - Group count: {}\n\
+            - Group subscription count: {}\n\
             - Controller mapping model count: {}\n\
             - Controller mapping subscription count: {}\n\
             ",
@@ -1183,6 +1246,8 @@ impl Session {
             self.id.get_ref(),
             self.mappings[MappingCompartment::MainMappings].len(),
             self.mapping_subscriptions[MappingCompartment::MainMappings].len(),
+            self.groups.len(),
+            self.group_subscriptions.len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mapping_subscriptions[MappingCompartment::ControllerMappings].len(),
         );
@@ -1250,6 +1315,11 @@ impl Session {
     /// Shouldn't be used if the complete list has changed.
     fn notify_group_list_changed(&mut self) {
         AsyncNotifier::notify(&mut self.group_list_changed_subject, &());
+    }
+
+    /// Notifies listeners async a group in the group list has changed.
+    fn notify_group_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.group_changed_subject, &());
     }
 
     /// Notifies listeners async a mapping in a mapping list has changed.

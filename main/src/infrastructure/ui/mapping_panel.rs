@@ -100,6 +100,7 @@ impl MappingPanel {
             mapping_header_panel: SharedView::new(MappingHeaderPanel::new(
                 session,
                 Point::new(DialogUnits(7), DialogUnits(13)),
+                None,
             )),
             is_invoked_programmatically: false.into(),
             target_value_change_subscription: RefCell::new(SubscriptionGuard::new(Box::new(
@@ -2571,7 +2572,7 @@ impl View for MappingPanel {
                 self.force_scroll_to_mapping_in_main_panel();
             }
             // IDCANCEL is escape button
-            ID_OK | raw::IDCANCEL => {
+            ID_MAPPING_PANEL_OK | raw::IDCANCEL => {
                 self.hide();
             }
             // Source

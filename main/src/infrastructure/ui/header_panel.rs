@@ -29,8 +29,8 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
-    add_firewall_rule, GroupFilter, IndependentPanelManager, SharedIndependentPanelManager,
-    SharedMainState,
+    add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
+    SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use std::cell::RefCell;
@@ -44,6 +44,7 @@ pub struct HeaderPanel {
     companion_app_presenter: Rc<CompanionAppPresenter>,
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
+    group_panel: RefCell<Option<SharedView<GroupPanel>>>,
 }
 
 impl HeaderPanel {
@@ -60,6 +61,7 @@ impl HeaderPanel {
             companion_app_presenter: CompanionAppPresenter::new(session),
             plugin_parameters,
             panel_manager,
+            group_panel: Default::default(),
         }
     }
 }
@@ -620,7 +622,21 @@ impl HeaderPanel {
     }
 
     fn edit_group(&self) {
-        // TODO-high
+        let id = match self.main_state.borrow().group_filter.get() {
+            Some(GroupFilter::OtherGroup(id)) => id,
+            _ => return,
+        };
+        let session = self.session();
+        let session = session.borrow();
+        let group = session.find_group_by_id(id).expect("group not existing");
+        let panel = GroupPanel::new(self.session.clone(), Rc::downgrade(group));
+        let shared_panel = Rc::new(panel);
+        if let Some(already_open_panel) =
+            self.group_panel.borrow_mut().replace(shared_panel.clone())
+        {
+            already_open_panel.close();
+        }
+        shared_panel.open(self.view.require_window());
     }
 
     fn update_group(&self) {
@@ -1043,6 +1059,9 @@ impl HeaderPanel {
         });
         self.when(session.midi_feedback_output.changed(), |view| {
             view.invalidate_midi_feedback_output_combo_box()
+        });
+        self.when(session.group_changed(), |view| {
+            view.invalidate_group_controls();
         });
         let main_state = self.main_state.borrow();
         self.when(main_state.group_filter.changed(), |view| {

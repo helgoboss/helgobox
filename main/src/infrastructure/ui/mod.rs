@@ -21,6 +21,9 @@ pub use mapping_header_panel::*;
 mod mapping_panel;
 pub use mapping_panel::*;
 
+mod group_panel;
+pub use group_panel::*;
+
 mod message_panel;
 pub use message_panel::*;
 

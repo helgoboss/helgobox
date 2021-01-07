@@ -24,10 +24,11 @@ use std::rc::{Rc, Weak};
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    get_guid_based_fx_at_index, get_optional_fx_label, ActivationType, FxAnchorType, MappingModel,
-    MidiSourceType, ModeModel, ModifierConditionModel, ProgramConditionModel, ReaperTargetType,
-    Session, SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory,
-    TargetModel, TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakSession,
+    get_guid_based_fx_at_index, get_optional_fx_label, ActivationType, FxAnchorType, GroupModel,
+    MappingModel, MidiSourceType, ModeModel, ModifierConditionModel, ProgramConditionModel,
+    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
+    TargetCategory, TargetModel, TargetModelWithContext, TrackAnchorType,
+    VirtualControlElementType, WeakSession,
 };
 use crate::core::Global;
 use crate::domain::{
@@ -85,11 +86,15 @@ pub enum ItemProp {
 }
 
 impl MappingHeaderPanel {
-    pub fn new(session: WeakSession, position: Point<DialogUnits>) -> MappingHeaderPanel {
+    pub fn new(
+        session: WeakSession,
+        position: Point<DialogUnits>,
+        initial_item: Option<WeakItem>,
+    ) -> MappingHeaderPanel {
         MappingHeaderPanel {
             view: Default::default(),
             session,
-            item: None.into(),
+            item: RefCell::new(initial_item),
             is_invoked_programmatically: false.into(),
             position,
         }
@@ -142,6 +147,7 @@ impl MappingHeaderPanel {
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
             .fill_combo_box(ActivationType::into_enum_iter());
+        self.invalidate_controls();
     }
 
     fn invalidate_name_edit_control(&self, item: &dyn Item) {
@@ -615,6 +621,76 @@ impl View for MappingHeaderPanel {
 impl Item for MappingModel {
     fn supports_activation(&self) -> bool {
         self.compartment() != MappingCompartment::ControllerMappings
+    }
+
+    fn name(&self) -> &str {
+        self.name.get_ref()
+    }
+
+    fn set_name(&mut self, name: String) {
+        self.name.set(name);
+    }
+
+    fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled.get()
+    }
+
+    fn set_control_is_enabled(&mut self, value: bool) {
+        self.control_is_enabled.set(value);
+    }
+
+    fn feedback_is_enabled(&self) -> bool {
+        self.feedback_is_enabled.get()
+    }
+
+    fn set_feedback_is_enabled(&mut self, value: bool) {
+        self.feedback_is_enabled.set(value);
+    }
+
+    fn activation_type(&self) -> ActivationType {
+        self.activation_type.get()
+    }
+
+    fn set_activation_type(&mut self, value: ActivationType) {
+        self.activation_type.set(value);
+    }
+
+    fn modifier_condition_1(&self) -> ModifierConditionModel {
+        self.modifier_condition_1.get()
+    }
+
+    fn set_modifier_condition_1(&mut self, value: ModifierConditionModel) {
+        self.modifier_condition_1.set(value);
+    }
+
+    fn modifier_condition_2(&self) -> ModifierConditionModel {
+        self.modifier_condition_2.get()
+    }
+
+    fn set_modifier_condition_2(&mut self, value: ModifierConditionModel) {
+        self.modifier_condition_2.set(value);
+    }
+
+    fn program_condition(&self) -> ProgramConditionModel {
+        self.program_condition.get()
+    }
+
+    fn set_program_condition(&mut self, value: ProgramConditionModel) {
+        self.program_condition.set(value);
+    }
+
+    fn eel_condition(&self) -> &str {
+        self.eel_condition.get_ref()
+    }
+
+    fn set_eel_condition(&mut self, value: String) {
+        self.eel_condition.set(value);
+    }
+}
+
+impl Item for GroupModel {
+    fn supports_activation(&self) -> bool {
+        true
     }
 
     fn name(&self) -> &str {

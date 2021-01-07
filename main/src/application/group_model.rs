@@ -5,7 +5,7 @@ use rx_util::UnitEvent;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use uuid::Uuid;
 
 /// A mapping group.
@@ -36,6 +36,7 @@ impl PartialEq for GroupModel {
 }
 
 pub type SharedGroup = Rc<RefCell<GroupModel>>;
+pub type WeakGroup = Weak<RefCell<GroupModel>>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
