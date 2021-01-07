@@ -654,43 +654,47 @@ impl Item for MappingModel {
     }
 
     fn activation_type(&self) -> ActivationType {
-        self.activation_type.get()
+        self.activation_condition_model.activation_type.get()
     }
 
     fn set_activation_type(&mut self, value: ActivationType) {
-        self.activation_type.set(value);
+        self.activation_condition_model.activation_type.set(value);
     }
 
     fn modifier_condition_1(&self) -> ModifierConditionModel {
-        self.modifier_condition_1.get()
+        self.activation_condition_model.modifier_condition_1.get()
     }
 
     fn set_modifier_condition_1(&mut self, value: ModifierConditionModel) {
-        self.modifier_condition_1.set(value);
+        self.activation_condition_model
+            .modifier_condition_1
+            .set(value);
     }
 
     fn modifier_condition_2(&self) -> ModifierConditionModel {
-        self.modifier_condition_2.get()
+        self.activation_condition_model.modifier_condition_2.get()
     }
 
     fn set_modifier_condition_2(&mut self, value: ModifierConditionModel) {
-        self.modifier_condition_2.set(value);
+        self.activation_condition_model
+            .modifier_condition_2
+            .set(value);
     }
 
     fn program_condition(&self) -> ProgramConditionModel {
-        self.program_condition.get()
+        self.activation_condition_model.program_condition.get()
     }
 
     fn set_program_condition(&mut self, value: ProgramConditionModel) {
-        self.program_condition.set(value);
+        self.activation_condition_model.program_condition.set(value);
     }
 
     fn eel_condition(&self) -> &str {
-        self.eel_condition.get_ref()
+        self.activation_condition_model.eel_condition.get_ref()
     }
 
     fn set_eel_condition(&mut self, value: String) {
-        self.eel_condition.set(value);
+        self.activation_condition_model.eel_condition.set(value);
     }
 }
 
@@ -732,42 +736,46 @@ impl Item for GroupModel {
     }
 
     fn activation_type(&self) -> ActivationType {
-        self.activation_type.get()
+        self.activation_condition_model.activation_type.get()
     }
 
     fn set_activation_type(&mut self, value: ActivationType) {
-        self.activation_type.set(value);
+        self.activation_condition_model.activation_type.set(value);
     }
 
     fn modifier_condition_1(&self) -> ModifierConditionModel {
-        self.modifier_condition_1.get()
+        self.activation_condition_model.modifier_condition_1.get()
     }
 
     fn set_modifier_condition_1(&mut self, value: ModifierConditionModel) {
-        self.modifier_condition_1.set(value);
+        self.activation_condition_model
+            .modifier_condition_1
+            .set(value);
     }
 
     fn modifier_condition_2(&self) -> ModifierConditionModel {
-        self.modifier_condition_2.get()
+        self.activation_condition_model.modifier_condition_2.get()
     }
 
     fn set_modifier_condition_2(&mut self, value: ModifierConditionModel) {
-        self.modifier_condition_2.set(value);
+        self.activation_condition_model
+            .modifier_condition_2
+            .set(value);
     }
 
     fn program_condition(&self) -> ProgramConditionModel {
-        self.program_condition.get()
+        self.activation_condition_model.program_condition.get()
     }
 
     fn set_program_condition(&mut self, value: ProgramConditionModel) {
-        self.program_condition.set(value);
+        self.activation_condition_model.program_condition.set(value);
     }
 
     fn eel_condition(&self) -> &str {
-        self.eel_condition.get_ref()
+        self.activation_condition_model.eel_condition.get_ref()
     }
 
     fn set_eel_condition(&mut self, value: String) {
-        self.eel_condition.set(value);
+        self.activation_condition_model.eel_condition.set(value);
     }
 }

@@ -77,26 +77,47 @@ impl GroupPanel {
             view.mapping_header_panel
                 .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled);
         });
-        self.when(group.activation_type.changed(), |view| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ActivationType);
-        });
-        self.when(group.modifier_condition_1.changed(), |view| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1);
-        });
-        self.when(group.modifier_condition_2.changed(), |view| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2);
-        });
-        self.when(group.program_condition.changed(), |view| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ProgramCondition);
-        });
-        self.when(group.eel_condition.changed(), |view| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::EelCondition);
-        });
+        self.when(
+            group.activation_condition_model.activation_type.changed(),
+            |view| {
+                view.mapping_header_panel
+                    .invalidate_due_to_changed_prop(ItemProp::ActivationType);
+            },
+        );
+        self.when(
+            group
+                .activation_condition_model
+                .modifier_condition_1
+                .changed(),
+            |view| {
+                view.mapping_header_panel
+                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1);
+            },
+        );
+        self.when(
+            group
+                .activation_condition_model
+                .modifier_condition_2
+                .changed(),
+            |view| {
+                view.mapping_header_panel
+                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2);
+            },
+        );
+        self.when(
+            group.activation_condition_model.program_condition.changed(),
+            |view| {
+                view.mapping_header_panel
+                    .invalidate_due_to_changed_prop(ItemProp::ProgramCondition);
+            },
+        );
+        self.when(
+            group.activation_condition_model.eel_condition.changed(),
+            |view| {
+                view.mapping_header_panel
+                    .invalidate_due_to_changed_prop(ItemProp::EelCondition);
+            },
+        );
     }
 
     fn when(self: &Rc<Self>, event: impl UnitEvent, reaction: impl Fn(Rc<Self>) + 'static + Copy) {

@@ -1754,36 +1754,61 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(self.mapping.send_feedback_after_control.changed(), |view| {
                 view.invalidate_mapping_send_feedback_after_control_check_box();
             });
-        self.panel
-            .when_do_sync(self.mapping.activation_type.changed(), |view| {
+        self.panel.when_do_sync(
+            self.mapping
+                .activation_condition_model
+                .activation_type
+                .changed(),
+            |view| {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::ActivationType);
-            });
-        self.panel
-            .when_do_sync(self.mapping.modifier_condition_1.changed(), |view| {
+            },
+        );
+        self.panel.when_do_sync(
+            self.mapping
+                .activation_condition_model
+                .modifier_condition_1
+                .changed(),
+            |view| {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1);
-            });
-        self.panel
-            .when_do_sync(self.mapping.modifier_condition_2.changed(), |view| {
+            },
+        );
+        self.panel.when_do_sync(
+            self.mapping
+                .activation_condition_model
+                .modifier_condition_2
+                .changed(),
+            |view| {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2);
-            });
-        self.panel
-            .when_do_sync(self.mapping.program_condition.changed(), |view| {
+            },
+        );
+        self.panel.when_do_sync(
+            self.mapping
+                .activation_condition_model
+                .program_condition
+                .changed(),
+            |view| {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::ProgramCondition);
-            });
-        self.panel
-            .when_do_sync(self.mapping.eel_condition.changed(), |view| {
+            },
+        );
+        self.panel.when_do_sync(
+            self.mapping
+                .activation_condition_model
+                .eel_condition
+                .changed(),
+            |view| {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::EelCondition);
-            });
+            },
+        );
     }
 
     fn register_source_listeners(&self) {

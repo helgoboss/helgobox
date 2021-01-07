@@ -4,8 +4,9 @@ use helgoboss_learn::{
 use rx_util::UnitEvent;
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationType, GroupId, ModeModel, ModifierConditionModel,
-    ProgramConditionModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionModel, ActivationType, GroupId, ModeModel,
+    ModifierConditionModel, ProgramConditionModel, SourceModel, TargetCategory, TargetModel,
+    TargetModelWithContext,
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
@@ -27,11 +28,7 @@ pub struct MappingModel {
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
     pub send_feedback_after_control: Prop<bool>,
-    pub activation_type: Prop<ActivationType>,
-    pub modifier_condition_1: Prop<ModifierConditionModel>,
-    pub modifier_condition_2: Prop<ModifierConditionModel>,
-    pub program_condition: Prop<ProgramConditionModel>,
-    pub eel_condition: Prop<String>,
+    pub activation_condition_model: ActivationConditionModel,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -54,11 +51,7 @@ impl Clone for MappingModel {
             feedback_is_enabled: self.feedback_is_enabled.clone(),
             prevent_echo_feedback: self.prevent_echo_feedback.clone(),
             send_feedback_after_control: self.send_feedback_after_control.clone(),
-            activation_type: self.activation_type.clone(),
-            modifier_condition_1: self.modifier_condition_1.clone(),
-            modifier_condition_2: self.modifier_condition_2.clone(),
-            program_condition: self.program_condition.clone(),
-            eel_condition: self.eel_condition.clone(),
+            activation_condition_model: self.activation_condition_model.clone(),
             source_model: self.source_model.clone(),
             mode_model: self.mode_model.clone(),
             target_model: self.target_model.clone(),
@@ -100,11 +93,7 @@ impl MappingModel {
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),
             send_feedback_after_control: prop(false),
-            activation_type: prop(ActivationType::Always),
-            modifier_condition_1: Default::default(),
-            modifier_condition_2: Default::default(),
-            program_condition: Default::default(),
-            eel_condition: Default::default(),
+            activation_condition_model: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: TargetModel {
@@ -181,21 +170,29 @@ impl MappingModel {
             .merge(self.feedback_is_enabled.changed())
             .merge(self.prevent_echo_feedback.changed())
             .merge(self.send_feedback_after_control.changed())
-            .merge(self.activation_type.changed())
-            .merge(self.modifier_condition_1.changed())
-            .merge(self.modifier_condition_2.changed())
-            .merge(self.eel_condition.changed())
-            .merge(self.program_condition.changed())
+            .merge(
+                self.activation_condition_model
+                    .changed_processing_relevant(),
+            )
     }
 
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(&self) -> MainMapping {
+    pub fn create_main_mapping(
+        &self,
+        group_activation_condition: ActivationCondition,
+    ) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
         let unresolved_target = self.target_model.create_target().ok();
-        let activation_condition = self.create_activation_condition();
+        let activation_condition = if self.compartment == MappingCompartment::ControllerMappings {
+            // Controller mappings are always active, no matter what weird stuff is in the model.
+            ActivationCondition::Always
+        } else {
+            self.activation_condition_model
+                .create_activation_condition()
+        };
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,
@@ -209,42 +206,10 @@ impl MappingModel {
             source,
             mode,
             unresolved_target,
-            // TODO-high Replace with group activation condition
-            ActivationCondition::Always,
+            group_activation_condition,
             activation_condition,
             options,
         )
-    }
-
-    fn create_activation_condition(&self) -> ActivationCondition {
-        if self.compartment == MappingCompartment::ControllerMappings {
-            // Controller mappings are always active, no matter what weird stuff is in the model.
-            return ActivationCondition::Always;
-        }
-        use ActivationType::*;
-        match self.activation_type.get() {
-            Always => ActivationCondition::Always,
-            Modifiers => {
-                let conditions = self
-                    .modifier_conditions()
-                    .filter_map(|m| m.create_modifier_condition())
-                    .collect();
-                ActivationCondition::Modifiers(conditions)
-            }
-            Program => ActivationCondition::Program {
-                param_index: self.program_condition.get().param_index(),
-                program_index: self.program_condition.get().program_index(),
-            },
-            Eel => match EelCondition::compile(self.eel_condition.get_ref()) {
-                Ok(c) => ActivationCondition::Eel(Box::new(c)),
-                Err(_) => ActivationCondition::Always,
-            },
-        }
-    }
-
-    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
-        use std::iter::once;
-        once(self.modifier_condition_1.get_ref()).chain(once(self.modifier_condition_2.get_ref()))
     }
 }
 

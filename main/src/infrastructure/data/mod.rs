@@ -19,8 +19,8 @@ pub use target_model_data::*;
 mod parameter_data;
 pub use parameter_data::*;
 
-mod activation_data;
-pub use activation_data::*;
+mod activation_condition_data;
+pub use activation_condition_data::*;
 
 mod enabled_data;
 pub use enabled_data::*;

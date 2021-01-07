@@ -4,7 +4,7 @@ use crate::application::{
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
 use crate::infrastructure::data::{
-    ActivationData, EnabledData, ModeModelData, SourceModelData, TargetModelData,
+    ActivationConditionData, EnabledData, ModeModelData, SourceModelData, TargetModelData,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -25,7 +25,7 @@ pub struct MappingModelData {
     #[serde(flatten)]
     enabled_data: EnabledData,
     #[serde(flatten)]
-    activation_data: ActivationData,
+    activation_condition_data: ActivationConditionData,
     #[serde(default, skip_serializing_if = "is_default")]
     prevent_echo_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -47,13 +47,9 @@ impl MappingModelData {
             },
             prevent_echo_feedback: model.prevent_echo_feedback.get(),
             send_feedback_after_control: model.send_feedback_after_control.get(),
-            activation_data: ActivationData {
-                activation_type: model.activation_type.get(),
-                modifier_condition_1: model.modifier_condition_1.get(),
-                modifier_condition_2: model.modifier_condition_2.get(),
-                program_condition: model.program_condition.get(),
-                eel_condition: model.eel_condition.get_ref().clone(),
-            },
+            activation_condition_data: ActivationConditionData::from_model(
+                &model.activation_condition_model,
+            ),
         }
     }
 
@@ -78,6 +74,8 @@ impl MappingModelData {
         }
         model.name.set_without_notification(self.name.clone());
         model.group_id.set_without_notification(self.group_id);
+        self.activation_condition_data
+            .apply_to_model(model.activation_condition_model.borrow_mut());
         self.source.apply_to_model(model.source_model.borrow_mut());
         self.mode.apply_to_model(model.mode_model.borrow_mut());
         self.target
@@ -94,20 +92,5 @@ impl MappingModelData {
         model
             .send_feedback_after_control
             .set_without_notification(self.send_feedback_after_control);
-        model
-            .activation_type
-            .set_without_notification(self.activation_data.activation_type);
-        model
-            .modifier_condition_1
-            .set_without_notification(self.activation_data.modifier_condition_1);
-        model
-            .modifier_condition_2
-            .set_without_notification(self.activation_data.modifier_condition_2);
-        model
-            .program_condition
-            .set_without_notification(self.activation_data.program_condition);
-        model
-            .eel_condition
-            .set_without_notification(self.activation_data.eel_condition.clone());
     }
 }

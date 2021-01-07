@@ -5,10 +5,10 @@ use crate::application::{
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
-    MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
-    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask, ProcessorContext,
-    ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    ActivationCondition, CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler,
+    FeedbackRealTimeTask, MainMapping, MainProcessor, MappingCompartment, MappingId,
+    MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask,
+    ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -19,7 +19,7 @@ use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, U
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use itertools::Itertools;
@@ -806,6 +806,10 @@ impl Session {
         self.groups.iter()
     }
 
+    fn groups_including_main_group(&self) -> impl Iterator<Item = &SharedGroup> {
+        std::iter::once(&self.main_group).chain(self.groups.iter())
+    }
+
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
         MappingCompartment::into_enum_iter()
             .map(move |compartment| self.mappings(compartment))
@@ -1204,7 +1208,10 @@ impl Session {
 
     /// Fires if a group itself has been changed.
     pub fn group_changed(&self) -> impl UnitEvent {
-        self.group_changed_subject.clone()
+        self.main_group
+            .borrow()
+            .changed_processing_relevant()
+            .merge(self.group_changed_subject.clone())
     }
 
     /// Fires if a mapping itself has been changed.
@@ -1387,7 +1394,15 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let main_mapping = m.create_main_mapping();
+        let group_activation_condition = self
+            .find_group_of_mapping(m)
+            .map(|g| {
+                g.borrow()
+                    .activation_condition_model
+                    .create_activation_condition()
+            })
+            .unwrap_or_else(|| ActivationCondition::Always);
+        let main_mapping = m.create_main_mapping(group_activation_condition);
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
@@ -1395,6 +1410,14 @@ impl Session {
                 Box::new(main_mapping),
             ))
             .unwrap();
+    }
+
+    fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
+        if let Some(id) = mapping.group_id.get() {
+            self.find_group_by_id(id)
+        } else {
+            Some(&self.main_group)
+        }
     }
 
     fn feedback_is_globally_enabled(&self) -> bool {
@@ -1437,8 +1460,29 @@ impl Session {
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
+        let group_activation_conditions: HashMap<Option<GroupId>, ActivationCondition> = self
+            .groups_including_main_group()
+            .map(|group| {
+                let group = group.borrow();
+                (
+                    if group.is_main_group() {
+                        None
+                    } else {
+                        Some(group.id())
+                    },
+                    group
+                        .activation_condition_model
+                        .create_activation_condition(),
+                )
+            })
+            .collect();
         self.mappings(compartment)
-            .map(|m| m.borrow().create_main_mapping())
+            .map(|mapping| {
+                let mapping = mapping.borrow();
+                // TODO-high Fix
+                let group_activation_condition = ActivationCondition::Always;
+                mapping.create_main_mapping(group_activation_condition)
+            })
             .collect()
     }
 

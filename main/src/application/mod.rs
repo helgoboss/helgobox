@@ -19,6 +19,9 @@ pub use mapping_model::*;
 mod group_model;
 pub use group_model::*;
 
+mod activation_condition_model;
+pub use activation_condition_model::*;
+
 mod preset;
 pub use preset::*;
 

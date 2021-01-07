@@ -1,4 +1,6 @@
-use crate::application::{ActivationType, ModifierConditionModel, ProgramConditionModel};
+use crate::application::{
+    ActivationConditionModel, ActivationType, ModifierConditionModel, ProgramConditionModel,
+};
 use crate::core::{prop, Prop};
 use core::fmt;
 use rx_util::UnitEvent;
@@ -15,11 +17,7 @@ pub struct GroupModel {
     pub name: Prop<String>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
-    pub activation_type: Prop<ActivationType>,
-    pub modifier_condition_1: Prop<ModifierConditionModel>,
-    pub modifier_condition_2: Prop<ModifierConditionModel>,
-    pub program_condition: Prop<ProgramConditionModel>,
-    pub eel_condition: Prop<String>,
+    pub activation_condition_model: ActivationConditionModel,
 }
 
 impl Default for GroupModel {
@@ -29,11 +27,7 @@ impl Default for GroupModel {
             name: Default::default(),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
-            activation_type: prop(ActivationType::Always),
-            modifier_condition_1: Default::default(),
-            modifier_condition_2: Default::default(),
-            program_condition: Default::default(),
-            eel_condition: Default::default(),
+            activation_condition_model: ActivationConditionModel::default(),
         }
     }
 }
@@ -116,10 +110,9 @@ impl GroupModel {
         self.control_is_enabled
             .changed()
             .merge(self.feedback_is_enabled.changed())
-            .merge(self.activation_type.changed())
-            .merge(self.modifier_condition_1.changed())
-            .merge(self.modifier_condition_2.changed())
-            .merge(self.eel_condition.changed())
-            .merge(self.program_condition.changed())
+            .merge(
+                self.activation_condition_model
+                    .changed_processing_relevant(),
+            )
     }
 }
