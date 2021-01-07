@@ -1,6 +1,6 @@
 use super::none_if_minus_one;
 use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
-use crate::core::default_util::{is_default, is_none_or_some_default, some_default};
+use crate::core::default_util::is_default;
 use crate::core::notification;
 use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
@@ -19,27 +19,21 @@ pub struct SourceModelData {
     pub r#type: MidiSourceType,
     #[serde(
         deserialize_with = "none_if_minus_one",
-        default = "some_default",
-        skip_serializing_if = "is_none_or_some_default"
+        default,
+        skip_serializing_if = "is_default"
     )]
     pub channel: Option<Channel>,
     #[serde(
         deserialize_with = "none_if_minus_one",
-        default = "some_default",
-        skip_serializing_if = "is_none_or_some_default"
+        default,
+        skip_serializing_if = "is_default"
     )]
     pub number: Option<U14>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub character: SourceCharacter,
-    #[serde(
-        default = "some_default",
-        skip_serializing_if = "is_none_or_some_default"
-    )]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub is_registered: Option<bool>,
-    #[serde(
-        default = "some_default",
-        skip_serializing_if = "is_none_or_some_default"
-    )]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub is_14_bit: Option<bool>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub message: MidiClockTransportMessage,

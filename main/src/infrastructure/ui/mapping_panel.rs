@@ -1204,7 +1204,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 self.source
                     .is_14_bit
                     .get()
-                    .expect("14-bit == None not yet supported"),
+                    // 14-bit == None not yet supported
+                    .unwrap_or(false),
             );
     }
 
@@ -1215,7 +1216,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 self.source
                     .is_registered
                     .get()
-                    .expect("registered == None not yet supported"),
+                    // registered == None not yet supported
+                    .unwrap_or(false),
             );
     }
 
