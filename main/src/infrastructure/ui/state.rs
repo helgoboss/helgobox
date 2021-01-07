@@ -20,27 +20,15 @@ pub struct MainState {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub enum GroupFilter {
-    MainGroup,
-    OtherGroup(GroupId),
-}
+pub struct GroupFilter(pub GroupId);
 
 impl GroupFilter {
     pub fn matches(&self, mapping: &MappingModel) -> bool {
-        let group_id = mapping.group_id.get();
-        use GroupFilter::*;
-        match self {
-            MainGroup => group_id.is_none(),
-            OtherGroup(id) => group_id.as_ref() == Some(id),
-        }
+        mapping.group_id.get() == self.0
     }
 
-    pub fn group_id(&self) -> Option<GroupId> {
-        use GroupFilter::*;
-        match self {
-            MainGroup => None,
-            OtherGroup(id) => Some(*id),
-        }
+    pub fn group_id(&self) -> GroupId {
+        self.0
     }
 }
 
@@ -52,7 +40,7 @@ impl Default for MainState {
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::MainMappings),
-            group_filter: prop(Some(GroupFilter::MainGroup)),
+            group_filter: prop(Some(GroupFilter(GroupId::default()))),
             search_expression: Default::default(),
             status_msg: Default::default(),
         }

@@ -75,9 +75,9 @@ impl HeaderPanel {
         self.main_state.borrow().active_compartment.get()
     }
 
-    fn active_group(&self) -> Option<GroupId> {
+    fn active_group_id(&self) -> Option<GroupId> {
         let group_filter = self.main_state.borrow().group_filter.get()?;
-        group_filter.group_id()
+        Some(group_filter.group_id())
     }
 
     fn panel_manager(&self) -> SharedIndependentPanelManager {
@@ -106,7 +106,7 @@ impl HeaderPanel {
             session.borrow_mut().start_learning_many_mappings(
                 &session,
                 compartment,
-                self.active_group(),
+                self.active_group_id().unwrap_or_default(),
                 control_element_type,
             );
             self.panel_manager().borrow().open_message_panel();
@@ -136,14 +136,14 @@ impl HeaderPanel {
             self.main_state
                 .borrow_mut()
                 .group_filter
-                .set(Some(GroupFilter::OtherGroup(id)));
+                .set(Some(GroupFilter(id)));
         }
     }
 
     fn add_mapping(&self) {
         self.session().borrow_mut().add_default_mapping(
             self.active_compartment(),
-            self.active_group(),
+            self.active_group_id().unwrap_or_default(),
             VirtualControlElementType::Multi,
         );
     }
@@ -359,14 +359,17 @@ impl HeaderPanel {
         let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
         let data = match self.main_state.borrow().group_filter.get() {
             None => -2isize,
-            Some(GroupFilter::MainGroup) => -1isize,
-            Some(GroupFilter::OtherGroup(id)) => {
-                match self.session().borrow().find_group_index_by_id(id) {
-                    None => {
-                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
-                        return;
+            Some(GroupFilter(id)) => {
+                if id.is_default() {
+                    -1isize
+                } else {
+                    match self.session().borrow().find_group_index_by_id(id) {
+                        None => {
+                            combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                            return;
+                        }
+                        Some(i) => i as isize,
                     }
-                    Some(i) => i as isize,
                 }
             }
         };
@@ -378,7 +381,7 @@ impl HeaderPanel {
         let edit_button = self.view.require_control(root::ID_GROUP_EDIT_BUTTON);
         let (remove_enabled, edit_enabled) = match self.main_state.borrow().group_filter.get() {
             None => (false, false),
-            Some(GroupFilter::MainGroup) => (false, true),
+            Some(GroupFilter(id)) if id.is_default() => (false, true),
             _ => (true, true),
         };
         remove_button.set_enabled(remove_enabled);
@@ -615,19 +618,19 @@ impl HeaderPanel {
 
     fn remove_group(&self) {
         let id = match self.main_state.borrow().group_filter.get() {
-            Some(GroupFilter::OtherGroup(id)) => id,
+            Some(GroupFilter(id)) if !id.is_default() => id,
             _ => return,
         };
         match self.view.require_window().ask_yes_no_or_cancel(
             "ReaLearn",
-            "Do you also want to delete all mappings in that group?",
+            "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.",
         ) {
             None => return,
             Some(delete_mappings) => {
                 self.main_state
                     .borrow_mut()
                     .group_filter
-                    .set(Some(GroupFilter::MainGroup));
+                    .set(Some(GroupFilter(GroupId::default())));
                 self.session()
                     .borrow_mut()
                     .remove_group(id, delete_mappings);
@@ -637,12 +640,15 @@ impl HeaderPanel {
 
     fn edit_group(&self) {
         let weak_group = match self.main_state.borrow().group_filter.get() {
-            Some(GroupFilter::MainGroup) => Rc::downgrade(self.session().borrow().main_group()),
-            Some(GroupFilter::OtherGroup(id)) => {
-                let session = self.session();
-                let session = session.borrow();
-                let group = session.find_group_by_id(id).expect("group not existing");
-                Rc::downgrade(group)
+            Some(GroupFilter(id)) => {
+                if id.is_default() {
+                    Rc::downgrade(self.session().borrow().main_group())
+                } else {
+                    let session = self.session();
+                    let session = session.borrow();
+                    let group = session.find_group_by_id(id).expect("group not existing");
+                    Rc::downgrade(group)
+                }
             }
             _ => return,
         };
@@ -663,7 +669,7 @@ impl HeaderPanel {
             .selected_combo_box_item_data()
         {
             -2 => None,
-            -1 => Some(GroupFilter::MainGroup),
+            -1 => Some(GroupFilter(GroupId::default())),
             i if i >= 0 => {
                 let session = self.session();
                 let session = session.borrow();
@@ -671,7 +677,7 @@ impl HeaderPanel {
                     .find_group_by_index(i as usize)
                     .expect("group not existing")
                     .borrow();
-                Some(GroupFilter::OtherGroup(group.id()))
+                Some(GroupFilter(group.id()))
             }
             _ => unreachable!(),
         };
@@ -1053,7 +1059,7 @@ impl HeaderPanel {
             view.main_state
                 .borrow_mut()
                 .group_filter
-                .set(Some(GroupFilter::MainGroup));
+                .set(Some(GroupFilter(GroupId::default())));
             view.invalidate_all_controls();
         });
         self.when(session.let_matched_events_through.changed(), |view| {

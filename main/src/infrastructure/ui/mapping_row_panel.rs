@@ -395,7 +395,7 @@ impl MappingRowPanel {
         &self,
         mapping: &MappingModel,
         location: Point<Pixels>,
-    ) -> Result<Option<GroupId>, &'static str> {
+    ) -> Result<GroupId, &'static str> {
         let current_group_id = mapping.group_id.get();
         let menu_bar =
             MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be loaded");
@@ -407,12 +407,12 @@ impl MappingRowPanel {
             let item_id = i as u32 + 2;
             menu.add_item(item_id, format!("{}", group.name.get_ref()));
             // Disable group if it's the current one.
-            if current_group_id == Some(group.id()) {
+            if current_group_id == group.id() {
                 menu.set_item_enabled(item_id, false);
             }
         }
         // Disable "<Main>" group if it's the current one.
-        if current_group_id.is_none() {
+        if current_group_id.is_default() {
             menu.set_item_enabled(1, false);
         }
         let picked_item_id = match self.view.require_window().open_popup_menu(menu, location) {
@@ -429,7 +429,7 @@ impl MappingRowPanel {
                 .find_group_id_by_index(i as _)
                 .expect("no such group")
         });
-        Ok(desired_group_id)
+        Ok(desired_group_id.unwrap_or_default())
     }
 
     fn when(

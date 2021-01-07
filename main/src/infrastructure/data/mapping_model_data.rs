@@ -18,7 +18,7 @@ pub struct MappingModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     name: String,
     #[serde(default, skip_serializing_if = "is_default")]
-    group_id: Option<GroupId>,
+    group_id: GroupId,
     source: SourceModelData,
     mode: ModeModelData,
     target: TargetModelData,
@@ -61,7 +61,7 @@ impl MappingModelData {
         context: Option<&ProcessorContext>,
     ) -> MappingModel {
         // Preliminary group ID
-        let mut model = MappingModel::new(compartment, None);
+        let mut model = MappingModel::new(compartment, GroupId::default());
         self.apply_to_model(&mut model, context);
         model
     }

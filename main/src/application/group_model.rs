@@ -61,6 +61,10 @@ pub struct GroupId {
 }
 
 impl GroupId {
+    pub fn is_default(&self) -> bool {
+        self.uuid.is_nil()
+    }
+
     pub fn random() -> GroupId {
         GroupId {
             uuid: Uuid::new_v4(),

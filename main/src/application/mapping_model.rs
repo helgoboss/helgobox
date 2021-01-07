@@ -23,7 +23,7 @@ pub struct MappingModel {
     id: MappingId,
     compartment: MappingCompartment,
     pub name: Prop<String>,
-    pub group_id: Prop<Option<GroupId>>,
+    pub group_id: Prop<GroupId>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
@@ -83,7 +83,7 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
 }
 
 impl MappingModel {
-    pub fn new(compartment: MappingCompartment, initial_group_id: Option<GroupId>) -> Self {
+    pub fn new(compartment: MappingCompartment, initial_group_id: GroupId) -> Self {
         Self {
             id: MappingId::random(),
             compartment,

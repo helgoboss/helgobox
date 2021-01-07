@@ -565,7 +565,7 @@ impl Session {
     pub fn move_mapping_to_group(
         &mut self,
         mapping_id: MappingId,
-        group_id: Option<GroupId>,
+        group_id: GroupId,
     ) -> Result<(), &'static str> {
         let mapping = self
             .find_mapping_by_id(MappingCompartment::MainMappings, mapping_id)
@@ -579,12 +579,12 @@ impl Session {
         self.groups.retain(|g| g.borrow().id() != id);
         if delete_mappings {
             self.mappings[MappingCompartment::MainMappings]
-                .retain(|m| m.borrow().group_id.get() != Some(id));
+                .retain(|m| m.borrow().group_id.get() != id);
         } else {
             for m in self.mappings(MappingCompartment::MainMappings) {
                 let mut m = m.borrow_mut();
-                if m.group_id.get() == Some(id) {
-                    m.group_id.set_without_notification(None);
+                if m.group_id.get() == id {
+                    m.group_id.set_without_notification(GroupId::default());
                 }
             }
         }
@@ -595,7 +595,7 @@ impl Session {
         &mut self,
         compartment: MappingCompartment,
         // Only relevant for main mapping compartment
-        initial_group_id: Option<GroupId>,
+        initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
@@ -643,7 +643,7 @@ impl Session {
         session: &SharedSession,
         compartment: MappingCompartment,
         // Only relevant for main mapping compartment
-        initial_group_id: Option<GroupId>,
+        initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
@@ -687,7 +687,7 @@ impl Session {
         session: &SharedSession,
         compartment: MappingCompartment,
         // Only relevant for main mapping compartment
-        initial_group_id: Option<GroupId>,
+        initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
@@ -1335,8 +1335,11 @@ impl Session {
     ) -> SharedMapping {
         let mapping = match self.find_mapping_with_target(compartment, target) {
             None => {
-                let m =
-                    self.add_default_mapping(compartment, None, VirtualControlElementType::Multi);
+                let m = self.add_default_mapping(
+                    compartment,
+                    GroupId::default(),
+                    VirtualControlElementType::Multi,
+                );
                 m.borrow_mut()
                     .target_model
                     .apply_from_target(target, &self.context);
@@ -1413,8 +1416,9 @@ impl Session {
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
-        if let Some(id) = mapping.group_id.get() {
-            self.find_group_by_id(id)
+        let group_id = mapping.group_id.get();
+        if group_id.is_default() {
+            self.find_group_by_id(group_id)
         } else {
             Some(&self.main_group)
         }
@@ -1460,16 +1464,12 @@ impl Session {
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
-        let group_activation_conditions: HashMap<Option<GroupId>, ActivationCondition> = self
+        let group_activation_conditions: HashMap<GroupId, ActivationCondition> = self
             .groups_including_main_group()
             .map(|group| {
                 let group = group.borrow();
                 (
-                    if group.is_main_group() {
-                        None
-                    } else {
-                        Some(group.id())
-                    },
+                    group.id(),
                     group
                         .activation_condition_model
                         .create_activation_condition(),
