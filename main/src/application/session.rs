@@ -1,5 +1,5 @@
 use crate::application::{
-    share_mapping, App, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
+    share_group, share_mapping, App, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
     SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
@@ -531,7 +531,7 @@ impl Session {
     }
 
     pub fn add_default_group(&mut self, name: String) -> GroupId {
-        let group = GroupModel::new(name);
+        let group = GroupModel::new_from_ui(name);
         self.add_group(group)
     }
 
@@ -1225,6 +1225,10 @@ impl Session {
             })
             .collect();
         self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
+    }
+
+    pub fn set_groups_without_notification(&mut self, groups: impl Iterator<Item = GroupModel>) {
+        self.groups = groups.into_iter().map(share_group).collect();
     }
 
     fn add_mapping(

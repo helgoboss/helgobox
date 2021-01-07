@@ -38,7 +38,13 @@ impl PartialEq for GroupModel {
 pub type SharedGroup = Rc<RefCell<GroupModel>>;
 pub type WeakGroup = Weak<RefCell<GroupModel>>;
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+pub fn share_group(group: GroupModel) -> SharedGroup {
+    Rc::new(RefCell::new(group))
+}
+
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default,
+)]
 #[serde(transparent)]
 pub struct GroupId {
     uuid: Uuid,
@@ -59,9 +65,17 @@ impl fmt::Display for GroupId {
 }
 
 impl GroupModel {
-    pub fn new(name: String) -> Self {
+    pub fn new_from_ui(name: String) -> Self {
+        Self::new_internal(GroupId::random(), name)
+    }
+
+    pub fn new_from_data(id: GroupId) -> Self {
+        Self::new_internal(id, "".to_string())
+    }
+
+    fn new_internal(id: GroupId, name: String) -> Self {
         Self {
-            id: GroupId::random(),
+            id,
             name: prop(name),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),

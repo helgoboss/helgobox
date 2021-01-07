@@ -19,9 +19,6 @@ pub use mapping_model::*;
 mod group_model;
 pub use group_model::*;
 
-mod aliases;
-pub use aliases::*;
-
 mod preset;
 pub use preset::*;
 

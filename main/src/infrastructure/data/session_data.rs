@@ -4,7 +4,7 @@ use crate::domain::{
     MappingCompartment, MidiControlInput, MidiFeedbackOutput, ParameterArray,
     PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
-use crate::infrastructure::data::{MappingModelData, ParameterData};
+use crate::infrastructure::data::{GroupModelData, MappingModelData, ParameterData};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,8 @@ pub struct SessionData {
     /// - `Some("fx-output")` means "\<FX output>"
     #[serde(default, skip_serializing_if = "is_default")]
     feedback_device_id: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    groups: Vec<GroupModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -84,6 +86,10 @@ impl SessionData {
                     FxOutput => "fx-output".to_string(),
                 })
             },
+            groups: session
+                .groups()
+                .map(|m| GroupModelData::from_model(m.borrow().deref()))
+                .collect(),
             mappings: from_mappings(MappingCompartment::MainMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             active_controller_id: session.active_controller_id().map(|id| id.to_string()),
@@ -161,6 +167,8 @@ impl SessionData {
         session
             .midi_feedback_output
             .set_without_notification(feedback_output);
+        // Groups
+        session.set_groups_without_notification(self.groups.iter().map(|g| g.to_model()));
         // Mappings
         let processor_context = session.context().clone();
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {

@@ -13,6 +13,8 @@ use crate::domain::{
     MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
     ReaperTarget, TargetCharacter,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Debug)]
@@ -33,6 +35,12 @@ pub struct MappingModel {
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
+}
+
+pub type SharedMapping = Rc<RefCell<MappingModel>>;
+
+pub fn share_mapping(mapping: MappingModel) -> SharedMapping {
+    Rc::new(RefCell::new(mapping))
 }
 
 impl Clone for MappingModel {
@@ -117,8 +125,6 @@ impl MappingModel {
         }
     }
 
-    // TODO-low Setting an ID is code smell. We should rather provide a second factory function.
-    //  Because we never map data on an existing Mapping anyway, we always create a new one.
     pub fn set_id_without_notification(&mut self, id: MappingId) {
         self.id = id;
     }

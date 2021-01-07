@@ -1,6 +1,9 @@
 mod mapping_model_data;
 pub use mapping_model_data::*;
 
+mod group_model_data;
+pub use group_model_data::*;
+
 mod mode_model_data;
 pub use mode_model_data::*;
 
@@ -15,6 +18,12 @@ pub use target_model_data::*;
 
 mod parameter_data;
 pub use parameter_data::*;
+
+mod activation_data;
+pub use activation_data::*;
+
+mod enabled_data;
+pub use enabled_data::*;
 
 mod preset;
 pub use preset::*;
