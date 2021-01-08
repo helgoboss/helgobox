@@ -774,8 +774,8 @@ This source reacts to incoming MIDI control-change messages.
   Therefore you explicitly need to tell ReaLearn about it by setting the _source character_. The
   good news is: If you use "Learn source", ReaLearn will try to guess the source character for you
   by looking at the emitted values. Naturally, the result is not always correct. The best guessing
-  result can be achieved by turning the knob or encoder quickly and "passionately" into a single
-  direction. The possible values are:
+  result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise
+  direction. Please note that guessing doesn't support encoder type 3. The possible values are:
   - **Range element (knob, fader, etc.):** A control element that emits continuous absolute values. Examples: Faders,
     knobs, modulation wheel, pitch bend, ribbon controller.
   - **Button (momentary):** A control element that can be pressed and emits absolute values. It emits a > 0%

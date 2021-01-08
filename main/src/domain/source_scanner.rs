@@ -1,6 +1,7 @@
 use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{Channel, ControllerNumber, ShortMessage, StructuredShortMessage, U7};
+use serde_prometheus::TypeHint::Counter;
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
@@ -147,45 +148,266 @@ fn guess_source(cc_state: &ControlChangeState) -> MidiSource {
     MidiSource::ControlChangeValue {
         channel: Some(cc_state.channel),
         controller_number: Some(cc_state.controller_number),
-        custom_character: guess_custom_character(cc_state.msg_count, &cc_state.values),
+        custom_character: guess_custom_character(&cc_state.values[0..cc_state.msg_count - 1]),
     }
 }
 
-fn guess_custom_character(count: usize, values: &[U7; MAX_CC_MSG_COUNT]) -> SourceCharacter {
+fn contains_direction_change(values: &[U7]) -> bool {
+    #[derive(Copy, Clone, PartialEq)]
+    enum Direction {
+        Clockwise,
+        CounterClockwise,
+    }
+    fn determine_direction(a: U7, b: U7) -> Option<Direction> {
+        use Direction::*;
+        if b > a {
+            Some(Clockwise)
+        } else if b < a {
+            Some(CounterClockwise)
+        } else {
+            None
+        }
+    }
+    let mut direction_so_far: Option<Direction> = None;
+    for i in 1..values.len() {
+        let new_direction = determine_direction(values[i - 1], values[i]);
+        if new_direction.is_none() {
+            continue;
+        }
+        if direction_so_far.is_none() {
+            direction_so_far = new_direction;
+            continue;
+        }
+        if new_direction != direction_so_far {
+            return true;
+        }
+    }
+    false
+}
+
+fn contains_consecutive_duplicates(values: &[U7]) -> bool {
+    for i in 1..values.len() {
+        if values[i] == values[i - 1] {
+            return true;
+        }
+    }
+    false
+}
+
+fn guess_custom_character(values: &[U7]) -> SourceCharacter {
     use SourceCharacter::*;
+    // We don't just interpret 127 or 100 as button because we consider typical keyboard keys also
+    // as buttons. They can be velocity-sensitive and therefore transmit any value.
     #[allow(clippy::if_same_then_else)]
-    if count == 1 {
+    if values.len() == 1 {
         // Only one message received. Looks like a button has been pressed and not released.
         Button
-    } else if count == 2 && values[1] == U7::MIN {
+    } else if values.len() == 2 && values[1] == U7::MIN {
         // Two messages received and second message has value 0. Looks like a button has been
         // pressed and released.
         Button
     } else {
         // Multiple messages received. Button character is ruled out already. Check continuity.
-        let mut prev_ord = Ordering::Equal;
-        for i in 1..count {
-            let current_ord = values[i - 1].cmp(&values[i]);
-            if current_ord == Ordering::Equal {
-                // Same value twice. Not continuous so it's probably an encoder.
-                return guess_encoder_type(values);
+        if contains_direction_change(values) {
+            // A direction change means it's very likely a (relative) encoder.
+            guess_encoder_type(values)
+        } else if contains_consecutive_duplicates(values) {
+            if values.contains(&U7::MIN) {
+                // For relative, zero means "don't do anything" - which is a bit pointless
+                // to send. So it's probably an encoder which is
+                // configured to transmit absolute values hitting
+                // the lower boundary.
+                Range
+            } else if values.contains(&U7::MAX) {
+                // Here we rely on the fact that the user should turn clock-wise. So it
+                // can't be relative type 1 because 127 means
+                // decrement. It's also unlikely to be the
+                // other relative types because this would happen with extreme acceleration
+                // only. So it's probably an encoder which is configured to transmit
+                // absolute values hitting the upper boundary.
+                Range
+            } else {
+                guess_encoder_type(values)
             }
-            if i > 1 && current_ord != prev_ord {
-                // Direction changed. Not continuous so it's probably an encoder.
-                return guess_encoder_type(values);
-            }
-            prev_ord = current_ord
+        } else {
+            // Was continuous without duplicates until now so it's probably a knob/fader.
+            SourceCharacter::Range
         }
-        // Was continuous until now so it's probably a knob/fader
-        SourceCharacter::Range
     }
 }
 
-fn guess_encoder_type(values: &[U7; MAX_CC_MSG_COUNT]) -> SourceCharacter {
+/// Unfortunately, encoder type 3 clockwise movement is not really distinguishable from 1 or 2.
+/// So we won't support its detection.
+fn guess_encoder_type(values: &[U7]) -> SourceCharacter {
     use SourceCharacter::*;
     match values[0].get() {
         1..=7 | 121..=127 => Encoder1,
         57..=71 => Encoder2,
-        _ => Encoder3,
+        // The remaining values are supported but not so typical for encoders because they only
+        // happen at high accelerations.
+        _ => Range,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use helgoboss_midi::test_util::u7;
+    use SourceCharacter::*;
+
+    #[test]
+    fn typical_range() {
+        assert_eq!(guess(&[40, 41, 42, 43, 44]), Range);
+    }
+
+    #[test]
+    fn typical_range_counter_clockwise() {
+        assert_eq!(guess(&[44, 43, 42, 41, 40]), Range);
+    }
+
+    #[test]
+    fn typical_trigger_button() {
+        assert_eq!(guess(&[100]), Button);
+        assert_eq!(guess(&[127]), Button);
+    }
+
+    #[test]
+    fn typical_switch_button() {
+        assert_eq!(guess(&[100, 0]), Button);
+        assert_eq!(guess(&[127, 0]), Button);
+    }
+
+    #[test]
+    fn typical_encoder_1() {
+        assert_eq!(guess(&[1, 1, 1, 1, 1]), Encoder1);
+    }
+
+    #[test]
+    fn typical_encoder_2() {
+        assert_eq!(guess(&[65, 65, 65, 65, 65]), Encoder2);
+    }
+
+    #[test]
+    fn typical_encoder_2_counter_clockwise() {
+        assert_eq!(guess(&[63, 63, 63, 63, 63]), Encoder2);
+    }
+
+    #[test]
+    fn velocity_sensitive_trigger_button() {
+        assert_eq!(guess(&[79]), Button);
+        assert_eq!(guess(&[10]), Button);
+    }
+
+    #[test]
+    fn velocity_sensitive_switch_button() {
+        assert_eq!(guess(&[79, 0]), Button);
+        assert_eq!(guess(&[10, 0]), Button);
+    }
+
+    #[test]
+    fn range_with_gaps() {
+        assert_eq!(guess(&[40, 42, 43, 46]), Range);
+    }
+
+    #[test]
+    fn range_with_gaps_counter_clockwise() {
+        assert_eq!(guess(&[44, 41, 40, 37, 35]), Range);
+    }
+
+    #[test]
+    fn very_lower_range() {
+        assert_eq!(guess(&[0, 1, 2, 3]), Range);
+    }
+
+    #[test]
+    fn lower_range() {
+        assert_eq!(guess(&[1, 2, 3, 4]), Range);
+    }
+
+    #[test]
+    fn very_upper_range_counter_clockwise() {
+        assert_eq!(guess(&[127, 126, 125, 124]), Range);
+    }
+
+    #[test]
+    fn upper_range_counter_clockwise() {
+        assert_eq!(guess(&[126, 125, 124, 123]), Range);
+    }
+
+    #[test]
+    fn encoder_1_with_acceleration() {
+        assert_eq!(guess(&[1, 2, 2, 1, 1]), Encoder1);
+    }
+
+    #[test]
+    fn encoder_1_with_acceleration_counter_clockwise() {
+        assert_eq!(guess(&[127, 126, 126, 127, 127]), Encoder1);
+    }
+
+    #[test]
+    fn encoder_1_with_more_acceleration() {
+        assert_eq!(guess(&[1, 2, 5, 5, 2]), Encoder1);
+    }
+
+    #[test]
+    fn encoder_1_with_more_acceleration_counter_clockwise() {
+        assert_eq!(guess(&[127, 126, 122, 122, 126]), Encoder1);
+    }
+
+    #[test]
+    fn encoder_2_with_acceleration() {
+        assert_eq!(guess(&[65, 66, 66, 65, 65]), Encoder2);
+    }
+
+    #[test]
+    fn encoder_2_with_acceleration_counter_clockwise() {
+        assert_eq!(guess(&[63, 62, 62, 63, 63]), Encoder2);
+    }
+
+    #[test]
+    fn encoder_2_with_more_acceleration() {
+        assert_eq!(guess(&[65, 66, 68, 68, 66]), Encoder2);
+    }
+
+    #[test]
+    fn encoder_2_with_more_acceleration_counter_clockwise() {
+        assert_eq!(guess(&[63, 62, 59, 59, 62]), Encoder2);
+    }
+
+    #[test]
+    fn absolute_encoder_hitting_upper_boundary() {
+        assert_eq!(guess(&[127, 127, 127, 127, 127]), Range);
+        assert_eq!(guess(&[125, 126, 127, 127, 127]), Range);
+    }
+
+    #[test]
+    fn absolute_encoder_hitting_lower_boundary_counter_clockwise() {
+        assert_eq!(guess(&[0, 0, 0, 0, 0]), Range);
+        assert_eq!(guess(&[2, 1, 0, 0, 0]), Range);
+    }
+
+    #[test]
+    fn lower_range_with_duplicate_elements() {
+        assert_eq!(guess(&[0, 0, 1, 1, 2, 2]), Range);
+    }
+
+    #[test]
+    fn lower_range_with_duplicate_elements_counter_clockwise() {
+        assert_eq!(guess(&[2, 2, 1, 1, 0, 0]), Range);
+    }
+
+    #[test]
+    fn neutral_zone_range_with_duplicate_elements() {
+        assert_eq!(guess(&[37, 37, 37, 38, 38, 38, 39, 39]), Range);
+    }
+
+    #[test]
+    fn neutral_zone_range_with_duplicate_elements_counter_clockwise() {
+        assert_eq!(guess(&[100, 100, 100, 99, 99, 99, 98, 98]), Range);
+    }
+
+    fn guess(values: &[u8]) -> SourceCharacter {
+        let u7_values: Vec<_> = values.into_iter().map(|v| u7(*v)).collect();
+        guess_custom_character(&u7_values)
     }
 }
