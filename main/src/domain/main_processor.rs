@@ -111,6 +111,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // then a track selection change changes the feedback value producer ... so
         // the main processor needs to unsubscribe from the old producer and
         // subscribe to the new one).
+        // TODO-medium We have prepared reaper-rs and ReaLearn enough to get rid of rxRust in this
+        //  layer! We would just need to provide a method on ReaperTarget that takes a ChangeEvent
+        //  and returns if it's affected or not.
         let self_sender = self.self_normal_sender.clone();
         ReaperTarget::potential_static_change_events()
             .merge(ReaperTarget::potential_dynamic_change_events())

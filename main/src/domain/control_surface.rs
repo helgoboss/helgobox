@@ -78,6 +78,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     fn run_internal(&mut self) {
         self.main_task_middleware.run();
         self.future_middleware.run();
+        self.rx_middleware.run();
         for t in self.main_task_receiver.try_iter().take(10) {
             use RealearnControlSurfaceMainTask::*;
             match t {
