@@ -33,7 +33,7 @@ use crate::infrastructure::ui::{
     SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -45,6 +45,7 @@ pub struct HeaderPanel {
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
+    is_invoked_programmatically: Cell<bool>,
 }
 
 impl HeaderPanel {
@@ -62,6 +63,7 @@ impl HeaderPanel {
             plugin_parameters,
             panel_manager,
             group_panel: Default::default(),
+            is_invoked_programmatically: false.into(),
         }
     }
 }
@@ -69,6 +71,16 @@ impl HeaderPanel {
 impl HeaderPanel {
     fn session(&self) -> SharedSession {
         self.session.upgrade().expect("session gone")
+    }
+
+    /// If you know a function in this view can be invoked by something else than the dialog
+    /// process, wrap your function body with this. Basically all pub functions!
+    ///
+    /// This prevents edit control text change events fired by windows to be processed.
+    fn invoke_programmatically(&self, f: impl FnOnce()) {
+        self.is_invoked_programmatically.set(true);
+        scopeguard::defer! { self.is_invoked_programmatically.set(false); }
+        f();
     }
 
     fn active_compartment(&self) -> MappingCompartment {
@@ -141,6 +153,9 @@ impl HeaderPanel {
     }
 
     fn add_mapping(&self) {
+        self.main_state
+            .borrow_mut()
+            .clear_all_filters_except_group();
         self.session().borrow_mut().add_default_mapping(
             self.active_compartment(),
             self.active_group_id().unwrap_or_default(),
@@ -574,7 +589,7 @@ impl HeaderPanel {
         let main_state = self.main_state.borrow();
         self.view
             .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
-            .set_text(main_state.search_expression.get_ref().as_str())
+            .set_text_if_not_focused(main_state.search_expression.get_ref().as_str())
     }
 
     fn update_midi_control_input(&self) {
@@ -1112,6 +1127,11 @@ impl HeaderPanel {
         self.when(main_state.group_filter.changed(), |view| {
             view.invalidate_group_controls();
         });
+        self.when(main_state.search_expression.changed(), |view| {
+            view.invoke_programmatically(|| {
+                view.invalidate_search_expression();
+            });
+        });
         self.when(
             main_state
                 .is_learning_target_filter
@@ -1178,6 +1198,10 @@ impl HeaderPanel {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
+    }
+
+    fn is_invoked_programmatically(&self) -> bool {
+        self.is_invoked_programmatically.get()
     }
 }
 
@@ -1250,6 +1274,14 @@ impl View for HeaderPanel {
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+        if self.is_invoked_programmatically() {
+            // We don't want to continue if the edit control change was not caused by the user.
+            // Although the edit control text is changed programmatically, it also triggers the
+            // change handler. Ignore it! Most of those events are filtered out already
+            // by the dialog proc reentrancy check, but this one is not because the
+            // dialog proc is not reentered - we are just reacting (async) to a change.
+            return false;
+        }
         use root::*;
         match resource_id {
             ID_HEADER_SEARCH_EDIT_CONTROL => self.update_search_expression(),

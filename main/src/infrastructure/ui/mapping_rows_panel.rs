@@ -76,7 +76,7 @@ impl MappingRowsPanel {
         {
             let mut main_state = self.main_state.borrow_mut();
             main_state.active_compartment.set(compartment);
-            main_state.clear_filters();
+            main_state.clear_all_filters();
         }
         self.scroll(index);
     }

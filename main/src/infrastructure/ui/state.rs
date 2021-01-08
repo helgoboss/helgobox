@@ -48,10 +48,23 @@ impl Default for MainState {
 }
 
 impl MainState {
-    pub fn clear_filters(&mut self) {
+    pub fn clear_all_filters(&mut self) {
+        self.clear_all_filters_except_group();
+        self.clear_group_filter();
+    }
+
+    pub fn clear_all_filters_except_group(&mut self) {
         self.clear_source_filter();
         self.clear_target_filter();
+        self.clear_search_expression_filter();
+    }
+
+    pub fn clear_group_filter(&mut self) {
         self.group_filter.set(None);
+    }
+
+    pub fn clear_search_expression_filter(&mut self) {
+        self.search_expression.set("".to_string());
     }
 
     pub fn clear_source_filter(&mut self) {
