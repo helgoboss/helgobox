@@ -117,9 +117,9 @@ impl App {
         session
             .plugin_register_add_hook_post_command::<ActionRxHookPostCommand<Global>>()
             .unwrap();
-        session
-            .plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>()
-            .unwrap();
+        // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
+        let _ =
+            session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         let surface = crate::application::App::get().take_control_surface();
         surface.middleware().reset();
         debug!(
