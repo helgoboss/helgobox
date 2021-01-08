@@ -306,20 +306,18 @@ impl MappingRowPanel {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
 
-    fn move_mapping_up(&self) {
-        self.session()
-            .borrow_mut()
-            .move_mapping_up(self.active_compartment(), self.require_mapping_address());
+    fn move_mapping_within_list(&self, increment: isize) {
+        let within_same_group = self.main_state.borrow().group_filter.get().is_some();
+        let _ = self.session().borrow_mut().move_mapping_within_list(
+            self.active_compartment(),
+            self.require_mapping().borrow().id(),
+            within_same_group,
+            increment,
+        );
     }
 
     fn active_compartment(&self) -> MappingCompartment {
         self.main_state.borrow().active_compartment.get()
-    }
-
-    fn move_mapping_down(&self) {
-        self.session()
-            .borrow_mut()
-            .move_mapping_down(self.active_compartment(), self.require_mapping_address());
     }
 
     fn remove_mapping(&self) {
@@ -462,8 +460,8 @@ impl View for MappingRowPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
-            root::ID_UP_BUTTON => self.move_mapping_up(),
-            root::ID_DOWN_BUTTON => self.move_mapping_down(),
+            root::ID_UP_BUTTON => self.move_mapping_within_list(-1),
+            root::ID_DOWN_BUTTON => self.move_mapping_within_list(1),
             root::ID_MAPPING_ROW_REMOVE_BUTTON => self.remove_mapping(),
             root::ID_MAPPING_ROW_DUPLICATE_BUTTON => self.duplicate_mapping(),
             root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => self.toggle_learn_source(),

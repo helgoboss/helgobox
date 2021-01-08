@@ -23,6 +23,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use itertools::Itertools;
+use std::ops::Range;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
@@ -533,8 +534,8 @@ impl Session {
         mapping_id: MappingId,
         group_id: GroupId,
     ) -> Result<(), &'static str> {
-        let mapping = self
-            .find_mapping_by_id(MappingCompartment::MainMappings, mapping_id)
+        let (_, mapping) = self
+            .find_mapping_and_index_by_id(MappingCompartment::MainMappings, mapping_id)
             .ok_or("no such mapping")?;
         mapping.borrow_mut().group_id.set(group_id);
         self.notify_group_list_changed();
@@ -748,13 +749,14 @@ impl Session {
             .find(|m| m.as_ptr() == mapping as _)
     }
 
-    pub fn find_mapping_by_id(
+    pub fn find_mapping_and_index_by_id(
         &self,
         compartment: MappingCompartment,
         mapping_id: MappingId,
-    ) -> Option<&SharedMapping> {
+    ) -> Option<(usize, &SharedMapping)> {
         self.mappings(compartment)
-            .find(|m| m.borrow().id() == mapping_id)
+            .enumerate()
+            .find(|(i, m)| m.borrow().id() == mapping_id)
     }
 
     pub fn mappings(
@@ -910,43 +912,57 @@ impl Session {
         self.mapping_which_learns_target.set(None);
     }
 
-    pub fn move_mapping_up(
-        &mut self,
+    fn find_index_of_closest_mapping(
+        &self,
         compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) {
-        // No problem if it doesn't work
-        let _ = self.swap_mappings(compartment, mapping, -1);
+        mapping: &SharedMapping,
+        index: usize,
+        within_same_group: bool,
+        increment: isize,
+    ) -> Option<usize> {
+        let mappings = &self.mappings[compartment];
+        let total_mapping_count = mappings.len();
+        let result_index = if within_same_group {
+            let group_id = mapping.borrow().group_id.get();
+            let mut i = index as isize + increment;
+            while i >= 0 && i < total_mapping_count as isize {
+                let m = &mappings[i as usize];
+                if m.borrow().group_id.get() == group_id {
+                    break;
+                }
+                i += increment;
+            }
+            i
+        } else {
+            index as isize + increment
+        };
+        if result_index < 0 || result_index as usize >= total_mapping_count {
+            return None;
+        }
+        Some(result_index as usize)
     }
 
-    pub fn move_mapping_down(
+    pub fn move_mapping_within_list(
         &mut self,
         compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) {
-        // No problem if it doesn't work
-        let _ = self.swap_mappings(compartment, mapping, 1);
-    }
-
-    fn swap_mappings(
-        &mut self,
-        compartment: MappingCompartment,
-        mapping: *const MappingModel,
+        mapping_id: MappingId,
+        within_same_group: bool,
         increment: isize,
     ) -> Result<(), &str> {
-        let current_index = self.mappings[compartment]
-            .iter()
-            .position(|m| m.as_ptr() == mapping as _)
+        let (current_index, mapping) = self
+            .find_mapping_and_index_by_id(compartment, mapping_id)
             .ok_or("mapping not found")?;
-        let new_index = current_index as isize + increment;
-        if new_index < 0 {
-            return Err("too far up");
-        }
-        let new_index = new_index as usize;
-        if new_index >= self.mappings[compartment].len() {
-            return Err("too far down");
-        }
-        self.mappings[compartment].swap(current_index, new_index);
+        let dest_index = self
+            .find_index_of_closest_mapping(
+                compartment,
+                mapping,
+                current_index,
+                within_same_group,
+                increment,
+            )
+            .ok_or("move not possible because boundary reached")?;
+        let pending_mapping = self.mappings[compartment].remove(current_index);
+        self.mappings[compartment].insert(dest_index, pending_mapping);
         self.notify_mapping_list_changed(compartment, None);
         Ok(())
     }
