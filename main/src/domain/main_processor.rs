@@ -120,6 +120,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // We have this explicit stop criteria because we listen to global REAPER events.
             .take_until(self.party_is_over_subject.clone())
             .subscribe(move |_| {
+                // This should always succeed because at the time this is executed, "party is not
+                // yet over" and therefore the receiver exists.
                 self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
             });
     }
@@ -189,12 +191,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 unused_sources.remove(m.source());
                             }
                         }
-                        self.normal_real_time_task_sender
-                            .send(NormalRealTimeTask::UpdateTargetActivations(
+                        // In some cases like closing projects, it's possible that this will fail
+                        // because the real-time processor is already gone. But it doesn't matter.
+                        let _ = self.normal_real_time_task_sender.send(
+                            NormalRealTimeTask::UpdateTargetActivations(
                                 compartment,
                                 mappings_with_active_targets,
-                            ))
-                            .unwrap();
+                            ),
+                        );
                         self.handle_feedback_after_batch_mapping_update(
                             compartment,
                             &unused_sources,
