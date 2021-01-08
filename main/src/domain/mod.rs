@@ -13,6 +13,9 @@ pub use mapping::*;
 mod control_surface;
 pub use control_surface::*;
 
+mod audio_hook;
+pub use audio_hook::*;
+
 mod mode;
 pub use mode::*;
 

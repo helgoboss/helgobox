@@ -68,14 +68,8 @@ pub struct Session {
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
-    normal_main_task_channel: (
-        crossbeam_channel::Sender<NormalMainTask>,
-        crossbeam_channel::Receiver<NormalMainTask>,
-    ),
-    parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-    control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+    normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameter_settings: Vec<ParameterSetting>,
@@ -136,13 +130,7 @@ impl Session {
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        normal_main_task_channel: (
-            crossbeam_channel::Sender<NormalMainTask>,
-            crossbeam_channel::Receiver<NormalMainTask>,
-        ),
-        control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+        normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         ui: impl SessionUi + 'static,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
@@ -178,11 +166,8 @@ impl Session {
             source_touched_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
-            normal_main_task_channel,
-            parameter_main_task_receiver,
-            control_main_task_receiver,
+            normal_main_task_sender,
             normal_real_time_task_sender,
-            feedback_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
@@ -228,23 +213,6 @@ impl Session {
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
-        // Register the main processor with the global ReaLearn control surface. We let it call by
-        // the control surface because it must be called regularly, even when the ReaLearn UI is
-        // closed. That means, the VST GUI idle callback is not suited.
-        let main_processor = MainProcessor::new(
-            self.instance_id.clone(),
-            &self.logger,
-            self.normal_main_task_channel.0.clone(),
-            self.normal_main_task_channel.1.clone(),
-            self.parameter_main_task_receiver.clone(),
-            self.control_main_task_receiver.clone(),
-            self.normal_real_time_task_sender.clone(),
-            self.feedback_real_time_task_sender.clone(),
-            weak_session.clone(),
-            self.context.clone(),
-        );
-        main_processor.activate();
-        App::get().register_main_processor(main_processor);
         // Initial sync
         self.initial_sync(weak_session.clone());
         // Whenever auto-correct setting changes, resubscribe to all mappings because
@@ -1251,16 +1219,14 @@ impl Session {
     }
 
     pub fn send_feedback(&self) {
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::FeedbackAll)
             .unwrap();
     }
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::LogDebugInfo)
             .unwrap();
         self.normal_real_time_task_sender
@@ -1396,8 +1362,7 @@ impl Session {
             .map(|g| g.borrow().create_data())
             .unwrap_or_default();
         let main_mapping = m.create_main_mapping(group_data);
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::UpdateSingleMapping(
                 compartment,
                 Box::new(main_mapping),
@@ -1435,8 +1400,7 @@ impl Session {
 
     /// Just syncs whether feedback globally enabled or not.
     fn sync_feedback_is_globally_enabled(&self) {
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(
                 self.feedback_is_globally_enabled(),
             ))
@@ -1446,8 +1410,7 @@ impl Session {
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
         let main_mappings = self.create_main_mappings(compartment);
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
@@ -1526,7 +1489,6 @@ pub struct ParameterSetting {
 impl Drop for Session {
     fn drop(&mut self) {
         debug!(self.logger(), "Dropping session...");
-        App::get().unregister_main_processor(self.instance_id.clone());
         self.party_is_over_subject.next(());
     }
 }

@@ -1,7 +1,11 @@
-use crate::application::{RealearnControlSurface, WeakSession};
+use crate::application::WeakSession;
 use crate::core::default_util::is_default;
 use crate::core::Global;
-use crate::domain::{RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware};
+use crate::domain::{
+    MainProcessor, RealTimeProcessor, RealearnAudioHook, RealearnAudioHookTask,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceServerTask, SharedRealTimeProcessor,
+};
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
     SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
@@ -9,22 +13,34 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
-use reaper_high::{Fx, MiddlewareControlSurface, Reaper};
+use reaper_high::{CrashInfo, Fx, MiddlewareControlSurface, Reaper};
+use reaper_low::{PluginContext, Swell};
 use reaper_medium::RegistrationHandle;
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
-use slog::{debug, o, Drain};
+use slog::{debug, o, Drain, Logger};
 use std::cell::{Ref, RefCell};
 use std::fs;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
 use url::Url;
 
 make_available_globally_in_main_thread!(App);
 
+pub type RealearnControlSurface =
+    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
+
+pub type RealearnControlSurfaceMainTaskSender =
+    crossbeam_channel::Sender<RealearnControlSurfaceMainTask<WeakSession>>;
+
+pub type RealearnControlSurfaceServerTaskSender =
+    crossbeam_channel::Sender<RealearnControlSurfaceServerTask>;
+
 pub struct App {
+    state: RefCell<AppState>,
     controller_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
@@ -33,10 +49,55 @@ pub struct App {
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
+    control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
+    audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
+}
+
+enum AppState {
+    Uninitialized(UninitializedState),
+    Initializing,
+    Sleeping(SleepingState),
+    WakingUp,
+    Awake(AwakeState),
+    GoingToSleep,
+}
+
+impl AppState {
+    fn is_uninitialized(&self) -> bool {
+        matches!(self, AppState::Uninitialized(_))
+    }
+
+    fn is_sleeping(&self) -> bool {
+        matches!(self, AppState::Sleeping(_))
+    }
+
+    fn is_awake(&self) -> bool {
+        matches!(self, AppState::Awake(_))
+    }
+}
+
+struct UninitializedState {
+    control_surface_main_task_receiver:
+        crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
+    control_surface_server_task_receiver:
+        crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
+    audio_hook_task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
+}
+
+struct SleepingState {
+    control_surface: Box<RealearnControlSurface>,
+    audio_hook: Box<RealearnAudioHook>,
+}
+
+struct AwakeState {
+    control_surface_handle: RegistrationHandle<RealearnControlSurface>,
+    audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
 }
 
 impl Default for App {
     fn default() -> Self {
+        // TODO-low Not so super cool to load from a file in the default function. However,
+        //  that made it easier for our make_available_globally_in_main_thread!().
         let config = AppConfig::load().unwrap_or_else(|e| {
             debug!(crate::application::App::logger(), "{}", e);
             Default::default()
@@ -66,7 +127,16 @@ impl App {
     }
 
     fn new(config: AppConfig) -> App {
+        let (main_sender, main_receiver) = crossbeam_channel::unbounded();
+        let (server_sender, server_receiver) = crossbeam_channel::unbounded();
+        let (audio_sender, audio_receiver) = crossbeam_channel::unbounded();
+        let uninitialized_state = UninitializedState {
+            control_surface_main_task_receiver: main_receiver,
+            control_surface_server_task_receiver: server_receiver,
+            audio_hook_task_receiver: audio_receiver,
+        };
         App {
+            state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
             controller_manager: Rc::new(RefCell::new(FileBasedControllerPresetManager::new(
                 App::realearn_preset_dir_path().join("controller"),
             ))),
@@ -80,19 +150,40 @@ impl App {
                 config.main.server_http_port,
                 config.main.server_https_port,
                 App::server_resource_dir_path().join("certificates"),
-                crate::application::App::get()
-                    .control_surface_server_task_sender()
-                    .clone(),
+                server_sender,
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
             list_of_recently_focused_fx: Default::default(),
             party_is_over_subject: Default::default(),
+            control_surface_main_task_sender: main_sender,
+            audio_hook_task_sender: audio_sender,
         }
     }
 
-    /// Executed globally just once as soon as we have access to global REAPER instance
+    /// Executed globally just once when module loaded.
+    pub fn init_static(logger: Logger, context: PluginContext) {
+        Swell::make_available_globally(Swell::load(context));
+        Reaper::setup_with_defaults(
+            context,
+            logger,
+            CrashInfo {
+                plugin_name: "ReaLearn".to_string(),
+                plugin_version: App::detailed_version_label().to_string(),
+                support_email_address: "info@helgoboss.org".to_string(),
+            },
+        );
+        App::get().init();
+    }
+
+    /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
+        let prev_state = self.state.replace(AppState::Initializing);
+        let uninit_state = if let AppState::Uninitialized(s) = prev_state {
+            s
+        } else {
+            panic!("App was not uninitialized anymore");
+        };
         crate::application::App::get().register_global_learn_action();
         server::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
@@ -104,9 +195,28 @@ impl App {
             .subscribe(move |fx| {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
+        let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
+            &crate::application::App::logger(),
+            uninit_state.control_surface_main_task_receiver,
+            uninit_state.control_surface_server_task_receiver,
+            std::env::var("REALEARN_METER").is_ok(),
+        ));
+        let audio_hook = RealearnAudioHook::new(uninit_state.audio_hook_task_receiver);
+        let sleeping_state = SleepingState {
+            control_surface: Box::new(control_surface),
+            audio_hook: Box::new(audio_hook),
+        };
+        self.state.replace(AppState::Sleeping(sleeping_state));
     }
 
-    pub fn wake_up(&self) -> RegistrationHandle<RealearnControlSurface> {
+    // Executed whenever the first ReaLearn instance is loaded.
+    pub fn wake_up(&self) {
+        let prev_state = self.state.replace(AppState::WakingUp);
+        let sleeping_state = if let AppState::Sleeping(s) = prev_state {
+            s
+        } else {
+            panic!("App was not sleeping");
+        };
         if self.config.borrow().server_is_enabled() {
             self.server()
                 .borrow_mut()
@@ -114,38 +224,92 @@ impl App {
                 .unwrap_or_else(warn_about_failed_server_start);
         }
         let mut session = Reaper::get().medium_session();
+        // Action hooks
         session
             .plugin_register_add_hook_post_command::<ActionRxHookPostCommand<Global>>()
             .unwrap();
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
-        let surface = crate::application::App::get().take_control_surface();
-        surface.middleware().reset();
+        // Audio hook and control surface
         debug!(
             crate::application::App::logger(),
-            "Registering ReaLearn control surface..."
+            "Registering ReaLearn audio hook and control surface..."
         );
-        session
-            .plugin_register_add_csurf_inst(surface)
-            .expect("couldn't register ReaLearn control surface")
+        let audio_hook_handle = session
+            .audio_reg_hardware_hook_add(sleeping_state.audio_hook)
+            .expect("couldn't register ReaLearn audio hook");
+        sleeping_state.control_surface.middleware().reset();
+        let control_surface_handle = session
+            .plugin_register_add_csurf_inst(sleeping_state.control_surface)
+            .expect("couldn't register ReaLearn control surface");
+        let awake_state = AwakeState {
+            control_surface_handle,
+            audio_hook_handle,
+        };
+        self.state.replace(AppState::Awake(awake_state));
     }
 
-    pub fn go_to_sleep(&self, reg_handle: RegistrationHandle<RealearnControlSurface>) {
+    pub fn register_processor_couple(
+        &self,
+        real_time_processor: SharedRealTimeProcessor,
+        main_processor: MainProcessor<WeakSession>,
+    ) {
+        self.audio_hook_task_sender
+            .send(RealearnAudioHookTask::AddRealTimeProcessor(
+                real_time_processor,
+            ))
+            .unwrap();
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::AddMainProcessor(
+                main_processor,
+            ))
+            .unwrap();
+    }
+
+    pub fn unregister_processor_couple(&self, instance_id: String) {
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::RemoveMainProcessor(
+                instance_id.clone(),
+            ))
+            .unwrap();
+        self.audio_hook_task_sender
+            .send(RealearnAudioHookTask::RemoveRealTimeProcessor(instance_id))
+            .unwrap();
+    }
+
+    // Executed whenever the last ReaLearn instance goes away.
+    pub fn go_to_sleep(&self) {
+        let prev_state = self.state.replace(AppState::GoingToSleep);
+        let awake_state = if let AppState::Awake(s) = prev_state {
+            s
+        } else {
+            panic!("App was not awake");
+        };
         let mut session = Reaper::get().medium_session();
         debug!(
             crate::application::App::logger(),
-            "Unregistering ReaLearn control surface..."
+            "Unregistering ReaLearn control surface and audio hook..."
         );
-        unsafe {
-            let surface = session
-                .plugin_register_remove_csurf_inst(reg_handle)
-                .expect("conrol surface was not registered");
-            crate::application::App::get().put_control_surface_back(surface);
-        }
+        let (control_surface, audio_hook) = unsafe {
+            let control_surface = session
+                .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
+                .expect("control surface was not registered");
+            let audio_hook = session
+                .audio_reg_hardware_hook_remove(awake_state.audio_hook_handle)
+                .expect("control surface was not registered");
+            (control_surface, audio_hook)
+        };
+        // Actions
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
+        // Server
         self.server().borrow_mut().stop();
+        let sleeping_state = SleepingState {
+            control_surface,
+            audio_hook,
+        };
+        self.state.replace(AppState::Sleeping(sleeping_state));
     }
 
     /// The special thing about this is that this doesn't return the currently focused FX but the
@@ -195,6 +359,9 @@ impl App {
     pub fn log_debug_info(&self, session_id: &str) {
         self.server.borrow().log_debug_info(session_id);
         self.controller_manager.borrow().log_debug_info();
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::LogDebugInfo)
+            .unwrap();
         // Must be the last because it (intentionally) panics
         crate::application::App::get().log_debug_info();
     }

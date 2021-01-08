@@ -1,11 +1,12 @@
 use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::notification;
 use crate::domain::{
-    MainProcessor, MappingCompartment, RealearnControlSurfaceMainTask,
+    MainProcessor, MappingCompartment, RealearnAudioHookTask, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, ReaperTarget,
 };
 use reaper_high::{ActionKind, MiddlewareControlSurface, Reaper, Track};
 
+use reaper_medium::RegistrationHandle;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::{debug, o, Drain};
@@ -15,60 +16,21 @@ use std::rc::Rc;
 
 make_available_globally_in_main_thread!(App);
 
-pub type RealearnControlSurface =
-    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
-
-pub type RealearnControlSurfaceMainTaskSender =
-    crossbeam_channel::Sender<RealearnControlSurfaceMainTask<WeakSession>>;
-
-pub type RealearnControlSurfaceServerTaskSender =
-    crossbeam_channel::Sender<RealearnControlSurfaceServerTask>;
-
 pub struct App {
     sessions: RefCell<Vec<WeakSession>>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
-    /// `None` before global initialization and as long as at least one ReaLearn plugin instance
-    /// instance loaded. `Some` whenever no ReaLearn plugin instance loaded. It's important that
-    /// after unregistering, this is put back here, otherwise pending task executions might fail.
-    control_surface: RefCell<Option<Box<RealearnControlSurface>>>,
-    control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
-    control_surface_server_task_sender: RealearnControlSurfaceServerTaskSender,
 }
 
 impl Default for App {
     fn default() -> Self {
-        let (main_sender, main_receiver) = crossbeam_channel::unbounded();
-        let (server_sender, server_receiver) = crossbeam_channel::unbounded();
         App {
             sessions: Default::default(),
             changed_subject: Default::default(),
-            control_surface: {
-                let s = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-                    &App::logger(),
-                    main_receiver,
-                    server_receiver,
-                    std::env::var("REALEARN_METER").is_ok(),
-                ));
-                RefCell::new(Some(Box::new(s)))
-            },
-            control_surface_main_task_sender: main_sender,
-            control_surface_server_task_sender: server_sender,
         }
     }
 }
 
 impl App {
-    pub fn take_control_surface(&self) -> Box<RealearnControlSurface> {
-        self.control_surface
-            .borrow_mut()
-            .take()
-            .expect("control surface already taken")
-    }
-
-    pub fn control_surface_server_task_sender(&self) -> &RealearnControlSurfaceServerTaskSender {
-        &self.control_surface_server_task_sender
-    }
-
     // We need this to be static because we need it at plugin construction time, so we don't have
     // REAPER API access yet. App needs REAPER API to be constructed (e.g. in order to
     // know where's the resource directory that contains the app configuration).
@@ -80,24 +42,6 @@ impl App {
             slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
         });
         &APP_LOGGER
-    }
-
-    pub fn put_control_surface_back(&self, control_surface: Box<RealearnControlSurface>) {
-        *self.control_surface.borrow_mut() = Some(control_surface);
-    }
-
-    pub fn register_main_processor(&self, p: MainProcessor<WeakSession>) {
-        self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::AddMainProcessor(p))
-            .unwrap();
-    }
-
-    pub fn unregister_main_processor(&self, processor_id: String) {
-        self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::RemoveMainProcessor(
-                processor_id,
-            ))
-            .unwrap();
     }
 
     pub fn changed(&self) -> impl UnitEvent {
@@ -116,9 +60,6 @@ impl App {
     }
 
     pub fn log_debug_info(&self) {
-        self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::LogDebugInfo)
-            .unwrap();
         let msg = format!(
             "\n\
         # App\n\

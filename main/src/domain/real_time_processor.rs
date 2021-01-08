@@ -40,6 +40,7 @@ impl ControlMode {
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
+    instance_id: String,
     logger: slog::Logger,
     // Synced processing settings
     pub(crate) control_mode: ControlMode,
@@ -68,6 +69,7 @@ pub struct RealTimeProcessor {
 
 impl RealTimeProcessor {
     pub fn new(
+        instance_id: String,
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
@@ -77,6 +79,7 @@ impl RealTimeProcessor {
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
+            instance_id,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
@@ -126,8 +129,12 @@ impl RealTimeProcessor {
         }
     }
 
+    pub fn instance_id(&self) -> &str {
+        &self.instance_id
+    }
+
     /// Should be called regularly in real-time audio thread.
-    pub fn idle(&mut self, sample_count: usize) {
+    pub fn run(&mut self, sample_count: usize) {
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
