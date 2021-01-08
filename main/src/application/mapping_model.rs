@@ -18,7 +18,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// A model for creating mappings (a combination of source, mode and target).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MappingModel {
     id: MappingId,
     compartment: MappingCompartment,
@@ -38,25 +38,6 @@ pub type SharedMapping = Rc<RefCell<MappingModel>>;
 
 pub fn share_mapping(mapping: MappingModel) -> SharedMapping {
     Rc::new(RefCell::new(mapping))
-}
-
-impl Clone for MappingModel {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            compartment: self.compartment,
-            name: self.name.clone(),
-            group_id: self.group_id.clone(),
-            control_is_enabled: self.control_is_enabled.clone(),
-            feedback_is_enabled: self.feedback_is_enabled.clone(),
-            prevent_echo_feedback: self.prevent_echo_feedback.clone(),
-            send_feedback_after_control: self.send_feedback_after_control.clone(),
-            activation_condition_model: self.activation_condition_model.clone(),
-            source_model: self.source_model.clone(),
-            mode_model: self.mode_model.clone(),
-            target_model: self.target_model.clone(),
-        }
-    }
 }
 
 // We design mapping models as entity (in the DDD sense), so we compare them by ID, not by value.
@@ -178,10 +159,7 @@ impl MappingModel {
 
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(
-        &self,
-        group_activation_condition: ActivationCondition,
-    ) -> MainMapping {
+    pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
@@ -196,8 +174,8 @@ impl MappingModel {
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,
-            control_is_enabled: self.control_is_enabled.get(),
-            feedback_is_enabled: self.feedback_is_enabled.get(),
+            control_is_enabled: group_data.control_is_enabled && self.control_is_enabled.get(),
+            feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
             prevent_echo_feedback: self.prevent_echo_feedback.get(),
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
@@ -206,10 +184,26 @@ impl MappingModel {
             source,
             mode,
             unresolved_target,
-            group_activation_condition,
+            group_data.activation_condition,
             activation_condition,
             options,
         )
+    }
+}
+
+pub struct GroupData {
+    pub control_is_enabled: bool,
+    pub feedback_is_enabled: bool,
+    pub activation_condition: ActivationCondition,
+}
+
+impl Default for GroupData {
+    fn default() -> Self {
+        Self {
+            control_is_enabled: true,
+            feedback_is_enabled: true,
+            activation_condition: ActivationCondition::Always,
+        }
     }
 }
 

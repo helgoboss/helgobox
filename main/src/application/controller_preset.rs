@@ -1,4 +1,4 @@
-use crate::application::{MappingModel, Preset};
+use crate::application::{GroupModel, MappingModel, Preset};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -36,7 +36,7 @@ impl ControllerPreset {
         self.custom_data.insert(key, value);
     }
 
-    pub fn update_mappings(&mut self, mappings: Vec<MappingModel>) {
+    pub fn update_realearn_data(&mut self, mappings: Vec<MappingModel>) {
         self.mappings = mappings;
     }
 }
@@ -44,6 +44,14 @@ impl ControllerPreset {
 impl Preset for ControllerPreset {
     fn id(&self) -> &str {
         &self.id
+    }
+
+    fn default_group(&self) -> &GroupModel {
+        unimplemented!("controller presets don't support groups")
+    }
+
+    fn groups(&self) -> &Vec<GroupModel> {
+        unimplemented!("controller presets don't support groups")
     }
 
     fn mappings(&self) -> &Vec<MappingModel> {

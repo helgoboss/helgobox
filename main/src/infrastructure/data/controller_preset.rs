@@ -1,4 +1,4 @@
-use crate::application::{ControllerPreset, Preset, PresetManager, SharedMapping};
+use crate::application::{ControllerPreset, Preset, PresetManager, SharedGroup, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
@@ -24,6 +24,15 @@ impl PresetManager for SharedControllerPresetManager {
 
     fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
         self.borrow().mappings_are_dirty(id, mappings)
+    }
+
+    fn groups_are_dirty(
+        &self,
+        id: &str,
+        default_group: &SharedGroup,
+        groups: &[SharedGroup],
+    ) -> bool {
+        self.borrow().groups_are_dirty(id, default_group, groups)
     }
 }
 

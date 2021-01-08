@@ -1,7 +1,7 @@
 use crate::application::{
-    share_group, share_mapping, App, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
-    MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
-    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
+    share_group, share_mapping, App, ControllerPreset, FxId, GroupData, GroupId, GroupModel,
+    MainPreset, MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager,
+    SharedGroup, SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
@@ -18,7 +18,7 @@ use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use slog::debug;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
@@ -475,13 +475,11 @@ impl Session {
 
     fn resubscribe_to_groups(&mut self, weak_session: WeakSession) {
         self.group_subscriptions = self
-            .groups
-            .iter()
+            .groups_including_default_group()
             .map(|shared_group| {
                 // We don't need to take until "party is over" because if the session disappears,
                 // we know the groups disappear as well.
                 let group = shared_group.borrow();
-                let shared_group_clone = shared_group.clone();
                 let mut all_subscriptions = LocalSubscription::default();
                 // Keep syncing to processors
                 {
@@ -1082,7 +1080,7 @@ impl Session {
         self.main_preset_manager.find_by_id(id)
     }
 
-    pub fn controller_mappings_are_dirty(&self) -> bool {
+    pub fn controller_preset_is_out_of_date(&self) -> bool {
         let id = match &self.active_controller_id {
             None => return self.mapping_count(MappingCompartment::ControllerMappings) > 0,
             Some(id) => id,
@@ -1091,13 +1089,19 @@ impl Session {
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
     }
 
-    pub fn main_mappings_are_dirty(&self) -> bool {
+    pub fn main_preset_is_out_of_date(&self) -> bool {
         let id = match &self.active_main_preset_id {
-            None => return self.mapping_count(MappingCompartment::MainMappings) > 0,
+            None => {
+                return self.mapping_count(MappingCompartment::MainMappings) > 0
+                    || self.groups.len() > 0;
+            }
             Some(id) => id,
         };
         self.main_preset_manager
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::MainMappings])
+            || self
+                .main_preset_manager
+                .groups_are_dirty(id, &self.default_group, &self.groups)
     }
 
     pub fn activate_controller(
@@ -1105,19 +1109,23 @@ impl Session {
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
+        let compartment = MappingCompartment::ControllerMappings;
         self.active_controller_id = id.clone();
-        self.activate_preset(
-            MappingCompartment::ControllerMappings,
-            id,
-            weak_session,
-            |session, id| {
-                let controller = session
-                    .controller_preset_manager
-                    .find_by_id(id)
-                    .ok_or("controller not found")?;
-                Ok(controller.mappings().clone())
-            },
-        )
+        if let Some(id) = id.as_ref() {
+            let controller = self
+                .controller_preset_manager
+                .find_by_id(id)
+                .ok_or("controller not found")?;
+            self.set_mappings_without_notification(
+                compartment,
+                controller.mappings().iter().cloned(),
+            );
+        } else {
+            // <None> preset
+            self.set_mappings_without_notification(compartment, std::iter::empty());
+        };
+        self.notify_everything_has_changed(weak_session);
+        Ok(())
     }
 
     pub fn activate_main_preset(
@@ -1125,40 +1133,26 @@ impl Session {
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
+        let compartment = MappingCompartment::MainMappings;
         self.active_main_preset_id = id.clone();
-        self.activate_preset(
-            MappingCompartment::MainMappings,
-            id,
-            weak_session,
-            |session, id| {
-                let main_preset = session
-                    .main_preset_manager
-                    .find_by_id(id)
-                    .ok_or("main preset not found")?;
-                Ok(main_preset.mappings().clone())
-            },
-        )
-    }
-
-    fn activate_preset(
-        &mut self,
-        compartment: MappingCompartment,
-        id: Option<String>,
-        weak_session: WeakSession,
-        get_mappings_by_preset_id: impl FnOnce(
-            &Session,
-            &str,
-        ) -> Result<Vec<MappingModel>, &'static str>,
-    ) -> Result<(), &'static str> {
-        match id.as_ref() {
-            None => {
-                self.set_mappings_without_notification(compartment, std::iter::empty());
-            }
-            Some(id) => {
-                let mappings = get_mappings_by_preset_id(self, id)?;
-                self.set_mappings_without_notification(compartment, mappings.into_iter());
-            }
-        };
+        if let Some(id) = id.as_ref() {
+            let main_preset = self
+                .main_preset_manager
+                .find_by_id(id)
+                .ok_or("main preset not found")?;
+            self.default_group
+                .replace(main_preset.default_group().clone());
+            self.set_groups_without_notification(main_preset.groups().iter().cloned());
+            self.set_mappings_without_notification(
+                compartment,
+                main_preset.mappings().iter().cloned(),
+            );
+        } else {
+            // <None> preset
+            self.default_group.replace(Default::default());
+            self.set_groups_without_notification(std::iter::empty());
+            self.set_mappings_without_notification(compartment, std::iter::empty());
+        }
         self.notify_everything_has_changed(weak_session);
         Ok(())
     }
@@ -1397,15 +1391,11 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let group_activation_condition = self
+        let group_data = self
             .find_group_of_mapping(m)
-            .map(|g| {
-                g.borrow()
-                    .activation_condition_model
-                    .create_activation_condition()
-            })
-            .unwrap_or_else(|| ActivationCondition::Always);
-        let main_mapping = m.create_main_mapping(group_activation_condition);
+            .map(|g| g.borrow().create_data())
+            .unwrap_or_default();
+        let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_channel
             .0
             .send(NormalMainTask::UpdateSingleMapping(
@@ -1416,11 +1406,14 @@ impl Session {
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
+        if mapping.compartment() == MappingCompartment::ControllerMappings {
+            return None;
+        }
         let group_id = mapping.group_id.get();
         if group_id.is_default() {
-            self.find_group_by_id(group_id)
-        } else {
             Some(&self.default_group)
+        } else {
+            self.find_group_by_id(group_id)
         }
     }
 
@@ -1464,24 +1457,32 @@ impl Session {
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
-        let group_activation_conditions: HashMap<GroupId, ActivationCondition> = self
-            .groups_including_default_group()
-            .map(|group| {
-                let group = group.borrow();
-                (
-                    group.id(),
-                    group
-                        .activation_condition_model
-                        .create_activation_condition(),
-                )
-            })
-            .collect();
+        let group_map: HashMap<GroupId, Ref<GroupModel>> =
+            if compartment == MappingCompartment::ControllerMappings {
+                // We don't want controller mappings to use any groups!
+                Default::default()
+            } else {
+                self.groups_including_default_group()
+                    .map(|group| {
+                        let group = group.borrow();
+                        (group.id(), group)
+                    })
+                    .collect()
+            };
+        // TODO-medium This is non-optimal if we have a group that uses an EEL activation condition
+        //  and has many mappings. Because of our strategy of groups being an application-layer
+        //  concept only, we equip *all* n mappings in that group with the group activation
+        //  condition. The EEL compilation is done n times, but maybe worse: There are n EEL VMs
+        //  in the domain layer and all of them have to run on parameter changes - whereas 1 would
+        //  be enough if the domain layer would know about groups.
         self.mappings(compartment)
             .map(|mapping| {
                 let mapping = mapping.borrow();
-                // TODO-high Fix
-                let group_activation_condition = ActivationCondition::Always;
-                mapping.create_main_mapping(group_activation_condition)
+                let group_data = group_map
+                    .get(mapping.group_id.get_ref())
+                    .map(|g| g.create_data())
+                    .unwrap_or_default();
+                mapping.create_main_mapping(group_data)
             })
             .collect()
     }

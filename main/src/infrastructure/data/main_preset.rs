@@ -1,8 +1,8 @@
-use crate::application::{MainPreset, Preset, PresetManager, SharedMapping};
+use crate::application::{MainPreset, Preset, PresetManager, SharedGroup, SharedMapping};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedPresetManager, MappingModelData, PresetData,
+    ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData, PresetData,
 };
 
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,15 @@ impl PresetManager for SharedMainPresetManager {
 
     fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
         self.borrow().mappings_are_dirty(id, mappings)
+    }
+
+    fn groups_are_dirty(
+        &self,
+        id: &str,
+        default_group: &SharedGroup,
+        groups: &[SharedGroup],
+    ) -> bool {
+        self.borrow().groups_are_dirty(id, default_group, groups)
     }
 }
 
@@ -46,6 +55,10 @@ pub struct MainPresetData {
     id: Option<String>,
     name: String,
     #[serde(default, skip_serializing_if = "is_default")]
+    default_group: Option<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    groups: Vec<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
 }
 
@@ -55,6 +68,12 @@ impl PresetData for MainPresetData {
     fn from_model(preset: &MainPreset) -> MainPresetData {
         MainPresetData {
             id: Some(preset.id().to_string()),
+            default_group: Some(GroupModelData::from_model(preset.default_group())),
+            groups: preset
+                .groups()
+                .iter()
+                .map(|g| GroupModelData::from_model(g))
+                .collect(),
             mappings: preset
                 .mappings()
                 .iter()
@@ -65,9 +84,16 @@ impl PresetData for MainPresetData {
     }
 
     fn to_model(&self, id: String) -> MainPreset {
+        let final_default_group = self
+            .default_group
+            .as_ref()
+            .map(|g| g.to_model())
+            .unwrap_or_default();
         MainPreset::new(
             id,
             self.name.clone(),
+            final_default_group,
+            self.groups.iter().map(|g| g.to_model()).collect(),
             self.mappings
                 .iter()
                 .map(|m| m.to_model(MappingCompartment::MainMappings, None))

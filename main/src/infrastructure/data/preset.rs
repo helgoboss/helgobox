@@ -1,5 +1,7 @@
-use crate::application::{Preset, PresetManager, SharedMapping};
-use crate::infrastructure::data::MappingModelData;
+use crate::application::{
+    GroupModel, MappingModel, Preset, PresetManager, SharedGroup, SharedMapping,
+};
+use crate::infrastructure::data::{GroupModelData, MappingModelData};
 
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
@@ -126,6 +128,10 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         })?;
         Ok(data.to_model(id))
     }
+
+    fn find_preset_ref_by_id(&self, id: &str) -> Option<&P> {
+        self.presets.iter().find(|c| c.id() == id)
+    }
 }
 
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
@@ -154,7 +160,7 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
     }
 
     fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
-        let preset = match self.presets.iter().find(|c| c.id() == id) {
+        let preset = match self.find_preset_ref_by_id(id) {
             None => return false,
             Some(c) => c,
         };
@@ -165,11 +171,45 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
             .iter()
             .zip(preset.mappings().iter())
             .any(|(actual_mapping, preset_mapping)| {
-                let actual_mapping_data = MappingModelData::from_model(&actual_mapping.borrow());
-                let preset_mapping_data = MappingModelData::from_model(preset_mapping);
-                actual_mapping_data != preset_mapping_data
+                !mappings_are_equal(&actual_mapping.borrow(), preset_mapping)
             })
     }
+
+    fn groups_are_dirty(
+        &self,
+        id: &str,
+        default_group: &SharedGroup,
+        groups: &[SharedGroup],
+    ) -> bool {
+        let preset = match self.find_preset_ref_by_id(id) {
+            None => return false,
+            Some(c) => c,
+        };
+        if groups.len() != preset.groups().len() {
+            return true;
+        }
+        if !groups_are_equal(&default_group.borrow(), preset.default_group()) {
+            return true;
+        }
+        groups
+            .iter()
+            .zip(preset.groups().iter())
+            .any(|(actual_group, preset_group)| {
+                !groups_are_equal(&actual_group.borrow(), preset_group)
+            })
+    }
+}
+
+fn groups_are_equal(first: &GroupModel, second: &GroupModel) -> bool {
+    let first_data = GroupModelData::from_model(first);
+    let second_data = GroupModelData::from_model(second);
+    first_data == second_data
+}
+
+fn mappings_are_equal(first: &MappingModel, second: &MappingModel) -> bool {
+    let first_data = MappingModelData::from_model(first);
+    let second_data = MappingModelData::from_model(second);
+    first_data == second_data
 }
 
 pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {

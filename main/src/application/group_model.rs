@@ -1,5 +1,6 @@
 use crate::application::{
-    ActivationConditionModel, ActivationType, ModifierConditionModel, ProgramConditionModel,
+    ActivationConditionModel, ActivationType, GroupData, ModifierConditionModel,
+    ProgramConditionModel,
 };
 use crate::core::{prop, Prop};
 use core::fmt;
@@ -11,7 +12,7 @@ use std::rc::{Rc, Weak};
 use uuid::Uuid;
 
 /// A mapping group.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct GroupModel {
     id: GroupId,
     pub name: Prop<String>,
@@ -101,6 +102,16 @@ impl GroupModel {
 
     pub fn is_default_group(&self) -> bool {
         self.id() == Default::default()
+    }
+
+    pub fn create_data(&self) -> GroupData {
+        GroupData {
+            control_is_enabled: self.control_is_enabled.get(),
+            feedback_is_enabled: self.feedback_is_enabled.get(),
+            activation_condition: self
+                .activation_condition_model
+                .create_activation_condition(),
+        }
     }
 
     /// Fires whenever a property has changed that doesn't have an effect on control/feedback

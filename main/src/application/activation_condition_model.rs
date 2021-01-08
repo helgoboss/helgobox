@@ -16,25 +16,13 @@ use crate::domain::{
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ActivationConditionModel {
     pub activation_type: Prop<ActivationType>,
     pub modifier_condition_1: Prop<ModifierConditionModel>,
     pub modifier_condition_2: Prop<ModifierConditionModel>,
     pub program_condition: Prop<ProgramConditionModel>,
     pub eel_condition: Prop<String>,
-}
-
-impl Clone for ActivationConditionModel {
-    fn clone(&self) -> Self {
-        Self {
-            activation_type: self.activation_type.clone(),
-            modifier_condition_1: self.modifier_condition_1.clone(),
-            modifier_condition_2: self.modifier_condition_2.clone(),
-            program_condition: self.program_condition.clone(),
-            eel_condition: self.eel_condition.clone(),
-        }
-    }
 }
 
 impl ActivationConditionModel {

@@ -404,18 +404,18 @@ impl HeaderPanel {
         let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
         let session = self.session();
         let session = session.borrow();
-        let (preset_is_active, preset_mappings_are_dirty) = match self.active_compartment() {
+        let (preset_is_active, is_dirty) = match self.active_compartment() {
             MappingCompartment::ControllerMappings => (
                 session.active_controller_id().is_some(),
-                session.controller_mappings_are_dirty(),
+                session.controller_preset_is_out_of_date(),
             ),
             MappingCompartment::MainMappings => (
                 session.active_main_preset().is_some(),
-                session.main_mappings_are_dirty(),
+                session.main_preset_is_out_of_date(),
             ),
         };
         delete_button.set_enabled(preset_is_active);
-        save_button.set_enabled(preset_is_active && preset_mappings_are_dirty);
+        save_button.set_enabled(preset_is_active && is_dirty);
     }
 
     fn fill_preset_combo_box(&self) {
@@ -693,7 +693,7 @@ impl HeaderPanel {
             .expect("invalid preset auto-load mode");
         let session = self.session();
         if mode != MainPresetAutoLoadMode::Off {
-            if session.borrow().main_mappings_are_dirty() {
+            if session.borrow().main_preset_is_out_of_date() {
                 let msg = "Your mapping changes will be lost. Consider to save them first. Do you really want to continue?";
                 if !self.view.require_window().confirm("ReaLearn", msg) {
                     self.invalidate_preset_auto_load_mode_combo_box();
@@ -716,11 +716,11 @@ impl HeaderPanel {
             match compartment {
                 MappingCompartment::ControllerMappings => (
                     Box::new(App::get().controller_manager()),
-                    session.borrow().controller_mappings_are_dirty(),
+                    session.borrow().controller_preset_is_out_of_date(),
                 ),
                 MappingCompartment::MainMappings => (
                     Box::new(App::get().main_preset_manager()),
-                    session.borrow().main_mappings_are_dirty(),
+                    session.borrow().main_preset_is_out_of_date(),
                 ),
             };
         if mappings_are_dirty {
@@ -928,7 +928,7 @@ impl HeaderPanel {
                 let mut controller = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("controller not found")?;
-                controller.update_mappings(mappings);
+                controller.update_realearn_data(mappings);
                 preset_manager.borrow_mut().update_preset(controller)?;
             }
             MappingCompartment::MainMappings => {
@@ -936,7 +936,9 @@ impl HeaderPanel {
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("main preset not found")?;
-                main_preset.update_mappings(mappings);
+                let default_group = session.default_group().borrow().clone();
+                let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
+                main_preset.update_data(default_group, groups, mappings);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -996,7 +998,15 @@ impl HeaderPanel {
                 session.activate_controller(Some(preset_id), self.session.clone())?;
             }
             MappingCompartment::MainMappings => {
-                let main_preset = MainPreset::new(preset_id.clone(), preset_name, mappings);
+                let default_group = session.default_group().borrow().clone();
+                let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
+                let main_preset = MainPreset::new(
+                    preset_id.clone(),
+                    preset_name,
+                    default_group,
+                    groups,
+                    mappings,
+                );
                 App::get()
                     .main_preset_manager()
                     .borrow_mut()
@@ -1005,6 +1015,18 @@ impl HeaderPanel {
             }
         };
         Ok(())
+    }
+
+    fn reset(&self) {
+        self.main_state
+            .borrow_mut()
+            .group_filter
+            .set(Some(GroupFilter(GroupId::default())));
+        if let Some(already_open_panel) = self.group_panel.borrow().as_ref() {
+            already_open_panel.close();
+        }
+        self.group_panel.replace(None);
+        self.invalidate_all_controls();
     }
 
     fn log_debug_info(&self) {
@@ -1056,11 +1078,7 @@ impl HeaderPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         self.when(session.everything_changed(), |view| {
-            view.main_state
-                .borrow_mut()
-                .group_filter
-                .set(Some(GroupFilter(GroupId::default())));
-            view.invalidate_all_controls();
+            view.reset();
         });
         self.when(session.let_matched_events_through.changed(), |view| {
             view.invalidate_let_matched_events_through_check_box();
@@ -1133,11 +1151,17 @@ impl HeaderPanel {
         .do_async(move |view, _| {
             view.invalidate_preset_controls();
         });
+        // TODO-high This is lots of stuff done whenever changing just something small in a mapping
+        //  or group. Maybe micro optimization, I don't know. Alternatively we could just set a
+        //  dirty flag once something changed and reset it after saving!
+        // Mainly enables/disables save button depending on dirty state.
         when(
             session
                 .mapping_list_changed()
-                .map(|(compartment, _)| compartment)
-                .merge(session.mapping_changed())
+                .map_to(())
+                .merge(session.mapping_changed().map_to(()))
+                .merge(session.group_list_changed())
+                .merge(session.group_changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
