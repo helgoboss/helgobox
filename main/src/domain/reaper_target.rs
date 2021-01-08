@@ -560,14 +560,11 @@ impl ReaperTarget {
                     .track_send_pan_touched()
                     .map(move |send| TrackSendPan { send }.into()),
             )
-            .merge(action_rx.action_invoked().map(move |action| {
-                Action {
-                    action: (*action).clone(),
-                    invocation_type: ActionInvocationType::Trigger,
-                    project: reaper.current_project(),
-                }
-                .into()
-            }))
+            .merge(
+                action_rx
+                    .action_invoked()
+                    .map(move |action| determine_target_for_action((*action).clone()).into()),
+            )
             .merge(
                 csurf_rx
                     .master_tempo_touched()
@@ -1265,5 +1262,36 @@ pub enum TransportAction {
 impl Default for TransportAction {
     fn default() -> Self {
         TransportAction::PlayStop
+    }
+}
+
+fn determine_target_for_action(action: Action) -> ReaperTarget {
+    let project = Reaper::get().current_project();
+    match action.command_id().get() {
+        // Play button | stop button
+        1007 | 1016 => ReaperTarget::Transport {
+            project,
+            action: TransportAction::PlayStop,
+        },
+        // Pause button
+        1008 => ReaperTarget::Transport {
+            project,
+            action: TransportAction::PlayPause,
+        },
+        // Record button
+        1013 => ReaperTarget::Transport {
+            project,
+            action: TransportAction::Record,
+        },
+        // Repeat button
+        1068 => ReaperTarget::Transport {
+            project,
+            action: TransportAction::Repeat,
+        },
+        _ => ReaperTarget::Action {
+            action,
+            invocation_type: ActionInvocationType::Trigger,
+            project,
+        },
     }
 }

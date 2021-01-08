@@ -134,6 +134,9 @@ impl TargetModel {
             FxParameter { param } => {
                 self.param_index.set(param.index());
             }
+            Transport { action, .. } => {
+                self.transport_action.set(*action);
+            }
             _ => {}
         };
     }
