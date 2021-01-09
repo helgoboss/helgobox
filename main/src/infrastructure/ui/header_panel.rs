@@ -16,11 +16,12 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    ControllerPreset, FxId, GroupId, MainPreset, MainPresetAutoLoadMode, PresetManager, Session,
+    make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
+    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, PresetManager, Session,
     SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, ReaperTarget};
+use crate::domain::{MappingCompartment, ProcessorContext, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::{ExtendedPresetManager, SessionData};
 use crate::infrastructure::plugin::{
@@ -933,10 +934,11 @@ impl HeaderPanel {
             None => return Err("no active preset"),
             Some(id) => id,
         };
-        let mappings = session
+        let mut mappings: Vec<_> = session
             .mappings(compartment)
             .map(|ptr| ptr.borrow().clone())
             .collect();
+        self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_manager();
@@ -985,19 +987,32 @@ impl HeaderPanel {
         }
     }
 
+    fn make_mappings_project_independent_if_desired(
+        &self,
+        context: &ProcessorContext,
+        mut mappings: &mut [MappingModel],
+    ) {
+        if mappings_have_project_references(&mappings) {
+            if self.view.require_window().confirm("ReaLearn", "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?") {
+                make_mappings_project_independent(&mut mappings, context);
+            }
+        }
+    }
+
     fn save_as_preset(&self) -> Result<(), &'static str> {
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let compartment = self.active_compartment();
+        let mut mappings: Vec<_> = session
+            .mappings(compartment)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
+        self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),
             Some(n) => n,
         };
         let preset_id = slug::slugify(&preset_name);
-        let session = self.session();
-        let mut session = session.borrow_mut();
-        let compartment = self.active_compartment();
-        let mappings = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
