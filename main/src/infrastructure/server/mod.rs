@@ -1,5 +1,5 @@
 use crate::application::{
-    PresetManager, Session, SharedSession, SourceCategory, TargetCategory, WeakSession,
+    Preset, PresetManager, Session, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
 use crate::core::when;
 use crate::domain::{
@@ -882,6 +882,10 @@ fn get_controller(session: &Session) -> Option<ControllerPresetData> {
 }
 
 fn get_controller_routing(session: &Session) -> ControllerRouting {
+    let main_preset = session.active_main_preset().map(|mp| LightMainPresetData {
+        id: mp.id().to_string(),
+        name: mp.name().to_string(),
+    });
     let routes = session
         .mappings(MappingCompartment::ControllerMappings)
         .filter_map(|m| {
@@ -923,13 +927,24 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
             Some((m.id().to_string(), target_descriptor))
         })
         .collect();
-    ControllerRouting { routes }
+    ControllerRouting {
+        main_preset,
+        routes,
+    }
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ControllerRouting {
+    main_preset: Option<LightMainPresetData>,
     routes: HashMap<String, Vec<TargetDescriptor>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LightMainPresetData {
+    id: String,
+    name: String,
 }
 
 #[derive(Serialize)]
