@@ -1,10 +1,8 @@
 use crate::application::{
-    Preset, PresetManager, Session, SharedSession, SourceCategory, TargetCategory, WeakSession,
+    Preset, PresetManager, Session, SharedSession, SourceCategory, TargetCategory,
 };
 use crate::core::when;
-use crate::domain::{
-    MappingCompartment, RealearnControlSurfaceMainTask, RealearnControlSurfaceServerTask,
-};
+use crate::domain::{MappingCompartment, RealearnControlSurfaceServerTask};
 
 use crate::core::Global;
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
@@ -28,7 +26,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use tokio::sync::{broadcast, mpsc, oneshot, watch};
+use tokio::sync::{broadcast, mpsc};
 use url::Url;
 use warp::http::{Method, Response, StatusCode};
 
@@ -165,13 +163,13 @@ impl RealearnServer {
     /// Idempotent.
     pub fn stop(&mut self) {
         let old_state = std::mem::replace(&mut self.state, ServerState::Stopped);
-        let mut runtime_data = match old_state {
+        let runtime_data = match old_state {
             ServerState::Running(runtime_data) | ServerState::Starting(runtime_data) => {
                 runtime_data
             }
             ServerState::Stopped => return,
         };
-        runtime_data.shutdown_sender.send(());
+        let _ = runtime_data.shutdown_sender.send(());
         runtime_data
             .server_thread_join_handle
             .join()
@@ -345,10 +343,6 @@ fn handle_patch_controller_route(
 
 fn session_not_found() -> Response<&'static str> {
     not_found("session not found")
-}
-
-fn metrics_not_supported() -> Response<&'static str> {
-    not_found("metrics not supported in this build")
 }
 
 fn session_has_no_active_controller() -> Response<&'static str> {

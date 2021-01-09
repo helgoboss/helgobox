@@ -10,13 +10,11 @@ use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, UnitValue};
 
 use reaper_high::Reaper;
-use reaper_medium::ControlSurface;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
-use std::time::Duration;
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;

@@ -7,8 +7,6 @@ use reaper_high::{
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use std::collections::HashMap;
-use std::time::Duration;
-use wrap_debug::WrapDebug;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -103,11 +101,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         HashMap::new(),
                     )
                     .unwrap();
-                    sender.send(text);
+                    let _ = sender.send(text);
                 }
             }
         }
-        for mut p in &mut self.main_processors {
+        for p in &mut self.main_processors {
             p.run();
         }
         if self.metrics_enabled {

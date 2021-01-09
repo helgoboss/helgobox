@@ -1,12 +1,8 @@
-use crate::application::{
-    ActivationConditionModel, ActivationType, GroupData, ModifierConditionModel,
-    ProgramConditionModel,
-};
+use crate::application::{ActivationConditionModel, GroupData};
 use crate::core::{prop, Prop};
 use core::fmt;
 use rx_util::UnitEvent;
 use serde::{Deserialize, Serialize};
-use smallvec::alloc::fmt::Formatter;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use uuid::Uuid;

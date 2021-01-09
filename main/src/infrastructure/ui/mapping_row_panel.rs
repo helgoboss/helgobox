@@ -225,7 +225,7 @@ impl MappingRowPanel {
             root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON,
             root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON,
         ];
-        for b in buttons.into_iter() {
+        for b in buttons.iter() {
             self.view.require_control(*b).set_enabled(enabled);
         }
     }
@@ -385,7 +385,8 @@ impl MappingRowPanel {
         };
         self.session()
             .borrow_mut()
-            .move_mapping_to_group(mapping_id, dest_group_id);
+            .move_mapping_to_group(mapping_id, dest_group_id)
+            .unwrap();
         Ok(())
     }
 

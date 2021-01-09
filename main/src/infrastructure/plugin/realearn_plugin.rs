@@ -6,17 +6,16 @@ use super::RealearnEditor;
 use crate::core::Global;
 use crate::domain::{
     ControlMainTask, FeedbackRealTimeTask, MainProcessor, NormalMainTask, ParameterMainTask,
-    ProcessorContext, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
-use crate::infrastructure::plugin::{debug_util, SET_STATE_PARAM_NAME};
+use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use crate::infrastructure::ui::MainPanel;
-use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
+use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
 use lazycell::LazyCell;
-use reaper_high::{CrashInfo, MiddlewareControlSurface, Reaper, ReaperGuard};
-use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
+use reaper_high::{Reaper, ReaperGuard};
+use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
 use reaper_medium::{Hz, MidiFrameOffset};
 
 use slog::{debug, o};
@@ -30,12 +29,11 @@ use std::rc::Rc;
 
 use std::sync::Arc;
 
-use crate::application::{Session, SharedSession, WeakSession};
+use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
 
 use crate::core::notification;
-use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;

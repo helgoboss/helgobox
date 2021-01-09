@@ -2,9 +2,8 @@ use crate::application::WeakSession;
 use crate::core::default_util::is_default;
 use crate::core::Global;
 use crate::domain::{
-    MainProcessor, RealTimeProcessor, RealearnAudioHook, RealearnAudioHookTask,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, SharedRealTimeProcessor,
+    MainProcessor, RealearnAudioHook, RealearnAudioHookTask, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
@@ -20,10 +19,9 @@ use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
-use slog::{debug, o, Drain, Logger};
+use slog::{debug, Logger};
 use std::cell::{Ref, RefCell};
 use std::fs;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
 use url::Url;
@@ -60,20 +58,6 @@ enum AppState {
     WakingUp,
     Awake(AwakeState),
     GoingToSleep,
-}
-
-impl AppState {
-    fn is_uninitialized(&self) -> bool {
-        matches!(self, AppState::Uninitialized(_))
-    }
-
-    fn is_sleeping(&self) -> bool {
-        matches!(self, AppState::Sleeping(_))
-    }
-
-    fn is_awake(&self) -> bool {
-        matches!(self, AppState::Awake(_))
-    }
 }
 
 struct UninitializedState {

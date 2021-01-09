@@ -1,17 +1,12 @@
 use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::notification;
-use crate::domain::{
-    MainProcessor, MappingCompartment, RealearnAudioHookTask, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, ReaperTarget,
-};
-use reaper_high::{ActionKind, MiddlewareControlSurface, Reaper, Track};
+use crate::domain::{MappingCompartment, ReaperTarget};
+use reaper_high::{ActionKind, Reaper, Track};
 
-use reaper_medium::RegistrationHandle;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
-use slog::{debug, o, Drain};
+use slog::{debug, Drain};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 make_available_globally_in_main_thread!(App);

@@ -1,44 +1,11 @@
-use crate::core::{when, Prop};
+use crate::application::{WeakGroup, WeakSession};
+use crate::core::when;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::constants::symbols;
-use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel};
-
-use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{
-    AbsoluteMode, ControlValue, MidiClockTransportMessage, OutOfRangeBehavior,
-    SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
-};
-use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::Reaper;
+use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
 use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
 use rx_util::UnitEvent;
-use rxrust::prelude::*;
-use std::cell::{Cell, RefCell};
-use std::convert::TryInto;
-
-use std::iter;
-
-use std::ptr::null;
 use std::rc::Rc;
-
-use crate::application::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    get_guid_based_fx_at_index, get_optional_fx_label, ActivationType, FxAnchorType, MappingModel,
-    MidiSourceType, ModeModel, ModifierConditionModel, ReaperTargetType, Session, SharedMapping,
-    SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakGroup, WeakSession,
-};
-use crate::core::Global;
-use crate::domain::{
-    ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
-    ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
-    VirtualControlElement, VirtualFx, VirtualTrack, PLUGIN_PARAMETER_COUNT,
-};
-use itertools::Itertools;
-use std::collections::HashMap;
-use std::time::Duration;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
+use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct GroupPanel {

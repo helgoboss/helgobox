@@ -1,20 +1,18 @@
 use crate::application::{
-    share_group, share_mapping, App, ControllerPreset, FxId, GroupData, GroupId, GroupModel,
-    MainPreset, MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager,
-    SharedGroup, SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
+    share_group, share_mapping, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
+    MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
+    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler,
-    FeedbackRealTimeTask, MainMapping, MainProcessor, MappingCompartment, MappingId,
-    MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask,
+    CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
+    MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
     ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 
 use reaper_high::Reaper;
-use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use slog::debug;
@@ -22,8 +20,6 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-use itertools::Itertools;
-use std::ops::Range;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
@@ -318,7 +314,7 @@ impl Session {
         session: WeakSession,
     ) {
         if mode != MainPresetAutoLoadMode::Off {
-            self.activate_main_preset(None, session);
+            self.activate_main_preset(None, session).unwrap();
         }
         self.main_preset_auto_load_mode.set(mode);
     }
@@ -332,9 +328,9 @@ impl Session {
             let preset_id = self
                 .main_preset_link_manager
                 .find_preset_linked_to_fx(&fx_id);
-            self.activate_main_preset(preset_id, weak_session);
+            let _ = self.activate_main_preset(preset_id, weak_session);
         } else {
-            self.activate_main_preset(None, weak_session);
+            self.activate_main_preset(None, weak_session).unwrap();
         }
     }
 
@@ -756,7 +752,7 @@ impl Session {
     ) -> Option<(usize, &SharedMapping)> {
         self.mappings(compartment)
             .enumerate()
-            .find(|(i, m)| m.borrow().id() == mapping_id)
+            .find(|(_, m)| m.borrow().id() == mapping_id)
     }
 
     pub fn mappings(

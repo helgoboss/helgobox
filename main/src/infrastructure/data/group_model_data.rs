@@ -1,10 +1,6 @@
-use crate::application::{
-    ActivationType, GroupId, GroupModel, ModifierConditionModel, ProgramConditionModel,
-};
-use crate::core::default_util::{bool_true, is_bool_true, is_default};
-use crate::infrastructure::data::{
-    ActivationConditionData, EnabledData, ModeModelData, SourceModelData, TargetModelData,
-};
+use crate::application::{GroupId, GroupModel};
+use crate::core::default_util::is_default;
+use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 

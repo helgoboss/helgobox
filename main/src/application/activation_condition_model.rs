@@ -1,20 +1,8 @@
-use helgoboss_learn::{
-    AbsoluteMode, ControlType, Interval, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
-};
 use rx_util::UnitEvent;
 
-use crate::application::{
-    convert_factor_to_unit_value, ActivationType, GroupId, ModeModel, ModifierConditionModel,
-    ProgramConditionModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
-};
-use crate::core::{prop, Prop};
-use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, EelCondition, ExtendedSourceCharacter, MainMapping,
-    MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
-    ReaperTarget, TargetCharacter,
-};
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::application::{ActivationType, ModifierConditionModel, ProgramConditionModel};
+use crate::core::Prop;
+use crate::domain::{ActivationCondition, EelCondition};
 
 #[derive(Clone, Debug, Default)]
 pub struct ActivationConditionModel {

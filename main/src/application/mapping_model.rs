@@ -4,13 +4,12 @@ use helgoboss_learn::{
 use rx_util::UnitEvent;
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionModel, ActivationType, GroupId, ModeModel,
-    ModifierConditionModel, ProgramConditionModel, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionModel, GroupId, ModeModel, SourceModel,
+    TargetCategory, TargetModel, TargetModelWithContext,
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, EelCondition, ExtendedSourceCharacter, MainMapping,
+    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, MainMapping,
     MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
     ReaperTarget, TargetCharacter,
 };

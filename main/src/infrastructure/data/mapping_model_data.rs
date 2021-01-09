@@ -1,7 +1,5 @@
-use crate::application::{
-    ActivationType, GroupId, MappingModel, ModifierConditionModel, ProgramConditionModel,
-};
-use crate::core::default_util::{bool_true, is_bool_true, is_default};
+use crate::application::{GroupId, MappingModel};
+use crate::core::default_util::is_default;
 use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, ModeModelData, SourceModelData, TargetModelData,

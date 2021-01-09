@@ -1,12 +1,8 @@
 use crate::application::{
-    ActivationConditionModel, ActivationType, MappingModel, ModifierConditionModel,
-    ProgramConditionModel,
+    ActivationConditionModel, ActivationType, ModifierConditionModel, ProgramConditionModel,
 };
-use crate::core::default_util::{bool_true, is_bool_true, is_default};
-use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
-use crate::infrastructure::data::{ModeModelData, SourceModelData, TargetModelData};
+use crate::core::default_util::is_default;
 use serde::{Deserialize, Serialize};
-use std::borrow::BorrowMut;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

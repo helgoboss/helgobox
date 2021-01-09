@@ -1,7 +1,5 @@
-use crate::application::{
-    GroupModel, MappingModel, ReaperTargetType, SharedGroup, SharedMapping, TargetCategory,
-};
-use crate::domain::{FxAnchor, ProcessorContext, TrackAnchor, VirtualFx, VirtualTrack};
+use crate::application::{GroupModel, MappingModel, SharedGroup, SharedMapping, TargetCategory};
+use crate::domain::{ProcessorContext, TrackAnchor, VirtualFx, VirtualTrack};
 use std::fmt;
 use std::fmt::Debug;
 
@@ -45,7 +43,6 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
     let target = &mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {
-            use ReaperTargetType::*;
             if target.supports_track() {
                 if target.track.get_ref().refers_to_project() {
                     return true;

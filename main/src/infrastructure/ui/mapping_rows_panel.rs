@@ -6,7 +6,7 @@ use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, GroupFilter, IndependentPanelManager, MainState, MappingRowPanel,
+    bindings::root, IndependentPanelManager, MainState, MappingRowPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};

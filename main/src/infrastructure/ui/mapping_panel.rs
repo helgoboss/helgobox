@@ -1,6 +1,5 @@
-use crate::core::{when, Prop};
+use crate::core::when;
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::constants::symbols;
 use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel};
 
 use enum_iterator::IntoEnumIterator;
@@ -24,16 +23,16 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    get_guid_based_fx_at_index, get_optional_fx_label, ActivationType, FxAnchorType, MappingModel,
-    MidiSourceType, ModeModel, ModifierConditionModel, ReaperTargetType, Session, SharedMapping,
-    SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, TrackAnchorType, VirtualControlElementType, WeakSession,
+    get_guid_based_fx_at_index, get_optional_fx_label, FxAnchorType, MappingModel, MidiSourceType,
+    ModeModel, ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory,
+    SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TrackAnchorType,
+    VirtualControlElementType, WeakSession,
 };
 use crate::core::Global;
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
     ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
-    VirtualControlElement, VirtualFx, VirtualTrack, PLUGIN_PARAMETER_COUNT,
+    VirtualControlElement, VirtualFx, VirtualTrack,
 };
 use itertools::Itertools;
 use std::collections::HashMap;

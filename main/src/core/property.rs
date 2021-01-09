@@ -1,6 +1,5 @@
 //! In this file we assemble the a custom-tailored property type which we are going to use
 //! throughout ReaLearn.
-use crate::core::Global;
 use rx_util::{LocalProp, LocalPropSubject, Notifier};
 use rxrust::prelude::*;
 use std::marker::PhantomData;
@@ -35,7 +34,7 @@ where
         {
             let mut subject = subject.clone();
             let value = value.clone();
-            Global::task_support()
+            crate::core::Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || {
                     subject.next(value);
                 })

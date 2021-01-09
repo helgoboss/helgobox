@@ -1,8 +1,6 @@
 use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{Channel, ControllerNumber, ShortMessage, StructuredShortMessage, U7};
-use serde_prometheus::TypeHint::Counter;
-use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 const MAX_CC_MSG_COUNT: usize = 10;

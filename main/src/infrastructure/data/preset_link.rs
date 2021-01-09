@@ -63,7 +63,7 @@ impl FileBasedPresetLinkManager {
     fn save_fx_config(&self) -> Result<(), String> {
         fs::create_dir_all(&self.auto_load_configs_dir_path)
             .map_err(|_| "couldn't create auto-load-configs directory")?;
-        let mut fx_config = FxPresetLinkConfig {
+        let fx_config = FxPresetLinkConfig {
             links: self
                 .preset_by_fx
                 .iter()
@@ -95,12 +95,12 @@ impl FileBasedPresetLinkManager {
 
     pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
         self.preset_by_fx.insert(fx_id, preset_id);
-        self.save_fx_config();
+        self.save_fx_config().unwrap();
     }
 
     pub fn unlink_preset_from_fx(&mut self, preset_id: &str) {
-        self.preset_by_fx.retain(|fx_id, p_id| p_id != preset_id);
-        self.save_fx_config();
+        self.preset_by_fx.retain(|_, p_id| p_id != preset_id);
+        self.save_fx_config().unwrap();
     }
 }
 
