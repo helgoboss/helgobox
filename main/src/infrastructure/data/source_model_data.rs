@@ -133,7 +133,7 @@ mod tests {
                 channel: Some(Channel::new(0)),
                 number: Some(U14::new(0)),
                 character: SourceCharacter::Range,
-                is_registered: Some(false),
+                is_registered: None,
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
                 control_element_type: VirtualControlElementType::Multi,
