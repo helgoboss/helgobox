@@ -205,8 +205,36 @@ integration test during continuous integration, just like in *reaper-rs*.
 
 ### Log
 
-It's possible to make ReaLearn output log messages to the console by setting the `REALEARN_LOG` environment variable,
-e.g. to `debug,vst=info`. It follows [this](https://docs.rs/env_logger/0.8.2/env_logger/index.html) format.
+It's possible to make ReaLearn output log messages to `stdout` by setting the `REALEARN_LOG` environment variable,
+e.g. to `debug,vst=info`. It follows [this](https://docs.rs/env_logger/0.8.2/env_logger/index.html) format. Beware
+that e.g. on Windows, `stdout` is not shown, not even when executing REAPER from the command line. One way to make it
+visible is to execute REAPER with a debugger.
+
+### Metrics
+
+It's also possible to make ReaLearn collect execution metrics by setting the environment variable `REALEARN_METER`. 
+If this environment variable is set (value doesn't matter), ReaLearn will continuously record histograms of control
+surface (`IReaperControlSurface`) method execution times. Control surface metrics are the most relevant metrics for
+ReaLearn because the processing is done in control surface methods for the most part. That also means ReaLearn's logic
+is largely executed in the main thread, not in the audio thread - which is atypical for a VST plug-in. That's also why 
+REAPER's built-in FX performance measuring is not too interesting in case of ReaLearn because all it does in the audio
+thread is processing some MIDI messages.
+
+Metrics will be exposed in the following ways:
+
+- Whenever response times exceed a certain threshold, they will be logged to `stdout` at warn level.
+- If the projection server is running, metrics will be exposed at `/realearn/metrics` in the popular
+  [Prometheus](https://prometheus.io/) format. That's great for visualization.
+    - Just add this to your `prometheus.yml` (you might need to adjust the port):
+    
+        ```yaml
+        scrape_configs:
+          - job_name: 'realearn'
+            metrics_path: '/realearn/metrics'
+            static_configs:
+              - targets: ['localhost:39080']
+        ```
+    - If you don't have the environment variable set, this will show zeros only.
 
 ### Debug
 

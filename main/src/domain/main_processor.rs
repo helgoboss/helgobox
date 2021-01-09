@@ -1,7 +1,8 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, DomainEvent,
-    DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationUpdate,
-    MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext, ReaperTarget,
+    DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
+    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext,
+    ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -9,7 +10,6 @@ use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, UnitValue};
 
 use reaper_high::Reaper;
-use reaper_medium::ControlSurface;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -31,6 +31,7 @@ pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_C
 
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
+    instance_id: String,
     logger: slog::Logger,
     /// Contains all mappings except those where the target could not be resolved.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
@@ -51,8 +52,79 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     party_is_over_subject: LocalSubject<'static, (), ()>,
 }
 
-impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
-    fn run(&mut self) {
+impl<EH: DomainEventHandler> MainProcessor<EH> {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        instance_id: String,
+        parent_logger: &slog::Logger,
+        self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
+        normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+        parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+        control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+        event_handler: EH,
+        context: ProcessorContext,
+    ) -> MainProcessor<EH> {
+        let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
+        let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
+        MainProcessor {
+            instance_id,
+            logger: logger.clone(),
+            self_normal_sender,
+            self_feedback_sender,
+            normal_task_receiver,
+            feedback_task_receiver,
+            control_task_receiver,
+            parameter_task_receiver,
+            normal_real_time_task_sender,
+            feedback_real_time_task_sender,
+            mappings: Default::default(),
+            feedback_buffer: Default::default(),
+            feedback_subscriptions: Default::default(),
+            feedback_is_globally_enabled: false,
+            parameters: ZEROED_PLUGIN_PARAMETERS,
+            event_handler,
+            context,
+            party_is_over_subject: Default::default(),
+        }
+    }
+
+    pub fn instance_id(&self) -> &str {
+        &self.instance_id
+    }
+
+    pub fn activate(&self) {
+        // Handle dynamic target changes and target activation depending on REAPER state.
+        //
+        // Whenever anything changes that just affects the main processor targets, resync all
+        // targets to the main processor. We don't want to resync to the real-time processor
+        // just because another track has been selected. First, it would reset any source state
+        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
+        // We also don't want to resync modes to the main processor. First, it would reset any
+        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
+        // There are several global conditions which affect whether feedback will be sent
+        // from a target or not. Similar global conditions decide what exactly produces the
+        // feedback values (e.g. when there's a target which uses <Selected track>,
+        // then a track selection change changes the feedback value producer ... so
+        // the main processor needs to unsubscribe from the old producer and
+        // subscribe to the new one).
+        // TODO-medium We have prepared reaper-rs and ReaLearn enough to get rid of rxRust in this
+        //  layer! We would just need to provide a method on ReaperTarget that takes a ChangeEvent
+        //  and returns if it's affected or not.
+        let self_sender = self.self_normal_sender.clone();
+        ReaperTarget::potential_static_change_events()
+            .merge(ReaperTarget::potential_dynamic_change_events())
+            // We have this explicit stop criteria because we listen to global REAPER events.
+            .take_until(self.party_is_over_subject.clone())
+            .subscribe(move |_| {
+                // This should always succeed because at the time this is executed, "party is not
+                // yet over" and therefore the receiver exists.
+                self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
+            });
+    }
+
+    pub fn run(&mut self) {
         // Process normal tasks
         // We could also iterate directly while keeping the receiver open. But that would (for
         // good reason) prevent us from calling other methods that mutably borrow
@@ -117,12 +189,14 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                                 unused_sources.remove(m.source());
                             }
                         }
-                        self.normal_real_time_task_sender
-                            .send(NormalRealTimeTask::UpdateTargetActivations(
+                        // In some cases like closing projects, it's possible that this will fail
+                        // because the real-time processor is already gone. But it doesn't matter.
+                        let _ = self.normal_real_time_task_sender.send(
+                            NormalRealTimeTask::UpdateTargetActivations(
                                 compartment,
                                 mappings_with_active_targets,
-                            ))
-                            .unwrap();
+                            ),
+                        );
                         self.handle_feedback_after_batch_mapping_update(
                             compartment,
                             &unused_sources,
@@ -240,10 +314,8 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     for m in &mut self.mappings[compartment].values_mut() {
                         if m.can_be_affected_by_parameters() {
                             m.refresh_activation(&self.parameters);
-                            activation_updates.push(MappingActivationUpdate {
-                                id: m.id(),
-                                is_active: m.is_active(),
-                            });
+                            let update = MappingActivationUpdate::new(m.id(), m.is_active());
+                            activation_updates.push(update);
                         }
                         if m.feedback_is_effectively_on() {
                             // Mark source as used
@@ -265,27 +337,24 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                     let compartment = MappingCompartment::MainMappings;
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // In order to avoid a mutable borrow of mappings and an immutable borrow of
-                    // parameters at the same time, we need to separate the mapping updates into
-                    // READ (read new activation state) and WRITE (write new activation state).
+                    // parameters at the same time, we need to separate into READ activation
+                    // affects and WRITE activation updates.
                     // 1. Read
-                    let activation_updates: Vec<MappingActivationUpdate> = self.mappings
+                    let activation_effects: Vec<MappingActivationEffect> = self.mappings
                         [compartment]
                         .values()
                         .filter_map(|m| {
-                            let result =
-                                m.is_fulfilled_single(&self.parameters, index, previous_value);
-                            result.map(|is_active| MappingActivationUpdate {
-                                id: m.id(),
-                                is_active,
-                            })
+                            m.check_activation_effect(&self.parameters, index, previous_value)
                         })
                         .collect();
                     // 2. Write
-                    for upd in activation_updates.iter() {
-                        if let Some(m) = self.mappings[compartment].get_mut(&upd.id) {
-                            m.update_activation(upd.is_active);
-                        }
-                    }
+                    let activation_updates: Vec<MappingActivationUpdate> = activation_effects
+                        .into_iter()
+                        .filter_map(|eff| {
+                            let m = self.mappings[compartment].get_mut(&eff.id)?;
+                            m.update_activation(eff)
+                        })
+                        .collect();
                     // Determine unused sources
                     for m in self.mappings[compartment].values() {
                         if m.feedback_is_effectively_on() {
@@ -356,67 +425,6 @@ impl<EH: DomainEventHandler> ControlSurface for MainProcessor<EH> {
                 self.send_feedback(source_values);
             }
         }
-    }
-}
-
-impl<EH: DomainEventHandler> MainProcessor<EH> {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        parent_logger: &slog::Logger,
-        self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
-        normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
-        parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-        control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        event_handler: EH,
-        context: ProcessorContext,
-    ) -> MainProcessor<EH> {
-        let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
-        MainProcessor {
-            logger: parent_logger.new(slog::o!("struct" => "MainProcessor")),
-            self_normal_sender,
-            self_feedback_sender,
-            normal_task_receiver,
-            feedback_task_receiver,
-            control_task_receiver,
-            parameter_task_receiver,
-            normal_real_time_task_sender,
-            feedback_real_time_task_sender,
-            mappings: Default::default(),
-            feedback_buffer: Default::default(),
-            feedback_subscriptions: Default::default(),
-            feedback_is_globally_enabled: false,
-            parameters: ZEROED_PLUGIN_PARAMETERS,
-            event_handler,
-            context,
-            party_is_over_subject: Default::default(),
-        }
-    }
-
-    pub fn activate(&self) {
-        // Handle dynamic target changes and target activation depending on REAPER state.
-        //
-        // Whenever anything changes that just affects the main processor targets, resync all
-        // targets to the main processor. We don't want to resync to the real-time processor
-        // just because another track has been selected. First, it would reset any source state
-        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
-        // We also don't want to resync modes to the main processor. First, it would reset any
-        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
-        // There are several global conditions which affect whether feedback will be sent
-        // from a target or not. Similar global conditions decide what exactly produces the
-        // feedback values (e.g. when there's a target which uses <Selected track>,
-        // then a track selection change changes the feedback value producer ... so
-        // the main processor needs to unsubscribe from the old producer and
-        // subscribe to the new one).
-        let self_sender = self.self_normal_sender.clone();
-        ReaperTarget::potential_static_change_events()
-            .merge(ReaperTarget::potential_dynamic_change_events())
-            // We have this explicit stop criteria because we listen to global REAPER events.
-            .take_until(self.party_is_over_subject.clone())
-            .subscribe(move |_| {
-                self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
-            });
     }
 
     fn process_activation_updates(
@@ -538,7 +546,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.send_feedback(self.feedback_all_in_compartment(compartment));
     }
 
-    fn log_debug_info(&self, task_count: usize) {
+    fn log_debug_info(&mut self, task_count: usize) {
         // Summary
         let msg = format!(
             "\n\

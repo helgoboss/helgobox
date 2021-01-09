@@ -16,10 +16,12 @@ use rx_util::UnitEvent;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    Controller, MainPreset, PresetManager, SharedSession, VirtualControlElementType, WeakSession,
+    make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
+    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, PresetManager, Session,
+    SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, ReaperTarget};
+use crate::domain::{MappingCompartment, ProcessorContext, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::{ExtendedPresetManager, SessionData};
 use crate::infrastructure::plugin::{
@@ -28,10 +30,11 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
-    add_firewall_rule, IndependentPanelManager, SharedIndependentPanelManager, SharedMainState,
+    add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
+    SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -42,6 +45,8 @@ pub struct HeaderPanel {
     companion_app_presenter: Rc<CompanionAppPresenter>,
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
+    group_panel: RefCell<Option<SharedView<GroupPanel>>>,
+    is_invoked_programmatically: Cell<bool>,
 }
 
 impl HeaderPanel {
@@ -58,6 +63,8 @@ impl HeaderPanel {
             companion_app_presenter: CompanionAppPresenter::new(session),
             plugin_parameters,
             panel_manager,
+            group_panel: Default::default(),
+            is_invoked_programmatically: false.into(),
         }
     }
 }
@@ -67,8 +74,23 @@ impl HeaderPanel {
         self.session.upgrade().expect("session gone")
     }
 
+    /// If you know a function in this view can be invoked by something else than the dialog
+    /// process, wrap your function body with this. Basically all pub functions!
+    ///
+    /// This prevents edit control text change events fired by windows to be processed.
+    fn invoke_programmatically(&self, f: impl FnOnce()) {
+        self.is_invoked_programmatically.set(true);
+        scopeguard::defer! { self.is_invoked_programmatically.set(false); }
+        f();
+    }
+
     fn active_compartment(&self) -> MappingCompartment {
         self.main_state.borrow().active_compartment.get()
+    }
+
+    fn active_group_id(&self) -> Option<GroupId> {
+        let group_filter = self.main_state.borrow().group_filter.get()?;
+        Some(group_filter.group_id())
     }
 
     fn panel_manager(&self) -> SharedIndependentPanelManager {
@@ -97,6 +119,7 @@ impl HeaderPanel {
             session.borrow_mut().start_learning_many_mappings(
                 &session,
                 compartment,
+                self.active_group_id().unwrap_or_default(),
                 control_element_type,
             );
             self.panel_manager().borrow().open_message_panel();
@@ -115,6 +138,30 @@ impl HeaderPanel {
             _ => unreachable!(),
         };
         Some(control_element_type)
+    }
+
+    fn add_group(&self) {
+        if let Some(name) = dialog_util::prompt_for("Group name", "") {
+            if name.is_empty() {
+                return;
+            }
+            let id = self.session().borrow_mut().add_default_group(name);
+            self.main_state
+                .borrow_mut()
+                .group_filter
+                .set(Some(GroupFilter(id)));
+        }
+    }
+
+    fn add_mapping(&self) {
+        self.main_state
+            .borrow_mut()
+            .clear_all_filters_except_group();
+        self.session().borrow_mut().add_default_mapping(
+            self.active_compartment(),
+            self.active_group_id().unwrap_or_default(),
+            VirtualControlElementType::Multi,
+        );
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -211,24 +258,23 @@ impl HeaderPanel {
             );
     }
 
-    fn update_send_feedback_only_if_armed(&self) {
-        self.session().borrow_mut().send_feedback_only_if_armed.set(
-            self.view
-                .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX)
-                .is_checked(),
-        );
+    fn toggle_send_feedback_only_if_armed(&self) {
+        self.session()
+            .borrow_mut()
+            .send_feedback_only_if_armed
+            .set_with(|prev| !*prev);
     }
 
-    fn update_always_auto_detect(&self) {
-        self.session().borrow_mut().always_auto_detect.set(
-            self.view
-                .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
-                .is_checked(),
-        );
+    fn toggle_always_auto_detect(&self) {
+        self.session()
+            .borrow_mut()
+            .always_auto_detect
+            .set_with(|prev| !*prev);
     }
 
     fn fill_all_controls(&self) {
         self.fill_compartment_combo_box();
+        self.fill_preset_auto_load_mode_combo_box();
     }
 
     fn invalidate_all_controls(&self) {
@@ -236,12 +282,12 @@ impl HeaderPanel {
         self.invalidate_midi_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
+        self.invalidate_group_controls();
         self.invalidate_let_matched_events_through_check_box();
         self.invalidate_let_unmatched_events_through_check_box();
-        self.invalidate_send_feedback_only_if_armed_check_box();
-        self.invalidate_always_auto_detect_check_box();
         self.invalidate_source_filter_buttons();
         self.invalidate_target_filter_buttons();
+        self.invalidate_add_one_button();
         self.invalidate_learn_many_button();
     }
 
@@ -256,9 +302,112 @@ impl HeaderPanel {
             .select_combo_box_item(self.active_compartment().into());
     }
 
+    fn invalidate_preset_auto_load_mode_combo_box(&self) {
+        let label = self.view.require_control(root::ID_AUTO_LOAD_LABEL_TEXT);
+        let combo = self.view.require_control(root::ID_AUTO_LOAD_COMBO_BOX);
+        if self.active_compartment() == MappingCompartment::MainMappings {
+            label.show();
+            combo.show();
+            combo.select_combo_box_item(
+                self.session()
+                    .borrow()
+                    .main_preset_auto_load_mode
+                    .get()
+                    .into(),
+            );
+        } else {
+            label.hide();
+            combo.hide();
+        }
+    }
+
+    fn invalidate_group_controls(&self) {
+        self.invalidate_group_control_appearance();
+        if self.active_compartment() != MappingCompartment::MainMappings {
+            return;
+        }
+        self.invalidate_group_combo_box();
+        self.invalidate_group_buttons();
+    }
+
+    fn invalidate_group_control_appearance(&self) {
+        self.show_if(
+            self.active_compartment() == MappingCompartment::MainMappings,
+            &[
+                root::ID_GROUP_LABEL_TEXT,
+                root::ID_GROUP_COMBO_BOX,
+                root::ID_GROUP_ADD_BUTTON,
+                root::ID_GROUP_DELETE_BUTTON,
+                root::ID_GROUP_EDIT_BUTTON,
+            ],
+        );
+    }
+
+    fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
+        for id in control_resource_ids {
+            self.view.require_control(*id).set_visible(condition);
+        }
+    }
+
+    fn invalidate_group_combo_box(&self) {
+        self.fill_group_combo_box();
+        self.invalidate_group_combo_box_value();
+    }
+
+    fn fill_group_combo_box(&self) {
+        let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
+        let vec = vec![
+            (-2isize, "<All>".to_string()),
+            (-1isize, "<Default>".to_string()),
+        ];
+        combo.fill_combo_box_with_data_small(
+            vec.into_iter().chain(
+                self.session()
+                    .borrow()
+                    .groups()
+                    .enumerate()
+                    .map(|(i, g)| (i as isize, g.borrow().to_string())),
+            ),
+        );
+    }
+
+    fn invalidate_group_combo_box_value(&self) {
+        let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
+        let data = match self.main_state.borrow().group_filter.get() {
+            None => -2isize,
+            Some(GroupFilter(id)) => {
+                if id.is_default() {
+                    -1isize
+                } else {
+                    match self.session().borrow().find_group_index_by_id(id) {
+                        None => {
+                            combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                            return;
+                        }
+                        Some(i) => i as isize,
+                    }
+                }
+            }
+        };
+        combo.select_combo_box_item_by_data(data).unwrap();
+    }
+
+    fn invalidate_group_buttons(&self) {
+        let remove_button = self.view.require_control(root::ID_GROUP_DELETE_BUTTON);
+        let edit_button = self.view.require_control(root::ID_GROUP_EDIT_BUTTON);
+        let (remove_enabled, edit_enabled) = match self.main_state.borrow().group_filter.get() {
+            None => (false, false),
+            Some(GroupFilter(id)) if id.is_default() => (false, true),
+            _ => (true, true),
+        };
+        remove_button.set_enabled(remove_enabled);
+        edit_button.set_enabled(edit_enabled);
+    }
+
     fn invalidate_preset_controls(&self) {
         self.invalidate_preset_combo_box();
         self.invalidate_preset_buttons();
+        self.invalidate_preset_auto_load_mode_combo_box();
     }
 
     fn invalidate_preset_combo_box(&self) {
@@ -271,18 +420,18 @@ impl HeaderPanel {
         let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
         let session = self.session();
         let session = session.borrow();
-        let (preset_is_active, preset_mappings_are_dirty) = match self.active_compartment() {
+        let (preset_is_active, is_dirty) = match self.active_compartment() {
             MappingCompartment::ControllerMappings => (
                 session.active_controller_id().is_some(),
-                session.controller_mappings_are_dirty(),
+                session.controller_preset_is_out_of_date(),
             ),
             MappingCompartment::MainMappings => (
                 session.active_main_preset().is_some(),
-                session.main_mappings_are_dirty(),
+                session.main_preset_is_out_of_date(),
             ),
         };
         delete_button.set_enabled(preset_is_active);
-        save_button.set_enabled(preset_is_active && preset_mappings_are_dirty);
+        save_button.set_enabled(preset_is_active && is_dirty);
     }
 
     fn fill_preset_combo_box(&self) {
@@ -314,6 +463,7 @@ impl HeaderPanel {
 
     fn invalidate_preset_combo_box_value(&self) {
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
+        let enabled = !self.mappings_are_read_only();
         let session = self.session();
         let session = session.borrow();
         let (preset_manager, active_preset_id): (Box<dyn ExtendedPresetManager>, _) =
@@ -327,26 +477,30 @@ impl HeaderPanel {
                     session.active_main_preset_id(),
                 ),
             };
-        let index = match active_preset_id {
+        let data = match active_preset_id {
             None => -1isize,
-            Some(id) => {
-                let index_option = preset_manager.find_index_by_id(id);
-                match index_option {
-                    None => {
-                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
-                        return;
-                    }
-                    Some(i) => i as isize,
+            Some(id) => match preset_manager.find_index_by_id(id) {
+                None => {
+                    combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                    return;
                 }
-            }
+                Some(i) => i as isize,
+            },
         };
-        combo.select_combo_box_item_by_data(index).unwrap();
+        combo.select_combo_box_item_by_data(data).unwrap();
+        combo.set_enabled(enabled);
     }
 
     fn fill_compartment_combo_box(&self) {
         self.view
             .require_control(root::ID_COMPARTMENT_COMBO_BOX)
             .fill_combo_box(MappingCompartment::into_enum_iter());
+    }
+
+    fn fill_preset_auto_load_mode_combo_box(&self) {
+        self.view
+            .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
+            .fill_combo_box(MainPresetAutoLoadMode::into_enum_iter());
     }
 
     fn invalidate_midi_control_input_combo_box_options(&self) {
@@ -436,7 +590,7 @@ impl HeaderPanel {
         let main_state = self.main_state.borrow();
         self.view
             .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
-            .set_text(main_state.search_expression.get_ref().as_str())
+            .set_text_if_not_focused(main_state.search_expression.get_ref().as_str())
     }
 
     fn update_midi_control_input(&self) {
@@ -457,12 +611,12 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
         let value = match b.selected_combo_box_item_data() {
+            -2 => Some(MidiFeedbackOutput::FxOutput),
             -1 => None,
             id if id >= 0 => {
                 let dev = Reaper::get().midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
                 Some(MidiFeedbackOutput::Device(dev))
             }
-            -2 => Some(MidiFeedbackOutput::FxOutput),
             _ => unreachable!(),
         };
         self.session().borrow_mut().midi_feedback_output.set(value);
@@ -478,6 +632,98 @@ impl HeaderPanel {
         );
     }
 
+    fn remove_group(&self) {
+        let id = match self.main_state.borrow().group_filter.get() {
+            Some(GroupFilter(id)) if !id.is_default() => id,
+            _ => return,
+        };
+        let msg = "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.";
+        if let Some(delete_mappings) = self
+            .view
+            .require_window()
+            .ask_yes_no_or_cancel("ReaLearn", msg)
+        {
+            self.main_state
+                .borrow_mut()
+                .group_filter
+                .set(Some(GroupFilter(GroupId::default())));
+            self.session()
+                .borrow_mut()
+                .remove_group(id, delete_mappings);
+        }
+    }
+
+    fn edit_group(&self) {
+        let weak_group = match self.main_state.borrow().group_filter.get() {
+            Some(GroupFilter(id)) => {
+                if id.is_default() {
+                    Rc::downgrade(self.session().borrow().default_group())
+                } else {
+                    let session = self.session();
+                    let session = session.borrow();
+                    let group = session.find_group_by_id(id).expect("group not existing");
+                    Rc::downgrade(group)
+                }
+            }
+            _ => return,
+        };
+        let panel = GroupPanel::new(self.session.clone(), weak_group);
+        let shared_panel = Rc::new(panel);
+        if let Some(already_open_panel) =
+            self.group_panel.borrow_mut().replace(shared_panel.clone())
+        {
+            already_open_panel.close();
+        }
+        shared_panel.open(self.view.require_window());
+    }
+
+    fn update_group(&self) {
+        let group_filter = match self
+            .view
+            .require_control(root::ID_GROUP_COMBO_BOX)
+            .selected_combo_box_item_data()
+        {
+            -2 => None,
+            -1 => Some(GroupFilter(GroupId::default())),
+            i if i >= 0 => {
+                let session = self.session();
+                let session = session.borrow();
+                let group = session
+                    .find_group_by_index(i as usize)
+                    .expect("group not existing")
+                    .borrow();
+                Some(GroupFilter(group.id()))
+            }
+            _ => unreachable!(),
+        };
+        self.main_state.borrow_mut().group_filter.set(group_filter);
+    }
+
+    fn update_preset_auto_load_mode(&self) {
+        let mode = self
+            .view
+            .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid preset auto-load mode");
+        let session = self.session();
+        if mode != MainPresetAutoLoadMode::Off {
+            if session.borrow().main_preset_is_out_of_date() {
+                let msg = "Your mapping changes will be lost. Consider to save them first. Do you really want to continue?";
+                if !self.view.require_window().confirm("ReaLearn", msg) {
+                    self.invalidate_preset_auto_load_mode_combo_box();
+                    return;
+                }
+            }
+            self.panel_manager()
+                .borrow_mut()
+                .hide_all_with_compartment(MappingCompartment::MainMappings);
+        }
+        self.session()
+            .borrow_mut()
+            .activate_main_preset_auto_load_mode(mode, self.session.clone());
+    }
+
     fn update_preset(&self) {
         let session = self.session();
         let compartment = self.active_compartment();
@@ -485,11 +731,11 @@ impl HeaderPanel {
             match compartment {
                 MappingCompartment::ControllerMappings => (
                     Box::new(App::get().controller_manager()),
-                    session.borrow().controller_mappings_are_dirty(),
+                    session.borrow().controller_preset_is_out_of_date(),
                 ),
                 MappingCompartment::MainMappings => (
                     Box::new(App::get().main_preset_manager()),
-                    session.borrow().main_mappings_are_dirty(),
+                    session.borrow().main_preset_is_out_of_date(),
                 ),
             };
         if mappings_are_dirty {
@@ -540,31 +786,30 @@ impl HeaderPanel {
             .set_checked(self.session().borrow().let_unmatched_events_through.get());
     }
 
-    fn invalidate_send_feedback_only_if_armed_check_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX);
-        if self.session().borrow().containing_fx_is_in_input_fx_chain() {
-            b.disable();
-            b.check();
-        } else {
-            b.enable();
-            b.set_checked(self.session().borrow().send_feedback_only_if_armed.get());
-        }
-    }
-
-    fn invalidate_always_auto_detect_check_box(&self) {
-        self.view
-            .require_control(root::ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX)
-            .set_checked(self.session().borrow().always_auto_detect.get());
+    fn mappings_are_read_only(&self) -> bool {
+        let session = self.session();
+        let session = session.borrow();
+        session.is_learning_many_mappings()
+            || (self.active_compartment() == MappingCompartment::MainMappings
+                && session.main_preset_auto_load_is_active())
     }
 
     fn invalidate_learn_many_button(&self) {
         let is_learning = self.session().borrow().is_learning_many_mappings();
         let learn_button_text = if is_learning { "Stop" } else { "Learn many" };
+        let button = self
+            .view
+            .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON);
+        button.set_text(learn_button_text);
+        let enabled = !(self.active_compartment() == MappingCompartment::MainMappings
+            && self.session().borrow().main_preset_auto_load_is_active());
+        button.set_enabled(enabled);
+    }
+
+    fn invalidate_add_one_button(&self) {
         self.view
-            .require_control(root::ID_LEARN_MANY_MAPPINGS_BUTTON)
-            .set_text(learn_button_text);
+            .require_control(root::ID_ADD_MAPPING_BUTTON)
+            .set_enabled(!self.mappings_are_read_only());
     }
 
     fn invalidate_source_filter_buttons(&self) {
@@ -572,7 +817,7 @@ impl HeaderPanel {
         self.invalidate_filter_buttons(
             main_state.is_learning_source_filter.get(),
             main_state.source_filter.get_ref().is_some(),
-            "Learn source filter",
+            "Filter source",
             root::ID_FILTER_BY_SOURCE_BUTTON,
             root::ID_CLEAR_SOURCE_FILTER_BUTTON,
         );
@@ -583,7 +828,7 @@ impl HeaderPanel {
         self.invalidate_filter_buttons(
             main_state.is_learning_target_filter.get(),
             main_state.target_filter.get_ref().is_some(),
-            "Learn target filter",
+            "Filter target",
             root::ID_FILTER_BY_TARGET_BUTTON,
             root::ID_CLEAR_TARGET_FILTER_BUTTON,
         );
@@ -688,17 +933,18 @@ impl HeaderPanel {
             None => return Err("no active preset"),
             Some(id) => id,
         };
-        let mappings = session
+        let mut mappings: Vec<_> = session
             .mappings(compartment)
             .map(|ptr| ptr.borrow().clone())
             .collect();
+        self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_manager();
                 let mut controller = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("controller not found")?;
-                controller.update_mappings(mappings);
+                controller.update_realearn_data(mappings);
                 preset_manager.borrow_mut().update_preset(controller)?;
             }
             MappingCompartment::MainMappings => {
@@ -706,7 +952,9 @@ impl HeaderPanel {
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("main preset not found")?;
-                main_preset.update_mappings(mappings);
+                let default_group = session.default_group().borrow().clone();
+                let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
+                main_preset.update_data(default_group, groups, mappings);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -738,19 +986,33 @@ impl HeaderPanel {
         }
     }
 
+    fn make_mappings_project_independent_if_desired(
+        &self,
+        context: &ProcessorContext,
+        mut mappings: &mut [MappingModel],
+    ) {
+        let msg = "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?";
+        if mappings_have_project_references(&mappings)
+            && self.view.require_window().confirm("ReaLearn", msg)
+        {
+            make_mappings_project_independent(&mut mappings, context);
+        }
+    }
+
     fn save_as_preset(&self) -> Result<(), &'static str> {
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let compartment = self.active_compartment();
+        let mut mappings: Vec<_> = session
+            .mappings(compartment)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
+        self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),
             Some(n) => n,
         };
         let preset_id = slug::slugify(&preset_name);
-        let session = self.session();
-        let mut session = session.borrow_mut();
-        let compartment = self.active_compartment();
-        let mappings = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
@@ -758,7 +1020,7 @@ impl HeaderPanel {
                     .map(|c| c.custom_data().clone())
                     .unwrap_or_default();
                 let controller =
-                    Controller::new(preset_id.clone(), preset_name, mappings, custom_data);
+                    ControllerPreset::new(preset_id.clone(), preset_name, mappings, custom_data);
                 App::get()
                     .controller_manager()
                     .borrow_mut()
@@ -766,7 +1028,15 @@ impl HeaderPanel {
                 session.activate_controller(Some(preset_id), self.session.clone())?;
             }
             MappingCompartment::MainMappings => {
-                let main_preset = MainPreset::new(preset_id.clone(), preset_name, mappings);
+                let default_group = session.default_group().borrow().clone();
+                let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
+                let main_preset = MainPreset::new(
+                    preset_id.clone(),
+                    preset_name,
+                    default_group,
+                    groups,
+                    mappings,
+                );
                 App::get()
                     .main_preset_manager()
                     .borrow_mut()
@@ -775,6 +1045,18 @@ impl HeaderPanel {
             }
         };
         Ok(())
+    }
+
+    fn reset(&self) {
+        self.main_state
+            .borrow_mut()
+            .group_filter
+            .set(Some(GroupFilter(GroupId::default())));
+        if let Some(already_open_panel) = self.group_panel.borrow().as_ref() {
+            already_open_panel.close();
+        }
+        self.group_panel.replace(None);
+        self.invalidate_all_controls();
     }
 
     fn log_debug_info(&self) {
@@ -826,7 +1108,7 @@ impl HeaderPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         self.when(session.everything_changed(), |view| {
-            view.invalidate_all_controls();
+            view.reset();
         });
         self.when(session.let_matched_events_through.changed(), |view| {
             view.invalidate_let_matched_events_through_check_box();
@@ -834,14 +1116,8 @@ impl HeaderPanel {
         self.when(session.let_unmatched_events_through.changed(), |view| {
             view.invalidate_let_unmatched_events_through_check_box();
         });
-        self.when(session.send_feedback_only_if_armed.changed(), |view| {
-            view.invalidate_send_feedback_only_if_armed_check_box();
-        });
-        self.when(session.always_auto_detect.changed(), |view| {
-            view.invalidate_always_auto_detect_check_box();
-        });
         self.when(session.learn_many_state_changed(), |view| {
-            view.invalidate_learn_many_button();
+            view.invalidate_all_controls();
         });
         self.when(session.midi_control_input.changed(), |view| {
             view.invalidate_midi_control_input_combo_box();
@@ -859,7 +1135,18 @@ impl HeaderPanel {
         self.when(session.midi_feedback_output.changed(), |view| {
             view.invalidate_midi_feedback_output_combo_box()
         });
+        self.when(session.group_changed(), |view| {
+            view.invalidate_group_controls();
+        });
         let main_state = self.main_state.borrow();
+        self.when(main_state.group_filter.changed(), |view| {
+            view.invalidate_group_controls();
+        });
+        self.when(main_state.search_expression.changed(), |view| {
+            view.invoke_programmatically(|| {
+                view.invalidate_search_expression();
+            });
+        });
         self.when(
             main_state
                 .is_learning_target_filter
@@ -879,9 +1166,13 @@ impl HeaderPanel {
             },
         );
         self.when(main_state.active_compartment.changed(), |view| {
-            view.invalidate_compartment_combo_box();
-            view.invalidate_preset_controls();
-            view.invalidate_learn_many_button();
+            view.invalidate_all_controls();
+        });
+        self.when(session.main_preset_auto_load_mode.changed(), |view| {
+            view.invalidate_all_controls();
+        });
+        self.when(session.group_list_changed(), |view| {
+            view.invalidate_group_controls();
         });
         when(
             App::get()
@@ -895,11 +1186,17 @@ impl HeaderPanel {
         .do_async(move |view, _| {
             view.invalidate_preset_controls();
         });
+        // TODO-high This is lots of stuff done whenever changing just something small in a mapping
+        //  or group. Maybe micro optimization, I don't know. Alternatively we could just set a
+        //  dirty flag once something changed and reset it after saving!
+        // Mainly enables/disables save button depending on dirty state.
         when(
             session
                 .mapping_list_changed()
-                .map(|(compartment, _)| compartment)
-                .merge(session.mapping_changed())
+                .map_to(())
+                .merge(session.mapping_changed().map_to(()))
+                .merge(session.group_list_changed())
+                .merge(session.group_changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -916,6 +1213,10 @@ impl HeaderPanel {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
             .do_sync(move |panel, _| reaction(panel));
+    }
+
+    fn is_invoked_programmatically(&self) -> bool {
+        self.is_invoked_programmatically.get()
     }
 }
 
@@ -939,12 +1240,10 @@ impl View for HeaderPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            ID_ADD_MAPPING_BUTTON => {
-                self.session().borrow_mut().add_default_mapping(
-                    self.active_compartment(),
-                    VirtualControlElementType::Multi,
-                );
-            }
+            ID_GROUP_ADD_BUTTON => self.add_group(),
+            ID_GROUP_DELETE_BUTTON => self.remove_group(),
+            ID_GROUP_EDIT_BUTTON => self.edit_group(),
+            ID_ADD_MAPPING_BUTTON => self.add_mapping(),
             ID_LEARN_MANY_MAPPINGS_BUTTON => {
                 self.toggle_learn_many_mappings();
             }
@@ -958,11 +1257,8 @@ impl View for HeaderPanel {
                 }
             }
             ID_EXPORT_BUTTON => self.export_to_clipboard(),
-            ID_SEND_FEEDBACK_BUTTON => self.session().borrow().send_feedback(),
             ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
             ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
-            ID_SEND_FEEDBACK_ONLY_IF_ARMED_CHECK_BOX => self.update_send_feedback_only_if_armed(),
-            ID_ALWAYS_AUTO_DETECT_MODE_CHECK_BOX => self.update_always_auto_detect(),
             ID_PRESET_DELETE_BUTTON => {
                 self.delete_active_preset().unwrap();
             }
@@ -985,12 +1281,22 @@ impl View for HeaderPanel {
             ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
             ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
             ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
+            ID_GROUP_COMBO_BOX => self.update_group(),
+            ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
             ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
     }
 
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+        if self.is_invoked_programmatically() {
+            // We don't want to continue if the edit control change was not caused by the user.
+            // Although the edit control text is changed programmatically, it also triggers the
+            // change handler. Ignore it! Most of those events are filtered out already
+            // by the dialog proc reentrancy check, but this one is not because the
+            // dialog proc is not reentered - we are just reacting (async) to a change.
+            return false;
+        }
         use root::*;
         match resource_id {
             ID_HEADER_SEARCH_EDIT_CONTROL => self.update_search_expression(),
@@ -1004,6 +1310,55 @@ impl View for HeaderPanel {
             .expect("menu bar couldn't be loaded");
         let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
         let app = App::get();
+        // Invalidate some menu items without result
+        {
+            let session = self.session();
+            let session = session.borrow();
+            // Invalidate "Send feedback only if track armed"
+            {
+                let item_id = root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED;
+                let (enabled, checked) = if session.containing_fx_is_in_input_fx_chain() {
+                    (false, true)
+                } else {
+                    (true, session.send_feedback_only_if_armed.get())
+                };
+                menu.set_item_enabled(item_id, enabled);
+                menu.set_item_checked(item_id, checked);
+            }
+            // Invalidate "Auto-correct settings"
+            {
+                menu.set_item_checked(
+                    root::IDM_AUTO_CORRECT_SETTINGS,
+                    session.always_auto_detect.get(),
+                );
+            }
+        }
+        // Invalidate "Link current preset to FX"
+        let next_preset_fx_link_action = {
+            let item_id = root::IDM_LINK_TO_FX;
+            let action = determine_next_preset_fx_link_action(
+                app,
+                &self.session().borrow(),
+                self.active_compartment(),
+            );
+            menu.set_item_enabled(item_id, action.is_some());
+            menu.set_item_checked(
+                item_id,
+                matches!(action, Some(PresetFxLinkAction::UnlinkFrom { .. })),
+            );
+            let label = match &action {
+                None => "Link current preset fo FX...".to_string(),
+                Some(PresetFxLinkAction::LinkTo { fx_id: fx_name, .. }) => {
+                    format!("Link current preset to FX \"{}\"", fx_name)
+                }
+                Some(PresetFxLinkAction::UnlinkFrom { fx_id: fx_name, .. }) => {
+                    format!("Unlink current preset from FX \"{}\"", fx_name)
+                }
+            };
+            menu.set_item_text(item_id, label);
+            action
+        };
+        // Invalidate "Server enabled"
         enum ServerAction {
             Start,
             Disable,
@@ -1023,10 +1378,12 @@ impl View for HeaderPanel {
             menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
             (next_server_action, server.http_port(), server.https_port())
         };
+        // Open menu
         let result = match self.view.require_window().open_popup_menu(menu, location) {
             None => return,
             Some(r) => r,
         };
+        // Execute action
         match result {
             root::IDM_DONATE => self.donate(),
             root::IDM_USER_GUIDE_OFFLINE => self.open_user_guide_offline(),
@@ -1035,6 +1392,23 @@ impl View for HeaderPanel {
             root::IDM_CONTACT_DEVELOPER => self.contact_developer(),
             root::IDM_WEBSITE => self.open_website(),
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
+            root::IDM_SEND_FEEDBACK_NOW => self.session().borrow().send_feedback(),
+            root::IDM_AUTO_CORRECT_SETTINGS => self.toggle_always_auto_detect(),
+            root::IDM_LINK_TO_FX => {
+                use PresetFxLinkAction::*;
+                let manager = app.preset_link_manager();
+                match next_preset_fx_link_action.expect("impossible") {
+                    LinkTo { preset_id, fx_id } => {
+                        manager.borrow_mut().link_preset_to_fx(preset_id, fx_id)
+                    }
+                    UnlinkFrom { preset_id, .. } => {
+                        manager.borrow_mut().unlink_preset_from_fx(&preset_id)
+                    }
+                }
+            }
+            root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED => {
+                self.toggle_send_feedback_only_if_armed()
+            }
             root::IDM_CHANGE_SESSION_ID => {
                 self.change_session_id();
             }
@@ -1106,5 +1480,42 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
+    }
+}
+
+enum PresetFxLinkAction {
+    LinkTo { preset_id: String, fx_id: FxId },
+    UnlinkFrom { preset_id: String, fx_id: FxId },
+}
+
+fn determine_next_preset_fx_link_action(
+    app: &App,
+    session: &Session,
+    compartment: MappingCompartment,
+) -> Option<PresetFxLinkAction> {
+    if compartment != MappingCompartment::MainMappings {
+        // Not relevant for controller mappings.
+        return None;
+    }
+    // No preset means nothing can be linked.
+    let preset_id = session.active_main_preset_id()?;
+    if let Some(fx_id) = app
+        .preset_link_manager()
+        .borrow()
+        .find_fx_that_preset_is_linked_to(preset_id)
+    {
+        Some(PresetFxLinkAction::UnlinkFrom {
+            preset_id: preset_id.to_string(),
+            fx_id,
+        })
+    } else {
+        let last_fx = app.previously_focused_fx()?;
+        if !last_fx.is_available() {
+            return None;
+        }
+        Some(PresetFxLinkAction::LinkTo {
+            preset_id: preset_id.to_string(),
+            fx_id: FxId::from_fx(&last_fx),
+        })
     }
 }

@@ -20,6 +20,7 @@ use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 #[derive(Debug)]
 pub struct MappingRowsPanel {
     view: ViewContext,
+    position: Point<DialogUnits>,
     session: WeakSession,
     main_state: SharedMainState,
     rows: Vec<SharedView<MappingRowPanel>>,
@@ -32,6 +33,7 @@ impl MappingRowsPanel {
         session: WeakSession,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
+        position: Point<DialogUnits>,
     ) -> MappingRowsPanel {
         MappingRowsPanel {
             view: Default::default(),
@@ -50,6 +52,7 @@ impl MappingRowsPanel {
             panel_manager,
             scroll_position: 0.into(),
             main_state,
+            position,
         }
     }
 
@@ -73,7 +76,7 @@ impl MappingRowsPanel {
         {
             let mut main_state = self.main_state.borrow_mut();
             main_state.active_compartment.set(compartment);
-            main_state.clear_filters();
+            main_state.clear_all_filters();
         }
         self.scroll(index);
     }
@@ -328,15 +331,20 @@ impl MappingRowsPanel {
         main_state: &MainState,
         mapping: &SharedMapping,
     ) -> bool {
+        let mapping = mapping.borrow();
+        if let Some(group_filter) = main_state.group_filter.get() {
+            if !group_filter.matches(&mapping) {
+                return false;
+            }
+        }
         if let Some(filter_source) = main_state.source_filter.get_ref() {
-            let mapping_source = mapping.borrow().source_model.create_source();
+            let mapping_source = mapping.source_model.create_source();
             if mapping_source != *filter_source {
                 return false;
             }
         }
         if let Some(filter_target) = main_state.target_filter.get_ref() {
             let mapping_target = match mapping
-                .borrow()
                 .target_model
                 .with_context(session.context())
                 .create_target()
@@ -351,7 +359,6 @@ impl MappingRowsPanel {
         let search_expression = main_state.search_expression.get_ref().trim().to_lowercase();
         if !search_expression.is_empty()
             && !mapping
-                .borrow()
                 .name
                 .get_ref()
                 .to_lowercase()
@@ -393,7 +400,9 @@ impl MappingRowsPanel {
                 .changed()
                 .merge(main_state.target_filter.changed())
                 .merge(main_state.search_expression.changed())
-                .merge(main_state.active_compartment.changed()),
+                .merge(main_state.active_compartment.changed())
+                .merge(main_state.group_filter.changed())
+                .merge(session.group_list_changed()),
             |view, _| {
                 if !view.scroll(0) {
                     // No scrolling was necessary. But that also means, the rows were not
@@ -433,7 +442,7 @@ impl View for MappingRowsPanel {
                 .low()
                 .InitializeCoolSB(window.raw() as _);
         }
-        window.move_to(Point::new(DialogUnits(0), DialogUnits(100)));
+        window.move_to(self.position);
         self.open_mapping_rows(window);
         self.invalidate_mapping_rows();
         self.invalidate_scroll_info();

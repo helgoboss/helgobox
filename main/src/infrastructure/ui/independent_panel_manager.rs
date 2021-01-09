@@ -3,6 +3,7 @@ use reaper_high::Reaper;
 use slog::debug;
 
 use crate::application::{SharedMapping, WeakSession};
+use crate::domain::MappingCompartment;
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -51,27 +52,34 @@ impl IndependentPanelManager {
         panel.show(mapping.clone());
     }
 
-    /// Closes and removes panels of mappings which don't exist anymore.
+    /// Hides panels of mappings which don't exist anymore.
     pub fn close_orphan_panels(&mut self) {
         let shared_session = self.session.upgrade().expect("session gone");
         let session = shared_session.borrow();
-        self.mapping_panels.retain(|p| {
-            if session.has_mapping(p.mapping_ptr()) {
-                true
-            } else {
-                p.close();
-                false
+        for p in &self.mapping_panels {
+            if !session.has_mapping(p.mapping_ptr()) {
+                p.hide();
             }
-        });
+        }
     }
 
     /// Closes and removes all independent panels
-    pub fn close_all(&mut self) {
+    fn destroy(&mut self) {
         self.message_panel.close();
         for p in &self.mapping_panels {
             p.close()
         }
         self.mapping_panels.clear();
+    }
+
+    pub fn hide_all_with_compartment(&mut self, compartment: MappingCompartment) {
+        for p in &self.mapping_panels {
+            if let Some(m) = p.displayed_mapping() {
+                if m.borrow().compartment() == compartment {
+                    p.hide();
+                }
+            }
+        }
     }
 
     fn request_panel(&mut self) -> SharedView<MappingPanel> {
@@ -117,7 +125,7 @@ impl Drop for IndependentPanelManager {
         debug!(Reaper::get().logger(), "Dropping mapping panel manager...");
         // Those are (intentionally) REAPER child windows, not ReaLearn child windows. So we need to
         // close them manually as soon as ReaLearn is unloaded.
-        self.close_all();
+        self.destroy();
     }
 }
 

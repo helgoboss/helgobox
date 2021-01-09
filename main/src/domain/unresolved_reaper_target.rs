@@ -269,6 +269,22 @@ pub enum VirtualFx {
     Particular { is_input_fx: bool, anchor: FxAnchor },
 }
 
+impl VirtualFx {
+    pub fn refers_to_project(&self) -> bool {
+        use VirtualFx::*;
+        match self {
+            Particular { anchor, .. } => {
+                use FxAnchor::*;
+                match anchor {
+                    Id(_, _) | IdOrIndex(_, _) => true,
+                    Name(_) | Index(_) => false,
+                }
+            }
+            Focused => false,
+        }
+    }
+}
+
 impl VirtualTrack {
     pub fn with_context<'a>(
         &'a self,
@@ -277,6 +293,20 @@ impl VirtualTrack {
         VirtualTrackWithContext {
             virtual_track: self,
             context,
+        }
+    }
+
+    pub fn refers_to_project(&self) -> bool {
+        use VirtualTrack::*;
+        match self {
+            Particular(anchor) => {
+                use TrackAnchor::*;
+                match anchor {
+                    IdOrName(_, _) | Id(_) => true,
+                    Name(_) | Index(_) => false,
+                }
+            }
+            This | Selected | Master => false,
         }
     }
 }

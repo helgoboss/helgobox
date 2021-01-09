@@ -1,23 +1,44 @@
-use crate::application::{MappingModel, Preset, SharedMapping};
+use crate::application::{GroupModel, MappingModel, Preset, SharedMapping};
 use std::fmt;
 
 #[derive(Clone, Debug)]
 pub struct MainPreset {
     id: String,
     name: String,
+    default_group: GroupModel,
+    groups: Vec<GroupModel>,
     mappings: Vec<MappingModel>,
 }
 
 impl MainPreset {
-    pub fn new(id: String, name: String, mappings: Vec<MappingModel>) -> MainPreset {
-        MainPreset { id, name, mappings }
+    pub fn new(
+        id: String,
+        name: String,
+        default_group: GroupModel,
+        groups: Vec<GroupModel>,
+        mappings: Vec<MappingModel>,
+    ) -> MainPreset {
+        MainPreset {
+            id,
+            name,
+            default_group,
+            groups,
+            mappings,
+        }
     }
 
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn update_mappings(&mut self, mappings: Vec<MappingModel>) {
+    pub fn update_data(
+        &mut self,
+        default_group: GroupModel,
+        groups: Vec<GroupModel>,
+        mappings: Vec<MappingModel>,
+    ) {
+        self.default_group = default_group;
+        self.groups = groups;
         self.mappings = mappings;
     }
 }
@@ -25,6 +46,14 @@ impl MainPreset {
 impl Preset for MainPreset {
     fn id(&self) -> &str {
         &self.id
+    }
+
+    fn default_group(&self) -> &GroupModel {
+        &self.default_group
+    }
+
+    fn groups(&self) -> &Vec<GroupModel> {
+        &self.groups
     }
 
     fn mappings(&self) -> &Vec<MappingModel> {

@@ -3,18 +3,19 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
+use crate::core::Global;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, NormalMainTask, ParameterMainTask, ProcessorContext,
-    PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, MainProcessor, NormalMainTask, ParameterMainTask,
+    ProcessorContext, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
-use crate::infrastructure::plugin::{debug_util, SET_STATE_PARAM_NAME};
+use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use crate::infrastructure::ui::MainPanel;
-use helgoboss_midi::{RawShortMessage, ShortMessageFactory, U7};
+use helgoboss_midi::{RawShortMessage, ShortMessageFactory};
 use lazycell::LazyCell;
-use reaper_high::{CrashInfo, Reaper, ReaperGuard};
-use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext, Swell};
+use reaper_high::{Reaper, ReaperGuard};
+use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
 use reaper_medium::{Hz, MidiFrameOffset};
 
 use slog::{debug, o};
@@ -71,8 +72,9 @@ pub struct RealearnPlugin {
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
-    // without detour.
-    real_time_processor: RealTimeProcessor,
+    // without detour. Well, almost. We share it with the global ReaLearn audio hook that drives
+    // processing. That's why we need an Rc/RefCell.
+    real_time_processor: SharedRealTimeProcessor,
 }
 
 impl Default for RealearnPlugin {
@@ -96,11 +98,12 @@ impl Plugin for RealearnPlugin {
             let (parameter_main_task_sender, parameter_main_task_receiver) =
                 crossbeam_channel::unbounded();
             let instance_id = nanoid::nanoid!(8);
-            let logger = App::logger().new(o!("instance" => instance_id.clone()));
+            let logger =
+                crate::application::App::logger().new(o!("instance" => instance_id.clone()));
             let plugin_parameters =
                 Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
             Self {
-                instance_id,
+                instance_id: instance_id.clone(),
                 logger: logger.clone(),
                 host,
                 session: Rc::new(LazyCell::new()),
@@ -113,14 +116,15 @@ impl Plugin for RealearnPlugin {
                     normal_main_task_sender.clone(),
                     normal_main_task_receiver,
                 ),
-                real_time_processor: RealTimeProcessor::new(
+                real_time_processor: Rc::new(RefCell::new(RealTimeProcessor::new(
+                    instance_id,
                     &logger,
                     normal_real_time_task_receiver,
                     feedback_real_time_task_receiver,
                     normal_main_task_sender,
                     control_main_task_sender,
                     host,
-                ),
+                ))),
                 parameter_main_task_receiver,
                 control_main_task_receiver,
             }
@@ -201,12 +205,22 @@ impl Plugin for RealearnPlugin {
         firewall(|| {
             for e in events.events() {
                 if let Event::Midi(me) = e {
-                    let msg = RawShortMessage::from_bytes((
-                        me.data[0],
-                        U7::new(me.data[1]),
-                        U7::new(me.data[2]),
-                    ))
-                    .expect("received invalid MIDI message");
+                    fn to_short(me: vst::event::MidiEvent) -> Option<RawShortMessage> {
+                        use std::convert::TryInto;
+                        RawShortMessage::from_bytes((
+                            me.data[0],
+                            me.data[1].try_into().ok()?,
+                            me.data[2].try_into().ok()?,
+                        ))
+                        .ok()
+                    }
+                    let msg = if let Some(m) = to_short(me) {
+                        m
+                    } else {
+                        // Just ignore if not a valid MIDI message. Invalid MIDI message was
+                        // observed in the wild: https://github.com/helgoboss/realearn/issues/82.
+                        continue;
+                    };
                     // This is called in real-time audio thread, so we can just call the
                     // real-time processor.
                     // Negative offset was observed in the wild, see
@@ -216,18 +230,19 @@ impl Plugin for RealearnPlugin {
                     // just an experimental feature.
                     let offset = MidiFrameOffset::new(u32::try_from(me.delta_frames).unwrap_or(0));
                     self.real_time_processor
+                        .borrow_mut()
                         .process_incoming_midi_from_fx_input(offset, msg);
                 }
             }
         });
     }
 
-    fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
-        firewall(|| {
-            // This is called in real-time audio thread, so we can just call the real-time
-            // processor.
-            self.real_time_processor.idle(buffer.samples());
-        });
+    fn process(&mut self, _: &mut AudioBuffer<f32>) {
+        // We don't need to call the real-time processor here anymore because it's already done
+        // by the ReaLearn audio hook. The advantage is that we stay capable of acting even if
+        // REAPER stops calling the process method, e.g. in the following cases:
+        // - Transport paused and track not armed (https://github.com/helgoboss/realearn/issues/84)
+        // - On input FX and track not armed
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
@@ -255,25 +270,20 @@ impl Plugin for RealearnPlugin {
 
 impl RealearnPlugin {
     fn ensure_reaper_setup(&mut self) -> Arc<ReaperGuard> {
-        Reaper::guarded(|| {
-            let context =
-                PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context()).unwrap();
-            Swell::make_available_globally(Swell::load(context));
-            Reaper::setup_with_defaults(
-                context,
-                self.logger.clone(),
-                CrashInfo {
-                    plugin_name: "ReaLearn".to_string(),
-                    plugin_version: App::detailed_version_label().to_string(),
-                    support_email_address: "info@helgoboss.org".to_string(),
-                },
-            );
-            crate::application::App::get().register_global_learn_action();
-            server::keep_informing_clients_about_sessions();
-            debug_util::register_resolve_symbols_action();
-            crate::infrastructure::test::register_test_action();
-            App::get().init();
-        })
+        Reaper::guarded(
+            || {
+                let context =
+                    PluginContext::from_vst_plugin(&self.host, static_vst_plugin_context())
+                        .unwrap();
+                App::init_static(self.logger.clone(), context);
+            },
+            || {
+                App::get().wake_up();
+                || {
+                    App::get().go_to_sleep();
+                }
+            },
+        )
     }
 
     /// At this point, REAPER cannot reliably give us yet the containing FX. As a
@@ -291,9 +301,10 @@ impl RealearnPlugin {
         let normal_main_task_channel = self.normal_main_task_channel.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
         let parameter_main_task_receiver = self.parameter_main_task_receiver.clone();
+        let real_time_processor = self.real_time_processor.clone();
         let logger = self.logger.clone();
         let instance_id = self.instance_id.clone();
-        Reaper::get()
+        Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(&host) {
                     Ok(c) => c,
@@ -302,15 +313,13 @@ impl RealearnPlugin {
                         return;
                     }
                 };
+                // Session
                 let session = Session::new(
-                    instance_id,
+                    instance_id.clone(),
                     &logger,
-                    processor_context,
-                    normal_real_time_task_sender,
-                    feedback_real_time_task_sender,
-                    normal_main_task_channel,
-                    control_main_task_receiver,
-                    parameter_main_task_receiver,
+                    processor_context.clone(),
+                    normal_real_time_task_sender.clone(),
+                    normal_main_task_channel.0.clone(),
                     // It's important that we use a weak pointer here. Otherwise the session keeps
                     // a strong reference to the UI and the UI keeps strong
                     // references to the session. This results in UI stuff not
@@ -319,11 +328,30 @@ impl RealearnPlugin {
                     Rc::downgrade(&main_panel),
                     App::get().controller_manager(),
                     App::get().main_preset_manager(),
+                    App::get().preset_link_manager(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
                 server::keep_informing_clients_about_session_events(&shared_session);
                 crate::application::App::get().register_session(weak_session.clone());
+                // Register the main processor with the global ReaLearn control surface. We let it
+                // call by the control surface because it must be called regularly,
+                // even when the ReaLearn UI is closed. That means, the VST GUI idle
+                // callback is not suited.
+                let main_processor = MainProcessor::new(
+                    instance_id,
+                    &logger,
+                    normal_main_task_channel.0,
+                    normal_main_task_channel.1,
+                    parameter_main_task_receiver,
+                    control_main_task_receiver,
+                    normal_real_time_task_sender,
+                    feedback_real_time_task_sender,
+                    weak_session.clone(),
+                    processor_context,
+                );
+                main_processor.activate();
+                App::get().register_processor_couple(real_time_processor, main_processor);
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);
@@ -400,6 +428,7 @@ impl Drop for RealearnPlugin {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
+            App::get().unregister_processor_couple(self.instance_id.clone());
             crate::application::App::get().unregister_session(session.as_ptr());
             debug!(
                 self.logger,

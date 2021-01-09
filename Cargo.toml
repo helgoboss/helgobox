@@ -14,6 +14,11 @@ debug = true
 [patch.crates-io]
 # TODO-low-wait
 # I absolutely need Flutter to be able to connect with ReaLearn based on a LAN IP address. Without this hack, Flutter
-# will fail to connect with a TLSV1_ALERT_DECODE_ERROR. As soon as webpki #54 is closed and Warp/Rustls has updated
-# the dependency, we should remove this!
+# will fail to connect with a TLSV1_ALERT_DECODE_ERROR. As soon as https://github.com/briansmith/webpki/issues/54 is
+# closed and warp/rustls has updated the dependency, we should remove this!
 webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround/54-alert-decode-error" }
+# TODO-low-wait
+# It's important to make the server shutdown immediately before ReaLearn is unloaded without having to force the user
+# to wait for open connections to finish. The following is a hopefully temporary hack to make this possible.
+# See https://github.com/hyperium/hyper/issues/1885 and https://github.com/helgoboss/realearn/issues.
+hyper = { git = "https://github.com/helgoboss/hyper.git", branch = "feature/realearn" }

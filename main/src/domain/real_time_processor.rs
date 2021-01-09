@@ -13,6 +13,7 @@ use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::debug;
 use std::collections::{HashMap, HashSet};
 
+use crate::core::Global;
 use enum_iterator::IntoEnumIterator;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
@@ -39,6 +40,7 @@ impl ControlMode {
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
+    instance_id: String,
     logger: slog::Logger,
     // Synced processing settings
     pub(crate) control_mode: ControlMode,
@@ -67,6 +69,7 @@ pub struct RealTimeProcessor {
 
 impl RealTimeProcessor {
     pub fn new(
+        instance_id: String,
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
@@ -76,6 +79,7 @@ impl RealTimeProcessor {
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
+            instance_id,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
@@ -125,8 +129,12 @@ impl RealTimeProcessor {
         }
     }
 
+    pub fn instance_id(&self) -> &str {
+        &self.instance_id
+    }
+
     /// Should be called regularly in real-time audio thread.
-    pub fn idle(&mut self, sample_count: usize) {
+    pub fn run(&mut self, sample_count: usize) {
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
@@ -284,7 +292,7 @@ impl RealTimeProcessor {
             task_count,
             self.feedback_task_receiver.len(),
         );
-        Reaper::get()
+        Global::task_support()
             .do_in_main_thread_asap(move || {
                 Reaper::get().show_console_msg(msg);
             })
@@ -659,9 +667,40 @@ pub enum NormalRealTimeTask {
 }
 
 #[derive(Copy, Clone, Debug)]
+pub struct MappingActivationEffect {
+    pub id: MappingId,
+    pub active_1_effect: Option<bool>,
+    pub active_2_effect: Option<bool>,
+}
+
+impl MappingActivationEffect {
+    pub fn new(
+        id: MappingId,
+        active_1_effect: Option<bool>,
+        active_2_effect: Option<bool>,
+    ) -> Option<MappingActivationEffect> {
+        if active_1_effect.is_none() && active_2_effect.is_none() {
+            return None;
+        }
+        let and = MappingActivationEffect {
+            id,
+            active_1_effect,
+            active_2_effect,
+        };
+        Some(and)
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub struct MappingActivationUpdate {
     pub id: MappingId,
     pub is_active: bool,
+}
+
+impl MappingActivationUpdate {
+    pub fn new(id: MappingId, is_active: bool) -> MappingActivationUpdate {
+        MappingActivationUpdate { id, is_active }
+    }
 }
 
 /// A feedback task (which is potentially sent very frequently).

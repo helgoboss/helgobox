@@ -1,59 +1,42 @@
 use helgoboss_learn::{
-    AbsoluteMode, ControlType, Interval, SourceCharacter, SymmetricUnitValue, Target, UnitValue,
+    AbsoluteMode, ControlType, Interval, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use rx_util::UnitEvent;
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationType, ModeModel, ModifierConditionModel,
-    ProgramConditionModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionModel, GroupId, ModeModel, SourceModel,
+    TargetCategory, TargetModel, TargetModelWithContext,
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, EelCondition, ExtendedSourceCharacter, MainMapping,
+    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, MainMapping,
     MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
     ReaperTarget, TargetCharacter,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A model for creating mappings (a combination of source, mode and target).
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MappingModel {
     id: MappingId,
     compartment: MappingCompartment,
     pub name: Prop<String>,
+    pub group_id: Prop<GroupId>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub prevent_echo_feedback: Prop<bool>,
     pub send_feedback_after_control: Prop<bool>,
-    pub activation_type: Prop<ActivationType>,
-    pub modifier_condition_1: Prop<ModifierConditionModel>,
-    pub modifier_condition_2: Prop<ModifierConditionModel>,
-    pub program_condition: Prop<ProgramConditionModel>,
-    pub eel_condition: Prop<String>,
+    pub activation_condition_model: ActivationConditionModel,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
 }
 
-impl Clone for MappingModel {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            compartment: self.compartment,
-            name: self.name.clone(),
-            control_is_enabled: self.control_is_enabled.clone(),
-            feedback_is_enabled: self.feedback_is_enabled.clone(),
-            prevent_echo_feedback: self.prevent_echo_feedback.clone(),
-            send_feedback_after_control: self.send_feedback_after_control.clone(),
-            activation_type: self.activation_type.clone(),
-            modifier_condition_1: self.modifier_condition_1.clone(),
-            modifier_condition_2: self.modifier_condition_2.clone(),
-            program_condition: self.program_condition.clone(),
-            eel_condition: self.eel_condition.clone(),
-            source_model: self.source_model.clone(),
-            mode_model: self.mode_model.clone(),
-            target_model: self.target_model.clone(),
-        }
-    }
+pub type SharedMapping = Rc<RefCell<MappingModel>>;
+
+pub fn share_mapping(mapping: MappingModel) -> SharedMapping {
+    Rc::new(RefCell::new(mapping))
 }
 
 // We design mapping models as entity (in the DDD sense), so we compare them by ID, not by value.
@@ -80,20 +63,17 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
 }
 
 impl MappingModel {
-    pub fn new(compartment: MappingCompartment) -> Self {
+    pub fn new(compartment: MappingCompartment, initial_group_id: GroupId) -> Self {
         Self {
             id: MappingId::random(),
             compartment,
             name: Default::default(),
+            group_id: prop(initial_group_id),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             prevent_echo_feedback: prop(false),
             send_feedback_after_control: prop(false),
-            activation_type: prop(ActivationType::Always),
-            modifier_condition_1: Default::default(),
-            modifier_condition_2: Default::default(),
-            program_condition: Default::default(),
-            eel_condition: Default::default(),
+            activation_condition_model: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: TargetModel {
@@ -114,8 +94,6 @@ impl MappingModel {
         }
     }
 
-    // TODO-low Setting an ID is code smell. We should rather provide a second factory function.
-    //  Because we never map data on an existing Mapping anyway, we always create a new one.
     pub fn set_id_without_notification(&mut self, id: MappingId) {
         self.id = id;
     }
@@ -172,27 +150,31 @@ impl MappingModel {
             .merge(self.feedback_is_enabled.changed())
             .merge(self.prevent_echo_feedback.changed())
             .merge(self.send_feedback_after_control.changed())
-            .merge(self.activation_type.changed())
-            .merge(self.modifier_condition_1.changed())
-            .merge(self.modifier_condition_2.changed())
-            .merge(self.eel_condition.changed())
-            .merge(self.program_condition.changed())
+            .merge(
+                self.activation_condition_model
+                    .changed_processing_relevant(),
+            )
     }
+
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(&self) -> MainMapping {
+    pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
         let unresolved_target = self.target_model.create_target().ok();
-        let activation_condition = self.create_activation_condition();
+        let activation_condition = if self.compartment == MappingCompartment::ControllerMappings {
+            // Controller mappings are always active, no matter what weird stuff is in the model.
+            ActivationCondition::Always
+        } else {
+            self.activation_condition_model
+                .create_activation_condition()
+        };
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
-            mapping_is_active: false,
-            // TODO-medium Encapsulate, don't set here
             target_is_active: false,
-            control_is_enabled: self.control_is_enabled.get(),
-            feedback_is_enabled: self.feedback_is_enabled.get(),
+            control_is_enabled: group_data.control_is_enabled && self.control_is_enabled.get(),
+            feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
             prevent_echo_feedback: self.prevent_echo_feedback.get(),
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
@@ -201,40 +183,26 @@ impl MappingModel {
             source,
             mode,
             unresolved_target,
+            group_data.activation_condition,
             activation_condition,
             options,
         )
     }
+}
 
-    fn create_activation_condition(&self) -> ActivationCondition {
-        if self.compartment == MappingCompartment::ControllerMappings {
-            // Controller mappings are always active, no matter what weird stuff is in the model.
-            return ActivationCondition::Always;
-        }
-        use ActivationType::*;
-        match self.activation_type.get() {
-            Always => ActivationCondition::Always,
-            Modifiers => {
-                let conditions = self
-                    .modifier_conditions()
-                    .filter_map(|m| m.create_modifier_condition())
-                    .collect();
-                ActivationCondition::Modifiers(conditions)
-            }
-            Program => ActivationCondition::Program {
-                param_index: self.program_condition.get().param_index(),
-                program_index: self.program_condition.get().program_index(),
-            },
-            Eel => match EelCondition::compile(self.eel_condition.get_ref()) {
-                Ok(c) => ActivationCondition::Eel(Box::new(c)),
-                Err(_) => ActivationCondition::Always,
-            },
-        }
-    }
+pub struct GroupData {
+    pub control_is_enabled: bool,
+    pub feedback_is_enabled: bool,
+    pub activation_condition: ActivationCondition,
+}
 
-    fn modifier_conditions(&self) -> impl Iterator<Item = &ModifierConditionModel> {
-        use std::iter::once;
-        once(self.modifier_condition_1.get_ref()).chain(once(self.modifier_condition_2.get_ref()))
+impl Default for GroupData {
+    fn default() -> Self {
+        Self {
+            control_is_enabled: true,
+            feedback_is_enabled: true,
+            activation_condition: ActivationCondition::Always,
+        }
     }
 }
 
@@ -328,9 +296,9 @@ impl<'a> MappingModelWithContext<'a> {
         }
     }
 
-    fn preferred_step_interval(&self) -> Interval<SymmetricUnitValue> {
+    fn preferred_step_interval(&self) -> Interval<SoftSymmetricUnitValue> {
         if self.uses_step_counts() {
-            let one_step = convert_factor_to_unit_value(1).expect("impossible");
+            let one_step = convert_factor_to_unit_value(1);
             Interval::new(one_step, one_step)
         } else {
             match self.target_step_size() {

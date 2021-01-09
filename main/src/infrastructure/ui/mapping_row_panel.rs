@@ -1,8 +1,11 @@
 use crate::application::{
-    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
+    GroupId, MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
+    WeakSession,
 };
 use crate::core::when;
 use crate::domain::MappingCompartment;
+
+use crate::core::Global;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
@@ -16,7 +19,7 @@ use slog::debug;
 use std::cell::{Ref, RefCell};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
 
@@ -78,6 +81,7 @@ impl MappingRowPanel {
         self.invalidate_control_check_box(&mapping);
         self.invalidate_feedback_check_box(&mapping);
         self.invalidate_on_indicator(&mapping);
+        self.invalidate_button_enabled_states();
     }
 
     fn invalidate_name_label(&self, mapping: &MappingModel) {
@@ -200,7 +204,35 @@ impl MappingRowPanel {
             .set_enabled(is_on);
     }
 
+    fn mappings_are_read_only(&self) -> bool {
+        let session = self.session();
+        let session = session.borrow();
+        session.is_learning_many_mappings()
+            || (self.active_compartment() == MappingCompartment::MainMappings
+                && session.main_preset_auto_load_is_active())
+    }
+
+    fn invalidate_button_enabled_states(&self) {
+        let enabled = !self.mappings_are_read_only();
+        let buttons = [
+            root::ID_UP_BUTTON,
+            root::ID_DOWN_BUTTON,
+            root::ID_MAPPING_ROW_CONTROL_CHECK_BOX,
+            root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
+            root::ID_MAPPING_ROW_EDIT_BUTTON,
+            root::ID_MAPPING_ROW_DUPLICATE_BUTTON,
+            root::ID_MAPPING_ROW_REMOVE_BUTTON,
+            root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON,
+            root::ID_MAPPING_ROW_LEARN_TARGET_BUTTON,
+        ];
+        for b in buttons.iter() {
+            self.view.require_control(*b).set_enabled(enabled);
+        }
+    }
+
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
+        let session = self.session();
+        let session = session.borrow();
         self.when(mapping.name.changed(), |view| {
             view.with_mapping(Self::invalidate_name_label);
         });
@@ -212,7 +244,7 @@ impl MappingRowPanel {
                 .target_model
                 .changed()
                 // We also want to reflect track name changes immediately.
-                .merge(Reaper::get().track_name_changed().map_to(())),
+                .merge(Global::control_surface_rx().track_name_changed().map_to(())),
             |view| {
                 view.with_mapping(Self::invalidate_target_label);
             },
@@ -223,25 +255,24 @@ impl MappingRowPanel {
         self.when(mapping.feedback_is_enabled.changed(), |view| {
             view.with_mapping(Self::invalidate_feedback_check_box);
         });
-        self.when(
-            self.session()
-                .borrow()
-                .mapping_which_learns_source_changed(),
-            |view| {
-                view.with_mapping(Self::invalidate_learn_source_button);
-            },
-        );
-        self.when(
-            self.session()
-                .borrow()
-                .mapping_which_learns_target_changed(),
-            |view| {
-                view.with_mapping(Self::invalidate_learn_target_button);
-            },
-        );
-        self.when(self.session().borrow().on_mappings_changed(), |view| {
+        self.when(session.mapping_which_learns_source_changed(), |view| {
+            view.with_mapping(Self::invalidate_learn_source_button);
+        });
+        self.when(session.mapping_which_learns_target_changed(), |view| {
+            view.with_mapping(Self::invalidate_learn_target_button);
+        });
+        self.when(session.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
         });
+        self.when(
+            session
+                .main_preset_auto_load_mode
+                .changed()
+                .merge(session.learn_many_state_changed()),
+            |view| {
+                view.invalidate_button_enabled_states();
+            },
+        );
     }
 
     fn with_mapping(&self, use_mapping: impl Fn(&Self, &MappingModel)) {
@@ -275,20 +306,18 @@ impl MappingRowPanel {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
 
-    fn move_mapping_up(&self) {
-        self.session()
-            .borrow_mut()
-            .move_mapping_up(self.active_compartment(), self.require_mapping_address());
+    fn move_mapping_within_list(&self, increment: isize) {
+        let within_same_group = self.main_state.borrow().group_filter.get().is_some();
+        let _ = self.session().borrow_mut().move_mapping_within_list(
+            self.active_compartment(),
+            self.require_mapping().borrow().id(),
+            within_same_group,
+            increment,
+        );
     }
 
     fn active_compartment(&self) -> MappingCompartment {
         self.main_state.borrow().active_compartment.get()
-    }
-
-    fn move_mapping_down(&self) {
-        self.session()
-            .borrow_mut()
-            .move_mapping_down(self.active_compartment(), self.require_mapping_address());
     }
 
     fn remove_mapping(&self) {
@@ -341,6 +370,67 @@ impl MappingRowPanel {
         );
     }
 
+    fn start_moving_mapping_to_other_group(
+        &self,
+        location: Point<Pixels>,
+    ) -> Result<(), &'static str> {
+        let (mapping_id, dest_group_id) = {
+            let mapping = self.mapping.borrow();
+            let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
+            let mapping = mapping.borrow();
+            (
+                mapping.id(),
+                self.let_user_pick_destination_group(&mapping, location)?,
+            )
+        };
+        self.session()
+            .borrow_mut()
+            .move_mapping_to_group(mapping_id, dest_group_id)
+            .unwrap();
+        Ok(())
+    }
+
+    fn let_user_pick_destination_group(
+        &self,
+        mapping: &MappingModel,
+        location: Point<Pixels>,
+    ) -> Result<GroupId, &'static str> {
+        let current_group_id = mapping.group_id.get();
+        let menu_bar =
+            MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be loaded");
+        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let session = self.session();
+        let session = session.borrow();
+        for (i, group) in session.groups().enumerate() {
+            let group = group.borrow();
+            let item_id = i as u32 + 2;
+            menu.add_item(item_id, group.name.get_ref().to_string());
+            // Disable group if it's the current one.
+            if current_group_id == group.id() {
+                menu.set_item_enabled(item_id, false);
+            }
+        }
+        // Disable "<Default>" group if it's the current one.
+        if current_group_id.is_default() {
+            menu.set_item_enabled(1, false);
+        }
+        let picked_item_id = match self.view.require_window().open_popup_menu(menu, location) {
+            None => return Err("user didn't pick any group"),
+            Some(r) => r,
+        };
+        let desired_group_index = if picked_item_id == 1 {
+            None
+        } else {
+            Some(picked_item_id - 2)
+        };
+        let desired_group_id = desired_group_index.map(|i| {
+            session
+                .find_group_id_by_index(i as _)
+                .expect("no such group")
+        });
+        Ok(desired_group_id.unwrap_or_default())
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -371,8 +461,8 @@ impl View for MappingRowPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
-            root::ID_UP_BUTTON => self.move_mapping_up(),
-            root::ID_DOWN_BUTTON => self.move_mapping_down(),
+            root::ID_UP_BUTTON => self.move_mapping_within_list(-1),
+            root::ID_DOWN_BUTTON => self.move_mapping_within_list(1),
             root::ID_MAPPING_ROW_REMOVE_BUTTON => self.remove_mapping(),
             root::ID_MAPPING_ROW_DUPLICATE_BUTTON => self.duplicate_mapping(),
             root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => self.toggle_learn_source(),
@@ -381,6 +471,10 @@ impl View for MappingRowPanel {
             root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX => self.update_feedback_is_enabled(),
             _ => unreachable!(),
         }
+    }
+
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+        let _ = self.start_moving_mapping_to_other_group(location);
     }
 }
 

@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-12-25 (v1.12.0-pre8)</code></td>
+  <td><code>2021-01-09 (v1.12.0-pre9)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-09-10 (v1.11.0)</code></td>
+  <td><code>2021-01-09 (v1.12.0-pre9)</code></td>
 </tr>
 </table>
 
@@ -34,17 +34,34 @@ dedicated DAW controllers such as
 that are tailored to control a DAW just like a hardware mixer. And I suppose they do a pretty good
 job at that.
 
-ReaLearn's goal is quite different: It enables you to instantly map control elements to REAPER
-parameters and save the resulting mappings as part of your project. Never again you need to pollute
-your global control mappings just for the needs of one project.
+ReaLearn's approach is quite different: It gives you total control on which control element operates which REAPER
+parameter and provides you with a *learn* function which allows you build your own control mappings quickly
+and intuitively without writing configuration files. All of that on a *per-instance* basis. That's right, the mappings
+are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
+control mappings just for the needs of one project!
 
-The usual ReaLearn workflow goes like this:
+Nevertheless, since version 1.12.0, ReaLearn is also a great choice for setting up global mappings for usage across 
+multiple projects. It provides a simple yet powerful preset system to make a set of mappings reusable in all of your
+projects. Just add ReaLearn to the monitoring FX chain of REAPER (View → Monitoring FX) and ReaLearn will be instantly
+available in all of your REAPER sessions without having to add it to a project first.
 
-1. Hit "Learn source" and touch some knob on your controller.
-2. Hit "Learn target" and touch some target parameter.
-3. Done.
+ReaLearn is designed to get the most out of general-purpose MIDI controllers, which - compared to the big
+and bulky DAW consoles - usually have the advantage of being small, USB-powered, more versatile and easier on the
+budget. ReaLearn doesn't impose many requirements on your controller. Thanks to features like conditional
+activation and projection, it can turn even the cheapest MIDI controller into a powerhouse for controlling
+your DAW.  
 
-The result is a mapping that you can customize as you desire, for example by setting a target value
+The usual ReaLearn workflow for a single mapping goes like this:
+
+1. Add a mapping
+2. Hit "Learn source" and touch some knob on your controller.
+3. Hit "Learn target" and touch some target parameter.
+4. Done.
+
+If you want to learn multiple mappings in one go, this gets even easier via the "Learn many" button which will save you
+*a lot of* clicks.
+
+The result are mappings that you can customize as you desire, for example by setting a target value
 range. All of that with MIDI feedback support, which was previously only available in the less
 dynamic, more global control surface world.
 
@@ -59,6 +76,8 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 - **Input FX chain for live-only use:** Put it on a track's input FX chain in order to use it only
   for incoming "live" MIDI and let it control a parameter of an effect that's on the normal FX
   chain, right below a synthesizer. It will be active only if the track is armed for recording.
+  All MIDI messages that are used for parameter control will *automatically* be filtered by default
+  and won't reach the controlled instrument, which is usually exactly what you need.
 - **Grid controller for song switching:** Use some grid controller like the
   [AKAI APC Key 25](https://thumbs.static-thomann.de/thumb/thumb250x220/pics/prod/339386.jpg) to
   arm/disarm various tracks (effectively enabling/disabling certain sound setups) by pressing the
@@ -76,7 +95,9 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 - **Rotary encoders for avoiding parameter jumps:** How about a refreshingly "normal" use case? Let
   your rotary endless encoder control a track send volume without parameter jumps and restrict the
   value range to volumes below 0dB.
-- **Presets for easy reuse:** Save a bunch of commonly used mappings globally as FX presets.
+- **VST presets for easy reuse:** Save a bunch of commonly used mappings globally as FX presets.
+- **Switching controller and main presets separately:** Maintain controller and main presets and switch
+  between them as you like. Easily switch your controller without adjusting your FX presets.
 - **Combination of multiple instances:** Use one ReaLearn instance to arm or disarm tracks that
   contain other ReaLearn instances to enable/disable different mapping groups. Group mappings and
   activate/deactivate them group-wise simply by instantiating multiple ReaLearn instances and
@@ -86,9 +107,10 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 
 All of that makes ReaLearn especially well-suited for performers, people who use REAPER as a
 platform for live playing. It might be less interesting to people who use REAPER for arranging,
-mixing and mastering only. But even so, as long as you have some general-purpose MIDI controller and
-you want a fine-tuned mapping to DAW parameters of all sorts, give ReaLearn a try. It might be just
-what you need. More so if the controller supports feedback (e.g. motorized faders or LEDs).
+mixing and mastering only and are satisfied with a control surface off the shelf. But even so,
+as long as you have some general-purpose MIDI controller and you want a fine-tuned mapping to DAW parameters
+of all sorts, give ReaLearn a try. It might be just what you need. More so if the controller supports feedback
+(e.g. motorized faders or LEDs).
 
 **Summary:** _ReaLearn is tailored to usage scenarios typically desired by performers._
 
@@ -101,7 +123,8 @@ If you want to get a first impression of ReaLearn, a video is surely a good way.
 - [MIDI Controller Feedback in REAPER with ReaLearn and LBX SmartKnobs - Tutorial](https://www.youtube.com/watch?v=p0LBdXXcg7g)
 - [Demonstration of the projection feature](https://www.youtube.com/watch?v=omuYBznEShk)
 
-Keep in mind that some of the mentioned videos still use older versions of ReaLearn.
+Keep in mind that some of the mentioned videos still use older versions of ReaLearn. E.g. it should be easier 
+nowadays to use ReaLearn's "preset auto-load" feature instead of adding LBX SmartKnobs to the mix.
 
 ## Basics
 
@@ -118,9 +141,9 @@ mappings yet):
 
 ![Main panel](images/screenshot-main-panel-annotated.svg)
 
-On the very top you see the _header panel_ for changing settings or executing actions that affect
+On the very top you see the _header panel_ for changing settings or doing things that affect
 this complete instance of ReaLearn. Below that there's the _mapping rows panel_ which displays all
-mappings in this instance of ReaLearn. There can be very many of them. I've heard from users who use
+main mappings in this instance of ReaLearn. There can be very many of them. I've heard from users who use
 hundreds. On the very bottom you see some information about the version of ReaLearn that you are
 running. It's important to include this information in bug reports.
 
@@ -162,20 +185,19 @@ If the label remains at "Stop" at step 3, you need to have a look at your MIDI s
   the REAPER preferences.
   - Please note: _Enable input for control messages_ is totally irrelevant for ReaLearn. This is
     only used for REAPER's built-in MIDI learn, which uses the so-called _control MIDI path_.
-    ReaLearn on the other hand - when _MIDI control input_ is set to "&lt;FX input&gt;" - uses the
-    regular _track MIDI path_, which is one reason why it is so flexible.
+    ReaLearn on the other hand uses the track MIDI path - which is one reason why it is so flexible.
 - Make sure your audio hardware is not stuck (playback in REAPER should work).
 - Make sure the track is armed for recording and has the appropriate MIDI device input.
 - Make sure your controller is in MIDI mode.
    - Some controllers, especially DAW controllers, are able to work with several protocols (MCU, HUI, ...).
-   - Consult your controller's manual and take the necessary steps to put it into something like a
-     "generic MIDI" mode.
+   - ReaLearn doesn't understand those proprietary protocols. Therefore you need to consult your controller's manual
+     and take the necessary steps to put it into something like a "general-purpose MIDI" mode.
    - Example: Presonus Faderport
 
 When you read this the first time, you might get the impression that this is a lot of work for
 setting up one simple control mapping. It's not. Learning mappings is a matter of a few secs after
-you got the hang of it. ReaLearn also registers a REAPER action "Learn source for last touched
-target" which might further speed up this step. More about that later.
+you got the hang of it. ReaLearn also provides the "Learn many" button and the REAPER action
+"Learn source for last touched target" for further speeding up this step. More about that later.
 
 At this point: Congratulations! You have successfully made your first baby steps with ReaLearn.
 
@@ -191,13 +213,13 @@ MIDI path_.
 
 Using the track MIDI path means it's completely up to you to decide what MIDI messages flow into
 ReaLearn. You decide that by using REAPER's powerful routing capabilities. For example, you can
-simply "disable" the mapping by disarming your track, a feature that is very desireable if you use
+simply "disable" the mapping by disarming your track, a feature that is very desirable if you use
 REAPER as live instrument. Or you can preprocess incoming MIDI (although that should rarely be
 necessary given ReaLearn's mapping customization possibilities).
 
 Another thing worth to point out which is different from built-in MIDI learn is that we didn't use
 the action "Track: Set volume for track 01". Benefit: ReaLearn will let you control the volume of
-the track even if you move that track to another position. The track's position is irrelevant.
+the track even if you move that track to another position. The track's position is irrelevant!
 
 ### Feedback
 
@@ -206,7 +228,7 @@ to controller). So far we have talked about the _control_ direction only: When y
 your controller, something will happen in REAPER. But if your controller supports it, the other
 direction is possible, too!
 
-Imagine that you used a MIDI-controllable motorized fader as control element to change the track
+Imagine you would use a MIDI-controllable motorized fader as control element to change the track
 volume. ReaLearn is capable of making that fader move whenever your track volume in REAPER changes -
 no matter if that change happens through automation or through dragging the fader with your mouse.
 Motorized faders are quite fancy. Another form of feedback visualisation are rotary encoders with
@@ -235,7 +257,7 @@ If it doesn't work and you have ruled out MIDI connection issues, here are some 
    - Recommendation: Consult your controller's manual and take the necessary steps to put it into
      something like a "generic MIDI" mode.
    - Example: Presonus Faderport
-3. **Your controller expects feedback via different MIDI messages.**
+3. **Your controller expects feedback via messages that are different from the control MIDI messages.**
    - Usually, controllers with feedback support are kind of symmetric. Here's an example what I mean
      by that: Let's assume your motorized fader _emits_ CC 18 MIDI messages when you move it. That
      same motorized fader starts to move when it _receives_ CC 18 MIDI messages (messages of exactly
@@ -297,7 +319,8 @@ the following hints:
 - If you are in the lucky situation of owning a controller with endless rotary encoders, by all
   means, configure them to transmit relative values, not absolute ones!
   - Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting 
-    relative values, such as the "Step size" or "Speed" setting.
+    relative values, such as the "Step size" or "Speed" setting. Also, preventing parameter jumps
+    can never be as effective in absolute mode as in relative mode.
 
 ## Reference
 
@@ -307,65 +330,84 @@ So far we've covered the basics. Now let's look into everything in detail.
 
 #### Header panel
 
-The header panel provides the following user interface elements, no matter if *main mappings* or
-*controller mappings* are shown:
+The header panel provides the following user interface elements, no matter if the *main mappings* or
+*controller mappings* compartment is shown:
 
-- **Let matched events through / Let unmatched events through:** By default, ReaLearn "eats" MIDI events
-  for which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events
-  which are used to control a target parameter. Unmatched MIDI events, however, are forwarded to ReaLearn's FX
-  output. This default setting usually makes much sense if you put the ReaLearn FX in front of 
-  another instrument FX. Use these checkboxes to change that behavior. Please note that this refers to MIDI events 
-  coming from *FX input* only. MIDI events captured from a MIDI hardware input are never forwarded to
-  ReaLearn's FX output. 
-- **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
-  ReaLearn by default disables feedback if the track is not armed (unarming will naturally disable
-  control, so disabling feedback is just consequent). However, if MIDI control input is set to a
-  hardware device, the default is to _not_ disable feedback when unarmed (same reasoning). You can
-  override this behavior with this checkbox. At the moment, it can only be unchecked if ReaLearn is
-  on the normal FX chain. If it's on the input FX chain, unarming naturally disables feedback
-  because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed.
-- **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
-  figure out if your combination of settings makes sense. If not, it makes an adjustment. 
-  This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
-  is your checkbox.
 - **MIDI control input:** By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
   consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
   Alternatively, ReaLearn can capture events directly from a MIDI hardware input. This dropdown lets
-  you choose the corresponding MIDI input device. Be aware that this will only work if _Enable input
+  you choose the corresponding MIDI input device. Be aware that both will only work if _Enable input
   from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
 - **MIDI feedback output:** Here you can choose if and where ReaLearn should send MIDI feedback. By
   default it's set to _&lt;None&gt_ for no feedback. If you want to enable feedback, pick a MIDI
   output device here. Keep in mind that _Enable output to this device_ must be checked in REAPER's
   MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
-  feedback MIDI events stream down to the next FX in the chain or to the track's MIDI output.
-- **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
-  or motorized faders of your controller in sync with REAPER at all times. There might be situations
-  where it doesn't work though. In this case you can send feedback manually using this button.
-- **Projection:** This is a quite interesting feature that allows you to project a schematic representation
-  of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close 
-  to your controller in order to see immediately which control element is mapped to which parameter.
-  This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control
-  element is mapped to which target parameter. If you want to use this feature, just click this button
-  and you will see detailed instructions how to set this up.
-- **Import to clipboard / Export to clipboard:** Pressing the export button copies a _complete_ dump
-  of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. Pressing the 
+  feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
+  Tip: Latter option is great for checking which MIDI messages ReaLearn sends to your device. Just add
+  a "ReaControlMIDI" FX right below ReaLearn and press "Show Log".
+- **Import from clipboard / Export to clipboard:** Pressing the export button copies a _complete_ dump
+  of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. Pressing the
   import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard. This
   is a very powerful feature because the dump's data format is
   [JSON](https://www.json.org/json-en.html), a wide-spread data exchange format. It's a text format,
   so if you are familiar with the search&replace feature of your favorite text editor, this is your
   entrance ticket to batch editing. You can also use it for some very basic A/B testing (1. Press
   _Export to clipboard_, 2. change some settings and test them, 3. Restore the old settings by
-  pressing _Import from clipboard_).
-- **Add one:** Inserts a default mapping at the end of the current mapping list.
+  pressing _Import from clipboard_). For the programmers and script junkies out there: It's perfectly
+  possible to program ReaLearn from outside by passing it a snippet of JSON via [REAPER's named parameter
+  mechanism](https://www.reaper.fm/sdk/vst/vst_ext.php) (search for `named_parameter_name`). Parameter name
+  is `realearn/set-state"`.
+- **Projection:** This is a quite unique feature that allows you to project a schematic representation
+  of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close
+  to your controller in order to see immediately which control element is mapped to which parameter.
+  This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control
+  element is mapped to which target parameter. If you want to use this feature, just click this button
+  and you will see detailed instructions on how to set this up.
+- **Let through:** By default, ReaLearn "eats" MIDI events for which there's at least one enabled mapping source.
+  In other words, it doesn't forward MIDI events which are used to control a target parameter. Unmatched MIDI events,
+  however, are forwarded to ReaLearn's FX output. This default setting usually makes much sense if you put the
+  ReaLearn FX in front of another instrument FX. Use these checkboxes to change that behavior. Please note that this
+  refers to MIDI events coming from *FX input* only. MIDI events captured from a MIDI hardware input are never forwarded
+  to ReaLearn's FX output.
+- **Compartment:** This lets you choose which mapping compartment is displayed. A compartment is a list of mappings
+  that can be saved as independent preset. Initially, it shows the list of so-called "Main mappings", which are the
+  bread and butter of ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell,
+  this compartment lets you define which hardware controllers you have at your disposal and which control elements they
+  have. Learn more about that feature in section "Controller mappings".
+- **Compartment preset:** This shows the list of available presets for that compartment. By default, this is set to
+  "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
+  corresponding mappings will be loaded and immediately get active. In the *controller mappings* compartment, this list
+  will essentially represent the list of available hardware controller presets. A few are shipped with ReaLearn itself
+  (separately downloadable via ReaPack) but you can also define your own ones and add them to this list!
+- **Save:** If you made changes to a preset, you can save them by pressing this button. This works for built-in presets
+  as well but I would strongly recommend against changing them directly. Better use *Save as...* and choose a custom
+  name.
+- **Save as...** This allows you to save all currently visible mappings as a new preset. Please choose a descriptive
+  name.
+    - Saving your mappings as a preset is optional. All controller mappings are saved together
+      with your current ReaLearn instance anyway, no worries. But as soon as you want to reuse these
+      mappings in other ReaLearn instances, it makes of course sense to save them as a preset!
+    - All of your presets end up in the REAPER resource directory
+      (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) at
+      `Data/helgoboss/realearn/presets`. They are JSON files and very similar to what you get when you press
+      *Export to clipboard*.
+    - JSON files that represent controller mappings can also contain custom data sections. For example, the ReaLearn
+      Companion app adds a custom data section in order to memorize the positions and shapes of all control elements.
+    - When pressing this button, ReaLearn might detect that your current mappings are referring to specific tracks and
+      FX instances *within the current project*. This would somehow defeat the purpose of presets because what good
+      are presets that are usable only within one project? That's why ReaLearn also offers you to automatically
+      convert such mappings to project-independent mappings by applying the following transformations:
+        - FX targets are changed to refer to *currently focused FX** instead of a particular one. Their track is set to
+          **&lt;This&gt;** because it doesn't matter anyway.
+        - Track targets are changed to refer to a track via its position instead of its ID.
+    - If this is not what you want, you can choose to say no and make modifications yourself.
+- **Delete:** This permanently deletes the currently chosen preset. You can also delete built-in presets.
+  However, if you use ReaPack for installation, it should restore them on next sync.
+- **Add one:** Adds a new mapping at the end of the current mapping list.
 - **Learn many:** Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
   the on-screen instructions. Click *Stop* when you are finished with your bulk learning strike.
-- **Show:** This lets you choose which mapping compartment ReaLearn should display. A mapping compartment is a list
-  of mappings. Initially, it shows the list of so-called "Main mappings", which are the bread and butter of
-  ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell, this compartment
-  lets you define which hardware controllers you have at your disposal and which control elements they have. Learn
-  more about that feature in section "Controller mappings".
 - **Search:** Enter some text here in order to display just mappings whose name matches the text.
-- **Learn source filter:** If you work with many mappings and you have problems memorizing them, you
+- **Filter source:** If you work with many mappings and you have problems memorizing them, you
   will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI
   events and temporarily disable all target control. You can play around freely on your controller
   without having to worry about messing up target parameters. Whenever ReaLearn detects a valid
@@ -376,15 +418,28 @@ The header panel provides the following user interface elements, no matter if *m
   particular source. When you are done and you want to see all mappings again, press the **X**
   button to the right. _Tip:_ Before you freak out thinking that ReaLearn doesn't work anymore
   because it won't let you control targets, have a quick look at this button. ReaLearn might still
-  be in "learn source filter" mode. Then just calm down and press _Stop_. It's easy to forget.
-- **Learn target filter:** If you want to find out what mappings exist for a particular target,
+  be in "filter source" mode. Then just calm down and press _Stop_. It's easy to forget.
+- **Filter target:** If you want to find out what mappings exist for a particular target,
   press this button and touch something in REAPER. As soon as you have touched a valid target, the
-  list will show all mappings with that target. Unlike _Learn source filter_, ReaLearn will
+  list will show all mappings with that target. Unlike _Filter source_, ReaLearn will
   automatically stop learning as soon as a target was touched. Press the **X** button to remove the
   filter and show all mappings again.
 
-Additionally, it provides a context menu with the following entries:
-- **Help:** As the name says.
+Additionally, the header panel provides a context menu with the following entries:
+
+- **Options**
+    - **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
+      figure out if your combination of settings makes sense. If not, it makes an adjustment.
+      This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
+      is your checkbox.
+    - **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
+      ReaLearn by default disables feedback if the track is not armed (unarming will naturally disable
+      control, so disabling feedback is just consequent). However, if MIDI control input is set to a
+      hardware device, the default is to _not_ disable feedback when unarmed (same reasoning). You can
+      override this behavior with this checkbox. At the moment, it can only be unchecked if ReaLearn is
+      on the normal FX chain. If it's on the input FX chain, unarming naturally disables feedback
+      because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed
+      (*this is subject to change in future!*).
 - **Server**
     - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn companion app to
       connect to ReaLearn.
@@ -411,15 +466,18 @@ Additionally, it provides a context menu with the following entries:
         - **Make sure to not have more than one ReaLearn instance with the same session 
           ID active at the same time because then it's not clear to which your mobile device will connect!**
         - **At the moment, the session ID is part of the ReaLearn preset!** That means, opening a preset, copying/cutting
-          a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change
+          a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change in
           future in favor of a more nuanced approach!
+- **Help:** As the name says.
 - **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
   investigating bugs or understanding how this plug-in works.
-     
-   
-#### Controller mappings
+- **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
+  or motorized faders of your controller in sync with REAPER at all times. There might be situations
+  where it doesn't work though. In this case you can send feedback manually using this button. 
 
-By default, ReaLearn shows the list of main mappings. If you select *Controller mappings* in the *Show*
+#### More about "Controller mappings"
+
+By default, ReaLearn shows the list of main mappings. If you select *Controller mappings* in the *Compartment*
 dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
 element on your hardware controller, e.g. a button or fader. This view lets you describe your controller by - well -
 by adding mappings. Almost everything in ReaLearn is a mapping :)
@@ -427,41 +485,23 @@ by adding mappings. Almost everything in ReaLearn is a mapping :)
 Defining your own controllers can have a bunch of benefits:
 
 - You can use the awesome [controller projection feature](https://www.youtube.com/watch?v=omuYBznEShk&feature=youtu.be)
-  to project your controller mapping to a mobile device.
+  to project your controller mapping to your smartphone or tablet.
 - You can use controller presets made by other users and thereby save precious setup time. Or you can contribute them
   yourself!
 - You can make your main mappings independent of the actual controller that you use. This is done using so-called
-*virtual* sources and targets.
-- This also allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
+  *virtual* sources and targets.
+- It allows you to give your knobs, buttons etc. descriptive and friendly names instead of just e.g. "CC 15".
+- You don't need to learn your control elements again and again. Although the process of learning an element is easy
+  in ReaLearn, it can take some time in case the source character is not guessed correctly
+  (e.g. absolute range element or relative encoder). Just do it once and be done with it!
 
-In this view, you have some more user interface elements at your disposal:
-
-- **Preset:** This shows the list of available controller presets. A few are shipped with ReaLearn itself but you 
-  can also define your own ones and add them to this list! By default, this is set to "&lt;None&gt;", which means that
-  no particular controller is active. Both, controller mappings and controller presets are completely optional. 
-  If you select a preset in this list, its corresponding mappings will be loaded and immediately get active.
-- **-:** This permanently deletes the currently chosen controller preset. You can also delete built-in presets.
-  However, if you use ReaPack for installation, it should restore them on next sync.
-- **Save:** If you made changes to a preset, you can save them by pressing this button. This works for built-in presets
-  as well but I would strongly recommend against changing them directly. Better use *Save as...* and choose a custom
-  name.
-- **Save as...** This allows you to save all currently visible controller mappings as a new controller preset. Please 
- choose a descriptive name.
-    - Saving your controller mappings as a preset is optional. All controller mappings are saved together 
-      with your current ReaLearn instance anyway, no worries. But as soon as you want to reuse these controller
-      mappings in other ReaLearn instances, it makes of course sense to save them as a preset! 
-    - All of your presets end up in the REAPER resource directory 
-      (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) at
-      `Data/helgoboss/realearn/controllers`. They are JSON files and very similar to what you get when you press
-      *Export to clipboard*.
-    - The JSON files contain controller mappings but can also contain custom data sections. For example, the ReaLearn
-      Companion app adds a custom data section in order to memorize the positions and shapes of all control elements.
-  
 If you want to make ReaLearn "learn" about your nice controller device, all you need to do is to create a suitable
-controller mapping for each of its control elements:
+controller mapping for each of its control elements.
+
+Let's first look at the "slow" way to do this - adding and editing each controller mapping one by one:
 
 1. Press the "Add one" button.
-1. Learn the source by press the "Learn source" button and touching the control element.
+1. Learn the source by pressing the "Learn source" button and touching the control element.
 1. Press the "Edit" button.
 1. Enter a descriptive name for the control element.
     - *Hint:* This name will appear in many places so you want it to be short, clear and unique!
@@ -475,24 +515,73 @@ controller mapping for each of its control elements:
         - Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
     - Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
       You can easily model that by assigning 8 multis and 8 buttons.
-    - Maybe you have realized that the *Tuning* section is available for controller mappings as well! That opens all
+    - Maybe you have realized that the *Tuning* section is available for controller mappings as well! That opens up all
       kinds of possibilities. You could for example restrict the target range for a certain control element. Or make
       an encoder generally slower or faster. Or you could simulate a rotary encoder by making two buttons on your
       controller act as -/+ buttons emitting relative values. This is possible by mapping them to the same "Multi" in
-      "Incremental buttons" mode. 
+      "Incremental buttons" mode.
       
-Before you go ahead and do that for each control element, you might want to check what this is good for: Navigate back
-to the main mappings, learn the source of some main mapping and touch the control element that you have just
-mapped: Take note how ReaLearn will assign a *virtual* source this time, not a MIDI source! It will also display the
-name of the control element as source label. Now, let's say at some point you swap your controller device with another
-one that has a similar layout, all you need to do is switch the controller preset and you are golden! You have
-decoupled your main mappings from the actual controller. Plus, as soon as you have saved your controller mappings as
-a preset, you can take full advantage of the *Projection* feature.
+Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate
+back to the "main mappings" compartment, learn the source of some main mapping and touch the control element that you
+have just mapped: Take note how ReaLearn will assign a *virtual* source this time, not a MIDI source! It will also
+display the name of the control element as source label. Now, let's say at some point you swap your controller device
+with another one that has a similar layout, all you need to do is switch the controller preset and you are golden! You
+have decoupled your main mappings from the actual controller. Plus, as soon as you have saved your controller mappings
+as a preset, you can take full advantage of the *Projection* feature.
 
-All of this might be a bit of an effort but it's well worth it.
+All of this might be a bit of an effort but it's well worth it! Plus, there's a way to do this *a lot* faster by
+using *batch learning*:
+
+1. Press the "Learn many" button.
+2. Choose whether you want to learn all the "Multis" on your controller or all the "Buttons".
+3. Simply touch all control elements in the desired order.
+    - ReaLearn will take care of automatically incrementing the virtual control element numbers.
+4. Press "Stop".
+5. Done!
+    - At this point it's recommended to recheck the learned mappings. 
+    - ReaLearn's source character detection for MIDI CCs is naturally just a guess, so it can be wrong. If so,
+      just adjust the character in the corresponding mapping panel.
+
 You can share your preset with other users by sending them to info@helgoboss.org. I will add it to [this
 list](https://github.com/helgoboss/realearn/tree/master/resources/controllers).
 
+#### More about "Main mappings"
+
+The header panel for main mappings consists of a few more user interface elements that you might find immensely
+helpful:
+
+- **Mapping group:** Mapping groups allow you to divide your list of main mappings into multiple groups.
+    - Groups can be useful ... 
+        - To apply an activation condition to multiple mappings at once. 
+        - To enable/disable control/feedback for multiple mappings at once.
+        - To keep track of mappings if there are many of them.
+    - This dropdown contains the following options:
+        - **&lt;All&gt;:** Displays all mappings in the compartment, no matter to which group they belong. 
+        - **&lt;Default&gt;:** Displays mappings that belong to the *default* group. This is where mappings
+          end up if you don't care about grouping. This is a special group that can't be removed.
+        - ***Custom group*:** Displays all mappings in your custom group.
+    - You can move existing mappings between groups by opening the context menu of the corresponding mapping row.
+    - Groups are saved as part of the project, VST plug-in preset and compartment preset.
+- **Add:** Allows you to add a group and give it a specific name.
+- **Remove:** Removes the currently displayed group. It will ask you if you want to remove all the mappings in that
+  group as well. Alternatively they will automatically be moved to the default group.
+- **Edit:** Opens the group panel. This allows you to change the group name, enable/disable control and/or
+  feedback and set an activation condition for all mappings in this group. The activation condition that you provide
+  here is combined with the one that you provide in the mapping. Only if both, the group activation conditions and
+  the mapping activation condition are satisfied, the corresponding mapping will be active. Read more about
+  *conditional activation* below in the section about the *mapping panel*.
+
+![Group panel](images/screenshot-group-panel.png)
+
+- **Auto-load preset:** If you switch this to *Depending on focused FX*, ReaLearn will start to observe which
+  FX window is currently focused. Whenever the focus changes, it will check if you have linked a compartment preset
+  to it and will automatically load it. Whenever a non-linked FX gets focus, the mapping list is cleared so that
+  no mapping is active anymore. Of course this makes sense only if you actually have linked some presets. Read on!
+
+The header context menu for the main mapping compartment contains the missing piece of the puzzle:  
+- **Link current preset to FX / Unlink current preset from FX:** This lets you link the currently active compartment
+  preset with whatever FX window was focused before focusing ReaLearn. This only works if a preset is active and an
+  FX has been focused before. If the active preset is already linked to an FX, you can unlink it. 
 
 #### Mapping row
 
@@ -513,6 +602,7 @@ If a mapping is *off*, it doesn't have any effect.
 - **Learn source:** Starts or stops learning the source of this mapping.
 - **Learn target:** Starts or stops learning the target of this mapping.
 
+Each mapping row provides a context menu, which lets you move this mapping to another mapping group.
 
 ### Mapping panel
 
@@ -774,8 +864,8 @@ This source reacts to incoming MIDI control-change messages.
   Therefore you explicitly need to tell ReaLearn about it by setting the _source character_. The
   good news is: If you use "Learn source", ReaLearn will try to guess the source character for you
   by looking at the emitted values. Naturally, the result is not always correct. The best guessing
-  result can be achieved by turning the knob or encoder quickly and "passionately" into a single
-  direction. The possible values are:
+  result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise
+  direction. Please note that guessing doesn't support encoder type 3. The possible values are:
   - **Range element (knob, fader, etc.):** A control element that emits continuous absolute values. Examples: Faders,
     knobs, modulation wheel, pitch bend, ribbon controller.
   - **Button (momentary):** A control element that can be pressed and emits absolute values. It emits a > 0%
@@ -1260,6 +1350,12 @@ can be converted to relative values - rotary encoders and buttons. They don't af
     slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed
     Min_ slider was at 1 (default), this will just navigate to the next preset (+1). If the _Speed
     Min_ slider was at 2, this will jump to the 2nd-next preset (+2). And so on.
+  - There are FX plug-ins out there which report their parameter as discrete with an insanely small
+    step size (e.g. some Native Instrument plug-ins). This kind of defeats the purpose of discrete
+    parameters and one can argue that those parameters should actually be continuous. In such a case,
+    moving your rotary encoder might need *a lot* of turning even if you set *Speed* to the apparent
+    maximum of 100! In this case you will be happy to know that the text field next to the slider allows
+    you to enter values higher than 100.
   - You can set the "Speed" slider to a negative value, e.g. -2. This is the opposite. It means you
     need to make your encoder send 2 increments in order to move to the next preset. Or -5: You need
     to make your encoder send 5 increments to move to the next preset. This is like slowing down the

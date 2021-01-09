@@ -1,3 +1,4 @@
+use crate::core::Global;
 use crate::domain::PLUGIN_PARAMETER_COUNT;
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use helgoboss_midi::test_util::*;
@@ -18,7 +19,8 @@ pub fn register_test_action() {
 }
 
 fn run_test() {
-    Reaper::get().spawn_in_main_thread_from_main_thread(async { Test::new().test().await })
+    Global::future_support()
+        .spawn_in_main_thread_from_main_thread(async { Test::new().test().await })
 }
 
 #[derive(Default)]

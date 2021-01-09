@@ -1,24 +1,23 @@
 use crate::application::{
-    share_mapping, Controller, MainPreset, MappingModel, Preset, PresetManager, SharedMapping,
-    TargetCategory, TargetModel, VirtualControlElementType,
+    share_group, share_mapping, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
+    MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
+    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
-use crate::core::{prop, when, AsyncNotifier, Prop};
+use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, ControlMainTask, DomainEvent, DomainEventHandler, FeedbackRealTimeTask,
-    MainMapping, MainProcessor, MappingCompartment, MappingId, MidiControlInput,
-    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, ParameterMainTask, ProcessorContext,
-    ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
+    MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
+    ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 
 use reaper_high::Reaper;
-use reaper_medium::RegistrationHandle;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use slog::debug;
-use std::cell::RefCell;
-use std::collections::HashSet;
+use std::cell::{Ref, RefCell};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use std::rc::{Rc, Weak};
@@ -45,6 +44,7 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
@@ -54,28 +54,25 @@ pub struct Session {
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
+    default_group: SharedGroup,
+    groups: Vec<SharedGroup>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject:
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
+    group_list_changed_subject: LocalSubject<'static, (), ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
+    group_changed_subject: LocalSubject<'static, (), ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    // It's super important to unregister this when the session is dropped. Otherwise ReaLearn
-    // will stay around as a ghost after the plug-in is removed.
-    main_processor_registration: Option<RegistrationHandle<MainProcessor<WeakSession>>>,
-    normal_main_task_channel: (
-        crossbeam_channel::Sender<NormalMainTask>,
-        crossbeam_channel::Receiver<NormalMainTask>,
-    ),
-    parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-    control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+    group_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
+    normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameter_settings: Vec<ParameterSetting>,
-    controller_manager: Box<dyn PresetManager<PresetType = Controller>>,
+    controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
+    main_preset_link_manager: Box<dyn PresetLinkManager>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
 }
@@ -130,16 +127,11 @@ impl Session {
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
-        normal_main_task_channel: (
-            crossbeam_channel::Sender<NormalMainTask>,
-            crossbeam_channel::Receiver<NormalMainTask>,
-        ),
-        control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+        normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         ui: impl SessionUi + 'static,
-        controller_manager: impl PresetManager<PresetType = Controller> + 'static,
+        controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
+        preset_link_manager: impl PresetLinkManager + 'static,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -153,6 +145,7 @@ impl Session {
             send_feedback_only_if_armed: prop(true),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
+            main_preset_auto_load_mode: Default::default(),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
@@ -160,22 +153,24 @@ impl Session {
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
+            default_group: Default::default(),
+            groups: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
+            group_list_changed_subject: Default::default(),
             mapping_changed_subject: Default::default(),
+            group_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
             mapping_subscriptions: Default::default(),
-            main_processor_registration: None,
-            normal_main_task_channel,
-            parameter_main_task_receiver,
-            control_main_task_receiver,
+            group_subscriptions: Default::default(),
+            normal_main_task_sender,
             normal_real_time_task_sender,
-            feedback_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
-            controller_manager: Box::new(controller_manager),
+            controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
+            main_preset_link_manager: Box::new(preset_link_manager),
             on_mappings: Default::default(),
         }
     }
@@ -204,6 +199,7 @@ impl Session {
     }
 
     fn initial_sync(&mut self, weak_session: WeakSession) {
+        self.resubscribe_to_groups(weak_session.clone());
         for compartment in MappingCompartment::into_enum_iter() {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
@@ -214,26 +210,6 @@ impl Session {
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
-        // Register the main processor. We instantiate it as control surface because it must be
-        // called regularly, even when the ReaLearn UI is closed. That means, the VST GUI idle
-        // callback is not suited.
-        let main_processor = MainProcessor::new(
-            &self.logger,
-            self.normal_main_task_channel.0.clone(),
-            self.normal_main_task_channel.1.clone(),
-            self.parameter_main_task_receiver.clone(),
-            self.control_main_task_receiver.clone(),
-            self.normal_real_time_task_sender.clone(),
-            self.feedback_real_time_task_sender.clone(),
-            weak_session.clone(),
-            self.context.clone(),
-        );
-        main_processor.activate();
-        let reg = Reaper::get()
-            .medium_session()
-            .plugin_register_add_csurf_inst(Box::new(main_processor))
-            .expect("couldn't register local control surface");
-        self.main_processor_registration = Some(reg);
         // Initial sync
         self.initial_sync(weak_session.clone());
         // Whenever auto-correct setting changes, resubscribe to all mappings because
@@ -254,6 +230,14 @@ impl Session {
                 shared_session
                     .borrow_mut()
                     .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
+            });
+        // Whenever something in the group list changes, resubscribe to those groups.
+        when(self.group_list_changed())
+            .with(weak_session.clone())
+            .do_async(|shared_session, _| {
+                shared_session
+                    .borrow_mut()
+                    .resubscribe_to_groups(Rc::downgrade(&shared_session));
             });
         // Whenever anything in a mapping list changes and other things which affect all
         // processors (including the real-time processor which takes care of sources only), resync
@@ -299,15 +283,55 @@ impl Session {
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
         // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
         when(
-            Reaper::get()
+            Global::control_surface_rx()
                 .fx_reordered()
                 // We have this explicit stop criteria because we listen to global REAPER events.
                 .take_until(self.party_is_over()),
         )
-        .with(weak_session)
-        .do_sync(move |s, _| {
+        .with(weak_session.clone())
+        .do_sync(|s, _| {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
+        // When FX focus changes, maybe trigger main preset change
+        when(
+            Global::control_surface_rx()
+                .fx_focused()
+                .take_until(self.party_is_over()),
+        )
+        .with(weak_session)
+        .do_sync(|s, fx| {
+            if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
+                let fx_id = fx.as_ref().map(FxId::from_fx);
+                s.borrow_mut()
+                    .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+            }
+        });
+    }
+
+    pub fn activate_main_preset_auto_load_mode(
+        &mut self,
+        mode: MainPresetAutoLoadMode,
+        session: WeakSession,
+    ) {
+        if mode != MainPresetAutoLoadMode::Off {
+            self.activate_main_preset(None, session).unwrap();
+        }
+        self.main_preset_auto_load_mode.set(mode);
+    }
+
+    pub fn main_preset_auto_load_is_active(&self) -> bool {
+        self.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::Off
+    }
+
+    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>, weak_session: WeakSession) {
+        if let Some(fx_id) = fx_id {
+            let preset_id = self
+                .main_preset_link_manager
+                .find_preset_linked_to_fx(&fx_id);
+            let _ = self.activate_main_preset(preset_id, weak_session);
+        } else {
+            self.activate_main_preset(None, weak_session).unwrap();
+        }
     }
 
     fn invalidate_fx_indexes_of_mapping_targets(&self) {
@@ -325,6 +349,9 @@ impl Session {
             .merge(self.let_unmatched_events_through.changed())
             .merge(self.midi_control_input.changed())
             .merge(self.midi_feedback_output.changed())
+            .merge(self.always_auto_detect.changed())
+            .merge(self.send_feedback_only_if_armed.changed())
+            .merge(self.main_preset_auto_load_mode.changed())
     }
 
     pub fn learn_source(&mut self, source: CompoundMappingSource) {
@@ -411,6 +438,43 @@ impl Session {
             .collect();
     }
 
+    fn resubscribe_to_groups(&mut self, weak_session: WeakSession) {
+        self.group_subscriptions = self
+            .groups_including_default_group()
+            .map(|shared_group| {
+                // We don't need to take until "party is over" because if the session disappears,
+                // we know the groups disappear as well.
+                let group = shared_group.borrow();
+                let mut all_subscriptions = LocalSubscription::default();
+                // Keep syncing to processors
+                {
+                    let subscription = when(group.changed_processing_relevant())
+                        .with(weak_session.clone())
+                        .do_sync(move |session, _| {
+                            let mut session = session.borrow_mut();
+                            // Change of a single group can affect many mappings
+                            session.sync_all_mappings_full(MappingCompartment::MainMappings);
+                            session.mark_project_as_dirty();
+                            session.notify_group_changed();
+                        });
+                    all_subscriptions.add(subscription);
+                }
+                // Keep marking project as dirty
+                {
+                    let subscription = when(group.changed_non_processing_relevant())
+                        .with(weak_session.clone())
+                        .do_sync(move |session, _| {
+                            let mut session = session.borrow_mut();
+                            session.mark_project_as_dirty();
+                            session.notify_group_changed();
+                        });
+                    all_subscriptions.add(subscription);
+                }
+                SubscriptionGuard::new(all_subscriptions)
+            })
+            .collect();
+    }
+
     fn learn_target(&mut self, target: &ReaperTarget) {
         // Prevent learning targets from in other project tabs (leads to weird effects, just think
         // about it)
@@ -431,13 +495,74 @@ impl Session {
         &self.context
     }
 
+    pub fn add_default_group(&mut self, name: String) -> GroupId {
+        let group = GroupModel::new_from_ui(name);
+        self.add_group(group)
+    }
+
+    fn add_group(&mut self, group: GroupModel) -> GroupId {
+        let id = group.id();
+        let shared_group = Rc::new(RefCell::new(group));
+        self.groups.push(shared_group);
+        self.notify_group_list_changed();
+        id
+    }
+
+    pub fn find_group_index_by_id(&self, id: GroupId) -> Option<usize> {
+        self.groups.iter().position(|g| g.borrow().id() == id)
+    }
+
+    pub fn find_group_by_id(&self, id: GroupId) -> Option<&SharedGroup> {
+        self.groups.iter().find(|g| g.borrow().id() == id)
+    }
+
+    pub fn find_group_by_index(&self, index: usize) -> Option<&SharedGroup> {
+        self.groups.get(index)
+    }
+
+    pub fn find_group_id_by_index(&self, index: usize) -> Option<GroupId> {
+        let group = self.find_group_by_index(index)?;
+        Some(group.borrow().id())
+    }
+
+    pub fn move_mapping_to_group(
+        &mut self,
+        mapping_id: MappingId,
+        group_id: GroupId,
+    ) -> Result<(), &'static str> {
+        let (_, mapping) = self
+            .find_mapping_and_index_by_id(MappingCompartment::MainMappings, mapping_id)
+            .ok_or("no such mapping")?;
+        mapping.borrow_mut().group_id.set(group_id);
+        self.notify_group_list_changed();
+        Ok(())
+    }
+
+    pub fn remove_group(&mut self, id: GroupId, delete_mappings: bool) {
+        self.groups.retain(|g| g.borrow().id() != id);
+        if delete_mappings {
+            self.mappings[MappingCompartment::MainMappings]
+                .retain(|m| m.borrow().group_id.get() != id);
+        } else {
+            for m in self.mappings(MappingCompartment::MainMappings) {
+                let mut m = m.borrow_mut();
+                if m.group_id.get() == id {
+                    m.group_id.set_without_notification(GroupId::default());
+                }
+            }
+        }
+        self.notify_group_list_changed();
+    }
+
     pub fn add_default_mapping(
         &mut self,
         compartment: MappingCompartment,
+        // Only relevant for main mapping compartment
+        initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment);
+        let mut mapping = MappingModel::new(compartment, initial_group_id);
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
@@ -480,6 +605,8 @@ impl Session {
         &mut self,
         session: &SharedSession,
         compartment: MappingCompartment,
+        // Only relevant for main mapping compartment
+        initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
@@ -488,7 +615,12 @@ impl Session {
         self.stop_learning_source();
         self.stop_learning_target();
         // Add initial mapping and start learning its source
-        self.add_and_learn_one_of_many_mappings(session, compartment, control_element_type);
+        self.add_and_learn_one_of_many_mappings(
+            session,
+            compartment,
+            initial_group_id,
+            control_element_type,
+        );
         // After target learned, add new mapping and start learning its source
         let prop_to_observe = match compartment {
             // For controller mappings we don't need to learn a target so we move on to the next
@@ -507,6 +639,7 @@ impl Session {
             session.borrow_mut().add_and_learn_one_of_many_mappings(
                 &session,
                 compartment,
+                initial_group_id,
                 control_element_type,
             );
         });
@@ -516,6 +649,8 @@ impl Session {
         &mut self,
         session: &SharedSession,
         compartment: MappingCompartment,
+        // Only relevant for main mapping compartment
+        initial_group_id: GroupId,
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
@@ -530,7 +665,7 @@ impl Session {
             }
             MappingCompartment::MainMappings => HashSet::new(),
         };
-        let mapping = self.add_default_mapping(compartment, control_element_type);
+        let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
         let mapping_id = mapping.borrow().id();
         self.learn_many_state
             .set(Some(LearnManyState::learning_source(
@@ -610,13 +745,14 @@ impl Session {
             .find(|m| m.as_ptr() == mapping as _)
     }
 
-    pub fn find_mapping_by_id(
+    pub fn find_mapping_and_index_by_id(
         &self,
         compartment: MappingCompartment,
         mapping_id: MappingId,
-    ) -> Option<&SharedMapping> {
+    ) -> Option<(usize, &SharedMapping)> {
         self.mappings(compartment)
-            .find(|m| m.borrow().id() == mapping_id)
+            .enumerate()
+            .find(|(_, m)| m.borrow().id() == mapping_id)
     }
 
     pub fn mappings(
@@ -624,6 +760,18 @@ impl Session {
         compartment: MappingCompartment,
     ) -> impl Iterator<Item = &SharedMapping> {
         self.mappings[compartment].iter()
+    }
+
+    pub fn default_group(&self) -> &SharedGroup {
+        &self.default_group
+    }
+
+    pub fn groups(&self) -> impl Iterator<Item = &SharedGroup> {
+        self.groups.iter()
+    }
+
+    fn groups_including_default_group(&self) -> impl Iterator<Item = &SharedGroup> {
+        std::iter::once(&self.default_group).chain(self.groups.iter())
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
@@ -760,43 +908,57 @@ impl Session {
         self.mapping_which_learns_target.set(None);
     }
 
-    pub fn move_mapping_up(
-        &mut self,
+    fn find_index_of_closest_mapping(
+        &self,
         compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) {
-        // No problem if it doesn't work
-        let _ = self.swap_mappings(compartment, mapping, -1);
+        mapping: &SharedMapping,
+        index: usize,
+        within_same_group: bool,
+        increment: isize,
+    ) -> Option<usize> {
+        let mappings = &self.mappings[compartment];
+        let total_mapping_count = mappings.len();
+        let result_index = if within_same_group {
+            let group_id = mapping.borrow().group_id.get();
+            let mut i = index as isize + increment;
+            while i >= 0 && i < total_mapping_count as isize {
+                let m = &mappings[i as usize];
+                if m.borrow().group_id.get() == group_id {
+                    break;
+                }
+                i += increment;
+            }
+            i
+        } else {
+            index as isize + increment
+        };
+        if result_index < 0 || result_index as usize >= total_mapping_count {
+            return None;
+        }
+        Some(result_index as usize)
     }
 
-    pub fn move_mapping_down(
+    pub fn move_mapping_within_list(
         &mut self,
         compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) {
-        // No problem if it doesn't work
-        let _ = self.swap_mappings(compartment, mapping, 1);
-    }
-
-    fn swap_mappings(
-        &mut self,
-        compartment: MappingCompartment,
-        mapping: *const MappingModel,
+        mapping_id: MappingId,
+        within_same_group: bool,
         increment: isize,
     ) -> Result<(), &str> {
-        let current_index = self.mappings[compartment]
-            .iter()
-            .position(|m| m.as_ptr() == mapping as _)
+        let (current_index, mapping) = self
+            .find_mapping_and_index_by_id(compartment, mapping_id)
             .ok_or("mapping not found")?;
-        let new_index = current_index as isize + increment;
-        if new_index < 0 {
-            return Err("too far up");
-        }
-        let new_index = new_index as usize;
-        if new_index >= self.mappings[compartment].len() {
-            return Err("too far down");
-        }
-        self.mappings[compartment].swap(current_index, new_index);
+        let dest_index = self
+            .find_index_of_closest_mapping(
+                compartment,
+                mapping,
+                current_index,
+                within_same_group,
+                increment,
+            )
+            .ok_or("move not possible because boundary reached")?;
+        let pending_mapping = self.mappings[compartment].remove(current_index);
+        self.mappings[compartment].insert(dest_index, pending_mapping);
         self.notify_mapping_list_changed(compartment, None);
         Ok(())
     }
@@ -888,9 +1050,9 @@ impl Session {
         self.active_main_preset_id.as_deref()
     }
 
-    pub fn active_controller(&self) -> Option<Controller> {
+    pub fn active_controller(&self) -> Option<ControllerPreset> {
         let id = self.active_controller_id()?;
-        self.controller_manager.find_by_id(id)
+        self.controller_preset_manager.find_by_id(id)
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
@@ -898,22 +1060,28 @@ impl Session {
         self.main_preset_manager.find_by_id(id)
     }
 
-    pub fn controller_mappings_are_dirty(&self) -> bool {
+    pub fn controller_preset_is_out_of_date(&self) -> bool {
         let id = match &self.active_controller_id {
             None => return self.mapping_count(MappingCompartment::ControllerMappings) > 0,
             Some(id) => id,
         };
-        self.controller_manager
+        self.controller_preset_manager
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
     }
 
-    pub fn main_mappings_are_dirty(&self) -> bool {
+    pub fn main_preset_is_out_of_date(&self) -> bool {
         let id = match &self.active_main_preset_id {
-            None => return self.mapping_count(MappingCompartment::MainMappings) > 0,
+            None => {
+                return self.mapping_count(MappingCompartment::MainMappings) > 0
+                    || !self.groups.is_empty();
+            }
             Some(id) => id,
         };
         self.main_preset_manager
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::MainMappings])
+            || self
+                .main_preset_manager
+                .groups_are_dirty(id, &self.default_group, &self.groups)
     }
 
     pub fn activate_controller(
@@ -921,19 +1089,23 @@ impl Session {
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
+        let compartment = MappingCompartment::ControllerMappings;
         self.active_controller_id = id.clone();
-        self.activate_preset(
-            MappingCompartment::ControllerMappings,
-            id,
-            weak_session,
-            |session, id| {
-                let controller = session
-                    .controller_manager
-                    .find_by_id(id)
-                    .ok_or("controller not found")?;
-                Ok(controller.mappings().clone())
-            },
-        )
+        if let Some(id) = id.as_ref() {
+            let controller = self
+                .controller_preset_manager
+                .find_by_id(id)
+                .ok_or("controller not found")?;
+            self.set_mappings_without_notification(
+                compartment,
+                controller.mappings().iter().cloned(),
+            );
+        } else {
+            // <None> preset
+            self.set_mappings_without_notification(compartment, std::iter::empty());
+        };
+        self.notify_everything_has_changed(weak_session);
+        Ok(())
     }
 
     pub fn activate_main_preset(
@@ -941,47 +1113,33 @@ impl Session {
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
+        let compartment = MappingCompartment::MainMappings;
         self.active_main_preset_id = id.clone();
-        self.activate_preset(
-            MappingCompartment::MainMappings,
-            id,
-            weak_session,
-            |session, id| {
-                let main_preset = session
-                    .main_preset_manager
-                    .find_by_id(id)
-                    .ok_or("main preset not found")?;
-                Ok(main_preset.mappings().clone())
-            },
-        )
-    }
-
-    fn activate_preset(
-        &mut self,
-        compartment: MappingCompartment,
-        id: Option<String>,
-        weak_session: WeakSession,
-        get_mappings_by_preset_id: impl FnOnce(
-            &Session,
-            &str,
-        ) -> Result<Vec<MappingModel>, &'static str>,
-    ) -> Result<(), &'static str> {
-        match id.as_ref() {
-            None => {
-                self.set_mappings_without_notification(compartment, std::iter::empty());
-            }
-            Some(id) => {
-                let mappings = get_mappings_by_preset_id(self, id)?;
-                self.set_mappings_without_notification(compartment, mappings.into_iter());
-            }
-        };
+        if let Some(id) = id.as_ref() {
+            let main_preset = self
+                .main_preset_manager
+                .find_by_id(id)
+                .ok_or("main preset not found")?;
+            self.default_group
+                .replace(main_preset.default_group().clone());
+            self.set_groups_without_notification(main_preset.groups().iter().cloned());
+            self.set_mappings_without_notification(
+                compartment,
+                main_preset.mappings().iter().cloned(),
+            );
+        } else {
+            // <None> preset
+            self.default_group.replace(Default::default());
+            self.set_groups_without_notification(std::iter::empty());
+            self.set_mappings_without_notification(compartment, std::iter::empty());
+        }
         self.notify_everything_has_changed(weak_session);
         Ok(())
     }
 
     fn containing_fx_enabled_or_disabled(&self) -> impl UnitEvent {
         let containing_fx = self.context.containing_fx().clone();
-        Reaper::get()
+        Global::control_surface_rx()
             .fx_enabled_changed()
             .filter(move |fx| *fx == containing_fx)
             .map_to(())
@@ -989,7 +1147,7 @@ impl Session {
 
     fn containing_track_armed_or_disarmed(&self) -> BoxedUnitEvent {
         if let Some(track) = self.context.containing_fx().track().cloned() {
-            Reaper::get()
+            Global::control_surface_rx()
                 .track_arm_changed()
                 .filter(move |t| *t == track)
                 .map_to(())
@@ -1006,13 +1164,28 @@ impl Session {
         self.everything_changed_subject.clone()
     }
 
-    /// Fires if a mapping has been added, removed or changed its position in the list.
+    /// Fires when a mapping has been added, removed or changed its position in the list.
     ///
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
     pub fn mapping_list_changed(
         &self,
     ) -> impl SharedItemEvent<(MappingCompartment, Option<MappingId>)> {
         self.mapping_list_changed_subject.clone()
+    }
+
+    /// Fires when a group has been added or removed.
+    ///
+    /// Doesn't fire if a group in the list or if the complete list has changed.
+    pub fn group_list_changed(&self) -> impl UnitEvent {
+        self.group_list_changed_subject.clone()
+    }
+
+    /// Fires if a group itself has been changed.
+    pub fn group_changed(&self) -> impl UnitEvent {
+        self.default_group
+            .borrow()
+            .changed_processing_relevant()
+            .merge(self.group_changed_subject.clone())
     }
 
     /// Fires if a mapping itself has been changed.
@@ -1041,6 +1214,10 @@ impl Session {
         self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
     }
 
+    pub fn set_groups_without_notification(&mut self, groups: impl Iterator<Item = GroupModel>) {
+        self.groups = groups.into_iter().map(share_group).collect();
+    }
+
     fn add_mapping(
         &mut self,
         compartment: MappingCompartment,
@@ -1054,16 +1231,14 @@ impl Session {
     }
 
     pub fn send_feedback(&self) {
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::FeedbackAll)
             .unwrap();
     }
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::LogDebugInfo)
             .unwrap();
         self.normal_real_time_task_sender
@@ -1087,8 +1262,10 @@ impl Session {
             \n\
             - Instance ID (random): {}\n\
             - ID (persistent, maybe custom): {}\n\
-            - Main mapping model count: {}\n\
+            - Main mapping count: {}\n\
             - Main mapping subscription count: {}\n\
+            - Group count: {}\n\
+            - Group subscription count: {}\n\
             - Controller mapping model count: {}\n\
             - Controller mapping subscription count: {}\n\
             ",
@@ -1096,6 +1273,8 @@ impl Session {
             self.id.get_ref(),
             self.mappings[MappingCompartment::MainMappings].len(),
             self.mapping_subscriptions[MappingCompartment::MainMappings].len(),
+            self.groups.len(),
+            self.group_subscriptions.len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mapping_subscriptions[MappingCompartment::ControllerMappings].len(),
         );
@@ -1128,7 +1307,11 @@ impl Session {
     ) -> SharedMapping {
         let mapping = match self.find_mapping_with_target(compartment, target) {
             None => {
-                let m = self.add_default_mapping(compartment, VirtualControlElementType::Multi);
+                let m = self.add_default_mapping(
+                    compartment,
+                    GroupId::default(),
+                    VirtualControlElementType::Multi,
+                );
                 m.borrow_mut()
                     .target_model
                     .apply_from_target(target, &self.context);
@@ -1158,6 +1341,18 @@ impl Session {
         );
     }
 
+    /// Notifies listeners async that something in a group list has changed.
+    ///
+    /// Shouldn't be used if the complete list has changed.
+    fn notify_group_list_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.group_list_changed_subject, &());
+    }
+
+    /// Notifies listeners async a group in the group list has changed.
+    fn notify_group_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.group_changed_subject, &());
+    }
+
     /// Notifies listeners async a mapping in a mapping list has changed.
     fn notify_mapping_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
@@ -1174,14 +1369,29 @@ impl Session {
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
-        let main_mapping = m.create_main_mapping();
-        self.normal_main_task_channel
-            .0
+        let group_data = self
+            .find_group_of_mapping(m)
+            .map(|g| g.borrow().create_data())
+            .unwrap_or_default();
+        let main_mapping = m.create_main_mapping(group_data);
+        self.normal_main_task_sender
             .send(NormalMainTask::UpdateSingleMapping(
                 compartment,
                 Box::new(main_mapping),
             ))
             .unwrap();
+    }
+
+    fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
+        if mapping.compartment() == MappingCompartment::ControllerMappings {
+            return None;
+        }
+        let group_id = mapping.group_id.get();
+        if group_id.is_default() {
+            Some(&self.default_group)
+        } else {
+            self.find_group_by_id(group_id)
+        }
     }
 
     fn feedback_is_globally_enabled(&self) -> bool {
@@ -1202,8 +1412,7 @@ impl Session {
 
     /// Just syncs whether feedback globally enabled or not.
     fn sync_feedback_is_globally_enabled(&self) {
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(
                 self.feedback_is_globally_enabled(),
             ))
@@ -1213,8 +1422,7 @@ impl Session {
     /// Does a full mapping sync.
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
         let main_mappings = self.create_main_mappings(compartment);
-        self.normal_main_task_channel
-            .0
+        self.normal_main_task_sender
             .send(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
@@ -1224,8 +1432,33 @@ impl Session {
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
+        let group_map: HashMap<GroupId, Ref<GroupModel>> =
+            if compartment == MappingCompartment::ControllerMappings {
+                // We don't want controller mappings to use any groups!
+                Default::default()
+            } else {
+                self.groups_including_default_group()
+                    .map(|group| {
+                        let group = group.borrow();
+                        (group.id(), group)
+                    })
+                    .collect()
+            };
+        // TODO-medium This is non-optimal if we have a group that uses an EEL activation condition
+        //  and has many mappings. Because of our strategy of groups being an application-layer
+        //  concept only, we equip *all* n mappings in that group with the group activation
+        //  condition. The EEL compilation is done n times, but maybe worse: There are n EEL VMs
+        //  in the domain layer and all of them have to run on parameter changes - whereas 1 would
+        //  be enough if the domain layer would know about groups.
         self.mappings(compartment)
-            .map(|m| m.borrow().create_main_mapping())
+            .map(|mapping| {
+                let mapping = mapping.borrow();
+                let group_data = group_map
+                    .get(mapping.group_id.get_ref())
+                    .map(|g| g.create_data())
+                    .unwrap_or_default();
+                mapping.create_main_mapping(group_data)
+            })
             .collect()
     }
 
@@ -1268,15 +1501,6 @@ pub struct ParameterSetting {
 impl Drop for Session {
     fn drop(&mut self) {
         debug!(self.logger(), "Dropping session...");
-        if let Some(reg) = self.main_processor_registration {
-            unsafe {
-                // We can throw the unregistered control surface immediately because we are sure
-                // that we are currently not in a control surface call.
-                let _ = Reaper::get()
-                    .medium_session()
-                    .plugin_register_remove_csurf_inst(reg);
-            }
-        }
         self.party_is_over_subject.next(());
     }
 }

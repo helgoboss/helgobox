@@ -1,30 +1,42 @@
 use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::notification;
 use crate::domain::{MappingCompartment, ReaperTarget};
-use once_cell::unsync::Lazy;
 use reaper_high::{ActionKind, Reaper, Track};
 
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, Drain};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// static mut maybe okay because we access this via `App::get()` function only and this one checks
-/// the thread before returning the reference.
-static mut APP: Lazy<App> = Lazy::new(Default::default);
+make_available_globally_in_main_thread!(App);
 
-#[derive(Default)]
 pub struct App {
     sessions: RefCell<Vec<WeakSession>>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
+impl Default for App {
+    fn default() -> Self {
+        App {
+            sessions: Default::default(),
+            changed_subject: Default::default(),
+        }
+    }
+}
+
 impl App {
-    /// Panics if not in main thread.
-    pub fn get() -> &'static App {
-        Reaper::get().require_main_thread();
-        unsafe { &APP }
+    // We need this to be static because we need it at plugin construction time, so we don't have
+    // REAPER API access yet. App needs REAPER API to be constructed (e.g. in order to
+    // know where's the resource directory that contains the app configuration).
+    // TODO-low In future it might be wise to turn to a different logger as soon as REAPER API
+    //  available. Then we can also do file logging to ReaLearn resource folder.
+    pub fn logger() -> &'static slog::Logger {
+        static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
+            env_logger::init_from_env("REALEARN_LOG");
+            slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
+        });
+        &APP_LOGGER
     }
 
     pub fn changed(&self) -> impl UnitEvent {

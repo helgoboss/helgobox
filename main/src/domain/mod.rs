@@ -10,6 +10,12 @@ pub use feedback_buffer::*;
 mod mapping;
 pub use mapping::*;
 
+mod control_surface;
+pub use control_surface::*;
+
+mod audio_hook;
+pub use audio_hook::*;
+
 mod mode;
 pub use mode::*;
 

@@ -1,23 +1,23 @@
-use crate::application::{MappingModel, Preset};
+use crate::application::{GroupModel, MappingModel, Preset};
 use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Debug)]
-pub struct Controller {
+pub struct ControllerPreset {
     id: String,
     name: String,
     mappings: Vec<MappingModel>,
     custom_data: HashMap<String, serde_json::Value>,
 }
 
-impl Controller {
+impl ControllerPreset {
     pub fn new(
         id: String,
         name: String,
         mappings: Vec<MappingModel>,
         custom_data: HashMap<String, serde_json::Value>,
-    ) -> Controller {
-        Controller {
+    ) -> ControllerPreset {
+        ControllerPreset {
             id,
             name,
             mappings,
@@ -36,14 +36,22 @@ impl Controller {
         self.custom_data.insert(key, value);
     }
 
-    pub fn update_mappings(&mut self, mappings: Vec<MappingModel>) {
+    pub fn update_realearn_data(&mut self, mappings: Vec<MappingModel>) {
         self.mappings = mappings;
     }
 }
 
-impl Preset for Controller {
+impl Preset for ControllerPreset {
     fn id(&self) -> &str {
         &self.id
+    }
+
+    fn default_group(&self) -> &GroupModel {
+        unimplemented!("controller presets don't support groups")
+    }
+
+    fn groups(&self) -> &Vec<GroupModel> {
+        unimplemented!("controller presets don't support groups")
     }
 
     fn mappings(&self) -> &Vec<MappingModel> {
@@ -51,7 +59,7 @@ impl Preset for Controller {
     }
 }
 
-impl fmt::Display for Controller {
+impl fmt::Display for ControllerPreset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.name())
     }

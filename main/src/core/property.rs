@@ -34,7 +34,7 @@ where
         {
             let mut subject = subject.clone();
             let value = value.clone();
-            reaper_high::Reaper::get()
+            crate::core::Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || {
                     subject.next(value);
                 })

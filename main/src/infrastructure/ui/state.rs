@@ -1,6 +1,7 @@
 use crate::core::{prop, Prop};
 use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
 
+use crate::application::{GroupId, MappingModel};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -13,8 +14,22 @@ pub struct MainState {
     pub source_filter: Prop<Option<CompoundMappingSource>>,
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
+    pub group_filter: Prop<Option<GroupFilter>>,
     pub search_expression: Prop<String>,
     pub status_msg: Prop<String>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct GroupFilter(pub GroupId);
+
+impl GroupFilter {
+    pub fn matches(&self, mapping: &MappingModel) -> bool {
+        mapping.group_id.get() == self.0
+    }
+
+    pub fn group_id(&self) -> GroupId {
+        self.0
+    }
 }
 
 impl Default for MainState {
@@ -25,6 +40,7 @@ impl Default for MainState {
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::MainMappings),
+            group_filter: prop(Some(GroupFilter(GroupId::default()))),
             search_expression: Default::default(),
             status_msg: Default::default(),
         }
@@ -32,9 +48,23 @@ impl Default for MainState {
 }
 
 impl MainState {
-    pub fn clear_filters(&mut self) {
+    pub fn clear_all_filters(&mut self) {
+        self.clear_all_filters_except_group();
+        self.clear_group_filter();
+    }
+
+    pub fn clear_all_filters_except_group(&mut self) {
         self.clear_source_filter();
         self.clear_target_filter();
+        self.clear_search_expression_filter();
+    }
+
+    pub fn clear_group_filter(&mut self) {
+        self.group_filter.set(None);
+    }
+
+    pub fn clear_search_expression_filter(&mut self) {
+        self.search_expression.set("".to_string());
     }
 
     pub fn clear_source_filter(&mut self) {
@@ -46,7 +76,8 @@ impl MainState {
     }
 
     pub fn filter_is_active(&self) -> bool {
-        self.source_filter.get_ref().is_some()
+        self.group_filter.get_ref().is_some()
+            || self.source_filter.get_ref().is_some()
             || self.target_filter.get_ref().is_some()
             || !self.search_expression.get_ref().trim().is_empty()
     }

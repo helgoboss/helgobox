@@ -1,18 +1,26 @@
 [package]
 name = "realearn"
-version = "1.12.0-pre8"
+version = "1.12.0-pre9"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
 license = "LGPL-3.0"
 
 [features]
+default = ["prometheus"]
+
+# Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
 
+# Expose metrics endpoint in prometheus format (via projection server)
+prometheus = ["serde_prometheus"]
+
 [dependencies]
+reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-medium= { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
 reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+#reaper-rx = { path = "../../reaper-rs/main/rx" }
 #reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
 #reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
 #reaper-low = { path = "../../reaper-rs/main/low" }
@@ -52,7 +60,7 @@ slug = "0.1.4"
 nanoid = "0.3.0"
 # For web server (e.g. for projection)
 futures = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["rt-core", "sync"] }
+tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "sync"] }
 warp = { version = "0.2", features = ["tls"] }
 # For generating projection QR code
 qrcode = { version = "0.11" }
@@ -87,6 +95,8 @@ slog-stdlog = "4.1.0"
 futures-timer = "3.0.2"
 # To open user guide in local PDF app
 open = "1"
+# For exposing metrics in Prometheus format
+serde_prometheus = { version = "0.1.5", optional = true }
 
 [build-dependencies]
 built = { version = "0.4.3", features = ["git2", "chrono"] }

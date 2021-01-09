@@ -1,10 +1,10 @@
-use crate::application::{ParameterSetting, Session};
+use crate::application::{MainPresetAutoLoadMode, ParameterSetting, Session};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     MappingCompartment, MidiControlInput, MidiFeedbackOutput, ParameterArray,
     PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
-use crate::infrastructure::data::{MappingModelData, ParameterData};
+use crate::infrastructure::data::{GroupModelData, MappingModelData, ParameterData};
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use serde::{Deserialize, Serialize};
@@ -42,6 +42,11 @@ pub struct SessionData {
     /// - `Some("fx-output")` means "\<FX output>"
     #[serde(default, skip_serializing_if = "is_default")]
     feedback_device_id: Option<String>,
+    // Not set before 1.12.0-pre9
+    #[serde(default, skip_serializing_if = "is_default")]
+    default_group: Option<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    groups: Vec<GroupModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -50,6 +55,8 @@ pub struct SessionData {
     active_controller_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     active_main_preset_id: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    main_preset_auto_load_mode: MainPresetAutoLoadMode,
     #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
 }
@@ -82,10 +89,18 @@ impl SessionData {
                     FxOutput => "fx-output".to_string(),
                 })
             },
+            default_group: Some(GroupModelData::from_model(
+                session.default_group().borrow().deref(),
+            )),
+            groups: session
+                .groups()
+                .map(|m| GroupModelData::from_model(m.borrow().deref()))
+                .collect(),
             mappings: from_mappings(MappingCompartment::MainMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             active_controller_id: session.active_controller_id().map(|id| id.to_string()),
             active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
+            main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = parameters[i as usize];
@@ -158,6 +173,14 @@ impl SessionData {
         session
             .midi_feedback_output
             .set_without_notification(feedback_output);
+        // Groups
+        let final_default_group = self
+            .default_group
+            .as_ref()
+            .map(|g| g.to_model())
+            .unwrap_or_default();
+        session.default_group().replace(final_default_group);
+        session.set_groups_without_notification(self.groups.iter().map(|g| g.to_model()));
         // Mappings
         let processor_context = session.context().clone();
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
@@ -175,6 +198,9 @@ impl SessionData {
         );
         session.set_active_controller_id_without_notification(self.active_controller_id.clone());
         session.set_active_main_preset_id_without_notification(self.active_main_preset_id.clone());
+        session
+            .main_preset_auto_load_mode
+            .set_without_notification(self.main_preset_auto_load_mode);
         // Parameters
         let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
         for (i, p) in self.parameters.iter() {
