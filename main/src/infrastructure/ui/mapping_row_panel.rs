@@ -404,7 +404,7 @@ impl MappingRowPanel {
         for (i, group) in session.groups().enumerate() {
             let group = group.borrow();
             let item_id = i as u32 + 2;
-            menu.add_item(item_id, format!("{}", group.name.get_ref()));
+            menu.add_item(item_id, group.name.get_ref().to_string());
             // Disable group if it's the current one.
             if current_group_id == group.id() {
                 menu.set_item_enabled(item_id, false);

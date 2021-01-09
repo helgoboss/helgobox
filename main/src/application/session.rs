@@ -1073,7 +1073,7 @@ impl Session {
         let id = match &self.active_main_preset_id {
             None => {
                 return self.mapping_count(MappingCompartment::MainMappings) > 0
-                    || self.groups.len() > 0;
+                    || !self.groups.is_empty();
             }
             Some(id) => id,
         };

@@ -43,10 +43,8 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
     let target = &mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {
-            if target.supports_track() {
-                if target.track.get_ref().refers_to_project() {
-                    return true;
-                }
+            if target.supports_track() && target.track.get_ref().refers_to_project() {
+                return true;
             }
             if target.supports_fx() {
                 if let Some(fx) = target.fx.get_ref() {
@@ -81,25 +79,21 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: &Proces
             } else {
                 false
             };
-            if target.supports_track() {
-                if target.track.get_ref().refers_to_project() {
-                    let new_virtual_track = if changed_to_focused_fx {
-                        // Track doesn't matter at all. We change it to <This>. Looks nice.
-                        Some(VirtualTrack::This)
+            if target.supports_track() && target.track.get_ref().refers_to_project() {
+                let new_virtual_track = if changed_to_focused_fx {
+                    // Track doesn't matter at all. We change it to <This>. Looks nice.
+                    Some(VirtualTrack::This)
+                } else if let Ok(t) = target.with_context(context).effective_track() {
+                    if let Some(i) = t.index() {
+                        Some(VirtualTrack::Particular(TrackAnchor::Index(i)))
                     } else {
-                        if let Ok(t) = target.with_context(context).effective_track() {
-                            if let Some(i) = t.index() {
-                                Some(VirtualTrack::Particular(TrackAnchor::Index(i)))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    };
-                    if let Some(t) = new_virtual_track {
-                        target.track.set(t);
+                        None
                     }
+                } else {
+                    None
+                };
+                if let Some(t) = new_virtual_track {
+                    target.track.set(t);
                 }
             }
         }

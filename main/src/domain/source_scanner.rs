@@ -1,6 +1,7 @@
 use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{Channel, ControllerNumber, ShortMessage, StructuredShortMessage, U7};
+use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 const MAX_CC_MSG_COUNT: usize = 10;
@@ -158,12 +159,11 @@ fn contains_direction_change(values: &[U7]) -> bool {
     }
     fn determine_direction(a: U7, b: U7) -> Option<Direction> {
         use Direction::*;
-        if b > a {
-            Some(Clockwise)
-        } else if b < a {
-            Some(CounterClockwise)
-        } else {
-            None
+        use Ordering::*;
+        match b.cmp(&a) {
+            Greater => Some(Clockwise),
+            Less => Some(CounterClockwise),
+            Equal => None,
         }
     }
     let mut direction_so_far: Option<Direction> = None;

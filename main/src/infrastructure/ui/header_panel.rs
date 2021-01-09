@@ -637,20 +637,19 @@ impl HeaderPanel {
             Some(GroupFilter(id)) if !id.is_default() => id,
             _ => return,
         };
-        match self.view.require_window().ask_yes_no_or_cancel(
-            "ReaLearn",
-            "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.",
-        ) {
-            None => return,
-            Some(delete_mappings) => {
-                self.main_state
-                    .borrow_mut()
-                    .group_filter
-                    .set(Some(GroupFilter(GroupId::default())));
-                self.session()
-                    .borrow_mut()
-                    .remove_group(id, delete_mappings);
-            }
+        let msg = "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.";
+        if let Some(delete_mappings) = self
+            .view
+            .require_window()
+            .ask_yes_no_or_cancel("ReaLearn", msg)
+        {
+            self.main_state
+                .borrow_mut()
+                .group_filter
+                .set(Some(GroupFilter(GroupId::default())));
+            self.session()
+                .borrow_mut()
+                .remove_group(id, delete_mappings);
         }
     }
 
@@ -992,10 +991,11 @@ impl HeaderPanel {
         context: &ProcessorContext,
         mut mappings: &mut [MappingModel],
     ) {
-        if mappings_have_project_references(&mappings) {
-            if self.view.require_window().confirm("ReaLearn", "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?") {
-                make_mappings_project_independent(&mut mappings, context);
-            }
+        let msg = "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?";
+        if mappings_have_project_references(&mappings)
+            && self.view.require_window().confirm("ReaLearn", msg)
+        {
+            make_mappings_project_independent(&mut mappings, context);
         }
     }
 

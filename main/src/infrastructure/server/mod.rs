@@ -99,7 +99,6 @@ impl RealearnServer {
         check_port(true, self.https_port)?;
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
-        let ip = self.effective_ip();
         let http_port = self.http_port;
         let https_port = self.https_port;
         let key_and_cert = self.key_and_cert();
@@ -123,7 +122,6 @@ impl RealearnServer {
                     http_port,
                     https_port,
                     clients_clone,
-                    ip,
                     key_and_cert,
                     control_surface_task_sender,
                     http_shutdown_receiver,
@@ -409,7 +407,7 @@ async fn handle_metrics_route(
                 sender,
             ))
             .unwrap();
-        let snapshot: Result<Result<String, String>, _> = receiver.await.map(|r| Ok(r));
+        let snapshot: Result<Result<String, String>, _> = receiver.await.map(Ok);
         process_send_result(snapshot).await
     }
     #[cfg(not(feature = "prometheus"))]
@@ -422,7 +420,6 @@ async fn start_server(
     http_port: u16,
     https_port: u16,
     clients: ServerClients,
-    _ip: IpAddr,
     (key, cert): (String, String),
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     mut http_shutdown_receiver: broadcast::Receiver<()>,
