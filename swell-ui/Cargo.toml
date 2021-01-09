@@ -5,8 +5,8 @@ authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 
 [dependencies]
-#reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-low = { path = "../../reaper-rs/main/low" }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+#reaper-low = { path = "../../reaper-rs/main/low" }
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 rx-util = { path = "../rx-util" }
 scopeguard = "1.1.0"

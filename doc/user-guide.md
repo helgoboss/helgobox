@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2020-12-25 (v1.12.0-pre8)</code></td>
+  <td><code>2021-01-09 (v1.12.0-pre9)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2020-09-10 (v1.11.0)</code></td>
+  <td><code>2021-01-09 (v1.12.0-pre9)</code></td>
 </tr>
 </table>
 
@@ -34,17 +34,28 @@ dedicated DAW controllers such as
 that are tailored to control a DAW just like a hardware mixer. And I suppose they do a pretty good
 job at that.
 
-ReaLearn's goal is quite different: It enables you to instantly map control elements to REAPER
-parameters and save the resulting mappings as part of your project. Never again you need to pollute
-your global control mappings just for the needs of one project.
+ReaLearn's approach is quite different: It gives you total control on which control element operates which REAPER
+parameter and provides you with a *learn* function which allows you build your own control mappings quickly
+and intuitively without writing configuration files. All of that on a *per-instance* basis. That's right, the mappings
+are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
+control mappings just for the needs of one project!
 
-The usual ReaLearn workflow goes like this:
+Nevertheless, since version 1.12.0, ReaLearn is also a great choice for setting up global mappings for usage across 
+multiple projects. It provides a simple yet powerful preset system to make a set of mappings reusable in all of your
+projects. Just add ReaLearn to the monitoring FX chain of REAPER (View → Monitoring FX) and ReaLearn will be instantly
+available in all of your REAPER sessions without having to add it to a project first.
 
-1. Hit "Learn source" and touch some knob on your controller.
-2. Hit "Learn target" and touch some target parameter.
-3. Done.
+The usual ReaLearn workflow for a single mapping goes like this:
 
-The result is a mapping that you can customize as you desire, for example by setting a target value
+1. Add a mapping
+2. Hit "Learn source" and touch some knob on your controller.
+3. Hit "Learn target" and touch some target parameter.
+4. Done.
+
+If you want to learn multiple mappings in one go, this gets even easier via the "Learn many" button which will save you
+*a lot of* clicks.
+
+The result are mappings that you can customize as you desire, for example by setting a target value
 range. All of that with MIDI feedback support, which was previously only available in the less
 dynamic, more global control surface world.
 
@@ -59,6 +70,8 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 - **Input FX chain for live-only use:** Put it on a track's input FX chain in order to use it only
   for incoming "live" MIDI and let it control a parameter of an effect that's on the normal FX
   chain, right below a synthesizer. It will be active only if the track is armed for recording.
+  All MIDI messages that are used for parameter control will *automatically* be filtered by default
+  and won't reach the controlled instrument, which is usually exactly what you need.
 - **Grid controller for song switching:** Use some grid controller like the
   [AKAI APC Key 25](https://thumbs.static-thomann.de/thumb/thumb250x220/pics/prod/339386.jpg) to
   arm/disarm various tracks (effectively enabling/disabling certain sound setups) by pressing the
@@ -76,7 +89,9 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 - **Rotary encoders for avoiding parameter jumps:** How about a refreshingly "normal" use case? Let
   your rotary endless encoder control a track send volume without parameter jumps and restrict the
   value range to volumes below 0dB.
-- **Presets for easy reuse:** Save a bunch of commonly used mappings globally as FX presets.
+- **VST presets for easy reuse:** Save a bunch of commonly used mappings globally as FX presets.
+- **Switching controller and main presets separately:** Maintain controller and main presets and switch
+  between them as you like. Easily switch your controller without adjusting your FX presets.
 - **Combination of multiple instances:** Use one ReaLearn instance to arm or disarm tracks that
   contain other ReaLearn instances to enable/disable different mapping groups. Group mappings and
   activate/deactivate them group-wise simply by instantiating multiple ReaLearn instances and
@@ -86,9 +101,10 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 
 All of that makes ReaLearn especially well-suited for performers, people who use REAPER as a
 platform for live playing. It might be less interesting to people who use REAPER for arranging,
-mixing and mastering only. But even so, as long as you have some general-purpose MIDI controller and
-you want a fine-tuned mapping to DAW parameters of all sorts, give ReaLearn a try. It might be just
-what you need. More so if the controller supports feedback (e.g. motorized faders or LEDs).
+mixing and mastering only and are satisfied with a control surface off the shelf. But even so,
+as long as you have some general-purpose MIDI controller and you want a fine-tuned mapping to DAW parameters
+of all sorts, give ReaLearn a try. It might be just what you need. More so if the controller supports feedback
+(e.g. motorized faders or LEDs).
 
 **Summary:** _ReaLearn is tailored to usage scenarios typically desired by performers._
 
@@ -101,7 +117,8 @@ If you want to get a first impression of ReaLearn, a video is surely a good way.
 - [MIDI Controller Feedback in REAPER with ReaLearn and LBX SmartKnobs - Tutorial](https://www.youtube.com/watch?v=p0LBdXXcg7g)
 - [Demonstration of the projection feature](https://www.youtube.com/watch?v=omuYBznEShk)
 
-Keep in mind that some of the mentioned videos still use older versions of ReaLearn.
+Keep in mind that some of the mentioned videos still use older versions of ReaLearn. E.g. it should be easier 
+nowadays to use ReaLearn's "preset auto-load" feature instead of adding LBX SmartKnobs to the mix.
 
 ## Basics
 
