@@ -6,20 +6,21 @@
       "name": "CB 1/1",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 32
       },
       "mode": {},
       "target": {
         "category": "virtual",
         "controlElementType": "button"
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "2037d511-2e8f-43e8-961b-ddf4d6c823da",
       "name": "CB 1/2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 33
       },
       "mode": {},
@@ -27,14 +28,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 1
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "ab332c71-6d32-40c2-9ca7-cb018012fef7",
       "name": "CB 1/3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 34
       },
       "mode": {},
@@ -42,14 +43,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 2
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "837f3a6e-a580-41cb-8fea-9b5988cefa7a",
       "name": "CB 1/4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 35
       },
       "mode": {},
@@ -57,14 +58,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 3
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "cbc58b48-0068-4f44-a9c1-0f2567abfe49",
       "name": "CB 1/5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 36
       },
       "mode": {},
@@ -72,14 +73,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 4
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "aab2e614-ee8b-46fb-a3a4-47498e9aaa46",
       "name": "CB 1/6",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 37
       },
       "mode": {},
@@ -87,14 +88,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 5
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "33130ddc-25d6-45e2-bd8c-3c0d06637219",
       "name": "CB 1/7",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 38
       },
       "mode": {},
@@ -102,14 +103,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 6
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "85e48e54-848a-4191-aa4b-04f283de233c",
       "name": "CB 1/8",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 39
       },
       "mode": {},
@@ -117,14 +118,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 7
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "f174f99f-5c94-4aba-a3c3-006769dd33a1",
       "name": "CB 2/1",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 24
       },
       "mode": {},
@@ -132,14 +133,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 8
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "bb8ec4fb-a140-45c3-a252-c4a9921286cb",
       "name": "CB 2/2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 25
       },
       "mode": {},
@@ -147,14 +148,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 9
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "35b2c629-eb37-4001-9fc0-18a8b65fa34a",
       "name": "CB 2/3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 26
       },
       "mode": {},
@@ -162,14 +163,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 10
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "7f97b8ea-05ac-489c-9184-f0f68ba5840e",
       "name": "CB 2/4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 27
       },
       "mode": {},
@@ -177,14 +178,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 11
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "956f9baf-dc29-4257-989f-707fed276a1c",
       "name": "CB 2/5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 28
       },
       "mode": {},
@@ -192,14 +193,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 12
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "0ea33235-69c4-4ca8-aee1-9034d8ded89b",
       "name": "CB 2/6",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 29
       },
       "mode": {},
@@ -207,14 +208,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 13
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "12823070-d376-46a3-b831-1e8051705830",
       "name": "CB 2/7",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 30
       },
       "mode": {},
@@ -222,14 +223,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 14
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "895b0ded-00f4-40a2-932e-fa85ea253ac7",
       "name": "CB 2/8",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 31
       },
       "mode": {},
@@ -237,14 +238,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 15
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "54c5fa7f-993e-4eb5-a9c5-7cc77e81768b",
       "name": "CB 3/1",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 16
       },
       "mode": {},
@@ -252,14 +253,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 16
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "1b8a6ef5-007f-4b80-8020-f4db44d33c8f",
       "name": "CB 3/2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 17
       },
       "mode": {},
@@ -267,14 +268,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 17
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "1c68083c-897f-4307-bb31-463ea9827843",
       "name": "CB 3/3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 18
       },
       "mode": {},
@@ -282,14 +283,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 18
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "8e76a8e3-6410-4dde-a334-5e469a1f0235",
       "name": "CB 3/4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 19
       },
       "mode": {},
@@ -297,14 +298,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 19
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "7cce7952-c648-4199-98ca-3b458057f975",
       "name": "CB 3/5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 20
       },
       "mode": {},
@@ -312,14 +313,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 20
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "8dbe5125-1c8a-49f6-9758-05dbefbbee81",
       "name": "CB 3/6",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 21
       },
       "mode": {},
@@ -327,14 +328,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 21
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "7f224f75-c675-4395-88f5-587b42eb7ec2",
       "name": "CB 3/7",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 22
       },
       "mode": {},
@@ -342,14 +343,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 22
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "d4dc836b-eb70-4da3-9487-bb2472fc1c5e",
       "name": "CB 3/8",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 23
       },
       "mode": {},
@@ -357,14 +358,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 23
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "41273cc0-5b38-4fe2-bee3-39c85d896ee8",
       "name": "CB 4/1",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 8
       },
       "mode": {},
@@ -372,14 +373,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 24
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "de10427e-ee6b-43ae-94dd-f3eadf0c6141",
       "name": "CB 4/2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 9
       },
       "mode": {},
@@ -387,14 +388,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 25
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "74d789ad-2a15-4540-b08f-eb3d140631f0",
       "name": "CB 4/3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 10
       },
       "mode": {},
@@ -402,14 +403,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 26
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "16912763-6a1a-4d28-a924-78d4bcec2d7f",
       "name": "CB 4/4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 11
       },
       "mode": {},
@@ -417,14 +418,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 27
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "ca40b5ab-94d4-4f1c-87bf-17fba516e81c",
       "name": "CB 4/5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 12
       },
       "mode": {},
@@ -432,14 +433,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 28
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "b2f9f4d9-4b9b-4307-8253-5e2dcda4a138",
       "name": "CB 4/6",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 13
       },
       "mode": {},
@@ -447,14 +448,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 29
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "865b02d3-f2e3-44ab-9199-4cdd546fc1bb",
       "name": "CB 4/7",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 14
       },
       "mode": {},
@@ -462,14 +463,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 30
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "0ff2a16c-70f4-4a4f-8a95-c2843d7e1689",
       "name": "CB 4/8",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 15
       },
       "mode": {},
@@ -477,28 +478,29 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 31
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "c7f10b86-5514-433d-88a9-ea9f00b90e61",
       "name": "CB 5/1",
       "source": {
-        "type": 1
+        "type": 1,
+        "channel": 0,
+        "number": 0
       },
       "mode": {},
       "target": {
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 32
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "e272d497-c52e-4ee8-a1d6-6b053d6b0513",
       "name": "CB 5/2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 1
       },
       "mode": {},
@@ -506,14 +508,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 33
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "f3880b44-ca7a-4ecc-94ab-139b1e5c31f2",
       "name": "CB 5/3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 2
       },
       "mode": {},
@@ -521,14 +523,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 34
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "53d39c8b-5f96-480d-8f75-8f2391685ec4",
       "name": "CB 5/4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 3
       },
       "mode": {},
@@ -536,14 +538,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 35
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "95644c76-799b-43db-82b6-da1f883b30a1",
       "name": "CB 5/5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 4
       },
       "mode": {},
@@ -551,14 +553,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 36
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "318757c4-87d9-4ea0-8707-dd09f7669b7b",
       "name": "CB 5/6",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 5
       },
       "mode": {},
@@ -566,14 +568,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 37
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "b61527af-1f14-47eb-b4e2-7773f35d1b7f",
       "name": "CB 5/7",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 6
       },
       "mode": {},
@@ -581,14 +583,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 38
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "c4256cba-b3c0-48b2-965f-53c4b230c990",
       "name": "CB 5/8",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 7
       },
       "mode": {},
@@ -596,14 +598,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 39
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "14ee3b07-e33e-46da-ac45-70f81586f88f",
       "name": "CSB 1",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 64
       },
       "mode": {},
@@ -611,14 +613,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 40
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "b34abe76-8171-4cf4-ab3f-eb2c63ac24b7",
       "name": "CSB 2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 65
       },
       "mode": {},
@@ -626,14 +628,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 41
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "b6a0b6f2-5591-46e7-b654-fe91d8d2c727",
       "name": "CSB 3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 66
       },
       "mode": {},
@@ -641,14 +643,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 42
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "a27c60e0-7aa7-47f7-b902-7f2c1af5c927",
       "name": "CSB 4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 67
       },
       "mode": {},
@@ -656,14 +658,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 43
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "303c44ca-dfbc-4552-a1db-a9043c3611e5",
       "name": "CSB 5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 68
       },
       "mode": {},
@@ -671,14 +673,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 44
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "fee9f5f6-240a-42df-8888-67f9680f0313",
       "name": "CSB 6",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 69
       },
       "mode": {},
@@ -686,14 +688,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 45
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "4f70633d-1f64-4d06-b3fc-0e6de6c542b9",
       "name": "CSB 7",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 70
       },
       "mode": {},
@@ -701,14 +703,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 46
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "c3314d73-4472-49fa-baf9-4ebc90dfee0c",
       "name": "CSB 8",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 71
       },
       "mode": {},
@@ -716,14 +718,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 47
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "41b9fba4-a017-4989-8ee0-453c6d83a896",
       "name": "SLB 1",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 82
       },
       "mode": {},
@@ -731,14 +733,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 48
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "2c2b35d2-78b0-4cf9-897c-90e45ad7950b",
       "name": "SLB 2",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 83
       },
       "mode": {},
@@ -746,14 +748,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 49
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "280dd383-8c8e-4476-b9d6-ed6258374ce9",
       "name": "SLB 3",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 84
       },
       "mode": {},
@@ -761,14 +763,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 50
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "b43933f4-4fe2-4840-913e-42f69e556778",
       "name": "SLB 4",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 85
       },
       "mode": {},
@@ -776,14 +778,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 51
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "78f5f036-aa06-4efc-b9b0-a267fb920eb8",
       "name": "SLB 5",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 86
       },
       "mode": {},
@@ -791,14 +793,14 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 52
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "ac49cd8a-cd98-4acd-84a0-276372aa8d05",
       "name": "SAC",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 81
       },
       "mode": {},
@@ -806,26 +808,26 @@
         "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": 53
-      },
-      "activationType": "always"
+      }
     },
     {
       "id": "f1a9268b-32fe-4459-a6f4-0454314ac7d1",
       "name": "K 1",
       "source": {
+        "channel": 0,
         "number": 48
       },
       "mode": {},
       "target": {
         "category": "virtual"
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "3a43eae2-89e9-4c12-9915-23c6e4dcb1a7",
       "name": "K 2",
       "source": {
+        "channel": 0,
         "number": 49
       },
       "mode": {},
@@ -833,13 +835,13 @@
         "category": "virtual",
         "controlElementIndex": 1
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "50418532-7165-450a-a7af-e7053de5e538",
       "name": "K 3",
       "source": {
+        "channel": 0,
         "number": 50
       },
       "mode": {},
@@ -847,13 +849,13 @@
         "category": "virtual",
         "controlElementIndex": 2
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "ebef32fb-bc0e-43b4-99a9-ad27bb09f07c",
       "name": "K 4",
       "source": {
+        "channel": 0,
         "number": 51
       },
       "mode": {},
@@ -861,13 +863,13 @@
         "category": "virtual",
         "controlElementIndex": 3
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "6f5a16f2-4f5d-486d-85b6-95d58ac0da8c",
       "name": "K 5",
       "source": {
+        "channel": 0,
         "number": 52
       },
       "mode": {},
@@ -875,13 +877,13 @@
         "category": "virtual",
         "controlElementIndex": 4
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "5984fc4c-bc2b-4c1d-aa9a-40a3d74c8e10",
       "name": "K 6",
       "source": {
+        "channel": 0,
         "number": 53
       },
       "mode": {},
@@ -889,13 +891,13 @@
         "category": "virtual",
         "controlElementIndex": 5
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "558c1c32-0355-49a7-9c34-b740f6f842a7",
       "name": "K 7",
       "source": {
+        "channel": 0,
         "number": 54
       },
       "mode": {},
@@ -903,13 +905,13 @@
         "category": "virtual",
         "controlElementIndex": 6
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "f3147040-4ac5-402b-9f3f-7d33499a5f05",
       "name": "K 8",
       "source": {
+        "channel": 0,
         "number": 55
       },
       "mode": {},
@@ -917,8 +919,7 @@
         "category": "virtual",
         "controlElementIndex": 7
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "22050182-480e-4267-b203-9ad641a72b44",
@@ -934,14 +935,14 @@
         "controlElementType": "button",
         "controlElementIndex": 54
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "b09d6169-a7df-4dbe-b76c-73d30c8625c3",
       "name": "Play",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 91,
         "character": 1
       },
@@ -951,14 +952,14 @@
         "controlElementType": "button",
         "controlElementIndex": 55
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "6c4745ac-39bb-4ed7-b290-2cc5aef49bbb",
       "name": "Rec",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 93,
         "character": 1
       },
@@ -968,14 +969,14 @@
         "controlElementType": "button",
         "controlElementIndex": 56
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     },
     {
       "id": "838cc9e6-5857-4dd2-952b-339f3f886f3d",
       "name": "Shift",
       "source": {
         "type": 1,
+        "channel": 0,
         "number": 98,
         "character": 1
       },
@@ -985,8 +986,7 @@
         "controlElementType": "button",
         "controlElementIndex": 57
       },
-      "feedbackIsEnabled": false,
-      "activationType": "always"
+      "feedbackIsEnabled": false
     }
   ],
   "customData": {
