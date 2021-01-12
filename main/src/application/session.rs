@@ -40,7 +40,7 @@ pub struct Session {
     logger: slog::Logger,
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
-    pub always_auto_detect: Prop<bool>,
+    pub auto_correct_settings: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
@@ -141,7 +141,7 @@ impl Session {
             logger: parent_logger.clone(),
             let_matched_events_through: prop(false),
             let_unmatched_events_through: prop(true),
-            always_auto_detect: prop(true),
+            auto_correct_settings: prop(true),
             send_feedback_only_if_armed: prop(true),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
@@ -214,7 +214,7 @@ impl Session {
         self.initial_sync(weak_session.clone());
         // Whenever auto-correct setting changes, resubscribe to all mappings because
         // that saves us some mapping subscriptions.
-        when(self.always_auto_detect.changed())
+        when(self.auto_correct_settings.changed())
             .with(weak_session.clone())
             .do_async(|shared_session, _| {
                 for compartment in MappingCompartment::into_enum_iter() {
@@ -349,7 +349,7 @@ impl Session {
             .merge(self.let_unmatched_events_through.changed())
             .merge(self.midi_control_input.changed())
             .merge(self.midi_feedback_output.changed())
-            .merge(self.always_auto_detect.changed())
+            .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
     }
@@ -417,7 +417,7 @@ impl Session {
                     all_subscriptions.add(subscription);
                 }
                 // Keep auto-detecting mode settings
-                if self.always_auto_detect.get() {
+                if self.auto_correct_settings.get() {
                     let processor_context = self.context().clone();
                     let subscription = when(
                         mapping

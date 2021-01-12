@@ -268,7 +268,7 @@ impl HeaderPanel {
     fn toggle_always_auto_detect(&self) {
         self.session()
             .borrow_mut()
-            .always_auto_detect
+            .auto_correct_settings
             .set_with(|prev| !*prev);
     }
 
@@ -1125,7 +1125,7 @@ impl HeaderPanel {
             view.invalidate_let_unmatched_events_through_check_box();
             let shared_session = view.session();
             let mut session = shared_session.borrow_mut();
-            if session.always_auto_detect.get() {
+            if session.auto_correct_settings.get() {
                 let control_input = session.midi_control_input.get();
                 session
                     .send_feedback_only_if_armed
@@ -1329,7 +1329,7 @@ impl View for HeaderPanel {
             {
                 menu.set_item_checked(
                     root::IDM_AUTO_CORRECT_SETTINGS,
-                    session.always_auto_detect.get(),
+                    session.auto_correct_settings.get(),
                 );
             }
         }

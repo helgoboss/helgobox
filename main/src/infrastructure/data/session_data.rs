@@ -73,7 +73,7 @@ impl SessionData {
             id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
-            always_auto_detect_mode: session.always_auto_detect.get(),
+            always_auto_detect_mode: session.auto_correct_settings.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
             control_device_id: {
                 use MidiControlInput::*;
@@ -163,7 +163,9 @@ impl SessionData {
         session
             .let_unmatched_events_through
             .set_without_notification(self.let_unmatched_events_through);
-        session.always_auto_detect.set(self.always_auto_detect_mode);
+        session
+            .auto_correct_settings
+            .set(self.always_auto_detect_mode);
         session
             .send_feedback_only_if_armed
             .set_without_notification(self.send_feedback_only_if_armed);
