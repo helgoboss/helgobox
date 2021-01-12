@@ -45,7 +45,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             // Since 1.12.0, we "drive" each plug-in instance's real-time processor by a global
             // audio hook, not by the plug-in `process()` method anymore. See
             // https://github.com/helgoboss/realearn/issues/84 why this is better.
-            p.borrow_mut().run(args.len as _);
+            p.borrow_mut().run_from_audio_hook(args.len as _);
         }
         // 2. Process add/remove tasks.
         for task in self.task_receiver.try_iter().take(1) {
