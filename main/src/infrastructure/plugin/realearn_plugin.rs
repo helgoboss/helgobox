@@ -428,7 +428,7 @@ impl Drop for RealearnPlugin {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
-            App::get().unregister_processor_couple(self.instance_id.clone());
+            App::get().unregister_processor_couple(&self.instance_id);
             crate::application::App::get().unregister_session(session.as_ptr());
             debug!(
                 self.logger,

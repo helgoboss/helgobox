@@ -25,7 +25,6 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     AddMainProcessor(MainProcessor<EH>),
-    RemoveMainProcessor(String),
     LogDebugInfo,
 }
 
@@ -64,6 +63,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    pub fn remove_main_processor(&mut self, id: &str) {
+        self.main_processors.retain(|p| p.instance_id() != id);
+    }
+
     pub fn reset(&self) {
         self.change_detection_middleware.reset(|e| {
             self.rx_middleware.handle_change(e);
@@ -82,9 +85,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             match t {
                 AddMainProcessor(p) => {
                     self.main_processors.push(p);
-                }
-                RemoveMainProcessor(id) => {
-                    self.main_processors.retain(|p| p.instance_id() != id);
                 }
                 LogDebugInfo => {
                     self.meter_middleware.log_metrics();

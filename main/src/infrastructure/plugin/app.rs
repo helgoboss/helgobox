@@ -51,15 +51,33 @@ pub struct App {
     audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
 }
 
+#[derive(Debug)]
 enum AppState {
+    /// Start state.
+    ///
+    /// Entered only once at startup.
     Uninitialized(UninitializedState),
+    /// During initialization as soon as we have access to REAPER.
+    ///
+    /// Entered only once at startup.
     Initializing,
+    /// As long as no ReaLearn instance is loaded.
+    ///
+    /// Happens once very shortly at startup and then whenever the last ReaLearn instance
+    /// disappears. This can happen multiple times if REAPER preference "Allow complete unload of
+    /// VST plug-ins" is disabled (the default).
     Sleeping(SleepingState),
+    /// Whenever the first ReaLearn instance is loading.
     WakingUp,
+    /// As long as at least one ReaLearn instance is loaded.
     Awake(AwakeState),
+    /// Whenever the last ReaLearn instance is unloading.
     GoingToSleep,
+    /// Whenever one (not necessarily the last) ReaLearn instance is unloading.
+    Suspended,
 }
 
+#[derive(Debug)]
 struct UninitializedState {
     control_surface_main_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
@@ -68,11 +86,13 @@ struct UninitializedState {
     audio_hook_task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
 }
 
+#[derive(Debug)]
 struct SleepingState {
     control_surface: Box<RealearnControlSurface>,
     audio_hook: Box<RealearnAudioHook>,
 }
 
+#[derive(Debug)]
 struct AwakeState {
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
@@ -234,41 +254,13 @@ impl App {
         self.state.replace(AppState::Awake(awake_state));
     }
 
-    pub fn register_processor_couple(
-        &self,
-        real_time_processor: SharedRealTimeProcessor,
-        main_processor: MainProcessor<WeakSession>,
-    ) {
-        self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::AddRealTimeProcessor(
-                real_time_processor,
-            ))
-            .unwrap();
-        self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::AddMainProcessor(
-                main_processor,
-            ))
-            .unwrap();
-    }
-
-    pub fn unregister_processor_couple(&self, instance_id: String) {
-        self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::RemoveMainProcessor(
-                instance_id.clone(),
-            ))
-            .unwrap();
-        self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::RemoveRealTimeProcessor(instance_id))
-            .unwrap();
-    }
-
     // Executed whenever the last ReaLearn instance goes away.
     pub fn go_to_sleep(&self) {
         let prev_state = self.state.replace(AppState::GoingToSleep);
         let awake_state = if let AppState::Awake(s) = prev_state {
             s
         } else {
-            panic!("App was not awake");
+            panic!("App was not awake when trying to go to sleep");
         };
         let mut session = Reaper::get().medium_session();
         debug!(
@@ -294,6 +286,119 @@ impl App {
             audio_hook,
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
+    }
+
+    pub fn register_processor_couple(
+        &self,
+        real_time_processor: SharedRealTimeProcessor,
+        main_processor: MainProcessor<WeakSession>,
+    ) {
+        self.audio_hook_task_sender
+            .send(RealearnAudioHookTask::AddRealTimeProcessor(
+                real_time_processor,
+            ))
+            .unwrap();
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::AddMainProcessor(
+                main_processor,
+            ))
+            .unwrap();
+    }
+
+    pub fn unregister_processor_couple(&self, instance_id: &str) {
+        self.unregister_real_time_processor(instance_id.to_string());
+        self.unregister_main_processor(instance_id);
+    }
+
+    /// Attention: The real-time processor is removed *async*! That means it can still be called
+    /// by the audio hook, even after this method has executed. The benefit is that it will still
+    /// be able to do clean-up work after the plug-in instance is gone as long as another one is
+    /// still around. The problem is that the real-time processor has a reference to the plug-in
+    /// host callback and is *must not* call it when the plug-in is already gone, otherwise boom!
+    /// Unfortunately there's no easy way to detect if it's gone or not.
+    ///
+    /// What options do we have (we decided for option 7)?
+    ///
+    /// 1. Setting the callback to None async by sending a message via channel? No!
+    ///     - This would affect the next audio thread cycle only. But the audio hook first runs
+    ///       real-time processors and then tasks.
+    ///     - And even if we would swap the order (which would defeat the purpose), this would still
+    ///       leave the possibility that the real-time processor will be executed before the task is
+    ///       processed.
+    /// 2. Setting the callback to None by calling the real-time processor directly? No!
+    ///     - The real-time processor must only be invoked from the audio thread. We want to avoid
+    ///       wrapping the processor with a mutex because in all other cases we don't need
+    ///       synchronized access (we work with channels instead).
+    ///     - Also, a similar issue as in point 1 could arise: The real-time processor could just be
+    ///       in the middle of its run call! We would need the mutex to wait for any current call to
+    ///       end.
+    /// 3. Unregister audio hook, remove real-time processor and register it again? Maybe.
+    ///     - First, this would only work if REAPER ensures that it waits until the current call of
+    ///       this hook is finished before returning from the removal function. Justin confirmed
+    ///       that it works that way, yay!
+    ///     - We would lose the possibility of doing clean-up work though.
+    /// 4. Wrapping the host callback as `Arc<Mutex<Option<HostCallback>>>`? Okay.
+    ///     - Then the synchronized access would be concentrated on this tiny necessity only, which
+    ///       would be okay.
+    ///     - Looks like a lot of fuzz though.
+    /// 5. Use `Arc<HostCallback>` and `Weak<HostCallback>` and always check if upgrade fails? Okay.
+    ///     - Nice! But how about performance if we always have to inc/dec the `AtomicUsize`?
+    /// 6. Use `HostCallback#is_effect_valid()` magic number logic as "gone" check? Interesting.
+    ///     - Could be better than 4 and 5 performance-wise.
+    ///     - But what if the audio thread is just in the middle of the host callback call while the
+    ///       plug-in is being unloaded? Probably unlikely in practice and maybe not harmful if it
+    ///       happens. But still leaves a bad aftertaste. I mean, if we would call the host callback
+    ///       from the plug-in processing method only (like normal people do), the host would
+    ///       probably take care that this never happens...? This also concerns 4 and 5 by the way.
+    /// 7. Just don't use the host callback when called from audio hook? **Yes!**.
+    ///     - We use the host callback for checking play state and sending MIDI to FX output.
+    ///     - Checking play state could be avoided completely by using REAPER functions.
+    ///     - Sending MIDI to FX output is a bit strange anyway if called by the audio hook, maybe
+    ///       even something one shouldn't do? It's something global driving something which is
+    ///       built to be local only.
+    ///     - **Most importantly:** Sending MIDI to FX output while VST processing is stopped will
+    ///       not have any effect anyway because the rest of the FX chain is stopped!
+    ///     - Solution: Drive the real-time processor from both plug-in `process()` method **and**
+    ///       audio hook and make sure that only the call from the plug-in ever sends MIDI to FX
+    ///       output.
+    fn unregister_real_time_processor(&self, instance_id: String) {
+        self.audio_hook_task_sender
+            .send(RealearnAudioHookTask::RemoveRealTimeProcessor(instance_id))
+            .unwrap();
+    }
+
+    /// We remove the main processor synchronously because it allows us to keep its fail-fast
+    /// behavior. E.g. we can still panic if DomainEventHandler (weak session) or channel
+    /// receivers are gone because we know it's not supposed to happen. Also, unlike with
+    /// real-time processor, whatever cleanup work is necessary, we can do right here because we
+    /// are in main thread already.
+    fn unregister_main_processor(&self, instance_id: &str) {
+        // Shortly reclaim ownership of the control surface by unregistering it.
+        let prev_state = self.state.replace(AppState::Suspended);
+        let awake_state = if let AppState::Awake(s) = prev_state {
+            s
+        } else {
+            panic!("App was not awake when trying to suspend");
+        };
+        let mut session = Reaper::get().medium_session();
+        let mut control_surface = unsafe {
+            session
+                .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
+                .expect("control surface was not registered")
+        };
+        // Remove main processor.
+        control_surface
+            .middleware_mut()
+            .remove_main_processor(instance_id);
+        // Give it back to REAPER.
+        let control_surface_handle = session
+            .plugin_register_add_csurf_inst(control_surface)
+            .expect("couldn't register ReaLearn control surface");
+        let awake_state = AwakeState {
+            control_surface_handle,
+            audio_hook_handle: awake_state.audio_hook_handle,
+        };
+        self.state.replace(AppState::Awake(awake_state));
     }
 
     /// The special thing about this is that this doesn't return the currently focused FX but the
@@ -341,6 +446,15 @@ impl App {
 
     /// Logging debug info is always initiated by a particular session.
     pub fn log_debug_info(&self, session_id: &str) {
+        let msg = format!(
+            "\n\
+        # App (infrastructure layer)\n\
+        \n\
+        - State: {:#?}\n\
+        ",
+            self.state.borrow()
+        );
+        Reaper::get().show_console_msg(msg);
         self.server.borrow().log_debug_info(session_id);
         self.controller_manager.borrow().log_debug_info();
         self.control_surface_main_task_sender

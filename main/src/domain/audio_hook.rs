@@ -12,6 +12,7 @@ pub enum RealearnAudioHookTask {
     RemoveRealTimeProcessor(String),
 }
 
+#[derive(Debug)]
 pub struct RealearnAudioHook {
     real_time_processors: SmallVec<[SharedRealTimeProcessor; 256]>,
     task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
@@ -30,6 +31,23 @@ impl RealearnAudioHook {
 
 impl OnAudioBuffer for RealearnAudioHook {
     fn call(&mut self, args: OnAudioBufferArgs) {
+        if args.is_post {
+            return;
+        }
+        // 1. Call real-time processors.
+        //
+        // Calling the real-time processor *before* processing its remove task might have the
+        // benefit, that it can still do some final work (e.g. clearing LEDs by sending zero
+        // feedback) before it's removed. That's also one of the reasons why we remove the real-time
+        // processor async by sending a message. It's okay if it's around for one cycle after a
+        // plug-in instance has unloaded (only the case if not the last instance).
+        for p in self.real_time_processors.iter() {
+            // Since 1.12.0, we "drive" each plug-in instance's real-time processor by a global
+            // audio hook, not by the plug-in `process()` method anymore. See
+            // https://github.com/helgoboss/realearn/issues/84 why this is better.
+            p.borrow_mut().run(args.len as _);
+        }
+        // 2. Process add/remove tasks.
         for task in self.task_receiver.try_iter().take(1) {
             use RealearnAudioHookTask::*;
             match task {
@@ -41,9 +59,6 @@ impl OnAudioBuffer for RealearnAudioHook {
                         .retain(|p| p.borrow().instance_id() != id);
                 }
             }
-        }
-        for p in self.real_time_processors.iter() {
-            p.borrow_mut().run(args.len as _);
         }
     }
 }

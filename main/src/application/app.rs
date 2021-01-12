@@ -57,7 +57,7 @@ impl App {
     pub fn log_debug_info(&self) {
         let msg = format!(
             "\n\
-        # App\n\
+        # App (application layer)\n\
         \n\
         - Session count: {}\n\
         - Module base address: {:?}\n\
