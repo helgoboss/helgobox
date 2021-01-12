@@ -63,7 +63,7 @@ IDR_ROW_PANEL_CONTEXT_MENU MENU
 BEGIN
     POPUP "Row panel context menu"
     BEGIN
-        MENUITEM "<Main>", 1
+        MENUITEM "<Default>", 1
     END
 END
 
