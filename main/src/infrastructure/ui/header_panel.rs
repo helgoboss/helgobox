@@ -1129,7 +1129,7 @@ impl HeaderPanel {
                 let control_input = session.midi_control_input.get();
                 session
                     .send_feedback_only_if_armed
-                    .set(control_input != MidiControlInput::FxInput)
+                    .set(control_input == MidiControlInput::FxInput)
             }
         });
         self.when(session.midi_feedback_output.changed(), |view| {
