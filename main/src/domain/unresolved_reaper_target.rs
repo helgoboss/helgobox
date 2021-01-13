@@ -108,7 +108,7 @@ impl UnresolvedReaperTarget {
             TrackSendPan {
                 track_descriptor,
                 send_index,
-            } => ReaperTarget::TrackSendVolume {
+            } => ReaperTarget::TrackSendPan {
                 send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             Tempo => ReaperTarget::Tempo {
