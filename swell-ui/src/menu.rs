@@ -124,7 +124,7 @@ impl<'a> Menu<'a> {
                 if enabled {
                     raw::MF_ENABLED
                 } else {
-                    raw::MF_DISABLED
+                    raw::MF_GRAYED
                 } as _,
             );
         }
