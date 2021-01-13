@@ -62,19 +62,28 @@ pub struct RealearnPlugin {
         crossbeam_channel::Sender<NormalMainTask>,
         crossbeam_channel::Receiver<NormalMainTask>,
     ),
+    // Will be cloned to real-time processor as soon as it gets created.
+    control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     // Will be cloned to session as soon as it gets created.
     control_main_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     // Will be cloned to session as soon as it gets created.
     parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     // Will be cloned to session as soon as it gets created.
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+    // Will be cloned to real-time processor as soon as it gets created.
+    normal_real_time_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
     // Will be cloned to session as soon as it gets created.
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    // Will be cloned to real-time processor as soon as it gets created.
+    feedback_real_time_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // without detour. Well, almost. We share it with the global ReaLearn audio hook that drives
     // processing. That's why we need an Rc/RefCell.
-    real_time_processor: SharedRealTimeProcessor,
+    // The outer Rc<LazyCell> is needed because we won't be able to construct a real-time processor
+    // as long as we don't know the containing REAPER project. The Rc is cloned in main thread
+    // only (important)!
+    real_time_processor: Rc<LazyCell<SharedRealTimeProcessor>>,
 }
 
 impl Default for RealearnPlugin {
@@ -111,22 +120,17 @@ impl Plugin for RealearnPlugin {
                 reaper_guard: None,
                 plugin_parameters,
                 normal_real_time_task_sender,
+                normal_real_time_task_receiver,
                 feedback_real_time_task_sender,
                 normal_main_task_channel: (
                     normal_main_task_sender.clone(),
                     normal_main_task_receiver,
                 ),
-                real_time_processor: Rc::new(RefCell::new(RealTimeProcessor::new(
-                    instance_id,
-                    &logger,
-                    normal_real_time_task_receiver,
-                    feedback_real_time_task_receiver,
-                    normal_main_task_sender,
-                    control_main_task_sender,
-                    host,
-                ))),
+                real_time_processor: Rc::new(LazyCell::new()),
                 parameter_main_task_receiver,
                 control_main_task_receiver,
+                control_main_task_sender,
+                feedback_real_time_task_receiver,
             }
         })
         .unwrap_or_default()
@@ -229,9 +233,12 @@ impl Plugin for RealearnPlugin {
                     // because we use the frame offset for MIDI clock calculation only and that's
                     // just an experimental feature.
                     let offset = MidiFrameOffset::new(u32::try_from(me.delta_frames).unwrap_or(0));
-                    self.real_time_processor
-                        .borrow_mut()
-                        .process_incoming_midi_from_fx_input(offset, msg);
+                    // This should be fast (Rc not cloned, Lazy borrow is just an option check).
+                    if let Some(rtp) = self.real_time_processor.borrow() {
+                        // This should be fast (Rc not cloned, RefCell borrow_mut just sets some
+                        // variable).
+                        rtp.borrow_mut().process_incoming_midi_from_vst(offset, msg);
+                    }
                 }
             }
         });
@@ -291,17 +298,22 @@ impl RealearnPlugin {
     /// pushes the problem of not knowing the containing FX into the application logic, which
     /// we for sure don't want. In the next main loop cycle, it should be possible to
     /// identify the containing FX.
+    // TODO-low An alternative for cloning all this stuff would be to introduce a state machine
+    //  just like in infrastructure::App.
     fn schedule_session_creation(&self) {
         let main_panel = self.main_panel.clone();
         let session_container = self.session.clone();
+        let real_time_processor_container = self.real_time_processor.clone();
         let plugin_parameters = self.plugin_parameters.clone();
         let host = self.host;
         let normal_real_time_task_sender = self.normal_real_time_task_sender.clone();
+        let normal_real_time_task_receiver = self.normal_real_time_task_receiver.clone();
         let feedback_real_time_task_sender = self.feedback_real_time_task_sender.clone();
+        let feedback_real_time_task_receiver = self.feedback_real_time_task_receiver.clone();
         let normal_main_task_channel = self.normal_main_task_channel.clone();
+        let control_main_task_sender = self.control_main_task_sender.clone();
         let control_main_task_receiver = self.control_main_task_receiver.clone();
         let parameter_main_task_receiver = self.parameter_main_task_receiver.clone();
-        let real_time_processor = self.real_time_processor.clone();
         let logger = self.logger.clone();
         let instance_id = self.instance_id.clone();
         Global::task_support()
@@ -313,6 +325,7 @@ impl RealearnPlugin {
                         return;
                     }
                 };
+                let project = processor_context.containing_fx().project();
                 // Session
                 let session = Session::new(
                     instance_id.clone(),
@@ -339,9 +352,9 @@ impl RealearnPlugin {
                 // even when the ReaLearn UI is closed. That means, the VST GUI idle
                 // callback is not suited.
                 let main_processor = MainProcessor::new(
-                    instance_id,
+                    instance_id.clone(),
                     &logger,
-                    normal_main_task_channel.0,
+                    normal_main_task_channel.0.clone(),
                     normal_main_task_channel.1,
                     parameter_main_task_receiver,
                     control_main_task_receiver,
@@ -351,7 +364,21 @@ impl RealearnPlugin {
                     processor_context,
                 );
                 main_processor.activate();
-                App::get().register_processor_couple(real_time_processor, main_processor);
+                let real_time_processor = RealTimeProcessor::new(
+                    instance_id,
+                    &logger,
+                    normal_real_time_task_receiver,
+                    feedback_real_time_task_receiver,
+                    normal_main_task_channel.0,
+                    control_main_task_sender,
+                    host,
+                    project,
+                );
+                let shared_real_time_processor = Rc::new(RefCell::new(real_time_processor));
+                real_time_processor_container
+                    .fill(shared_real_time_processor.clone())
+                    .unwrap();
+                App::get().register_processor_couple(shared_real_time_processor, main_processor);
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);
