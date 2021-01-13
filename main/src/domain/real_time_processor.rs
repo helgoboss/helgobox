@@ -8,7 +8,7 @@ use helgoboss_midi::{
     ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
     ParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
 };
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Project, Reaper};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::debug;
 use std::collections::{HashMap, HashSet};
@@ -63,8 +63,6 @@ pub struct RealTimeProcessor {
     source_scanner: SourceScanner,
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
-    // For play state queries. None if on monitoring FX chain.
-    project: Option<Project>,
 }
 
 impl RealTimeProcessor {
@@ -76,7 +74,6 @@ impl RealTimeProcessor {
         normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
         host_callback: HostCallback,
-        project: Option<Project>,
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
@@ -100,7 +97,6 @@ impl RealTimeProcessor {
             host: WrapDebug(host_callback),
             source_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
-            project,
         }
     }
 
