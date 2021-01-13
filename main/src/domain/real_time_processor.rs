@@ -129,7 +129,7 @@ impl RealTimeProcessor {
             // influence whether messages are let through or not. In this case, FX input events
             // are always unmatched.
             if self.let_unmatched_events_through {
-                self.forward_midi(msg, Caller::Vst)
+                self.send_midi_to_fx_output(msg, Caller::Vst)
             }
         }
     }
@@ -139,10 +139,24 @@ impl RealTimeProcessor {
     }
 
     pub fn run_from_vst(&mut self, sample_count: usize) {
+        if let Some(MidiFeedbackOutput::FxOutput) = self.midi_feedback_output {
+            // Feedback will be sent to the VST output. It would be strange if this is driven by
+            // the audio hook, so we do it here.
+            self.process_feedback_tasks(Caller::Vst);
+        }
         self.run(sample_count, Caller::Vst);
     }
 
     pub fn run_from_audio_hook(&mut self, sample_count: usize) {
+        if let Some(MidiFeedbackOutput::FxOutput) = self.midi_feedback_output {
+            // Handled by run_from_vst().
+        } else {
+            // Feedback will either be sent not at all (in which case we still want to "eat" any
+            // remaining feedback messages) or be sent directly to a device. In latter case the
+            // audio hook should be the preferred "driver" because it never stops (VST processing
+            // stops e.g. when project paused and track not armed).
+            self.process_feedback_tasks(Caller::AudioHook);
+        }
         self.run(sample_count, Caller::AudioHook);
     }
 
@@ -243,23 +257,6 @@ impl RealTimeProcessor {
                 }
             }
         }
-        // Process (frequent) feedback tasks sent from other thread (probably main thread)
-        for task in self
-            .feedback_task_receiver
-            .try_iter()
-            .take(FEEDBACK_BULK_SIZE)
-        {
-            use FeedbackRealTimeTask::*;
-            match task {
-                Feedback(source_value) => {
-                    use CompoundMappingSourceValue::*;
-                    match source_value {
-                        Midi(v) => self.feedback_midi(v, caller),
-                        Virtual(v) => self.feedback_virtual(v, caller),
-                    };
-                }
-            }
-        }
         // Regularly save current play state so we can detect changes in play state reliably.
         self.was_playing_in_last_cycle = self.is_currently_playing();
         // Read MIDI events from devices
@@ -277,6 +274,26 @@ impl RealTimeProcessor {
         // Poll source scanner if we are learning a source currently
         if self.control_mode.is_learning() {
             self.poll_source_scanner()
+        }
+    }
+
+    fn process_feedback_tasks(&self, caller: Caller) {
+        // Process (frequent) feedback tasks sent from other thread (probably main thread)
+        for task in self
+            .feedback_task_receiver
+            .try_iter()
+            .take(FEEDBACK_BULK_SIZE)
+        {
+            use FeedbackRealTimeTask::*;
+            match task {
+                Feedback(source_value) => {
+                    use CompoundMappingSourceValue::*;
+                    match source_value {
+                        Midi(v) => self.feedback_midi(v, caller),
+                        Virtual(v) => self.feedback_virtual(v, caller),
+                    };
+                }
+            }
         }
     }
 
@@ -408,7 +425,7 @@ impl RealTimeProcessor {
                     || (!matched && self.let_unmatched_events_through)
                 {
                     for m in msg.to_short_messages::<RawShortMessage>().iter().flatten() {
-                        self.forward_midi(*m, caller);
+                        self.send_midi_to_fx_output(*m, caller);
                     }
                 }
             }
@@ -485,7 +502,7 @@ impl RealTimeProcessor {
                     || (!matched && self.let_unmatched_events_through)
                 {
                     for m in msg.to_short_messages::<RawShortMessage>().iter() {
-                        self.forward_midi(*m, caller);
+                        self.send_midi_to_fx_output(*m, caller);
                     }
                 }
             }
@@ -578,7 +595,7 @@ impl RealTimeProcessor {
         if !self.let_matched_events_through {
             return;
         }
-        self.forward_midi(msg, caller);
+        self.send_midi_to_fx_output(msg, caller);
     }
 
     fn process_unmatched_short(&self, msg: RawShortMessage, caller: Caller) {
@@ -588,7 +605,7 @@ impl RealTimeProcessor {
         if !self.let_unmatched_events_through {
             return;
         }
-        self.forward_midi(msg, caller);
+        self.send_midi_to_fx_output(msg, caller);
     }
 
     fn is_consumed(&self, msg: RawShortMessage) -> bool {
@@ -605,7 +622,7 @@ impl RealTimeProcessor {
             match output {
                 MidiFeedbackOutput::FxOutput => {
                     for short in shorts.iter().flatten() {
-                        self.forward_midi(*short, caller);
+                        self.send_midi_to_fx_output(*short, caller);
                     }
                 }
                 MidiFeedbackOutput::Device(dev) => {
@@ -639,7 +656,7 @@ impl RealTimeProcessor {
         }
     }
 
-    fn forward_midi(&self, msg: RawShortMessage, caller: Caller) {
+    fn send_midi_to_fx_output(&self, msg: RawShortMessage, caller: Caller) {
         if caller != Caller::Vst {
             // We must not forward MIDI to VST output if this was called from the global audio hook.
             // First, it could lead to strange effects because `HostCallback::process_events()` is
@@ -649,7 +666,7 @@ impl RealTimeProcessor {
             // the host callback (in particular dereferencing the AEffect) would be illegal.
             // This is just a last safety check. Ideally, processing should stop before even calling
             // this method.
-            return;
+            panic!("send_midi_to_fx_output() should only be called from VST plug-in");
         }
         let bytes = msg.to_bytes();
         let mut event = MidiEvent {

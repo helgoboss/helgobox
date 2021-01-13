@@ -244,12 +244,18 @@ impl Plugin for RealearnPlugin {
         });
     }
 
-    fn process(&mut self, _: &mut AudioBuffer<f32>) {
+    fn process(&mut self, buffer: &mut AudioBuffer<f32>) {
         // We don't need to call the real-time processor here anymore because it's already done
         // by the ReaLearn audio hook. The advantage is that we stay capable of acting even if
         // REAPER stops calling the process method, e.g. in the following cases:
         // - Transport paused and track not armed (https://github.com/helgoboss/realearn/issues/84)
         // - On input FX and track not armed
+        // This should be fast (Rc not cloned, Lazy borrow is just an option check).
+        if let Some(rtp) = self.real_time_processor.borrow() {
+            // This should be fast (Rc not cloned, RefCell borrow_mut just sets some
+            // variable).
+            rtp.borrow_mut().run_from_vst(buffer.samples());
+        }
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
