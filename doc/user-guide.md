@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-01-09 (v1.12.0-pre9)</code></td>
+  <td><code>2021-01-13 (v1.12.0-pre10)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -344,7 +344,11 @@ The header panel provides the following user interface elements, no matter if th
   MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
   feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
   Tip: Latter option is great for checking which MIDI messages ReaLearn sends to your device. Just add
-  a "ReaControlMIDI" FX right below ReaLearn and press "Show Log".
+  a "ReaControlMIDI" FX right below ReaLearn and press "Show Log". Please note that sending MIDI feedback
+  to the FX output doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
+    - ReaLearn FX is disabled.
+    - Project is paused and ReaLearn track is not armed.
+    - ReaLearn FX is on input FX chain and track is not armed.
 - **Import from clipboard / Export to clipboard:** Pressing the export button copies a _complete_ dump
   of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. Pressing the
   import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard. This
@@ -433,13 +437,13 @@ Additionally, the header panel provides a context menu with the following entrie
       This auto-correction is usually helpful. If for some reason you want to disable auto-correction, this
       is your checkbox.
     - **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
-      ReaLearn by default disables feedback if the track is not armed (unarming will naturally disable
+      ReaLearn by default only sends feedback if the track is armed (unarming will naturally disable
       control, so disabling feedback is just consequent). However, if MIDI control input is set to a
-      hardware device, the default is to _not_ disable feedback when unarmed (same reasoning). You can
-      override this behavior with this checkbox. At the moment, it can only be unchecked if ReaLearn is
-      on the normal FX chain. If it's on the input FX chain, unarming naturally disables feedback
-      because REAPER generally excludes input FX from audio/MIDI processing while a track is unarmed
-      (*this is subject to change in future!*).
+      hardware device, *auto-correct settings* will take care of unchecking this option in order to allow feedback
+      even when unarmed (same reasoning). You can override this behavior with this checkbox. At the moment,
+      it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
+      naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
+      track is unarmed (*this is subject to change in future!*).
 - **Server**
     - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn companion app to
       connect to ReaLearn.

@@ -2386,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "1.12.0-pre9"
+version = "1.12.0-pre10"
 dependencies = [
  "askama",
  "backtrace",
