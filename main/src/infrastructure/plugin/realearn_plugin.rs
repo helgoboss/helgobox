@@ -113,7 +113,6 @@ impl Plugin for RealearnPlugin {
                 feedback_real_time_task_receiver,
                 normal_main_task_sender.clone(),
                 control_main_task_sender,
-                host,
             );
             Self {
                 instance_id,
@@ -243,7 +242,12 @@ impl Plugin for RealearnPlugin {
                     // variable).
                     self.real_time_processor
                         .borrow_mut()
-                        .process_incoming_midi_from_vst(offset, msg, is_reaper_generated);
+                        .process_incoming_midi_from_vst(
+                            offset,
+                            msg,
+                            is_reaper_generated,
+                            &self.host,
+                        );
                 }
             }
         });
@@ -257,7 +261,7 @@ impl Plugin for RealearnPlugin {
         // variable).
         self.real_time_processor
             .borrow_mut()
-            .run_from_vst(buffer.samples());
+            .run_from_vst(buffer.samples(), &self.host);
     }
 
     fn set_sample_rate(&mut self, rate: f32) {
