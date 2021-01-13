@@ -453,9 +453,11 @@ impl RealTimeProcessor {
     }
 
     fn learn_source(&mut self, source: CompoundMappingSource) {
-        self.normal_main_task_sender
-            .send(NormalMainTask::LearnSource(source))
-            .unwrap();
+        // If plug-in dropped, the receiver might be gone already because main processor is
+        // unregistered synchronously.
+        let _ = self
+            .normal_main_task_sender
+            .send(NormalMainTask::LearnSource(source));
     }
 
     fn process_incoming_midi_normal_cc14(
@@ -833,7 +835,9 @@ fn control_main(
         value,
         options,
     };
-    sender.send(task).unwrap();
+    // If plug-in dropped, the receiver might be gone already because main processor is
+    // unregistered synchronously.
+    let _ = sender.send(task);
 }
 
 /// Returns whether this source value matched one of the mappings.
