@@ -6,14 +6,18 @@ use vst::plugin::HostCallback;
 #[derive(Clone, Debug)]
 pub struct ProcessorContext {
     containing_fx: Fx,
+    project: Option<Project>,
 }
 
 pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
 
 impl ProcessorContext {
     pub fn from_host(host: &HostCallback) -> Result<ProcessorContext, &'static str> {
+        let fx = get_containing_fx(host)?;
+        let project = fx.project();
         let context = ProcessorContext {
-            containing_fx: get_containing_fx(host)?,
+            containing_fx: fx,
+            project,
         };
         Ok(context)
     }
@@ -27,8 +31,7 @@ impl ProcessorContext {
     }
 
     pub fn project(&self) -> Project {
-        self.containing_fx
-            .project()
+        self.project
             .unwrap_or_else(|| Reaper::get().current_project())
     }
 }
