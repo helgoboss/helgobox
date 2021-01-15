@@ -427,7 +427,7 @@ pub enum MidiSourceType {
     ChannelPressureAmount = 4,
     #[display(fmt = "Program change")]
     ProgramChangeNumber = 5,
-    #[display(fmt = "(N)RPN value (no feedback)")]
+    #[display(fmt = "(N)RPN value")]
     ParameterNumberValue = 6,
     #[display(fmt = "Polyphonic after touch")]
     PolyphonicKeyPressureAmount = 7,
