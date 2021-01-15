@@ -372,16 +372,28 @@ impl RealTimeProcessor {
         };
     }
 
+    /// This basically splits the stream of short MIDI messages into 3 streams:
+    ///
+    /// - (N)RPN messages
+    /// - 14-bit CC messages
+    /// - Short MIDI messaages
     fn process_incoming_midi_normal(&mut self, msg: RawShortMessage, caller: Caller) {
         // TODO-low This is probably unnecessary optimization, but we could switch off
-        // NRPN/CC14
-        //  scanning if there's no such source.
+        //  NRPN/CC14 scanning if there's no such source.
         if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
             self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
         }
         if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
             self.process_incoming_midi_normal_cc14(cc14_msg, caller);
         }
+        // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still process the
+        // plain short MIDI message. This is desired. Rationale: If there's no mapping with a
+        // composite source of this kind, then all the CCs potentially involved in composite
+        // messages can still be used separately (e.g. CC 6, 38, 98, etc.). That's important!
+        // However, if there's at least one mapping source that listens to composite messages
+        // of the incoming kind, we need to make sure that the single messages can't be used
+        // anymore! Otherwise it would be confusing. They are consumed. That's the reason why
+        // we do the consumption check at a later state.
         self.process_incoming_midi_normal_plain(msg, caller);
     }
 
@@ -491,7 +503,11 @@ impl RealTimeProcessor {
         let source_value = MidiSourceValue::Plain(msg);
         match self.control_mode {
             ControlMode::Controlling => {
-                if self.is_consumed(msg) {
+                if self.is_consumed_by_at_least_one_source(msg) {
+                    // Some short MIDI messages are just parts of bigger composite MIDI messages,
+                    // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
+                    // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
+                    // and therefore doesn't qualify anymore as a candidate for normal CC sources.
                     return;
                 }
                 let matched = self.control_midi(source_value);
@@ -582,7 +598,7 @@ impl RealTimeProcessor {
         self.send_midi_to_fx_output(msg, caller);
     }
 
-    fn is_consumed(&self, msg: RawShortMessage) -> bool {
+    fn is_consumed_by_at_least_one_source(&self, msg: RawShortMessage) -> bool {
         self.all_mappings()
             .any(|m| m.control_is_effectively_on() && m.consumes(msg))
     }

@@ -66,9 +66,8 @@ impl SourceScanner {
         &mut self,
         source_value: CompoundMappingSourceValue,
     ) -> Option<CompoundMappingSource> {
-        use State::*;
         match &mut self.state {
-            Initial => {
+            State::Initial => {
                 use CompoundMappingSourceValue::*;
                 match source_value {
                     Midi(v) => {
@@ -82,7 +81,7 @@ impl SourceScanner {
                                 let mut cc_state =
                                     ControlChangeState::new(channel, controller_number);
                                 cc_state.add_value(control_value);
-                                self.state = WaitingForMoreCcMsgs(cc_state);
+                                self.state = State::WaitingForMoreCcMsgs(cc_state);
                                 None
                             } else {
                                 MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
@@ -96,7 +95,7 @@ impl SourceScanner {
                     )),
                 }
             }
-            WaitingForMoreCcMsgs(cc_state) => {
+            State::WaitingForMoreCcMsgs(cc_state) => {
                 use CompoundMappingSourceValue::*;
                 match source_value {
                     Midi(v) => {
@@ -112,6 +111,16 @@ impl SourceScanner {
                                 }
                             }
                         }
+                        // } else {
+                        // // Looks like in the meantime, the composite scanners ((N)RPN or
+                        // // 14-bit CC) have figured out that the combination is a composite
+                        // // message. This fixes https://github.com/helgoboss/realearn/issues/95.
+                        // let source = MidiSource::from_source_value(v);
+                        // if source.is_some() {
+                        // self.reset();
+                        // }
+                        // source
+                        // }
                         self.guess_or_not().map(CompoundMappingSource::Midi)
                     }
                     Virtual(_) => None,
@@ -250,162 +259,226 @@ fn guess_encoder_type(values: &[U7]) -> SourceCharacter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use helgoboss_midi::test_util::u7;
-    use SourceCharacter::*;
 
-    #[test]
-    fn typical_range() {
-        assert_eq!(guess(&[40, 41, 42, 43, 44]), Range);
+    mod scanning {
+        use super::*;
+        use helgoboss_midi::test_util::{channel, control_change, u14};
+        use helgoboss_midi::{ParameterNumberMessage, ParameterNumberMessageScanner};
+
+        #[test]
+        fn scan_nrpn() {
+            // Given
+            let mut source_scanner = SourceScanner::default();
+            let mut nrpn_scanner = ParameterNumberMessageScanner::new();
+            // When
+            use CompoundMappingSourceValue::Midi;
+            use MidiSourceValue::{ParameterNumber, Plain};
+            // Message 1
+            let msg_1 = control_change(1, 99, 0);
+            let nrpn_1 = nrpn_scanner.feed(&msg_1);
+            assert_eq!(nrpn_1, None);
+            let source_1 = source_scanner.feed(Midi(Plain(msg_1)));
+            // Message 2
+            let msg_2 = control_change(1, 98, 99);
+            let nrpn_2 = nrpn_scanner.feed(&msg_2);
+            let source_2 = source_scanner.feed(Midi(Plain(msg_1)));
+            assert_eq!(nrpn_2, None);
+            // Message 3
+            let msg_3 = control_change(1, 38, 3);
+            let nrpn_3 = nrpn_scanner.feed(&msg_3);
+            assert_eq!(nrpn_3, None);
+            let source_3 = source_scanner.feed(Midi(Plain(msg_3)));
+            // Message 4
+            let msg_4 = control_change(1, 6, 2);
+            let nrpn_4 = nrpn_scanner.feed(&msg_4).unwrap();
+            assert_eq!(
+                nrpn_4,
+                ParameterNumberMessage::non_registered_14_bit(channel(1), u14(99), u14(259))
+            );
+            let source_4_nrpn = source_scanner.feed(Midi(ParameterNumber(nrpn_4)));
+            let source_4_short = source_scanner.feed(Midi(Plain(msg_4)));
+            // Then
+            // Even our source scanner is already waiting for more CC messages with the same number,
+            // a suddenly arriving (N)RPN message should take precedence! Because our real-time
+            // processor constantly scans for (N)RPN, it would detect at some point that this looks
+            // like a valid (N)RPN message. This needs to happen *before* the 250 millis
+            // MAX_CC_WAITING_TIME have expired. In practice this is always the case because there
+            // should never be much delay between the single messages making up one (N)RPN message.
+            assert_eq!(source_1, None);
+            assert_eq!(source_2, None);
+            assert_eq!(source_3, None);
+            assert_eq!(
+                source_4_nrpn.unwrap(),
+                CompoundMappingSource::Midi(MidiSource::ParameterNumberValue {
+                    channel: Some(channel(1)),
+                    number: Some(u14(99)),
+                    is_14_bit: Some(true),
+                    is_registered: Some(false),
+                })
+            );
+            assert_eq!(source_4_short, None);
+        }
     }
 
-    #[test]
-    fn typical_range_counter_clockwise() {
-        assert_eq!(guess(&[44, 43, 42, 41, 40]), Range);
-    }
+    mod source_character_guessing {
+        use super::*;
+        use helgoboss_midi::test_util::u7;
+        use SourceCharacter::*;
 
-    #[test]
-    fn typical_trigger_button() {
-        assert_eq!(guess(&[100]), Button);
-        assert_eq!(guess(&[127]), Button);
-    }
+        #[test]
+        fn typical_range() {
+            assert_eq!(guess(&[40, 41, 42, 43, 44]), Range);
+        }
 
-    #[test]
-    fn typical_switch_button() {
-        assert_eq!(guess(&[100, 0]), Button);
-        assert_eq!(guess(&[127, 0]), Button);
-    }
+        #[test]
+        fn typical_range_counter_clockwise() {
+            assert_eq!(guess(&[44, 43, 42, 41, 40]), Range);
+        }
 
-    #[test]
-    fn typical_encoder_1() {
-        assert_eq!(guess(&[1, 1, 1, 1, 1]), Encoder1);
-    }
+        #[test]
+        fn typical_trigger_button() {
+            assert_eq!(guess(&[100]), Button);
+            assert_eq!(guess(&[127]), Button);
+        }
 
-    #[test]
-    fn typical_encoder_2() {
-        assert_eq!(guess(&[65, 65, 65, 65, 65]), Encoder2);
-    }
+        #[test]
+        fn typical_switch_button() {
+            assert_eq!(guess(&[100, 0]), Button);
+            assert_eq!(guess(&[127, 0]), Button);
+        }
 
-    #[test]
-    fn typical_encoder_2_counter_clockwise() {
-        assert_eq!(guess(&[63, 63, 63, 63, 63]), Encoder2);
-    }
+        #[test]
+        fn typical_encoder_1() {
+            assert_eq!(guess(&[1, 1, 1, 1, 1]), Encoder1);
+        }
 
-    #[test]
-    fn velocity_sensitive_trigger_button() {
-        assert_eq!(guess(&[79]), Button);
-        assert_eq!(guess(&[10]), Button);
-    }
+        #[test]
+        fn typical_encoder_2() {
+            assert_eq!(guess(&[65, 65, 65, 65, 65]), Encoder2);
+        }
 
-    #[test]
-    fn velocity_sensitive_switch_button() {
-        assert_eq!(guess(&[79, 0]), Button);
-        assert_eq!(guess(&[10, 0]), Button);
-    }
+        #[test]
+        fn typical_encoder_2_counter_clockwise() {
+            assert_eq!(guess(&[63, 63, 63, 63, 63]), Encoder2);
+        }
 
-    #[test]
-    fn range_with_gaps() {
-        assert_eq!(guess(&[40, 42, 43, 46]), Range);
-    }
+        #[test]
+        fn velocity_sensitive_trigger_button() {
+            assert_eq!(guess(&[79]), Button);
+            assert_eq!(guess(&[10]), Button);
+        }
 
-    #[test]
-    fn range_with_gaps_counter_clockwise() {
-        assert_eq!(guess(&[44, 41, 40, 37, 35]), Range);
-    }
+        #[test]
+        fn velocity_sensitive_switch_button() {
+            assert_eq!(guess(&[79, 0]), Button);
+            assert_eq!(guess(&[10, 0]), Button);
+        }
 
-    #[test]
-    fn very_lower_range() {
-        assert_eq!(guess(&[0, 1, 2, 3]), Range);
-    }
+        #[test]
+        fn range_with_gaps() {
+            assert_eq!(guess(&[40, 42, 43, 46]), Range);
+        }
 
-    #[test]
-    fn lower_range() {
-        assert_eq!(guess(&[1, 2, 3, 4]), Range);
-    }
+        #[test]
+        fn range_with_gaps_counter_clockwise() {
+            assert_eq!(guess(&[44, 41, 40, 37, 35]), Range);
+        }
 
-    #[test]
-    fn very_upper_range_counter_clockwise() {
-        assert_eq!(guess(&[127, 126, 125, 124]), Range);
-    }
+        #[test]
+        fn very_lower_range() {
+            assert_eq!(guess(&[0, 1, 2, 3]), Range);
+        }
 
-    #[test]
-    fn upper_range_counter_clockwise() {
-        assert_eq!(guess(&[126, 125, 124, 123]), Range);
-    }
+        #[test]
+        fn lower_range() {
+            assert_eq!(guess(&[1, 2, 3, 4]), Range);
+        }
 
-    #[test]
-    fn encoder_1_with_acceleration() {
-        assert_eq!(guess(&[1, 2, 2, 1, 1]), Encoder1);
-    }
+        #[test]
+        fn very_upper_range_counter_clockwise() {
+            assert_eq!(guess(&[127, 126, 125, 124]), Range);
+        }
 
-    #[test]
-    fn encoder_1_with_acceleration_counter_clockwise() {
-        assert_eq!(guess(&[127, 126, 126, 127, 127]), Encoder1);
-    }
+        #[test]
+        fn upper_range_counter_clockwise() {
+            assert_eq!(guess(&[126, 125, 124, 123]), Range);
+        }
 
-    #[test]
-    fn encoder_1_with_more_acceleration() {
-        assert_eq!(guess(&[1, 2, 5, 5, 2]), Encoder1);
-    }
+        #[test]
+        fn encoder_1_with_acceleration() {
+            assert_eq!(guess(&[1, 2, 2, 1, 1]), Encoder1);
+        }
 
-    #[test]
-    fn encoder_1_with_more_acceleration_counter_clockwise() {
-        assert_eq!(guess(&[127, 126, 122, 122, 126]), Encoder1);
-    }
+        #[test]
+        fn encoder_1_with_acceleration_counter_clockwise() {
+            assert_eq!(guess(&[127, 126, 126, 127, 127]), Encoder1);
+        }
 
-    #[test]
-    fn encoder_2_with_acceleration() {
-        assert_eq!(guess(&[65, 66, 66, 65, 65]), Encoder2);
-    }
+        #[test]
+        fn encoder_1_with_more_acceleration() {
+            assert_eq!(guess(&[1, 2, 5, 5, 2]), Encoder1);
+        }
 
-    #[test]
-    fn encoder_2_with_acceleration_counter_clockwise() {
-        assert_eq!(guess(&[63, 62, 62, 63, 63]), Encoder2);
-    }
+        #[test]
+        fn encoder_1_with_more_acceleration_counter_clockwise() {
+            assert_eq!(guess(&[127, 126, 122, 122, 126]), Encoder1);
+        }
 
-    #[test]
-    fn encoder_2_with_more_acceleration() {
-        assert_eq!(guess(&[65, 66, 68, 68, 66]), Encoder2);
-    }
+        #[test]
+        fn encoder_2_with_acceleration() {
+            assert_eq!(guess(&[65, 66, 66, 65, 65]), Encoder2);
+        }
 
-    #[test]
-    fn encoder_2_with_more_acceleration_counter_clockwise() {
-        assert_eq!(guess(&[63, 62, 59, 59, 62]), Encoder2);
-    }
+        #[test]
+        fn encoder_2_with_acceleration_counter_clockwise() {
+            assert_eq!(guess(&[63, 62, 62, 63, 63]), Encoder2);
+        }
 
-    #[test]
-    fn absolute_encoder_hitting_upper_boundary() {
-        assert_eq!(guess(&[127, 127, 127, 127, 127]), Range);
-        assert_eq!(guess(&[125, 126, 127, 127, 127]), Range);
-    }
+        #[test]
+        fn encoder_2_with_more_acceleration() {
+            assert_eq!(guess(&[65, 66, 68, 68, 66]), Encoder2);
+        }
 
-    #[test]
-    fn absolute_encoder_hitting_lower_boundary_counter_clockwise() {
-        assert_eq!(guess(&[0, 0, 0, 0, 0]), Range);
-        assert_eq!(guess(&[2, 1, 0, 0, 0]), Range);
-    }
+        #[test]
+        fn encoder_2_with_more_acceleration_counter_clockwise() {
+            assert_eq!(guess(&[63, 62, 59, 59, 62]), Encoder2);
+        }
 
-    #[test]
-    fn lower_range_with_duplicate_elements() {
-        assert_eq!(guess(&[0, 0, 1, 1, 2, 2]), Range);
-    }
+        #[test]
+        fn absolute_encoder_hitting_upper_boundary() {
+            assert_eq!(guess(&[127, 127, 127, 127, 127]), Range);
+            assert_eq!(guess(&[125, 126, 127, 127, 127]), Range);
+        }
 
-    #[test]
-    fn lower_range_with_duplicate_elements_counter_clockwise() {
-        assert_eq!(guess(&[2, 2, 1, 1, 0, 0]), Range);
-    }
+        #[test]
+        fn absolute_encoder_hitting_lower_boundary_counter_clockwise() {
+            assert_eq!(guess(&[0, 0, 0, 0, 0]), Range);
+            assert_eq!(guess(&[2, 1, 0, 0, 0]), Range);
+        }
 
-    #[test]
-    fn neutral_zone_range_with_duplicate_elements() {
-        assert_eq!(guess(&[37, 37, 37, 38, 38, 38, 39, 39]), Range);
-    }
+        #[test]
+        fn lower_range_with_duplicate_elements() {
+            assert_eq!(guess(&[0, 0, 1, 1, 2, 2]), Range);
+        }
 
-    #[test]
-    fn neutral_zone_range_with_duplicate_elements_counter_clockwise() {
-        assert_eq!(guess(&[100, 100, 100, 99, 99, 99, 98, 98]), Range);
-    }
+        #[test]
+        fn lower_range_with_duplicate_elements_counter_clockwise() {
+            assert_eq!(guess(&[2, 2, 1, 1, 0, 0]), Range);
+        }
 
-    fn guess(values: &[u8]) -> SourceCharacter {
-        let u7_values: Vec<_> = values.into_iter().map(|v| u7(*v)).collect();
-        guess_custom_character(&u7_values)
+        #[test]
+        fn neutral_zone_range_with_duplicate_elements() {
+            assert_eq!(guess(&[37, 37, 37, 38, 38, 38, 39, 39]), Range);
+        }
+
+        #[test]
+        fn neutral_zone_range_with_duplicate_elements_counter_clockwise() {
+            assert_eq!(guess(&[100, 100, 100, 99, 99, 99, 98, 98]), Range);
+        }
+
+        fn guess(values: &[u8]) -> SourceCharacter {
+            let u7_values: Vec<_> = values.into_iter().map(|v| u7(*v)).collect();
+            guess_custom_character(&u7_values)
+        }
     }
 }
