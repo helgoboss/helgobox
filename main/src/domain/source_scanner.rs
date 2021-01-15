@@ -110,18 +110,17 @@ impl SourceScanner {
                                     cc_state.add_value(control_value);
                                 }
                             }
+                            self.guess_or_not().map(CompoundMappingSource::Midi)
+                        } else {
+                            // Looks like in the meantime, the composite scanners ((N)RPN or
+                            // 14-bit CC) have figured out that the combination is a composite
+                            // message. This fixes https://github.com/helgoboss/realearn/issues/95.
+                            let source = MidiSource::from_source_value(v);
+                            if source.is_some() {
+                                self.reset();
+                            }
+                            source.map(CompoundMappingSource::Midi)
                         }
-                        // } else {
-                        // // Looks like in the meantime, the composite scanners ((N)RPN or
-                        // // 14-bit CC) have figured out that the combination is a composite
-                        // // message. This fixes https://github.com/helgoboss/realearn/issues/95.
-                        // let source = MidiSource::from_source_value(v);
-                        // if source.is_some() {
-                        // self.reset();
-                        // }
-                        // source
-                        // }
-                        self.guess_or_not().map(CompoundMappingSource::Midi)
                     }
                     Virtual(_) => None,
                 }
