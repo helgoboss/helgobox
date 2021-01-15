@@ -1838,9 +1838,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
         );
         self.panel.when_do_sync(source.is_14_bit.changed(), |view| {
-            view.invalidate_source_14_bit_check_box();
+            view.invalidate_source_controls();
             view.invalidate_mode_controls();
-            view.invalidate_source_control_appearance();
         });
         self.panel
             .when_do_sync(source.midi_message_number.changed(), |view| {
