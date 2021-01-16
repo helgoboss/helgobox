@@ -331,7 +331,7 @@ impl SourceModel {
             .create_control_element(self.control_element_index.get())
     }
 
-    fn ternary_label(&self) -> Cow<str> {
+    fn tertiary_label(&self) -> Cow<str> {
         use SourceCategory::*;
         match self.category.get() {
             Midi => {
@@ -357,15 +357,43 @@ impl SourceModel {
             Virtual => "".into(),
         }
     }
+
+    fn quarternary_label(&self) -> Cow<str> {
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => {
+                use MidiSourceType::*;
+                match self.midi_source_type.get() {
+                    ControlChangeValue if self.is_14_bit.get() == Some(false) => {
+                        use SourceCharacter::*;
+                        let label = match self.custom_character.get() {
+                            Range => "Range element",
+                            Button => "Button",
+                            Encoder1 => "Encoder 1",
+                            Encoder2 => "Encoder 2",
+                            Encoder3 => "Encoder 3",
+                        };
+                        label.into()
+                    }
+                    _ => "".into(),
+                }
+            }
+            Virtual => "".into(),
+        }
+    }
 }
 
 impl Display for SourceModel {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let compartments = [
+        let compartments: Vec<_> = vec![
             self.primary_label(),
             self.secondary_label(),
-            self.ternary_label(),
-        ];
+            self.tertiary_label(),
+            self.quarternary_label(),
+        ]
+        .into_iter()
+        .filter(|l| !l.is_empty())
+        .collect();
         write!(f, "{}", compartments.join("\n"))
     }
 }
