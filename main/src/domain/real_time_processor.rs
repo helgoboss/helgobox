@@ -5,8 +5,8 @@ use crate::domain::{
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue};
 use helgoboss_midi::{
-    ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
-    ParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
+    Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
+    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
@@ -17,6 +17,7 @@ use crate::core::Global;
 use enum_iterator::IntoEnumIterator;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
+use std::time::Duration;
 use vst::api::{EventType, Events, MidiEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
@@ -54,7 +55,7 @@ pub struct RealTimeProcessor {
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     // Scanners for more complex MIDI message types
-    nrpn_scanner: ParameterNumberMessageScanner,
+    nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
     // For source learning
     source_scanner: SourceScanner,
@@ -86,7 +87,7 @@ impl RealTimeProcessor {
             },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
-            nrpn_scanner: Default::default(),
+            nrpn_scanner: PollingParameterNumberMessageScanner::new(Duration::from_millis(1)),
             cc_14_bit_scanner: Default::default(),
             midi_control_input: MidiControlInput::FxInput,
             midi_feedback_output: None,
@@ -256,6 +257,12 @@ impl RealTimeProcessor {
                     );
                 }
             });
+        }
+        // Poll (N)RPN scanner
+        for ch in 0..16 {
+            if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
+                self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
+            }
         }
         // Poll source scanner if we are learning a source currently
         if self.control_mode.is_learning() {

@@ -22,3 +22,6 @@ webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround
 # to wait for open connections to finish. The following is a hopefully temporary hack to make this possible.
 # See https://github.com/hyperium/hyper/issues/1885 and https://github.com/helgoboss/realearn/issues.
 hyper = { git = "https://github.com/helgoboss/hyper.git", branch = "feature/realearn" }
+# TODO-low-wait
+# As long as not yet released and reaper-rs has switched to new version as well.
+helgoboss-midi = { git = "https://github.com/helgoboss/helgoboss-midi.git", branch = "feature/5-polling-nrpn-scanner" }

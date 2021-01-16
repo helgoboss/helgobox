@@ -1254,8 +1254,7 @@ dependencies = [
 [[package]]
 name = "helgoboss-midi"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df00324e6c97619133ebd704fd4899821121773e3db351d2d06fb6170b1ea90b"
+source = "git+https://github.com/helgoboss/helgoboss-midi.git?branch=feature/5-polling-nrpn-scanner#2f1b8d077ba68e19fd6be1922e5e60605c5fccb7"
 dependencies = [
  "core-error",
  "derive_more",
