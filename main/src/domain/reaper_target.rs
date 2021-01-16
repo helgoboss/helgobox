@@ -927,7 +927,7 @@ impl Target for ReaperTarget {
             Tempo { project } => UnitValue::new(project.tempo().normalized_value()),
             Playrate { project } => UnitValue::new(project.play_rate().normalized_value().get()),
             FxEnable { fx } => convert_bool_to_unit_value(fx.is_enabled()),
-            FxPreset { fx } => convert_preset_index_to_unit_value(fx, fx.preset_index()),
+            FxPreset { fx } => convert_preset_index_to_unit_value(fx, fx.preset_index().ok()?),
             SelectedTrack { project } => convert_track_index_to_unit_value(
                 *project,
                 project
@@ -1000,9 +1000,12 @@ impl Target for ReaperTarget {
                 rounding_step_size: UnitValue::new(1.0 / (playback_speed_factor_span() * 100.0)),
             },
             // `+ 1` because "<no preset>" is also a possible value.
-            FxPreset { fx } => ControlType::AbsoluteDiscrete {
-                atomic_step_size: convert_count_to_step_size(fx.preset_count() + 1),
-            },
+            FxPreset { fx } => {
+                let preset_count = fx.preset_count().unwrap_or(0);
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(preset_count + 1),
+                }
+            }
             // `+ 1` because "<Master track>" is also a possible value.
             SelectedTrack { project } => ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
@@ -1026,7 +1029,7 @@ fn convert_count_to_step_size(n: u32) -> UnitValue {
     // Dividing 1.0 by n would divide the unit interval (0..=1) into n same-sized
     // sub intervals, which means we would have n + 1 possible values. We want to
     // represent just n values, so we need n - 1 same-sized sub intervals.
-    if n == 1 {
+    if n == 0 || n == 1 {
         return UnitValue::MAX;
     }
     UnitValue::new(1.0 / (n - 1) as f64)
@@ -1095,7 +1098,7 @@ fn convert_bool_to_unit_value(on: bool) -> UnitValue {
 }
 
 fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
-    convert_unit_to_discrete_value_with_none(value, fx.preset_count())
+    convert_unit_to_discrete_value_with_none(value, fx.preset_count().ok()?)
 }
 
 fn convert_unit_value_to_track_index(project: Project, value: UnitValue) -> Option<u32> {
@@ -1125,7 +1128,7 @@ fn convert_track_index_to_unit_value(project: Project, index: Option<u32>) -> Un
 }
 
 fn convert_preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
-    convert_discrete_to_unit_value_with_none(index, fx.preset_count())
+    convert_discrete_to_unit_value_with_none(index, fx.preset_count().unwrap_or(0))
 }
 
 fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> UnitValue {
@@ -1138,6 +1141,9 @@ fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> U
         // 2 => 0.75
         // 3 => 1.00
         Some(i) => {
+            if count == 0 {
+                return UnitValue::MIN;
+            }
             // Example: i = 2
             let zero_based_value = i as f64 / count as f64; // 0.5
             let step_size = 1.0 / count as f64; // 0.25
