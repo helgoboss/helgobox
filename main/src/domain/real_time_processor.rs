@@ -5,8 +5,9 @@ use crate::domain::{
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue};
 use helgoboss_midi::{
-    Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, ParameterNumberMessage,
-    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
+    Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
+    ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
+    ShortMessageType,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
@@ -415,7 +416,11 @@ impl RealTimeProcessor {
                 if (matched && self.let_matched_events_through)
                     || (!matched && self.let_unmatched_events_through)
                 {
-                    for m in msg.to_short_messages::<RawShortMessage>().iter().flatten() {
+                    for m in msg
+                        .to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst)
+                        .iter()
+                        .flatten()
+                    {
                         self.send_midi_to_fx_output(*m, caller);
                     }
                 }
@@ -612,7 +617,7 @@ impl RealTimeProcessor {
 
     fn feedback_midi(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
         if let Some(output) = self.midi_feedback_output {
-            let shorts = value.to_short_messages();
+            let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
                 return;
             }

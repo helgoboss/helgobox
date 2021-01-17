@@ -1254,7 +1254,7 @@ dependencies = [
 [[package]]
 name = "helgoboss-midi"
 version = "0.1.2"
-source = "git+https://github.com/helgoboss/helgoboss-midi.git?branch=feature/5-polling-nrpn-scanner#2f1b8d077ba68e19fd6be1922e5e60605c5fccb7"
+source = "git+https://github.com/helgoboss/helgoboss-midi.git?branch=feature/5-polling-nrpn-scanner#cdbbf84e81b0c078f6b8144d53638a665fb160ee"
 dependencies = [
  "core-error",
  "derive_more",
