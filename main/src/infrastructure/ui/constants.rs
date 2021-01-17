@@ -5,31 +5,67 @@ pub const MAIN_PANEL_DIMENSIONS: Dimensions<DialogUnits> =
     Dimensions::new(DialogUnits(470), DialogUnits(423));
 
 pub mod symbols {
-    #[cfg(target_os = "windows")]
-    pub const ARROW_UP_SYMBOL: &str = "🡹";
-    #[cfg(target_os = "macos")]
-    pub const ARROW_UP_SYMBOL: &str = "⬆";
-    #[cfg(target_os = "linux")]
-    pub const ARROW_UP_SYMBOL: &str = "Up";
+    /// Previously we had 🡹 but this doesn't show on Windows 7.
+    pub const fn arrow_up_symbol() -> &'static str {
+        #[cfg(target_os = "windows")]
+        {
+            "↑"
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "⬆"
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "Up"
+        }
+    }
 
-    #[cfg(target_os = "windows")]
-    pub const ARROW_DOWN_SYMBOL: &str = "🡻";
-    #[cfg(target_os = "macos")]
-    pub const ARROW_DOWN_SYMBOL: &str = "⬇";
-    #[cfg(target_os = "linux")]
-    pub const ARROW_DOWN_SYMBOL: &str = "Down";
+    /// Previously we had 🡻 but this doesn't show on Windows 7.
+    pub const fn arrow_down_symbol() -> &'static str {
+        #[cfg(target_os = "windows")]
+        {
+            "↓"
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "⬇"
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "Down"
+        }
+    }
 
-    #[cfg(target_os = "windows")]
-    pub const ARROW_LEFT_SYMBOL: &str = "🡸";
-    #[cfg(target_os = "macos")]
-    pub const ARROW_LEFT_SYMBOL: &str = "⬅";
-    #[cfg(target_os = "linux")]
-    pub const ARROW_LEFT_SYMBOL: &str = "<=";
+    /// Previously we had 🡸 but this doesn't show on Windows 7.
+    pub const fn arrow_left_symbol() -> &'static str {
+        #[cfg(target_os = "windows")]
+        {
+            "←"
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "⬅"
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "<="
+        }
+    }
 
-    #[cfg(target_os = "windows")]
-    pub const ARROW_RIGHT_SYMBOL: &str = "🡺";
-    #[cfg(target_os = "macos")]
-    pub const ARROW_RIGHT_SYMBOL: &str = "⮕";
-    #[cfg(target_os = "linux")]
-    pub const ARROW_RIGHT_SYMBOL: &str = "=>";
+    /// Previously we had 🡺 but this doesn't show on Windows 7.
+    pub const fn arrow_right_symbol() -> &'static str {
+        #[cfg(target_os = "windows")]
+        {
+            "→"
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "⮕"
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "=>"
+        }
+    }
 }

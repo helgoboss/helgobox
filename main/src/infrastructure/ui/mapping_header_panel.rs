@@ -114,10 +114,10 @@ impl MappingHeaderPanel {
     fn init_controls(&self) {
         self.view
             .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
-            .set_text(format!("{} Control enabled", symbols::ARROW_RIGHT_SYMBOL));
+            .set_text(format!("{} Control enabled", symbols::arrow_right_symbol()));
         self.view
             .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
-            .set_text(format!("{} Feedback enabled", symbols::ARROW_LEFT_SYMBOL));
+            .set_text(format!("{} Feedback enabled", symbols::arrow_left_symbol()));
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
             .fill_combo_box(ActivationType::into_enum_iter());

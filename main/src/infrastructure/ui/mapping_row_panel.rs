@@ -170,16 +170,16 @@ impl MappingRowPanel {
     fn use_arrow_characters(&self) {
         self.view
             .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-            .set_text(symbols::ARROW_RIGHT_SYMBOL.to_string());
+            .set_text(symbols::arrow_right_symbol().to_string());
         self.view
             .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-            .set_text(symbols::ARROW_LEFT_SYMBOL.to_string());
+            .set_text(symbols::arrow_left_symbol().to_string());
         self.view
             .require_control(root::ID_UP_BUTTON)
-            .set_text(symbols::ARROW_UP_SYMBOL.to_string());
+            .set_text(symbols::arrow_up_symbol().to_string());
         self.view
             .require_control(root::ID_DOWN_BUTTON)
-            .set_text(symbols::ARROW_DOWN_SYMBOL.to_string());
+            .set_text(symbols::arrow_down_symbol().to_string());
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
