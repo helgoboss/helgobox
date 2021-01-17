@@ -280,48 +280,21 @@ impl SourceModel {
         self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
     }
 
-    fn primary_label(&self) -> Cow<str> {
-        use SourceCategory::*;
-        match self.category.get() {
-            Midi => {
-                use MidiSourceType::*;
-                match self.midi_source_type.get() {
-                    ParameterNumberValue => match self.is_registered.get() {
-                        None => ParameterNumberValue.to_string().into(),
-                        Some(is_registered) => {
-                            if is_registered {
-                                "RPN".into()
-                            } else {
-                                "NRPN".into()
-                            }
-                        }
-                    },
-                    PolyphonicKeyPressureAmount => "Poly after touch".into(),
-                    ClockTempo => "MIDI clock\nTempo".into(),
-                    ClockTransport => {
-                        format!("MIDI clock\n{}", self.midi_clock_transport_message.get()).into()
-                    }
-                    t => t.to_string().into(),
-                }
+    fn channel_label(&self) -> Cow<str> {
+        if self.supports_channel() {
+            match self.channel.get() {
+                None => "Any channel".into(),
+                Some(ch) => format!("Channel {}", ch.get() + 1).into(),
             }
-            Virtual => "Virtual".into(),
+        } else {
+            "".into()
         }
     }
 
-    fn secondary_label(&self) -> Cow<str> {
-        use SourceCategory::*;
-        match self.category.get() {
-            Midi => {
-                if self.supports_channel() {
-                    match self.channel.get() {
-                        None => "Any channel".into(),
-                        Some(ch) => format!("Channel {}", ch.get() + 1).into(),
-                    }
-                } else {
-                    "".into()
-                }
-            }
-            Virtual => self.create_control_element().to_string().into(),
+    fn note_label(&self) -> Cow<str> {
+        match self.midi_message_number.get() {
+            None => "Any note".into(),
+            Some(n) => format!("Note number {}", n.get()).into(),
         }
     }
 
@@ -330,71 +303,85 @@ impl SourceModel {
             .get()
             .create_control_element(self.control_element_index.get())
     }
-
-    fn tertiary_label(&self) -> Cow<str> {
-        use SourceCategory::*;
-        match self.category.get() {
-            Midi => {
-                use MidiSourceType::*;
-                match self.midi_source_type.get() {
-                    NoteVelocity | PolyphonicKeyPressureAmount => {
-                        match self.midi_message_number.get() {
-                            None => "Any note".into(),
-                            Some(n) => format!("Note number {}", n.get()).into(),
-                        }
-                    }
-                    ControlChangeValue => match self.midi_message_number.get() {
-                        None => "Any CC".into(),
-                        Some(n) => format!("CC number {}", n.get()).into(),
-                    },
-                    ParameterNumberValue => match self.parameter_number_message_number.get() {
-                        None => "Any number".into(),
-                        Some(n) => format!("Number {}", n.get()).into(),
-                    },
-                    _ => "".into(),
-                }
-            }
-            Virtual => "".into(),
-        }
-    }
-
-    fn quarternary_label(&self) -> Cow<str> {
-        use SourceCategory::*;
-        match self.category.get() {
-            Midi => {
-                use MidiSourceType::*;
-                match self.midi_source_type.get() {
-                    ControlChangeValue if self.is_14_bit.get() == Some(false) => {
-                        use SourceCharacter::*;
-                        let label = match self.custom_character.get() {
-                            Range => "Range element",
-                            Button => "Button",
-                            Encoder1 => "Encoder 1",
-                            Encoder2 => "Encoder 2",
-                            Encoder3 => "Encoder 3",
-                        };
-                        label.into()
-                    }
-                    _ => "".into(),
-                }
-            }
-            Virtual => "".into(),
-        }
-    }
 }
 
 impl Display for SourceModel {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let compartments: Vec<_> = vec![
-            self.primary_label(),
-            self.secondary_label(),
-            self.tertiary_label(),
-            self.quarternary_label(),
-        ]
-        .into_iter()
-        .filter(|l| !l.is_empty())
-        .collect();
-        write!(f, "{}", compartments.join("\n"))
+        use SourceCategory::*;
+        let lines: Vec<Cow<str>> = match self.category.get() {
+            Midi => {
+                use MidiSourceType::*;
+                match self.midi_source_type.get() {
+                    t @ NoteVelocity => {
+                        vec![
+                            t.to_string().into(),
+                            self.channel_label(),
+                            self.note_label(),
+                        ]
+                    }
+                    ParameterNumberValue => {
+                        let line_1 = match self.is_registered.get() {
+                            None => ParameterNumberValue.to_string().into(),
+                            Some(is_registered) => {
+                                if is_registered {
+                                    "RPN".into()
+                                } else {
+                                    "NRPN".into()
+                                }
+                            }
+                        };
+                        let line_3 = match self.parameter_number_message_number.get() {
+                            None => "Any number".into(),
+                            Some(n) => format!("Number {}", n.get()).into(),
+                        };
+                        vec![line_1, self.channel_label(), line_3]
+                    }
+                    PolyphonicKeyPressureAmount => {
+                        vec![
+                            "Poly after touch".into(),
+                            self.channel_label(),
+                            self.note_label(),
+                        ]
+                    }
+                    ClockTempo => vec!["MIDI clock".into(), "Tempo".into()],
+                    ClockTransport => {
+                        vec![
+                            "MIDI clock".into(),
+                            self.midi_clock_transport_message.get().to_string().into(),
+                        ]
+                    }
+                    t @ ControlChangeValue => {
+                        let line_3 = match self.midi_message_number.get() {
+                            None => "Any CC".into(),
+                            Some(n) => format!("CC number {}", n.get()).into(),
+                        };
+                        use MidiSourceType::*;
+                        let line_4 = match self.midi_source_type.get() {
+                            ControlChangeValue if self.is_14_bit.get() == Some(false) => {
+                                use SourceCharacter::*;
+                                let label = match self.custom_character.get() {
+                                    Range => "Range element",
+                                    Button => "Button",
+                                    Encoder1 => "Encoder 1",
+                                    Encoder2 => "Encoder 2",
+                                    Encoder3 => "Encoder 3",
+                                };
+                                label.into()
+                            }
+                            _ => "".into(),
+                        };
+                        vec![t.to_string().into(), self.channel_label(), line_3, line_4]
+                    }
+                    t => vec![t.to_string().into(), self.channel_label()],
+                }
+            }
+            Virtual => vec![
+                "Virtual".into(),
+                self.create_control_element().to_string().into(),
+            ],
+        };
+        let non_empty_lines: Vec<_> = lines.into_iter().filter(|l| !l.is_empty()).collect();
+        write!(f, "{}", non_empty_lines.join("\n"))
     }
 }
 
