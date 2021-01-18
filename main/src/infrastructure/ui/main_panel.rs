@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, constants, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -65,7 +65,7 @@ impl MainPanel {
                 session,
                 Rc::downgrade(&panel_manager),
                 self.state.clone(),
-                Point::new(DialogUnits(0), DialogUnits(107)),
+                Point::new(DialogUnits(0), DialogUnits(104)),
             )
             .into(),
             panel_manager,
@@ -80,7 +80,7 @@ impl MainPanel {
     pub fn dimensions(&self) -> Dimensions<Pixels> {
         self.dimensions
             .get()
-            .unwrap_or_else(|| constants::MAIN_PANEL_DIMENSIONS.in_pixels())
+            .unwrap_or_else(|| util::MAIN_PANEL_DIMENSIONS.in_pixels())
     }
 
     pub fn open_with_resize(self: SharedView<Self>, parent_window: Window) {
@@ -165,9 +165,8 @@ impl View for MainPanel {
         if self.dimensions.get().is_none() {
             // The dialog has been opened by user request but the optimal dimensions have not yet
             // been figured out. Figure them out now.
-            self.dimensions.replace(Some(
-                window.convert_to_pixels(constants::MAIN_PANEL_DIMENSIONS),
-            ));
+            self.dimensions
+                .replace(Some(window.convert_to_pixels(util::MAIN_PANEL_DIMENSIONS)));
             // Close and reopen window, this time with `dimensions()` returning the optimal size to
             // the host.
             let parent_window = window.parent().expect("must have parent");

@@ -5,6 +5,7 @@ use rxrust::prelude::*;
 
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
+use std::ptr::null_mut;
 
 /// Represents a displayable logical part of the UI, such as a panel.
 ///
@@ -130,9 +131,29 @@ pub trait View {
 
     /// WM_PAINT
     ///
-    /// Should return `true` if custom-paint.
+    /// Should return `true` if processed.
     fn paint(self: SharedView<Self>) -> bool {
         false
+    }
+
+    /// WM_ERASEBKGND
+    ///
+    /// Should return `true` if processed.
+    fn erase_background(self: SharedView<Self>, hdc: raw::HDC) -> bool {
+        let _ = hdc;
+        false
+    }
+
+    /// WM_CTLCOLORSTATIC
+    ///
+    /// Can return a custom background brush for painting that control.
+    fn control_color_static(
+        self: SharedView<Self>,
+        hdc: raw::HDC,
+        _hwnd: raw::HWND,
+    ) -> raw::HBRUSH {
+        let _ = hdc;
+        null_mut()
     }
 
     /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback

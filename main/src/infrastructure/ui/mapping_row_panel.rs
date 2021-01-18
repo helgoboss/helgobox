@@ -10,9 +10,10 @@ use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
-use crate::infrastructure::ui::constants::symbols;
-use crate::infrastructure::ui::{IndependentPanelManager, SharedMainState};
+use crate::infrastructure::ui::util::symbols;
+use crate::infrastructure::ui::{util, IndependentPanelManager, SharedMainState};
 use reaper_high::Reaper;
+use reaper_low::raw;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -30,6 +31,7 @@ pub struct MappingRowPanel {
     session: WeakSession,
     main_state: SharedMainState,
     row_index: u32,
+    is_last_row: bool,
     // We use virtual scrolling in order to be able to show a large amount of rows without any
     // performance issues. That means there's a fixed number of mapping rows and they just
     // display different mappings depending on the current scroll position. If there are less
@@ -47,6 +49,7 @@ impl MappingRowPanel {
         row_index: u32,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
         main_state: SharedMainState,
+        is_last_row: bool,
     ) -> MappingRowPanel {
         MappingRowPanel {
             view: Default::default(),
@@ -56,6 +59,7 @@ impl MappingRowPanel {
             party_is_over_subject: Default::default(),
             mapping: None.into(),
             panel_manager,
+            is_last_row,
         }
     }
 
@@ -82,6 +86,13 @@ impl MappingRowPanel {
         self.invalidate_feedback_check_box(&mapping);
         self.invalidate_on_indicator(&mapping);
         self.invalidate_button_enabled_states();
+    }
+
+    fn invalidate_divider(&self) {
+        self.view
+            .require_window()
+            .require_control(root::ID_MAPPING_ROW_DIVIDER)
+            .set_visible(!self.is_last_row);
     }
 
     fn invalidate_name_label(&self, mapping: &MappingModel) {
@@ -454,6 +465,7 @@ impl View for MappingRowPanel {
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         window.move_to(Point::new(DialogUnits(0), DialogUnits(self.row_index * 48)));
         self.use_arrow_characters();
+        self.invalidate_divider();
         window.hide();
         false
     }
@@ -475,6 +487,22 @@ impl View for MappingRowPanel {
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let _ = self.start_moving_mapping_to_other_group(location);
+    }
+
+    fn erase_background(self: SharedView<Self>, hdc: raw::HDC) -> bool {
+        util::view::erase_background_with(
+            self.view.require_window().raw(),
+            hdc,
+            util::view::row_brush(),
+        )
+    }
+
+    fn control_color_static(
+        self: SharedView<Self>,
+        hdc: raw::HDC,
+        _hwnd: raw::HWND,
+    ) -> raw::HBRUSH {
+        util::view::control_color_static_with(hdc, util::view::row_brush())
     }
 }
 

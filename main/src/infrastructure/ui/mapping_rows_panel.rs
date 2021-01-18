@@ -6,7 +6,7 @@ use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, IndependentPanelManager, MainState, MappingRowPanel,
+    bindings::root, util, IndependentPanelManager, MainState, MappingRowPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};
@@ -35,15 +35,17 @@ impl MappingRowsPanel {
         main_state: SharedMainState,
         position: Point<DialogUnits>,
     ) -> MappingRowsPanel {
+        let row_count = 6;
         MappingRowsPanel {
             view: Default::default(),
-            rows: (0..6)
+            rows: (0..row_count)
                 .map(|i| {
                     let panel = MappingRowPanel::new(
                         session.clone(),
                         i,
                         panel_manager.clone(),
                         main_state.clone(),
+                        i == row_count - 1,
                     );
                     SharedView::new(panel)
                 })
@@ -484,6 +486,14 @@ impl View for MappingRowsPanel {
         let new_scroll_pos = self.scroll_pos(code).expect("impossible");
         self.scroll(new_scroll_pos);
         true
+    }
+
+    fn erase_background(self: SharedView<Self>, hdc: raw::HDC) -> bool {
+        util::view::erase_background_with(
+            self.view.require_window().raw(),
+            hdc,
+            util::view::rows_brush(),
+        )
     }
 }
 

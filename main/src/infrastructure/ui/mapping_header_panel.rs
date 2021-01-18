@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::constants::symbols;
+use crate::infrastructure::ui::util::symbols;
 
 use enum_iterator::IntoEnumIterator;
 use std::cell::{Cell, RefCell};

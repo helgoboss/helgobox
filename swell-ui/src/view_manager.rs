@@ -249,6 +249,17 @@ unsafe extern "C" fn view_dialog_proc(
                         0
                     }
                 }
+                raw::WM_ERASEBKGND => {
+                    if view.erase_background(wparam as raw::HDC) {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                raw::WM_CTLCOLORSTATIC => {
+                    let brush = view.control_color_static(wparam as raw::HDC, lparam as raw::HWND);
+                    brush as _
+                }
                 _ => 0,
             }
         })

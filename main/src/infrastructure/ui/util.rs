@@ -83,3 +83,47 @@ pub mod symbols {
         *SOMETHING_LIKE_WINDOWS_10
     }
 }
+
+pub mod view {
+    use once_cell::sync::Lazy;
+    use reaper_low::{raw, Swell};
+
+    pub fn erase_background_with(hwnd: raw::HWND, hdc: raw::HDC, brush: raw::HBRUSH) -> bool {
+        unsafe {
+            let swell = Swell::get();
+            let mut rc = raw::RECT {
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+            };
+            swell.GetClientRect(hwnd, &mut rc as *mut _);
+            swell.FillRect(hdc, &rc, brush);
+        }
+        true
+    }
+
+    pub fn control_color_static_with(hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
+        let swell = Swell::get();
+        unsafe {
+            swell.SetBkMode(hdc, raw::TRANSPARENT as _);
+        }
+        brush
+    }
+
+    pub fn row_brush() -> raw::HBRUSH {
+        // static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(225, 245, 254));
+        // *BRUSH as _
+        rows_brush()
+    }
+
+    pub fn rows_brush() -> raw::HBRUSH {
+        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(252, 252, 252));
+        *BRUSH as _
+    }
+
+    /// Use with care! Should be freed after use.
+    fn create_brush(r: u8, g: u8, b: u8) -> isize {
+        Swell::get().CreateSolidBrush(Swell::RGB(r, g, b) as _) as _
+    }
+}

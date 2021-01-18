@@ -35,4 +35,4 @@ pub use companion_app_presenter::*;
 
 mod dialog_util;
 
-mod constants;
+mod util;
