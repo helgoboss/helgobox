@@ -35,11 +35,17 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             changed_subject: Default::default(),
             p: PhantomData,
         };
-        let _ = manager.load_presets();
+        let _ = manager.load_presets_internal();
         manager
     }
 
     pub fn load_presets(&mut self) -> Result<(), String> {
+        self.load_presets_internal()?;
+        self.notify_changed();
+        Ok(())
+    }
+
+    fn load_presets_internal(&mut self) -> Result<(), String> {
         let preset_file_paths = fs::read_dir(&self.preset_dir_path)
             .map_err(|_| "couldn't read preset directory".to_string())?
             .filter_map(|result| {
@@ -77,7 +83,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         data.clear_id();
         let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize preset")?;
         fs::write(path, json).map_err(|_| "couldn't write preset file")?;
-        self.notify_changed();
+        let _ = self.load_presets();
         Ok(())
     }
 
@@ -102,7 +108,6 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn notify_changed(&mut self) {
-        let _ = self.load_presets();
         self.changed_subject.next(());
     }
 
@@ -147,7 +152,7 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
         let path = self.get_preset_file_path(id);
         fs::remove_file(path).map_err(|_| "couldn't delete preset file")?;
-        self.notify_changed();
+        let _ = self.load_presets();
         Ok(())
     }
 }

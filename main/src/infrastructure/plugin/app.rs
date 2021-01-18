@@ -39,7 +39,7 @@ pub type RealearnControlSurfaceServerTaskSender =
 
 pub struct App {
     state: RefCell<AppState>,
-    controller_manager: SharedControllerPresetManager,
+    controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
     server: SharedRealearnServer,
@@ -141,9 +141,11 @@ impl App {
         };
         App {
             state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
-            controller_manager: Rc::new(RefCell::new(FileBasedControllerPresetManager::new(
-                App::realearn_preset_dir_path().join("controller"),
-            ))),
+            controller_preset_manager: Rc::new(RefCell::new(
+                FileBasedControllerPresetManager::new(
+                    App::realearn_preset_dir_path().join("controller"),
+                ),
+            )),
             main_preset_manager: Rc::new(RefCell::new(FileBasedMainPresetManager::new(
                 App::realearn_preset_dir_path().join("main"),
             ))),
@@ -412,8 +414,8 @@ impl App {
 
     // TODO-medium Return a reference to a SharedControllerManager! Clients might just want to turn
     //  this into a weak one.
-    pub fn controller_manager(&self) -> SharedControllerPresetManager {
-        self.controller_manager.clone()
+    pub fn controller_preset_manager(&self) -> SharedControllerPresetManager {
+        self.controller_preset_manager.clone()
     }
 
     pub fn main_preset_manager(&self) -> SharedMainPresetManager {
@@ -458,7 +460,7 @@ impl App {
         );
         Reaper::get().show_console_msg(msg);
         self.server.borrow().log_debug_info(session_id);
-        self.controller_manager.borrow().log_debug_info();
+        self.controller_preset_manager.borrow().log_debug_info();
         self.control_surface_main_task_sender
             .send(RealearnControlSurfaceMainTask::LogDebugInfo)
             .unwrap();

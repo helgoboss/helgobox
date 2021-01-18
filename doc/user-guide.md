@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-01-13 (v1.12.0-pre10)</code></td>
+  <td><code>2021-01-19 (v1.12.0-pre12)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -378,7 +378,7 @@ The header panel provides the following user interface elements, no matter if th
   bread and butter of ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell,
   this compartment lets you define which hardware controllers you have at your disposal and which control elements they
   have. Learn more about that feature in section "Controller mappings".
-- **Compartment preset:** This shows the list of available presets for that compartment. By default, this is set to
+- **Preset:** This is the list of available presets for that compartment. By default, it's set to
   "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
   corresponding mappings will be loaded and immediately get active. In the *controller mappings* compartment, this list
   will essentially represent the list of available hardware controller presets. A few are shipped with ReaLearn itself

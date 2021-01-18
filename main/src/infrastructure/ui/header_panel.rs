@@ -441,7 +441,7 @@ impl HeaderPanel {
             MappingCompartment::ControllerMappings => combo.fill_combo_box_with_data_small(
                 vec.into_iter().chain(
                     App::get()
-                        .controller_manager()
+                        .controller_preset_manager()
                         .borrow()
                         .presets()
                         .enumerate()
@@ -469,7 +469,7 @@ impl HeaderPanel {
         let (preset_manager, active_preset_id): (Box<dyn ExtendedPresetManager>, _) =
             match self.active_compartment() {
                 MappingCompartment::ControllerMappings => (
-                    Box::new(App::get().controller_manager()),
+                    Box::new(App::get().controller_preset_manager()),
                     session.active_controller_id(),
                 ),
                 MappingCompartment::MainMappings => (
@@ -730,7 +730,7 @@ impl HeaderPanel {
         let (preset_manager, mappings_are_dirty): (Box<dyn ExtendedPresetManager>, _) =
             match compartment {
                 MappingCompartment::ControllerMappings => (
-                    Box::new(App::get().controller_manager()),
+                    Box::new(App::get().controller_preset_manager()),
                     session.borrow().controller_preset_is_out_of_date(),
                 ),
                 MappingCompartment::MainMappings => (
@@ -900,7 +900,7 @@ impl HeaderPanel {
         let (mut preset_manager, active_preset_id): (Box<dyn ExtendedPresetManager>, _) =
             match compartment {
                 MappingCompartment::ControllerMappings => (
-                    Box::new(App::get().controller_manager()),
+                    Box::new(App::get().controller_preset_manager()),
                     session.active_controller_id(),
                 ),
                 MappingCompartment::MainMappings => (
@@ -919,6 +919,19 @@ impl HeaderPanel {
         };
         preset_manager.remove_preset(&active_preset_id)?;
         Ok(())
+    }
+
+    fn reload_all_presets(&self) {
+        App::get()
+            .controller_preset_manager()
+            .borrow_mut()
+            .load_presets()
+            .unwrap();
+        App::get()
+            .main_preset_manager()
+            .borrow_mut()
+            .load_presets()
+            .unwrap();
     }
 
     fn save_active_preset(&self) -> Result<(), &'static str> {
@@ -940,7 +953,7 @@ impl HeaderPanel {
         self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
         match compartment {
             MappingCompartment::ControllerMappings => {
-                let preset_manager = App::get().controller_manager();
+                let preset_manager = App::get().controller_preset_manager();
                 let mut controller = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("controller not found")?;
@@ -1022,7 +1035,7 @@ impl HeaderPanel {
                 let controller =
                     ControllerPreset::new(preset_id.clone(), preset_name, mappings, custom_data);
                 App::get()
-                    .controller_manager()
+                    .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
                 session.activate_controller(Some(preset_id), self.session.clone())?;
@@ -1176,7 +1189,7 @@ impl HeaderPanel {
         });
         when(
             App::get()
-                .controller_manager()
+                .controller_preset_manager()
                 .borrow()
                 .changed()
                 .merge(App::get().main_preset_manager().borrow().changed())
@@ -1267,6 +1280,9 @@ impl View for HeaderPanel {
             }
             ID_PRESET_SAVE_BUTTON => {
                 self.save_active_preset().unwrap();
+            }
+            ID_PRESET_RELOAD_ALL_BUTTON => {
+                self.reload_all_presets();
             }
             ID_PROJECTION_BUTTON => {
                 self.companion_app_presenter.show_app_info();

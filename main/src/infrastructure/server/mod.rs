@@ -327,7 +327,7 @@ fn handle_patch_controller_route(
             .body("only '/customData/{key}' is supported as path")
             .unwrap());
     };
-    let controller_manager = App::get().controller_manager();
+    let controller_manager = App::get().controller_preset_manager();
     let mut controller_manager = controller_manager.borrow_mut();
     let mut controller = controller_manager
         .find_by_id(&controller_id)
@@ -381,7 +381,7 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
         .active_controller_id()
         .ok_or_else(session_has_no_active_controller)?;
     let controller = App::get()
-        .controller_manager()
+        .controller_preset_manager()
         .borrow()
         .find_by_id(controller_id)
         .ok_or_else(controller_not_found)?;
@@ -690,7 +690,7 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
     .do_async(|session, _| {
         let _ = send_updated_controller_routing(&session.borrow());
     });
-    when(App::get().controller_manager().borrow().changed())
+    when(App::get().controller_preset_manager().borrow().changed())
         .with(Rc::downgrade(shared_session))
         .do_async(|session, _| {
             let _ = send_updated_active_controller(&session.borrow());
