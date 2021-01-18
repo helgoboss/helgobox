@@ -731,7 +731,7 @@ pub enum FxAnchorType {
     #[display(fmt = "By position")]
     #[serde(rename = "index")]
     Index,
-    #[display(fmt = "By ID or position")]
+    #[display(fmt = "By ID or pos")]
     #[serde(rename = "id-or-index")]
     IdOrIndex,
 }
