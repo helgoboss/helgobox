@@ -1,20 +1,24 @@
 use crate::domain::RealTimeProcessor;
 use reaper_medium::{OnAudioBuffer, OnAudioBufferArgs};
 use smallvec::SmallVec;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
-// Rc is cloned in main thread only. RefCell is entered in audio thread only.
-pub type SharedRealTimeProcessor = Rc<RefCell<RealTimeProcessor>>;
+/// This needs to be thread-safe because if "Allow live FX multiprocessing" is active in the REAPER
+/// preferences, the VST processing is executed in another thread than the audio hook!
+pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
 pub enum RealearnAudioHookTask {
-    AddRealTimeProcessor(SharedRealTimeProcessor),
+    /// First parameter is the ID.
+    //
+    // Having the ID saves us from unnecessarily blocking the audio thread by looking into the
+    // processor.
+    AddRealTimeProcessor(String, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(String),
 }
 
 #[derive(Debug)]
 pub struct RealearnAudioHook {
-    real_time_processors: SmallVec<[SharedRealTimeProcessor; 256]>,
+    real_time_processors: SmallVec<[(String, SharedRealTimeProcessor); 256]>,
     task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
 }
 
@@ -41,22 +45,28 @@ impl OnAudioBuffer for RealearnAudioHook {
         // feedback) before it's removed. That's also one of the reasons why we remove the real-time
         // processor async by sending a message. It's okay if it's around for one cycle after a
         // plug-in instance has unloaded (only the case if not the last instance).
-        for p in self.real_time_processors.iter() {
-            // Since 1.12.0, we "drive" each plug-in instance's real-time processor by a global
-            // audio hook, not by the plug-in `process()` method anymore. See
-            // https://github.com/helgoboss/realearn/issues/84 why this is better.
-            p.borrow_mut().run_from_audio_hook(args.len as _);
+        for (_, p) in self.real_time_processors.iter() {
+            // Since 1.12.0, we "drive" each plug-in instance's real-time processor primarily by the
+            // global audio hook. See https://github.com/helgoboss/realearn/issues/84 why this is
+            // better. We also call it by the plug-in `process()` method though in order to be able
+            // to send MIDI to <FX output> and to stop doing so synchronously if the plug-in is
+            // gone.
+            // If the real-time processor is currently locked, that means it's currently being
+            // called by the plug-in (Live FX multiprocessing is enabled in the REAPER prefs),
+            // so there's no need to process it here as well!
+            if let Ok(mut lock) = p.try_lock() {
+                lock.run_from_audio_hook(args.len as _);
+            }
         }
         // 2. Process add/remove tasks.
         for task in self.task_receiver.try_iter().take(1) {
             use RealearnAudioHookTask::*;
             match task {
-                AddRealTimeProcessor(p) => {
-                    self.real_time_processors.push(p);
+                AddRealTimeProcessor(id, p) => {
+                    self.real_time_processors.push((id, p));
                 }
                 RemoveRealTimeProcessor(id) => {
-                    self.real_time_processors
-                        .retain(|p| p.borrow().instance_id() != id);
+                    self.real_time_processors.retain(|(i, _)| i != &id);
                 }
             }
         }

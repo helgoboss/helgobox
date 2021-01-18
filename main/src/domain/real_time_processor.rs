@@ -124,16 +124,14 @@ impl RealTimeProcessor {
         }
     }
 
-    pub fn instance_id(&self) -> &str {
-        &self.instance_id
-    }
-
     pub fn run_from_vst(&mut self, sample_count: usize, host: &HostCallback) {
         if let Some(MidiFeedbackOutput::FxOutput) = self.midi_feedback_output {
             // Feedback will be sent to the VST output. It would be strange if this is driven by
             // the audio hook, so we do it here.
             self.process_feedback_tasks(Caller::Vst(host));
         }
+        // Important that we call run here as well because the audio hook just skips this real-time
+        // processor if it can't obtain a lock!
         self.run(sample_count, Caller::Vst(host));
     }
 

@@ -27,7 +27,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use std::rc::Rc;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
@@ -125,7 +125,7 @@ impl Plugin for RealearnPlugin {
                 normal_real_time_task_sender,
                 feedback_real_time_task_sender,
                 normal_main_task_channel: (normal_main_task_sender, normal_main_task_receiver),
-                real_time_processor: Rc::new(RefCell::new(real_time_processor)),
+                real_time_processor: Arc::new(Mutex::new(real_time_processor)),
                 parameter_main_task_receiver,
                 control_main_task_receiver,
                 was_playing_in_last_cycle: false,
@@ -238,10 +238,9 @@ impl Plugin for RealearnPlugin {
                     // reset target values just because play has been pressed!
                     let is_reaper_generated =
                         transport_is_starting && msg.r#type() == ShortMessageType::NoteOff;
-                    // This should be fast (Rc not cloned, RefCell borrow_mut just sets some
-                    // variable).
                     self.real_time_processor
-                        .borrow_mut()
+                        .lock()
+                        .unwrap()
                         .process_incoming_midi_from_vst(
                             offset,
                             msg,
@@ -257,10 +256,9 @@ impl Plugin for RealearnPlugin {
         // Get current time information so we can detect changes in play state reliably
         // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
         self.was_playing_in_last_cycle = self.is_now_playing();
-        // This should be fast (Rc not cloned, RefCell borrow_mut just sets some
-        // variable).
         self.real_time_processor
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .run_from_vst(buffer.samples(), &self.host);
     }
 
@@ -387,7 +385,11 @@ impl RealearnPlugin {
                     processor_context,
                 );
                 main_processor.activate();
-                App::get().register_processor_couple(shared_real_time_processor, main_processor);
+                App::get().register_processor_couple(
+                    instance_id,
+                    shared_real_time_processor,
+                    main_processor,
+                );
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);

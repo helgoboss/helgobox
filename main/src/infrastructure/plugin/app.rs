@@ -290,11 +290,13 @@ impl App {
 
     pub fn register_processor_couple(
         &self,
+        instance_id: String,
         real_time_processor: SharedRealTimeProcessor,
         main_processor: MainProcessor<WeakSession>,
     ) {
         self.audio_hook_task_sender
             .send(RealearnAudioHookTask::AddRealTimeProcessor(
+                instance_id,
                 real_time_processor,
             ))
             .unwrap();
