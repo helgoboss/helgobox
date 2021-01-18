@@ -122,7 +122,15 @@ impl SourceScanner {
                             source.map(CompoundMappingSource::Midi)
                         }
                     }
-                    Virtual(_) => None,
+                    Virtual(v) => {
+                        // Looks like in the meantime, the composite scanners ((N)RPN or
+                        // 14-bit CC) have figured out that the combination is a composite
+                        // message that corresponds to a virtual source.
+                        self.reset();
+                        Some(CompoundMappingSource::Virtual(
+                            VirtualSource::from_source_value(v),
+                        ))
+                    }
                 }
             }
         }
