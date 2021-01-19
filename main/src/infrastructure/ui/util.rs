@@ -88,24 +88,37 @@ pub mod view {
     use once_cell::sync::Lazy;
     use reaper_low::{raw, Swell};
 
-    pub fn erase_background_with(hwnd: raw::HWND, _: raw::HDC, brush: raw::HBRUSH) -> bool {
+    pub fn erase_background_with(hwnd: raw::HWND, hdc: raw::HDC, brush: raw::HBRUSH) -> bool {
         unsafe {
             let swell = Swell::get();
-            let mut ps = raw::PAINTSTRUCT {
-                hdc: std::ptr::null_mut(),
-                fErase: 0,
-                rcPaint: raw::RECT {
+            // BeginPaint and EndPaint are necessary for SWELL. On Windows, the given HDC is enough.
+            #[cfg(target_family = "unix")]
+            {
+                let mut ps = raw::PAINTSTRUCT {
+                    hdc: std::ptr::null_mut(),
+                    fErase: 0,
+                    rcPaint: raw::RECT {
+                        left: 0,
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                    },
+                };
+                let hdc = swell.BeginPaint(hwnd, &mut ps as *mut _);
+                swell.FillRect(hdc, &ps.rcPaint, brush);
+                swell.EndPaint(hwnd, &mut ps as *mut _);
+            }
+            #[cfg(target_family = "windows")]
+            {
+                let mut rc = raw::RECT {
                     left: 0,
                     top: 0,
                     right: 0,
                     bottom: 0,
-                },
-            };
-            // BeginPaint and EndPaint are necessary for SWELL. On Windows, taking the given HDC
-            // would be enough.
-            let hdc = swell.BeginPaint(hwnd, &mut ps as *mut _);
-            swell.FillRect(hdc, &ps.rcPaint, brush);
-            swell.EndPaint(hwnd, &mut ps as *mut _);
+                };
+                swell.GetClientRect(hwnd, &mut rc as *mut _);
+                swell.FillRect(hdc, &rc, brush);
+            }
         }
         true
     }
