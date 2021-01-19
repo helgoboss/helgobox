@@ -51,12 +51,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             // better. We also call it by the plug-in `process()` method though in order to be able
             // to send MIDI to <FX output> and to stop doing so synchronously if the plug-in is
             // gone.
-            // If the real-time processor is currently locked, that means it's currently being
-            // called by the plug-in (Live FX multiprocessing is enabled in the REAPER prefs),
-            // so there's no need to process it here as well!
-            if let Ok(mut lock) = p.try_lock() {
-                lock.run_from_audio_hook(args.len as _);
-            }
+            p.lock().unwrap().run_from_audio_hook(args.len as _);
         }
         // 2. Process add/remove tasks.
         for task in self.task_receiver.try_iter().take(1) {

@@ -124,28 +124,45 @@ impl RealTimeProcessor {
         }
     }
 
-    pub fn run_from_vst(&mut self, sample_count: usize, host: &HostCallback) {
-        if let Some(MidiFeedbackOutput::FxOutput) = self.midi_feedback_output {
-            // Feedback will be sent to the VST output. It would be strange if this is driven by
-            // the audio hook, so we do it here.
+    pub fn run_from_vst(&mut self, _sample_count: usize, host: &HostCallback) {
+        if self.get_feedback_driver() == Driver::Vst {
             self.process_feedback_tasks(Caller::Vst(host));
         }
-        // Important that we call run here as well because the audio hook just skips this real-time
-        // processor if it can't obtain a lock!
-        self.run(sample_count, Caller::Vst(host));
     }
 
     pub fn run_from_audio_hook(&mut self, sample_count: usize) {
-        if let Some(MidiFeedbackOutput::FxOutput) = self.midi_feedback_output {
-            // Handled by run_from_vst().
-        } else {
-            // Feedback will either be sent not at all (in which case we still want to "eat" any
-            // remaining feedback messages) or be sent directly to a device. In latter case the
-            // audio hook should be the preferred "driver" because it never stops (VST processing
-            // stops e.g. when project paused and track not armed).
+        if self.get_feedback_driver() == Driver::AudioHook {
             self.process_feedback_tasks(Caller::AudioHook);
         }
         self.run(sample_count, Caller::AudioHook);
+    }
+
+    /// There's an important difference between using audio hook or VST plug-in as driver:
+    /// VST processing stops e.g. when project paused and track not armed or on input FX chain and
+    /// track not armed. The result is that control, feedback, mapping updates and many other things
+    /// wouldn't work anymore. That's why we prefer audio hook whenever possible. However, we can't
+    /// use the audio hook if we need access to the VST plug-in host callback because it's dangerous
+    /// (would crash when plug-in gone) and somehow strange (although it seems to work).
+    ///
+    /// **IMPORTANT**: If "MIDI control input" is set to a MIDI device, it's very important that
+    /// `run()` is called either just from the VST or just from the audio hook. If both do it,
+    /// the MIDI messages are processed **twice**!!! Easy solution: Never have two drivers.
+    fn get_feedback_driver(&self) -> Driver {
+        use Driver::*;
+        match self.midi_feedback_output {
+            // Feedback not sent at all. We still want to "eat" any remaining feedback messages.
+            // We do everything in the audio hook because it's more reliable.
+            None => AudioHook,
+            // Feedback sent directly to device. Same here: We let the audio hook do everything in
+            // order to not run into surprising situations where control or feedback don't work.
+            Some(MidiFeedbackOutput::Device(_)) => AudioHook,
+            // Feedback sent to FX output. Here we have to be more careful because sending feedback
+            // to FX output involves host callback invocation. This can only be done from the VST
+            // plug-in.
+            // TODO-medium Feedback tasks can queue up if VST processing stopped! Maybe we should
+            //  detect somehow if stopped and switch to audio hook in that case or stop sending?
+            Some(MidiFeedbackOutput::FxOutput) => Vst,
+        }
     }
 
     /// Should be called regularly in real-time audio thread.
@@ -895,4 +912,10 @@ fn control_virtual(
         }
     }
     matched
+}
+
+#[derive(Eq, PartialEq)]
+enum Driver {
+    AudioHook,
+    Vst,
 }
