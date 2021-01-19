@@ -94,6 +94,7 @@ pub mod view {
             // BeginPaint and EndPaint are necessary for SWELL. On Windows, the given HDC is enough.
             #[cfg(target_family = "unix")]
             {
+                let _ = hdc;
                 let mut ps = raw::PAINTSTRUCT {
                     hdc: std::ptr::null_mut(),
                     fErase: 0,
