@@ -922,16 +922,11 @@ impl HeaderPanel {
     }
 
     fn reload_all_presets(&self) {
-        App::get()
+        let _ = App::get()
             .controller_preset_manager()
             .borrow_mut()
-            .load_presets()
-            .unwrap();
-        App::get()
-            .main_preset_manager()
-            .borrow_mut()
-            .load_presets()
-            .unwrap();
+            .load_presets();
+        let _ = App::get().main_preset_manager().borrow_mut().load_presets();
     }
 
     fn save_active_preset(&self) -> Result<(), &'static str> {
