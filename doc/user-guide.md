@@ -405,6 +405,8 @@ The header panel provides the following user interface elements, no matter if th
           **&lt;This&gt;** because it doesn't matter anyway.
         - Track targets are changed to refer to a track via its position instead of its ID.
     - If this is not what you want, you can choose to say no and make modifications yourself.
+- **Reload all:** If you made direct changes to preset files or have downloaded presets via ReaPack, you should press
+  this button to reflect these changes in ReaLearn (reloads all preset files).
 - **Delete:** This permanently deletes the currently chosen preset. You can also delete built-in presets.
   However, if you use ReaPack for installation, it should restore them on next sync.
 - **Add one:** Adds a new mapping at the end of the current mapping list.
