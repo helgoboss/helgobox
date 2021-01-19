@@ -136,7 +136,8 @@ pub mod view {
     }
 
     pub fn rows_brush() -> raw::HBRUSH {
-        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(250, 250, 250));
+        const RGB: u8 = 248;
+        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(RGB, RGB, RGB));
         *BRUSH as _
     }
 
