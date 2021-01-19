@@ -88,37 +88,41 @@ pub mod view {
     use once_cell::sync::Lazy;
     use reaper_low::{raw, Swell};
 
-    pub fn erase_background_with(hwnd: raw::HWND, hdc: raw::HDC, brush: raw::HBRUSH) -> bool {
+    pub fn erase_background_with(hwnd: raw::HWND, _: raw::HDC, brush: raw::HBRUSH) -> bool {
         unsafe {
             let swell = Swell::get();
-            let mut rc = raw::RECT {
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
+            let mut ps = raw::PAINTSTRUCT {
+                hdc: std::ptr::null_mut(),
+                fErase: 0,
+                rcPaint: raw::RECT {
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                },
             };
-            swell.GetClientRect(hwnd, &mut rc as *mut _);
-            swell.FillRect(hdc, &rc, brush);
+            // BeginPaint and EndPaint are necessary for SWELL. On Windows, taking the given HDC
+            // would be enough.
+            let hdc = swell.BeginPaint(hwnd, &mut ps as *mut _);
+            swell.FillRect(hdc, &ps.rcPaint, brush);
+            swell.EndPaint(hwnd, &mut ps as *mut _);
         }
         true
     }
 
     pub fn control_color_static_with(hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
-        let swell = Swell::get();
         unsafe {
-            swell.SetBkMode(hdc, raw::TRANSPARENT as _);
+            Swell::get().SetBkMode(hdc, raw::TRANSPARENT as _);
         }
         brush
     }
 
     pub fn row_brush() -> raw::HBRUSH {
-        // static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(225, 245, 254));
-        // *BRUSH as _
         rows_brush()
     }
 
     pub fn rows_brush() -> raw::HBRUSH {
-        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(252, 252, 252));
+        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(250, 250, 250));
         *BRUSH as _
     }
 
