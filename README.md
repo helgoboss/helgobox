@@ -276,11 +276,43 @@ ReaLearn has a built-in REAPER action which attempts to look up symbol informati
 3. Copy the error report to the clipboard.
 4. Execute the action.
 
-### Roadmap
+### Release
 
-Some short-term goals:
+This is mainly a checklist for ReaLearn's author.
 
-- Provide a documentation of ReaLearn's internal design (contributors should know about that)
+1. Bump up the version number in [main/Cargo.toml](main/Cargo.toml).
+    - Either to a prerelease (e.g. `1.12.0-pre1`) or a final release (e.g. `1.12.0`).
+    - This is important for having the correct version number displayed in ReaLearn UI.
+1. Build at least once via `cargo build`.
+    - This updates `Cargo.lock` and is important for not having the `-dirty` display in ReaLearn UI.
+1. Update the user guide if not done already.
+1. Create a version tag via `git tag v1.12.0-pre1`.
+1. Push via `git push origin master --tags`.
+1. While GitHub Actions executes the release job, take care of the following.
+    - Can only be done by @helgoboss because it needs access to the [helgoboss.org website repository](https://github.com/helgoboss/helgoboss-org).
+    - If it's a prerelease, make sure we are on a prerelease cycle branch of the website repository.
+    - Add a changelog entry in [data.yaml](https://github.com/helgoboss/helgoboss-org/blob/master/src/data/projects/realearn/data.yaml).
+    - In `src/snippets/projects/realearn/repo`, enter `git checkout master` and `git pull` to pull the latest user
+      guide changes.
+    - Push via `git push origin HEAD` and wait until Netlify deployed the page.
+    - All of the following stuff needs to be done using Netlify's branch preview if it's a prerelease!
+    - Update [helgoboss ReaPack index](https://github.com/helgoboss/reaper-packages/blob/master/index.xml).  
+        - Generate ReaLearn-only ReaPack index by requesting [/projects/realearn/reapack.txt](https://www.helgoboss.org/projects/realearn/reapack.txt).
+        - Integrate the generated index by copying everything from `<category name="Extensions">` and pasting it to the
+          [helgoboss ReaPack index](https://github.com/helgoboss/reaper-packages/blob/master/index.xml) without
+          overwriting the preset categories on the top of the file.
+        - Don't push the index yet!
+    - Author a REAPER forum ReaLearn thread entry with help of [/projects/realearn/reaper-forum.txt](https://www.helgoboss.org/projects/realearn/reaper-forum.txt)
+      but don't submit yet!
+    - Download the user guide by requesting [/projects/realearn/user-guide](https://www.helgoboss.org/projects/realearn/user-guide).
+    - Copy the corresponding changelog entry in markdown format by requesting [/projects/realearn/changelog.md](https://www.helgoboss.org/projects/realearn/changelog.md).
+1. Once the release job has finished successfully, edit the not-yet-published release that has been created.
+    - Paste the copied changelog entry to the release notes.
+    - Manually add the previously downloaded user guide as release artifact named `realearn-user-guide.pdf`.
+1. Publish the release.
+1. Push the [helgoboss ReaPack index](https://github.com/helgoboss/reaper-packages/blob/master/index.xml).
+1. Submit the REAPER forum ReaLearn thread entry.
+1. Check if synchronization of the ReaPack repository works.
 
 ## Links
 
