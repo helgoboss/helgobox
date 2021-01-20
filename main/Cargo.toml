@@ -97,6 +97,8 @@ futures-timer = "3.0.2"
 open = "1"
 # For exposing metrics in Prometheus format
 serde_prometheus = { version = "0.1.5", optional = true }
+# In projection server, we must be able to handle controller IDs with special characters
+percent-encoding = "2.1.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

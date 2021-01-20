@@ -278,7 +278,7 @@ ReaLearn has a built-in REAPER action which attempts to look up symbol informati
 
 ### Release
 
-This is mainly a checklist for ReaLearn's author.
+This serves mainly as checklist for ReaLearn's author.
 
 1. Bump up the version number in [main/Cargo.toml](main/Cargo.toml).
     - Either to a prerelease (e.g. `1.12.0-pre1`) or a final release (e.g. `1.12.0`).

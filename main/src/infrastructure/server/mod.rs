@@ -431,20 +431,26 @@ async fn start_server(
         .map(|_| warp::reply::html(include_str!("welcome_page.html")));
     let session_route = warp::get()
         .and(warp::path!("realearn" / "session" / String))
-        .and_then(|session_id| in_main_thread(|| handle_session_route(session_id)));
+        .and_then(|session_id| in_main_thread(|| handle_session_route(percent_decode(session_id))));
     let controller_route = warp::get()
         .and(warp::path!("realearn" / "session" / String / "controller"))
-        .and_then(|session_id| in_main_thread(|| handle_controller_route(session_id)));
+        .and_then(|session_id| {
+            in_main_thread(|| handle_controller_route(percent_decode(session_id)))
+        });
     let controller_routing_route = warp::get()
         .and(warp::path!(
             "realearn" / "session" / String / "controller-routing"
         ))
-        .and_then(|session_id| in_main_thread(|| handle_controller_routing_route(session_id)));
+        .and_then(|session_id| {
+            in_main_thread(|| handle_controller_routing_route(percent_decode(session_id)))
+        });
     let patch_controller_route = warp::patch()
         .and(warp::path!("realearn" / "controller" / String))
         .and(warp::body::json())
-        .and_then(|controller_id, req: PatchRequest| {
-            in_main_thread(|| handle_patch_controller_route(controller_id, req))
+        .and_then(|controller_id: String, req: PatchRequest| {
+            in_main_thread(move || {
+                handle_patch_controller_route(percent_decode(controller_id), req)
+            })
         });
     let metrics_route = warp::get()
         .and(warp::path!("realearn" / "metrics"))
@@ -1014,4 +1020,11 @@ Set another {upper_case_port_label} port in "realearn.ini", for example:
 
 fn local_port_available(port: u16) -> bool {
     std::net::TcpListener::bind(("0.0.0.0", port)).is_ok()
+}
+
+fn percent_decode(input: String) -> String {
+    percent_encoding::percent_decode(input.as_bytes())
+        .decode_utf8()
+        .unwrap()
+        .into_owned()
 }
