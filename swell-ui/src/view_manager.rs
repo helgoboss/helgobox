@@ -260,6 +260,10 @@ unsafe extern "C" fn view_dialog_proc(
                     let brush = view.control_color_static(wparam as raw::HDC, lparam as raw::HWND);
                     brush as _
                 }
+                raw::WM_CTLCOLORDLG => {
+                    let brush = view.control_color_dialog(wparam as raw::HDC, lparam as raw::HWND);
+                    brush as _
+                }
                 _ => 0,
             }
         })

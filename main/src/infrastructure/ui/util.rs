@@ -85,64 +85,34 @@ pub mod symbols {
 }
 
 pub mod view {
+    use crate::infrastructure::ui::util::SHADED_WHITE;
     use once_cell::sync::Lazy;
     use reaper_low::{raw, Swell};
 
-    pub fn erase_background_with(hwnd: raw::HWND, hdc: raw::HDC, brush: raw::HBRUSH) -> bool {
-        unsafe {
-            let swell = Swell::get();
-            // BeginPaint and EndPaint are necessary for SWELL. On Windows, the given HDC is enough.
-            #[cfg(target_family = "unix")]
-            {
-                let _ = hdc;
-                let mut ps = raw::PAINTSTRUCT {
-                    hdc: std::ptr::null_mut(),
-                    fErase: 0,
-                    rcPaint: raw::RECT {
-                        left: 0,
-                        top: 0,
-                        right: 0,
-                        bottom: 0,
-                    },
-                };
-                let hdc = swell.BeginPaint(hwnd, &mut ps as *mut _);
-                swell.FillRect(hdc, &ps.rcPaint, brush);
-                swell.EndPaint(hwnd, &mut ps as *mut _);
-            }
-            #[cfg(target_family = "windows")]
-            {
-                let mut rc = raw::RECT {
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                };
-                swell.GetClientRect(hwnd, &mut rc as *mut _);
-                swell.FillRect(hdc, &rc, brush);
-            }
-        }
-        true
-    }
-
-    pub fn control_color_static_with(hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
+    pub fn control_color_static_default(hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
         unsafe {
             Swell::get().SetBkMode(hdc, raw::TRANSPARENT as _);
         }
         brush
     }
 
-    pub fn row_brush() -> raw::HBRUSH {
-        rows_brush()
+    pub fn control_color_dialog_default(_hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
+        brush
     }
 
-    pub fn rows_brush() -> raw::HBRUSH {
-        const RGB: u8 = 248;
-        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(RGB, RGB, RGB));
+    pub fn shaded_white_brush() -> raw::HBRUSH {
+        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(SHADED_WHITE));
         *BRUSH as _
     }
 
     /// Use with care! Should be freed after use.
-    fn create_brush(r: u8, g: u8, b: u8) -> isize {
-        Swell::get().CreateSolidBrush(Swell::RGB(r, g, b) as _) as _
+    fn create_brush(color: (u8, u8, u8)) -> isize {
+        Swell::get().CreateSolidBrush(rgb(color)) as _
+    }
+
+    fn rgb((r, g, b): (u8, u8, u8)) -> std::os::raw::c_int {
+        Swell::RGB(r, g, b) as _
     }
 }
+
+const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);

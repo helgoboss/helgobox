@@ -156,6 +156,18 @@ pub trait View {
         null_mut()
     }
 
+    /// WM_CTLCOLORDLG
+    ///
+    /// Can return a custom background brush for painting that dialog.
+    fn control_color_dialog(
+        self: SharedView<Self>,
+        hdc: raw::HDC,
+        _hwnd: raw::HWND,
+    ) -> raw::HBRUSH {
+        let _ = hdc;
+        null_mut()
+    }
+
     /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback
     /// method.
     ///
