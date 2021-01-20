@@ -488,6 +488,16 @@ impl View for MappingRowsPanel {
         true
     }
 
+    // On Linux, WM_ERASEBKGND is not called, so we need to do it in WM_PAINT.
+    #[cfg(target_os = "linux")]
+    fn paint(self: SharedView<Self>) -> bool {
+        util::view::erase_background_with(
+            self.view.require_window().raw(),
+            std::ptr::null_mut(),
+            util::view::rows_brush(),
+        )
+    }
+
     fn erase_background(self: SharedView<Self>, hdc: raw::HDC) -> bool {
         util::view::erase_background_with(
             self.view.require_window().raw(),
