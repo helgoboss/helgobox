@@ -892,10 +892,7 @@ impl Target for ReaperTarget {
                 }
             }
             FxParameter { param } => {
-                let v = param
-                    .reaper_normalized_value()
-                    .expect("couldn't get FX param value")
-                    .get();
+                let v = param.reaper_normalized_value().get();
                 if !UnitValue::is_valid(v) {
                     // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
                     // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't

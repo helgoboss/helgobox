@@ -192,7 +192,7 @@ async fn fx_by_position() {
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
     load_realearn_preset(&realearn, include_str!("presets/fx-by-position.json"));
     fn is_zero(param: FxParameter) -> bool {
-        param.reaper_normalized_value().unwrap().get() == 0.0
+        param.reaper_normalized_value().get() == 0.0
     }
     assert!(!is_zero(eq.parameter_by_index(1)));
     assert!(!is_zero(synth.parameter_by_index(1)));
@@ -229,7 +229,7 @@ async fn fx_by_name() {
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
     load_realearn_preset(&realearn, include_str!("presets/fx-by-name.json"));
     fn is_zero(param: FxParameter) -> bool {
-        param.reaper_normalized_value().unwrap().get() == 0.0
+        param.reaper_normalized_value().get() == 0.0
     }
     assert!(!is_zero(eq.parameter_by_index(1)));
     assert!(!is_zero(synth.parameter_by_index(1)));
@@ -270,7 +270,7 @@ async fn fx_by_id() {
         &include_str!("presets/fx-by-id.json").replace("$EQ_GUID", &eq_guid_string),
     );
     fn is_zero(param: FxParameter) -> bool {
-        param.reaper_normalized_value().unwrap().get() == 0.0
+        param.reaper_normalized_value().get() == 0.0
     }
     assert!(!is_zero(eq.parameter_by_index(1)));
     assert!(!is_zero(synth.parameter_by_index(1)));

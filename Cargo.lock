@@ -2453,7 +2453,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1bc81ea1226415930bd1d2b0b9913c59ff426576"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#372fc31f429e541469a69c33dd3cfb0db7fd696a"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2477,7 +2477,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1bc81ea1226415930bd1d2b0b9913c59ff426576"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#372fc31f429e541469a69c33dd3cfb0db7fd696a"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2490,7 +2490,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1bc81ea1226415930bd1d2b0b9913c59ff426576"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#372fc31f429e541469a69c33dd3cfb0db7fd696a"
 dependencies = [
  "darling",
  "quote 1.0.7",
@@ -2500,7 +2500,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1bc81ea1226415930bd1d2b0b9913c59ff426576"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#372fc31f429e541469a69c33dd3cfb0db7fd696a"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -2515,7 +2515,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1bc81ea1226415930bd1d2b0b9913c59ff426576"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#372fc31f429e541469a69c33dd3cfb0db7fd696a"
 dependencies = [
  "crossbeam-channel 0.4.4",
  "helgoboss-midi",
