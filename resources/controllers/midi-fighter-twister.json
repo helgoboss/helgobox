@@ -492,6 +492,38 @@
         "controlElementType": "button",
         "controlElementIndex": 17
       }
+    },
+    {
+      "id": "ab054880-1c43-4f4a-b418-c3ea4d31b510",
+      "name": "Left 3",
+      "source": {
+        "channel": 3,
+        "number": 10,
+        "character": 1,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 18
+      }
+    },
+    {
+      "id": "a57a2787-3919-46fb-8fdd-17fb83f4baf1",
+      "name": "Right 3",
+      "source": {
+        "channel": 3,
+        "number": 13,
+        "character": 1,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 19
+      }
     }
   ],
   "customData": {
