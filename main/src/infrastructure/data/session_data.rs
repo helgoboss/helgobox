@@ -61,6 +61,30 @@ pub struct SessionData {
     parameters: HashMap<u32, ParameterData>,
 }
 
+impl Default for SessionData {
+    fn default() -> Self {
+        use crate::application::session_defaults;
+        // This should be
+        Self {
+            id: None,
+            let_matched_events_through: session_defaults::LET_MATCHED_EVENTS_THROUGH,
+            let_unmatched_events_through: session_defaults::LET_UNMATCHED_EVENTS_THROUGH,
+            always_auto_detect_mode: session_defaults::AUTO_CORRECT_SETTINGS,
+            send_feedback_only_if_armed: session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED,
+            control_device_id: None,
+            feedback_device_id: None,
+            default_group: None,
+            groups: vec![],
+            mappings: vec![],
+            controller_mappings: vec![],
+            active_controller_id: None,
+            active_main_preset_id: None,
+            main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
+            parameters: Default::default(),
+        }
+    }
+}
+
 impl SessionData {
     pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
         let from_mappings = |compartment| {

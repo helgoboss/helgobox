@@ -50,7 +50,7 @@ pub struct Session {
     // We want that learn works independently of the UI, so they are session properties.
     mapping_which_learns_source: Prop<Option<SharedMapping>>,
     mapping_which_learns_target: Prop<Option<SharedMapping>>,
-    active_controller_id: Option<String>,
+    active_controller_preset_id: Option<String>,
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
@@ -120,6 +120,16 @@ impl LearnManyState {
     }
 }
 
+pub mod session_defaults {
+    use crate::application::MainPresetAutoLoadMode;
+
+    pub const LET_MATCHED_EVENTS_THROUGH: bool = false;
+    pub const LET_UNMATCHED_EVENTS_THROUGH: bool = true;
+    pub const AUTO_CORRECT_SETTINGS: bool = true;
+    pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
+    pub const MAIN_PRESET_AUTO_LOAD_MODE: MainPresetAutoLoadMode = MainPresetAutoLoadMode::Off;
+}
+
 impl Session {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -139,17 +149,17 @@ impl Session {
             id: prop(instance_id.clone()),
             instance_id,
             logger: parent_logger.clone(),
-            let_matched_events_through: prop(false),
-            let_unmatched_events_through: prop(true),
-            auto_correct_settings: prop(true),
-            send_feedback_only_if_armed: prop(true),
+            let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
+            let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
+            auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
+            send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
-            main_preset_auto_load_mode: Default::default(),
+            main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
-            active_controller_id: None,
+            active_controller_preset_id: None,
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
@@ -1032,7 +1042,7 @@ impl Session {
         &mut self,
         active_controller_id: Option<String>,
     ) {
-        self.active_controller_id = active_controller_id;
+        self.active_controller_preset_id = active_controller_id;
     }
 
     pub fn set_active_main_preset_id_without_notification(
@@ -1043,7 +1053,7 @@ impl Session {
     }
 
     pub fn active_controller_id(&self) -> Option<&str> {
-        self.active_controller_id.as_deref()
+        self.active_controller_preset_id.as_deref()
     }
 
     pub fn active_main_preset_id(&self) -> Option<&str> {
@@ -1061,7 +1071,7 @@ impl Session {
     }
 
     pub fn controller_preset_is_out_of_date(&self) -> bool {
-        let id = match &self.active_controller_id {
+        let id = match &self.active_controller_preset_id {
             None => return self.mapping_count(MappingCompartment::ControllerMappings) > 0,
             Some(id) => id,
         };
@@ -1090,7 +1100,7 @@ impl Session {
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
         let compartment = MappingCompartment::ControllerMappings;
-        self.active_controller_id = id.clone();
+        self.active_controller_preset_id = id.clone();
         if let Some(id) = id.as_ref() {
             let controller = self
                 .controller_preset_manager

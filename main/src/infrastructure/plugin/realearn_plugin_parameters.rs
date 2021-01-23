@@ -129,6 +129,10 @@ impl PluginParameters for RealearnPluginParameters {
     fn load_bank_data(&self, data: &[u8]) {
         firewall(|| {
             if data == NOT_READY_YET.as_bytes() {
+                if self.session().is_some() {
+                    // This looks like someone activates the "Reset to factory default" preset.
+                    self.apply_session_data_internal(&SessionData::default())
+                }
                 return;
             }
             if self.session.borrow().is_none() {
