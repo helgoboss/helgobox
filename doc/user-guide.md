@@ -312,15 +312,8 @@ panel.
 
 ### Controller setup
 
-In order to get the most out of your controller in combination with ReaLearn, you should consider 
-the following hints:
-
-- Put your controller's buttons into momentary mode, *not* toggle mode.
-- If you are in the lucky situation of owning a controller with endless rotary encoders, by all
-  means, configure them to transmit relative values, not absolute ones!
-  - Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting 
-    relative values, such as the "Step size" or "Speed" setting. Also, preventing parameter jumps
-    can never be as effective in absolute mode as in relative mode.
+In order to get the most out of your controller in combination with ReaLearn, you should consider
+the general hints given in the last section "Controllers known to work with ReaLearn".
 
 ## Reference
 
@@ -1395,9 +1388,100 @@ direction.
 ## Automation and rendering
 
 Similarly to control surfaces, ReaLearn is meant to be used for controlling targets "live". If you
-want to _persist_ the resulting target value changes, you can do so by writing automation. Just like
+want to _persist_ the resulting target value changes, you can do so by writing automation. Just as
 with any other automation, it will be included when you render your project.
 
 It _is_ possible to feed ReaLearn with track MIDI items instead of live MIDI data. This also results
 in a kind of automation. **But be aware: This kind of "automation" will only be rendered in REAPER's
 "Online Render" mode. It will be ignored when using one of the offline modes!**
+
+## Controllers known to work with ReaLearn
+
+ReaLearn strives to support any general-purpose MIDI controller out there. However, there are some things
+you should know:
+
+1. Not every controller works out of the box.
+    - There are controllers which might need some initial preparation in order to work optimally with ReaLearn.
+    - Don't fear this initial effort, it can pay off very quickly. ReaLearn is designed to get the most out of
+      your controller and make it work the way *you* want it, not some company that wants to impose a certain type
+      of workflow on you.
+    - The versatility of a controller is a weakness but at the same time a strength. Taking some time to
+      get to know and prepare your controller can make you end up with a tool that is much better suited for
+      what you are trying to do than some bling-bling off-the-shelf solution.
+2. Some controllers don't work perfectly, especially when it comes to the *feedback* direction.
+    - Among those controllers that support MIDI feedback, not all of them handle the feedback messages flawlessly.
+    - Depending on the nature of the problem, it might be possible to fix this in future ReaLearn versions. Therefore, 
+      if you encounter, please [raise an issue](https://github.com/helgoboss/realearn/issues).
+3. Some controllers have unique features that might not be directly usable within ReaLearn.
+    - Example: Some controllers have a very particular way of customizing the visual feedback (e.g. blinking LEDs).
+    - You might be able to get those features to work in combination with other MIDI FX because
+      mostly it's just a matter of sending some specific MIDI messages to the controller.
+    - Future versions of ReaLearn hopefully improve on that situation. There's a 
+      [GitHub issue](https://github.com/helgoboss/realearn/issues/113) discussing exactly this topic.
+
+The purpose of this section is to write about experiences with specific controllers that have been tested in
+combination with ReaLearn. There's a broad variety of general-purpose MIDI controllers out there and there will be
+even more in future. Of course I don't have the resources to test them all, there are way too many. That's why
+this section very much depends on user contributions. Feel free to write an email to info@helgoboss.org,
+[raise an issue](https://github.com/helgoboss/realearn/issues) at GitHub or open a pull request 
+if you have tested a controller and would like to add something to this section.
+
+Disclaimer: The information in this section is given to the best of my knowledge. It could be wrong or outdated.
+
+### General tips regarding controller setup and usage
+
+The following basic hints are usually valid, no matter the specific controller:
+
+- Put your controller's buttons into momentary mode, *not* toggle mode.
+- If you are in the lucky situation of owning a controller with endless rotary encoders, by all
+  means, configure them to transmit relative values, not absolute ones!
+    - Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting
+      relative values, such as the "Step size" or "Speed" setting. Also, preventing parameter jumps
+      can never be as effective in absolute mode as in relative mode.
+      
+Also consider the following usage hints:
+- If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
+  can be manually adjusted using "Source Min/Max" in the "Tuning" section of the mapping.
+      
+Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
+might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).
+
+### DJ TechTools "MIDI Fighter Twister"
+
+This controller works very well with ReaLearn, including feedback and LED color selection. Special feedback features
+such as the indicator type are currently not configurable from the ReaLearn user interface.
+
+#### Preparation
+
+By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC"). 
+I strongly recommend changing this to transmit relative values (Encoder MIDI Type = "ENC 3FH/41H") in order to unlock
+the full potential of this awesome device. Use the Midifighter Utility to apply this change for each encoder:
+
+![MIDI Fighter Twister Setup](images/midi-fighter-twister-setup.png)
+
+#### Hints
+
+- There are some MIDI Fighter Twister controller presets available on the Helgoboss ReaPack repository, they all assume
+  relative values. Each preset represents one virtual bank.
+- Even though the Twister has its own bank/paging feature, I would recommend to use ReaLearn's built-in conditional
+  activation feature instead. This provides advantages, for example when using the Controller Projection feature.
+- LED color depends on the target value and is adjustable via "Source Min/Max".
+
+### Akai "APC Key 25"
+
+This controller works very well with ReaLearn, including feedback. It doesn't have encoders though, so the full
+potential of ReaLearn can't be used.
+
+#### Preparation
+
+No special setup necessary.
+
+### Novation "Launchpad Pro"
+
+This controller works very well with ReaLearn, including feedback and LED color selection. There's a multitude of very
+Launchpad-specific features that's not directly supported though.
+
+#### Preparation
+
+I always press "Setup" + the upper left pad to put this device into "Live" mode. This is also what my controller
+presets assume if not indicated otherwise.
