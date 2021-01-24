@@ -55,12 +55,12 @@ pub struct TargetModel {
 impl Default for TargetModel {
     fn default() -> Self {
         Self {
-            category: prop(TargetCategory::Reaper),
-            control_element_type: prop(VirtualControlElementType::Multi),
+            category: prop(TargetCategory::default()),
+            control_element_type: prop(VirtualControlElementType::default()),
             control_element_index: prop(0),
             r#type: prop(ReaperTargetType::FxParameter),
             action: prop(None),
-            action_invocation_type: prop(ActionInvocationType::Trigger),
+            action_invocation_type: prop(ActionInvocationType::default()),
             track: prop(VirtualTrack::This),
             enable_only_if_track_selected: prop(false),
             fx: prop(None),
@@ -68,7 +68,7 @@ impl Default for TargetModel {
             param_index: prop(0),
             send_index: prop(None),
             select_exclusively: prop(false),
-            transport_action: prop(TransportAction::PlayStop),
+            transport_action: prop(TransportAction::default()),
         }
     }
 }
