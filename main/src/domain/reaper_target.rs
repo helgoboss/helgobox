@@ -1229,7 +1229,7 @@ pub enum ActionInvocationType {
 
 impl Default for ActionInvocationType {
     fn default() -> Self {
-        ActionInvocationType::Trigger
+        ActionInvocationType::Absolute
     }
 }
 
