@@ -154,6 +154,11 @@ main mappings in this instance of ReaLearn. There can be very many of them. I've
 hundreds. On the very bottom you see some information about the version of ReaLearn that you are
 running. It's important to include this information in bug reports.
 
+It can be useful to route all keyboard input to ReaLearn, so you can enter spaces in the "Search" field:
+
+1. Right click ReaLearn FX in the FX chain.
+2. Enable "Send all keyboard input to plug-in".
+
 #### Adding a mapping
 
 **Let's see how to add and use our first mapping:**
