@@ -9,8 +9,6 @@ use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, UnitValue};
 
-use crate::core::Global;
-use crate::domain::ReaperTarget::FxParameter;
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -332,12 +330,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 UpdateParameter { index, value } => {
                     debug!(self.logger, "Updating parameter {} to {}...", index, value);
-                    // If this is
-                    let parameter = self.context.containing_fx().parameter_by_index(index);
-                    Global::control_surface_rx()
-                        .fx_parameter_touched
-                        .borrow_mut()
-                        .next(parameter);
                     // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
