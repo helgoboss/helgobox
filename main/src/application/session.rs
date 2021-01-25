@@ -241,13 +241,14 @@ impl Session {
                     .borrow_mut()
                     .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
             });
-        // Whenever something in the group list changes, resubscribe to those groups.
+        // Whenever something in the group list changes, resubscribe to those groups and sync
+        // (because a mapping could have changed its group).
         when(self.group_list_changed())
             .with(weak_session.clone())
             .do_async(|shared_session, _| {
-                shared_session
-                    .borrow_mut()
-                    .resubscribe_to_groups(Rc::downgrade(&shared_session));
+                let mut session = shared_session.borrow_mut();
+                session.resubscribe_to_groups(Rc::downgrade(&shared_session));
+                session.sync_all_mappings_full(MappingCompartment::MainMappings);
             });
         // Whenever anything in a mapping list changes and other things which affect all
         // processors (including the real-time processor which takes care of sources only), resync
