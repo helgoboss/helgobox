@@ -1551,10 +1551,10 @@ the next step should be obvious: We need to map our buttons to it!
 
 #### Step 5: Map buttons to bank parameter
 
-We are going to map the buttons to "Parameter 1". Button B1 will set its value to 0 and button B2 will set its value to
-1. Remember how we defined these two numbers in the activation conditions ... they are the "Program" numbers!
+We are going to map the buttons to "Parameter 1". Button B1 will set its value to 0 and button B2 will set its value 
+to 1. Remember how we defined these two numbers in the activation conditions ... they are the "Program" numbers!
 
-1. Select mapping group "<Default>".
+1. Select mapping group `<Default>`.
 2. Map the two buttons. The easiest way is to use "Learn many", switch to the parameter view once again and move the
    "Parameter 1" slider whenever ReaLearn asks you to touch the target.
     - Before you continue, make sure your screen looks similar to this (take note how I've given the mappings friendly 
