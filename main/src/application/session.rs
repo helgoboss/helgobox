@@ -523,6 +523,13 @@ impl Session {
         self.groups.iter().position(|g| g.borrow().id() == id)
     }
 
+    pub fn group_contains_mappings(&self, id: GroupId) -> bool {
+        self.mappings(MappingCompartment::MainMappings)
+            .filter(|m| m.borrow().group_id.get() == id)
+            .count()
+            > 0
+    }
+
     pub fn find_group_by_id(&self, id: GroupId) -> Option<&SharedGroup> {
         self.groups.iter().find(|g| g.borrow().id() == id)
     }

@@ -637,12 +637,15 @@ impl HeaderPanel {
             Some(GroupFilter(id)) if !id.is_default() => id,
             _ => return,
         };
-        let msg = "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.";
-        if let Some(delete_mappings) = self
-            .view
-            .require_window()
-            .ask_yes_no_or_cancel("ReaLearn", msg)
-        {
+        let delete_mappings_result = if self.session().borrow().group_contains_mappings(id) {
+            let msg = "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.";
+            self.view
+                .require_window()
+                .ask_yes_no_or_cancel("ReaLearn", msg)
+        } else {
+            Some(false)
+        };
+        if let Some(delete_mappings) = delete_mappings_result {
             self.main_state
                 .borrow_mut()
                 .group_filter
