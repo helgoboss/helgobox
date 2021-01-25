@@ -364,7 +364,7 @@ impl HeaderPanel {
             vec.into_iter().chain(
                 self.session()
                     .borrow()
-                    .groups()
+                    .groups_sorted()
                     .enumerate()
                     .map(|(i, g)| (i as isize, g.borrow().to_string())),
             ),
@@ -379,7 +379,7 @@ impl HeaderPanel {
                 if id.is_default() {
                     -1isize
                 } else {
-                    match self.session().borrow().find_group_index_by_id(id) {
+                    match self.session().borrow().find_group_index_by_id_sorted(id) {
                         None => {
                             combo.select_new_combo_box_item(format!("<Not present> ({})", id));
                             return;
@@ -692,7 +692,7 @@ impl HeaderPanel {
                 let session = self.session();
                 let session = session.borrow();
                 let group = session
-                    .find_group_by_index(i as usize)
+                    .find_group_by_index_sorted(i as usize)
                     .expect("group not existing")
                     .borrow();
                 Some(GroupFilter(group.id()))

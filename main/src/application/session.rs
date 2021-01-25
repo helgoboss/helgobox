@@ -20,6 +20,7 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
+use itertools::Itertools;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
@@ -519,8 +520,8 @@ impl Session {
         id
     }
 
-    pub fn find_group_index_by_id(&self, id: GroupId) -> Option<usize> {
-        self.groups.iter().position(|g| g.borrow().id() == id)
+    pub fn find_group_index_by_id_sorted(&self, id: GroupId) -> Option<usize> {
+        self.groups_sorted().position(|g| g.borrow().id() == id)
     }
 
     pub fn group_contains_mappings(&self, id: GroupId) -> bool {
@@ -534,12 +535,18 @@ impl Session {
         self.groups.iter().find(|g| g.borrow().id() == id)
     }
 
-    pub fn find_group_by_index(&self, index: usize) -> Option<&SharedGroup> {
-        self.groups.get(index)
+    pub fn find_group_by_index_sorted(&self, index: usize) -> Option<&SharedGroup> {
+        self.groups_sorted().nth(index)
     }
 
-    pub fn find_group_id_by_index(&self, index: usize) -> Option<GroupId> {
-        let group = self.find_group_by_index(index)?;
+    pub fn groups_sorted(&self) -> impl Iterator<Item = &SharedGroup> {
+        self.groups
+            .iter()
+            .sorted_by_key(|g| g.borrow().name.get_ref().clone())
+    }
+
+    pub fn find_group_id_by_index_sorted(&self, index: usize) -> Option<GroupId> {
+        let group = self.find_group_by_index_sorted(index)?;
         Some(group.borrow().id())
     }
 

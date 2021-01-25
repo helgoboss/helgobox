@@ -412,7 +412,7 @@ impl MappingRowPanel {
         let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
         let session = self.session();
         let session = session.borrow();
-        for (i, group) in session.groups().enumerate() {
+        for (i, group) in session.groups_sorted().enumerate() {
             let group = group.borrow();
             let item_id = i as u32 + 2;
             menu.add_item(item_id, group.name.get_ref().to_string());
@@ -436,7 +436,7 @@ impl MappingRowPanel {
         };
         let desired_group_id = desired_group_index.map(|i| {
             session
-                .find_group_id_by_index(i as _)
+                .find_group_id_by_index_sorted(i as _)
                 .expect("no such group")
         });
         Ok(desired_group_id.unwrap_or_default())
