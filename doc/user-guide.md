@@ -1641,9 +1641,17 @@ such as the indicator type are currently not configurable from the ReaLearn user
 
 By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC"). 
 I strongly recommend changing this to transmit relative values (Encoder MIDI Type = "ENC 3FH/41H") in order to unlock
-the full potential of this awesome device. Use the Midifighter Utility to apply this change for each encoder:
+the full potential of this awesome device. Use the [MIDI Fighter Utility](https://djtechtools.com/midi-fighter-setup/)
+to apply this change for each encoder:
 
 ![MIDI Fighter Twister Setup](images/midi-fighter-twister-setup.png)
+
+You can also do this using the "MULTIPLE" button:
+
+1. Press the "MULTIPLE" button.
+2. Select all controls via mouse clicks.
+3. Change the Encoder MIDI Type.
+4. Press "CANCEL"
 
 #### Hints
 
