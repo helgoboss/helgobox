@@ -10,7 +10,6 @@ use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, UnitValue};
 
 use crate::core::Global;
-use crate::domain::ReaperTarget::FxParameter;
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -332,12 +331,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 UpdateParameter { index, value } => {
                     debug!(self.logger, "Updating parameter {} to {}...", index, value);
-                    // If this is
-                    let parameter = self.context.containing_fx().parameter_by_index(index);
-                    Global::control_surface_rx()
-                        .fx_parameter_touched
-                        .borrow_mut()
-                        .next(parameter);
+                    // Workaround REAPER's inability to notify about parameter changes in monitoring
+                    // FX by simulating the notification ourselves. Then parameter learning and
+                    // feedback works at least for ReaLearn monitoring FX instances, which is
+                    // especially useful for conditional activation.
+                    if self.context.is_on_monitoring_fx_chain() {
+                        let parameter = self.context.containing_fx().parameter_by_index(index);
+                        let rx = Global::control_surface_rx();
+                        rx.fx_parameter_value_changed
+                            .borrow_mut()
+                            .next(parameter.clone());
+                        rx.fx_parameter_touched.borrow_mut().next(parameter);
+                    }
                     // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;

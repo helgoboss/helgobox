@@ -109,15 +109,22 @@ impl TargetModel {
         use ReaperTarget::*;
         self.category.set(TargetCategory::Reaper);
         self.r#type.set(ReaperTargetType::from_target(target));
-        if let Some(track) = target.track() {
-            self.track.set(virtualize_track(track.clone(), context));
-        }
         if let Some(actual_fx) = target.fx() {
             let virtual_fx = VirtualFx::Particular {
                 is_input_fx: actual_fx.is_input_fx(),
                 anchor: FxAnchor::IdOrIndex(actual_fx.guid(), actual_fx.index()),
             };
             self.fx.set(Some(virtual_fx));
+            let track = if let Some(track) = actual_fx.track() {
+                track.clone()
+            } else {
+                // Must be monitoring FX. In this case we want the master track (it's REAPER's
+                // convention and ours).
+                context.project().master_track()
+            };
+            self.track.set(virtualize_track(track, context));
+        } else if let Some(track) = target.track() {
+            self.track.set(virtualize_track(track.clone(), context));
         }
         if let Some(send) = target.send() {
             self.send_index.set(Some(send.index()));
@@ -651,15 +658,16 @@ impl Default for TargetCategory {
 }
 
 fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
-    match context.track() {
-        Some(t) if *t == track => VirtualTrack::This,
-        _ => {
-            if track.is_master_track() {
-                VirtualTrack::Master
-            } else {
-                VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
-            }
-        }
+    let own_track = context
+        .track()
+        .cloned()
+        .unwrap_or_else(|| context.project().master_track());
+    if own_track == track {
+        VirtualTrack::This
+    } else if track.is_master_track() {
+        VirtualTrack::Master
+    } else {
+        VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
     }
 }
 

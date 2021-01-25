@@ -584,7 +584,18 @@ pub fn get_fx_chain(
 ) -> Result<FxChain, &'static str> {
     let track = get_effective_track(context, track)?;
     let result = if is_input_fx {
-        track.input_fx_chain()
+        if track.is_master_track() {
+            // The combination "Master track + input FX chain" by convention represents the
+            // monitoring FX chain in REAPER. It's a bit unfortunate that we have 2 representations
+            // of the same thing: A special monitoring FX enum variant and this convention.
+            // E.g. it leads to the result that both representations are not equal from a reaper-rs
+            // perspective. We should enforce the enum variant whenever possible because the
+            // convention is somehow flawed. E.g. what if we have 2 master tracks of different
+            // projects? This should be done in reaper-high, there's already a to-do there.
+            Reaper::get().monitoring_fx_chain()
+        } else {
+            track.input_fx_chain()
+        }
     } else {
         track.normal_fx_chain()
     };
