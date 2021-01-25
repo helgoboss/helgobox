@@ -9,6 +9,13 @@
 </tr>
 </table>
 
+## Table of Contents
+1. [Introduction](#introduction)
+1. [Basics](#basics)
+1. [Reference](#reference)
+1. [Tutorials](#tutorials)
+1. [Tested controllers](#tested-controllers)
+
 ## Introduction
 
 ### What is ReaLearn?
@@ -279,6 +286,9 @@ very many, so this is for sure a very incomplete list):
 - Akai APC Key 25
 - Presonus Faderport
 
+Also have a look into the section "Tested controllers". Maybe your controller is listed there
+along with some tips.
+
 All hardware examples are provided to the best of my knowledge. If anything is incorrect or has
 changed in the meanwhile, please let me know!
 
@@ -313,7 +323,17 @@ panel.
 ### Controller setup
 
 In order to get the most out of your controller in combination with ReaLearn, you should consider
-the general hints given in the last section "Controllers known to work with ReaLearn".
+the general hints given in the section "Tested controllers".
+
+### Automation and rendering
+
+Similarly to control surfaces, ReaLearn is meant to be used for controlling targets "live". If you
+want to _persist_ the resulting target value changes, you can do so by writing automation. Just as
+with any other automation, it will be included when you render your project.
+
+It _is_ possible to feed ReaLearn with track MIDI items instead of live MIDI data. This also results
+in a kind of automation. **But be aware: This kind of "automation" will only be rendered in REAPER's
+"Online Render" mode. It will be ignored when using one of the offline modes!**
 
 ## Reference
 
@@ -678,7 +698,8 @@ There are 4 different activation modes:
 
 - **Always:** Mapping is always active (the default)
 - **When modifiers on/off:** Mapping becomes active only if something is pressed / not pressed
-- **When program selected:** Allows you to step through different groups of mappings
+- **When program selected:** Allows you to step through different groups of mappings (banks/pages/programs
+  ... however you want to call it)
 - **When EEL result > 0:** Let a formula decide (total freedom)
 
 For details, see below.
@@ -721,6 +742,9 @@ or toggled (switches between on and off everytime you press it). You can also be
 and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
 ##### When program selected
+
+*Hint:* This is the correct activation mode if you want control surface "bank-style" mapping. An in-depth tutorial how
+to implement this can be found in the "Tutorials" section, tutorial number 1. 
 
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
 The certain parameter is called "Bank" and the particular value is called "Program". Why? Let's
@@ -1103,6 +1127,48 @@ Triggers or sets the value of a particular REAPER action in the main section.
   - **Relative:** Invokes the action with the incoming relative control value (absolute ones are
     ignored). Only works for actions that are annotated with ("MIDI CC relative only") or similar.
 
+The particular action decides if toggling/feedback works completely, has limitations or is not possible at all. There
+are multiple types of actions so it's not possible to settle with one invocation type and be done with it. The types
+of actions can roughly be divided into:
+
+1. Actions that take care of toggling themselves *and* report on/off state.
+    - Example: "25. Track: Toggle record arm for track 01"
+    - If you want toggle behavior, you have 2 options:
+        - a) Set Invoke to "Absolute" and Mode to "Toggle buttons" (preferred).
+        - b) Set Invoke to "Trigger" and Mode to "Normal".
+    - Feedback is completely supported.
+2. Actions that take care of toggling themselves but *don't* report on/off state.
+    - Example: "40175. Item properties: Toggle mute"
+    - Toggle behavior is achieved as described in (1) but support for toggling and feedback has limitations (explained
+      in (4)).
+3. Actions that don't take care of toggling themselves ("trigger only").
+    - Example: "1007. Transport: Play"
+    - There's no way to make such an action toggle because the action is not designed to do so.
+    - If the action reports an on/off state, feedback is completely supported though, otherwise not at all!
+4. Actions that have a complete range of values as state.
+    - Example: "994. View: Adjust vertical zoom (MIDI CC/OSC only)"
+    - Since ReaLearn 1.12.0 and REAPER 6.20, there's special support for this type of actions. Starting from the first
+      time this action is triggered, ReaLearn will track its current value.
+    - That's why toggling is supported. Because ReaLearn itself takes care of toggling, you need to set *Invoke* to
+      "Absolute" and Mode to "Toggle buttons".
+    - Feedback is also supported.
+    - Toggling/feedback for this type of actions comes with some inherent limitations that are related to the fact that
+      a) REAPER itself doesn't necessarily use actions to invoke its own functions and b) MIDI CC/OSC actions don't
+      have the concept of a "current value" (unlike e.g. toggle actions or FX parameters).
+    - The bottom line of these limitations is that toggling/feedback will only work if the action itself is used to
+      trigger the change and if the action is an absolute action (not relative).
+    - Limitations in detail:
+        1. In most cases, feedback will not work when changing the value in REAPER directly (e.g. when adjusting
+           vertical zoom directly via the REAPER user interface).
+        2. It will only work for actions that support some kind of absolute value range (usually the case for all
+           non-relative MIDI CC/OSC actions).
+        3. When the action is invoked via ReaLearn, the feedback will only work if "Invoke" is "Trigger" or "Absolute".
+           It won't work with "Relative".
+        4. When the action is invoked from ReaScript or other extensions, it will only work if the invocation was done
+           via `KBD_OnMainActionEx()` and an absolute value change. 
+        5. When the action is invoked via a native REAPER action mapping, it will only work if the invocation is done
+           using absolute MIDI CC/OSC (not relative).
+
 ###### Track FX parameter target
 
 Sets the value of a particular track FX parameter.
@@ -1215,10 +1281,12 @@ No matter which kind of source, the following UI elements are always relevant:
 
 - **Reset to defaults:** Resets the settings to some sensible defaults. 
 
-##### For all source characters (control and feedback)
+##### For all source characters
 
 The following elements are relevant for all kinds of sources, both in *control* and *feedback* direction.
 
+- **Reverse:** If checked, this inverses the direction of the change. E.g. the target value will
+  decrease when moving the fader upward and increase when moving it downward.
 - **Target Min/Max:** The controlled range of absolute target values. This enables you to "squeeze"
   target values into a specific value range. E.g. if you set this to "-6 dB to 0 dB" for a _Track
   volume_ target, the volume will always stay within that dB range if controlled via this mapping.
@@ -1236,8 +1304,6 @@ The following elements are relevant for all kinds of sources, both in *control* 
   3. Apply transformation
   4. Apply source interval
   
-##### For all source characters (but encoders feedback only)
-
 The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
 *feedback* direction, not in *control* direction.
 
@@ -1246,8 +1312,6 @@ The following elements are relevant for all kinds of sources. For rotary encoder
   the upper half of a fader or only the lower velocity layer of a key press. In relative mode, this
   only has an effect on absolute source control values, not on relative ones. This range also 
   determines the minimum and maximum feedback value.
-- **Reverse:** If checked, this inverses the direction of the change. E.g. the target value will
-  decrease when moving the fader upward and increase when moving it downward.
 - **Out-of-range behavior:** This determines ReaLearn's behavior if the source value is not within
   "Source Min/Max" or the target value not within "Target Min/Max". There are these variants:
   
@@ -1385,17 +1449,137 @@ direction.
     - Short press: 0 ms - 250 ms
     - Long press: 250 ms - 5000 ms
 
-## Automation and rendering
+## Tutorials
 
-Similarly to control surfaces, ReaLearn is meant to be used for controlling targets "live". If you
-want to _persist_ the resulting target value changes, you can do so by writing automation. Just as
-with any other automation, it will be included when you render your project.
+### 1. Using conditional activation to implement banks/pages/programs
 
-It _is_ possible to feed ReaLearn with track MIDI items instead of live MIDI data. This also results
-in a kind of automation. **But be aware: This kind of "automation" will only be rendered in REAPER's
-"Online Render" mode. It will be ignored when using one of the offline modes!**
+Users often ask if it's possible to do control surface bank-style mapping in order to switch to a completely
+different set of mappings with the press of a button. Yes, it is! It's done using the *conditional activation* feature
+with the activation mode "When program selected". The wording in ReaLearn is like this: You would say
+"previous/next program" instead of "previous/next bank". "Bank" has another meaning and is essentially a set of
+"programs". This is analog to the MIDI standard.
 
-## Controllers known to work with ReaLearn
+I'll show you a minimal example but in great detail. Once you understand this example, you should be able to progress to
+bigger things. So let's assume you have 2 knobs and 2 buttons on your controller and you want to map some controls
+to parameters of the [Vital synth](https://vital.audio/). Here's our goal:
+
+- **Knob K1:** Controls decay of ENV X
+- **Knob K2:** Controls frequency of LFO X
+- **Button B1:** Sets X to 1
+- **Button B2:** Sets X to 2
+
+#### Step 1: Add all desired mappings
+
+First, it's important to understand that conditional activation does one thing only: It switches mappings on or off. 
+It doesn't magically change the target of a mapping or anything like that. Just on or off! Thus, the first thing you
+should do is adding all the knob mappings (for example by using "Learn many"). Here's the result:
+
+![Step 1](images/tutorial-1-step-1.jpg)
+
+Note: As you can see, I gave the mappings friendly names, which is nice in general but really pays off once you use the
+projection feature. Also note that I used my MIDI Fighter Twister preset and renamed the relevant encoders to K1 and K2.
+
+At this point, all those mappings are always active, so moving K1 will affect both ENV 1 and ENV 2 decay whereas moving
+K2 will affect both LFO 1 and LFO 2 frequency! We need activation conditions to make sure that not all mappings are
+active at the same time.
+
+#### Step 2: Assign mappings to groups
+
+Now we could shoot ahead and directly set the activation condition of each mapping individually. **But** usually it's
+much better to activate/deactivate complete *groups* of mappings. When you press button B1, you want to have the
+"ENV 1 Decay" and "LFO 1 Freq" mappings active (= "Group 1"). When you press button B2, you want "ENV 2 Decay" and
+"LFO 2 Freq" to be active instead (= "Group 2"). And this is just a minimal example. You will probably have many more
+mappings in one group in the end.
+
+Turns out, ReaLearn has something made exactly for that: Mapping groups. Using them will make your life way easier.
+We will create those 2 groups and distribute our knob mappings into both groups.
+
+1. Right to "Mapping group", press "Add" and enter the name "Group 1". Repeat the same for "Group 2".
+2. Select mapping group `<Default>` again.
+3. Now move every mapping to its corresponding group by right-clicking the mapping row and choosing the desired group.
+
+Here's how "Group 1" looks like after this:
+
+![Step 2](images/tutorial-1-step-2.jpg)
+
+Please note that until now, this is purely cosmetic. It hasn't changed in any way how the mappings work.
+
+#### Step 3: Set group activation conditions
+
+Now let's set the activation conditions. First for "Group 1":
+
+1. Select mapping group "Group 1".
+2. Press "Edit".
+3. In the "Active" dropdown, choose "When program selected". Make sure that "Bank" is set to "1. Parameter 1" and 
+   "Program" to 0.
+
+Repeat the same for "Group 2", but set "Program" to 1. Should look like this:
+
+![Step 3](images/tutorial-1-step-3.jpg)
+
+Did you see how the mappings in "Group 2" turned grey? That means they became inactive! At this point, moving the knobs
+should affect ENV 1 and LFO 1 only.
+
+
+#### Step 4: Understand "Bank" and "Program"
+
+In the previous step, we have set "Bank" to "Parameter 1". It's important to understand that we are talking about
+ReaLearn's own VST parameters. Each ReaLearn instance has 100 free parameters, which don't do anything by default.
+One easy way to make them visible is by pressing the "UI" button at the top right of the FX window to switch to the
+parameter view:
+
+![Step 4](images/tutorial-1-step-4.jpg)
+
+See "Parameter 1" at the top? That's the one we used in our activation condition! Hence, once we change the value of
+this parameter, mappings will get activated or deactivated. You can try it! Move the parameter slider a bit to the right
+and you will observe that "Group 1" turned inactive. "Group 1" will be active when the slider is on the very left.
+"Group 2" will be active when the slider is pushed *slightly* more to the right. If you push it even more to the right,
+none of the mappings will be active. Enough! Press "UI" again to go back to the ReaLearn user interface.
+
+Now that we know that the value of ReaLearn's internal "Parameter 1" is the key to activate/deactivate our mappings, 
+the next step should be obvious: We need to map our buttons to it!
+
+#### Step 5: Map buttons to bank parameter
+
+We are going to map the buttons to "Parameter 1". Button B1 will set its value to 0 and button B2 will set its value to
+1. Remember how we defined these two numbers in the activation conditions ... they are the "Program" numbers!
+
+1. Select mapping group "<Default>".
+2. Map the two buttons. The easiest way is to use "Learn many", switch to the parameter view once again and move the
+   "Parameter 1" slider whenever ReaLearn asks you to touch the target.
+    - Before you continue, make sure your screen looks similar to this (take note how I've given the mappings friendly 
+      names again): ![Step 5a](images/tutorial-1-step-5a.jpg)
+3. Edit the mapping for button B1 and set both Target Min/Max to 0 (this causes the button to always set the fixed
+   value 0).
+4. Edit the mapping for button B2 and set both Target Min/Max to 1.
+    - Here's how the mapping panel for button B2 looks afterwards: ![Step 5b](images/tutorial-1-step-5b.jpg)
+
+That's it, the goal is achieved! Press the buttons and move the knobs to test it.
+
+You might wonder why ReaLearn has been designed to use this particular mechanism for activating/deactivating mappings,
+in particular why it uses generic parameters to do the job. The answer is: This mechanism is insanely powerful. If you
+take the time and digest this for a while, you will realize that you can do almost anything with a clever combination of
+the "Mapping", "Parameter" and "Activation condition" concepts. This scenario is just one of many. Just see the next
+tutorial to understand why.
+
+### 2. Like tutorial 1, but with previous/next buttons
+
+Now let's assume you don't want 2 buttons where each button should activate one particular program but you want
+previous/next buttons to switch between the programs. Do everything as in tutorial 1 with the exception of step 5.
+
+#### Step 5: Map buttons to bank parameter
+
+1. As in tutorial 1. 
+2. As in tutorial 1.
+3. Edit the mapping for button B2 ("Next group") and set mode to "Incremental buttons"
+4. Edit the mapping for button B1 ("Previous group"), set mode to "Incremental buttons" *and* check the "Reverse" box
+   (because you want to go in the other direction).
+
+The "Previous group" mapping then looks like this:
+
+![Step 5](images/tutorial-2-step-5.jpg)
+
+## Tested controllers
 
 ReaLearn strives to support any general-purpose MIDI controller out there. However, there are some things
 you should know:
@@ -1410,8 +1594,9 @@ you should know:
       what you are trying to do than some bling-bling off-the-shelf solution.
 2. Some controllers don't work perfectly, especially when it comes to the *feedback* direction.
     - Among those controllers that support MIDI feedback, not all of them handle the feedback messages flawlessly.
-    - Depending on the nature of the problem, it might be possible to fix this in future ReaLearn versions. Therefore, 
-      if you encounter, please [raise an issue](https://github.com/helgoboss/realearn/issues).
+    - Depending on the nature of the particular problem, it might be possible to fix it in future ReaLearn versions.
+      Therefore, if you encounter a problem in this area, feel free to 
+      [raise an issue](https://github.com/helgoboss/realearn/issues).
 3. Some controllers have unique features that might not be directly usable within ReaLearn.
     - Example: Some controllers have a very particular way of customizing the visual feedback (e.g. blinking LEDs).
     - You might be able to get those features to work in combination with other MIDI FX because
@@ -1430,16 +1615,17 @@ Disclaimer: The information in this section is given to the best of my knowledge
 
 ### General tips regarding controller setup and usage
 
-The following basic hints are usually valid, no matter the specific controller:
+The following basic setup hints are usually valid, no matter the specific controller:
 
 - Put your controller's buttons into momentary mode, *not* toggle mode.
 - If you are in the lucky situation of owning a controller with endless rotary encoders, by all
   means, configure them to transmit relative values, not absolute ones!
     - Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting
-      relative values, such as the "Step size" or "Speed" setting. Also, preventing parameter jumps
-      can never be as effective in absolute mode as in relative mode.
+      relative values, such as the "Step size" or "Speed" setting. 
+    - Also, preventing parameter jumps can never be as effective in absolute mode as in relative mode.
+- If there are issues, consult the "Troubleshooting" section in the first part of this guide.  
       
-Also consider the following usage hints:
+Consider the following general usage hints:
 - If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
   can be manually adjusted using "Source Min/Max" in the "Tuning" section of the mapping.
       
@@ -1478,7 +1664,7 @@ No special setup necessary.
 
 ### Novation "Launchpad Pro"
 
-This controller works very well with ReaLearn, including feedback and LED color selection. There's a multitude of very
+This controller works well with ReaLearn, including feedback and LED color selection. There's a multitude of very
 Launchpad-specific features that's not directly supported though.
 
 #### Preparation
