@@ -1622,6 +1622,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             anchor_combo.select_combo_box_item(0);
         }
         // Input FX checkbox
+        let label = if let VirtualTrack::Master = self.mapping.target_model.track.get_ref() {
+            "Monitoring FX"
+        } else {
+            "Input FX"
+        };
+        input_fx_box.set_text(label);
         input_fx_box.set_checked(is_input_fx);
     }
 

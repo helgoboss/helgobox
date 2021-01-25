@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-01-19 (v1.12.0-pre12)</code></td>
+  <td><code>2021-01-19 (v1.12.0-pre17)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1064,9 +1064,10 @@ Only available for targets that are associated with a particular REAPER track:
   - **&lt;This&gt;**: Track which hosts this ReaLearn instance. If ReaLearn is on the monitoring FX
     chain, this resolves to the master track of the current project.
   - **&lt;Selected&gt;**: Currently selected track.
-  - **&lt;Master track&gt;**: Master track of the project which hosts this ReaLearn instance. If
-    ReaLearn is on the monitoring FX chain, this resolves to the master track of the current
-    project.
+  - **&lt;Master&gt;**: Master track of the project which hosts this ReaLearn instance. 
+      - If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
+      - If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX
+        chain, this option is the right choice as well. Make sure to enable the "Monitoring FX" checkbox. 
 - **Track anchor:** If you select a concrete track, another dropdown will appear to the right of the
   track dropdown. It lets you choose how ReaLearn will identify your track.
   - **By ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
@@ -1104,6 +1105,10 @@ Only available for targets associated with a particular FX instance:
     behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 - **Input FX:** If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
   chain. If checked, it will show FX instances in the track's input FX chain.
+- **Monitoring FX:** This appears instead of the input FX checkbox if you select track `<Master>`. If you check this,
+  you can target FX instances on REAPER's global monitoring FX chain.
+    - **Attention:** Because of a limitation in the REAPER API, learning and feedback for monitoring FX doesn't work
+      at the moment!
 - **FX must have focus:** If checked, this mapping will be active only if the FX instance set in
   _FX_ is currently focused. If the FX instance is displayed in a floating window, _focused_ means
   that the floating window is active. If it's displayed within the FX chain window, _focused_ means
