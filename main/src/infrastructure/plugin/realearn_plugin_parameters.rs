@@ -181,7 +181,6 @@ impl PluginParameters for RealearnPluginParameters {
     }
 
     fn set_parameter(&self, index: i32, value: f32) {
-        println!("setting {} to {}", index, value);
         firewall(|| {
             // We immediately send to the main processor. Sending to the session and using the
             // session parameter list as single source of truth is no option because this method
