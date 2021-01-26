@@ -57,6 +57,8 @@ pub struct ModeModelData {
     scale_mode_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     rotate_is_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    make_absolute_enabled: bool,
 }
 
 fn default_step_size() -> SoftSymmetricUnitValue {
@@ -98,6 +100,7 @@ impl ModeModelData {
             round_target_value: model.round_target_value.get(),
             scale_mode_enabled: model.approach_target_value.get(),
             rotate_is_enabled: model.rotate.get(),
+            make_absolute_enabled: model.make_absolute.get(),
         }
     }
 
@@ -169,5 +172,8 @@ impl ModeModelData {
         model
             .rotate
             .set_without_notification(self.rotate_is_enabled);
+        model
+            .make_absolute
+            .set_without_notification(self.make_absolute_enabled);
     }
 }

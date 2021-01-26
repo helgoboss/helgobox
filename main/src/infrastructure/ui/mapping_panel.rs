@@ -458,6 +458,14 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mode_make_absolute(&mut self) {
+        self.mapping.mode_model.make_absolute.set(
+            self.view
+                .require_control(root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
     fn update_mode_out_of_range_behavior(&mut self) {
         let behavior = self
             .view
@@ -1877,6 +1885,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_step_controls();
         self.invalidate_mode_length_controls();
         self.invalidate_mode_rotate_check_box();
+        self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_round_target_value_check_box();
         self.invalidate_mode_approach_check_box();
@@ -1986,6 +1995,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.show_if(
             mode.supports_rotate() && target.can_report_current_value(),
             &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
+        );
+        self.show_if(
+            mode.supports_make_absolute(),
+            &[root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX],
         );
         self.show_if(
             mode.supports_eel_control_transformation(),
@@ -2273,6 +2286,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.rotate.get());
     }
 
+    fn invalidate_mode_make_absolute_check_box(&self) {
+        self.view
+            .require_control(root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX)
+            .set_checked(self.mode.make_absolute.get());
+    }
+
     fn invalidate_mode_out_of_range_behavior_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
@@ -2426,6 +2445,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when_do_sync(mode.rotate.changed(), |view| {
             view.invalidate_mode_rotate_check_box();
         });
+        self.panel
+            .when_do_sync(mode.make_absolute.changed(), |view| {
+                view.invalidate_mode_make_absolute_check_box();
+                view.invalidate_mode_step_controls();
+            });
         self.panel.when_do_sync(mode.reverse.changed(), |view| {
             view.invalidate_mode_reverse_check_box();
         });
@@ -2612,6 +2636,7 @@ impl View for MappingPanel {
             ID_SOURCE_14_BIT_CHECK_BOX => self.write(|p| p.update_source_is_14_bit()),
             // Mode
             ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
+            ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => self.write(|p| p.update_mode_make_absolute()),
             ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX => {
                 self.write(|p| p.update_mode_round_target_value())
             }

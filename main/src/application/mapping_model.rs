@@ -280,6 +280,10 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn uses_step_counts(&self) -> bool {
+        if self.mapping.mode_model.make_absolute.get() {
+            // If we convert increments to absolute values, we want step sizes of course.
+            return false;
+        }
         let target = match self.target_with_context().create_target().ok() {
             None => return false,
             Some(t) => t,

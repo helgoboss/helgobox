@@ -43,6 +43,7 @@ pub struct ModeModel {
     /// by the maximum value.
     pub step_interval: Prop<Interval<SoftSymmetricUnitValue>>,
     pub rotate: Prop<bool>,
+    pub make_absolute: Prop<bool>,
 }
 
 impl Default for ModeModel {
@@ -64,6 +65,7 @@ impl Default for ModeModel {
             eel_feedback_transformation: prop(String::new()),
             step_interval: prop(Self::default_step_size_interval()),
             rotate: prop(false),
+            make_absolute: prop(false),
         }
     }
 }
@@ -94,6 +96,7 @@ impl ModeModel {
         self.approach_target_value
             .set(def.approach_target_value.get());
         self.rotate.set(def.rotate.get());
+        self.make_absolute.set(def.make_absolute.get());
         self.reverse.set(def.reverse.get());
         self.step_interval.set(def.step_interval.get());
         self.press_duration_interval
@@ -116,6 +119,7 @@ impl ModeModel {
             .merge(self.step_interval.changed())
             .merge(self.rotate.changed())
             .merge(self.press_duration_interval.changed())
+            .merge(self.make_absolute.changed())
     }
 
     /// Creates a mode reflecting this model's current values
@@ -149,6 +153,8 @@ impl ModeModel {
                 OutputVariable::X,
             )
             .ok(),
+            convert_relative_to_absolute: self.make_absolute.get(),
+            current_absolute_value: UnitValue::MIN,
         }
     }
 
@@ -188,6 +194,11 @@ impl ModeModel {
     }
 
     pub fn supports_rotate(&self) -> bool {
+        // No matter which absolute mode, incoming relative values always support this
+        true
+    }
+
+    pub fn supports_make_absolute(&self) -> bool {
         // No matter which absolute mode, incoming relative values always support this
         true
     }
