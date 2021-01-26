@@ -231,7 +231,7 @@ BEGIN
     LTEXT           "Max", 0, 41, 291, 14, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "Max", ID_SETTINGS_MAX_TARGET_LABEL_TEXT, 257, 291, 14, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "%  127 ms", ID_SETTINGS_MAX_TARGET_VALUE_TEXT, 379, 291, 56, 9, NOT WS_GROUP | SS_LEFT | SS_WORDELLIPSIS, WS_EX_LEFT
-    LTEXT           "Feedback transformation (EEL, for example x = 1 - y)", ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL, 231, 312, 170, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
+    LTEXT           "Feedback transformation (EEL, for example \""x = 1 - y\"")", ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL, 231, 312, 197, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "Out-of-range behavior", ID_MODE_OUT_OF_RANGE_LABEL_TEXT, 15, 327, 70, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     GROUPBOX        "For knobs/faders and buttons (control only)", 0, 11, 344, 211, 109, 0, WS_EX_LEFT
     GROUPBOX        "For encoders and incremental buttons (control only)", 0, 227, 344, 211, 60, 0, WS_EX_LEFT
@@ -249,7 +249,7 @@ BEGIN
     GROUPBOX        "For buttons (control only)", 0, 227, 406, 211, 47, 0, WS_EX_LEFT
     LTEXT           "%  1 ms", ID_SETTINGS_MIN_LENGTH_VALUE_TEXT, 387, 418, 50, 9, NOT WS_GROUP | SS_LEFT | SS_WORDELLIPSIS, WS_EX_LEFT
     LTEXT           "Min", 0, 266, 419, 12, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
-    LTEXT           "Control transformation (EEL, for example y = 1 - x)", ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL, 15, 423, 168, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
+    LTEXT           "Control transformation (EEL, e.g. \""y = x^8\"" if you want a curve)", ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL, 15, 423, 205, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "Length", 0, 231, 426, 23, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
     LTEXT           "%  127 ms", ID_SETTINGS_MAX_LENGTH_VALUE_TEXT, 387, 435, 50, 9, NOT WS_GROUP | SS_LEFT | SS_WORDELLIPSIS, WS_EX_LEFT
     LTEXT           "Max", 0, 266, 437, 14, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
