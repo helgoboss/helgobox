@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-01-19 (v1.12.0-pre17)</code></td>
+  <td><code>2021-01-19 (v1.12.0-pre19)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1437,6 +1437,16 @@ can be converted to relative values - rotary encoders and buttons. They don't af
   decrement but the target already reached its minimum value. If checked, the target value will jump
   to its maximum value instead. It works analogously if there's an incoming increment and the target
   already reached its maximum value.
+- **Make absolute:** Check this box if you want to emulate an absolute control element with a relative encoder.
+  This is useful if you have configured your controller to be relative all the way (which is good!) but you want
+  to use a control transformation EEL formula - which is not possible if you change the target with relative
+  increments. It works by keeping an internal absolute value, incrementing or decrementing it accordingly and
+  then processing it just like normal absolute control values. By checking this box:
+    - You lose the possibility to be perfectly free of parameter jumps (but you can try to mitigate that loss by 
+      using the jump settings).
+    - You gain support for control-direction EEL transformation and source range.
+    - You can still use some of the relative-only features: Step size and rotate!
+  
 
 ##### For buttons (control only)
 
