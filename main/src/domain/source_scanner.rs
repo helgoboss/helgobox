@@ -264,7 +264,7 @@ fn guess_encoder_type(values: &[U7]) -> SourceCharacter {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     mod scanning {

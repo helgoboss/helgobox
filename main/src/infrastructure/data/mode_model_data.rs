@@ -1,9 +1,11 @@
-use crate::application::ModeModel;
+use crate::application::{App, ModeModel};
 use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
+use crate::infrastructure::data::MigrationDescriptor;
 use helgoboss_learn::{
     AbsoluteMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, UnitValue,
 };
 use serde::{Deserialize, Serialize};
+use slog::debug;
 use std::time::Duration;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -99,14 +101,35 @@ impl ModeModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut ModeModel) {
+    pub fn apply_to_model(
+        &self,
+        model: &mut ModeModel,
+        migration_descriptor: &MigrationDescriptor,
+        mapping_name: &str,
+    ) {
         model.r#type.set_without_notification(self.r#type);
         model
             .source_value_interval
             .set_without_notification(Interval::new(self.min_source_value, self.max_source_value));
-        model
-            .target_value_interval
-            .set_without_notification(Interval::new(self.min_target_value, self.max_target_value));
+        {
+            let saved_target_interval = Interval::new(self.min_target_value, self.max_target_value);
+            let actual_target_interval = if migration_descriptor.target_interval_transformation_117
+                && self.reverse_is_enabled
+                && self.r#type == AbsoluteMode::Normal
+            {
+                debug!(
+                    App::logger(),
+                    "Migration: Inverting target interval of mapping {} in order to not break existing behavior because of #117",
+                    mapping_name
+                );
+                saved_target_interval.inverse()
+            } else {
+                saved_target_interval
+            };
+            model
+                .target_value_interval
+                .set_without_notification(actual_target_interval);
+        }
         model
             .step_interval
             .set_without_notification(Interval::new(self.min_step_size, self.max_step_size));

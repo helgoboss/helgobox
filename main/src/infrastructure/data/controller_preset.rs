@@ -2,9 +2,12 @@ use crate::application::{ControllerPreset, Preset, PresetManager, SharedGroup, S
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedPresetManager, MappingModelData, PresetData,
+    ExtendedPresetManager, FileBasedPresetManager, MappingModelData, MigrationDescriptor,
+    PresetData,
 };
 
+use crate::infrastructure::plugin::App;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -53,6 +56,9 @@ impl ExtendedPresetManager for SharedControllerPresetManager {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControllerPresetData {
+    // Since ReaLearn 1.12.0-pre18
+    #[serde(default, skip_serializing_if = "is_default")]
+    version: Option<Version>,
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
@@ -67,6 +73,7 @@ impl PresetData for ControllerPresetData {
 
     fn from_model(controller: &ControllerPreset) -> ControllerPresetData {
         ControllerPresetData {
+            version: Some(App::version().clone()),
             id: Some(controller.id().to_string()),
             mappings: controller
                 .mappings()
@@ -79,12 +86,19 @@ impl PresetData for ControllerPresetData {
     }
 
     fn to_model(&self, id: String) -> ControllerPreset {
+        let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         ControllerPreset::new(
             id,
             self.name.clone(),
             self.mappings
                 .iter()
-                .map(|m| m.to_model(MappingCompartment::ControllerMappings, None))
+                .map(|m| {
+                    m.to_model(
+                        MappingCompartment::ControllerMappings,
+                        None,
+                        &migration_descriptor,
+                    )
+                })
                 .collect(),
             self.custom_data.clone(),
         )
@@ -92,5 +106,9 @@ impl PresetData for ControllerPresetData {
 
     fn clear_id(&mut self) {
         self.id = None;
+    }
+
+    fn was_saved_with_newer_version(&self) -> bool {
+        App::given_version_is_newer_than_app_version(self.version.as_ref())
     }
 }

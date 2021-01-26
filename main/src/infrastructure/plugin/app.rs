@@ -18,6 +18,7 @@ use reaper_medium::RegistrationHandle;
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use slog::{debug, Logger};
 use std::cell::{Ref, RefCell};
@@ -125,9 +126,25 @@ impl ListOfRecentlyFocusedFx {
 
 impl App {
     pub fn detailed_version_label() -> &'static str {
-        static DETAILED_VERSION: once_cell::sync::Lazy<String> =
-            once_cell::sync::Lazy::new(build_detailed_version);
-        &DETAILED_VERSION
+        use once_cell::sync::Lazy;
+        static VALUE: Lazy<String> = Lazy::new(build_detailed_version);
+        &VALUE
+    }
+
+    pub fn version() -> &'static Version {
+        use once_cell::sync::Lazy;
+        static VALUE: Lazy<Version> = Lazy::new(|| {
+            Version::parse(crate::infrastructure::plugin::built_info::PKG_VERSION).unwrap()
+        });
+        &VALUE
+    }
+
+    pub fn given_version_is_newer_than_app_version(version: Option<&Version>) -> bool {
+        if let Some(v) = version {
+            Self::version() < v
+        } else {
+            false
+        }
     }
 
     fn new(config: AppConfig) -> App {

@@ -81,8 +81,13 @@ impl RealearnPluginParameters {
         // Update session
         let shared_session = self.session().expect("session should exist already");
         let mut session = shared_session.borrow_mut();
+        if session_data.was_saved_with_newer_version() {
+            notification::warn(
+                "The session that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.",
+            );
+        }
         if let Err(e) = session_data.apply_to_model(&mut session) {
-            notification::warn(e)
+            notification::warn(e);
         }
         session.notify_everything_has_changed(Rc::downgrade(&shared_session));
         session.mark_project_as_dirty();

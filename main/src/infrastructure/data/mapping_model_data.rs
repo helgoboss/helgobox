@@ -2,7 +2,8 @@ use crate::application::{GroupId, MappingModel};
 use crate::core::default_util::is_default;
 use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
 use crate::infrastructure::data::{
-    ActivationConditionData, EnabledData, ModeModelData, SourceModelData, TargetModelData,
+    ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
+    TargetModelData,
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -57,16 +58,22 @@ impl MappingModelData {
         &self,
         compartment: MappingCompartment,
         context: Option<&ProcessorContext>,
+        migration_descriptor: &MigrationDescriptor,
     ) -> MappingModel {
         // Preliminary group ID
         let mut model = MappingModel::new(compartment, GroupId::default());
-        self.apply_to_model(&mut model, context);
+        self.apply_to_model(&mut model, context, migration_descriptor);
         model
     }
 
     /// The context is necessary only if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
-    fn apply_to_model(&self, model: &mut MappingModel, context: Option<&ProcessorContext>) {
+    fn apply_to_model(
+        &self,
+        model: &mut MappingModel,
+        context: Option<&ProcessorContext>,
+        migration_descriptor: &MigrationDescriptor,
+    ) {
         if let Some(id) = self.id {
             model.set_id_without_notification(id);
         }
@@ -75,7 +82,11 @@ impl MappingModelData {
         self.activation_condition_data
             .apply_to_model(model.activation_condition_model.borrow_mut());
         self.source.apply_to_model(model.source_model.borrow_mut());
-        self.mode.apply_to_model(model.mode_model.borrow_mut());
+        self.mode.apply_to_model(
+            model.mode_model.borrow_mut(),
+            migration_descriptor,
+            &self.name,
+        );
         self.target
             .apply_to_model(model.target_model.borrow_mut(), context);
         model

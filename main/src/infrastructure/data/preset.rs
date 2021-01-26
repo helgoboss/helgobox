@@ -3,6 +3,7 @@ use crate::application::{
 };
 use crate::infrastructure::data::{GroupModelData, MappingModelData};
 
+use crate::core::notification;
 use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -131,6 +132,11 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 e
             )
         })?;
+        if data.was_saved_with_newer_version() {
+            notification::warn(
+                "The preset that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving the preset might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.",
+            );
+        }
         Ok(data.to_model(id))
     }
 
@@ -225,4 +231,6 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
     fn to_model(&self, id: String) -> Self::P;
 
     fn clear_id(&mut self);
+
+    fn was_saved_with_newer_version(&self) -> bool;
 }

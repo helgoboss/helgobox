@@ -4,9 +4,13 @@ use crate::domain::{
     MappingCompartment, MidiControlInput, MidiFeedbackOutput, ParameterArray,
     PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
-use crate::infrastructure::data::{GroupModelData, MappingModelData, ParameterData};
+use crate::infrastructure::data::{
+    GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
+};
+use crate::infrastructure::plugin::App;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -21,7 +25,10 @@ use std::ops::Deref;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionData {
-    // Since ReaLearn 1.12.0
+    // Since ReaLearn 1.12.0-pre18
+    #[serde(default, skip_serializing_if = "is_default")]
+    version: Option<Version>,
+    // Since ReaLearn 1.12.0-pre?
     #[serde(default, skip_serializing_if = "is_default")]
     id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -64,8 +71,8 @@ pub struct SessionData {
 impl Default for SessionData {
     fn default() -> Self {
         use crate::application::session_defaults;
-        // This should be
         Self {
+            version: Some(App::version().clone()),
             id: None,
             let_matched_events_through: session_defaults::LET_MATCHED_EVENTS_THROUGH,
             let_unmatched_events_through: session_defaults::LET_UNMATCHED_EVENTS_THROUGH,
@@ -86,6 +93,10 @@ impl Default for SessionData {
 }
 
 impl SessionData {
+    pub fn was_saved_with_newer_version(&self) -> bool {
+        App::given_version_is_newer_than_app_version(self.version.as_ref())
+    }
+
     pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
         let from_mappings = |compartment| {
             session
@@ -94,6 +105,7 @@ impl SessionData {
                 .collect()
         };
         SessionData {
+            version: Some(App::version().clone()),
             id: Some(session.id().to_string()),
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
@@ -178,6 +190,7 @@ impl SessionData {
             }
         };
         // Mutation
+        let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         if let Some(id) = &self.id {
             session.id.set_without_notification(id.clone())
         };
@@ -212,9 +225,9 @@ impl SessionData {
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             session.set_mappings_without_notification(
                 compartment,
-                mappings
-                    .iter()
-                    .map(|m| m.to_model(compartment, Some(&processor_context))),
+                mappings.iter().map(|m| {
+                    m.to_model(compartment, Some(&processor_context), &migration_descriptor)
+                }),
             );
         };
         apply_mappings(MappingCompartment::MainMappings, &self.mappings);

@@ -2385,7 +2385,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "1.12.0-pre17"
+version = "1.12.0-pre18"
 dependencies = [
  "askama",
  "backtrace",
@@ -2427,6 +2427,7 @@ dependencies = [
  "rx-util",
  "rxrust",
  "scopeguard",
+ "semver",
  "serde",
  "serde_ini",
  "serde_json",

@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "1.12.0-pre17"
+version = "1.12.0-pre18"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -99,6 +99,8 @@ open = "1"
 serde_prometheus = { version = "0.1.5", optional = true }
 # In projection server, we must be able to handle controller IDs with special characters
 percent-encoding = "2.1.0"
+# For comparing ReaLearn versions in order to determine if preset migration is necessary
+semver = "0.9.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

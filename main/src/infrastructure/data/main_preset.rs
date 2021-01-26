@@ -2,9 +2,12 @@ use crate::application::{MainPreset, Preset, PresetManager, SharedGroup, SharedM
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData, PresetData,
+    ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,
+    MigrationDescriptor, PresetData,
 };
 
+use crate::infrastructure::plugin::App;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -51,6 +54,9 @@ impl ExtendedPresetManager for SharedMainPresetManager {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MainPresetData {
+    // Since ReaLearn 1.12.0-pre18
+    #[serde(default, skip_serializing_if = "is_default")]
+    version: Option<Version>,
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
@@ -67,6 +73,7 @@ impl PresetData for MainPresetData {
 
     fn from_model(preset: &MainPreset) -> MainPresetData {
         MainPresetData {
+            version: Some(App::version().clone()),
             id: Some(preset.id().to_string()),
             default_group: Some(GroupModelData::from_model(preset.default_group())),
             groups: preset
@@ -84,6 +91,7 @@ impl PresetData for MainPresetData {
     }
 
     fn to_model(&self, id: String) -> MainPreset {
+        let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         let final_default_group = self
             .default_group
             .as_ref()
@@ -96,12 +104,22 @@ impl PresetData for MainPresetData {
             self.groups.iter().map(|g| g.to_model()).collect(),
             self.mappings
                 .iter()
-                .map(|m| m.to_model(MappingCompartment::MainMappings, None))
+                .map(|m| {
+                    m.to_model(
+                        MappingCompartment::MainMappings,
+                        None,
+                        &migration_descriptor,
+                    )
+                })
                 .collect(),
         )
     }
 
     fn clear_id(&mut self) {
         self.id = None;
+    }
+
+    fn was_saved_with_newer_version(&self) -> bool {
+        App::given_version_is_newer_than_app_version(self.version.as_ref())
     }
 }

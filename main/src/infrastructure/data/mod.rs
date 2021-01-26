@@ -39,3 +39,6 @@ pub use preset_link::*;
 
 mod deserializers;
 use deserializers::*;
+
+mod migration;
+pub use migration::*;
