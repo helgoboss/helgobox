@@ -1645,9 +1645,17 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_FX_FOCUS_CHECK_BOX);
         let target = self.target;
         if target.supports_fx() {
-            b.show();
-            b.set_text("FX must have focus");
-            b.set_checked(target.enable_only_if_fx_has_focus.get());
+            if let Some(fx) = target.fx.get_ref().as_ref() {
+                if matches!(fx, VirtualFx::Focused) {
+                    b.hide();
+                } else {
+                    b.show();
+                    b.set_text("FX must have focus");
+                    b.set_checked(target.enable_only_if_fx_has_focus.get());
+                }
+            } else {
+                b.hide();
+            }
         } else if target.r#type.get() == ReaperTargetType::TrackSelection {
             b.show();
             b.set_text("Select exclusively");
@@ -1662,7 +1670,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_TRACK_SELECTED_CHECK_BOX);
         let target = self.target;
-        if target.supports_track() {
+        if target.supports_track() && !matches!(target.track.get_ref(), VirtualTrack::Selected) {
             b.show();
             b.set_checked(target.enable_only_if_track_selected.get());
         } else {
@@ -2386,6 +2394,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             view.invalidate_target_line_three();
             view.invalidate_target_fx_param_combo_box();
             view.invalidate_target_value_controls();
+            view.invalidate_target_only_if_fx_has_focus_check_box();
             view.invalidate_mode_controls();
         });
         self.panel
