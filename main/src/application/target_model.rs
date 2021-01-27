@@ -663,13 +663,11 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
         VirtualTrack::This
     } else if track.is_master_track() {
         VirtualTrack::Master
+    } else if context.is_on_monitoring_fx_chain() {
+        // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
+        VirtualTrack::Particular(TrackAnchor::Index(track.index().expect("impossible")))
     } else {
-        if context.is_on_monitoring_fx_chain() {
-            // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
-            VirtualTrack::Particular(TrackAnchor::Index(track.index().expect("impossible")))
-        } else {
-            VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
-        }
+        VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
     }
 }
 
@@ -679,13 +677,11 @@ fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
         anchor: if context.is_on_monitoring_fx_chain() {
             // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
             FxAnchor::Index(fx.index())
+        } else if let Some(guid) = fx.guid() {
+            FxAnchor::Id(guid, Some(fx.index()))
         } else {
-            if let Some(guid) = fx.guid() {
-                FxAnchor::Id(guid, Some(fx.index()))
-            } else {
-                // Don't know how that can happen but let's handle it gracefully.
-                FxAnchor::IdOrIndex(None, fx.index())
-            }
+            // Don't know how that can happen but let's handle it gracefully.
+            FxAnchor::IdOrIndex(None, fx.index())
         },
     }
 }
