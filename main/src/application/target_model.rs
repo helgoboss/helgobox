@@ -110,10 +110,7 @@ impl TargetModel {
         self.category.set(TargetCategory::Reaper);
         self.r#type.set(ReaperTargetType::from_target(target));
         if let Some(actual_fx) = target.fx() {
-            let virtual_fx = VirtualFx::Particular {
-                is_input_fx: actual_fx.is_input_fx(),
-                anchor: FxAnchor::IdOrIndex(actual_fx.guid(), actual_fx.index()),
-            };
+            let virtual_fx = virtualize_fx(actual_fx, context);
             self.fx.set(Some(virtual_fx));
             let track = if let Some(track) = actual_fx.track() {
                 track.clone()
@@ -667,7 +664,24 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
     } else if track.is_master_track() {
         VirtualTrack::Master
     } else {
-        VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
+        if context.is_on_monitoring_fx_chain() {
+            // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
+            VirtualTrack::Particular(TrackAnchor::Index(track.index().expect("impossible")))
+        } else {
+            VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
+        }
+    }
+}
+
+fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
+    VirtualFx::Particular {
+        is_input_fx: fx.is_input_fx(),
+        anchor: if context.is_on_monitoring_fx_chain() {
+            // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
+            FxAnchor::Index(fx.index())
+        } else {
+            FxAnchor::IdOrIndex(fx.guid(), fx.index())
+        },
     }
 }
 
