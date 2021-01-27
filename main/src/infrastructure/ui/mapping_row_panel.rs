@@ -303,6 +303,10 @@ impl MappingRowPanel {
         Ref::map(self.mapping.borrow(), |m| m.as_ref().unwrap())
     }
 
+    fn optional_mapping(&self) -> Option<SharedMapping> {
+        self.mapping.clone().into_inner()
+    }
+
     fn require_mapping_address(&self) -> *const MappingModel {
         self.mapping.borrow().as_ref().unwrap().as_ptr()
     }
@@ -317,14 +321,18 @@ impl MappingRowPanel {
         self.panel_manager.upgrade().expect("panel manager gone")
     }
 
-    fn move_mapping_within_list(&self, increment: isize) {
+    fn move_mapping_within_list(&self, increment: isize) -> Result<(), &'static str> {
+        // When we route keyboard input to ReaLearn and press space, it presses the "Up" button,
+        // even if we don't display the rows. Don't know why, but suppress a panic here.
+        let mapping = self.optional_mapping().ok_or("row has no mapping")?;
         let within_same_group = self.main_state.borrow().group_filter.get().is_some();
         let _ = self.session().borrow_mut().move_mapping_within_list(
             self.active_compartment(),
-            self.require_mapping().borrow().id(),
+            mapping.borrow().id(),
             within_same_group,
             increment,
         );
+        Ok(())
     }
 
     fn active_compartment(&self) -> MappingCompartment {
@@ -473,8 +481,12 @@ impl View for MappingRowPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
-            root::ID_UP_BUTTON => self.move_mapping_within_list(-1),
-            root::ID_DOWN_BUTTON => self.move_mapping_within_list(1),
+            root::ID_UP_BUTTON => {
+                let _ = self.move_mapping_within_list(-1);
+            }
+            root::ID_DOWN_BUTTON => {
+                let _ = self.move_mapping_within_list(1);
+            }
             root::ID_MAPPING_ROW_REMOVE_BUTTON => self.remove_mapping(),
             root::ID_MAPPING_ROW_DUPLICATE_BUTTON => self.duplicate_mapping(),
             root::ID_MAPPING_ROW_LEARN_SOURCE_BUTTON => self.toggle_learn_source(),
