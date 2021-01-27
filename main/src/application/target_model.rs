@@ -680,7 +680,12 @@ fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
             // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
             FxAnchor::Index(fx.index())
         } else {
-            FxAnchor::IdOrIndex(fx.guid(), fx.index())
+            if let Some(guid) = fx.guid() {
+                FxAnchor::Id(guid, Some(fx.index()))
+            } else {
+                // Don't know how that can happen but let's handle it gracefully.
+                FxAnchor::IdOrIndex(None, fx.index())
+            }
         },
     }
 }
