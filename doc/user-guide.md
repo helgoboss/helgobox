@@ -47,7 +47,7 @@ and intuitively without writing configuration files. All of that on a *per-insta
 are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
 control mappings just for the needs of one project!
 
-Nevertheless, since version 1.12.0, ReaLearn is also a great choice for setting up global mappings for usage across 
+Nevertheless, since version 2.0.0, ReaLearn is also a great choice for setting up global mappings for usage across 
 multiple projects. It provides a simple yet powerful preset system to make a set of mappings reusable in all of your
 projects. Just add ReaLearn to the monitoring FX chain of REAPER (View → Monitoring FX) and ReaLearn will be instantly
 available in all of your REAPER sessions without having to add it to a project first.
@@ -357,7 +357,7 @@ The header panel provides the following user interface elements, no matter if th
   you choose the corresponding MIDI input device. Be aware that both will only work if _Enable input
   from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
 - **MIDI feedback output:** Here you can choose if and where ReaLearn should send MIDI feedback. By
-  default it's set to _&lt;None&gt_ for no feedback. If you want to enable feedback, pick a MIDI
+  default it's set to _&lt;None&gt_; for no feedback. If you want to enable feedback, pick a MIDI
   output device here. Keep in mind that _Enable output to this device_ must be checked in REAPER's
   MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
   feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
@@ -378,7 +378,7 @@ The header panel provides the following user interface elements, no matter if th
   pressing _Import from clipboard_). For the programmers and script junkies out there: It's perfectly
   possible to program ReaLearn from outside by passing it a snippet of JSON via [REAPER's named parameter
   mechanism](https://www.reaper.fm/sdk/vst/vst_ext.php) (search for `named_parameter_name`). Parameter name
-  is `realearn/set-state"`.
+  is `set-state"`.
 - **Projection:** This is a quite unique feature that allows you to project a schematic representation
   of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close
   to your controller in order to see immediately which control element is mapped to which parameter.
@@ -894,14 +894,15 @@ This source reacts to incoming MIDI control-change messages.
   by looking at the emitted values. Naturally, the result is not always correct. The best guessing
   result can be achieved by turning the knob or encoder quickly and "passionately" into clockwise
   direction. Please note that guessing doesn't support encoder type 3. The possible values are:
-  - **Range element (knob, fader, etc.):** A control element that emits continuous absolute values. Examples: Faders,
-    knobs, modulation wheel, pitch bend, ribbon controller.
+  - **Range element (knob, fader, etc.):** A control element that emits continuous absolute values. Examples: Fader,
+    knob, modulation wheel, pitch bend, ribbon controller. Would also include a endless rotary encoder 
+    which is (maybe unknowingly) configured to transmit absolute values.
   - **Button (momentary):** A control element that can be pressed and emits absolute values. It emits a > 0%
     value when pressing it and optionally a 0% value when releasing it. Examples: Damper pedal.
     - Hint: There's no option "Button (toggle)" because ReaLearn can only take full control with momentary
       buttons. So make sure your controller buttons are in momentary mode! ReaLearn itself provides
       a toggle mode that is naturally more capable than your controller's built-in toggle mode.
-  - **Encoder (type _x_):** A control element that emits relative values, usually an endless rotary
+  - **Encoder (relative type _x_):** A control element that emits relative values, usually an endless rotary
     encoder. The _x_ specifies _how_ the relative values are sent. This 1:1 corresponds to the
     relative modes in REAPER's built-in MIDI learn:
     - **Type 1**:
@@ -1157,7 +1158,7 @@ of actions can roughly be divided into:
     - If the action reports an on/off state, feedback is completely supported though, otherwise not at all!
 4. Actions that have a complete range of values as state.
     - Example: "994. View: Adjust vertical zoom (MIDI CC/OSC only)"
-    - Since ReaLearn 1.12.0 and REAPER 6.20, there's special support for this type of actions. Starting from the first
+    - Since ReaLearn 2.0.0 and REAPER 6.20, there's special support for this type of actions. Starting from the first
       time this action is triggered, ReaLearn will track its current value.
     - That's why toggling is supported. Because ReaLearn itself takes care of toggling, you need to set *Invoke* to
       "Absolute" and Mode to "Toggle buttons".
@@ -1276,7 +1277,7 @@ virtual control element as source.
 As mentioned before, the tuning section defines the glue between a source and a target. It's divided into
 several sub sections some of which make sense for all kinds of sources and others only for some.
 
-**At first something important to understand:** Since ReaLearn 1.12.0, a mapping can deal with both *absolute*
+**At first something important to understand:** Since ReaLearn 2.0.0, a mapping can deal with both *absolute*
 and *relative* values, no matter what's set as *Mode*! ReaLearn checks the type of each emitted source value
 and interprets it correctly. The *Mode* dropdown has been sort of "degraded" because now it only applies to
 incoming *absolute* values and determines how to handle them (see further below). This change has been made 
@@ -1308,11 +1309,11 @@ The following elements are relevant for all kinds of sources, both in *control* 
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
   source value (= output value) and `y` is the current target value (= input value), so you must
   assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this
-  (ReaLearn versions < 1.12.0 contained a bug that caused step 2 and 3 to be swapped):
-  1. Apply reverse
-  2. Apply target interval
-  3. Apply transformation
-  4. Apply source interval
+  since version 2.0.0:
+  1. Apply target interval.
+  2. Apply reverse.
+  3. Apply transformation.
+  4. Apply source interval.
   
 The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
 *feedback* direction, not in *control* direction.
@@ -1388,8 +1389,8 @@ They don't apply to rotary encoders for example. They don't affect *feedback*.
   control processing order is like this:
   1. Apply source interval
   2. Apply transformation
-  3. Apply target interval
-  4. Apply reverse
+  3. Apply reverse
+  4. Apply target interval
   5. Apply rounding
 
 

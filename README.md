@@ -281,12 +281,12 @@ ReaLearn has a built-in REAPER action which attempts to look up symbol informati
 This serves mainly as checklist for ReaLearn's author.
 
 1. Bump up the version number in [main/Cargo.toml](main/Cargo.toml).
-    - Either to a prerelease (e.g. `1.12.0-pre1`) or a final release (e.g. `1.12.0`).
+    - Either to a prerelease (e.g. `2.0.0-pre1`) or a final release (e.g. `2.0.0`).
     - This is important for having the correct version number displayed in ReaLearn UI.
 1. Build at least once via `cargo build`.
     - This updates `Cargo.lock` and is important for not having the `-dirty` display in ReaLearn UI.
 1. Update the user guide if not done already.
-1. Create a version tag via `git tag v1.12.0-pre1`.
+1. Create a version tag via `git tag v2.0.0-pre1`.
 1. Push via `git push origin master --tags`.
 1. While GitHub Actions executes the release job, take care of the following.
     - Can only be done by @helgoboss because it needs access to the [helgoboss.org website repository](https://github.com/helgoboss/helgoboss-org).

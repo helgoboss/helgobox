@@ -206,4 +206,4 @@ impl PluginParameters for RealearnPluginParameters {
     }
 }
 
-pub const SET_STATE_PARAM_NAME: &str = "realearn/set-state";
+pub const SET_STATE_PARAM_NAME: &str = "set-state";
