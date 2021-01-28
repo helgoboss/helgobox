@@ -207,7 +207,7 @@ impl App {
         } else {
             panic!("App was not uninitialized anymore");
         };
-        crate::application::App::get().register_global_learn_action();
+        crate::application::App::get().register_global_learn_actions();
         server::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();

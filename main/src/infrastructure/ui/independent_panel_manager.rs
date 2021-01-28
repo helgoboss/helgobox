@@ -1,4 +1,4 @@
-use crate::infrastructure::ui::{MainPanel, MappingPanel, MessagePanel};
+use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
@@ -14,7 +14,7 @@ pub struct IndependentPanelManager {
     session: WeakSession,
     main_panel: WeakView<MainPanel>,
     mapping_panels: Vec<SharedView<MappingPanel>>,
-    message_panel: SharedView<MessagePanel>,
+    message_panel: SharedView<SessionMessagePanel>,
 }
 
 impl IndependentPanelManager {
@@ -23,7 +23,7 @@ impl IndependentPanelManager {
             session: session.clone(),
             main_panel,
             mapping_panels: Default::default(),
-            message_panel: SharedView::new(MessagePanel::new(session)),
+            message_panel: SharedView::new(SessionMessagePanel::new(session)),
         }
     }
 

@@ -1410,7 +1410,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             Selected => (Some(-2), None),
             Master => (Some(-1), None),
             Particular(anchor) => {
-                if let Ok(track) = anchor.resolve(self.session.context().project()) {
+                if let Ok(track) =
+                    anchor.resolve(self.session.context().project_or_current_project())
+                {
                     let track_item_data = track.index().map(|i| i as isize).unwrap_or(-1);
                     (Some(track_item_data), Some(anchor))
                 } else {

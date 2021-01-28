@@ -491,7 +491,7 @@ impl Session {
         // Prevent learning targets from in other project tabs (leads to weird effects, just think
         // about it)
         if let Some(p) = target.project() {
-            if p != self.context.project() {
+            if p != self.context.project_or_current_project() {
                 return;
             }
         }
@@ -1498,7 +1498,7 @@ impl Session {
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_project_as_dirty(&self) {
         debug!(self.logger, "Marking project as dirty");
-        self.context.project().mark_as_dirty();
+        self.context.project_or_current_project().mark_as_dirty();
     }
 
     pub fn logger(&self) -> &slog::Logger {

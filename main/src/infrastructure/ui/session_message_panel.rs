@@ -10,14 +10,14 @@ use std::rc::Rc;
 use swell_ui::{SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
-pub struct MessagePanel {
+pub struct SessionMessagePanel {
     view: ViewContext,
     session: WeakSession,
 }
 
-impl MessagePanel {
-    pub fn new(session: WeakSession) -> MessagePanel {
-        MessagePanel {
+impl SessionMessagePanel {
+    pub fn new(session: WeakSession) -> SessionMessagePanel {
+        SessionMessagePanel {
             view: Default::default(),
             session,
         }
@@ -94,7 +94,7 @@ impl MessagePanel {
     }
 }
 
-impl View for MessagePanel {
+impl View for SessionMessagePanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_MESSAGE_PANEL
     }

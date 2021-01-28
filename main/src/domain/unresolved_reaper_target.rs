@@ -69,7 +69,7 @@ impl UnresolvedReaperTarget {
             } => ReaperTarget::Action {
                 action: action.clone(),
                 invocation_type: *invocation_type,
-                project: context.project(),
+                project: context.project_or_current_project(),
             },
             FxParameter {
                 fx_descriptor,
@@ -112,10 +112,10 @@ impl UnresolvedReaperTarget {
                 send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             Tempo => ReaperTarget::Tempo {
-                project: context.project(),
+                project: context.project_or_current_project(),
             },
             Playrate => ReaperTarget::Playrate {
-                project: context.project(),
+                project: context.project_or_current_project(),
             },
             FxEnable { fx_descriptor } => ReaperTarget::FxEnable {
                 fx: get_fx(context, fx_descriptor)?,
@@ -124,13 +124,13 @@ impl UnresolvedReaperTarget {
                 fx: get_fx(context, fx_descriptor)?,
             },
             SelectedTrack => ReaperTarget::SelectedTrack {
-                project: context.project(),
+                project: context.project_or_current_project(),
             },
             AllTrackFxEnable { track_descriptor } => ReaperTarget::AllTrackFxEnable {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
             Transport { action } => ReaperTarget::Transport {
-                project: context.project(),
+                project: context.project_or_current_project(),
                 action: *action,
             },
         };
@@ -203,14 +203,14 @@ pub fn get_effective_track(
             .cloned()
             // If this is monitoring FX, we want this to resolve to the master track since
             // in most functions, monitoring FX chain is the "input FX chain" of the master track.
-            .unwrap_or_else(|| context.project().master_track()),
+            .unwrap_or_else(|| context.project_or_current_project().master_track()),
         Selected => context
-            .project()
+            .project_or_current_project()
             .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
             .ok_or("no track selected")?,
-        Master => context.project().master_track(),
+        Master => context.project_or_current_project().master_track(),
         Particular(anchor) => anchor
-            .resolve(context.project())
+            .resolve(context.project_or_current_project())
             .map_err(|_| "particular track couldn't be resolved")?,
     };
     Ok(track)
@@ -496,7 +496,7 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
         match self.virtual_track {
             This | Selected | Master => write!(f, "{}", self.virtual_track),
             Particular(anchor) => {
-                if let Ok(t) = anchor.resolve(self.context.project()) {
+                if let Ok(t) = anchor.resolve(self.context.project_or_current_project()) {
                     write!(f, "{}", get_track_label(&t))
                 } else {
                     write!(f, "<Not present> ({})", anchor)

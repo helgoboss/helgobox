@@ -30,7 +30,8 @@ impl ProcessorContext {
         self.containing_fx.track()
     }
 
-    pub fn project(&self) -> Project {
+    /// This falls back to the current project if on the monitoring FX chain.
+    pub fn project_or_current_project(&self) -> Project {
         self.project
             .unwrap_or_else(|| Reaper::get().current_project())
     }

@@ -117,7 +117,7 @@ impl TargetModel {
             } else {
                 // Must be monitoring FX. In this case we want the master track (it's REAPER's
                 // convention and ours).
-                context.project().master_track()
+                context.project_or_current_project().master_track()
             };
             self.track.set(virtualize_track(track, context));
         } else if let Some(track) = target.track() {
@@ -389,7 +389,7 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     pub fn project(&self) -> Project {
-        self.context.project()
+        self.context.project_or_current_project()
     }
 
     // TODO-low Consider returning a Cow
@@ -658,7 +658,7 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
     let own_track = context
         .track()
         .cloned()
-        .unwrap_or_else(|| context.project().master_track());
+        .unwrap_or_else(|| context.project_or_current_project().master_track());
     if own_track == track {
         VirtualTrack::This
     } else if track.is_master_track() {

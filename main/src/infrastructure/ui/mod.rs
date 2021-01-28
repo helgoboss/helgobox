@@ -24,8 +24,8 @@ pub use mapping_panel::*;
 mod group_panel;
 pub use group_panel::*;
 
-mod message_panel;
-pub use message_panel::*;
+mod session_message_panel;
+pub use session_message_panel::*;
 
 mod independent_panel_manager;
 pub use independent_panel_manager::*;

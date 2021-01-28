@@ -105,7 +105,7 @@ impl App {
     //  But right now the control surface calls next() on the subjects anyway. And this listener
     //  does nothing more than cloning the target and writing it to a variable. So maybe not so bad
     //  performance-wise.
-    pub fn register_global_learn_action(&self) {
+    pub fn register_global_learn_actions(&self) {
         let last_touched_target: SharedReaperTarget = Rc::new(RefCell::new(None));
         let last_touched_target_clone = last_touched_target.clone();
         // TODO-low Maybe unsubscribe when last ReaLearn instance gone.
@@ -114,7 +114,7 @@ impl App {
         });
         Reaper::get().register_action(
             "realearnLearnSourceForLastTouchedTarget",
-            "ReaLearn: Learn source for last touched target",
+            "ReaLearn: Learn source for last touched target (replacing mapping with existing target)",
             move || {
                 // We borrow this only very shortly so that the mutable borrow when touching the
                 // target can't interfere.
@@ -137,7 +137,10 @@ impl App {
     ) {
         // Try to find an existing session which has a target with that parameter
         let session = self
-            .find_first_session_in_current_project_with_target(compartment, target)
+            .find_first_session_with_target_in_current_project_or_monitoring_fx_chain(
+                compartment,
+                target,
+            )
             // If not found, find the instance on the parameter's track (if there's one)
             .or_else(|| {
                 target
@@ -145,7 +148,7 @@ impl App {
                     .and_then(|t| self.find_first_session_on_track(t))
             })
             // If not found, find a random instance
-            .or_else(|| self.find_first_session_in_current_project());
+            .or_else(|| self.find_first_session_in_current_project_or_monitoring_fx_chain());
         match session {
             None => {
                 notification::alert("Please add a ReaLearn FX to this project first!");
@@ -159,14 +162,14 @@ impl App {
         }
     }
 
-    fn find_first_session_in_current_project_with_target(
+    fn find_first_session_with_target_in_current_project_or_monitoring_fx_chain(
         &self,
         compartment: MappingCompartment,
         target: &ReaperTarget,
     ) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == Reaper::get().current_project()
+            session.context().project_or_current_project() == Reaper::get().current_project()
                 && session
                     .find_mapping_with_target(compartment, target)
                     .is_some()
@@ -180,10 +183,12 @@ impl App {
         })
     }
 
-    fn find_first_session_in_current_project(&self) -> Option<SharedSession> {
+    fn find_first_session_in_current_project_or_monitoring_fx_chain(
+        &self,
+    ) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == Reaper::get().current_project()
+            session.context().project_or_current_project() == Reaper::get().current_project()
         })
     }
 
