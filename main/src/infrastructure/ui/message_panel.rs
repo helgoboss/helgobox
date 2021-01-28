@@ -4,31 +4,39 @@ use std::cell::RefCell;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use wrap_debug::WrapDebug;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MessagePanel {
     view: ViewContext,
     content: RefCell<MessagePanelContent>,
-    on_close: WrapDebug<Box<dyn Fn()>>,
 }
 
 #[derive(Debug)]
 struct MessagePanelContent {
     title: String,
     message: String,
+    on_close: WrapDebug<Box<dyn FnOnce()>>,
+}
+
+impl Default for MessagePanelContent {
+    fn default() -> Self {
+        Self {
+            title: "".to_string(),
+            message: "".to_string(),
+            on_close: WrapDebug(Box::new(|| ())),
+        }
+    }
 }
 
 impl MessagePanel {
-    pub fn new(title: String, message: String, on_close: impl Fn() + 'static) -> MessagePanel {
-        MessagePanel {
-            view: Default::default(),
-            content: RefCell::new(MessagePanelContent { title, message }),
+    pub fn set_content(&self, title: String, message: String, on_close: impl FnOnce() + 'static) {
+        self.content.replace(MessagePanelContent {
+            title,
+            message,
             on_close: WrapDebug(Box::new(on_close)),
+        });
+        if self.is_open() {
+            self.invalidate();
         }
-    }
-
-    pub fn set_title_and_message(&self, title: String, message: String) {
-        self.content.replace(MessagePanelContent { title, message });
-        self.invalidate();
     }
 
     fn invalidate(&self) {
@@ -37,6 +45,11 @@ impl MessagePanel {
         self.view
             .require_control(root::ID_MESSAGE_TEXT)
             .set_text(content.message.as_str());
+    }
+
+    fn on_close(&self) {
+        let content = self.content.replace(Default::default());
+        (content.on_close.into_inner())();
     }
 }
 
@@ -55,13 +68,13 @@ impl View for MessagePanel {
     }
 
     fn closed(self: SharedView<Self>, _window: Window) {
-        (self.on_close)();
+        self.on_close();
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Escape key
-            raw::IDCANCEL => (self.on_close)(),
+            raw::IDCANCEL => self.on_close(),
             _ => unreachable!(),
         }
     }

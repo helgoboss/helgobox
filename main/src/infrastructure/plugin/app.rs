@@ -13,6 +13,7 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
+use crate::infrastructure::ui::MessagePanel;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::RegistrationHandle;
@@ -26,6 +27,7 @@ use std::cell::{Ref, RefCell};
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use swell_ui::{SharedView, View};
 use url::Url;
 
 make_available_globally_in_main_thread!(App);
@@ -53,6 +55,7 @@ pub struct App {
     audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
     sessions: RefCell<Vec<WeakSession>>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
+    message_panel: SharedView<MessagePanel>,
 }
 
 #[derive(Debug)]
@@ -186,6 +189,7 @@ impl App {
             audio_hook_task_sender: audio_sender,
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
+            message_panel: Default::default(),
         }
     }
 
@@ -591,6 +595,23 @@ impl App {
         self.sessions_changed_subject.borrow_mut().next(());
     }
 
+    pub fn show_message_panel(
+        &self,
+        title: impl Into<String>,
+        msg: impl Into<String>,
+        on_close: impl FnOnce() + 'static,
+    ) {
+        self.message_panel
+            .set_content(title.into(), msg.into(), on_close);
+        if !self.message_panel.is_open() {
+            self.message_panel.clone().open_without_parent();
+        }
+    }
+
+    pub fn close_message_panel(&self) {
+        self.message_panel.close();
+    }
+
     // TODO-medium I'm not sure if it's worth that constantly listening to target changes ...
     //  But right now the control surface calls next() on the subjects anyway. And this listener
     //  does nothing more than cloning the target and writing it to a variable. So maybe not so bad
@@ -630,6 +651,7 @@ impl App {
     }
 
     fn learn_replacing_source(&self, compartment: MappingCompartment) {
+        self.show_message_panel("Test", "Test", || ());
         // TODO
     }
 
