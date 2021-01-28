@@ -102,8 +102,7 @@ impl Plugin for RealearnPlugin {
             let (parameter_main_task_sender, parameter_main_task_receiver) =
                 crossbeam_channel::unbounded();
             let instance_id = nanoid::nanoid!(8);
-            let logger =
-                crate::application::App::logger().new(o!("instance" => instance_id.clone()));
+            let logger = App::logger().new(o!("instance" => instance_id.clone()));
             let plugin_parameters =
                 Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
             let real_time_processor = RealTimeProcessor::new(
@@ -367,7 +366,7 @@ impl RealearnPlugin {
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
                 server::keep_informing_clients_about_session_events(&shared_session);
-                crate::application::App::get().register_session(weak_session.clone());
+                App::get().register_session(weak_session.clone());
                 // Register the main processor with the global ReaLearn control surface. We let it
                 // call by the control surface because it must be called regularly,
                 // even when the ReaLearn UI is closed. That means, the VST GUI idle
@@ -467,7 +466,7 @@ impl Drop for RealearnPlugin {
         debug!(self.logger, "Dropping plug-in...");
         if let Some(session) = self.session.borrow() {
             App::get().unregister_processor_couple(&self.instance_id);
-            crate::application::App::get().unregister_session(session.as_ptr());
+            App::get().unregister_session(session.as_ptr());
             debug!(
                 self.logger,
                 "{} pointers are still referring to this session",

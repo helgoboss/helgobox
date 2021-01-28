@@ -981,7 +981,7 @@ impl HeaderPanel {
         if new_session_id == current_session_id {
             return;
         }
-        if crate::application::App::get().has_session(&new_session_id) {
+        if App::get().has_session(&new_session_id) {
             self.view.require_window().alert(
                 "ReaLearn",
                 "There's another open ReaLearn session which already has this session ID!",

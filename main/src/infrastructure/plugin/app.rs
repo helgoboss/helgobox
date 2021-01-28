@@ -1,9 +1,10 @@
-use crate::application::WeakSession;
+use crate::application::{Session, SharedSession, WeakSession};
 use crate::core::default_util::is_default;
-use crate::core::Global;
+use crate::core::{notification, Global};
 use crate::domain::{
-    MainProcessor, RealearnAudioHook, RealearnAudioHookTask, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, SharedRealTimeProcessor,
+    MainProcessor, MappingCompartment, RealearnAudioHook, RealearnAudioHookTask,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
@@ -12,7 +13,7 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
-use reaper_high::{CrashInfo, Fx, MiddlewareControlSurface, Reaper};
+use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::RegistrationHandle;
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
@@ -20,7 +21,7 @@ use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use slog::{debug, Logger};
+use slog::{debug, Drain, Logger};
 use std::cell::{Ref, RefCell};
 use std::fs;
 use std::path::PathBuf;
@@ -50,6 +51,8 @@ pub struct App {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
+    sessions: RefCell<Vec<WeakSession>>,
+    sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
 #[derive(Debug)]
@@ -104,7 +107,7 @@ impl Default for App {
         // TODO-low Not so super cool to load from a file in the default function. However,
         //  that made it easier for our make_available_globally_in_main_thread!().
         let config = AppConfig::load().unwrap_or_else(|e| {
-            debug!(crate::application::App::logger(), "{}", e);
+            debug!(App::logger(), "{}", e);
             Default::default()
         });
         App::new(config)
@@ -181,6 +184,8 @@ impl App {
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
             audio_hook_task_sender: audio_sender,
+            sessions: Default::default(),
+            sessions_changed_subject: Default::default(),
         }
     }
 
@@ -207,7 +212,7 @@ impl App {
         } else {
             panic!("App was not uninitialized anymore");
         };
-        crate::application::App::get().register_global_learn_actions();
+        App::get().register_global_learn_actions();
         server::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
@@ -219,7 +224,7 @@ impl App {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            &crate::application::App::logger(),
+            &App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
             std::env::var("REALEARN_METER").is_ok(),
@@ -256,7 +261,7 @@ impl App {
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         // Audio hook and control surface
         debug!(
-            crate::application::App::logger(),
+            App::logger(),
             "Registering ReaLearn audio hook and control surface..."
         );
         let audio_hook_handle = session
@@ -283,7 +288,7 @@ impl App {
         };
         let mut session = Reaper::get().medium_session();
         debug!(
-            crate::application::App::logger(),
+            App::logger(),
             "Unregistering ReaLearn control surface and audio hook..."
         );
         let (control_surface, audio_hook) = unsafe {
@@ -469,11 +474,16 @@ impl App {
     pub fn log_debug_info(&self, session_id: &str) {
         let msg = format!(
             "\n\
-        # App (infrastructure layer)\n\
+        # App\n\
         \n\
         - State: {:#?}\n\
+        - Session count: {}\n\
+        - Module base address: {:?}\n\
+        - Backtrace (GENERATED INTENTIONALLY!)
         ",
-            self.state.borrow()
+            self.state.borrow(),
+            self.sessions.borrow().len(),
+            determine_module_base_address().map(|addr| format!("0x{:x}", addr)),
         );
         Reaper::get().show_console_msg(msg);
         self.server.borrow().log_debug_info(session_id);
@@ -482,7 +492,7 @@ impl App {
             .send(RealearnControlSurfaceMainTask::LogDebugInfo)
             .unwrap();
         // Must be the last because it (intentionally) panics
-        crate::application::App::get().log_debug_info();
+        panic!("Backtrace");
     }
 
     pub fn changed(&self) -> impl UnitEvent {
@@ -516,6 +526,181 @@ impl App {
 
     pub fn realearn_auto_load_configs_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("auto-load-configs")
+    }
+
+    // We need this to be static because we need it at plugin construction time, so we don't have
+    // REAPER API access yet. App needs REAPER API to be constructed (e.g. in order to
+    // know where's the resource directory that contains the app configuration).
+    // TODO-low In future it might be wise to turn to a different logger as soon as REAPER API
+    //  available. Then we can also do file logging to ReaLearn resource folder.
+    pub fn logger() -> &'static slog::Logger {
+        static APP_LOGGER: once_cell::sync::Lazy<slog::Logger> = once_cell::sync::Lazy::new(|| {
+            env_logger::init_from_env("REALEARN_LOG");
+            slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
+        });
+        &APP_LOGGER
+    }
+
+    pub fn sessions_changed(&self) -> impl UnitEvent {
+        self.changed_subject.borrow().clone()
+    }
+
+    pub fn has_session(&self, session_id: &str) -> bool {
+        self.find_session_by_id(session_id).is_some()
+    }
+
+    pub fn find_session_by_id(&self, session_id: &str) -> Option<SharedSession> {
+        self.find_session(|session| {
+            let session = session.borrow();
+            session.id() == session_id
+        })
+    }
+
+    pub fn register_session(&self, session: WeakSession) {
+        let mut sessions = self.sessions.borrow_mut();
+        debug!(Reaper::get().logger(), "Registering new session...");
+        sessions.push(session);
+        debug!(
+            Reaper::get().logger(),
+            "Session registered. Session count: {}",
+            sessions.len()
+        );
+        self.notify_sessions_changed();
+    }
+
+    pub fn unregister_session(&self, session: *const Session) {
+        let mut sessions = self.sessions.borrow_mut();
+        debug!(Reaper::get().logger(), "Unregistering session...");
+        sessions.retain(|s| {
+            match s.upgrade() {
+                // Already gone, for whatever reason. Time to throw out!
+                None => false,
+                // Not gone yet.
+                Some(shared_session) => shared_session.as_ptr() != session as _,
+            }
+        });
+        debug!(
+            Reaper::get().logger(),
+            "Session unregistered. Remaining count of managed sessions: {}",
+            sessions.len()
+        );
+        self.notify_sessions_changed();
+    }
+
+    fn notify_sessions_changed(&self) {
+        self.sessions_changed_subject.borrow_mut().next(());
+    }
+
+    // TODO-medium I'm not sure if it's worth that constantly listening to target changes ...
+    //  But right now the control surface calls next() on the subjects anyway. And this listener
+    //  does nothing more than cloning the target and writing it to a variable. So maybe not so bad
+    //  performance-wise.
+    pub fn register_global_learn_actions(&self) {
+        type SharedReaperTarget = Rc<RefCell<Option<ReaperTarget>>>;
+        let last_touched_target: SharedReaperTarget = Rc::new(RefCell::new(None));
+        let last_touched_target_clone = last_touched_target.clone();
+        // TODO-low Maybe unsubscribe when last ReaLearn instance gone.
+        ReaperTarget::touched().subscribe(move |target| {
+            last_touched_target_clone.replace(Some((*target).clone()));
+        });
+        Reaper::get().register_action(
+            "realearnLearnSourceForLastTouchedTarget",
+            "ReaLearn: Learn source for last touched target (replacing mapping with existing target)",
+            move || {
+                // We borrow this only very shortly so that the mutable borrow when touching the
+                // target can't interfere.
+                let target = last_touched_target.borrow().clone();
+                let target = match target.as_ref() {
+                    None => return,
+                    Some(t) => t,
+                };
+                App::get()
+                    .start_learning_source_for_target(MappingCompartment::MainMappings, &target);
+            },
+            ActionKind::NotToggleable,
+        );
+        Reaper::get().register_action(
+            "REALEARN_LEARN_REPLACING_SOURCE",
+            "ReaLearn: Learn mapping (replacing mapping with existing source)",
+            move || {
+                App::get().learn_replacing_source(MappingCompartment::MainMappings);
+            },
+            ActionKind::NotToggleable,
+        );
+    }
+
+    fn learn_replacing_source(&self, compartment: MappingCompartment) {
+        // TODO
+    }
+
+    fn start_learning_source_for_target(
+        &self,
+        compartment: MappingCompartment,
+        target: &ReaperTarget,
+    ) {
+        // Try to find an existing session which has a target with that parameter
+        let session = self
+            .find_first_session_with_target_in_current_project_or_monitoring_fx_chain(
+                compartment,
+                target,
+            )
+            // If not found, find the instance on the parameter's track (if there's one)
+            .or_else(|| {
+                target
+                    .track()
+                    .and_then(|t| self.find_first_session_on_track(t))
+            })
+            // If not found, find a random instance
+            .or_else(|| self.find_first_session_in_current_project_or_monitoring_fx_chain());
+        match session {
+            None => {
+                notification::alert("Please add a ReaLearn FX to this project first!");
+            }
+            Some(s) => {
+                let mapping =
+                    s.borrow_mut()
+                        .toggle_learn_source_for_target(&s, compartment, target);
+                s.borrow().show_mapping(mapping.as_ptr());
+            }
+        }
+    }
+
+    fn find_first_session_with_target_in_current_project_or_monitoring_fx_chain(
+        &self,
+        compartment: MappingCompartment,
+        target: &ReaperTarget,
+    ) -> Option<SharedSession> {
+        self.find_session(|session| {
+            let session = session.borrow();
+            session.context().project_or_current_project() == Reaper::get().current_project()
+                && session
+                    .find_mapping_with_target(compartment, target)
+                    .is_some()
+        })
+    }
+
+    fn find_first_session_on_track(&self, track: &Track) -> Option<SharedSession> {
+        self.find_session(|session| {
+            let session = session.borrow();
+            session.context().track().contains(&track)
+        })
+    }
+
+    fn find_first_session_in_current_project_or_monitoring_fx_chain(
+        &self,
+    ) -> Option<SharedSession> {
+        self.find_session(|session| {
+            let session = session.borrow();
+            session.context().project_or_current_project() == Reaper::get().current_project()
+        })
+    }
+
+    fn find_session(&self, predicate: impl FnMut(&SharedSession) -> bool) -> Option<SharedSession> {
+        self.sessions
+            .borrow()
+            .iter()
+            .filter_map(|s| s.upgrade())
+            .find(predicate)
     }
 
     fn server_resource_dir_path() -> PathBuf {
@@ -671,4 +856,12 @@ pub fn warn_about_failed_server_start(info: String) {
         "Couldn't start ReaLearn projection server because {}",
         info
     ))
+}
+
+fn determine_module_base_address() -> Option<usize> {
+    let hinstance = Reaper::get()
+        .medium_reaper()
+        .plugin_context()
+        .h_instance()?;
+    Some(hinstance.as_ptr() as usize)
 }

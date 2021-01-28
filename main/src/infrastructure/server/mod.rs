@@ -301,7 +301,7 @@ fn sender_dropped_response() -> Response<&'static str> {
 }
 
 fn handle_controller_routing_route(session_id: String) -> Result<Json, Response<&'static str>> {
-    let session = crate::application::App::get()
+    let session = App::get()
         .find_session_by_id(&session_id)
         .ok_or_else(session_not_found)?;
     let routing = get_controller_routing(&session.borrow());
@@ -373,7 +373,7 @@ fn bad_request(msg: &'static str) -> Response<&'static str> {
 }
 
 fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static str>> {
-    let session = crate::application::App::get()
+    let session = App::get()
         .find_session_by_id(&session_id)
         .ok_or_else(session_not_found)?;
     let session = session.borrow();
@@ -390,7 +390,7 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
 }
 
 fn handle_session_route(session_id: String) -> Result<Json, Response<&'static str>> {
-    let _ = crate::application::App::get()
+    let _ = App::get()
         .find_session_by_id(&session_id)
         .ok_or_else(session_not_found)?;
     Ok(reply::json(&SessionResponseData {}))
@@ -661,7 +661,7 @@ impl WebSocketClient {
 pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>;
 
 pub fn keep_informing_clients_about_sessions() {
-    crate::application::App::get().changed().subscribe(|_| {
+    App::get().sessions_changed().subscribe(|_| {
         Global::task_support()
             .do_later_in_main_thread_asap(|| {
                 send_sessions_to_subscribed_clients();
@@ -712,10 +712,7 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
 }
 
 fn send_initial_session(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
-    let event = if crate::application::App::get()
-        .find_session_by_id(session_id)
-        .is_some()
-    {
+    let event = if App::get().find_session_by_id(session_id).is_some() {
         get_session_updated_event(session_id, Some(SessionResponseData {}))
     } else {
         get_session_updated_event(session_id, None)
@@ -727,8 +724,7 @@ fn send_initial_controller_routing(
     client: &WebSocketClient,
     session_id: &str,
 ) -> Result<(), &'static str> {
-    let event = if let Some(session) = crate::application::App::get().find_session_by_id(session_id)
-    {
+    let event = if let Some(session) = App::get().find_session_by_id(session_id) {
         get_controller_routing_updated_event(session_id, Some(&session.borrow()))
     } else {
         get_controller_routing_updated_event(session_id, None)
@@ -737,8 +733,7 @@ fn send_initial_controller_routing(
 }
 
 fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result<(), &'static str> {
-    let event = if let Some(session) = crate::application::App::get().find_session_by_id(session_id)
-    {
+    let event = if let Some(session) = App::get().find_session_by_id(session_id) {
         get_active_controller_updated_event(session_id, Some(&session.borrow()))
     } else {
         get_active_controller_updated_event(session_id, None)
