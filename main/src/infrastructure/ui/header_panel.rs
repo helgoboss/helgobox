@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use derive_more::Display;
 use std::rc::{Rc, Weak};
 
 use std::{iter, sync};
@@ -1473,14 +1474,45 @@ impl View for HeaderPanel {
 }
 
 fn get_midi_input_device_label(dev: MidiInputDevice) -> String {
-    get_midi_device_label(dev.name(), dev.id().get(), dev.is_connected())
+    get_midi_device_label(
+        dev.name(),
+        dev.id().get(),
+        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
+    )
 }
 
 fn get_midi_output_device_label(dev: MidiOutputDevice) -> String {
-    get_midi_device_label(dev.name(), dev.id().get(), dev.is_connected())
+    get_midi_device_label(
+        dev.name(),
+        dev.id().get(),
+        MidiDeviceStatus::from_flags(dev.is_open(), dev.is_connected()),
+    )
 }
 
-fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> String {
+#[derive(Display)]
+enum MidiDeviceStatus {
+    #[display(fmt = " <disconnected>")]
+    Disconnected,
+    #[display(fmt = " <connected but disabled>")]
+    ConnectedButDisabled,
+    #[display(fmt = "")]
+    Connected,
+}
+
+impl MidiDeviceStatus {
+    fn from_flags(open: bool, connected: bool) -> MidiDeviceStatus {
+        use MidiDeviceStatus::*;
+        match (open, connected) {
+            (false, false) => Disconnected,
+            (false, true) => ConnectedButDisabled,
+            // Shouldn't happen but cope with it.
+            (true, false) => Disconnected,
+            (true, true) => Connected,
+        }
+    }
+}
+
+fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatus) -> String {
     format!(
         "{}. {}{}",
         raw_id,
@@ -1488,7 +1520,7 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, connected: bool) -> Str
         // how MIDI devices encode their name. Indeed a user reported an error related to that:
         // https://github.com/helgoboss/realearn/issues/78
         name.into_inner().to_string_lossy(),
-        if connected { "" } else { " <not present>" }
+        status
     )
 }
 
