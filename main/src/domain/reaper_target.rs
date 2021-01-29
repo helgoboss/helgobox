@@ -474,6 +474,7 @@ impl ReaperTarget {
             // fx_focused() as a dynamic event, like track_selection_changed().
             .fx_focused()
             .map_to(())
+            .merge(rx.project_switched().map_to(()))
             .merge(rx.track_added().map_to(()))
             .merge(rx.track_removed().map_to(()))
             .merge(rx.tracks_reordered().map_to(()))
