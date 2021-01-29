@@ -648,12 +648,24 @@ impl App {
             ActionKind::NotToggleable,
         );
         Reaper::get().register_action(
-            "REALEARN_LEARN_REPLACING_SOURCE",
-            "ReaLearn: Learn mapping (replacing mapping with existing source)",
+            "REALEARN_LEARN_MAPPING_REASSIGNING_SOURCE",
+            "ReaLearn: Learn single mapping (reassigning source)",
             move || {
                 Global::future_support().spawn_in_main_thread_from_main_thread(async {
-                    let result = App::get()
-                        .learn_replacing_source(MappingCompartment::MainMappings)
+                    let _ = App::get()
+                        .learn_mapping_reassigning_source(MappingCompartment::MainMappings, false)
+                        .await;
+                });
+            },
+            ActionKind::NotToggleable,
+        );
+        Reaper::get().register_action(
+            "REALEARN_LEARN_MAPPING_REASSIGNING_SOURCE_OPEN",
+            "ReaLearn: Learn single mapping (reassigning source) and open it",
+            move || {
+                Global::future_support().spawn_in_main_thread_from_main_thread(async {
+                    let _ = App::get()
+                        .learn_mapping_reassigning_source(MappingCompartment::MainMappings, true)
                         .await;
                 });
             },
@@ -661,9 +673,10 @@ impl App {
         );
     }
 
-    async fn learn_replacing_source(
+    async fn learn_mapping_reassigning_source(
         &self,
         compartment: MappingCompartment,
+        open_mapping: bool,
     ) -> Result<(), &'static str> {
         if self.find_first_relevant_session().is_none() {
             self.close_message_panel_with_alert(
@@ -688,7 +701,7 @@ impl App {
             .prompt_for_next_reaper_target("Now touch the desired target!")
             .await?;
         self.close_message_panel();
-        if let Some((session, mapping)) =
+        let (session, mapping) = if let Some((session, mapping)) =
             self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
         {
             // There's already a mapping with that source. Change target of that mapping.
@@ -696,21 +709,31 @@ impl App {
                 .borrow_mut()
                 .target_model
                 .apply_from_target(&reaper_target, session.borrow().context());
+            (session, mapping)
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
             // session.
-            let mut session = session.borrow_mut();
-            let mapping = session.add_default_mapping(
-                compartment,
-                GroupId::default(),
-                VirtualControlElementType::Multi,
-            );
-            let mut mapping = mapping.borrow_mut();
-            let compound_source = session.create_compound_source(midi_source);
-            mapping.source_model.apply_from_source(&compound_source);
-            mapping
-                .target_model
-                .apply_from_target(&reaper_target, session.context());
+            let mapping = {
+                let mut s = session.borrow_mut();
+                let mapping = s.add_default_mapping(
+                    compartment,
+                    GroupId::default(),
+                    VirtualControlElementType::Multi,
+                );
+                let mut m = mapping.borrow_mut();
+                let compound_source = s.create_compound_source(midi_source);
+                m.source_model.apply_from_source(&compound_source);
+                m.target_model
+                    .apply_from_target(&reaper_target, s.context());
+                drop(m);
+                mapping
+            };
+            (session, mapping)
+        };
+        if open_mapping {
+            session
+                .borrow()
+                .show_mapping(compartment, mapping.borrow().id());
         }
         Ok(())
     }
@@ -786,7 +809,7 @@ impl App {
                 let mapping =
                     s.borrow_mut()
                         .toggle_learn_source_for_target(&s, compartment, target);
-                s.borrow().show_mapping(mapping.as_ptr());
+                s.borrow().show_mapping(compartment, mapping.borrow().id());
             }
         }
     }

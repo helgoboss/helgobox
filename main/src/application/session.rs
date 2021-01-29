@@ -29,7 +29,7 @@ use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
 pub trait SessionUi {
-    fn show_mapping(&self, mapping: *const MappingModel);
+    fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -1419,8 +1419,8 @@ impl Session {
         mapping
     }
 
-    pub fn show_mapping(&self, mapping: *const MappingModel) {
-        self.ui.show_mapping(mapping);
+    pub fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        self.ui.show_mapping(compartment, mapping_id);
     }
 
     /// Notifies listeners async that something in a mapping list has changed.

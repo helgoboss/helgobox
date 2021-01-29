@@ -11,7 +11,7 @@ use std::cell::{Cell, RefCell};
 
 use crate::application::{MappingModel, SessionUi, WeakSession};
 use crate::core::when;
-use crate::domain::MappingId;
+use crate::domain::{MappingCompartment, MappingId};
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
@@ -102,9 +102,10 @@ impl MainPanel {
         }
     }
 
-    pub fn edit_mapping(&self, mapping: *const MappingModel) {
+    pub fn edit_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
         if let Some(data) = self.active_data.borrow() {
-            data.mapping_rows_panel.edit_mapping(mapping);
+            data.mapping_rows_panel
+                .edit_mapping(compartment, mapping_id);
         }
     }
 
@@ -183,10 +184,10 @@ impl View for MainPanel {
 }
 
 impl SessionUi for Weak<MainPanel> {
-    fn show_mapping(&self, mapping: *const MappingModel) {
+    fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
         self.upgrade()
             .expect("main panel not existing anymore")
-            .edit_mapping(mapping);
+            .edit_mapping(compartment, mapping_id);
     }
 }
 
