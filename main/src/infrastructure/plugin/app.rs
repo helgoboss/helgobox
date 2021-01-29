@@ -667,7 +667,6 @@ impl App {
             .prompt_for_next_reaper_target("Now touch the desired target!")
             .await?;
         self.close_message_panel();
-        Reaper::get().show_console_msg(format!("{:?}", reaper_target));
         Ok(())
     }
 

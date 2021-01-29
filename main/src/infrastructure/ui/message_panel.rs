@@ -74,7 +74,7 @@ impl View for MessagePanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Escape key
-            raw::IDCANCEL => self.on_close(),
+            raw::IDCANCEL => self.close(),
             _ => unreachable!(),
         }
     }
