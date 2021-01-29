@@ -651,7 +651,15 @@ impl App {
     }
 
     fn learn_replacing_source(&self, compartment: MappingCompartment) {
-        self.show_message_panel("Test", "Test", || ());
+        self.show_message_panel("ReaLearn", "Please touch a control element", || {
+            App::get()
+                .audio_hook_task_sender
+                .send(RealearnAudioHookTask::StopLearning)
+                .unwrap();
+        });
+        self.audio_hook_task_sender
+            .send(RealearnAudioHookTask::StartLearning)
+            .unwrap();
         // TODO
     }
 

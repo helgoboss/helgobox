@@ -7,7 +7,7 @@ use crate::domain::{
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, UnitValue};
 
 use crate::core::Global;
 use reaper_high::Reaper;
@@ -636,7 +636,7 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
-    LearnSource(CompoundMappingSource),
+    LearnSource(MidiSource),
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

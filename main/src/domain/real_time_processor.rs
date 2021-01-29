@@ -1,9 +1,10 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingSourceValue, ControlMainTask, ControlOptions,
-    MappingCompartment, MappingId, MidiClockCalculator, NormalMainTask, PartialControlMatch,
-    RealTimeMapping, SourceScanner, UnresolvedCompoundMappingTarget, VirtualSourceValue,
+    classify_midi_message, CompoundMappingSource, CompoundMappingSourceValue, ControlMainTask,
+    ControlOptions, MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
+    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
+    UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -30,12 +31,12 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 pub(crate) enum ControlMode {
     Disabled,
     Controlling,
-    LearningSource(MappingCompartment),
+    LearningSource,
 }
 
 impl ControlMode {
     fn is_learning(&self) -> bool {
-        matches!(self, ControlMode::LearningSource(_))
+        matches!(self, ControlMode::LearningSource)
     }
 }
 
@@ -59,7 +60,7 @@ pub struct RealTimeProcessor {
     nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
     // For source learning
-    source_scanner: SourceScanner,
+    midi_source_scanner: MidiSourceScanner,
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
 }
@@ -92,7 +93,7 @@ impl RealTimeProcessor {
             cc_14_bit_scanner: Default::default(),
             midi_control_input: MidiControlInput::FxInput,
             midi_feedback_output: None,
-            source_scanner: Default::default(),
+            midi_source_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
         }
     }
@@ -134,39 +135,6 @@ impl RealTimeProcessor {
         if self.get_feedback_driver() == Driver::AudioHook {
             self.process_feedback_tasks(Caller::AudioHook);
         }
-        self.run(sample_count, Caller::AudioHook);
-    }
-
-    /// There's an important difference between using audio hook or VST plug-in as driver:
-    /// VST processing stops e.g. when project paused and track not armed or on input FX chain and
-    /// track not armed. The result is that control, feedback, mapping updates and many other things
-    /// wouldn't work anymore. That's why we prefer audio hook whenever possible. However, we can't
-    /// use the audio hook if we need access to the VST plug-in host callback because it's dangerous
-    /// (would crash when plug-in gone) and somehow strange (although it seems to work).
-    ///
-    /// **IMPORTANT**: If "MIDI control input" is set to a MIDI device, it's very important that
-    /// `run()` is called either just from the VST or just from the audio hook. If both do it,
-    /// the MIDI messages are processed **twice**!!! Easy solution: Never have two drivers.
-    fn get_feedback_driver(&self) -> Driver {
-        use Driver::*;
-        match self.midi_feedback_output {
-            // Feedback not sent at all. We still want to "eat" any remaining feedback messages.
-            // We do everything in the audio hook because it's more reliable.
-            None => AudioHook,
-            // Feedback sent directly to device. Same here: We let the audio hook do everything in
-            // order to not run into surprising situations where control or feedback don't work.
-            Some(MidiFeedbackOutput::Device(_)) => AudioHook,
-            // Feedback sent to FX output. Here we have to be more careful because sending feedback
-            // to FX output involves host callback invocation. This can only be done from the VST
-            // plug-in.
-            // TODO-medium Feedback tasks can queue up if VST processing stopped! Maybe we should
-            //  detect somehow if stopped and switch to audio hook in that case or stop sending?
-            Some(MidiFeedbackOutput::FxOutput) => Vst,
-        }
-    }
-
-    /// Should be called regularly in real-time audio thread.
-    fn run(&mut self, sample_count: usize, caller: Caller) {
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
@@ -228,12 +196,10 @@ impl RealTimeProcessor {
                     debug!(self.logger, "Updating sample rate");
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
-                StartLearnSource(compartment) => {
+                StartLearnSource => {
                     debug!(self.logger, "Start learning source");
-                    self.control_mode = ControlMode::LearningSource(compartment);
-                    self.nrpn_scanner.reset();
-                    self.cc_14_bit_scanner.reset();
-                    self.source_scanner.reset();
+                    self.control_mode = ControlMode::LearningSource;
+                    self.midi_source_scanner.reset();
                 }
                 DisableControl => {
                     debug!(self.logger, "Disable control");
@@ -262,14 +228,14 @@ impl RealTimeProcessor {
                 }
             }
         }
-        // Read MIDI events from devices
+        // Read MIDI events if MIDI control input set to device
         if let MidiControlInput::Device(dev) = self.midi_control_input {
             dev.with_midi_input(|mi| {
                 for evt in mi.get_read_buf().enum_items(0) {
                     self.process_incoming_midi(
                         evt.frame_offset(),
                         evt.message().to_other(),
-                        caller,
+                        Caller::AudioHook,
                     );
                 }
             });
@@ -277,12 +243,40 @@ impl RealTimeProcessor {
         // Poll (N)RPN scanner
         for ch in 0..16 {
             if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
-                self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
+                self.process_incoming_midi_normal_nrpn(nrpn_msg, Caller::AudioHook);
             }
         }
         // Poll source scanner if we are learning a source currently
         if self.control_mode.is_learning() {
             self.poll_source_scanner()
+        }
+    }
+
+    /// There's an important difference between using audio hook or VST plug-in as driver:
+    /// VST processing stops e.g. when project paused and track not armed or on input FX chain and
+    /// track not armed. The result is that control, feedback, mapping updates and many other things
+    /// wouldn't work anymore. That's why we prefer audio hook whenever possible. However, we can't
+    /// use the audio hook if we need access to the VST plug-in host callback because it's dangerous
+    /// (would crash when plug-in gone) and somehow strange (although it seems to work).
+    ///
+    /// **IMPORTANT**: If "MIDI control input" is set to a MIDI device, it's very important that
+    /// `run()` is called either just from the VST or just from the audio hook. If both do it,
+    /// the MIDI messages are processed **twice**!!! Easy solution: Never have two drivers.
+    fn get_feedback_driver(&self) -> Driver {
+        use Driver::*;
+        match self.midi_feedback_output {
+            // Feedback not sent at all. We still want to "eat" any remaining feedback messages.
+            // We do everything in the audio hook because it's more reliable.
+            None => AudioHook,
+            // Feedback sent directly to device. Same here: We let the audio hook do everything in
+            // order to not run into surprising situations where control or feedback don't work.
+            Some(MidiFeedbackOutput::Device(_)) => AudioHook,
+            // Feedback sent to FX output. Here we have to be more careful because sending feedback
+            // to FX output involves host callback invocation. This can only be done from the VST
+            // plug-in.
+            // TODO-medium Feedback tasks can queue up if VST processing stopped! Maybe we should
+            //  detect somehow if stopped and switch to audio hook in that case or stop sending?
+            Some(MidiFeedbackOutput::FxOutput) => Vst,
         }
     }
 
@@ -356,43 +350,21 @@ impl RealTimeProcessor {
         msg: RawShortMessage,
         caller: Caller,
     ) {
-        use ShortMessageType::*;
-        match msg.r#type() {
-            NoteOff
-            | NoteOn
-            | PolyphonicKeyPressure
-            | ControlChange
-            | ProgramChange
-            | ChannelPressure
-            | PitchBendChange
-            | Start
-            | Continue
-            | Stop => {
-                self.process_incoming_midi_normal(msg, caller);
-            }
-            SystemExclusiveStart
-            | TimeCodeQuarterFrame
-            | SongPositionPointer
-            | SongSelect
-            | SystemCommonUndefined1
-            | SystemCommonUndefined2
-            | TuneRequest
-            | SystemExclusiveEnd
-            | SystemRealTimeUndefined1
-            | SystemRealTimeUndefined2
-            | ActiveSensing
-            | SystemReset => {
+        use MidiMessageClassification::*;
+        match classify_midi_message(msg) {
+            Normal => self.process_incoming_midi_normal(msg, caller),
+            Ignored => {
                 // ReaLearn doesn't process those. Forward them if user wants it.
                 self.process_unmatched_short(msg, caller);
             }
-            TimingClock => {
+            Timing => {
                 // Timing clock messages are treated special (calculates BPM).
                 if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
                     let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
                     self.control_midi(source_value);
                 }
             }
-        };
+        }
     }
 
     /// This basically splits the stream of short MIDI messages into 3 streams:
@@ -401,97 +373,63 @@ impl RealTimeProcessor {
     /// - 14-bit CC messages
     /// - Short MIDI messaages
     fn process_incoming_midi_normal(&mut self, msg: RawShortMessage, caller: Caller) {
-        // TODO-low This is probably unnecessary optimization, but we could switch off
-        //  NRPN/CC14 scanning if there's no such source.
-        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
-            self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
-        }
-        if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
-            self.process_incoming_midi_normal_cc14(cc14_msg, caller);
-        }
-        // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still process the
-        // plain short MIDI message. This is desired. Rationale: If there's no mapping with a
-        // composite source of this kind, then all the CCs potentially involved in composite
-        // messages can still be used separately (e.g. CC 6, 38, 98, etc.). That's important!
-        // However, if there's at least one mapping source that listens to composite messages
-        // of the incoming kind, we need to make sure that the single messages can't be used
-        // anymore! Otherwise it would be confusing. They are consumed. That's the reason why
-        // we do the consumption check at a later state.
-        self.process_incoming_midi_normal_plain(msg, caller);
+        match self.control_mode {
+            ControlMode::Controlling => {
+                // TODO-low This is probably unnecessary optimization, but we could switch off
+                //  NRPN/CC14 scanning if there's no such source.
+                if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
+                    self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
+                }
+                if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
+                    self.process_incoming_midi_normal_cc14(cc14_msg, caller);
+                }
+                // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still process
+                // the plain short MIDI message. This is desired. Rationale: If
+                // there's no mapping with a composite source of this kind, then all
+                // the CCs potentially involved in composite messages can still be
+                // used separately (e.g. CC 6, 38, 98, etc.). That's important!
+                // However, if there's at least one mapping source that listens to composite
+                // messages of the incoming kind, we need to make sure that the
+                // single messages can't be used anymore! Otherwise it would be
+                // confusing. They are consumed. That's the reason why
+                // we do the consumption check at a later state.
+                self.process_incoming_midi_normal_plain(msg, caller);
+            }
+            ControlMode::LearningSource => {
+                if let Some(source) = self.midi_source_scanner.feed_short(msg) {
+                    self.learn_source(source);
+                }
+            }
+            ControlMode::Disabled => {}
+        };
     }
 
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage, caller: Caller) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        match self.control_mode {
-            ControlMode::Controlling => {
-                let matched = self.control_midi(source_value);
-                if self.midi_control_input != MidiControlInput::FxInput {
-                    return;
-                }
-                if (matched && self.let_matched_events_through)
-                    || (!matched && self.let_unmatched_events_through)
-                {
-                    for m in msg
-                        .to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst)
-                        .iter()
-                        .flatten()
-                    {
-                        self.send_midi_to_fx_output(*m, caller);
-                    }
-                }
+        let matched = self.control_midi(source_value);
+        if self.midi_control_input != MidiControlInput::FxInput {
+            return;
+        }
+        if (matched && self.let_matched_events_through)
+            || (!matched && self.let_unmatched_events_through)
+        {
+            for m in msg
+                .to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst)
+                .iter()
+                .flatten()
+            {
+                self.send_midi_to_fx_output(*m, caller);
             }
-            ControlMode::LearningSource(compartment) => {
-                self.feed_source_scanner(source_value, compartment);
-            }
-            ControlMode::Disabled => {}
         }
     }
 
     fn poll_source_scanner(&mut self) {
-        if let Some(source) = self.source_scanner.poll() {
+        if let Some(source) = self.midi_source_scanner.poll() {
             self.learn_source(source);
         }
     }
 
-    fn feed_source_scanner(
-        &mut self,
-        value: MidiSourceValue<RawShortMessage>,
-        compartment: MappingCompartment,
-    ) {
-        let compound_value = if compartment == MappingCompartment::ControllerMappings {
-            // Controller mappings can't have virtual sources, so we also don't want to learn them.
-            CompoundMappingSourceValue::Midi(value)
-        } else {
-            // All other mappings can have virtual sources and they should be preferred over direct
-            // ones.
-            self.virtualize_if_possible(value)
-        };
-        if let Some(source) = self.source_scanner.feed(compound_value) {
-            self.learn_source(source);
-        }
-    }
-
-    fn virtualize_if_possible(
-        &mut self,
-        value: MidiSourceValue<RawShortMessage>,
-    ) -> CompoundMappingSourceValue {
-        // If this MIDI source value translates to a virtual source value, return the first match.
-        for m in self.mappings[MappingCompartment::ControllerMappings]
-            .values_mut()
-            .filter(|m| m.control_is_effectively_on())
-        {
-            if let Some(control_match) = m.control(value) {
-                use PartialControlMatch::*;
-                if let ProcessVirtual(virtual_source_value) = control_match {
-                    return CompoundMappingSourceValue::Virtual(virtual_source_value);
-                };
-            }
-        }
-        // Otherwise just return the MIDI source value as is.
-        CompoundMappingSourceValue::Midi(value)
-    }
-
-    fn learn_source(&mut self, source: CompoundMappingSource) {
+    fn learn_source(&mut self, source: MidiSource) {
         // If plug-in dropped, the receiver might be gone already because main processor is
         // unregistered synchronously.
         let _ = self
@@ -505,49 +443,33 @@ impl RealTimeProcessor {
         caller: Caller,
     ) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        match self.control_mode {
-            ControlMode::Controlling => {
-                let matched = self.control_midi(source_value);
-                if self.midi_control_input != MidiControlInput::FxInput {
-                    return;
-                }
-                if (matched && self.let_matched_events_through)
-                    || (!matched && self.let_unmatched_events_through)
-                {
-                    for m in msg.to_short_messages::<RawShortMessage>().iter() {
-                        self.send_midi_to_fx_output(*m, caller);
-                    }
-                }
+        let matched = self.control_midi(source_value);
+        if self.midi_control_input != MidiControlInput::FxInput {
+            return;
+        }
+        if (matched && self.let_matched_events_through)
+            || (!matched && self.let_unmatched_events_through)
+        {
+            for m in msg.to_short_messages::<RawShortMessage>().iter() {
+                self.send_midi_to_fx_output(*m, caller);
             }
-            ControlMode::LearningSource(compartment) => {
-                self.feed_source_scanner(source_value, compartment);
-            }
-            ControlMode::Disabled => {}
         }
     }
 
     fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage, caller: Caller) {
         let source_value = MidiSourceValue::Plain(msg);
-        match self.control_mode {
-            ControlMode::Controlling => {
-                if self.is_consumed_by_at_least_one_source(msg) {
-                    // Some short MIDI messages are just parts of bigger composite MIDI messages,
-                    // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
-                    // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
-                    // and therefore doesn't qualify anymore as a candidate for normal CC sources.
-                    return;
-                }
-                let matched = self.control_midi(source_value);
-                if matched {
-                    self.process_matched_short(msg, caller);
-                } else {
-                    self.process_unmatched_short(msg, caller);
-                }
-            }
-            ControlMode::LearningSource(compartment) => {
-                self.feed_source_scanner(source_value, compartment);
-            }
-            ControlMode::Disabled => {}
+        if self.is_consumed_by_at_least_one_source(msg) {
+            // Some short MIDI messages are just parts of bigger composite MIDI messages,
+            // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
+            // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
+            // and therefore doesn't qualify anymore as a candidate for normal CC sources.
+            return;
+        }
+        let matched = self.control_midi(source_value);
+        if matched {
+            self.process_matched_short(msg, caller);
+        } else {
+            self.process_unmatched_short(msg, caller);
         }
     }
 
@@ -739,7 +661,7 @@ pub enum NormalRealTimeTask {
     UpdateMappingActivations(MappingCompartment, Vec<MappingActivationUpdate>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
-    StartLearnSource(MappingCompartment),
+    StartLearnSource,
     DisableControl,
     ReturnToControlMode,
 }

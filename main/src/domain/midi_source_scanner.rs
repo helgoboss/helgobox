@@ -1,6 +1,11 @@
 use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
-use helgoboss_midi::{Channel, ControllerNumber, ShortMessage, StructuredShortMessage, U7};
+use helgoboss_midi::{
+    Channel, ControlChange14BitMessageScanner, ControllerNumber,
+    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
+    StructuredShortMessage, U7,
+};
+use reaper_medium::MidiFrameOffset;
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
@@ -8,22 +13,27 @@ const MAX_CC_MSG_COUNT: usize = 10;
 const MAX_CC_WAITING_TIME: Duration = Duration::from_millis(250);
 
 #[derive(Debug)]
-enum State {
-    Initial,
-    WaitingForMoreCcMsgs(ControlChangeState),
-}
-
-#[derive(Debug)]
-pub struct SourceScanner {
+pub struct MidiSourceScanner {
+    // Scanners for more complex MIDI message types
+    nrpn_scanner: PollingParameterNumberMessageScanner,
+    cc_14_bit_scanner: ControlChange14BitMessageScanner,
     state: State,
 }
 
-impl Default for SourceScanner {
+impl Default for MidiSourceScanner {
     fn default() -> Self {
         Self {
+            nrpn_scanner: PollingParameterNumberMessageScanner::new(Duration::from_millis(1)),
+            cc_14_bit_scanner: Default::default(),
             state: State::Initial,
         }
     }
+}
+
+#[derive(Debug)]
+enum State {
+    Initial,
+    WaitingForMoreCcMsgs(ControlChangeState),
 }
 
 #[derive(Debug)]
@@ -61,86 +71,91 @@ impl ControlChangeState {
     }
 }
 
-impl SourceScanner {
-    pub fn feed(
-        &mut self,
-        source_value: CompoundMappingSourceValue,
-    ) -> Option<CompoundMappingSource> {
+impl MidiSourceScanner {
+    pub fn feed_short(&mut self, msg: RawShortMessage) -> Option<MidiSource> {
+        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
+            let res = self.feed(MidiSourceValue::<RawShortMessage>::ParameterNumber(
+                nrpn_msg,
+            ));
+            if res.is_some() {
+                return res;
+            }
+        }
+        if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
+            let res = self.feed(MidiSourceValue::<RawShortMessage>::ControlChange14Bit(
+                cc14_msg,
+            ));
+            if res.is_some() {
+                return res;
+            }
+        }
+        self.feed(MidiSourceValue::Plain(msg))
+    }
+
+    pub fn feed(&mut self, source_value: MidiSourceValue<RawShortMessage>) -> Option<MidiSource> {
         match &mut self.state {
             State::Initial => {
-                use CompoundMappingSourceValue::*;
-                match source_value {
-                    Midi(v) => {
-                        if let MidiSourceValue::Plain(msg) = v {
-                            if let StructuredShortMessage::ControlChange {
-                                channel,
-                                controller_number,
-                                control_value,
-                            } = msg.to_structured()
-                            {
-                                let mut cc_state =
-                                    ControlChangeState::new(channel, controller_number);
-                                cc_state.add_value(control_value);
-                                self.state = State::WaitingForMoreCcMsgs(cc_state);
-                                None
-                            } else {
-                                MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
-                            }
-                        } else {
-                            MidiSource::from_source_value(v).map(CompoundMappingSource::Midi)
-                        }
+                if let MidiSourceValue::Plain(msg) = source_value {
+                    if let StructuredShortMessage::ControlChange {
+                        channel,
+                        controller_number,
+                        control_value,
+                    } = msg.to_structured()
+                    {
+                        let mut cc_state = ControlChangeState::new(channel, controller_number);
+                        cc_state.add_value(control_value);
+                        self.state = State::WaitingForMoreCcMsgs(cc_state);
+                        None
+                    } else {
+                        MidiSource::from_source_value(source_value)
                     }
-                    Virtual(v) => Some(CompoundMappingSource::Virtual(
-                        VirtualSource::from_source_value(v),
-                    )),
+                } else {
+                    MidiSource::from_source_value(source_value)
                 }
             }
             State::WaitingForMoreCcMsgs(cc_state) => {
-                use CompoundMappingSourceValue::*;
-                match source_value {
-                    Midi(v) => {
-                        if let MidiSourceValue::Plain(msg) = v {
-                            if let StructuredShortMessage::ControlChange {
-                                channel,
-                                controller_number,
-                                control_value,
-                            } = msg.to_structured()
-                            {
-                                if cc_state.matches(channel, controller_number) {
-                                    cc_state.add_value(control_value);
-                                }
-                            }
-                            self.guess_or_not().map(CompoundMappingSource::Midi)
-                        } else {
-                            // Looks like in the meantime, the composite scanners ((N)RPN or
-                            // 14-bit CC) have figured out that the combination is a composite
-                            // message. This fixes https://github.com/helgoboss/realearn/issues/95.
-                            let source = MidiSource::from_source_value(v);
-                            if source.is_some() {
-                                self.reset();
-                            }
-                            source.map(CompoundMappingSource::Midi)
+                if let MidiSourceValue::Plain(msg) = source_value {
+                    if let StructuredShortMessage::ControlChange {
+                        channel,
+                        controller_number,
+                        control_value,
+                    } = msg.to_structured()
+                    {
+                        if cc_state.matches(channel, controller_number) {
+                            cc_state.add_value(control_value);
                         }
                     }
-                    Virtual(v) => {
-                        // Looks like in the meantime, the composite scanners ((N)RPN or
-                        // 14-bit CC) have figured out that the combination is a composite
-                        // message that corresponds to a virtual source.
+                    self.guess_or_not()
+                } else {
+                    // Looks like in the meantime, the composite scanners ((N)RPN or
+                    // 14-bit CC) have figured out that the combination is a composite
+                    // message. This fixes https://github.com/helgoboss/realearn/issues/95.
+                    let source = MidiSource::from_source_value(source_value);
+                    if source.is_some() {
                         self.reset();
-                        Some(CompoundMappingSource::Virtual(
-                            VirtualSource::from_source_value(v),
-                        ))
                     }
+                    source
                 }
             }
         }
     }
 
-    pub fn poll(&mut self) -> Option<CompoundMappingSource> {
-        self.guess_or_not().map(CompoundMappingSource::Midi)
+    pub fn poll(&mut self) -> Option<MidiSource> {
+        for ch in 0..16 {
+            if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
+                let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(nrpn_msg);
+                let source = self.feed(source_value);
+                if source.is_some() {
+                    return source;
+                }
+            }
+        }
+        self.guess_or_not()
     }
 
     pub fn reset(&mut self) {
+        self.nrpn_scanner.reset();
+        self.cc_14_bit_scanner.reset();
         self.state = State::Initial;
     }
 
@@ -275,26 +290,25 @@ mod tests {
         #[test]
         fn scan_nrpn() {
             // Given
-            let mut source_scanner = SourceScanner::default();
+            let mut source_scanner = MidiSourceScanner::default();
             let mut nrpn_scanner = ParameterNumberMessageScanner::new();
             // When
-            use CompoundMappingSourceValue::Midi;
             use MidiSourceValue::{ParameterNumber, Plain};
             // Message 1
             let msg_1 = control_change(1, 99, 0);
             let nrpn_1 = nrpn_scanner.feed(&msg_1);
             assert_eq!(nrpn_1, None);
-            let source_1 = source_scanner.feed(Midi(Plain(msg_1)));
+            let source_1 = source_scanner.feed(Plain(msg_1));
             // Message 2
             let msg_2 = control_change(1, 98, 99);
             let nrpn_2 = nrpn_scanner.feed(&msg_2);
-            let source_2 = source_scanner.feed(Midi(Plain(msg_1)));
+            let source_2 = source_scanner.feed(Plain(msg_1));
             assert_eq!(nrpn_2, None);
             // Message 3
             let msg_3 = control_change(1, 38, 3);
             let nrpn_3 = nrpn_scanner.feed(&msg_3);
             assert_eq!(nrpn_3, None);
-            let source_3 = source_scanner.feed(Midi(Plain(msg_3)));
+            let source_3 = source_scanner.feed(Plain(msg_3));
             // Message 4
             let msg_4 = control_change(1, 6, 2);
             let nrpn_4 = nrpn_scanner.feed(&msg_4).unwrap();
@@ -302,8 +316,8 @@ mod tests {
                 nrpn_4,
                 ParameterNumberMessage::non_registered_14_bit(channel(1), u14(99), u14(259))
             );
-            let source_4_nrpn = source_scanner.feed(Midi(ParameterNumber(nrpn_4)));
-            let source_4_short = source_scanner.feed(Midi(Plain(msg_4)));
+            let source_4_nrpn = source_scanner.feed(ParameterNumber(nrpn_4));
+            let source_4_short = source_scanner.feed(Plain(msg_4));
             // Then
             // Even our source scanner is already waiting for more CC messages with the same number,
             // a suddenly arriving (N)RPN message should take precedence! Because our real-time
@@ -316,12 +330,12 @@ mod tests {
             assert_eq!(source_3, None);
             assert_eq!(
                 source_4_nrpn.unwrap(),
-                CompoundMappingSource::Midi(MidiSource::ParameterNumberValue {
+                MidiSource::ParameterNumberValue {
                     channel: Some(channel(1)),
                     number: Some(u14(99)),
                     is_14_bit: Some(true),
                     is_registered: Some(false),
-                })
+                }
             );
             assert_eq!(source_4_short, None);
         }

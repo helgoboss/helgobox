@@ -37,8 +37,11 @@ pub use processor_context::*;
 mod r#virtual;
 pub use r#virtual::*;
 
-mod source_scanner;
-pub use source_scanner::*;
+mod midi_util;
+pub use midi_util::*;
+
+mod midi_source_scanner;
+pub use midi_source_scanner::*;
 
 mod midi_clock_calculator;
 pub use midi_clock_calculator::*;

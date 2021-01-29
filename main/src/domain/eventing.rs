@@ -1,11 +1,12 @@
 use crate::domain::{CompoundMappingSource, MappingId};
+use helgoboss_learn::MidiSource;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
 /// An event which is sent to upper layers and processed there
 #[derive(Debug)]
 pub enum DomainEvent {
-    LearnedSource(CompoundMappingSource),
+    LearnedSource(MidiSource),
     UpdatedOnMappings(HashSet<MappingId>),
 }
 

@@ -1,13 +1,14 @@
 use crate::application::{
     share_group, share_mapping, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
-    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
+    SharedMapping, SourceCategory, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
-    MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    ProcessorContext, ReaperTarget, PLUGIN_PARAMETER_COUNT,
+    CompoundMappingSource, CompoundMappingSourceValue, DomainEvent, DomainEventHandler,
+    MainMapping, MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput,
+    NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget, VirtualSource,
+    PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -20,6 +21,8 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
+use helgoboss_learn::{MidiSource, MidiSourceValue};
+use helgoboss_midi::RawShortMessage;
 use itertools::Itertools;
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
@@ -366,18 +369,39 @@ impl Session {
             .merge(self.main_preset_auto_load_mode.changed())
     }
 
-    pub fn learn_source(&mut self, source: CompoundMappingSource) {
-        self.source_touched_subject.next(source);
+    pub fn learn_source(&mut self, source: MidiSource) {
+        let compound_source = self.virtualize_if_possible(source);
+        self.source_touched_subject.next(compound_source);
+    }
+
+    fn virtualize_if_possible(&self, source: MidiSource) -> CompoundMappingSource {
+        for m in self.mappings(MappingCompartment::ControllerMappings) {
+            let m = m.borrow();
+            if !m.control_is_enabled.get() {
+                continue;
+            }
+            if m.target_model.category.get() != TargetCategory::Virtual {
+                continue;
+            }
+            if let CompoundMappingSource::Midi(s) = m.source_model.create_source() {
+                if s == source {
+                    let virtual_source =
+                        VirtualSource::new(m.target_model.create_control_element());
+                    return CompoundMappingSource::Virtual(virtual_source);
+                }
+            }
+        }
+        // Otherwise just return the MIDI source value as is.
+        CompoundMappingSource::Midi(source)
     }
 
     pub fn source_touched(
         &self,
-        compartment: MappingCompartment,
         reenable_control_after_touched: bool,
     ) -> impl Event<CompoundMappingSource> {
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource(compartment))
+            .send(NormalRealTimeTask::StartLearnSource)
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {
@@ -854,16 +878,13 @@ impl Session {
     ) {
         self.mapping_which_learns_source.set(Some(mapping.clone()));
         when(
-            self.source_touched(
-                mapping.borrow().compartment(),
-                reenable_control_after_touched,
-            )
-            .filter(move |s| !ignore_sources.contains(s))
-            // We have this explicit stop criteria because we listen to global REAPER
-            // events.
-            .take_until(self.party_is_over())
-            .take_until(self.mapping_which_learns_source.changed_to(None))
-            .take(1),
+            self.source_touched(reenable_control_after_touched)
+                .filter(move |s| !ignore_sources.contains(s))
+                // We have this explicit stop criteria because we listen to global REAPER
+                // events.
+                .take_until(self.party_is_over())
+                .take_until(self.mapping_which_learns_source.changed_to(None))
+                .take(1),
         )
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
