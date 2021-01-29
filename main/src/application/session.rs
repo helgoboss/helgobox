@@ -22,8 +22,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use helgoboss_learn::{MidiSource, MidiSourceValue};
-use helgoboss_midi::RawShortMessage;
+use helgoboss_midi::{Channel, RawShortMessage};
 use itertools::Itertools;
+use reaper_medium::{MidiInputDeviceId, RecordingInput};
 use std::rc::{Rc, Weak};
 use wrap_debug::WrapDebug;
 
@@ -191,6 +192,48 @@ impl Session {
 
     pub fn id(&self) -> &str {
         self.id.get_ref()
+    }
+
+    pub fn receives_midi_from(
+        &self,
+        device_id: MidiInputDeviceId,
+        channel: Option<Channel>,
+    ) -> bool {
+        match self.midi_control_input.get() {
+            MidiControlInput::FxInput => {
+                if let Some(track) = self.context().track() {
+                    if !track.is_armed(true) {
+                        return false;
+                    }
+                    if let Some(RecordingInput::Midi {
+                        device_id: dev_id,
+                        channel: ch,
+                    }) = track.recording_input()
+                    {
+                        (dev_id.is_none() || dev_id == Some(device_id))
+                            && (ch.is_none() || ch == channel)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+            MidiControlInput::Device(dev) => dev.id() == device_id,
+        }
+    }
+
+    pub fn find_mapping_with_source(
+        &self,
+        compartment: MappingCompartment,
+        midi_source: &MidiSource,
+    ) -> Option<&SharedMapping> {
+        let virt_source = self.virtualize_if_possible(midi_source);
+        self.mappings(compartment)
+            .find(|m| match m.borrow().source_model.create_source() {
+                CompoundMappingSource::Midi(s) => s == *midi_source,
+                CompoundMappingSource::Virtual(s) => Some(s) == virt_source,
+            })
     }
 
     pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
@@ -370,11 +413,19 @@ impl Session {
     }
 
     pub fn learn_source(&mut self, source: MidiSource) {
-        let compound_source = self.virtualize_if_possible(source);
-        self.source_touched_subject.next(compound_source);
+        self.source_touched_subject
+            .next(self.create_compound_source(source));
     }
 
-    fn virtualize_if_possible(&self, source: MidiSource) -> CompoundMappingSource {
+    pub fn create_compound_source(&self, source: MidiSource) -> CompoundMappingSource {
+        if let Some(virt_source) = self.virtualize_if_possible(&source) {
+            CompoundMappingSource::Virtual(virt_source)
+        } else {
+            CompoundMappingSource::Midi(source)
+        }
+    }
+
+    fn virtualize_if_possible(&self, source: &MidiSource) -> Option<VirtualSource> {
         for m in self.mappings(MappingCompartment::ControllerMappings) {
             let m = m.borrow();
             if !m.control_is_enabled.get() {
@@ -384,15 +435,14 @@ impl Session {
                 continue;
             }
             if let CompoundMappingSource::Midi(s) = m.source_model.create_source() {
-                if s == source {
+                if s == *source {
                     let virtual_source =
                         VirtualSource::new(m.target_model.create_control_element());
-                    return CompoundMappingSource::Virtual(virtual_source);
+                    return Some(virtual_source);
                 }
             }
         }
-        // Otherwise just return the MIDI source value as is.
-        CompoundMappingSource::Midi(source)
+        None
     }
 
     pub fn source_touched(

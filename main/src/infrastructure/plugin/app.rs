@@ -1,9 +1,11 @@
-use crate::application::{Session, SharedSession, WeakSession};
+use crate::application::{
+    GroupId, Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+};
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    MainProcessor, MappingCompartment, MidiControlInput, RealearnAudioHook, RealearnAudioHookTask,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    MainProcessor, MappingCompartment, MappingId, MidiControlInput, RealearnAudioHook,
+    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
@@ -663,31 +665,53 @@ impl App {
         &self,
         compartment: MappingCompartment,
     ) -> Result<(), &'static str> {
-        if self
-            .find_first_session_in_current_project_or_monitoring_fx_chain()
-            .is_none()
-        {
+        if self.find_first_relevant_session().is_none() {
             self.close_message_panel_with_alert(
-                "At first you need to add a ReaLearn instance to the monitoring FX chain or this project!",
+                "At first you need to add a ReaLearn instance to the monitoring FX chain or this project! Don't forget to set the MIDI control input.",
             );
             return Err("no ReaLearn instance");
         }
         let (dev_id, midi_source) = self
             .prompt_for_next_midi_source("Please touch a control element!")
             .await?;
-        if self
-            .find_first_session_with_midi_input(dev_id, midi_source.channel())
-            .is_none()
+        let session = if let Some(s) =
+            self.find_first_relevant_session_with_midi_from(dev_id, midi_source.channel())
         {
+            s
+        } else {
             self.close_message_panel_with_alert(
                 "No ReaLearn instance found which has this MIDI control input! Please first add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
             );
             return Err("no ReaLearn instance with that MIDI input");
-        }
+        };
         let reaper_target = self
             .prompt_for_next_reaper_target("Now touch the desired target!")
             .await?;
         self.close_message_panel();
+        if let Some((session, mapping)) =
+            self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
+        {
+            // There's already a mapping with that source. Change target of that mapping.
+            mapping
+                .borrow_mut()
+                .target_model
+                .apply_from_target(&reaper_target, session.borrow().context());
+        } else {
+            // There's no mapping with that source yet. Add it to the previously determined first
+            // session.
+            let mut session = session.borrow_mut();
+            let mapping = session.add_default_mapping(
+                compartment,
+                GroupId::default(),
+                VirtualControlElementType::Multi,
+            );
+            let mut mapping = mapping.borrow_mut();
+            let compound_source = session.create_compound_source(midi_source);
+            mapping.source_model.apply_from_source(&compound_source);
+            mapping
+                .target_model
+                .apply_from_target(&reaper_target, session.context());
+        }
         Ok(())
     }
 
@@ -753,7 +777,7 @@ impl App {
                     .and_then(|t| self.find_first_session_on_track(t))
             })
             // If not found, find a random instance
-            .or_else(|| self.find_first_session_in_current_project_or_monitoring_fx_chain());
+            .or_else(|| self.find_first_relevant_session());
         match session {
             None => {
                 notification::alert("Please add a ReaLearn FX to this project first!");
@@ -788,15 +812,9 @@ impl App {
         })
     }
 
-    fn find_first_session_in_current_project_or_monitoring_fx_chain(
-        &self,
-    ) -> Option<SharedSession> {
+    fn find_first_relevant_session(&self) -> Option<SharedSession> {
         self.find_first_session_in_project(Some(Reaper::get().current_project()))
-            .or_else(|| self.find_first_session_on_monitoring_fx_chain())
-    }
-
-    fn find_first_session_on_monitoring_fx_chain(&self) -> Option<SharedSession> {
-        self.find_first_session_in_project(None)
+            .or_else(|| self.find_first_session_in_project(None))
     }
 
     /// Project None means monitoring FX chain.
@@ -807,35 +825,67 @@ impl App {
         })
     }
 
-    fn find_first_session_with_midi_input(
+    fn find_first_relevant_session_with_midi_from(
         &self,
+        device_id: MidiInputDeviceId,
+        channel: Option<Channel>,
+    ) -> Option<SharedSession> {
+        self.find_first_session_with_midi_from(
+            Some(Reaper::get().current_project()),
+            device_id,
+            channel,
+        )
+        .or_else(|| self.find_first_session_with_midi_from(None, device_id, channel))
+    }
+
+    fn find_first_session_with_midi_from(
+        &self,
+        project: Option<Project>,
         device_id: MidiInputDeviceId,
         channel: Option<Channel>,
     ) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            match session.midi_control_input.get() {
-                MidiControlInput::FxInput => {
-                    if let Some(track) = session.context().track() {
-                        if !track.is_armed(true) {
-                            return false;
-                        }
-                        if let Some(RecordingInput::Midi {
-                            device_id: dev_id,
-                            channel: ch,
-                        }) = track.recording_input()
-                        {
-                            (dev_id.is_none() || dev_id == Some(device_id))
-                                && (ch.is_none() || ch == channel)
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    }
+            session.context().project() == project && session.receives_midi_from(device_id, channel)
+        })
+    }
+
+    fn find_first_relevant_session_with_source(
+        &self,
+        compartment: MappingCompartment,
+        device_id: MidiInputDeviceId,
+        midi_source: &MidiSource,
+    ) -> Option<(SharedSession, SharedMapping)> {
+        self.find_first_session_with_source(
+            Some(Reaper::get().current_project()),
+            compartment,
+            device_id,
+            midi_source,
+        )
+        .or_else(|| self.find_first_session_with_source(None, compartment, device_id, midi_source))
+    }
+
+    fn find_first_session_with_source(
+        &self,
+        project: Option<Project>,
+        compartment: MappingCompartment,
+        device_id: MidiInputDeviceId,
+        midi_source: &MidiSource,
+    ) -> Option<(SharedSession, SharedMapping)> {
+        self.sessions.borrow().iter().find_map(|session| {
+            let session = session.upgrade()?;
+            let mapping = {
+                let s = session.borrow();
+                if s.context().project() != project {
+                    return None;
                 }
-                MidiControlInput::Device(dev) => dev.id() == device_id,
-            }
+                if !s.receives_midi_from(device_id, None) {
+                    return None;
+                }
+                s.find_mapping_with_source(compartment, midi_source)?
+                    .clone()
+            };
+            Some((session, mapping))
         })
     }
 
