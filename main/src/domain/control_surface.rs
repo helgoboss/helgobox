@@ -34,8 +34,8 @@ enum State {
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     AddMainProcessor(MainProcessor<EH>),
     LogDebugInfo,
-    StartLearningTarget(async_channel::Sender<ReaperTarget>),
-    StopLearningTarget,
+    StartLearningTargets(async_channel::Sender<ReaperTarget>),
+    StopLearningTargets,
 }
 
 pub enum RealearnControlSurfaceServerTask {
@@ -100,10 +100,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 LogDebugInfo => {
                     self.meter_middleware.log_metrics();
                 }
-                StartLearningTarget(mut sender) => {
+                StartLearningTargets(mut sender) => {
                     self.state = State::LearningTarget(sender);
                 }
-                StopLearningTarget => {
+                StopLearningTargets => {
                     self.state = State::Normal;
                 }
             }

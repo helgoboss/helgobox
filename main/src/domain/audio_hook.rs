@@ -21,9 +21,8 @@ pub enum RealearnAudioHookTask {
     // processor.
     AddRealTimeProcessor(String, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(String),
-    // TODO-low Maybe we should use tokio channel or async-channel (~ crossbeam) here
-    StartLearningSource(LearnSourceSender),
-    StopLearningSource,
+    StartLearningSources(LearnSourceSender),
+    StopLearningSources,
 }
 
 #[derive(Debug)]
@@ -117,13 +116,13 @@ impl OnAudioBuffer for RealearnAudioHook {
                 RemoveRealTimeProcessor(id) => {
                     self.real_time_processors.retain(|(i, _)| i != &id);
                 }
-                StartLearningSource(sender) => {
+                StartLearningSources(sender) => {
                     self.state = AudioHookState::LearningSource {
                         sender,
                         midi_source_scanner: Default::default(),
                     }
                 }
-                StopLearningSource => self.state = AudioHookState::Normal,
+                StopLearningSources => self.state = AudioHookState::Normal,
             }
         }
     }

@@ -683,6 +683,18 @@ impl App {
             },
             ActionKind::NotToggleable,
         );
+        Reaper::get().register_action(
+            "REALEARN_FIND_FIRST_MAPPING_BY_TARGET",
+            "ReaLearn: Find first mapping by target",
+            move || {
+                Global::future_support().spawn_in_main_thread_from_main_thread(async {
+                    let _ = App::get()
+                        .find_first_mapping_by_target(MappingCompartment::MainMappings)
+                        .await;
+                });
+            },
+            ActionKind::NotToggleable,
+        );
     }
 
     async fn find_first_mapping_by_source(
@@ -690,16 +702,35 @@ impl App {
         compartment: MappingCompartment,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
-        self.show_message_panel("ReaLearn", "Please touch control elements!", || {
-            App::get()
-                .audio_hook_task_sender
-                .send(RealearnAudioHookTask::StopLearningSource)
-                .unwrap();
+        self.show_message_panel("ReaLearn", "Touch some control elements!", || {
+            App::stop_learning_sources();
         });
         let receiver = self.request_next_midi_sources();
         while let Ok((dev_id, midi_source)) = receiver.recv().await {
             if let Some((session, mapping)) =
                 self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
+            {
+                self.close_message_panel();
+                session
+                    .borrow()
+                    .show_mapping(compartment, mapping.borrow().id());
+            }
+        }
+        Ok(())
+    }
+
+    async fn find_first_mapping_by_target(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Result<(), &'static str> {
+        self.toggle_guard()?;
+        self.show_message_panel("ReaLearn", "Touch some targets!", || {
+            App::stop_learning_targets();
+        });
+        let receiver = self.request_next_reaper_targets();
+        while let Ok(target) = receiver.recv().await {
+            if let Some((session, mapping)) =
+                self.find_first_relevant_session_with_target(compartment, &target)
             {
                 self.close_message_panel();
                 session
@@ -723,7 +754,7 @@ impl App {
             return Err("no ReaLearn instance");
         }
         let (dev_id, midi_source) = self
-            .prompt_for_next_midi_source("Please touch a control element!")
+            .prompt_for_next_midi_source("Touch a control element!")
             .await?;
         let session = if let Some(s) =
             self.find_first_relevant_session_with_midi_from(dev_id, midi_source.channel())
@@ -795,10 +826,7 @@ impl App {
         msg: &str,
     ) -> Result<(MidiInputDeviceId, MidiSource), &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
-            App::get()
-                .audio_hook_task_sender
-                .send(RealearnAudioHookTask::StopLearningSource)
-                .unwrap();
+            App::stop_learning_sources();
         });
         self.request_next_midi_sources()
             .recv()
@@ -806,32 +834,46 @@ impl App {
             .map_err(|_| "stopped learning")
     }
 
+    fn stop_learning_sources() {
+        App::get()
+            .audio_hook_task_sender
+            .send(RealearnAudioHookTask::StopLearningSources)
+            .unwrap();
+    }
+
     fn request_next_midi_sources(
         &self,
     ) -> async_channel::Receiver<(MidiInputDeviceId, MidiSource)> {
         let (sender, receiver) = async_channel::unbounded();
         self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::StartLearningSource(sender))
+            .send(RealearnAudioHookTask::StartLearningSources(sender))
             .unwrap();
         receiver
     }
 
     async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
-            App::get()
-                .control_surface_main_task_sender
-                .send(RealearnControlSurfaceMainTask::StopLearningTarget)
-                .unwrap();
+            App::stop_learning_targets();
         });
-        self.next_reaper_target().await
+        self.request_next_reaper_targets()
+            .recv()
+            .await
+            .map_err(|_| "stopped learning")
     }
 
-    async fn next_reaper_target(&self) -> Result<ReaperTarget, &'static str> {
-        let (sender, receiver) = async_channel::bounded(1);
-        self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::StartLearningTarget(sender))
+    fn stop_learning_targets() {
+        App::get()
+            .control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::StopLearningTargets)
             .unwrap();
-        receiver.recv().await.map_err(|_| "stopped learning")
+    }
+
+    fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
+        let (sender, receiver) = async_channel::unbounded();
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::StartLearningTargets(sender))
+            .unwrap();
+        receiver
     }
 
     fn start_learning_source_for_target(
@@ -842,6 +884,7 @@ impl App {
         // Try to find an existing session which has a target with that parameter
         let session = self
             .find_first_relevant_session_with_target(compartment, target)
+            .map(|(s, _)| s)
             // If not found, find the instance on the parameter's track (if there's one)
             .or_else(|| {
                 target
@@ -869,7 +912,7 @@ impl App {
         &self,
         compartment: MappingCompartment,
         target: &ReaperTarget,
-    ) -> Option<SharedSession> {
+    ) -> Option<(SharedSession, SharedMapping)> {
         self.find_first_session_with_target(
             Some(Reaper::get().current_project()),
             compartment,
@@ -883,13 +926,17 @@ impl App {
         project: Option<Project>,
         compartment: MappingCompartment,
         target: &ReaperTarget,
-    ) -> Option<SharedSession> {
-        self.find_session(|session| {
-            let session = session.borrow();
-            session.context().project() == project
-                && session
-                    .find_mapping_with_target(compartment, target)
-                    .is_some()
+    ) -> Option<(SharedSession, SharedMapping)> {
+        self.sessions.borrow().iter().find_map(|session| {
+            let session = session.upgrade()?;
+            let mapping = {
+                let s = session.borrow();
+                if s.context().project() != project {
+                    return None;
+                }
+                s.find_mapping_with_target(compartment, target)?.clone()
+            };
+            Some((session, mapping))
         })
     }
 
