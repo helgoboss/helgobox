@@ -14,6 +14,8 @@ use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
+use futures::channel::oneshot;
+use helgoboss_learn::MidiSource;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::RegistrationHandle;
@@ -644,23 +646,65 @@ impl App {
             "REALEARN_LEARN_REPLACING_SOURCE",
             "ReaLearn: Learn mapping (replacing mapping with existing source)",
             move || {
-                App::get().learn_replacing_source(MappingCompartment::MainMappings);
+                Global::future_support().spawn_in_main_thread_from_main_thread(async {
+                    let result = App::get()
+                        .learn_replacing_source(MappingCompartment::MainMappings)
+                        .await;
+                });
             },
             ActionKind::NotToggleable,
         );
     }
 
-    fn learn_replacing_source(&self, compartment: MappingCompartment) {
-        self.show_message_panel("ReaLearn", "Please touch a control element", || {
+    async fn learn_replacing_source(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Result<(), &'static str> {
+        let midi_source = self
+            .prompt_for_next_midi_source("Please touch a control element!")
+            .await?;
+        let reaper_target = self
+            .prompt_for_next_reaper_target("Now touch the desired target!")
+            .await?;
+        self.close_message_panel();
+        Reaper::get().show_console_msg(format!("{:?}", reaper_target));
+        Ok(())
+    }
+
+    async fn prompt_for_next_midi_source(&self, msg: &str) -> Result<MidiSource, &'static str> {
+        self.show_message_panel("ReaLearn", msg, || {
             App::get()
                 .audio_hook_task_sender
-                .send(RealearnAudioHookTask::StopLearning)
+                .send(RealearnAudioHookTask::StopLearningSource)
                 .unwrap();
         });
+        self.next_midi_source().await
+    }
+
+    async fn next_midi_source(&self) -> Result<MidiSource, &'static str> {
+        let (sender, receiver) = oneshot::channel();
         self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::StartLearning)
+            .send(RealearnAudioHookTask::StartLearningSource(sender))
             .unwrap();
-        // TODO
+        receiver.await.map_err(|_| "stopped learning")
+    }
+
+    async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {
+        self.show_message_panel("ReaLearn", msg, || {
+            App::get()
+                .control_surface_main_task_sender
+                .send(RealearnControlSurfaceMainTask::StopLearningTarget)
+                .unwrap();
+        });
+        self.next_reaper_target().await
+    }
+
+    async fn next_reaper_target(&self) -> Result<ReaperTarget, &'static str> {
+        let (sender, receiver) = async_channel::bounded(1);
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::StartLearningTarget(sender))
+            .unwrap();
+        receiver.recv().await.map_err(|_| "stopped learning")
     }
 
     fn start_learning_source_for_target(
@@ -748,6 +792,7 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
+        self.message_panel.close();
         self.party_is_over_subject.next(());
     }
 }

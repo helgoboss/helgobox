@@ -131,7 +131,14 @@ impl RealTimeProcessor {
         }
     }
 
+    /// This should be regularly called by audio hook in normal mode.
     pub fn run_from_audio_hook(&mut self, sample_count: usize) {
+        self.run_from_audio_hook_essential(sample_count);
+        self.run_from_audio_hook_normal(sample_count);
+    }
+
+    /// This should be regularly called by audio hook even during global MIDI source learning.
+    pub fn run_from_audio_hook_essential(&mut self, sample_count: usize) {
         if self.get_feedback_driver() == Driver::AudioHook {
             self.process_feedback_tasks(Caller::AudioHook);
         }
@@ -228,15 +235,20 @@ impl RealTimeProcessor {
                 }
             }
         }
+    }
+
+    pub fn run_from_audio_hook_normal(&mut self, sample_count: usize) {
         // Read MIDI events if MIDI control input set to device
         if let MidiControlInput::Device(dev) = self.midi_control_input {
             dev.with_midi_input(|mi| {
-                for evt in mi.get_read_buf().enum_items(0) {
-                    self.process_incoming_midi(
-                        evt.frame_offset(),
-                        evt.message().to_other(),
-                        Caller::AudioHook,
-                    );
+                if let Some(mi) = mi {
+                    for evt in mi.get_read_buf().enum_items(0) {
+                        self.process_incoming_midi(
+                            evt.frame_offset(),
+                            evt.message().to_other(),
+                            Caller::AudioHook,
+                        );
+                    }
                 }
             });
         }
@@ -248,7 +260,9 @@ impl RealTimeProcessor {
         }
         // Poll source scanner if we are learning a source currently
         if self.control_mode.is_learning() {
-            self.poll_source_scanner()
+            if let Some(source) = self.midi_source_scanner.poll() {
+                self.learn_source(source);
+            }
         }
     }
 
@@ -423,12 +437,6 @@ impl RealTimeProcessor {
         }
     }
 
-    fn poll_source_scanner(&mut self) {
-        if let Some(source) = self.midi_source_scanner.poll() {
-            self.learn_source(source);
-        }
-    }
-
     fn learn_source(&mut self, source: MidiSource) {
         // If plug-in dropped, the receiver might be gone already because main processor is
         // unregistered synchronously.
@@ -566,8 +574,10 @@ impl RealTimeProcessor {
                 }
                 MidiFeedbackOutput::Device(dev) => {
                     dev.with_midi_output(|mo| {
-                        for short in shorts.iter().flatten() {
-                            mo.send(*short, SendMidiTime::Instantly);
+                        if let Some(mo) = mo {
+                            for short in shorts.iter().flatten() {
+                                mo.send(*short, SendMidiTime::Instantly);
+                            }
                         }
                     });
                 }

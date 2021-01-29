@@ -3,8 +3,8 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, ActionCharacter, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper,
-    Tempo, Track, TrackSend, Volume,
+    Action, ActionCharacter, ChangeEvent, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate,
+    Project, Reaper, Tempo, Track, TrackSend, Volume,
 };
 use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
@@ -495,6 +495,40 @@ impl ReaperTarget {
     pub fn potential_dynamic_change_events() -> impl UnitEvent {
         let rx = Global::control_surface_rx();
         rx.track_selected_changed().map_to(())
+    }
+
+    /// This is eventually going to replace Rx (touched method), at least for domain layer.
+    // TODO-medium Touched should contain changed, it shouldn't be necessary to make two calls!
+    // TODO-high action_invoked
+    pub fn touched_from_change_event(evt: ChangeEvent) -> Option<ReaperTarget> {
+        use ChangeEvent::*;
+        use ReaperTarget::*;
+        let target = match evt {
+            TrackVolumeTouched(track) => TrackVolume { track },
+            TrackPanTouched(track) => TrackPan { track },
+            TrackSendVolumeTouched(send) => TrackSendVolume { send },
+            TrackSendPanTouched(send) => TrackSendPan { send },
+            TrackArmChanged(track) => TrackArm { track },
+            TrackMuteTouched(track) => TrackMute { track },
+            TrackSoloChanged(track) => TrackSolo { track },
+            TrackSelectedChanged(track) => TrackSelection {
+                track,
+                select_exclusively: false,
+            },
+            FxEnabledChanged(fx) => FxEnable { fx },
+            FxParameterTouched(param) => FxParameter { param },
+            FxPresetChanged(fx) => FxPreset { fx },
+            MasterTempoTouched => Tempo {
+                // TODO-low In future this might come from a certain project
+                project: Reaper::get().current_project(),
+            },
+            MasterPlayrateTouched => Playrate {
+                // TODO-low In future this might come from a certain project
+                project: Reaper::get().current_project(),
+            },
+            _ => return None,
+        };
+        Some(target)
     }
 
     pub fn touched() -> impl Event<Rc<ReaperTarget>> {

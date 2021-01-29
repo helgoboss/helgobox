@@ -1,5 +1,6 @@
 use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageType};
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum MidiMessageClassification {
     Normal,
     Ignored,
