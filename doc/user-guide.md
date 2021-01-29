@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-01-19 (v1.12.0-pre19)</code></td>
+  <td><code>2021-01-29 (v1.12.0-pre20)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -208,8 +208,9 @@ If the label remains at "Stop" at step 3, you need to have a look at your MIDI s
 
 When you read this the first time, you might get the impression that this is a lot of work for
 setting up one simple control mapping. It's not. Learning mappings is a matter of a few secs after
-you got the hang of it. ReaLearn also provides the "Learn many" button and the REAPER action
-"Learn source for last touched target" for further speeding up this step. More about that later.
+you got the hang of it. ReaLearn also provides the "Learn many" button and a bunch of REAPER actions
+for one-click learning straight from a REAPER toolbar or triggered by a button on your controller.
+More about that later.
 
 At this point: Congratulations! You have successfully made your first baby steps with ReaLearn.
 
@@ -1469,6 +1470,29 @@ direction.
     depending on how long it has been pressed. For this, use settings like the following:
     - Short press: 0 ms - 250 ms
     - Long press: 250 ms - 5000 ms
+
+### REAPER actions
+
+ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn
+is loaded. It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access
+to those actions at all times.
+
+In order to find these actions, open REAPER's *Actions* menu, choose *Show action list...* and simply search for
+`realearn`. The most important actions:
+
+- **ReaLearn: Find first mapping by source:** This action will ask you to touch some control element. As soon as you
+  touch a control element which is mapped, it will open the mapping panel for the corresponding mapping. It will search
+  within all ReaLearn instances loaded in your current project as well as the ones on the monitoring FX chain.
+- **ReaLearn: Find first mapping by target:** This action is similar to *Find first mapping by source*. It asks you
+  to touch some (learnable) REAPER parameter. As soon as you touch one that is mapped, it will open its mapping panel.
+- **ReaLearn: Learn single mapping (reassigning source):** Asks you to touch a control element and target and adds a new
+  mapping in the first ReaLearn instance that it encounters. It prefers instances in the current project over 
+  monitoring FX. It automatically chooses the instance with the correct MIDI input. If there's an instance which already
+  has that source assigned, it will be reassigned to the new target that you touched.
+- **ReaLearn: Learn single mapping (reassigning source) and open it:** Like *Learn single mapping* but additionally
+  opens the mapping panel after having learned the mapping. This is great for subsequent fine tuning.
+- **ReaLearn: Learn source for last touched target (reassigning target)** This behaves similar to REAPER's built-in
+  MIDI learn in that it always relates to the target that has been touched last.
 
 ## Tutorials
 
