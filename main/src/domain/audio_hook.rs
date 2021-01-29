@@ -1,7 +1,6 @@
 use crate::domain::{
     classify_midi_message, MidiMessageClassification, MidiSourceScanner, RealTimeProcessor,
 };
-use futures::channel::oneshot;
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use reaper_high::Reaper;
@@ -13,7 +12,7 @@ use std::sync::{Arc, Mutex};
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
-type LearnSourceSender = oneshot::Sender<(MidiInputDeviceId, MidiSource)>;
+type LearnSourceSender = async_channel::Sender<(MidiInputDeviceId, MidiSource)>;
 
 pub enum RealearnAudioHookTask {
     /// First parameter is the ID.
@@ -61,7 +60,7 @@ impl OnAudioBuffer for RealearnAudioHook {
         if args.is_post {
             return;
         }
-        let next_state = match std::mem::replace(&mut self.state, AudioHookState::Normal) {
+        match &mut self.state {
             AudioHookState::Normal => {
                 // 1. Call real-time processors.
                 //
@@ -79,37 +78,35 @@ impl OnAudioBuffer for RealearnAudioHook {
                     // synchronously if the plug-in is gone.
                     p.lock().unwrap().run_from_audio_hook(args.len as _);
                 }
-                AudioHookState::Normal
             }
             AudioHookState::LearningSource {
-                mut sender,
-                mut midi_source_scanner,
+                sender,
+                midi_source_scanner,
             } => {
                 for (_, p) in self.real_time_processors.iter() {
                     p.lock()
                         .unwrap()
                         .run_from_audio_hook_essential(args.len as _);
                 }
-                if let Some(sender) = process_all_midi_inputs(&mut midi_source_scanner, sender) {
-                    // No new MIDI message or no source detected. Now poll.
-                    if let Some((source, Some(dev_id))) = midi_source_scanner.poll() {
-                        // Source detected via polling. Return to normal mode.
-                        let _ = sender.send((dev_id, source));
-                        AudioHookState::Normal
-                    } else {
-                        // Also no source detected via polling. Go on learning.
-                        AudioHookState::LearningSource {
-                            sender,
-                            midi_source_scanner,
+                for dev in Reaper::get().midi_input_devices() {
+                    dev.with_midi_input(|mi| {
+                        if let Some(mi) = mi {
+                            for evt in mi.get_read_buf().enum_items(0) {
+                                if let Some(source) =
+                                    process_midi_event(dev.id(), evt, midi_source_scanner)
+                                {
+                                    let _ = sender.try_send((dev.id(), source));
+                                }
+                            }
                         }
-                    }
-                } else {
-                    // Source detected. Return to normal mode.
-                    AudioHookState::Normal
+                    });
+                }
+                if let Some((source, Some(dev_id))) = midi_source_scanner.poll() {
+                    // Source detected via polling. Return to normal mode.
+                    let _ = sender.try_send((dev_id, source));
                 }
             }
         };
-        self.state = next_state;
         // 2. Process add/remove tasks.
         for task in self.task_receiver.try_iter().take(1) {
             use RealearnAudioHookTask::*;
@@ -130,40 +127,6 @@ impl OnAudioBuffer for RealearnAudioHook {
             }
         }
     }
-}
-
-/// Returns None if a source was detected, sent to the receiver and thus the sender is consumed.
-fn process_all_midi_inputs(
-    mut midi_source_scanner: &mut MidiSourceScanner,
-    mut sender: LearnSourceSender,
-) -> Option<LearnSourceSender> {
-    for dev in Reaper::get().midi_input_devices() {
-        sender = dev.with_midi_input(|mi| {
-            if let Some(mi) = mi {
-                process_midi_input(dev.id(), mi, &mut midi_source_scanner, sender)
-            } else {
-                // MIDI device not open. Just return ownership of the sender.
-                Some(sender)
-            }
-        })?;
-    }
-    Some(sender)
-}
-
-/// Returns None if a source was detected, sent to the receiver and thus the sender is consumed.
-fn process_midi_input(
-    dev_id: MidiInputDeviceId,
-    midi_input: &MidiInput,
-    midi_source_scanner: &mut MidiSourceScanner,
-    sender: LearnSourceSender,
-) -> Option<LearnSourceSender> {
-    for evt in midi_input.get_read_buf().enum_items(0) {
-        if let Some(source) = process_midi_event(dev_id, evt, midi_source_scanner) {
-            let _ = sender.send((dev_id, source));
-            return None;
-        }
-    }
-    Some(sender)
 }
 
 fn process_midi_event(

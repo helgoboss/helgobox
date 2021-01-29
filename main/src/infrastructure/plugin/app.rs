@@ -798,11 +798,11 @@ impl App {
     }
 
     async fn next_midi_source(&self) -> Result<(MidiInputDeviceId, MidiSource), &'static str> {
-        let (sender, receiver) = oneshot::channel();
+        let (sender, receiver) = async_channel::unbounded();
         self.audio_hook_task_sender
             .send(RealearnAudioHookTask::StartLearningSource(sender))
             .unwrap();
-        receiver.await.map_err(|_| "stopped learning")
+        receiver.recv().await.map_err(|_| "stopped learning")
     }
 
     async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {
