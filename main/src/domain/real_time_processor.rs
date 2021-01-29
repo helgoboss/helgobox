@@ -260,7 +260,7 @@ impl RealTimeProcessor {
         }
         // Poll source scanner if we are learning a source currently
         if self.control_mode.is_learning() {
-            if let Some(source) = self.midi_source_scanner.poll() {
+            if let Some((source, _)) = self.midi_source_scanner.poll() {
                 self.learn_source(source);
             }
         }
@@ -410,7 +410,7 @@ impl RealTimeProcessor {
                 self.process_incoming_midi_normal_plain(msg, caller);
             }
             ControlMode::LearningSource => {
-                if let Some(source) = self.midi_source_scanner.feed_short(msg) {
+                if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
                     self.learn_source(source);
                 }
             }

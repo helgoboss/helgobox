@@ -5,13 +5,15 @@ use futures::channel::oneshot;
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use reaper_high::Reaper;
-use reaper_medium::{MidiEvent, MidiInput, OnAudioBuffer, OnAudioBufferArgs};
+use reaper_medium::{MidiEvent, MidiInput, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferArgs};
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex};
 
 /// This needs to be thread-safe because if "Allow live FX multiprocessing" is active in the REAPER
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
+
+type LearnSourceSender = oneshot::Sender<(MidiInputDeviceId, MidiSource)>;
 
 pub enum RealearnAudioHookTask {
     /// First parameter is the ID.
@@ -21,7 +23,7 @@ pub enum RealearnAudioHookTask {
     AddRealTimeProcessor(String, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(String),
     // TODO-low Maybe we should use tokio channel or async-channel (~ crossbeam) here
-    StartLearningSource(oneshot::Sender<MidiSource>),
+    StartLearningSource(LearnSourceSender),
     StopLearningSource,
 }
 
@@ -37,7 +39,7 @@ enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.
     LearningSource {
-        sender: oneshot::Sender<MidiSource>,
+        sender: LearnSourceSender,
         midi_source_scanner: MidiSourceScanner,
     },
 }
@@ -90,9 +92,9 @@ impl OnAudioBuffer for RealearnAudioHook {
                 }
                 if let Some(sender) = process_all_midi_inputs(&mut midi_source_scanner, sender) {
                     // No new MIDI message or no source detected. Now poll.
-                    if let Some(source) = midi_source_scanner.poll() {
+                    if let Some((source, Some(dev_id))) = midi_source_scanner.poll() {
                         // Source detected via polling. Return to normal mode.
-                        let _ = sender.send(source);
+                        let _ = sender.send((dev_id, source));
                         AudioHookState::Normal
                     } else {
                         // Also no source detected via polling. Go on learning.
@@ -133,12 +135,12 @@ impl OnAudioBuffer for RealearnAudioHook {
 /// Returns None if a source was detected, sent to the receiver and thus the sender is consumed.
 fn process_all_midi_inputs(
     mut midi_source_scanner: &mut MidiSourceScanner,
-    mut sender: oneshot::Sender<MidiSource>,
-) -> Option<oneshot::Sender<MidiSource>> {
+    mut sender: LearnSourceSender,
+) -> Option<LearnSourceSender> {
     for dev in Reaper::get().midi_input_devices() {
         sender = dev.with_midi_input(|mi| {
             if let Some(mi) = mi {
-                process_midi_input(mi, &mut midi_source_scanner, sender)
+                process_midi_input(dev.id(), mi, &mut midi_source_scanner, sender)
             } else {
                 // MIDI device not open. Just return ownership of the sender.
                 Some(sender)
@@ -150,13 +152,14 @@ fn process_all_midi_inputs(
 
 /// Returns None if a source was detected, sent to the receiver and thus the sender is consumed.
 fn process_midi_input(
+    dev_id: MidiInputDeviceId,
     midi_input: &MidiInput,
     midi_source_scanner: &mut MidiSourceScanner,
-    sender: oneshot::Sender<MidiSource>,
-) -> Option<oneshot::Sender<MidiSource>> {
+    sender: LearnSourceSender,
+) -> Option<LearnSourceSender> {
     for evt in midi_input.get_read_buf().enum_items(0) {
-        if let Some(source) = process_midi_event(evt, midi_source_scanner) {
-            let _ = sender.send(source);
+        if let Some(source) = process_midi_event(dev_id, evt, midi_source_scanner) {
+            let _ = sender.send((dev_id, source));
             return None;
         }
     }
@@ -164,6 +167,7 @@ fn process_midi_input(
 }
 
 fn process_midi_event(
+    dev_id: MidiInputDeviceId,
     evt: MidiEvent,
     midi_source_scanner: &mut MidiSourceScanner,
 ) -> Option<MidiSource> {
@@ -171,5 +175,5 @@ fn process_midi_event(
     if classify_midi_message(raw_msg) != MidiMessageClassification::Normal {
         return None;
     }
-    midi_source_scanner.feed_short(raw_msg)
+    midi_source_scanner.feed_short(raw_msg, Some(dev_id))
 }

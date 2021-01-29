@@ -114,6 +114,7 @@ impl View for SessionMessagePanel {
             session.borrow_mut().stop_learning_many_mappings();
         }
     }
+
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Escape key

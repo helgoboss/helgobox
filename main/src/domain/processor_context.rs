@@ -36,6 +36,10 @@ impl ProcessorContext {
             .unwrap_or_else(|| Reaper::get().current_project())
     }
 
+    pub fn project(&self) -> Option<Project> {
+        self.project
+    }
+
     pub fn is_on_monitoring_fx_chain(&self) -> bool {
         matches!(
             self.containing_fx.chain().context(),

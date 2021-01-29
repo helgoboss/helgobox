@@ -5,7 +5,7 @@ use helgoboss_midi::{
     PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
     StructuredShortMessage, U7,
 };
-use reaper_medium::MidiFrameOffset;
+use reaper_medium::{MidiFrameOffset, MidiInputDeviceId};
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
@@ -18,6 +18,7 @@ pub struct MidiSourceScanner {
     nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
     state: State,
+    dev_id: Option<MidiInputDeviceId>,
 }
 
 impl Default for MidiSourceScanner {
@@ -26,6 +27,7 @@ impl Default for MidiSourceScanner {
             nrpn_scanner: PollingParameterNumberMessageScanner::new(Duration::from_millis(1)),
             cc_14_bit_scanner: Default::default(),
             state: State::Initial,
+            dev_id: None,
         }
     }
 }
@@ -72,27 +74,41 @@ impl ControlChangeState {
 }
 
 impl MidiSourceScanner {
-    pub fn feed_short(&mut self, msg: RawShortMessage) -> Option<MidiSource> {
+    pub fn feed_short(
+        &mut self,
+        msg: RawShortMessage,
+        dev_id: Option<MidiInputDeviceId>,
+    ) -> Option<MidiSource> {
         if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
-            let res = self.feed(MidiSourceValue::<RawShortMessage>::ParameterNumber(
-                nrpn_msg,
-            ));
+            let res = self.feed(
+                MidiSourceValue::<RawShortMessage>::ParameterNumber(nrpn_msg),
+                dev_id,
+            );
             if res.is_some() {
                 return res;
             }
         }
         if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
-            let res = self.feed(MidiSourceValue::<RawShortMessage>::ControlChange14Bit(
-                cc14_msg,
-            ));
+            let res = self.feed(
+                MidiSourceValue::<RawShortMessage>::ControlChange14Bit(cc14_msg),
+                dev_id,
+            );
             if res.is_some() {
                 return res;
             }
         }
-        self.feed(MidiSourceValue::Plain(msg))
+        self.feed(MidiSourceValue::Plain(msg), dev_id)
     }
 
-    pub fn feed(&mut self, source_value: MidiSourceValue<RawShortMessage>) -> Option<MidiSource> {
+    pub(crate) fn feed(
+        &mut self,
+        source_value: MidiSourceValue<RawShortMessage>,
+        dev_id: Option<MidiInputDeviceId>,
+    ) -> Option<MidiSource> {
+        // First encountered device ID rules.
+        if self.dev_id.is_none() {
+            self.dev_id = dev_id;
+        }
         match &mut self.state {
             State::Initial => {
                 if let MidiSourceValue::Plain(msg) = source_value {
@@ -125,7 +141,7 @@ impl MidiSourceScanner {
                             cc_state.add_value(control_value);
                         }
                     }
-                    self.guess_or_not()
+                    Some(self.guess_or_not()?.0)
                 } else {
                     // Looks like in the meantime, the composite scanners ((N)RPN or
                     // 14-bit CC) have figured out that the combination is a composite
@@ -140,13 +156,12 @@ impl MidiSourceScanner {
         }
     }
 
-    pub fn poll(&mut self) -> Option<MidiSource> {
+    pub fn poll(&mut self) -> Option<(MidiSource, Option<MidiInputDeviceId>)> {
         for ch in 0..16 {
             if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
                 let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(nrpn_msg);
-                let source = self.feed(source_value);
-                if source.is_some() {
-                    return source;
+                if let Some(source) = self.feed(source_value, None) {
+                    return Some((source, self.dev_id));
                 }
             }
         }
@@ -159,12 +174,12 @@ impl MidiSourceScanner {
         self.state = State::Initial;
     }
 
-    fn guess_or_not(&mut self) -> Option<MidiSource> {
+    fn guess_or_not(&mut self) -> Option<(MidiSource, Option<MidiInputDeviceId>)> {
         if let State::WaitingForMoreCcMsgs(cc_state) = &self.state {
             if cc_state.time_to_guess() {
                 let guessed_source = guess_source(cc_state);
                 self.reset();
-                Some(guessed_source)
+                Some((guessed_source, self.dev_id))
             } else {
                 None
             }
@@ -298,17 +313,17 @@ mod tests {
             let msg_1 = control_change(1, 99, 0);
             let nrpn_1 = nrpn_scanner.feed(&msg_1);
             assert_eq!(nrpn_1, None);
-            let source_1 = source_scanner.feed(Plain(msg_1));
+            let source_1 = source_scanner.feed(Plain(msg_1), None);
             // Message 2
             let msg_2 = control_change(1, 98, 99);
             let nrpn_2 = nrpn_scanner.feed(&msg_2);
-            let source_2 = source_scanner.feed(Plain(msg_1));
+            let source_2 = source_scanner.feed(Plain(msg_1), None);
             assert_eq!(nrpn_2, None);
             // Message 3
             let msg_3 = control_change(1, 38, 3);
             let nrpn_3 = nrpn_scanner.feed(&msg_3);
             assert_eq!(nrpn_3, None);
-            let source_3 = source_scanner.feed(Plain(msg_3));
+            let source_3 = source_scanner.feed(Plain(msg_3), None);
             // Message 4
             let msg_4 = control_change(1, 6, 2);
             let nrpn_4 = nrpn_scanner.feed(&msg_4).unwrap();
@@ -316,8 +331,8 @@ mod tests {
                 nrpn_4,
                 ParameterNumberMessage::non_registered_14_bit(channel(1), u14(99), u14(259))
             );
-            let source_4_nrpn = source_scanner.feed(ParameterNumber(nrpn_4));
-            let source_4_short = source_scanner.feed(Plain(msg_4));
+            let source_4_nrpn = source_scanner.feed(ParameterNumber(nrpn_4), None);
+            let source_4_short = source_scanner.feed(Plain(msg_4), None);
             // Then
             // Even our source scanner is already waiting for more CC messages with the same number,
             // a suddenly arriving (N)RPN message should take precedence! Because our real-time
