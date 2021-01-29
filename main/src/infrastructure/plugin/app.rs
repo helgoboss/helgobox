@@ -633,7 +633,7 @@ impl App {
         });
         Reaper::get().register_action(
             "realearnLearnSourceForLastTouchedTarget",
-            "ReaLearn: Learn source for last touched target (replacing mapping with existing target)",
+            "ReaLearn: Learn source for last touched target (reassigning target)",
             move || {
                 // We borrow this only very shortly so that the mutable borrow when touching the
                 // target can't interfere.
@@ -671,6 +671,37 @@ impl App {
             },
             ActionKind::NotToggleable,
         );
+        Reaper::get().register_action(
+            "REALEARN_FIND_FIRST_MAPPING_BY_SOURCE",
+            "ReaLearn: Find first mapping by source",
+            move || {
+                Global::future_support().spawn_in_main_thread_from_main_thread(async {
+                    let _ = App::get()
+                        .find_first_mapping_by_source(MappingCompartment::MainMappings)
+                        .await;
+                });
+            },
+            ActionKind::NotToggleable,
+        );
+    }
+
+    async fn find_first_mapping_by_source(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Result<(), &'static str> {
+        self.toggle_guard()?;
+        let (dev_id, midi_source) = self
+            .prompt_for_next_midi_source("Please touch a control element!")
+            .await?;
+        self.close_message_panel();
+        if let Some((session, mapping)) =
+            self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
+        {
+            session
+                .borrow()
+                .show_mapping(compartment, mapping.borrow().id());
+        }
+        Ok(())
     }
 
     async fn learn_mapping_reassigning_source(
@@ -678,6 +709,7 @@ impl App {
         compartment: MappingCompartment,
         open_mapping: bool,
     ) -> Result<(), &'static str> {
+        self.toggle_guard()?;
         if self.find_first_relevant_session().is_none() {
             self.close_message_panel_with_alert(
                 "At first you need to add a ReaLearn instance to the monitoring FX chain or this project! Don't forget to set the MIDI control input.",
@@ -741,6 +773,15 @@ impl App {
     fn close_message_panel_with_alert(&self, msg: &str) {
         self.close_message_panel();
         notification::alert(msg);
+    }
+
+    fn toggle_guard(&self) -> Result<(), &'static str> {
+        if self.message_panel.is_open() {
+            self.close_message_panel();
+            return Err("a message panel action was already executing, cancelled it");
+        }
+        // Continue
+        Ok(())
     }
 
     async fn prompt_for_next_midi_source(
