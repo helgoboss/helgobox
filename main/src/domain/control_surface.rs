@@ -122,8 +122,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        for p in &mut self.main_processors {
-            p.run();
+        match &self.state {
+            State::Normal => {
+                for p in &mut self.main_processors {
+                    p.run_all();
+                }
+            }
+            State::LearningTarget(_) => {
+                for p in &mut self.main_processors {
+                    p.run_essential();
+                }
+            }
         }
         if self.metrics_enabled {
             // Roughly every 10 seconds
@@ -138,14 +147,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn handle_event_internal(&self, event: ControlSurfaceEvent) {
         self.change_detection_middleware.process(event, |e| {
-            if let State::LearningTarget(sender) = &self.state {
-                // At some point we want the Rx stuff out of the domain layer. This is one step in
-                // this direction.
-                if let Some(target) = ReaperTarget::touched_from_change_event(e.clone()) {
-                    let _ = sender.try_send(target);
+            match &self.state {
+                State::Normal => {
+                    self.rx_middleware.handle_change(e);
+                }
+                State::LearningTarget(sender) => {
+                    // At some point we want the Rx stuff out of the domain layer. This is one step
+                    // in this direction.
+                    if let Some(target) = ReaperTarget::touched_from_change_event(e.clone()) {
+                        let _ = sender.try_send(target);
+                    }
                 }
             }
-            self.rx_middleware.handle_change(e);
         });
     }
 }

@@ -690,16 +690,22 @@ impl App {
         compartment: MappingCompartment,
     ) -> Result<(), &'static str> {
         self.toggle_guard()?;
-        let (dev_id, midi_source) = self
-            .prompt_for_next_midi_source("Please touch a control element!")
-            .await?;
-        self.close_message_panel();
-        if let Some((session, mapping)) =
-            self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
-        {
-            session
-                .borrow()
-                .show_mapping(compartment, mapping.borrow().id());
+        self.show_message_panel("ReaLearn", "Please touch control elements!", || {
+            App::get()
+                .audio_hook_task_sender
+                .send(RealearnAudioHookTask::StopLearningSource)
+                .unwrap();
+        });
+        let receiver = self.request_next_midi_sources();
+        while let Ok((dev_id, midi_source)) = receiver.recv().await {
+            if let Some((session, mapping)) =
+                self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
+            {
+                self.close_message_panel();
+                session
+                    .borrow()
+                    .show_mapping(compartment, mapping.borrow().id());
+            }
         }
         Ok(())
     }
@@ -794,15 +800,20 @@ impl App {
                 .send(RealearnAudioHookTask::StopLearningSource)
                 .unwrap();
         });
-        self.next_midi_source().await
+        self.request_next_midi_sources()
+            .recv()
+            .await
+            .map_err(|_| "stopped learning")
     }
 
-    async fn next_midi_source(&self) -> Result<(MidiInputDeviceId, MidiSource), &'static str> {
+    fn request_next_midi_sources(
+        &self,
+    ) -> async_channel::Receiver<(MidiInputDeviceId, MidiSource)> {
         let (sender, receiver) = async_channel::unbounded();
         self.audio_hook_task_sender
             .send(RealearnAudioHookTask::StartLearningSource(sender))
             .unwrap();
-        receiver.recv().await.map_err(|_| "stopped learning")
+        receiver
     }
 
     async fn prompt_for_next_reaper_target(&self, msg: &str) -> Result<ReaperTarget, &'static str> {

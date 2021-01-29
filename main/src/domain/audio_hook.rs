@@ -76,7 +76,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                     // better. We also call it by the plug-in `process()` method though in order to
                     // be able to send MIDI to <FX output> and to stop doing so
                     // synchronously if the plug-in is gone.
-                    p.lock().unwrap().run_from_audio_hook(args.len as _);
+                    p.lock().unwrap().run_from_audio_hook_all(args.len as _);
                 }
             }
             AudioHookState::LearningSource {

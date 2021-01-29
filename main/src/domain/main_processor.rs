@@ -125,7 +125,50 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             });
     }
 
-    pub fn run(&mut self) {
+    /// This should be regularly called by the control surface in normal mode.
+    pub fn run_all(&mut self) {
+        self.run_essential();
+        self.run_control();
+    }
+
+    /// This should *not* be called by the control surface when it's globally learning targets
+    /// because we want to pause controlling in that case! Otherwise we could control targets and
+    /// they would be learned although not touched via mouse, that's not good.
+    fn run_control(&mut self) {
+        // Process control tasks
+        let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
+            .control_task_receiver
+            .try_iter()
+            .take(CONTROL_TASK_BULK_SIZE)
+            .collect();
+        for task in control_tasks {
+            use ControlMainTask::*;
+            match task {
+                Control {
+                    compartment,
+                    mapping_id,
+                    value,
+                    options,
+                } => {
+                    if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
+                        // Most of the time, the main processor won't even receive a control
+                        // instruction (from the real-time processor) for a mapping for which
+                        // control is disabled, because the real-time processor doesn't process
+                        // disabled mappings. But if control is (temporarily) disabled because a
+                        // target condition is (temporarily) not met (e.g. "track must be
+                        // selected") and the real-time processor doesn't yet know about it, there
+                        // might be a short amount of time where we still receive control
+                        // statements. We filter them here.
+                        let feedback = m.control_if_enabled(value, options);
+                        self.send_feedback(feedback);
+                    };
+                }
+            }
+        }
+    }
+
+    /// This should be regularly called by the control surface, even during global target learning.
+    pub fn run_essential(&mut self) {
         // Process normal tasks
         // We could also iterate directly while keeping the receiver open. But that would (for
         // good reason) prevent us from calling other methods that mutably borrow
@@ -380,36 +423,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         activation_updates,
                         &unused_sources,
                     )
-                }
-            }
-        }
-        // Process control tasks
-        let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
-            .control_task_receiver
-            .try_iter()
-            .take(CONTROL_TASK_BULK_SIZE)
-            .collect();
-        for task in control_tasks {
-            use ControlMainTask::*;
-            match task {
-                Control {
-                    compartment,
-                    mapping_id,
-                    value,
-                    options,
-                } => {
-                    if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                        // Most of the time, the main processor won't even receive a control
-                        // instruction (from the real-time processor) for a mapping for which
-                        // control is disabled, because the real-time processor doesn't process
-                        // disabled mappings. But if control is (temporarily) disabled because a
-                        // target condition is (temporarily) not met (e.g. "track must be
-                        // selected") and the real-time processor doesn't yet know about it, there
-                        // might be a short amount of time where we still receive control
-                        // statements. We filter them here.
-                        let feedback = m.control_if_enabled(value, options);
-                        self.send_feedback(feedback);
-                    };
                 }
             }
         }

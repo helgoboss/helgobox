@@ -132,9 +132,9 @@ impl RealTimeProcessor {
     }
 
     /// This should be regularly called by audio hook in normal mode.
-    pub fn run_from_audio_hook(&mut self, sample_count: usize) {
+    pub fn run_from_audio_hook_all(&mut self, sample_count: usize) {
         self.run_from_audio_hook_essential(sample_count);
-        self.run_from_audio_hook_normal(sample_count);
+        self.run_from_audio_hook_control_and_learn();
     }
 
     /// This should be regularly called by audio hook even during global MIDI source learning.
@@ -237,7 +237,9 @@ impl RealTimeProcessor {
         }
     }
 
-    pub fn run_from_audio_hook_normal(&mut self, sample_count: usize) {
+    /// This should *not* be called by the global audio hook when it's globally learning sources
+    /// because we want to pause controlling in that case!
+    fn run_from_audio_hook_control_and_learn(&mut self) {
         // Read MIDI events if MIDI control input set to device
         if let MidiControlInput::Device(dev) = self.midi_control_input {
             dev.with_midi_input(|mi| {
@@ -258,7 +260,7 @@ impl RealTimeProcessor {
                 self.process_incoming_midi_normal_nrpn(nrpn_msg, Caller::AudioHook);
             }
         }
-        // Poll source scanner if we are learning a source currently
+        // Poll source scanner if we are learning a source currently (local learning)
         if self.control_mode.is_learning() {
             if let Some((source, _)) = self.midi_source_scanner.poll() {
                 self.learn_source(source);

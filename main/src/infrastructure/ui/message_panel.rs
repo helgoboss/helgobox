@@ -29,11 +29,12 @@ impl Default for MessagePanelContent {
 
 impl MessagePanel {
     pub fn set_content(&self, title: String, message: String, on_close: impl FnOnce() + 'static) {
-        self.content.replace(MessagePanelContent {
+        let prev_content = self.content.replace(MessagePanelContent {
             title,
             message,
             on_close: WrapDebug(Box::new(on_close)),
         });
+        (prev_content.on_close.into_inner())();
         if self.is_open() {
             self.invalidate();
         }
@@ -48,8 +49,8 @@ impl MessagePanel {
     }
 
     fn on_close(&self) {
-        let content = self.content.replace(Default::default());
-        (content.on_close.into_inner())();
+        let prev_content = self.content.replace(Default::default());
+        (prev_content.on_close.into_inner())();
     }
 }
 
