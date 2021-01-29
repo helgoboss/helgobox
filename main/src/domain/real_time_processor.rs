@@ -1,6 +1,6 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSource, CompoundMappingSourceValue, ControlMainTask,
-    ControlOptions, MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
+    classify_midi_message, CompoundMappingSourceValue, ControlMainTask, ControlOptions,
+    MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
     MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
     UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
@@ -8,7 +8,6 @@ use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
-    ShortMessageType,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};

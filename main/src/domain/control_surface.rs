@@ -3,11 +3,10 @@ use crate::domain::{DomainEventHandler, MainProcessor, ReaperTarget};
 use crossbeam_channel::Receiver;
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
-    MainTaskMiddleware, MeterMiddleware, Reaper,
+    MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use std::collections::HashMap;
-use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -100,7 +99,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 LogDebugInfo => {
                     self.meter_middleware.log_metrics();
                 }
-                StartLearningTargets(mut sender) => {
+                StartLearningTargets(sender) => {
                     self.state = State::LearningTarget(sender);
                 }
                 StopLearningTargets => {
@@ -154,7 +153,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 State::LearningTarget(sender) => {
                     // At some point we want the Rx stuff out of the domain layer. This is one step
                     // in this direction.
-                    if let Some(target) = ReaperTarget::touched_from_change_event(e.clone()) {
+                    if let Some(target) = ReaperTarget::touched_from_change_event(e) {
                         let _ = sender.try_send(target);
                     }
                 }

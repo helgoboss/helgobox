@@ -4,8 +4,8 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    MainProcessor, MappingCompartment, MappingId, MidiControlInput, RealearnAudioHook,
-    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    MainProcessor, MappingCompartment, RealearnAudioHook, RealearnAudioHookTask,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
@@ -16,14 +16,11 @@ use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
-use futures::channel::oneshot;
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::Channel;
-use reaper_high::{
-    ActionKind, CrashInfo, Fx, MiddlewareControlSurface, MidiInputDevice, Project, Reaper, Track,
-};
+use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
-use reaper_medium::{MidiInputDeviceId, RecordingInput, RegistrationHandle};
+use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;

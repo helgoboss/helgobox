@@ -13,7 +13,7 @@ use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
 use std::cmp;
 
-use crate::application::{MappingModel, Session, SharedMapping, SharedSession, WeakSession};
+use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 

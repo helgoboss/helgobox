@@ -1,11 +1,10 @@
-use crate::domain::{CompoundMappingSource, CompoundMappingSourceValue, VirtualSource};
 use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessageScanner, ControllerNumber,
-    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageType,
-    StructuredShortMessage, U7,
+    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, StructuredShortMessage,
+    U7,
 };
-use reaper_medium::{MidiFrameOffset, MidiInputDeviceId};
+use reaper_medium::MidiInputDeviceId;
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 

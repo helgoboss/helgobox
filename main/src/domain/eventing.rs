@@ -1,4 +1,4 @@
-use crate::domain::{CompoundMappingSource, MappingId};
+use crate::domain::MappingId;
 use helgoboss_learn::MidiSource;
 use std::collections::HashSet;
 use std::fmt::Debug;

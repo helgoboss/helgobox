@@ -1,14 +1,13 @@
 use crate::application::{
     share_group, share_mapping, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
-    SharedMapping, SourceCategory, TargetCategory, TargetModel, VirtualControlElementType,
+    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingSourceValue, DomainEvent, DomainEventHandler,
-    MainMapping, MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput,
-    NormalMainTask, NormalRealTimeTask, ProcessorContext, ReaperTarget, VirtualSource,
-    PLUGIN_PARAMETER_COUNT,
+    CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
+    MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
+    ProcessorContext, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -21,8 +20,8 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-use helgoboss_learn::{MidiSource, MidiSourceValue};
-use helgoboss_midi::{Channel, RawShortMessage};
+use helgoboss_learn::MidiSource;
+use helgoboss_midi::Channel;
 use itertools::Itertools;
 use reaper_medium::{MidiInputDeviceId, RecordingInput};
 use std::rc::{Rc, Weak};
@@ -332,7 +331,7 @@ impl Session {
         )
         .with(weak_session.clone())
         .do_async(move |session, _| {
-            let mut session = session.borrow_mut();
+            let session = session.borrow_mut();
             session.sync_control_is_globally_enabled();
             session.sync_feedback_is_globally_enabled();
         });
@@ -849,15 +848,6 @@ impl Session {
         self.mappings[compartment].len()
     }
 
-    pub fn find_mapping_by_address(
-        &self,
-        compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) -> Option<&SharedMapping> {
-        self.mappings(compartment)
-            .find(|m| m.as_ptr() == mapping as _)
-    }
-
     pub fn find_mapping_and_index_by_id(
         &self,
         compartment: MappingCompartment,
@@ -940,7 +930,7 @@ impl Session {
         reenable_control_after_touched: bool,
         ignore_sources: HashSet<CompoundMappingSource>,
     ) {
-        self.mapping_which_learns_source.set(Some(mapping.clone()));
+        self.mapping_which_learns_source.set(Some(mapping));
         when(
             self.source_touched(reenable_control_after_touched)
                 .filter(move |s| !ignore_sources.contains(s))

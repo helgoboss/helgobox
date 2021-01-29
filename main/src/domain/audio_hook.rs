@@ -4,7 +4,7 @@ use crate::domain::{
 use helgoboss_learn::MidiSource;
 use helgoboss_midi::ShortMessage;
 use reaper_high::Reaper;
-use reaper_medium::{MidiEvent, MidiInput, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferArgs};
+use reaper_medium::{MidiEvent, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferArgs};
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex};
 
@@ -33,6 +33,7 @@ pub struct RealearnAudioHook {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.

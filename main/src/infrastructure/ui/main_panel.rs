@@ -9,7 +9,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{MappingModel, SessionUi, WeakSession};
+use crate::application::{SessionUi, WeakSession};
 use crate::core::when;
 use crate::domain::{MappingCompartment, MappingId};
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
