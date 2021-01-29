@@ -731,7 +731,7 @@ impl App {
             s
         } else {
             self.close_message_panel_with_alert(
-                "No ReaLearn instance found which has this MIDI control input! Please first add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
+                "No ReaLearn instance found which has this MIDI control input! First please add one to the monitoring FX chain or this project and set the MIDI control input accordingly!",
             );
             return Err("no ReaLearn instance with that MIDI input");
         };
@@ -841,10 +841,7 @@ impl App {
     ) {
         // Try to find an existing session which has a target with that parameter
         let session = self
-            .find_first_session_with_target_in_current_project_or_monitoring_fx_chain(
-                compartment,
-                target,
-            )
+            .find_first_relevant_session_with_target(compartment, target)
             // If not found, find the instance on the parameter's track (if there's one)
             .or_else(|| {
                 target
@@ -855,7 +852,9 @@ impl App {
             .or_else(|| self.find_first_relevant_session());
         match session {
             None => {
-                notification::alert("Please add a ReaLearn FX to this project first!");
+                notification::alert(
+                    "No suitable ReaLearn instance found! First please add one to the monitoring FX chain or this project!",
+                );
             }
             Some(s) => {
                 let mapping =
@@ -866,14 +865,28 @@ impl App {
         }
     }
 
-    fn find_first_session_with_target_in_current_project_or_monitoring_fx_chain(
+    fn find_first_relevant_session_with_target(
         &self,
+        compartment: MappingCompartment,
+        target: &ReaperTarget,
+    ) -> Option<SharedSession> {
+        self.find_first_session_with_target(
+            Some(Reaper::get().current_project()),
+            compartment,
+            target,
+        )
+        .or_else(|| self.find_first_session_with_target(None, compartment, target))
+    }
+
+    fn find_first_session_with_target(
+        &self,
+        project: Option<Project>,
         compartment: MappingCompartment,
         target: &ReaperTarget,
     ) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project_or_current_project() == Reaper::get().current_project()
+            session.context().project() == project
                 && session
                     .find_mapping_with_target(compartment, target)
                     .is_some()
