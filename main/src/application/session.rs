@@ -262,6 +262,8 @@ impl Session {
             self.sync_all_mappings_full(compartment);
         }
         self.sync_settings_to_real_time_processor();
+        self.sync_control_is_globally_enabled();
+        self.sync_feedback_is_globally_enabled();
     }
 
     /// Connects the dots.
@@ -312,7 +314,6 @@ impl Session {
             // general.
             self.midi_feedback_output
                 .changed()
-                .merge(self.containing_fx_enabled_or_disabled())
                 .merge(self.containing_track_armed_or_disarmed())
                 .merge(self.send_feedback_only_if_armed.changed())
                 // We have this explicit stop criteria because we listen to global REAPER events.
@@ -321,6 +322,19 @@ impl Session {
         .with(weak_session.clone())
         .do_async(move |session, _| {
             session.borrow_mut().sync_feedback_is_globally_enabled();
+        });
+        // Whenever containing FX is disabled or enabled, we need to completely disable/enable
+        // control/feedback.
+        when(
+            self.containing_fx_enabled_or_disabled()
+                // We have this explicit stop criteria because we listen to global REAPER events.
+                .take_until(self.party_is_over()),
+        )
+        .with(weak_session.clone())
+        .do_async(move |session, _| {
+            let mut session = session.borrow_mut();
+            session.sync_control_is_globally_enabled();
+            session.sync_feedback_is_globally_enabled();
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
@@ -1490,6 +1504,10 @@ impl Session {
         }
     }
 
+    fn control_is_globally_enabled(&self) -> bool {
+        self.context.containing_fx().is_enabled()
+    }
+
     fn feedback_is_globally_enabled(&self) -> bool {
         self.midi_feedback_output.get().is_some()
             && self.context.containing_fx().is_enabled()
@@ -1504,6 +1522,15 @@ impl Session {
             None => true,
             Some(t) => t.is_available() && t.is_armed(false),
         }
+    }
+
+    /// Just syncs whether control globally enabled or not.
+    fn sync_control_is_globally_enabled(&self) {
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(
+                self.control_is_globally_enabled(),
+            ))
+            .unwrap();
     }
 
     /// Just syncs whether feedback globally enabled or not.
@@ -1582,8 +1609,6 @@ impl Session {
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
         self.initial_sync(weak_session);
-        // Not sure why this is not included in initial sync
-        self.sync_feedback_is_globally_enabled();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }

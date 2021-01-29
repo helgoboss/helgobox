@@ -34,12 +34,6 @@ pub(crate) enum ControlMode {
     LearningSource,
 }
 
-impl ControlMode {
-    fn is_learning(&self) -> bool {
-        matches!(self, ControlMode::LearningSource)
-    }
-}
-
 #[derive(Debug)]
 pub struct RealTimeProcessor {
     instance_id: String,
@@ -51,6 +45,8 @@ pub struct RealTimeProcessor {
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
     let_matched_events_through: bool,
     let_unmatched_events_through: bool,
+    // State
+    control_is_globally_enabled: bool,
     // Inter-thread communication
     normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
@@ -95,6 +91,7 @@ impl RealTimeProcessor {
             midi_feedback_output: None,
             midi_source_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
+            control_is_globally_enabled: true,
         }
     }
 
@@ -150,6 +147,9 @@ impl RealTimeProcessor {
         for task in self.normal_task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             use NormalRealTimeTask::*;
             match task {
+                UpdateControlIsGloballyEnabled(is_enabled) => {
+                    self.control_is_globally_enabled = is_enabled;
+                }
                 UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         self.logger,
@@ -245,6 +245,8 @@ impl RealTimeProcessor {
             dev.with_midi_input(|mi| {
                 if let Some(mi) = mi {
                     for evt in mi.get_read_buf().enum_items(0) {
+                        // Current control mode is checked further down the callstack. No need to
+                        // check it here.
                         self.process_incoming_midi(
                             evt.frame_offset(),
                             evt.message().to_other(),
@@ -254,16 +256,24 @@ impl RealTimeProcessor {
                 }
             });
         }
-        // Poll (N)RPN scanner
-        for ch in 0..16 {
-            if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
-                self.process_incoming_midi_normal_nrpn(nrpn_msg, Caller::AudioHook);
+        match self.control_mode {
+            ControlMode::Disabled => {}
+            ControlMode::Controlling => {
+                // This NRPN scanner is just for controlling, not for learning.
+                if self.control_is_globally_enabled {
+                    // Poll (N)RPN scanner
+                    for ch in 0..16 {
+                        if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
+                            self.process_incoming_midi_normal_nrpn(nrpn_msg, Caller::AudioHook);
+                        }
+                    }
+                }
             }
-        }
-        // Poll source scanner if we are learning a source currently (local learning)
-        if self.control_mode.is_learning() {
-            if let Some((source, _)) = self.midi_source_scanner.poll() {
-                self.learn_source(source);
+            ControlMode::LearningSource => {
+                // Poll source scanner if we are learning a source currently (local learning)
+                if let Some((source, _)) = self.midi_source_scanner.poll() {
+                    self.learn_source(source);
+                }
             }
         }
     }
@@ -375,9 +385,12 @@ impl RealTimeProcessor {
             }
             Timing => {
                 // Timing clock messages are treated special (calculates BPM).
-                if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
-                    let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                    self.control_midi(source_value);
+                // This is control-only, we never learn it.
+                if self.control_is_globally_enabled {
+                    if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
+                        let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
+                        self.control_midi(source_value);
+                    }
                 }
             }
         }
@@ -391,25 +404,26 @@ impl RealTimeProcessor {
     fn process_incoming_midi_normal(&mut self, msg: RawShortMessage, caller: Caller) {
         match self.control_mode {
             ControlMode::Controlling => {
-                // TODO-low This is probably unnecessary optimization, but we could switch off
-                //  NRPN/CC14 scanning if there's no such source.
-                if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
-                    self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
+                if self.control_is_globally_enabled {
+                    if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
+                        self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
+                    }
+                    if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
+                        self.process_incoming_midi_normal_cc14(cc14_msg, caller);
+                    }
+                    // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still
+                    // process the plain short MIDI message. This is desired.
+                    // Rationale: If there's no mapping with a composite source
+                    // of this kind, then all the CCs potentially involved in
+                    // composite messages can still be used separately (e.g. CC
+                    // 6, 38, 98, etc.). That's important! However, if there's
+                    // at least one mapping source that listens to composite
+                    // messages of the incoming kind, we need to make sure that the
+                    // single messages can't be used anymore! Otherwise it would be
+                    // confusing. They are consumed. That's the reason why
+                    // we do the consumption check at a later state.
+                    self.process_incoming_midi_normal_plain(msg, caller);
                 }
-                if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
-                    self.process_incoming_midi_normal_cc14(cc14_msg, caller);
-                }
-                // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still process
-                // the plain short MIDI message. This is desired. Rationale: If
-                // there's no mapping with a composite source of this kind, then all
-                // the CCs potentially involved in composite messages can still be
-                // used separately (e.g. CC 6, 38, 98, etc.). That's important!
-                // However, if there's at least one mapping source that listens to composite
-                // messages of the incoming kind, we need to make sure that the
-                // single messages can't be used anymore! Otherwise it would be
-                // confusing. They are consumed. That's the reason why
-                // we do the consumption check at a later state.
-                self.process_incoming_midi_normal_plain(msg, caller);
             }
             ControlMode::LearningSource => {
                 if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
@@ -676,6 +690,7 @@ pub enum NormalRealTimeTask {
     StartLearnSource,
     DisableControl,
     ReturnToControlMode,
+    UpdateControlIsGloballyEnabled(bool),
 }
 
 #[derive(Copy, Clone, Debug)]
