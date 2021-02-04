@@ -2401,6 +2401,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         });
         self.panel
             .when_do_sync(target.param_index.changed(), |view| {
+                view.invalidate_target_fx_param_combo_box();
                 view.invalidate_target_value_controls();
                 view.invalidate_mode_controls();
             });
