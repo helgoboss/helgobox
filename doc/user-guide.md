@@ -1491,7 +1491,7 @@ In order to find these actions, open REAPER's *Actions* menu, choose *Show actio
   has that source assigned, it will be reassigned to the new target that you touched.
 - **ReaLearn: Learn single mapping (reassigning source) and open it:** Like *Learn single mapping* but additionally
   opens the mapping panel after having learned the mapping. This is great for subsequent fine tuning.
-- **ReaLearn: Learn source for last touched target (reassigning target)** This behaves similar to REAPER's built-in
+- **ReaLearn: Learn source for last touched target (reassigning target):** This behaves similar to REAPER's built-in
   MIDI learn in that it always relates to the target that has been touched last.
 
 ## Tutorials

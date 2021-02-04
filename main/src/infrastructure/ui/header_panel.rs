@@ -167,6 +167,7 @@ impl HeaderPanel {
 
     fn toggle_learn_source_filter(&self) {
         let mut main_state = self.main_state.borrow_mut();
+        let active_compartment = main_state.active_compartment.get();
         let learning = &mut main_state.is_learning_source_filter;
         if learning.get() {
             // Stop learning
@@ -179,7 +180,10 @@ impl HeaderPanel {
             when(
                 self.session()
                     .borrow()
-                    .source_touched(true)
+                    .source_touched(
+                        true,
+                        active_compartment != MappingCompartment::ControllerMappings,
+                    )
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
             )

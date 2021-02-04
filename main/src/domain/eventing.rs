@@ -6,7 +6,10 @@ use std::fmt::Debug;
 /// An event which is sent to upper layers and processed there
 #[derive(Debug)]
 pub enum DomainEvent {
-    LearnedSource(MidiSource),
+    LearnedSource {
+        source: MidiSource,
+        allow_virtual_sources: bool,
+    },
     UpdatedOnMappings(HashSet<MappingId>),
 }
 

@@ -425,14 +425,22 @@ impl Session {
             .merge(self.main_preset_auto_load_mode.changed())
     }
 
-    pub fn learn_source(&mut self, source: MidiSource) {
+    pub fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
         self.source_touched_subject
-            .next(self.create_compound_source(source));
+            .next(self.create_compound_source(source, allow_virtual_sources));
     }
 
-    pub fn create_compound_source(&self, source: MidiSource) -> CompoundMappingSource {
-        if let Some(virt_source) = self.virtualize_if_possible(&source) {
-            CompoundMappingSource::Virtual(virt_source)
+    pub fn create_compound_source(
+        &self,
+        source: MidiSource,
+        allow_virtual_sources: bool,
+    ) -> CompoundMappingSource {
+        if allow_virtual_sources {
+            if let Some(virt_source) = self.virtualize_if_possible(&source) {
+                CompoundMappingSource::Virtual(virt_source)
+            } else {
+                CompoundMappingSource::Midi(source)
+            }
         } else {
             CompoundMappingSource::Midi(source)
         }
@@ -461,10 +469,16 @@ impl Session {
     pub fn source_touched(
         &self,
         reenable_control_after_touched: bool,
+        allow_virtual_sources: bool,
     ) -> impl Event<CompoundMappingSource> {
+        // TODO-low We should migrate this to the nice async-await mechanism that we use for global
+        //  learning (via REAPER action). That way we don't need the subject and also don't need
+        //  to pass the information through multiple processors whether we allow virtual sources.
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource)
+            .send(NormalRealTimeTask::StartLearnSource {
+                allow_virtual_sources,
+            })
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {
@@ -790,6 +804,7 @@ impl Session {
             mapping.clone(),
             false,
             ignore_sources,
+            compartment != MappingCompartment::ControllerMappings,
         );
         // If this is a main mapping, start learning target as soon as source learned. For
         // controller mappings we don't need to do this because adding the default mapping will
@@ -917,6 +932,7 @@ impl Session {
                 mapping.clone(),
                 true,
                 HashSet::new(),
+                mapping.borrow().compartment() != MappingCompartment::ControllerMappings,
             );
         } else {
             self.stop_learning_source();
@@ -929,10 +945,11 @@ impl Session {
         mapping: SharedMapping,
         reenable_control_after_touched: bool,
         ignore_sources: HashSet<CompoundMappingSource>,
+        allow_virtual_sources: bool,
     ) {
         self.mapping_which_learns_source.set(Some(mapping));
         when(
-            self.source_touched(reenable_control_after_touched)
+            self.source_touched(reenable_control_after_touched, allow_virtual_sources)
                 .filter(move |s| !ignore_sources.contains(s))
                 // We have this explicit stop criteria because we listen to global REAPER
                 // events.
@@ -1622,8 +1639,11 @@ impl DomainEventHandler for WeakSession {
         let mut session = session.borrow_mut();
         use DomainEvent::*;
         match event {
-            LearnedSource(source) => {
-                session.learn_source(source);
+            LearnedSource {
+                source,
+                allow_virtual_sources,
+            } => {
+                session.learn_source(source, allow_virtual_sources);
             }
             UpdatedOnMappings(on_mappings) => {
                 session.on_mappings.set(on_mappings);

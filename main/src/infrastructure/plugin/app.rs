@@ -787,7 +787,7 @@ impl App {
                     VirtualControlElementType::Multi,
                 );
                 let mut m = mapping.borrow_mut();
-                let compound_source = s.create_compound_source(midi_source);
+                let compound_source = s.create_compound_source(midi_source, true);
                 m.source_model.apply_from_source(&compound_source);
                 m.target_model
                     .apply_from_target(&reaper_target, s.context());

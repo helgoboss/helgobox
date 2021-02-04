@@ -316,9 +316,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
-                LearnSource(source) => {
-                    self.event_handler
-                        .handle_event(DomainEvent::LearnedSource(source));
+                LearnSource {
+                    source,
+                    allow_virtual_sources,
+                } => {
+                    self.event_handler.handle_event(DomainEvent::LearnedSource {
+                        source,
+                        allow_virtual_sources,
+                    });
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     self.feedback_is_globally_enabled = is_enabled;
@@ -649,7 +654,10 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
-    LearnSource(MidiSource),
+    LearnSource {
+        source: MidiSource,
+        allow_virtual_sources: bool,
+    },
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

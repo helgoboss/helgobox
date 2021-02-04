@@ -30,7 +30,7 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 pub(crate) enum ControlMode {
     Disabled,
     Controlling,
-    LearningSource,
+    LearningSource { allow_virtual_sources: bool },
 }
 
 #[derive(Debug)]
@@ -202,9 +202,13 @@ impl RealTimeProcessor {
                     debug!(self.logger, "Updating sample rate");
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
-                StartLearnSource => {
+                StartLearnSource {
+                    allow_virtual_sources,
+                } => {
                     debug!(self.logger, "Start learning source");
-                    self.control_mode = ControlMode::LearningSource;
+                    self.control_mode = ControlMode::LearningSource {
+                        allow_virtual_sources,
+                    };
                     self.midi_source_scanner.reset();
                 }
                 DisableControl => {
@@ -268,10 +272,12 @@ impl RealTimeProcessor {
                     }
                 }
             }
-            ControlMode::LearningSource => {
+            ControlMode::LearningSource {
+                allow_virtual_sources,
+            } => {
                 // Poll source scanner if we are learning a source currently (local learning)
                 if let Some((source, _)) = self.midi_source_scanner.poll() {
-                    self.learn_source(source);
+                    self.learn_source(source, allow_virtual_sources);
                 }
             }
         }
@@ -424,9 +430,11 @@ impl RealTimeProcessor {
                     self.process_incoming_midi_normal_plain(msg, caller);
                 }
             }
-            ControlMode::LearningSource => {
+            ControlMode::LearningSource {
+                allow_virtual_sources,
+            } => {
                 if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
-                    self.learn_source(source);
+                    self.learn_source(source, allow_virtual_sources);
                 }
             }
             ControlMode::Disabled => {}
@@ -452,12 +460,15 @@ impl RealTimeProcessor {
         }
     }
 
-    fn learn_source(&mut self, source: MidiSource) {
+    fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
         // If plug-in dropped, the receiver might be gone already because main processor is
         // unregistered synchronously.
         let _ = self
             .normal_main_task_sender
-            .send(NormalMainTask::LearnSource(source));
+            .send(NormalMainTask::LearnSource {
+                source,
+                allow_virtual_sources,
+            });
     }
 
     fn process_incoming_midi_normal_cc14(
@@ -686,7 +697,9 @@ pub enum NormalRealTimeTask {
     UpdateMappingActivations(MappingCompartment, Vec<MappingActivationUpdate>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
-    StartLearnSource,
+    StartLearnSource {
+        allow_virtual_sources: bool,
+    },
     DisableControl,
     ReturnToControlMode,
     UpdateControlIsGloballyEnabled(bool),
