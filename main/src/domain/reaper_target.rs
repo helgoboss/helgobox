@@ -511,7 +511,16 @@ impl ReaperTarget {
             TrackSendPanTouched(send) => TrackSendPan { send },
             TrackArmChanged(track) => TrackArm { track },
             TrackMuteTouched(track) => TrackMute { track },
-            TrackSoloChanged(track) => TrackSolo { track },
+            TrackSoloChanged(track) => {
+                // When we press the solo button of some track, REAPER actually sends many
+                // change events, starting with the change event for the master track. This is
+                // not cool for learning because we could only ever learn master-track solo,
+                // which doesn't even make sense. So let's just filter it out.
+                if track.is_master_track() {
+                    return None;
+                }
+                TrackSolo { track }
+            }
             TrackSelectedChanged(track) => TrackSelection {
                 track,
                 select_exclusively: false,
@@ -583,6 +592,11 @@ impl ReaperTarget {
             .merge(
                 csurf_rx
                     .track_solo_changed()
+                    // When we press the solo button of some track, REAPER actually sends many
+                    // change events, starting with the change event for the master track. This is
+                    // not cool for learning because we could only ever learn master-track solo,
+                    // which doesn't even make sense. So let's just filter it out.
+                    .filter(|track| !track.is_master_track())
                     .map(move |track| TrackSolo { track }.into()),
             )
             .merge(
