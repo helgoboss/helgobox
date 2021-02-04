@@ -1674,8 +1674,8 @@ Consider the following general usage hints:
 - If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
   can be manually adjusted using "Source Min/Max" in the "Tuning" section of the mapping.
       
-Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
-might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).
+**Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
+might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).**
 
 ### DJ TechTools "MIDI Fighter Twister"
 
@@ -1698,22 +1698,19 @@ You can also do this using the "MULTIPLE" button:
 3. Change the Encoder MIDI Type.
 4. Press "CANCEL"
 
+All MIDI Fighter Twister controller presets available on the Helgoboss ReaPack repository assume relative values.
+Each preset represents one virtual bank.
+
 #### Hints
 
-- There are some MIDI Fighter Twister controller presets available on the Helgoboss ReaPack repository, they all assume
-  relative values. Each preset represents one virtual bank.
 - Even though the Twister has its own bank/paging feature, I would recommend to use ReaLearn's built-in conditional
   activation feature instead. This provides advantages, for example when using the Controller Projection feature.
 - LED color depends on the target value and is adjustable via "Source Min/Max".
 
 ### Akai "APC Key 25"
 
-This controller works very well with ReaLearn, including feedback. It doesn't have encoders though, so the full
+This controller works with ReaLearn out of the box, including feedback. It doesn't have encoders though, so the full
 potential of ReaLearn can't be used.
-
-#### Preparation
-
-No special setup necessary.
 
 ### Novation "Launchpad Pro"
 
@@ -1724,3 +1721,12 @@ Launchpad-specific features that's not directly supported though.
 
 I always press "Setup" + the upper left pad to put this device into "Live" mode. This is also what my controller
 presets assume if not indicated otherwise.
+
+### iCON Platform M+
+
+Completely works, including feedback for motorized faders and LEDs.
+
+#### Preparation
+
+Start this device in "User Defined" control mode (channel 4 with firmware version 2+). There's no need to remap any
+controls because the defaults are great already. Tested with firmware v2.12.
