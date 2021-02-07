@@ -1,0 +1,1616 @@
+{
+  "version": "1.12.0-pre21",
+  "name": "Mackie Control",
+  "mappings": [
+    {
+      "id": "0345d4d7-0592-439a-82b1-a21f1163fb0e",
+      "name": "Ch1 Enc",
+      "source": {
+        "channel": 0,
+        "number": 16,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual"
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "35e92ecc-0fa8-4939-bec2-ee6df4cef937",
+      "name": "Ch1 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 48,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual"
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "4aac828c-edb0-4baf-9e9d-b20bbe4fee50",
+      "name": "Ch2 Enc",
+      "source": {
+        "channel": 0,
+        "number": 17,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 1
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "080aa1fe-fbec-4bb1-b1da-2361d2806763",
+      "name": "Ch2 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 49,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 1
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ca1ff9dc-286c-4e28-a490-3b8a5297a377",
+      "name": "Ch3 Enc",
+      "source": {
+        "channel": 0,
+        "number": 18,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 2
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "eeb98605-e0e8-4b5a-91c3-02f028f84304",
+      "name": "Ch3 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 50,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 2
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "53c6f2b6-bd4e-4979-8909-27fed57188c2",
+      "name": "Ch4 Enc",
+      "source": {
+        "channel": 0,
+        "number": 19,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 3
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "87ea7c16-9100-4685-a40b-399e496b9e54",
+      "name": "Ch4 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 51,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 3
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "3e6a1702-7b40-47c6-a449-d718deee5a5d",
+      "name": "Ch5 Enc",
+      "source": {
+        "channel": 0,
+        "number": 20,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 4
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "47b40c52-b83f-4c9c-aac9-6f3fbdd00953",
+      "name": "Ch5 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 52,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 4
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "faa52b7d-5c44-4029-b25d-7ffa9ce465e0",
+      "name": "Ch6 Enc",
+      "source": {
+        "channel": 0,
+        "number": 21,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 5
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "b3f312ca-8b46-4001-9a53-e0a670e33da9",
+      "name": "Ch6 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 53,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 5
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "2020c47e-5d73-4e08-812a-e73de872e07b",
+      "name": "Ch7 Enc",
+      "source": {
+        "channel": 0,
+        "number": 22,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 6
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "903e935c-25ab-4fb0-90a9-d9e1c1e03490",
+      "name": "Ch7 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 54,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 6
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ea228755-1bfc-4485-bd59-05cdd2079e28",
+      "name": "Ch8 Enc",
+      "source": {
+        "channel": 0,
+        "number": 23,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 7
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "16f0515d-ad77-443d-97dc-6a3fc79233aa",
+      "name": "Ch8 LEDs",
+      "source": {
+        "channel": 0,
+        "number": 55,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {
+        "minSourceValue": 0.25196850393700787,
+        "maxSourceValue": 0.3700787401574803
+      },
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 7
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "c91f7fc5-8039-491f-9d76-e43309994540",
+      "name": "Ch1 Fader",
+      "source": {
+        "type": 3,
+        "channel": 0,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 8
+      }
+    },
+    {
+      "id": "48b3b205-f21e-40d8-9601-71e38b0a52ae",
+      "name": "Ch2 Fader",
+      "source": {
+        "type": 3,
+        "channel": 1,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 9
+      }
+    },
+    {
+      "id": "e19cc7cc-9eba-43c6-b15c-01ddf27720b9",
+      "name": "Ch3 Fader",
+      "source": {
+        "type": 3,
+        "channel": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 10
+      }
+    },
+    {
+      "id": "9a856e20-d9be-4b33-8faf-60ebed517766",
+      "name": "Ch4 Fader",
+      "source": {
+        "type": 3,
+        "channel": 3,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 11
+      }
+    },
+    {
+      "id": "3d34dfa2-f56d-4268-85f1-5ebd83bbf51b",
+      "name": "Ch5 Fader",
+      "source": {
+        "type": 3,
+        "channel": 4,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 12
+      }
+    },
+    {
+      "id": "344f5801-72bb-477f-8e1d-5628aab5f4c1",
+      "name": "Ch6 Fader",
+      "source": {
+        "type": 3,
+        "channel": 5,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 13
+      }
+    },
+    {
+      "id": "e144267e-8fd6-420b-b88f-f2934e86a2a4",
+      "name": "Ch7 Fader",
+      "source": {
+        "type": 3,
+        "channel": 6,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 14
+      }
+    },
+    {
+      "id": "866efb60-ca4e-4f4d-9c5c-43229433b569",
+      "name": "Ch8 Fader",
+      "source": {
+        "type": 3,
+        "channel": 7,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 15
+      }
+    },
+    {
+      "id": "e3897e49-a8f2-4c5f-ac55-a464dc0bd9a5",
+      "name": "Ch1 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 32,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button"
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "87fc6ea2-e87d-46fe-bbfe-0edc74a2a573",
+      "name": "Ch2 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 33,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 1
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "3d1ab3ce-140d-4ffc-aa26-1a5630d600cf",
+      "name": "Ch3 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 34,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 2
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "7e996069-fac7-4d24-abfa-834ed7057c30",
+      "name": "Ch4 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 35,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 3
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "a4154e91-08f3-40ab-ad7b-6b990e44d283",
+      "name": "Ch5 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 36,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 4
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "af5a19df-f1ff-4241-abe6-1b2969f60e18",
+      "name": "Ch6 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 37,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 5
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "b9b52328-71ed-482a-a1ba-1f9b8accab3e",
+      "name": "Ch7 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 38,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 6
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "1af3b611-ced8-4208-909a-64b73e6a519b",
+      "name": "Ch8 Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 39,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 7
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "3017c0e4-a039-408d-9ac5-e3b4117b896d",
+      "name": "Ch1 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 104,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 8
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "317728f5-5e44-4157-9186-50998236210d",
+      "name": "Ch2 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 105,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 9
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "29a73d4a-90f3-42c0-b5ba-7e3390b809d3",
+      "name": "Ch3 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 106,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 10
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "0d13f8be-9cdd-4105-9e62-4f785b395b7f",
+      "name": "Ch4 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 107,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 11
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "18e6e5d3-5109-4a52-8f4b-b3f9454e3019",
+      "name": "Ch5 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 108,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 12
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "d55baf7b-fdba-4c4e-bf1b-11e847462b55",
+      "name": "Ch6 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 109,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 13
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "bd5649ac-d1f0-4ff9-a6a2-46075f65d39c",
+      "name": "Ch7 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 110,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 14
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "02e05b02-97c1-4ef3-a5c1-6821b3a3a254",
+      "name": "Ch8 Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 111,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 15
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "c459f37a-6c8a-4483-b840-76fbab28a540",
+      "name": "Ch1 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 24,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 16
+      }
+    },
+    {
+      "id": "aa6aa5ff-3cac-460b-8a5f-758b6b96fbf7",
+      "name": "Ch2 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 25,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 17
+      }
+    },
+    {
+      "id": "8c32ed14-eb40-440b-a75a-3f8f204a9b92",
+      "name": "Ch3 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 26,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 18
+      }
+    },
+    {
+      "id": "87962ec2-e6b5-4ab9-8d28-42eb5874b9c9",
+      "name": "Ch4 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 27,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 19
+      }
+    },
+    {
+      "id": "d0a66fbb-7e9f-41b4-ada5-542cdcd2a5ce",
+      "name": "Ch5 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 28,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 20
+      }
+    },
+    {
+      "id": "3ff4a53e-2fd9-4c45-94c9-0c7828315aa1",
+      "name": "Ch6 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 29,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 21
+      }
+    },
+    {
+      "id": "02f324fc-c0d2-4d41-b2c4-0c0d89bb1ae9",
+      "name": "Ch7 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 30,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 22
+      }
+    },
+    {
+      "id": "30ab5e85-8532-4367-806e-e104e355f4ea",
+      "name": "Ch8 Sel",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 31,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 23
+      }
+    },
+    {
+      "id": "8abd5535-661e-4b6a-a3be-2a232d61118f",
+      "name": "Ch1 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 16,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 24
+      }
+    },
+    {
+      "id": "417ed07d-cb88-490c-be77-1e94d310ffb5",
+      "name": "Ch2 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 17,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 25
+      }
+    },
+    {
+      "id": "275a2957-91e7-48e7-aaf5-3dd06fcb6802",
+      "name": "Ch3 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 18,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 26
+      }
+    },
+    {
+      "id": "f5fa4dc5-eb98-4a1b-91fe-a641312faf47",
+      "name": "Ch4 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 19,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 27
+      }
+    },
+    {
+      "id": "a1049d98-4caf-42b3-bd20-09bb4cbb114b",
+      "name": "Ch5 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 20,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 28
+      }
+    },
+    {
+      "id": "86915471-a45b-4315-9301-7227de7c003d",
+      "name": "Ch6 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 21,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 29
+      }
+    },
+    {
+      "id": "b4428a72-a5ab-4812-b3ad-5188d780b67b",
+      "name": "Ch7 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 22,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 30
+      }
+    },
+    {
+      "id": "7af8c06c-8932-45c4-9d94-ea9f6a76ea36",
+      "name": "Ch8 Mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 23,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 31
+      }
+    },
+    {
+      "id": "e50edac5-24ce-4815-ba33-75390e1a209b",
+      "name": "Ch1 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 32
+      }
+    },
+    {
+      "id": "515ef3c2-166a-4e35-87f8-f985c329fec4",
+      "name": "Ch2 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 9,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 33
+      }
+    },
+    {
+      "id": "8de22c2e-2500-4c82-9c7a-d29bce28c538",
+      "name": "Ch3 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 10,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 34
+      }
+    },
+    {
+      "id": "e77f095b-c661-40d2-902b-9b7a0aac1134",
+      "name": "Ch4 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 11,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 35
+      }
+    },
+    {
+      "id": "10fff381-a736-4240-a118-3bf5183d23b4",
+      "name": "Ch5 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 12,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 36
+      }
+    },
+    {
+      "id": "cd0a4c54-f131-4f72-bc9d-b307869423b6",
+      "name": "Ch6 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 13,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 37
+      }
+    },
+    {
+      "id": "7de5f9e6-8578-4864-b90f-f90c6a297664",
+      "name": "Ch7 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 14,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 38
+      }
+    },
+    {
+      "id": "82429155-68fc-448c-8344-932c854956ef",
+      "name": "Ch8 Solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 15,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 39
+      }
+    },
+    {
+      "id": "15d28241-0990-4545-8cd7-bd190ebf274f",
+      "name": "Ch1 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 0,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 40
+      }
+    },
+    {
+      "id": "777d9d6e-a184-4b58-ae08-b3b6521d2de9",
+      "name": "Ch2 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 1,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 41
+      }
+    },
+    {
+      "id": "34285c22-3491-4f50-8d6b-bac2dd284b14",
+      "name": "Ch3 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 42
+      }
+    },
+    {
+      "id": "acc1facd-3954-4f14-a774-ce450cc19b36",
+      "name": "Ch4 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 3,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 43
+      }
+    },
+    {
+      "id": "87aec9b3-e410-4d3c-975f-b52ac11f0e0c",
+      "name": "Ch5 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 4,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 44
+      }
+    },
+    {
+      "id": "cd2dfe64-33c2-4ccd-8a7d-c166b5fd46a3",
+      "name": "Ch6 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 5,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 45
+      }
+    },
+    {
+      "id": "c99151c9-ca01-4880-ad17-5a1aa668fbe3",
+      "name": "Ch7 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 6,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 46
+      }
+    },
+    {
+      "id": "244d1199-80ca-43fe-b77d-daa3ee594e8c",
+      "name": "Ch8 Rec",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 7,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 47
+      }
+    },
+    {
+      "id": "b96b11b3-4a31-48ec-8c30-faf16066bc39",
+      "name": "Master Fader",
+      "source": {
+        "type": 3,
+        "channel": 8,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 16
+      }
+    },
+    {
+      "id": "fbf84420-7d95-42cd-9d6b-7b9c6dc31362",
+      "name": "Jog Wheel",
+      "source": {
+        "channel": 0,
+        "number": 60,
+        "character": 2,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementIndex": 17
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "175beaa9-8148-4eea-b181-387f0b63a193",
+      "name": "Master Touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 112,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 48
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "e51585de-1c33-4840-919d-bbfb65cda243",
+      "name": "Mixer",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 84,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 49
+      }
+    },
+    {
+      "id": "3ee408da-0f20-4980-9b53-e7e62642fd3d",
+      "name": "Read",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 74,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 50
+      }
+    },
+    {
+      "id": "5454fc54-1c29-46a4-9076-820fc9c01831",
+      "name": "Write",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 75,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 51
+      }
+    },
+    {
+      "id": "ae136493-d456-48d0-9005-f63a15e03dfa",
+      "name": "Prev Ch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 48,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 52
+      }
+    },
+    {
+      "id": "33f8198c-2049-4dbc-a4f3-1192d36ec32f",
+      "name": "Next Ch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 49,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 53
+      }
+    },
+    {
+      "id": "7b259f76-b01e-46a4-bfab-68c536abcd50",
+      "name": "Prev Bank",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 46,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 54
+      }
+    },
+    {
+      "id": "e6da9c73-7fa8-450e-835f-4034435172bb",
+      "name": "Next Bank",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 47,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 55
+      }
+    },
+    {
+      "id": "341780c3-5934-4a24-9f53-15d47b3c0bcf",
+      "name": "Rewind",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 91,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 56
+      }
+    },
+    {
+      "id": "f6baff1a-c1ca-4079-a058-1df2c760a60d",
+      "name": "Forward",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 92,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 57
+      }
+    },
+    {
+      "id": "7a3fa47d-9a5f-4b6e-b94a-e7a824524f91",
+      "name": "Play",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 94,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 58
+      }
+    },
+    {
+      "id": "c6d6e47d-3658-4d66-86ec-3106f677f350",
+      "name": "Stop",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 93,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 59
+      }
+    },
+    {
+      "id": "71d40701-cf09-41e5-bf5c-da34f70c66dc",
+      "name": "Record",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 95,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 60
+      }
+    },
+    {
+      "id": "baba4dcf-6547-4680-bab9-3f1ce74ed1e1",
+      "name": "Repeat",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 86,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 61
+      }
+    },
+    {
+      "id": "ee34c765-97b9-47c1-b0ac-896357130137",
+      "name": "Zoom",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 100,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 62
+      }
+    },
+    {
+      "id": "a009a63d-ebcd-4ddc-94dc-7fbe2cb736c9",
+      "name": "Jog Push",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 101,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 63
+      }
+    },
+    {
+      "id": "68c924fe-ecd3-4a8c-a3b0-21f911675290",
+      "name": "Zoom out horiz",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 98,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 64
+      }
+    },
+    {
+      "id": "4937420c-5aae-4c77-bb09-ca51865769ae",
+      "name": "Zoom in horiz",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 99,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 65
+      }
+    },
+    {
+      "id": "6c383420-6c35-4849-8a4d-1ab5ed49a946",
+      "name": "Zoom out vert",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 96,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 66
+      }
+    },
+    {
+      "id": "9c981e61-f300-438c-9a2d-4b19b0f44ee9",
+      "name": "Zoom in vert",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 97,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": 67
+      }
+    }
+  ]
+}

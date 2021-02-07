@@ -1677,7 +1677,7 @@ Consider the following general usage hints:
 **Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
 might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).**
 
-### DJ TechTools "MIDI Fighter Twister"
+### DJ TechTools "Midi Fighter Twister"
 
 This controller works very well with ReaLearn, including feedback and LED color selection. Special feedback features
 such as the indicator type are currently not configurable from the ReaLearn user interface.
@@ -1686,10 +1686,10 @@ such as the indicator type are currently not configurable from the ReaLearn user
 
 By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC"). 
 I strongly recommend changing this to transmit relative values (Encoder MIDI Type = "ENC 3FH/41H") in order to unlock
-the full potential of this awesome device. Use the [MIDI Fighter Utility](https://djtechtools.com/midi-fighter-setup/)
-to apply this change for each encoder:
+the full potential of this awesome device. Use the [Midi Fighter Utility](https://djtechtools.com/midi-fighter-setup/)
+to apply this change to each encoder:
 
-![MIDI Fighter Twister Setup](images/midi-fighter-twister-setup.png)
+![Midi Fighter Twister Setup](images/midi-fighter-twister-setup.png)
 
 You can also do this using the "MULTIPLE" button:
 
@@ -1698,8 +1698,12 @@ You can also do this using the "MULTIPLE" button:
 3. Change the Encoder MIDI Type.
 4. Press "CANCEL"
 
-All MIDI Fighter Twister controller presets available on the Helgoboss ReaPack repository assume relative values.
-Each preset represents one virtual bank.
+#### Presets
+
+All Midi Fighter Twister controller presets available on the Helgoboss ReaPack repository assume relative values.
+
+- **Midi Fighter Twister:** First virtual bank.
+- **Midi Fighter Twister - Bank 2:** Second virtual bank.
 
 #### Hints
 
@@ -1712,6 +1716,10 @@ Each preset represents one virtual bank.
 This controller works with ReaLearn out of the box, including feedback. It doesn't have encoders though, so the full
 potential of ReaLearn can't be used.
 
+#### Presets
+
+- **APC Key 25**
+
 ### Novation "Launchpad Pro"
 
 This controller works well with ReaLearn, including feedback and LED color selection. There's a multitude of very
@@ -1719,14 +1727,91 @@ Launchpad-specific features that's not directly supported though.
 
 #### Preparation
 
-I always press "Setup" + the upper left pad to put this device into "Live" mode. This is also what my controller
-presets assume if not indicated otherwise.
+I always press "Setup" + the upper left pad to put this device into "Live" mode.
+
+#### Presets
+
+All presets assume "Live" mode.
+
+- **Launchpad Pro**
 
 ### iCON Platform M+
 
-Completely works, including feedback for motorized faders and LEDs.
+Works very nicely, including 10-bit fader resolution and feedback for motorized faders and LEDs.
+
+Tested with firmware v2.12.
 
 #### Preparation
 
-Start this device in "User Defined" control mode (channel 4 with firmware version 2+). There's no need to remap any
-controls because the defaults are great already. Tested with firmware v2.12.
+Please start the device in "Mackie" control mode (channel 1 since firmware version 2).
+
+**Important:** "Mackie" mode is preferred over "User defined" mode, even if "User defined" by default transmits
+the same messages and therefore also just works. The significant difference is that "Mackie" mode supports the complete
+10-bit fader resolution (1024 different values) whereas "User defined" mode uses only 7 bits (128 different values).
+It's a complete mystery to me why they don't use the full resolution in "User defined" mode. But that's no problem,
+just make sure you use "Mackie" mode. It provides the best settings out of the box. Leave the customization to ReaLearn!
+
+#### Presets
+
+- **iCON Platform M+**: Preferred because also provides a controller layout.
+- **Mackie Control**: Also works but doesn't offer a controller layout. 
+
+### Behringer X-Touch Compact
+
+Everything works, including feedback for motorized faders and LEDs.
+
+ReaLearn can use this device in two modes, each of which has different (dis)advantages:
+
+- *Standard mode*
+    - All controls work, including feedback.
+    - Button LED feedback looks a bit confusing in toggle mode (but works correctly, thanks to the "Send feedback after
+      control" workaround).
+    - Needs some preparation via X-TOUCH Editor.
+- *MC mode:*
+    - No preparation necessary.
+    - Button LED feedback works nicely.
+    - Some controls can't be used:
+        - Push 15 and 16
+        - Encoders 9 - 14
+    - LEDs for encoders 9 - 16 can't be used.
+    
+I recommend the "Standard mode" because all controls are supported.
+    
+No matter the mode of operation, the effective fader resolution is 7-bit only. This seems to be an inherent restriction
+of this device.
+
+#### Standard mode
+
+##### Preparation
+
+By default, the encoders are configured to transmit absolute values (MIN VALUE = "0"). It's important to make them
+transmit relative values (MIN VALUE = "Relative 1"), not just because relative control is superior but also because 
+this device tries to be clever in combination with encoder feedback but doesn't really get it right. Absolute control
+will lead to some kind of flickering when controlling parameters and using feedback. Use the
+[X-TOUCH Editor](https://www.behringer.com/downloads) to apply this change to each encoder (EN 1-8 and EN 9-16) in each
+layer:
+
+![Behringer X-Touch Compact Setup](images/x-touch-compact-setup.png)
+
+
+##### Presets
+
+The following controller presets assume relative values.
+ 
+- **X-Touch Compact:** Layer A.
+- **X-Touch Compact - Layer B:** Layer B.
+
+##### Hints
+
+In standard mode, this device tries to be clever with the button LED feedback but doesn't get it right. It can lead to
+wrong LED states when using "Toggle buttons" mode. This can be fixed by enabling "Send feedback after control" for the
+corresponding mappings, which is already taken care of in the controller presets available on ReaPack.
+
+#### MC mode
+
+Works out of the box with above mentioned restrictions.
+
+##### Presets
+
+- **Mackie Control**: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
+  X-Touch's extra buttons. However, nothing prevents you from mapping those directly.
