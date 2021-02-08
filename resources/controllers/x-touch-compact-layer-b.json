@@ -1,13 +1,13 @@
 {
   "version": "1.12.0-pre21",
-  "name": "Behringer X-Touch Compact",
+  "name": "X-Touch Compact - Layer B",
   "mappings": [
     {
       "id": "5509408a-a3ca-4c87-8b2c-cc4e41af323c",
       "name": "Ch1 Enc",
       "source": {
         "channel": 0,
-        "number": 10,
+        "number": 37,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -22,7 +22,7 @@
       "name": "Ch2 Enc",
       "source": {
         "channel": 0,
-        "number": 11,
+        "number": 38,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -38,7 +38,7 @@
       "name": "Ch3 Enc",
       "source": {
         "channel": 0,
-        "number": 12,
+        "number": 39,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -54,7 +54,7 @@
       "name": "Ch4 Enc",
       "source": {
         "channel": 0,
-        "number": 13,
+        "number": 40,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -70,7 +70,7 @@
       "name": "Ch5 Enc",
       "source": {
         "channel": 0,
-        "number": 14,
+        "number": 41,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -86,7 +86,7 @@
       "name": "Ch6 Enc",
       "source": {
         "channel": 0,
-        "number": 15,
+        "number": 42,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -102,7 +102,7 @@
       "name": "Ch7 Enc",
       "source": {
         "channel": 0,
-        "number": 16,
+        "number": 43,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -118,7 +118,7 @@
       "name": "Ch8 Enc",
       "source": {
         "channel": 0,
-        "number": 17,
+        "number": 44,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -135,7 +135,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 0,
+        "number": 55,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -151,7 +151,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 1,
+        "number": 56,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -168,7 +168,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 2,
+        "number": 57,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -185,7 +185,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 3,
+        "number": 58,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -202,7 +202,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 4,
+        "number": 59,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -219,7 +219,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 5,
+        "number": 60,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -236,7 +236,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 6,
+        "number": 61,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -253,7 +253,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 7,
+        "number": 62,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -270,7 +270,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 16,
+        "number": 71,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -288,7 +288,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 17,
+        "number": 72,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -306,7 +306,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 18,
+        "number": 73,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -324,7 +324,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 19,
+        "number": 74,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -342,7 +342,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 20,
+        "number": 75,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -360,7 +360,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 21,
+        "number": 76,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -378,7 +378,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 22,
+        "number": 77,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -396,7 +396,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 23,
+        "number": 78,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -414,7 +414,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 24,
+        "number": 79,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -432,7 +432,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 25,
+        "number": 80,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -450,7 +450,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 26,
+        "number": 81,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -468,7 +468,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 27,
+        "number": 82,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -486,7 +486,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 28,
+        "number": 83,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -504,7 +504,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 29,
+        "number": 84,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -522,7 +522,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 30,
+        "number": 85,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -540,7 +540,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 31,
+        "number": 86,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -558,7 +558,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 32,
+        "number": 87,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -576,7 +576,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 33,
+        "number": 88,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -594,7 +594,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 34,
+        "number": 89,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -612,7 +612,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 35,
+        "number": 90,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -630,7 +630,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 36,
+        "number": 91,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -648,7 +648,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 37,
+        "number": 92,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -666,7 +666,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 38,
+        "number": 93,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -684,7 +684,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 39,
+        "number": 94,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -702,7 +702,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 40,
+        "number": 95,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -720,7 +720,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 41,
+        "number": 96,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -738,7 +738,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 42,
+        "number": 97,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -756,7 +756,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 43,
+        "number": 98,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -774,7 +774,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 44,
+        "number": 99,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -792,7 +792,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 45,
+        "number": 100,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -810,7 +810,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 46,
+        "number": 101,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -828,7 +828,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 47,
+        "number": 102,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -845,7 +845,7 @@
       "name": "Ch1 Fader",
       "source": {
         "channel": 0,
-        "number": 1,
+        "number": 28,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -860,7 +860,7 @@
       "name": "Ch2 Fader",
       "source": {
         "channel": 0,
-        "number": 2,
+        "number": 29,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -875,7 +875,7 @@
       "name": "Ch3 Fader",
       "source": {
         "channel": 0,
-        "number": 3,
+        "number": 30,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -890,7 +890,7 @@
       "name": "Ch4 Fader",
       "source": {
         "channel": 0,
-        "number": 4,
+        "number": 31,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -905,7 +905,7 @@
       "name": "Ch5 Fader",
       "source": {
         "channel": 0,
-        "number": 5,
+        "number": 32,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -920,7 +920,7 @@
       "name": "Ch6 Fader",
       "source": {
         "channel": 0,
-        "number": 6,
+        "number": 33,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -935,7 +935,7 @@
       "name": "Ch7 Fader",
       "source": {
         "channel": 0,
-        "number": 7,
+        "number": 34,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -950,7 +950,7 @@
       "name": "Ch8 Fader",
       "source": {
         "channel": 0,
-        "number": 8,
+        "number": 35,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -965,7 +965,7 @@
       "name": "Ch1 Touch",
       "source": {
         "channel": 0,
-        "number": 101,
+        "number": 111,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -982,7 +982,7 @@
       "name": "Ch2 Touch",
       "source": {
         "channel": 0,
-        "number": 102,
+        "number": 112,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -999,7 +999,7 @@
       "name": "Ch3 Touch",
       "source": {
         "channel": 0,
-        "number": 103,
+        "number": 113,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1016,7 +1016,7 @@
       "name": "Ch4 Touch",
       "source": {
         "channel": 0,
-        "number": 104,
+        "number": 114,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1033,7 +1033,7 @@
       "name": "Ch5 Touch",
       "source": {
         "channel": 0,
-        "number": 105,
+        "number": 115,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1050,7 +1050,7 @@
       "name": "Ch6 Touch",
       "source": {
         "channel": 0,
-        "number": 106,
+        "number": 116,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1067,7 +1067,7 @@
       "name": "Ch7 Touch",
       "source": {
         "channel": 0,
-        "number": 107,
+        "number": 117,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1084,7 +1084,7 @@
       "name": "Ch8 Touch",
       "source": {
         "channel": 0,
-        "number": 108,
+        "number": 118,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1102,7 +1102,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 48,
+        "number": 103,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1119,7 +1119,7 @@
       "name": "Master Fader",
       "source": {
         "channel": 0,
-        "number": 9,
+        "number": 36,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1134,7 +1134,7 @@
       "name": "Master Touch",
       "source": {
         "channel": 0,
-        "number": 109,
+        "number": 119,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
@@ -1151,7 +1151,7 @@
       "name": "Enc 9",
       "source": {
         "channel": 0,
-        "number": 18,
+        "number": 45,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1167,7 +1167,7 @@
       "name": "Enc 10",
       "source": {
         "channel": 0,
-        "number": 19,
+        "number": 46,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1183,7 +1183,7 @@
       "name": "Enc 11",
       "source": {
         "channel": 0,
-        "number": 20,
+        "number": 47,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1199,7 +1199,7 @@
       "name": "Enc 12",
       "source": {
         "channel": 0,
-        "number": 21,
+        "number": 48,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1215,7 +1215,7 @@
       "name": "Enc 13",
       "source": {
         "channel": 0,
-        "number": 22,
+        "number": 49,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1231,7 +1231,7 @@
       "name": "Enc 14",
       "source": {
         "channel": 0,
-        "number": 23,
+        "number": 50,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1247,7 +1247,7 @@
       "name": "Enc 15",
       "source": {
         "channel": 0,
-        "number": 24,
+        "number": 51,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1263,7 +1263,7 @@
       "name": "Enc 16",
       "source": {
         "channel": 0,
-        "number": 25,
+        "number": 52,
         "character": 2,
         "isRegistered": false,
         "is14Bit": false
@@ -1280,7 +1280,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 8,
+        "number": 63,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1297,7 +1297,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 9,
+        "number": 64,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1314,7 +1314,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 10,
+        "number": 65,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1331,7 +1331,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 11,
+        "number": 66,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1348,7 +1348,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 12,
+        "number": 67,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1365,7 +1365,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 13,
+        "number": 68,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1382,7 +1382,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 14,
+        "number": 69,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1399,7 +1399,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 15,
+        "number": 70,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1416,7 +1416,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 49,
+        "number": 104,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1434,7 +1434,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 50,
+        "number": 105,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1452,7 +1452,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 51,
+        "number": 106,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1470,7 +1470,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 52,
+        "number": 107,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1488,7 +1488,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 53,
+        "number": 108,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1506,7 +1506,7 @@
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 54,
+        "number": 109,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1523,7 +1523,7 @@
       "name": "Foot Exp",
       "source": {
         "channel": 0,
-        "number": 26,
+        "number": 63,
         "isRegistered": false,
         "is14Bit": false
       },
@@ -1538,7 +1538,7 @@
       "name": "Foot Sw",
       "source": {
         "channel": 0,
-        "number": 27,
+        "number": 64,
         "character": 1,
         "isRegistered": false,
         "is14Bit": false
