@@ -312,6 +312,7 @@ impl MappingRowPanel {
     }
 
     fn edit_mapping(&self) {
+        self.main_state.borrow_mut().stop_filter_learning();
         self.panel_manager()
             .borrow_mut()
             .edit_mapping(self.require_mapping().deref());

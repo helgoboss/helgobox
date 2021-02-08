@@ -57,6 +57,7 @@ impl MainState {
         self.clear_source_filter();
         self.clear_target_filter();
         self.clear_search_expression_filter();
+        self.stop_filter_learning();
     }
 
     pub fn clear_group_filter(&mut self) {
@@ -80,5 +81,10 @@ impl MainState {
             || self.source_filter.get_ref().is_some()
             || self.target_filter.get_ref().is_some()
             || !self.search_expression.get_ref().trim().is_empty()
+    }
+
+    pub fn stop_filter_learning(&mut self) {
+        self.is_learning_source_filter.set(false);
+        self.is_learning_target_filter.set(false);
     }
 }

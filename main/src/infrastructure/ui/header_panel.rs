@@ -99,6 +99,7 @@ impl HeaderPanel {
     }
 
     fn toggle_learn_many_mappings(&self) {
+        self.main_state.borrow_mut().stop_filter_learning();
         let session = self.session();
         if session.borrow().is_learning_many_mappings() {
             session.borrow_mut().stop_learning_many_mappings();
@@ -629,7 +630,9 @@ impl HeaderPanel {
     }
 
     fn update_compartment(&self) {
-        self.main_state.borrow_mut().active_compartment.set(
+        let mut main_state = self.main_state.borrow_mut();
+        main_state.stop_filter_learning();
+        main_state.active_compartment.set(
             self.view
                 .require_control(root::ID_COMPARTMENT_COMBO_BOX)
                 .selected_combo_box_item_index()
@@ -709,6 +712,7 @@ impl HeaderPanel {
     }
 
     fn update_preset_auto_load_mode(&self) {
+        self.main_state.borrow_mut().stop_filter_learning();
         let mode = self
             .view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
@@ -734,6 +738,7 @@ impl HeaderPanel {
     }
 
     fn update_preset(&self) {
+        self.main_state.borrow_mut().stop_filter_learning();
         let session = self.session();
         let compartment = self.active_compartment();
         let (preset_manager, mappings_are_dirty): (Box<dyn ExtendedPresetManager>, _) =
@@ -1252,6 +1257,10 @@ impl View for HeaderPanel {
         self.invalidate_search_expression();
         self.register_listeners();
         true
+    }
+
+    fn closed(self: SharedView<Self>, _window: Window) {
+        self.main_state.borrow_mut().stop_filter_learning();
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
