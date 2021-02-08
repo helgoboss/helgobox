@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-08 (v1.12.0-pre21)</code></td>
+  <td><code>2021-02-12 (v2.0.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -10,6 +10,7 @@
 </table>
 
 ## Table of Contents
+
 1. [Introduction](#introduction)
 1. [Basics](#basics)
 1. [Reference](#reference)
@@ -122,6 +123,8 @@ of all sorts, give ReaLearn a try. It might be just what you need. More so if th
 **Summary:** _ReaLearn is tailored to usage scenarios typically desired by performers._
 
 ### Videos
+
+TODO Add own video
 
 If you want to get a first impression of ReaLearn, a video is surely a good way. Here a short, non-complete list:
 
