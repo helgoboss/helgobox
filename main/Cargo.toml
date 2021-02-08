@@ -73,8 +73,6 @@ dns-lookup = "1.0.4"
 hostname = "^0.3"
 # For rendering projection setup HTML page template
 askama = "0.8"
-# For generating projection QR code data URI
-base64 = "0.13.0"
 # For persisting app configuration
 serde_ini = "0.2.0"
 # For opening projection setup page and companion app in local browser

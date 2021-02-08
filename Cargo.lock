@@ -2422,7 +2422,6 @@ dependencies = [
  "askama",
  "async-channel",
  "backtrace",
- "base64 0.13.0",
  "bindgen",
  "built",
  "c_str_macro",

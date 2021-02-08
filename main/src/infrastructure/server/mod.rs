@@ -196,8 +196,6 @@ impl RealearnServer {
         } else {
             self.local_ip().map(|ip| ip.to_string())
         };
-        let (_, cert) = self.key_and_cert();
-        let base64_encoded_cert = base64::encode_config(&cert, base64::URL_SAFE);
         Url::parse_with_params(
             App::get()
                 .config()
@@ -214,7 +212,6 @@ impl RealearnServer {
                 // typos are out of question (for a proper error message if connection is not
                 // possible).
                 ("generated", "true".to_string()),
-                ("cert", base64_encoded_cert),
             ],
         )
         .expect("invalid URL")
