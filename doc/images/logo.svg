@@ -8,80 +8,80 @@
    xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   sodipodi:docname="logo.svg"
-   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
-   width="3840"
-   height="2160"
-   viewBox="0 0 3840 2160"
-   version="1.1"
-   id="SVGRoot"
-   inkscape:export-filename="C:\Users\benja\Documents\projects\dev\realearn-videos\realearn-logo.png"
+   inkscape:export-ydpi="96"
    inkscape:export-xdpi="96"
-   inkscape:export-ydpi="96">
+   inkscape:export-filename="C:\Users\benja\Documents\projects\dev\realearn-videos\realearn-logo.png"
+   id="SVGRoot"
+   version="1.1"
+   viewBox="0 0 3840 2160"
+   height="2160"
+   width="3840"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   sodipodi:docname="logo.svg">
   <defs
      id="defs2015">
     <rect
-       id="rect2101"
-       height="925.71426"
-       width="862.85712"
+       x="2862.8571"
        y="891.42855"
-       x="2862.8571" />
+       width="862.85712"
+       height="925.71426"
+       id="rect2101" />
     <filter
-       id="filter2177"
-       style="color-interpolation-filters:sRGB;"
-       inkscape:menu-tooltip="Shadowy outer bevel"
+       inkscape:label="Inset"
        inkscape:menu="Shadows and Glows"
-       inkscape:label="Inset">
+       inkscape:menu-tooltip="Shadowy outer bevel"
+       style="color-interpolation-filters:sRGB;"
+       id="filter2177">
       <feMorphology
-         id="feMorphology2165"
-         radius="3.6"
-         operator="dilate"
+         result="result1"
          in="SourceAlpha"
-         result="result1" />
+         operator="dilate"
+         radius="3.6"
+         id="feMorphology2165" />
       <feGaussianBlur
-         id="feGaussianBlur2167"
-         result="result0"
+         stdDeviation="3.6"
          in="result1"
-         stdDeviation="3.6" />
+         result="result0"
+         id="feGaussianBlur2167" />
       <feDiffuseLighting
-         id="feDiffuseLighting2171"
-         surfaceScale="-5">
+         surfaceScale="-5"
+         id="feDiffuseLighting2171">
         <feDistantLight
-           id="feDistantLight2169"
+           elevation="45"
            azimuth="225"
-           elevation="45" />
+           id="feDistantLight2169" />
       </feDiffuseLighting>
       <feComposite
-         id="feComposite2173"
-         result="result91"
+         in2="result0"
          operator="in"
-         in2="result0" />
+         result="result91"
+         id="feComposite2173" />
       <feComposite
-         id="feComposite2175"
+         in="SourceGraphic"
          in2="result91"
-         in="SourceGraphic" />
+         id="feComposite2175" />
     </filter>
   </defs>
   <sodipodi:namedview
-     inkscape:window-maximized="1"
-     inkscape:window-y="-6"
-     inkscape:window-x="-6"
-     inkscape:window-height="1018"
-     inkscape:window-width="1920"
-     showgrid="false"
-     inkscape:document-rotation="0"
-     inkscape:current-layer="layer3"
-     inkscape:document-units="px"
-     inkscape:cy="2923.6191"
-     inkscape:cx="-1001.8826"
-     inkscape:zoom="0.087500002"
-     inkscape:pageshadow="2"
-     inkscape:pageopacity="0.0"
-     borderopacity="1.0"
-     bordercolor="#666666"
-     pagecolor="#ffffff"
+     inkscape:snap-page="true"
      id="base"
-     inkscape:snap-page="true" />
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.12374369"
+     inkscape:cx="-1069.519"
+     inkscape:cy="1695.1039"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer2"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1018"
+     inkscape:window-x="-6"
+     inkscape:window-y="-6"
+     inkscape:window-maximized="1" />
   <metadata
      id="metadata2018">
     <rdf:RDF>
@@ -90,72 +90,132 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <g
-     style="display:inline"
-     inkscape:groupmode="layer"
+     inkscape:label="Background"
      id="layer2"
-     inkscape:label="Background">
+     inkscape:groupmode="layer"
+     style="display:inline">
     <rect
-       style="fill:#252525;stroke-width:4.02492;stroke-linecap:round;stroke-linejoin:round"
-       id="rect933"
-       width="3840"
-       height="2160"
+       y="0"
        x="0"
-       y="0" />
+       height="2160"
+       width="3840"
+       id="rect933"
+       style="fill:#252525;stroke-width:4.02492;stroke-linecap:round;stroke-linejoin:round" />
   </g>
   <g
-     id="layer1"
-     inkscape:groupmode="layer"
+     style="display:inline"
      inkscape:label="Icon"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       transform="translate(0,-27.272865)"
+       id="g956" />
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer4"
+     inkscape:label="companion"
+     style="display:inline" />
+  <g
+     inkscape:groupmode="layer"
+     id="layer3"
+     inkscape:label="ReaLearn"
      style="display:inline">
     <g
-       id="g956"
-       transform="translate(0,-27.272865)" />
-  </g>
-  <g
-     style="display:inline"
-     inkscape:label="companion"
-     id="layer4"
-     inkscape:groupmode="layer" />
-  <g
-     style="display:inline"
-     inkscape:label="ReaLearn"
-     id="layer3"
-     inkscape:groupmode="layer">
+       transform="matrix(2.4830732,0,0,2.4830732,144.87612,-1568.1107)"
+       id="g932"
+       style="display:inline">
+      <g
+         id="layer3-6"
+         inkscape:label="Square background (helper)"
+         style="display:none">
+        <rect
+           style="fill:#252525;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0"
+           id="rect3248"
+           width="512"
+           height="512"
+           x="0"
+           y="0" />
+      </g>
+      <g
+         inkscape:label="LEDs"
+         id="layer1-0"
+         style="display:inline">
+        <text
+           id="text1034"
+           y="-505.30029"
+           x="415.02316"
+           style="font-style:normal;font-weight:normal;font-size:39.9999px;line-height:1.25;font-family:sans-serif;display:inline;fill:#ffd5d5;fill-opacity:1;stroke:none;stroke-width:0.999999"
+           xml:space="preserve"><tspan
+             style="fill:#ffd5d5;stroke-width:0.999999"
+             y="-505.30029"
+             x="415.02316"
+             id="tspan1032"
+             sodipodi:role="line" /></text>
+      </g>
+      <g
+         id="layer2-6"
+         inkscape:label="LED alignment circle (helper)"
+         style="display:none">
+        <circle
+           cx="277.60971"
+           cy="-232.38939"
+           transform="rotate(84.932981)"
+           id="circle1035"
+           style="display:inline;fill:#666666;fill-opacity:0.228916;stroke:none;stroke-width:10.9313;stroke-miterlimit:4;stroke-dasharray:21.8627, 10.9313;stroke-dashoffset:0;stroke-opacity:1"
+           r="256" />
+      </g>
+      <g
+         transform="translate(458.88987,733.75791)"
+         id="layer4-9"
+         inkscape:label="Magic wand"
+         style="display:inline">
+        <g
+           transform="matrix(0.85,0,0,0.85,37.776697,46.855344)"
+           id="g909">
+          <text
+             y="-651.77966"
+             x="548.3363"
+             xml:space="preserve"
+             style="font-style:normal;font-weight:normal;font-size:498.89px;line-height:1.25;font-family:sans-serif;letter-spacing:12.4722px;display:inline;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.999999;stroke-opacity:1"
+             id="text867"
+             transform="matrix(0.66397329,0.44974015,-0.45026031,0.66320624,201.94081,-28.649595)"><textPath
+               xlink:href="#circle1035"
+               id="textPath869"
+               style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:498.89px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro';fill:#ffffff;stroke:none;stroke-width:0.999999;stroke-opacity:1">.......<tspan
+   style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:498.89px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro';fill:#808080;stroke-width:0.999999"
+   id="tspan898">...</tspan></textPath></text>
+          <path
+             id="path1551"
+             d="m 239.35714,172.78831 8.32142,-16.64285 16.64286,-8.32143 -16.64286,-8.32143 -8.32142,-16.64286 -8.32143,16.64286 -16.64286,8.32143 16.64286,8.32143 z m -74.89286,33.28571 13.86558,-27.73636 27.74156,-13.87077 -27.74156,-13.87079 -13.86558,-27.73636 -13.86558,27.73636 -27.74156,13.87079 27.74156,13.87077 z m 183.07143,66.57143 -13.86558,27.73637 -27.74157,13.87079 27.74157,13.87078 13.86558,27.73635 13.86558,-27.73635 27.74156,-13.87078 -27.74156,-13.87079 z m 36.7287,-100.7777 -44.12958,-44.12957 c -3.24534,-3.25576 -7.50488,-4.87844 -11.76441,-4.87844 -4.25954,0 -8.51907,1.62268 -11.76961,4.87844 L 127.73558,316.6034 c -6.50111,6.50113 -6.50111,17.03812 0,23.53405 l 44.12957,44.12957 c 3.25056,3.25056 7.51009,4.87324 11.76442,4.87324 4.25953,0 8.51906,-1.62268 11.76962,-4.87324 L 384.26441,195.39659 c 6.50112,-6.49071 6.50112,-17.03292 0,-23.52884 z m -74.46118,56.80935 -26.47775,-26.47774 45.03973,-45.03973 26.47775,26.47774 z"
+             style="fill:#ffcc00;fill-opacity:1;stroke-width:0.520089" />
+        </g>
+      </g>
+    </g>
     <g
-       transform="translate(0,91.928574)"
-       id="g2190">
-      <image
-         sodipodi:absref="C:\Users\benja\Documents\projects\dev\realearn_companion\resources\icon.svg"
-         xlink:href="../../../realearn_companion/resources/icon.svg"
-         y="166.14285"
-         x="1292.1429"
-         preserveAspectRatio="none"
-         inkscape:svg-dpi="96"
-         width="1255.7144"
-         height="1255.7144"
-         id="image864"
-         style="display:inline" />
+       id="g2190"
+       transform="translate(0,91.928574)">
       <text
-         xml:space="preserve"
-         style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
-         x="1139.7627"
+         id="text937"
          y="1805.5"
-         id="text937"><tspan
-           sodipodi:role="line"
-           id="tspan935"
-           x="1139.7627"
+         x="1139.7627"
+         style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155"
            y="1805.5"
-           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155">ReaLearn</tspan></text>
+           x="1139.7627"
+           id="tspan935"
+           sodipodi:role="line">ReaLearn</tspan></text>
       <text
-         xml:space="preserve"
-         id="text2099"
+         transform="matrix(0.24932335,0,0,0.24932335,2023.4863,1206.2266)"
          style="font-style:normal;font-weight:normal;font-size:800px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect2101);fill:#ff7f2a;fill-opacity:1;stroke:none;filter:url(#filter2177);"
-         transform="matrix(0.24932335,0,0,0.24932335,2023.4863,1206.2266)"><tspan
+         id="text2099"
+         xml:space="preserve"><tspan
            x="2862.8574"
            y="1619.663"><tspan
              style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:800px;font-family:'Noto Serif';-inkscape-font-specification:'Noto Serif'">2</tspan></tspan></text>

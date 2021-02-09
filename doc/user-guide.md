@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-09 (v2.0.0)</code></td>
+  <td><code>2021-02-10 (v2.0.1)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -48,7 +48,7 @@ and intuitively without writing configuration files. All of that on a *per-insta
 are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
 control mappings just for the needs of one project!
 
-Nevertheless, since version 2.0.0, ReaLearn is also a great choice for setting up global mappings for usage across 
+Nevertheless, since version 2, ReaLearn is also a great choice for setting up global mappings for usage across 
 multiple projects. It provides a simple yet powerful preset system to make a set of mappings reusable in all of your
 projects. Just add ReaLearn to the monitoring FX chain of REAPER (View → Monitoring FX) and ReaLearn will be instantly
 available in all of your REAPER sessions without having to add it to a project first.
@@ -81,7 +81,7 @@ If you want to get a first impression of ReaLearn, a video is surely a good way.
 
 Here's a list of official ReaLearn videos:
 
-- [Introduction to ReaLearn 2](https://youtu.be/Nh_GdEVh-vM): An in-depth introduction to ReaLearn 2, the sophisticated
+- [Introduction to ReaLearn 2](https://youtu.be/dUPyqYaIkYA): An in-depth introduction to ReaLearn 2, the sophisticated
   MIDI-learn plug-in for REAPER.
 
 Here's a short, non-complete list of user-made videos. Please note that at the moment all of them relate to older
@@ -1166,7 +1166,7 @@ of actions can roughly be divided into:
     - If the action reports an on/off state, feedback is completely supported though, otherwise not at all!
 4. Actions that have a complete range of values as state.
     - Example: "994. View: Adjust vertical zoom (MIDI CC/OSC only)"
-    - Since ReaLearn 2.0.0 and REAPER 6.20, there's special support for this type of actions. Starting from the first
+    - Since ReaLearn 2 and REAPER 6.20, there's special support for this type of actions. Starting from the first
       time this action is triggered, ReaLearn will track its current value.
     - That's why toggling is supported. Because ReaLearn itself takes care of toggling, you need to set *Invoke* to
       "Absolute" and Mode to "Toggle buttons".
@@ -1285,7 +1285,7 @@ virtual control element as source.
 As mentioned before, the tuning section defines the glue between a source and a target. It's divided into
 several sub sections some of which make sense for all kinds of sources and others only for some.
 
-**At first something important to understand:** Since ReaLearn 2.0.0, a mapping can deal with both *absolute*
+**At first something important to understand:** Since ReaLearn 2, a mapping can deal with both *absolute*
 and *relative* values, no matter what's set as *Mode*! ReaLearn checks the type of each emitted source value
 and interprets it correctly. The *Mode* dropdown has been sort of "degraded" because now it only applies to
 incoming *absolute* values and determines how to handle them (see further below). This change has been made 
@@ -1317,7 +1317,7 @@ The following elements are relevant for all kinds of sources, both in *control* 
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
   source value (= output value) and `y` is the current target value (= input value), so you must
   assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this
-  since version 2.0.0:
+  since version 2:
   1. Apply target interval.
   2. Apply reverse.
   3. Apply transformation.
