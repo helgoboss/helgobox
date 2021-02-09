@@ -6,7 +6,7 @@
 [![GitHub license](https://img.shields.io/badge/license-LGPL-blue.svg)](https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-orange.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9CTAK2KKA8Z2S&source=url)
 
-[REAPER](https://www.reaper.fm/) VSTi plug-in that provides REAPER users with improved MIDI learn functionality.
+[REAPER](https://www.reaper.fm/) VSTi plug-in that provides REAPER users with sophisticated MIDI learn functionality.
 
 ## Table of Contents
 
@@ -46,7 +46,10 @@ and REAPER for Windows 64-bit because then it's important to use two separate VS
 A complete user guide for the latest release is available as 
 [PDF](https://github.com/helgoboss/realearn/releases/latest/download/realearn-user-guide.pdf) and
 [HTML (website)](https://www.helgoboss.org/projects/realearn/user-guide). The user guide of the latest not-yet-released version is available as 
-[HTML (GitHub)](https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md).  
+[HTML (GitHub)](https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md).
+
+We also have an [introduction video](https://www.youtube.com/watch?v=dUPyqYaIkYA). Watch 2 minutes to get a first
+impression and stay tuned if you are interested in the details.
 
 ### Quick start
 
