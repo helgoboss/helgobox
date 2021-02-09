@@ -19,7 +19,49 @@
    inkscape:export-xdpi="96"
    inkscape:export-ydpi="96">
   <defs
-     id="defs2015" />
+     id="defs2015">
+    <rect
+       id="rect2101"
+       height="925.71426"
+       width="862.85712"
+       y="891.42855"
+       x="2862.8571" />
+    <filter
+       id="filter2177"
+       style="color-interpolation-filters:sRGB;"
+       inkscape:menu-tooltip="Shadowy outer bevel"
+       inkscape:menu="Shadows and Glows"
+       inkscape:label="Inset">
+      <feMorphology
+         id="feMorphology2165"
+         radius="3.6"
+         operator="dilate"
+         in="SourceAlpha"
+         result="result1" />
+      <feGaussianBlur
+         id="feGaussianBlur2167"
+         result="result0"
+         in="result1"
+         stdDeviation="3.6" />
+      <feDiffuseLighting
+         id="feDiffuseLighting2171"
+         surfaceScale="-5">
+        <feDistantLight
+           id="feDistantLight2169"
+           azimuth="225"
+           elevation="45" />
+      </feDiffuseLighting>
+      <feComposite
+         id="feComposite2173"
+         result="result91"
+         operator="in"
+         in2="result0" />
+      <feComposite
+         id="feComposite2175"
+         in2="result91"
+         in="SourceGraphic" />
+    </filter>
+  </defs>
   <sodipodi:namedview
      inkscape:window-maximized="1"
      inkscape:window-y="-6"
@@ -30,9 +72,9 @@
      inkscape:document-rotation="0"
      inkscape:current-layer="layer3"
      inkscape:document-units="px"
-     inkscape:cy="1248.1886"
-     inkscape:cx="1848.6433"
-     inkscape:zoom="0.24748738"
+     inkscape:cy="2923.6191"
+     inkscape:cx="-1001.8826"
+     inkscape:zoom="0.087500002"
      inkscape:pageshadow="2"
      inkscape:pageopacity="0.0"
      borderopacity="1.0"
@@ -84,38 +126,39 @@
      inkscape:label="ReaLearn"
      id="layer3"
      inkscape:groupmode="layer">
-    <image
-       sodipodi:absref="C:\Users\benja\Documents\projects\dev\realearn_companion\resources\icon.svg"
-       xlink:href="../../../realearn_companion/resources/icon.svg"
-       style="display:inline"
-       id="image864"
-       height="1255.7144"
-       width="1255.7144"
-       inkscape:svg-dpi="96"
-       preserveAspectRatio="none"
-       x="1292.1429"
-       y="452.14285" />
-    <text
-       id="text937"
-       y="594.5"
-       x="321.12497"
-       style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
-       xml:space="preserve"><tspan
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155"
-         y="594.5"
-         x="321.12497"
-         id="tspan935"
-         sodipodi:role="line">Rea</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
-       x="2572.1699"
-       y="1805.5"
-       id="text941"><tspan
-         sodipodi:role="line"
-         id="tspan939"
-         x="2572.1699"
+    <g
+       transform="translate(0,91.928574)"
+       id="g2190">
+      <image
+         sodipodi:absref="C:\Users\benja\Documents\projects\dev\realearn_companion\resources\icon.svg"
+         xlink:href="../../../realearn_companion/resources/icon.svg"
+         y="166.14285"
+         x="1292.1429"
+         preserveAspectRatio="none"
+         inkscape:svg-dpi="96"
+         width="1255.7144"
+         height="1255.7144"
+         id="image864"
+         style="display:inline" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
+         x="1139.7627"
          y="1805.5"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155">Learn</tspan></text>
+         id="text937"><tspan
+           sodipodi:role="line"
+           id="tspan935"
+           x="1139.7627"
+           y="1805.5"
+           style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155">ReaLearn</tspan></text>
+      <text
+         xml:space="preserve"
+         id="text2099"
+         style="font-style:normal;font-weight:normal;font-size:800px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect2101);fill:#ff7f2a;fill-opacity:1;stroke:none;filter:url(#filter2177);"
+         transform="matrix(0.24932335,0,0,0.24932335,2023.4863,1206.2266)"><tspan
+           x="2862.8574"
+           y="1619.663"><tspan
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:800px;font-family:'Noto Serif';-inkscape-font-specification:'Noto Serif'">2</tspan></tspan></text>
+    </g>
   </g>
 </svg>
