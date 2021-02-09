@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   sodipodi:docname="logo.svg"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   width="3840"
+   height="2160"
+   viewBox="0 0 3840 2160"
+   version="1.1"
+   id="SVGRoot"
+   inkscape:export-filename="C:\Users\benja\Documents\projects\dev\realearn-videos\realearn-logo.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96">
+  <defs
+     id="defs2015" />
+  <sodipodi:namedview
+     inkscape:window-maximized="1"
+     inkscape:window-y="-6"
+     inkscape:window-x="-6"
+     inkscape:window-height="1018"
+     inkscape:window-width="1920"
+     showgrid="false"
+     inkscape:document-rotation="0"
+     inkscape:current-layer="layer3"
+     inkscape:document-units="px"
+     inkscape:cy="1248.1886"
+     inkscape:cx="1848.6433"
+     inkscape:zoom="0.24748738"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base"
+     inkscape:snap-page="true" />
+  <metadata
+     id="metadata2018">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     style="display:inline"
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Background">
+    <rect
+       style="fill:#252525;stroke-width:4.02492;stroke-linecap:round;stroke-linejoin:round"
+       id="rect933"
+       width="3840"
+       height="2160"
+       x="0"
+       y="0" />
+  </g>
+  <g
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Icon"
+     style="display:inline">
+    <g
+       id="g956"
+       transform="translate(0,-27.272865)" />
+  </g>
+  <g
+     style="display:inline"
+     inkscape:label="companion"
+     id="layer4"
+     inkscape:groupmode="layer" />
+  <g
+     style="display:inline"
+     inkscape:label="ReaLearn"
+     id="layer3"
+     inkscape:groupmode="layer">
+    <image
+       sodipodi:absref="C:\Users\benja\Documents\projects\dev\realearn_companion\resources\icon.svg"
+       xlink:href="../../../realearn_companion/resources/icon.svg"
+       style="display:inline"
+       id="image864"
+       height="1255.7144"
+       width="1255.7144"
+       inkscape:svg-dpi="96"
+       preserveAspectRatio="none"
+       x="1292.1429"
+       y="452.14285" />
+    <text
+       id="text937"
+       y="594.5"
+       x="321.12497"
+       style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155"
+         y="594.5"
+         x="321.12497"
+         id="tspan935"
+         sodipodi:role="line">Rea</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:375px;line-height:1.25;font-family:sans-serif;display:inline;fill:#e6e6e6;fill-opacity:1;stroke:none;stroke-width:2.61155"
+       x="2572.1699"
+       y="1805.5"
+       id="text941"><tspan
+         sodipodi:role="line"
+         id="tspan939"
+         x="2572.1699"
+         y="1805.5"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:375px;font-family:'Source Sans Pro';-inkscape-font-specification:'Source Sans Pro Bold';fill:#e6e6e6;stroke-width:2.61155">Learn</tspan></text>
+  </g>
+</svg>

@@ -1,11 +1,11 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-12 (v2.0.0)</code></td>
+  <td><code>2021-02-09 (v2.0.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2021-01-09 (v1.12.0-pre9)</code></td>
+  <td><code>2021-02-09 (v2.0.0)</code></td>
 </tr>
 </table>
 
@@ -75,6 +75,24 @@ dynamic, more global control surface world.
 
 **Summary:** _ReaLearn is a sort of instrument for controlling REAPER._
 
+### Videos
+
+If you want to get a first impression of ReaLearn, a video is surely a good way.
+
+Here's a list of official ReaLearn videos:
+
+- [Introduction to ReaLearn 2](https://youtu.be/Nh_GdEVh-vM): An in-depth introduction to ReaLearn 2, the sophisticated
+  MIDI-learn plug-in for REAPER.
+
+Here's a short, non-complete list of user-made videos. Please note that at the moment all of them relate to older
+ReaLearn versions and therefore might be partially outdated:
+
+- [How To: ReaLearn and MIDI Controller for Track Sends in REAPER - Tutorial](https://www.youtube.com/watch?v=WKF2LmIueY8)
+- [using ReaLearn to assign MIDI controllers to (VST) plugin parameters in Cockos Reaper](https://www.youtube.com/watch?v=UrYrAxnB19I)
+- [MIDI Controller Feedback in REAPER with ReaLearn and LBX SmartKnobs - Tutorial](https://www.youtube.com/watch?v=p0LBdXXcg7g)
+    - With ReaLearn 2, it should be easier to use ReaLearn's "preset auto-load" feature instead of adding LBX SmartKnobs
+      to the mix.
+
 ### Usage scenarios
 
 Ultimately, ReaLearn gains whatever purpose you can come up with. Because it is a VSTi plug-in and
@@ -121,20 +139,6 @@ of all sorts, give ReaLearn a try. It might be just what you need. More so if th
 (e.g. motorized faders or LEDs).
 
 **Summary:** _ReaLearn is tailored to usage scenarios typically desired by performers._
-
-### Videos
-
-TODO Add own video
-
-If you want to get a first impression of ReaLearn, a video is surely a good way. Here a short, non-complete list:
-
-- [How To: ReaLearn and MIDI Controller for Track Sends in REAPER - Tutorial](https://www.youtube.com/watch?v=WKF2LmIueY8)
-- [using ReaLearn to assign MIDI controllers to (VST) plugin parameters in Cockos Reaper](https://www.youtube.com/watch?v=UrYrAxnB19I)
-- [MIDI Controller Feedback in REAPER with ReaLearn and LBX SmartKnobs - Tutorial](https://www.youtube.com/watch?v=p0LBdXXcg7g)
-- [Demonstration of the projection feature](https://www.youtube.com/watch?v=omuYBznEShk)
-
-Keep in mind that some of the mentioned videos still use older versions of ReaLearn. E.g. it should be easier 
-nowadays to use ReaLearn's "preset auto-load" feature instead of adding LBX SmartKnobs to the mix.
 
 ## Basics
 
