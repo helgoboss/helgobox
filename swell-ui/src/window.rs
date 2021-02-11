@@ -25,6 +25,21 @@ impl Window {
         Point::new(Pixels(point.x as _), Pixels(point.y as _))
     }
 
+    pub fn dark_mode_is_enabled() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            Swell::get().SWELL_osx_is_dark_mode(1)
+        }
+        #[cfg(target_os = "windows")]
+        {
+            false
+        }
+        #[cfg(target_os = "linux")]
+        {
+            false
+        }
+    }
+
     pub fn from_non_null(hwnd: NonNull<raw::HWND__>) -> Window {
         Window { raw: hwnd.as_ptr() }
     }

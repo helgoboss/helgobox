@@ -1,7 +1,4 @@
 #![feature(trait_alias)]
-mod macros;
-pub use macros::*;
-
 mod view_manager;
 use view_manager::*;
 

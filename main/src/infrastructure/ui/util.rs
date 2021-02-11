@@ -85,24 +85,48 @@ pub mod symbols {
 }
 
 pub mod view {
-    use crate::infrastructure::ui::util::SHADED_WHITE;
     use once_cell::sync::Lazy;
     use reaper_low::{raw, Swell};
+    use std::ptr::null_mut;
+    use swell_ui::Window;
 
-    pub fn control_color_static_default(hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
+    const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);
+
+    pub fn control_color_static_default(hdc: raw::HDC, brush: Option<raw::HBRUSH>) -> raw::HBRUSH {
         unsafe {
             Swell::get().SetBkMode(hdc, raw::TRANSPARENT as _);
         }
-        brush
+        brush.unwrap_or(null_mut())
     }
 
-    pub fn control_color_dialog_default(_hdc: raw::HDC, brush: raw::HBRUSH) -> raw::HBRUSH {
-        brush
+    pub fn control_color_dialog_default(_hdc: raw::HDC, brush: Option<raw::HBRUSH>) -> raw::HBRUSH {
+        brush.unwrap_or(null_mut())
     }
 
-    pub fn shaded_white_brush() -> raw::HBRUSH {
-        static BRUSH: Lazy<isize> = Lazy::new(|| create_brush(SHADED_WHITE));
-        *BRUSH as _
+    pub fn mapping_row_background_brush() -> Option<raw::HBRUSH> {
+        static BRUSH: Lazy<Option<isize>> = Lazy::new(create_mapping_row_background_brush);
+        let brush = (*BRUSH)?;
+        Some(brush as _)
+    }
+
+    /// Use with care! Should be freed after use.
+    fn create_mapping_row_background_brush() -> Option<isize> {
+        #[cfg(target_os = "macos")]
+        {
+            if Window::dark_mode_is_enabled() {
+                None
+            } else {
+                Some(create_brush(SHADED_WHITE))
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            Some(create_brush(SHADED_WHITE))
+        }
+        #[cfg(target_os = "linux")]
+        {
+            Some(create_brush(SHADED_WHITE))
+        }
     }
 
     /// Use with care! Should be freed after use.
@@ -114,5 +138,3 @@ pub mod view {
         Swell::RGB(r, g, b) as _
     }
 }
-
-const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);

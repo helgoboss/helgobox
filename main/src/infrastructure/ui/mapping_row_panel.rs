@@ -503,11 +503,11 @@ impl View for MappingRowPanel {
     }
 
     fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
-        util::view::control_color_static_default(hdc, util::view::shaded_white_brush())
+        util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
     }
 
     fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
-        util::view::control_color_dialog_default(hdc, util::view::shaded_white_brush())
+        util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
     }
 }
 
