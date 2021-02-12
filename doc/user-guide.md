@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-10 (v2.0.1)</code></td>
+  <td><code>2021-02-12 (v2.0.2)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -507,7 +507,7 @@ Additionally, the header panel provides a context menu with the following entrie
   or motorized faders of your controller in sync with REAPER at all times. There might be situations
   where it doesn't work though. In this case you can send feedback manually using this button. 
 
-#### More about "Controller mappings"
+#### Controller mappings
 
 By default, ReaLearn shows the list of main mappings. If you select *Controller mappings* in the *Compartment*
 dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
@@ -577,7 +577,7 @@ using *batch learning*:
 You can share your preset with other users by sending them to info@helgoboss.org. I will add it to [this
 list](https://github.com/helgoboss/realearn/tree/master/resources/controllers).
 
-#### More about "Main mappings"
+#### Main mappings
 
 The header panel for main mappings consists of a few more user interface elements that you might find immensely
 helpful:
@@ -610,10 +610,13 @@ helpful:
   to it and will automatically load it. Whenever a non-linked FX gets focus, the mapping list is cleared so that
   no mapping is active anymore. Of course this makes sense only if you actually have linked some presets. Read on!
 
-The header context menu for the main mapping compartment contains the missing piece of the puzzle:  
+The header context menu for the main mapping compartment contains the missing piece of the puzzle:
+
 - **Link current preset to FX / Unlink current preset from FX:** This lets you link the currently active compartment
   preset with whatever FX window was focused before focusing ReaLearn. This only works if a preset is active and an
-  FX has been focused before. If the active preset is already linked to an FX, you can unlink it. 
+  FX has been focused before. If the active preset is already linked to an FX, you can unlink it.
+    - All links will be saved in the REAPER resource directory (REAPER → Actions → Show action list... → Show REAPER
+      resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
 
 #### Mapping row
 
@@ -1630,6 +1633,56 @@ previous/next buttons to switch between the programs. Do everything as in tutori
 The "Previous group" mapping then looks like this:
 
 ![Step 5](images/tutorial-2-step-5.jpg)
+
+### 3. Using "Auto-load preset" to control whatever plug-in is currently in focus 
+
+This one seems to be a very popular use case: To create a dedicated set of mappings for a specific FX plug-in and load
+these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load preset"
+feature.
+
+To have a nice example, let's assume you want to build a first set of mappings for the VSTi plug-in
+[Vital](https://vital.audio/). The procedure for other plug-ins is the same.
+
+#### Step 1: Activate the correct controller preset 
+
+Before you start, I strongly recommend to download a ReaLearn controller preset for your specific controller from
+ReaPack and activate it in the *Controller mappings* compartment. You will need to press *Reload all* to make a
+a newly downloaded controller preset appear in the preset list. If there's no suitable preset for your controller
+available on ReaPack, build your own.
+
+This step is completely optional but it gives you many advantages, both in the short and long run. Please see
+section [Controller mappings](#controller-mappings) for details.
+
+#### Step 2: Create mappings for your FX plug-in
+
+In this step you will tell ReaLearn which control element on your controller should control which parameter of your FX 
+plug-in:
+
+1. Add Vital VSTi and a new *empty* ReaLearn instance, preferably side-by-side so that you can see both.
+2. In ReaLearn, press *Learn many*.
+3. Move a control element on your controller, change a Vital parameter, move another control element, change another
+   Vital parameter ... until you are finished!
+4. Press *Stop*.
+
+
+#### Step 3: Save mappings as main preset and link it to the FX type
+
+Now let's save your newly created set of mappings as preset and link the preset to the Vital VSTi plug-in:
+
+1. Make sure the *Main mappings* compartment is shown.
+2. Press *Save as...* (next to *Preset*).
+    - ReaLearn will ask you if it should make your mappings project-independent. Answer with *Yes* (important).
+3. Enter a descriptive preset name, e.g. "Vital".
+4. Right-click ReaLearn's header panel and press *Link current preset to FX "Vital.dll"*.
+    - The name `Vital.dll` can vary, depending on your operating system.
+    - If it doesn't mention *Vital* but another VST plug-in, focus your Vital VSTi plug-in instance for a moment and
+      then go directly to ReaLearn and right-click the header panel.
+
+#### Step 4: Activate "Audo-load preset"
+
+Now you just have to set *Auto-load preset* to *Depending on focused FX* and ReaLearn will activate your "Vital" preset
+whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
+project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
 
 ## Tested controllers
 
