@@ -31,8 +31,20 @@ impl Window {
             Swell::get().SWELL_osx_is_dark_mode(1)
         }
         #[cfg(target_os = "windows")]
-        {
-            false
+        unsafe {
+            use palette::{IntoColor, Srgb};
+            let color = winapi::um::uxtheme::GetThemeSysColor(
+                null_mut(),
+                winapi::um::winuser::COLOR_WINDOW,
+            );
+            let (r, g, b) = (
+                Swell::GetRValue(color),
+                Swell::GetGValue(color),
+                Swell::GetBValue(color),
+            );
+            let rgb: Srgb = palette::Srgb::new(r, g, b).into_format();
+            let luma = rgb.into_luma();
+            luma.luma < 0.5
         }
         #[cfg(target_os = "linux")]
         {
