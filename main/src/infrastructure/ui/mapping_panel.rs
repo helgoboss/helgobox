@@ -1745,6 +1745,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 // to digest it *before* the  UI. It happened that this UI handler
                 // is called *before* the model handler in some cases. Then it is super
                 //  important - otherwise crash.
+                let project = view.target_with_context().project();
+                if !project.is_available() {
+                    // This can happen when reacting to track changes while closing a project.
+                    return;
+                }
                 view.invalidate_target_controls();
                 view.invalidate_mode_controls();
             },
