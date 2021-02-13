@@ -204,6 +204,9 @@ impl TargetModel {
                     TrackPan => UnresolvedReaperTarget::TrackPan {
                         track_descriptor: self.track_descriptor(),
                     },
+                    TrackWidth => UnresolvedReaperTarget::TrackWidth {
+                        track_descriptor: self.track_descriptor(),
+                    },
                     TrackArm => UnresolvedReaperTarget::TrackArm {
                         track_descriptor: self.track_descriptor(),
                     },
@@ -218,6 +221,10 @@ impl TargetModel {
                         track_descriptor: self.track_descriptor(),
                     },
                     TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
+                        track_descriptor: self.track_descriptor(),
+                        send_index: self.send_index.get().ok_or("send index not set")?,
+                    },
+                    TrackSendMute => UnresolvedReaperTarget::TrackSendMute {
                         track_descriptor: self.track_descriptor(),
                         send_index: self.send_index.get().ok_or("send index not set")?,
                     },
@@ -477,6 +484,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.track_send_label()
                     ),
                     TrackPan => write!(f, "Track pan\nTrack {}", self.track_label()),
+                    TrackWidth => write!(f, "Track width\nTrack {}", self.track_label()),
                     TrackArm => write!(f, "Track arm\nTrack {}", self.track_label()),
                     TrackSelection => write!(f, "Track selection\nTrack {}", self.track_label()),
                     TrackMute => write!(f, "Track mute\nTrack {}", self.track_label()),
@@ -484,6 +492,12 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     TrackSendPan => write!(
                         f,
                         "Track send pan\nTrack {}\nSend {}",
+                        self.track_label(),
+                        self.track_send_label()
+                    ),
+                    TrackSendMute => write!(
+                        f,
+                        "Track send mute\nTrack {}\nSend {}",
                         self.track_label(),
                         self.track_send_label()
                     ),
@@ -563,6 +577,10 @@ pub enum ReaperTargetType {
     AllTrackFxEnable = 15,
     #[display(fmt = "Transport")]
     Transport = 16,
+    #[display(fmt = "Track width")]
+    TrackWidth = 17,
+    #[display(fmt = "Track send mute (no feedback)")]
+    TrackSendMute = 18,
 }
 
 impl Default for ReaperTargetType {
@@ -580,11 +598,13 @@ impl ReaperTargetType {
             TrackVolume { .. } => ReaperTargetType::TrackVolume,
             TrackSendVolume { .. } => ReaperTargetType::TrackSendVolume,
             TrackPan { .. } => ReaperTargetType::TrackPan,
+            TrackWidth { .. } => ReaperTargetType::TrackWidth,
             TrackArm { .. } => ReaperTargetType::TrackArm,
             TrackSelection { .. } => ReaperTargetType::TrackSelection,
             TrackMute { .. } => ReaperTargetType::TrackMute,
             TrackSolo { .. } => ReaperTargetType::TrackSolo,
             TrackSendPan { .. } => ReaperTargetType::TrackSendPan,
+            TrackSendMute { .. } => ReaperTargetType::TrackSendMute,
             Tempo { .. } => ReaperTargetType::Tempo,
             Playrate { .. } => ReaperTargetType::Playrate,
             FxEnable { .. } => ReaperTargetType::FxEnable,
@@ -598,8 +618,9 @@ impl ReaperTargetType {
     pub fn supports_track(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackArm | TrackSelection
-            | TrackMute | TrackSolo | TrackSendPan | FxEnable | FxPreset | AllTrackFxEnable => true,
+            FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
+            | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
+            | FxPreset | AllTrackFxEnable => true,
             Action | Tempo | Playrate | SelectedTrack | Transport => false,
         }
     }
@@ -608,19 +629,19 @@ impl ReaperTargetType {
         use ReaperTargetType::*;
         match self {
             FxParameter | FxEnable | FxPreset => true,
-            TrackSendVolume | TrackSendPan | TrackVolume | TrackPan | TrackArm | TrackSelection
-            | TrackMute | TrackSolo | Action | Tempo | Playrate | SelectedTrack
-            | AllTrackFxEnable | Transport => false,
+            TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
+            | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
+            | Playrate | SelectedTrack | AllTrackFxEnable | Transport => false,
         }
     }
 
     pub fn supports_send(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            TrackSendVolume | TrackSendPan => true,
-            FxParameter | TrackVolume | TrackPan | TrackArm | TrackSelection | TrackMute
-            | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate | SelectedTrack
-            | AllTrackFxEnable | Transport => false,
+            TrackSendVolume | TrackSendPan | TrackSendMute => true,
+            FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
+            | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
+            | SelectedTrack | AllTrackFxEnable | Transport => false,
         }
     }
 }

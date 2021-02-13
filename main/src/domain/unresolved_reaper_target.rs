@@ -25,6 +25,9 @@ pub enum UnresolvedReaperTarget {
     TrackPan {
         track_descriptor: TrackDescriptor,
     },
+    TrackWidth {
+        track_descriptor: TrackDescriptor,
+    },
     TrackArm {
         track_descriptor: TrackDescriptor,
     },
@@ -39,6 +42,10 @@ pub enum UnresolvedReaperTarget {
         track_descriptor: TrackDescriptor,
     },
     TrackSendPan {
+        track_descriptor: TrackDescriptor,
+        send_index: u32,
+    },
+    TrackSendMute {
         track_descriptor: TrackDescriptor,
         send_index: u32,
     },
@@ -89,6 +96,9 @@ impl UnresolvedReaperTarget {
             TrackPan { track_descriptor } => ReaperTarget::TrackPan {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
+            TrackWidth { track_descriptor } => ReaperTarget::TrackWidth {
+                track: get_effective_track(context, &track_descriptor.track)?,
+            },
             TrackArm { track_descriptor } => ReaperTarget::TrackArm {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
@@ -109,6 +119,12 @@ impl UnresolvedReaperTarget {
                 track_descriptor,
                 send_index,
             } => ReaperTarget::TrackSendPan {
+                send: get_track_send(context, &track_descriptor.track, *send_index)?,
+            },
+            TrackSendMute {
+                track_descriptor,
+                send_index,
+            } => ReaperTarget::TrackSendMute {
                 send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             Tempo => ReaperTarget::Tempo {
@@ -177,6 +193,7 @@ impl UnresolvedReaperTarget {
                 track_descriptor, ..
             }
             | TrackPan { track_descriptor }
+            | TrackWidth { track_descriptor }
             | TrackArm { track_descriptor }
             | TrackSelection {
                 track_descriptor, ..
@@ -184,6 +201,9 @@ impl UnresolvedReaperTarget {
             | TrackMute { track_descriptor }
             | TrackSolo { track_descriptor }
             | TrackSendPan {
+                track_descriptor, ..
+            }
+            | TrackSendMute {
                 track_descriptor, ..
             }
             | AllTrackFxEnable { track_descriptor } => (Some(track_descriptor), None),

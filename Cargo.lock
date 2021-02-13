@@ -2489,7 +2489,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.0.2"
+version = "2.1.0"
 dependencies = [
  "askama",
  "async-channel",
@@ -2558,7 +2558,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#583c36172dbef0ffd7f658134451084042b07a40"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c786cb8ab0ee73c2e41c9ae74ce2a96d83f6bb36"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2582,7 +2582,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#583c36172dbef0ffd7f658134451084042b07a40"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c786cb8ab0ee73c2e41c9ae74ce2a96d83f6bb36"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2595,7 +2595,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#583c36172dbef0ffd7f658134451084042b07a40"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c786cb8ab0ee73c2e41c9ae74ce2a96d83f6bb36"
 dependencies = [
  "darling",
  "quote 1.0.7",
@@ -2605,7 +2605,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#583c36172dbef0ffd7f658134451084042b07a40"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c786cb8ab0ee73c2e41c9ae74ce2a96d83f6bb36"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -2620,7 +2620,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#583c36172dbef0ffd7f658134451084042b07a40"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#c786cb8ab0ee73c2e41c9ae74ce2a96d83f6bb36"
 dependencies = [
  "crossbeam-channel 0.4.4",
  "helgoboss-midi",

@@ -4,11 +4,12 @@ use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, ChangeEvent, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate,
-    Project, Reaper, Tempo, Track, TrackSend, Volume,
+    Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
 };
 use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
-    NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, UndoBehavior,
+    NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, ReaperPanValue,
+    ReaperWidthValue, UndoBehavior,
 };
 use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
@@ -18,7 +19,11 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use slog::warn;
 
 use crate::core::Global;
-use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
+use crate::domain::ui_util::{
+    format_as_double_percentage_without_unit, format_as_percentage_without_unit,
+    format_as_symmetric_percentage_without_unit, parse_from_double_percentage,
+    parse_from_percentage, parse_from_symmetric_percentage,
+};
 use crate::domain::RealearnTarget;
 use std::convert::TryInto;
 use std::rc::Rc;
@@ -51,6 +56,16 @@ impl TargetCharacter {
 ///
 /// Unlike TargetModel, the real target has everything resolved already (e.g. track and FX) and
 /// is immutable.
+//
+// When adding a new target type, please proceed like this:
+//
+// 1. Recompile and see what fails.
+//      - Yes, we basically let the compiler write our to-do list :)
+//      - For this to work, we must take care not to use `_` when doing pattern matching on
+//        `ReaperTarget`, but instead mention each variant explicitly.
+// 2. One situation where this doesn't work is when we use `matches!`. So after that, just search
+//    for occurrences of `matches!` in this file and do what needs to be done!
+// 3. To not miss anything, look for occurrences of `TrackVolume` (as a good example).
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
     Action {
@@ -70,6 +85,9 @@ pub enum ReaperTarget {
     TrackPan {
         track: Track,
     },
+    TrackWidth {
+        track: Track,
+    },
     TrackArm {
         track: Track,
     },
@@ -84,6 +102,9 @@ pub enum ReaperTarget {
         track: Track,
     },
     TrackSendPan {
+        send: TrackSend,
+    },
+    TrackSendMute {
         send: TrackSend,
     },
     Tempo {
@@ -140,6 +161,7 @@ impl RealearnTarget for ReaperTarget {
                 .invoke_as_trigger(Some(track.project()));
         }
     }
+
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         use ReaperTarget::*;
         match self {
@@ -151,7 +173,17 @@ impl RealearnTarget for ReaperTarget {
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
-            _ => parse_from_percentage(text),
+            Action { .. }
+            | FxParameter { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendMute { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => parse_from_percentage(text),
+            TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
     }
 
@@ -164,7 +196,21 @@ impl RealearnTarget for ReaperTarget {
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
-            _ => parse_from_percentage(text),
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => parse_from_percentage(text),
+            TrackWidth { .. } => parse_from_double_percentage(text),
         }
     }
 
@@ -191,7 +237,22 @@ impl RealearnTarget for ReaperTarget {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (input.get() / step_size).round() as _
             }
-            _ => return Err("not supported"),
+            Action { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
     }
@@ -203,7 +264,19 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
-            _ => format_as_percentage_without_unit(value),
+            Action { .. }
+            | FxParameter { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendMute { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => format_as_percentage_without_unit(value),
+            TrackWidth { .. } => format_as_symmetric_percentage_without_unit(value),
         }
     }
 
@@ -212,7 +285,23 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
             Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
-            _ => format_as_percentage_without_unit(step_size),
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => format_as_percentage_without_unit(step_size),
+            TrackWidth { .. } => format_as_double_percentage_without_unit(step_size),
         }
     }
 
@@ -223,6 +312,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume { .. }
                 | TrackSendVolume { .. }
                 | TrackPan { .. }
+                | TrackWidth { .. }
                 | TrackSendPan { .. }
                 | Playrate { .. }
                 | Tempo { .. }
@@ -236,6 +326,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume { .. }
                 | TrackSendVolume { .. }
                 | TrackPan { .. }
+                | TrackWidth { .. }
                 | TrackSendPan { .. }
                 | Playrate { .. }
                 | Tempo { .. }
@@ -249,7 +340,19 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackSendPan { .. } => "",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
-            _ => "%",
+            Action { .. }
+            | FxParameter { .. }
+            | TrackArm { .. }
+            | TrackWidth { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendMute { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => "%",
         }
     }
 
@@ -259,7 +362,21 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackSendPan { .. } => "",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
-            _ => "%",
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackWidth { .. }
+            | TrackSendVolume { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendMute { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => "%",
         }
     }
 
@@ -288,7 +405,12 @@ impl RealearnTarget for ReaperTarget {
                 None => "<Master track>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
-            _ => self.format_value_generic(value),
+            TrackSendMute { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. }
+            | TrackWidth { .. } => self.format_value_generic(value),
         }
     }
 
@@ -338,6 +460,10 @@ impl RealearnTarget for ReaperTarget {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
                 track.set_pan(pan);
             }
+            TrackWidth { track } => {
+                let width = Width::from_normalized_value(value.as_absolute()?.get());
+                track.set_width(width);
+            }
             TrackArm { track } => {
                 if value.as_absolute()?.is_zero() {
                     track.disarm(false);
@@ -376,6 +502,13 @@ impl RealearnTarget for ReaperTarget {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
                 send.set_pan(pan);
             }
+            TrackSendMute { send } => {
+                if value.as_absolute()?.is_zero() {
+                    send.unmute();
+                } else {
+                    send.mute();
+                }
+            }
             Tempo { project } => {
                 let tempo = reaper_high::Tempo::from_normalized_value(value.as_absolute()?.get());
                 project.set_tempo(tempo, UndoBehavior::OmitUndoPoint);
@@ -409,7 +542,7 @@ impl RealearnTarget for ReaperTarget {
                 };
                 track.select_exclusively();
             }
-            ReaperTarget::AllTrackFxEnable { track } => {
+            AllTrackFxEnable { track } => {
                 if value.as_absolute()?.is_zero() {
                     track.disable_fx();
                 } else {
@@ -506,7 +639,9 @@ impl ReaperTarget {
         use ReaperTarget::*;
         let target = match evt {
             TrackVolumeTouched(track) => TrackVolume { track },
-            TrackPanTouched(track) => TrackPan { track },
+            TrackPanTouched { track, old, new } => {
+                figure_out_touched_pan_component(track, old, new)
+            }
             TrackSendVolumeTouched(send) => TrackSendVolume { send },
             TrackSendPanTouched(send) => TrackSendPan { send },
             TrackArmChanged(track) => TrackArm { track },
@@ -567,11 +702,9 @@ impl ReaperTarget {
                     .track_volume_touched()
                     .map(move |track| TrackVolume { track }.into()),
             )
-            .merge(
-                csurf_rx
-                    .track_pan_touched()
-                    .map(move |track| TrackPan { track }.into()),
-            )
+            .merge(csurf_rx.track_pan_touched().map(move |(track, old, new)| {
+                figure_out_touched_pan_component(track, old, new).into()
+            }))
             .merge(
                 csurf_rx
                     .track_arm_changed()
@@ -671,7 +804,22 @@ impl ReaperTarget {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (value as f64 * step_size).try_into()?
             }
-            _ => return Err("not supported"),
+            Action { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
     }
@@ -687,12 +835,15 @@ impl ReaperTarget {
             FxParameter { param } => param.fx().project()?,
             TrackVolume { track }
             | TrackPan { track }
+            | TrackWidth { track }
             | TrackArm { track }
             | TrackSelection { track, .. }
             | TrackMute { track }
             | TrackSolo { track }
             | AllTrackFxEnable { track } => track.project(),
-            TrackSendPan { send } | TrackSendVolume { send } => send.source_track().project(),
+            TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
+                send.source_track().project()
+            }
             Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
             FxEnable { fx } | FxPreset { fx } => fx.project()?,
         };
@@ -706,11 +857,13 @@ impl ReaperTarget {
             TrackVolume { track } => track,
             TrackSendVolume { send } => send.source_track(),
             TrackPan { track } => track,
+            TrackWidth { track } => track,
             TrackArm { track } => track,
             TrackSelection { track, .. } => track,
             TrackMute { track } => track,
             TrackSolo { track } => track,
             TrackSendPan { send } => send.source_track(),
+            TrackSendMute { send } => send.source_track(),
             FxEnable { fx } => fx.track()?,
             FxPreset { fx } => fx.track()?,
             AllTrackFxEnable { track } => track,
@@ -733,11 +886,13 @@ impl ReaperTarget {
             | TrackVolume { .. }
             | TrackSendVolume { .. }
             | TrackPan { .. }
+            | TrackWidth { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
+            | TrackSendMute { .. }
             | Tempo { .. }
             | Playrate { .. }
             | SelectedTrack { .. }
@@ -750,13 +905,14 @@ impl ReaperTarget {
     pub fn send(&self) -> Option<&TrackSend> {
         use ReaperTarget::*;
         let send = match self {
-            TrackSendPan { send } | TrackSendVolume { send } => send,
+            TrackSendPan { send } | TrackSendVolume { send } | TrackSendMute { send } => send,
             FxParameter { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | Action { .. }
             | TrackVolume { .. }
             | TrackPan { .. }
+            | TrackWidth { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
@@ -773,23 +929,25 @@ impl ReaperTarget {
     pub fn supports_feedback(&self) -> bool {
         use ReaperTarget::*;
         match self {
-            Action { .. } => true,
-            FxParameter { .. } => true,
-            TrackVolume { .. } => true,
-            TrackSendVolume { .. } => true,
-            TrackPan { .. } => true,
-            TrackArm { .. } => true,
-            TrackSelection { .. } => true,
-            TrackMute { .. } => true,
-            TrackSolo { .. } => true,
-            TrackSendPan { .. } => true,
-            Tempo { .. } => true,
-            Playrate { .. } => true,
-            FxEnable { .. } => true,
-            FxPreset { .. } => true,
-            SelectedTrack { .. } => true,
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | Transport { .. } => true,
             AllTrackFxEnable { .. } => false,
-            Transport { .. } => true,
+            TrackSendMute { .. } => false,
         }
     }
 
@@ -836,7 +994,7 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
-            TrackPan { track } => {
+            TrackPan { track } | TrackWidth { track } => {
                 let track = track.clone();
                 csurf_rx
                     .track_pan_changed()
@@ -910,7 +1068,7 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
-            AllTrackFxEnable { .. } => observable::never().box_it(),
+            AllTrackFxEnable { .. } | TrackSendMute { .. } => observable::never().box_it(),
             Transport { action, .. } => {
                 if *action == TransportAction::Repeat {
                     csurf_rx.repeat_state_changed().box_it()
@@ -965,11 +1123,13 @@ impl Target for ReaperTarget {
                 UnitValue::new_clamped(send.volume().soft_normalized_value())
             }
             TrackPan { track } => UnitValue::new(track.pan().normalized_value()),
+            TrackWidth { track } => UnitValue::new(track.width().normalized_value()),
             TrackArm { track } => convert_bool_to_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => convert_bool_to_unit_value(track.is_selected()),
             TrackMute { track } => convert_bool_to_unit_value(track.is_muted()),
             TrackSolo { track } => convert_bool_to_unit_value(track.is_solo()),
             TrackSendPan { send } => UnitValue::new(send.pan().normalized_value()),
+            TrackSendMute { send } => convert_bool_to_unit_value(send.is_muted()),
             Tempo { project } => UnitValue::new(project.tempo().normalized_value()),
             Playrate { project } => UnitValue::new(project.play_rate().normalized_value().get()),
             FxEnable { fx } => convert_bool_to_unit_value(fx.is_enabled()),
@@ -1059,13 +1219,16 @@ impl Target for ReaperTarget {
             TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackSendMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
             | Transport { .. }
             | TrackSolo { .. } => ControlType::AbsoluteSwitch,
-            TrackVolume { .. } | TrackSendVolume { .. } | TrackPan { .. } | TrackSendPan { .. } => {
-                ControlType::AbsoluteContinuous
-            }
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackSendPan { .. } => ControlType::AbsoluteContinuous,
         }
     }
 }
@@ -1345,5 +1508,44 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
             invocation_type: ActionInvocationType::Trigger,
             project,
         },
+    }
+}
+
+trait PanExt {
+    /// Returns the pan value. In case of dual-pan, returns the left pan value.
+    fn main_pan(self) -> ReaperPanValue;
+    fn width(self) -> Option<ReaperWidthValue>;
+}
+
+impl PanExt for reaper_medium::Pan {
+    /// Returns the pan value. In case of dual-pan, returns the left pan value.
+    fn main_pan(self) -> ReaperPanValue {
+        use reaper_medium::Pan::*;
+        match self {
+            BalanceV1(p) => p,
+            BalanceV4(p) => p,
+            StereoPan { pan, .. } => pan,
+            DualPan { left, .. } => left,
+        }
+    }
+
+    fn width(self) -> Option<ReaperWidthValue> {
+        if let reaper_medium::Pan::StereoPan { width, .. } = self {
+            Some(width)
+        } else {
+            None
+        }
+    }
+}
+
+fn figure_out_touched_pan_component(
+    track: Track,
+    old: reaper_medium::Pan,
+    new: reaper_medium::Pan,
+) -> ReaperTarget {
+    if old.width() != new.width() {
+        ReaperTarget::TrackWidth { track }
+    } else {
+        ReaperTarget::TrackPan { track }
     }
 }

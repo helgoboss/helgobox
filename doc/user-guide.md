@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-12 (v2.0.2)</code></td>
+  <td><code>2021-02-13 (v2.1.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1258,12 +1258,12 @@ Steps through FX presets.
 
 Steps through tracks.
 
-###### Track FX all enable
+###### Track FX all enable target
 
 Enables all the track's FX instances if the incoming absolute control value is greater than
 0%, otherwise disables them.
 
-###### Transport
+###### Transport target
 
 Invokes a transport-related action.
 
@@ -1276,6 +1276,14 @@ Invokes a transport-related action.
     0%, otherwise disables recording.
   - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%, 
     otherwise disables it.
+
+###### Track width target
+
+Sets the track's width value (applicable if the track is in stereo pan mode).
+
+###### Track send mute target
+
+Mutes/unmutes the track send.
 
 ##### Category "Virtual"
 
