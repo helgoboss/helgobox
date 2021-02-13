@@ -70,6 +70,8 @@ impl Window {
             .expect("required control not found")
     }
 
+    /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
+    /// anything borrowed while calling this unless you want errors due to reentrancy.
     pub fn alert<'a>(
         self,
         caption: impl Into<SwellStringArg<'a>>,
@@ -85,6 +87,8 @@ impl Window {
         }
     }
 
+    /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
+    /// anything borrowed while calling this unless you want errors due to reentrancy.
     pub fn confirm<'a>(
         self,
         caption: impl Into<SwellStringArg<'a>>,
@@ -101,6 +105,8 @@ impl Window {
         result == raw::IDYES as _
     }
 
+    /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
+    /// anything borrowed while calling this unless you want errors due to reentrancy.
     pub fn ask_yes_no_or_cancel<'a>(
         self,
         caption: impl Into<SwellStringArg<'a>>,

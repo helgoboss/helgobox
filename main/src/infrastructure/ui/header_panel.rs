@@ -951,26 +951,35 @@ impl HeaderPanel {
 
     fn save_active_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
+        let (context, mut mappings, preset_id, compartment) = {
+            let session = session.borrow();
+            let compartment = self.active_compartment();
+            let preset_id = match compartment {
+                MappingCompartment::ControllerMappings => session.active_controller_id(),
+                MappingCompartment::MainMappings => session.active_main_preset_id(),
+            };
+            let preset_id = match preset_id {
+                None => return Err("no active preset"),
+                Some(id) => id,
+            };
+            let mappings: Vec<_> = session
+                .mappings(compartment)
+                .map(|ptr| ptr.borrow().clone())
+                .collect();
+            (
+                session.context().clone(),
+                mappings,
+                preset_id.to_owned(),
+                compartment,
+            )
+        };
+        self.make_mappings_project_independent_if_desired(context, &mut mappings);
         let session = session.borrow();
-        let compartment = self.active_compartment();
-        let preset_id = match compartment {
-            MappingCompartment::ControllerMappings => session.active_controller_id(),
-            MappingCompartment::MainMappings => session.active_main_preset_id(),
-        };
-        let preset_id = match preset_id {
-            None => return Err("no active preset"),
-            Some(id) => id,
-        };
-        let mut mappings: Vec<_> = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
-        self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller = preset_manager
-                    .find_by_id(preset_id)
+                    .find_by_id(&preset_id)
                     .ok_or("controller not found")?;
                 controller.update_realearn_data(mappings);
                 preset_manager.borrow_mut().update_preset(controller)?;
@@ -978,7 +987,7 @@ impl HeaderPanel {
             MappingCompartment::MainMappings => {
                 let preset_manager = App::get().main_preset_manager();
                 let mut main_preset = preset_manager
-                    .find_by_id(preset_id)
+                    .find_by_id(&preset_id)
                     .ok_or("main preset not found")?;
                 let default_group = session.default_group().borrow().clone();
                 let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
@@ -1014,33 +1023,38 @@ impl HeaderPanel {
         }
     }
 
+    /// Don't borrow the session while calling this!
     fn make_mappings_project_independent_if_desired(
         &self,
-        context: &ProcessorContext,
+        context: ProcessorContext,
         mut mappings: &mut [MappingModel],
     ) {
         let msg = "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?";
         if mappings_have_project_references(&mappings)
             && self.view.require_window().confirm("ReaLearn", msg)
         {
-            make_mappings_project_independent(&mut mappings, context);
+            make_mappings_project_independent(&mut mappings, &context);
         }
     }
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
-        let mut session = session.borrow_mut();
-        let compartment = self.active_compartment();
-        let mut mappings: Vec<_> = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
-        self.make_mappings_project_independent_if_desired(session.context(), &mut mappings);
+        let (context, mut mappings, compartment) = {
+            let session = session.borrow_mut();
+            let compartment = self.active_compartment();
+            let mappings: Vec<_> = session
+                .mappings(compartment)
+                .map(|ptr| ptr.borrow().clone())
+                .collect();
+            (session.context().clone(), mappings, compartment)
+        };
+        self.make_mappings_project_independent_if_desired(context, &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),
             Some(n) => n,
         };
         let preset_id = slug::slugify(&preset_name);
+        let mut session = session.borrow_mut();
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
