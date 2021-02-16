@@ -1,5 +1,5 @@
 use crate::core::Global;
-use crate::domain::{DomainEventHandler, MainProcessor, ReaperTarget};
+use crate::domain::{DomainEventHandler, DomainGlobal, MainProcessor, ReaperTarget};
 use crossbeam_channel::Receiver;
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
@@ -148,7 +148,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.change_detection_middleware.process(event, |e| {
             match &self.state {
                 State::Normal => {
-                    self.rx_middleware.handle_change(e);
+                    self.rx_middleware.handle_change(e.clone());
+                    if let Some(target) = ReaperTarget::touched_from_change_event(e) {
+                        DomainGlobal::get().set_last_touched_target(target);
+                        for p in &self.main_processors {
+                            p.notify_target_touched();
+                        }
+                    }
                 }
                 State::LearningTarget(sender) => {
                     // At some point we want the Rx stuff out of the domain layer. This is one step

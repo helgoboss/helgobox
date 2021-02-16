@@ -34,8 +34,11 @@ pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_C
 pub struct MainProcessor<EH: DomainEventHandler> {
     instance_id: String,
     logger: slog::Logger,
-    /// Contains all mappings except those where the target could not be resolved.
+    /// Contains all mappings.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
+    /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
+    /// At the moment only "Last touched" targets.
+    target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     feedback_buffer: FeedbackBuffer,
     feedback_subscriptions: EnumMap<MappingCompartment, FeedbackSubscriptions>,
     feedback_is_globally_enabled: bool,
@@ -81,6 +84,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             normal_real_time_task_sender,
             feedback_real_time_task_sender,
             mappings: Default::default(),
+            target_touch_dependent_mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_subscriptions: Default::default(),
             feedback_is_globally_enabled: false,
@@ -191,6 +195,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     );
                     let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
                     // Refresh and put into hash map in order to quickly look up mappings by ID
+                    self.target_touch_dependent_mappings[compartment].clear();
                     self.mappings[compartment] = mappings
                         .into_iter()
                         .map(|mut m| {
@@ -198,6 +203,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
+                            }
+                            if m.needs_refresh_when_target_touched() {
+                                self.target_touch_dependent_mappings[compartment].insert(m.id());
                             }
                             (m.id(), m)
                         })
@@ -304,6 +312,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         };
                     }
                     // Update hash map entry
+                    if mapping.needs_refresh_when_target_touched() {
+                        self.target_touch_dependent_mappings[compartment].insert(mapping.id());
+                    } else {
+                        self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
+                    }
                     self.mappings[compartment].insert(mapping.id(), *mapping);
                     // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
                     self.update_on_mappings();
@@ -444,6 +457,37 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.feedback_buffer
                         .buffer_feedback_for_mapping(compartment, mapping_id);
                 }
+                TargetTouched => {
+                    for compartment in MappingCompartment::into_enum_iter() {
+                        for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
+                            if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
+                                m.refresh_target(&self.context);
+                                // Switching off shouldn't be necessary since the last touched
+                                // target can never be "unset".
+                                if self.feedback_is_globally_enabled
+                                    && m.feedback_is_effectively_on()
+                                {
+                                    if let Some(CompoundMappingTarget::Reaper(target)) = m.target()
+                                    {
+                                        // (Re)subscribe
+                                        let subscription = send_feedback_when_target_value_changed(
+                                            self.self_feedback_sender.clone(),
+                                            compartment,
+                                            m.id(),
+                                            target,
+                                        );
+                                        self.feedback_subscriptions[compartment]
+                                            .insert(m.id(), subscription);
+                                        send_feedback(
+                                            &self.feedback_real_time_task_sender,
+                                            m.feedback_if_enabled(),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         // Send feedback as soon as buffered long enough
@@ -456,6 +500,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.send_feedback(source_values);
             }
         }
+    }
+
+    pub fn notify_target_touched(&self) {
+        self.self_feedback_sender
+            .send(FeedbackMainTask::TargetTouched)
+            .unwrap();
     }
 
     fn process_activation_updates(
@@ -493,11 +543,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = CompoundMappingSourceValue>) {
-        for v in source_values.into_iter() {
-            self.feedback_real_time_task_sender
-                .send(FeedbackRealTimeTask::Feedback(v))
-                .unwrap();
-        }
+        send_feedback(&self.feedback_real_time_task_sender, source_values);
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &MainMapping> {
@@ -670,7 +716,11 @@ pub enum ParameterMainTask {
 /// A feedback-related task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackMainTask {
+    /// Sent whenever a target value has been changed.
     Feedback(MappingCompartment, MappingId),
+    /// Sent whenever a target has been touched (usually a subset of the value change events)
+    /// and as a result the global "last touched target" has been updated.
+    TargetTouched,
 }
 
 /// A control-related task (which is potentially sent very frequently).
@@ -692,5 +742,14 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping main processor...");
         self.party_is_over_subject.next(());
+    }
+}
+
+fn send_feedback(
+    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    source_values: impl IntoIterator<Item = CompoundMappingSourceValue>,
+) {
+    for v in source_values.into_iter() {
+        sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
     }
 }

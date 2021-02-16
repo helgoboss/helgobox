@@ -4,7 +4,7 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    MainProcessor, MappingCompartment, RealearnAudioHook, RealearnAudioHookTask,
+    DomainGlobal, MainProcessor, MappingCompartment, RealearnAudioHook, RealearnAudioHookTask,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
 };
@@ -621,20 +621,11 @@ impl App {
     //  does nothing more than cloning the target and writing it to a variable. So maybe not so bad
     //  performance-wise.
     pub fn register_global_learn_actions(&self) {
-        type SharedReaperTarget = Rc<RefCell<Option<ReaperTarget>>>;
-        let last_touched_target: SharedReaperTarget = Rc::new(RefCell::new(None));
-        let last_touched_target_clone = last_touched_target.clone();
-        // TODO-low Maybe unsubscribe when last ReaLearn instance gone.
-        ReaperTarget::touched().subscribe(move |target| {
-            last_touched_target_clone.replace(Some((*target).clone()));
-        });
         Reaper::get().register_action(
             "realearnLearnSourceForLastTouchedTarget",
             "ReaLearn: Learn source for last touched target (reassigning target)",
             move || {
-                // We borrow this only very shortly so that the mutable borrow when touching the
-                // target can't interfere.
-                let target = last_touched_target.borrow().clone();
+                let target = DomainGlobal::get().last_touched_target();
                 let target = match target.as_ref() {
                     None => return,
                     Some(t) => t,

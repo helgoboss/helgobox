@@ -146,6 +146,15 @@ impl MainMapping {
         self.refresh_activation(params);
     }
 
+    pub fn needs_refresh_when_target_touched(&self) -> bool {
+        matches!(
+            self.core.unresolved_target,
+            Some(UnresolvedCompoundMappingTarget::Reaper(
+                UnresolvedReaperTarget::LastTouched
+            ))
+        )
+    }
+
     pub fn refresh_target(&mut self, context: &ProcessorContext) -> bool {
         let (target, is_active) = match self.core.unresolved_target.as_ref() {
             None => (None, false),

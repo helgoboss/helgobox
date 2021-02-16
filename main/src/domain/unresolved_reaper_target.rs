@@ -1,5 +1,7 @@
 use crate::core::hash_util;
-use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, TransportAction};
+use crate::domain::{
+    ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, TransportAction,
+};
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
 use reaper_medium::{MasterTrackBehavior, TrackLocation};
@@ -70,6 +72,7 @@ pub enum UnresolvedReaperTarget {
         fx_descriptor: FxDescriptor,
         chunk: Rc<String>,
     },
+    LastTouched,
 }
 
 impl UnresolvedReaperTarget {
@@ -163,6 +166,9 @@ impl UnresolvedReaperTarget {
                 chunk: chunk.clone(),
                 chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
             },
+            LastTouched => DomainGlobal::get()
+                .last_touched_target()
+                .ok_or("no last touched target")?,
         };
         Ok(resolved)
     }
@@ -222,6 +228,7 @@ impl UnresolvedReaperTarget {
                 track_descriptor, ..
             }
             | AllTrackFxEnable { track_descriptor } => (Some(track_descriptor), None),
+            LastTouched => (None, None),
         }
     }
 }

@@ -276,6 +276,7 @@ impl TargetModel {
                             .chunk
                             .clone(),
                     },
+                    LastTouched => UnresolvedReaperTarget::LastTouched,
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -563,6 +564,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                             .map(|s| s.to_string())
                             .unwrap_or_else(|| "-".to_owned())
                     ),
+                    LastTouched => write!(f, "Last touched"),
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
@@ -626,6 +628,8 @@ pub enum ReaperTargetType {
     TrackSendMute = 18,
     #[display(fmt = "Load FX snapshot (experimental)")]
     LoadFxSnapshot = 19,
+    #[display(fmt = "Last touched (experimental)")]
+    LastTouched = 20,
 }
 
 impl Default for ReaperTargetType {
@@ -667,7 +671,7 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
             | FxPreset | AllTrackFxEnable | LoadFxSnapshot => true,
-            Action | Tempo | Playrate | SelectedTrack | Transport => false,
+            Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched => false,
         }
     }
 
@@ -677,7 +681,7 @@ impl ReaperTargetType {
             FxParameter | FxEnable | FxPreset | LoadFxSnapshot => true,
             TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
             | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
-            | Playrate | SelectedTrack | AllTrackFxEnable | Transport => false,
+            | Playrate | SelectedTrack | AllTrackFxEnable | Transport | LastTouched => false,
         }
     }
 
@@ -687,7 +691,7 @@ impl ReaperTargetType {
             TrackSendVolume | TrackSendPan | TrackSendMute => true,
             FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
             | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot => false,
+            | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched => false,
         }
     }
 }
@@ -880,7 +884,7 @@ impl Display for FxSnapshot {
         write!(
             f,
             "{} | {} | {}",
-            self.preset_name.as_ref().map(|s| s.as_str()).unwrap_or("-"),
+            self.preset_name.as_deref().unwrap_or("-"),
             fmt_size,
             self.fx_name,
         )
