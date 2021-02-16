@@ -118,6 +118,22 @@ impl MappingPanel {
             .toggle_learning_source(&session, &mapping);
     }
 
+    fn take_snapshot(&self) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+        // Important that neither session nor mapping is mutably borrowed while doing this because
+        // state of our ReaLearn instance is not unlikely to be queried as well!
+        let fx_snapshot = mapping
+            .borrow()
+            .target_model
+            .take_fx_snapshot(self.session().borrow().context())?;
+        mapping
+            .borrow_mut()
+            .target_model
+            .fx_snapshot
+            .set(Some(fx_snapshot));
+        Ok(())
+    }
+
     pub fn is_free(&self) -> bool {
         self.mapping.borrow().is_none()
     }
@@ -1271,7 +1287,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_three();
         self.invalidate_target_only_if_fx_has_focus_check_box();
         self.invalidate_target_only_if_track_is_selected_check_box();
-        self.invalidate_target_fx_param_combo_box();
+        self.invalidate_target_line_four();
         self.invalidate_target_value_controls();
         self.invalidate_target_learn_button();
     }
@@ -1680,24 +1696,54 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_target_fx_param_combo_box(&self) {
+    fn invalidate_target_line_four(&self) {
         let combo = self
             .view
             .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX);
         let label = self
             .view
             .require_control(root::ID_TARGET_FX_PARAMETER_LABEL_TEXT);
+        let button = self
+            .view
+            .require_control(root::ID_TARGET_TAKE_SNAPSHOT_BUTTON);
+        let value_text = self.view.require_control(root::ID_TARGET_SNAPSHOT_NAME);
         let target = self.target;
-        if target.category.get() == TargetCategory::Reaper
-            && target.r#type.get() == ReaperTargetType::FxParameter
-        {
-            combo.show();
-            label.show();
-            self.fill_target_fx_param_combo_box(combo);
-            self.set_target_fx_param_combo_box_value(combo);
+        if target.category.get() == TargetCategory::Reaper {
+            match target.r#type.get() {
+                ReaperTargetType::FxParameter => {
+                    label.set_text("Parameter");
+                    label.show();
+                    combo.show();
+                    button.hide();
+                    value_text.hide();
+                    self.fill_target_fx_param_combo_box(combo);
+                    self.set_target_fx_param_combo_box_value(combo);
+                }
+                ReaperTargetType::LoadFxSnapshot => {
+                    label.set_text("Snapshot");
+                    label.show();
+                    combo.hide();
+                    button.show();
+                    let snapshot_label = if let Some(snapshot) = self.target.fx_snapshot.get_ref() {
+                        snapshot.to_string()
+                    } else {
+                        "<Empty>".to_owned()
+                    };
+                    value_text.set_text(snapshot_label);
+                    value_text.show();
+                }
+                _ => {
+                    combo.hide();
+                    label.hide();
+                    button.hide();
+                    value_text.hide();
+                }
+            }
         } else {
             combo.hide();
             label.hide();
+            button.hide();
+            value_text.hide();
         }
     }
 
@@ -2399,14 +2445,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
         self.panel.when_do_sync(target.fx.changed(), |view| {
             view.invalidate_target_line_three();
-            view.invalidate_target_fx_param_combo_box();
+            view.invalidate_target_line_four();
             view.invalidate_target_value_controls();
             view.invalidate_target_only_if_fx_has_focus_check_box();
             view.invalidate_mode_controls();
         });
         self.panel
             .when_do_sync(target.param_index.changed(), |view| {
-                view.invalidate_target_fx_param_combo_box();
+                view.invalidate_target_line_four();
                 view.invalidate_target_value_controls();
                 view.invalidate_mode_controls();
             });
@@ -2417,6 +2463,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(target.action_invocation_type.changed(), |view| {
                 view.invalidate_target_line_three();
                 view.invalidate_mode_controls();
+            });
+        self.panel
+            .when_do_sync(target.fx_snapshot.changed(), |view| {
+                view.invalidate_target_line_four();
             });
     }
 
@@ -2670,6 +2720,9 @@ impl View for MappingPanel {
             ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             ID_TARGET_PICK_ACTION_BUTTON => {
                 self.read(|p| p.pick_action()).unwrap();
+            }
+            ID_TARGET_TAKE_SNAPSHOT_BUTTON => {
+                let _ = self.take_snapshot();
             }
             _ => unreachable!(),
         }

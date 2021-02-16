@@ -18,7 +18,9 @@ use crate::domain::{
 use serde_repr::*;
 use std::borrow::Cow;
 
+use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 /// A model for creating targets
 #[derive(Clone, Debug)]
@@ -50,6 +52,8 @@ pub struct TargetModel {
     pub select_exclusively: Prop<bool>,
     // # For transport target
     pub transport_action: Prop<TransportAction>,
+    // # For "Load FX snapshot" target
+    pub fx_snapshot: Prop<Option<FxSnapshot>>,
 }
 
 impl Default for TargetModel {
@@ -69,11 +73,28 @@ impl Default for TargetModel {
             send_index: prop(None),
             select_exclusively: prop(false),
             transport_action: prop(TransportAction::default()),
+            fx_snapshot: prop(None),
         }
     }
 }
 
 impl TargetModel {
+    pub fn take_fx_snapshot(&self, context: &ProcessorContext) -> Result<FxSnapshot, &'static str> {
+        let fx = self.with_context(context).fx()?;
+        let fx_info = fx.info();
+        let fx_snapshot = FxSnapshot {
+            effect_type: if fx_info.sub_type_expression.is_empty() {
+                fx_info.type_expression
+            } else {
+                fx_info.sub_type_expression
+            },
+            effect_name: fx_info.effect_name,
+            preset_name: fx.preset_name().map(|n| n.into_string()),
+            chunk: Rc::new(fx.tag_chunk().content().to_owned()),
+        };
+        Ok(fx_snapshot)
+    }
+
     pub fn invalidate_fx_index(&mut self, context: &ProcessorContext) {
         if !self.supports_fx() {
             return;
@@ -162,6 +183,7 @@ impl TargetModel {
             .merge(self.transport_action.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
+            .merge(self.fx_snapshot.changed())
     }
 
     fn track_descriptor(&self) -> TrackDescriptor {
@@ -242,6 +264,16 @@ impl TargetModel {
                     },
                     Transport => UnresolvedReaperTarget::Transport {
                         action: self.transport_action.get(),
+                    },
+                    LoadFxSnapshot => UnresolvedReaperTarget::LoadFxPreset {
+                        fx_descriptor: self.fx_descriptor()?,
+                        chunk: self
+                            .fx_snapshot
+                            .get_ref()
+                            .as_ref()
+                            .ok_or("FX chunk not set")?
+                            .chunk
+                            .clone(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -520,6 +552,16 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         write!(f, "Track FX all enable\nTrack {}", self.track_label())
                     }
                     Transport => write!(f, "Transport\n{}", self.target.transport_action.get()),
+                    LoadFxSnapshot => write!(
+                        f,
+                        "Load FX snapshot\n{}",
+                        self.target
+                            .fx_snapshot
+                            .get_ref()
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| "-".to_owned())
+                    ),
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
@@ -581,6 +623,8 @@ pub enum ReaperTargetType {
     TrackWidth = 17,
     #[display(fmt = "Track send mute (no feedback)")]
     TrackSendMute = 18,
+    #[display(fmt = "Load FX snapshot (experimental)")]
+    LoadFxSnapshot = 19,
 }
 
 impl Default for ReaperTargetType {
@@ -612,6 +656,7 @@ impl ReaperTargetType {
             SelectedTrack { .. } => ReaperTargetType::SelectedTrack,
             AllTrackFxEnable { .. } => ReaperTargetType::AllTrackFxEnable,
             Transport { .. } => ReaperTargetType::Transport,
+            LoadFxSnapshot { .. } => ReaperTargetType::LoadFxSnapshot,
         }
     }
 
@@ -620,7 +665,7 @@ impl ReaperTargetType {
         match self {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
-            | FxPreset | AllTrackFxEnable => true,
+            | FxPreset | AllTrackFxEnable | LoadFxSnapshot => true,
             Action | Tempo | Playrate | SelectedTrack | Transport => false,
         }
     }
@@ -628,7 +673,7 @@ impl ReaperTargetType {
     pub fn supports_fx(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            FxParameter | FxEnable | FxPreset => true,
+            FxParameter | FxEnable | FxPreset | LoadFxSnapshot => true,
             TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
             | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
             | Playrate | SelectedTrack | AllTrackFxEnable | Transport => false,
@@ -641,7 +686,7 @@ impl ReaperTargetType {
             TrackSendVolume | TrackSendPan | TrackSendMute => true,
             FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
             | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | AllTrackFxEnable | Transport => false,
+            | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot => false,
         }
     }
 }
@@ -800,5 +845,38 @@ impl FxAnchorType {
             IdOrIndex => FxAnchor::IdOrIndex(fx.guid(), fx.index()),
         };
         Ok(anchor)
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct FxSnapshot {
+    pub effect_type: String,
+    pub effect_name: String,
+    pub preset_name: Option<String>,
+    pub chunk: Rc<String>,
+}
+
+impl Clone for FxSnapshot {
+    fn clone(&self) -> Self {
+        Self {
+            effect_type: self.effect_type.clone(),
+            effect_name: self.effect_name.clone(),
+            preset_name: self.preset_name.clone(),
+            // We want a totally detached duplicate.
+            chunk: Rc::new((*self.chunk).clone()),
+        }
+    }
+}
+
+impl Display for FxSnapshot {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let fmt_size = bytesize::ByteSize(self.chunk.len() as _);
+        write!(
+            f,
+            "{} | {} | {}",
+            self.preset_name.as_ref().map(|s| s.as_str()).unwrap_or("-"),
+            fmt_size,
+            self.effect_name,
+        )
     }
 }

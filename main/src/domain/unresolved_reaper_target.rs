@@ -1,9 +1,11 @@
+use crate::core::hash_util;
 use crate::domain::{ActionInvocationType, ProcessorContext, ReaperTarget, TransportAction};
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
 use reaper_medium::{MasterTrackBehavior, TrackLocation};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum UnresolvedReaperTarget {
@@ -63,6 +65,10 @@ pub enum UnresolvedReaperTarget {
     },
     Transport {
         action: TransportAction,
+    },
+    LoadFxPreset {
+        fx_descriptor: FxDescriptor,
+        chunk: Rc<String>,
     },
 }
 
@@ -149,6 +155,14 @@ impl UnresolvedReaperTarget {
                 project: context.project_or_current_project(),
                 action: *action,
             },
+            LoadFxPreset {
+                fx_descriptor,
+                chunk,
+            } => ReaperTarget::LoadFxSnapshot {
+                fx: get_fx(context, fx_descriptor)?,
+                chunk: chunk.clone(),
+                chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
+            },
         };
         Ok(resolved)
     }
@@ -185,7 +199,8 @@ impl UnresolvedReaperTarget {
             Action { .. } | Tempo | Playrate | SelectedTrack | Transport { .. } => (None, None),
             FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
-            | FxParameter { fx_descriptor, .. } => {
+            | FxParameter { fx_descriptor, .. }
+            | LoadFxPreset { fx_descriptor, .. } => {
                 (Some(&fx_descriptor.track_descriptor), Some(fx_descriptor))
             }
             TrackVolume { track_descriptor }

@@ -24,7 +24,7 @@ use crate::domain::ui_util::{
     format_as_symmetric_percentage_without_unit, parse_from_double_percentage,
     parse_from_percentage, parse_from_symmetric_percentage,
 };
-use crate::domain::RealearnTarget;
+use crate::domain::{DomainGlobal, RealearnTarget};
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -129,6 +129,11 @@ pub enum ReaperTarget {
         project: Project,
         action: TransportAction,
     },
+    LoadFxSnapshot {
+        fx: Fx,
+        chunk: Rc<String>,
+        chunk_hash: u64,
+    },
 }
 
 impl RealearnTarget for ReaperTarget {
@@ -174,6 +179,7 @@ impl RealearnTarget for ReaperTarget {
                 self.parse_value_from_discrete_value(text)
             }
             Action { .. }
+            | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
@@ -197,6 +203,7 @@ impl RealearnTarget for ReaperTarget {
                 self.parse_value_from_discrete_value(text)
             }
             Action { .. }
+            | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
             | TrackSendVolume { .. }
@@ -252,6 +259,7 @@ impl RealearnTarget for ReaperTarget {
             | Playrate { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | LoadFxSnapshot { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -265,6 +273,7 @@ impl RealearnTarget for ReaperTarget {
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
             Action { .. }
+            | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
@@ -286,6 +295,7 @@ impl RealearnTarget for ReaperTarget {
             Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
             Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
             Action { .. }
+            | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
             | TrackSendVolume { .. }
@@ -337,10 +347,10 @@ impl RealearnTarget for ReaperTarget {
         use ReaperTarget::*;
         match self {
             TrackVolume { .. } | TrackSendVolume { .. } => "dB",
-            TrackPan { .. } | TrackSendPan { .. } => "",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
             Action { .. }
+            | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackArm { .. }
             | TrackWidth { .. }
@@ -353,16 +363,17 @@ impl RealearnTarget for ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | Transport { .. } => "%",
+            TrackPan { .. } | TrackSendPan { .. } => "",
         }
     }
 
     fn step_size_unit(&self) -> &'static str {
         use ReaperTarget::*;
         match self {
-            TrackPan { .. } | TrackSendPan { .. } => "",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
             Action { .. }
+            | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
             | TrackWidth { .. }
@@ -377,13 +388,13 @@ impl RealearnTarget for ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | Transport { .. } => "%",
+            TrackPan { .. } | TrackSendPan { .. } => "",
         }
     }
 
     fn format_value(&self, value: UnitValue) -> String {
         use ReaperTarget::*;
         match self {
-            Action { .. } => "".to_string(),
             FxParameter { param } => param
                 // Even if a REAPER-normalized value can take numbers > 1.0, the usual value range
                 // is in fact normalized in the classical sense (unit interval).
@@ -395,6 +406,7 @@ impl RealearnTarget for ReaperTarget {
             FxEnable { .. }
             | TrackArm { .. }
             | TrackMute { .. }
+            | TrackSendMute { .. }
             | TrackSelection { .. }
             | TrackSolo { .. } => format_value_as_on_off(value).to_string(),
             FxPreset { fx } => match convert_unit_value_to_preset_index(fx, value) {
@@ -405,12 +417,12 @@ impl RealearnTarget for ReaperTarget {
                 None => "<Master track>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
-            TrackSendMute { .. }
-            | Tempo { .. }
+            Tempo { .. }
             | Playrate { .. }
             | AllTrackFxEnable { .. }
             | Transport { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
+            Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
         }
     }
 
@@ -582,6 +594,17 @@ impl RealearnTarget for ReaperTarget {
                         }
                     }
                 };
+            }
+            LoadFxSnapshot {
+                fx,
+                chunk,
+                chunk_hash,
+            } => {
+                if !value.as_absolute()?.is_zero() {
+                    DomainGlobal::target_context()
+                        .borrow_mut()
+                        .load_fx_snapshot(fx.clone(), chunk, *chunk_hash)
+                }
             }
         };
         Ok(())
@@ -819,6 +842,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | LoadFxSnapshot { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -845,7 +869,7 @@ impl ReaperTarget {
                 send.source_track().project()
             }
             Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
-            FxEnable { fx } | FxPreset { fx } => fx.project()?,
+            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.project()?,
         };
         Some(project)
     }
@@ -854,18 +878,17 @@ impl ReaperTarget {
         use ReaperTarget::*;
         let track = match self {
             FxParameter { param } => param.fx().track()?,
-            TrackVolume { track } => track,
-            TrackSendVolume { send } => send.source_track(),
-            TrackPan { track } => track,
-            TrackWidth { track } => track,
-            TrackArm { track } => track,
-            TrackSelection { track, .. } => track,
-            TrackMute { track } => track,
-            TrackSolo { track } => track,
-            TrackSendPan { send } => send.source_track(),
-            TrackSendMute { send } => send.source_track(),
-            FxEnable { fx } => fx.track()?,
-            FxPreset { fx } => fx.track()?,
+            TrackVolume { track }
+            | TrackPan { track }
+            | TrackWidth { track }
+            | TrackArm { track }
+            | TrackSelection { track, .. }
+            | TrackMute { track }
+            | TrackSolo { track } => track,
+            TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
+                send.source_track()
+            }
+            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.track()?,
             AllTrackFxEnable { track } => track,
             Action { .. }
             | Tempo { .. }
@@ -880,8 +903,7 @@ impl ReaperTarget {
         use ReaperTarget::*;
         let fx = match self {
             FxParameter { param } => param.fx(),
-            FxEnable { fx } => fx,
-            FxPreset { fx } => fx,
+            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
             Action { .. }
             | TrackVolume { .. }
             | TrackSendVolume { .. }
@@ -921,6 +943,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | LoadFxSnapshot { .. }
             | Transport { .. } => return None,
         };
         Some(send)
@@ -945,9 +968,9 @@ impl ReaperTarget {
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
+            | LoadFxSnapshot { .. }
             | Transport { .. } => true,
-            AllTrackFxEnable { .. } => false,
-            TrackSendMute { .. } => false,
+            AllTrackFxEnable { .. } | TrackSendMute { .. } => false,
         }
     }
 
@@ -1060,6 +1083,15 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
+            LoadFxSnapshot { fx, .. } => {
+                let fx = fx.clone();
+                DomainGlobal::target_context()
+                    .borrow()
+                    .fx_snapshot_loaded()
+                    .filter(move |f| f == &fx)
+                    .map_to(())
+                    .box_it()
+            }
             SelectedTrack { project } => {
                 let project = *project;
                 csurf_rx
@@ -1068,7 +1100,6 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
-            AllTrackFxEnable { .. } | TrackSendMute { .. } => observable::never().box_it(),
             Transport { action, .. } => {
                 if *action == TransportAction::Repeat {
                     csurf_rx.repeat_state_changed().box_it()
@@ -1076,6 +1107,7 @@ impl ReaperTarget {
                     csurf_rx.play_state_changed().box_it()
                 }
             }
+            AllTrackFxEnable { .. } | TrackSendMute { .. } => observable::never().box_it(),
         }
     }
 }
@@ -1148,6 +1180,13 @@ impl Target for ReaperTarget {
                     Record => convert_bool_to_unit_value(project.is_recording()),
                     Repeat => convert_bool_to_unit_value(project.repeat_is_enabled()),
                 }
+            }
+            LoadFxSnapshot { fx, chunk_hash, .. } => {
+                let is_loaded = DomainGlobal::target_context()
+                    .borrow()
+                    .current_fx_snapshot_chunk_hash(fx)
+                    == Some(*chunk_hash);
+                convert_bool_to_unit_value(is_loaded)
             }
         };
         Some(result)
@@ -1229,6 +1268,7 @@ impl Target for ReaperTarget {
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackSendPan { .. } => ControlType::AbsoluteContinuous,
+            LoadFxSnapshot { .. } => ControlType::AbsoluteTrigger,
         }
     }
 }
