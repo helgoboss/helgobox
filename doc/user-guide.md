@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-13 (v2.1.0)</code></td>
+  <td><code>2021-02-16 (v2.2.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -14,6 +14,7 @@
 1. [Introduction](#introduction)
 1. [Basics](#basics)
 1. [Reference](#reference)
+1. [Companion app](#companion-app)
 1. [Tutorials](#tutorials)
 1. [Tested controllers](#tested-controllers)
 
@@ -299,7 +300,7 @@ very many, so this is for sure a very incomplete list):
 - Akai APC Key 25
 - Presonus Faderport
 
-Also have a look into the section "Tested controllers". Maybe your controller is listed there
+Also have a look into the section [Tested controllers](#tested-controllers). Maybe your controller is listed there
 along with some tips.
 
 All hardware examples are provided to the best of my knowledge. If anything is incorrect or has
@@ -336,7 +337,7 @@ panel.
 ### Controller setup
 
 In order to get the most out of your controller in combination with ReaLearn, you should consider
-the general hints given in the section "Tested controllers".
+the general hints given in the section [Tested controllers](#tested-controllers).
 
 ### Automation and rendering
 
@@ -392,7 +393,8 @@ The header panel provides the following user interface elements, no matter if th
   to your controller in order to see immediately which control element is mapped to which parameter.
   This is an attempt to solve an inherent problem with generic controllers: That it's easy to forget which control
   element is mapped to which target parameter. If you want to use this feature, just click this button
-  and you will see detailed instructions on how to set this up.
+  and you will see detailed instructions on how to set this up. In order to use this feature, you need the
+  *ReaLearn Companion* app, which has a [dedicated section](#companion-app) in this user guide.
 - **Let through:** By default, ReaLearn "eats" MIDI events for which there's at least one enabled mapping source.
   In other words, it doesn't forward MIDI events which are used to control a target parameter. Unmatched MIDI events,
   however, are forwarded to ReaLearn's FX output. This default setting usually makes much sense if you put the
@@ -403,7 +405,7 @@ The header panel provides the following user interface elements, no matter if th
   that can be saved as independent preset. Initially, it shows the list of so-called "Main mappings", which are the
   bread and butter of ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell,
   this compartment lets you define which hardware controllers you have at your disposal and which control elements they
-  have. Learn more about that feature in section "Controller mappings".
+  have. Learn more about that feature in section [Controller mappings](#controller-mappings).
 - **Preset:** This is the list of available presets for that compartment. By default, it's set to
   "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
   corresponding mappings will be loaded and immediately get active. In the *controller mappings* compartment, this list
@@ -473,7 +475,7 @@ Additionally, the header panel provides a context menu with the following entrie
       naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
       track is unarmed (*this is subject to change in future!*).
 - **Server**
-    - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn companion app to
+    - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn Companion app to
       connect to ReaLearn.
     - **Add firewall rule:** Attempts to add a firewall rule for making the server accessible from other devices or
       displays instructions how to do it.
@@ -601,7 +603,7 @@ helpful:
   feedback and set an activation condition for all mappings in this group. The activation condition that you provide
   here is combined with the one that you provide in the mapping. Only if both, the group activation conditions and
   the mapping activation condition are satisfied, the corresponding mapping will be active. Read more about
-  *conditional activation* below in the section about the *mapping panel*.
+  [conditional activation](#conditional-activation) below in the section about the [Mapping panel](#mapping-panel).
 
 ![Group panel](images/screenshot-group-panel.png)
 
@@ -676,7 +678,8 @@ This section provides the following mapping-related settings and functions:
   combination with the search function if there are many mappings to keep track of.
 - **Control enabled / Feedback enabled:** Use these checkboxes to enable/disable control and/or
   feedback for this mapping.
-- **Active:** This dropdown controls so-called conditional activation of mappings. See section below.
+- **Active:** This dropdown controls so-called conditional activation of mappings. See the
+  [Conditional activation](#conditional-activation) section below.
 - **Prevent echo feedback:** This checkbox mainly exists for motorized faders that don't like
   getting feedback while being moved. If checked, ReaLearn won't send feedback if the target value
   change was caused by incoming source events of this mapping. However, it will still send feedback
@@ -760,7 +763,7 @@ and let the modifier on/off state change over time, using REAPER's automation en
 ##### When program selected
 
 *Hint:* This is the correct activation mode if you want control surface "bank-style" mapping. An in-depth tutorial how
-to implement this can be found in the "Tutorials" section, tutorial number 1. 
+to implement this can be found in the [Tutorials](#tutorials) section, tutorial number 1. 
 
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
 The certain parameter is called "Bank" and the particular value is called "Program". Why? Let's
@@ -1254,6 +1257,17 @@ disables it.
 
 Steps through FX presets.
 
+This target is suited for use with knobs, encoders and incremental buttons (previous/next) because it allows
+you to step through the complete preset list. The minimum value always represents *No preset* whereas the
+maximum value always represents the last available preset.
+
+It's *not* suited for activating a particular preset (e.g. by setting *Target Min* and *Max* to the same value),
+because the preset list of an FX is usually not constant. As soon as you modify the preset list, this value will might
+suddenly point to a completely different preset. Even worse, the actual preset might have been deleted.
+
+If you want to activate a particular preset, please use the [Load FX snapshot](#load-fx-snapshot) target
+instead.
+
 ###### Selected track target
 
 Steps through tracks.
@@ -1284,6 +1298,27 @@ Sets the track's width value (applicable if the track is in stereo pan mode).
 ###### Track send mute target
 
 Mutes/unmutes the track send.
+
+###### Load FX snapshot
+
+Restores a certain state of a particular FX. Before using this target, you need to take a snapshot of the desired FX
+state using the *Take snapshot!* button. This snapshot will be saved as part of ReaLearn's state itself and as a direct
+consequence as a part of your project. This makes your project nicely self-contained. It's perfect for activating
+particular FX presets because it will always restore the desired state, even if the preset list has changed.
+
+This target supports feedback, but only if the snapshot is loaded via ReaLearn itself.
+
+Please note that some plug-ins have *very large* states. Therefore you should keep an eye on the snapshot size, which
+will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
+can quickly add up and make REAPER/ReaLearn slow!
+
+###### Last touched
+
+This will control whatever target has last been touched in REAPER. It's similar to the built-in REAPER action
+"Adjust last touched FX parameter" but provides the following benefits:
+
+1. It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
+2. It offers feedback.
 
 ##### Category "Virtual"
 
@@ -1512,6 +1547,102 @@ In order to find these actions, open REAPER's *Actions* menu, choose *Show actio
 - **ReaLearn: Learn source for last touched target (reassigning target):** This behaves similar to REAPER's built-in
   MIDI learn in that it always relates to the target that has been touched last.
 
+## Companion app
+
+This section is about the *ReaLearn Companion* app, which is a separate software that powers ReaLearn's 
+*projection* feature. 
+
+At the moment it comes as [Android app](https://play.google.com/store/apps/details?id=org.helgoboss.realearn_companion)
+and [web app](https://realearn.helgoboss.org/). The iOS app has not been published yet.
+The source code is available [here at GitHub](https://github.com/helgoboss/realearn-companion).
+
+### Connecting to ReaLearn
+
+The start screen lets you connect to a specific ReaLearn instance by scanning the QR code that pops up when
+pressing ReaLearn's [Projection button](#header-panel). It's also possible to enter the connection data manually, in
+case your device doesn't have a camera or in case you are using the web app (in which QR code scanning often doesn't
+work so well). If you are experiencing issues, follow the instructions given by the app and the setup guide which is
+displayed when pressing the *Projection* button!
+
+Please note, if all you want is to open the web app on the computer that also runs REAPER/ReaLearn, you don't need to
+bother with QR codes or connection data at all. Just follow the link that is displayed in the setup guide.
+
+ReaLearn allows many Companion apps to connect to it simultaneously, there's no artificial limit.
+
+### Viewing the controller projection
+
+As soon as you have connected, you should be able to see the controller projection, which consists of both the
+controller layout and the current mapping of its control elements. If not, the app will give you a hint what's missing.
+The control element labels will reflect the labels of your main mappings. 
+
+You can tap the screen to make the app bar disappear or reappear. There's a menu on the right side of the app bar 
+which let's you change various aspects of the appearance. Just give it a try! Dark mode combined with high-contrast is 
+especially nice on devices with OLED displays! All of these settings will be saved on your device, not in ReaLearn's
+controller preset. 
+
+Another thing you can do here is applying two-finger gestures in order to zoom/pinch. 
+
+### Editing the controller layout
+
+Pressing the pencil button in the app bar let's you enter edit mode. As soon as you do that, the control element labels
+will reflect the labels of your controller mappings and a palette will appear on the side of the screen.
+
+#### Editing basics
+
+You can drag the controls freely from the palette onto the scene and back. Pressing a control element opens a panel
+which lets you change its appearance. The two labels mentioned there are used in the following way:
+
+1. If the control element is a composite control element (see below, e.g. push encoder), the first label represents the
+   mapping of the first inner control element (e.g. the encoder) and the second label represents the mapping of the
+   second inner control element (e.g. the button). See the [Midi Fighter Twister](#dj-techtools-midi-fighter-twister)
+   controller preset for a real-world usage of this feature.
+2. If the control element is just a normal control element, the second label is usually empty. Except this control
+   element has more than one main mapping assigned: In that case the second label shows the second main mapping.
+
+Whenever you press the save button (floppy disk) in the app bar, the layout is saved - not on your specific device
+but as part of ReaLearn's controller preset! So this same layout will automatically be available to all other
+connected Companion apps.
+
+You can leave the edit mode by pressing the pencil button again. This gives you a preview of your current changes.
+
+**Attention:** If you leave the controller projection view (e.g. by pressing the upper left arrow) or if you change your
+controller preset from within ReaLearn, all non-saved controller layout changes will be lost! So it's a good idea to
+save often. Once saved, there's no undo though. You can back up temporary states by copying the corresponding controller
+preset files (on the computer running ReaLearn) to a temporary backup location (see *Save as...* button documentation
+in the [Header panel](#header-panel) section).
+
+#### Composite control elements 
+
+If you want one visual control element to contain 2 logical control elements (e.g. a push encoder = encoder + button),
+just move one control element onto another one - and they will merge into a composite control element. If you want to 
+undo this merging, move the merged control element back on the palette - they will split up and you can drag them onto
+the scene again.
+
+#### Batch-editing control elements
+
+Sometimes it's a bit tedious to edit each control element separately. As soon as you long-press one control element,
+the Companion app will enter multi-edit mode and you can start adding/removing other control elements to/from the
+selection by just tapping them. When you move one element of the selection, all others will also be moved. You can open
+the control element appearance panel by long-pressing an element. All changes made in the panel will immediately be
+applied to all selected elements.
+
+You can leave multi-edit mode either by unselecting all elements or by (temporarily) leaving the edit mode. 
+
+*Known issue:* In the web app, multi-edit mode currently doesn't work, there's a graphical glitch.
+
+#### Dealing with the grid
+
+You can hide the grid using the app bar menu. The grid will still have an effect though.
+
+One way to get more fine-grained positioning is by decreasing the grid size. However, it doesn't go below a certain
+minimum and changing the grid size after already having positioned lots of elements might not be the best idea.
+Usually, the better way is to just expand the scene. Don't worry, your layout will always fit on the screen, no matter
+how large the scene actually is in terms of grid squares!
+
+You can enlarge the scene by slightly moving a control element out of the scene. Do so in small steps and you will
+automatically have more space at your disposal. The scene will always be as big as the imaginary rectangle from the
+top-left control element to the bottom-right control element!
+
 ## Tutorials
 
 ### 1. Using conditional activation to implement banks/pages/programs
@@ -1736,7 +1867,7 @@ The following basic setup hints are usually valid, no matter the specific contro
     - Otherwise you can't take advantage of ReaLearn's advanced features for sources emitting
       relative values, such as the "Step size" or "Speed" setting. 
     - Also, preventing parameter jumps can never be as effective in absolute mode as in relative mode.
-- If there are issues, consult the "Troubleshooting" section in the first part of this guide.  
+- If there are issues, consult the [Troubleshooting](#troubleshooting) section in the first part of this guide.  
       
 Consider the following general usage hints:
 - If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
