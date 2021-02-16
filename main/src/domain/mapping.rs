@@ -48,7 +48,7 @@ impl Display for MappingId {
     }
 }
 
-const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(20);
+const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 
 #[derive(Debug)]
 pub struct MainMapping {
