@@ -1,3 +1,4 @@
+use crate::core::default_util::is_default;
 use crate::core::{prop, Prop};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -83,12 +84,12 @@ impl TargetModel {
         let fx = self.with_context(context).fx()?;
         let fx_info = fx.info();
         let fx_snapshot = FxSnapshot {
-            effect_type: if fx_info.sub_type_expression.is_empty() {
+            fx_type: if fx_info.sub_type_expression.is_empty() {
                 fx_info.type_expression
             } else {
                 fx_info.sub_type_expression
             },
-            effect_name: fx_info.effect_name,
+            fx_name: fx_info.effect_name,
             preset_name: fx.preset_name().map(|n| n.into_string()),
             chunk: Rc::new(fx.tag_chunk().content().to_owned()),
         };
@@ -848,19 +849,24 @@ impl FxAnchorType {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FxSnapshot {
-    pub effect_type: String,
-    pub effect_name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fx_type: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fx_name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub preset_name: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub chunk: Rc<String>,
 }
 
 impl Clone for FxSnapshot {
     fn clone(&self) -> Self {
         Self {
-            effect_type: self.effect_type.clone(),
-            effect_name: self.effect_name.clone(),
+            fx_type: self.fx_type.clone(),
+            fx_name: self.fx_name.clone(),
             preset_name: self.preset_name.clone(),
             // We want a totally detached duplicate.
             chunk: Rc::new((*self.chunk).clone()),
@@ -876,7 +882,7 @@ impl Display for FxSnapshot {
             "{} | {} | {}",
             self.preset_name.as_ref().map(|s| s.as_str()).unwrap_or("-"),
             fmt_size,
-            self.effect_name,
+            self.fx_name,
         )
     }
 }

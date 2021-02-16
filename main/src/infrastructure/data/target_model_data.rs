@@ -3,8 +3,8 @@ use super::none_if_minus_one;
 use reaper_high::{Guid, Reaper};
 
 use crate::application::{
-    get_guid_based_fx_at_index, FxAnchorType, ReaperTargetType, TargetCategory, TargetModel,
-    VirtualControlElementType,
+    get_guid_based_fx_at_index, FxAnchorType, FxSnapshot, ReaperTargetType, TargetCategory,
+    TargetModel, VirtualControlElementType,
 };
 use crate::core::default_util::is_default;
 use crate::core::notification;
@@ -20,7 +20,7 @@ use std::convert::TryInto;
 #[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
-    pub category: TargetCategory,
+    category: TargetCategory,
     // reaper_type would be a better name but we need backwards compatibility
     #[serde(default, skip_serializing_if = "is_default")]
     r#type: ReaperTargetType,
@@ -63,9 +63,11 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     transport_action: TransportAction,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub control_element_type: VirtualControlElementType,
+    control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub control_element_index: u32,
+    control_element_index: u32,
+    #[serde(default, skip_serializing_if = "is_default")]
+    fx_snapshot: Option<FxSnapshot>,
 }
 
 impl TargetModelData {
@@ -97,6 +99,7 @@ impl TargetModelData {
             transport_action: model.transport_action.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
+            fx_snapshot: model.fx_snapshot.get_ref().clone(),
         }
     }
 
@@ -171,6 +174,9 @@ impl TargetModelData {
         model
             .control_element_index
             .set_without_notification(self.control_element_index);
+        model
+            .fx_snapshot
+            .set_without_notification(self.fx_snapshot.clone());
     }
 }
 

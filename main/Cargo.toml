@@ -16,14 +16,14 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
-#reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-#reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-#reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-#reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-rx = { path = "../../reaper-rs/main/rx" }
-reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-reaper-low = { path = "../../reaper-rs/main/low" }
+reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+#reaper-rx = { path = "../../reaper-rs/main/rx" }
+#reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
+#reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
+#reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 helgoboss-midi = { version = "0.1.2", features = ["serde", "serde_repr"] }
@@ -32,7 +32,7 @@ helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_re
 c_str_macro = "1.0.2"
 vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 serde_repr = "0.1.5"
 validator = "0.10.0"
