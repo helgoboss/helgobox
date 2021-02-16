@@ -323,3 +323,4 @@ This serves mainly as checklist for ReaLearn's author.
 - [Forum](http://forum.cockos.com/showthread.php?t=178015) (dedicated thread in REAPER forum)
 - [Issue tracker](https://github.com/helgoboss/realearn/issues)
 - [Old issue tracker](https://bitbucket.org/helgoboss/realearn/issues) (for ReaLearn < v1.10.0)
+- [ReaLearn Companion app](https://github.com/helgoboss/realearn-companion)
