@@ -515,8 +515,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
-        // TODO-high We shouldn't clone this! Make this borrowable.
-        let source_value = OscSourceValue::Plain(msg.clone());
+        let source_value = OscSourceValue::Plain(msg);
         // TODO-high Support local learning (currently handled in real-time processor only)
         // TODO-high Process virtual mappings
         let compartment = MappingCompartment::MainMappings;
@@ -526,7 +525,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         {
             // TODO-high Use source::control as soon as CompoundMappingSourceValue has OSC, too
             if let CompoundMappingSource::Osc(s) = m.source() {
-                if let Some(control_value) = s.control(&source_value) {
+                if let Some(control_value) = s.control(source_value) {
                     control_and_optionally_feedback(
                         &self.feedback_real_time_task_sender,
                         &mut m,
