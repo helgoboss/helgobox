@@ -518,6 +518,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let source_value = OscSourceValue::Plain(msg);
         // TODO-high Support local learning (currently handled in real-time processor only)
         // TODO-high Process virtual mappings
+        self.control_main_mappings_osc(source_value);
+    }
+
+    fn control_main_mappings_osc(&mut self, source_value: OscSourceValue) {
         let compartment = MappingCompartment::MainMappings;
         for mut m in self.mappings[compartment]
             .values_mut()

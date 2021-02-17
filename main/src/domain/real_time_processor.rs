@@ -518,7 +518,7 @@ impl RealTimeProcessor {
         let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
             self.mappings.as_mut_slice()
         {
-            control_midi_virtual_and_reaper_targets(
+            control_controller_mappings(
                 &self.control_main_task_sender,
                 controller_mappings,
                 main_mappings,
@@ -527,28 +527,27 @@ impl RealTimeProcessor {
         } else {
             unreachable!()
         };
-        let matched_main =
-            self.control_midi_reaper_targets(MappingCompartment::MainMappings, value);
+        let matched_main = self.control_main_mappings_midi(value);
         matched_main || matched_controller
     }
 
-    fn control_midi_reaper_targets(
+    fn control_main_mappings_midi(
         &mut self,
-        compartment: MappingCompartment,
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> bool {
+        let compartment = MappingCompartment::MainMappings;
         let mut matched = false;
         for m in self.mappings[compartment]
             .values_mut()
-            // TODO-low This is only ever called for MainMappings compartment - which always
-            //  should have REAPER targets.
+            // The UI prevents creating main mappings with virtual targets but a JSON import
+            // doesn't. Check again that it's a REAPER target.
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
             if let Some(control_value) = m
                 .source()
                 .control_real_time(&RealTimeMappingSourceValue::Midi(source_value))
             {
-                control_main(
+                forward_control_to_main_processor(
                     &self.control_main_task_sender,
                     compartment,
                     m.id(),
@@ -775,25 +774,25 @@ pub enum MidiFeedbackOutput {
     Device(MidiOutputDevice),
 }
 
-fn control_midi_virtual_and_reaper_targets(
+fn control_controller_mappings(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    // Controller mappings
-    mappings_with_virtual_targets: &mut HashMap<MappingId, RealTimeMapping>,
-    // Main mappings
-    mappings_with_virtual_sources: &HashMap<MappingId, RealTimeMapping>,
+    // Mappings with virtual targets
+    controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    // Mappings with virtual sources
+    main_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: MidiSourceValue<RawShortMessage>,
 ) -> bool {
     let mut matched = false;
-    for m in mappings_with_virtual_targets
+    for m in controller_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
         if let Some(control_match) = m.control_real_time(value) {
             use PartialControlMatch::*;
             let mapping_matched = match control_match {
-                ProcessVirtual(virtual_source_value) => control_virtual(
+                ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
                     sender,
-                    mappings_with_virtual_sources,
+                    main_mappings,
                     virtual_source_value,
                     ControlOptions {
                         // We inherit "Send feedback after control" to the main processor if it's
@@ -808,7 +807,7 @@ fn control_midi_virtual_and_reaper_targets(
                     },
                 ),
                 ForwardToMain(control_value) => {
-                    control_main(
+                    forward_control_to_main_processor(
                         sender,
                         MappingCompartment::ControllerMappings,
                         m.id(),
@@ -828,7 +827,7 @@ fn control_midi_virtual_and_reaper_targets(
     matched
 }
 
-fn control_main(
+fn forward_control_to_main_processor(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     compartment: MappingCompartment,
     mapping_id: MappingId,
@@ -847,7 +846,7 @@ fn control_main(
 }
 
 /// Returns whether this source value matched one of the mappings.
-fn control_virtual(
+fn control_main_mappings_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     main_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: VirtualSourceValue,
@@ -864,7 +863,7 @@ fn control_virtual(
             .source()
             .control_real_time(&RealTimeMappingSourceValue::Virtual(value))
         {
-            control_main(
+            forward_control_to_main_processor(
                 sender,
                 MappingCompartment::MainMappings,
                 m.id(),
