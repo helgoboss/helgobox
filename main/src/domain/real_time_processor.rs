@@ -540,6 +540,8 @@ impl RealTimeProcessor {
         let mut matched = false;
         for m in self.mappings[compartment]
             .values_mut()
+            // TODO-low This is only ever called for MainMappings compartment - which always
+            //  should have REAPER targets.
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
             if let Some(control_value) = m

@@ -392,6 +392,7 @@ impl<'a> MutableMappingPanel<'a> {
                     .control_element_index
                     .set(index as u32)
             }
+            _ => {}
         };
     }
 
@@ -441,6 +442,7 @@ impl<'a> MutableMappingPanel<'a> {
                 .source_model
                 .control_element_type
                 .set(i.try_into().expect("invalid virtual source type")),
+            _ => {}
         };
     }
 
@@ -464,6 +466,15 @@ impl<'a> MutableMappingPanel<'a> {
             .source_model
             .parameter_number_message_number
             .set(value);
+    }
+
+    fn update_source_osc_address_pattern(&mut self) {
+        let c = self
+            .view
+            .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
+        if let Ok(value) = c.text() {
+            self.mapping.source_model.osc_address_pattern.set(value);
+        }
     }
 
     fn update_mode_rotate(&mut self) {
@@ -1076,6 +1087,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_parameter_number_message_number_controls();
         self.invalidate_source_character_combo_box();
         self.invalidate_source_midi_clock_transport_message_type_combo_box();
+        self.invalidate_source_osc_address_pattern_edit_control();
     }
 
     fn invalidate_source_control_appearance(&self) {
@@ -1085,25 +1097,30 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_source_control_labels(&self) {
+        use SourceCategory::*;
+        let label_text = match self.source.category.get() {
+            Midi => "Channel",
+            Virtual => "Number",
+            _ => return,
+        };
         self.view
             .require_control(root::ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT)
             .set_text(self.source.midi_source_type.get().number_label());
-        use SourceCategory::*;
         self.view
             .require_control(root::ID_SOURCE_CHANNEL_LABEL)
-            .set_text(match self.source.category.get() {
-                Midi => "Channel",
-                Virtual => "Number",
-            });
+            .set_text(label_text);
     }
 
     fn invalidate_source_control_visibilities(&self) {
         let source = self.source;
         // Don't allow controller mappings to have virtual source
-        self.view
-            .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
-            .set_enabled(self.mapping.compartment() != MappingCompartment::ControllerMappings);
+        // TODO-high Now that we also have OSC (which is allowed for controller mappings) we must
+        //  find another way to avoid this!
+        // self.view
+        //     .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
+        //     .set_enabled(self.mapping.compartment() != MappingCompartment::ControllerMappings);
         // Show/hide stuff
+        self.show_if(source.supports_type(), &[root::ID_SOURCE_TYPE_COMBO_BOX]);
         self.show_if(
             source.supports_channel() || source.supports_virtual_control_element_index(),
             &[
@@ -1145,6 +1162,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             source.supports_midi_message_number(),
             &[root::ID_SOURCE_NUMBER_COMBO_BOX],
         );
+        self.show_if(
+            source.supports_osc_address_pattern(),
+            &[root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL],
+        )
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
@@ -1175,12 +1196,13 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_source_type_combo_box_value(&self) {
-        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
         use SourceCategory::*;
         let item_index = match self.source.category.get() {
             Midi => self.source.midi_source_type.get().into(),
             Virtual => self.source.control_element_type.get().into(),
+            _ => return,
         };
+        let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
         b.select_combo_box_item(item_index);
     }
 
@@ -1217,6 +1239,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 };
             }
             Virtual => b.select_combo_box_item(self.source.control_element_index.get() as _),
+            _ => return,
         };
     }
 
@@ -1265,6 +1288,16 @@ impl<'a> ImmutableMappingPanel<'a> {
             Some(n) => n.to_string(),
         };
         c.set_text_if_not_focused(text)
+    }
+
+    fn invalidate_source_osc_address_pattern_edit_control(&self) {
+        let c = self
+            .view
+            .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
+        if c.has_focus() {
+            return;
+        }
+        c.set_text_if_not_focused(self.source.osc_address_pattern.get_ref().as_str())
     }
 
     fn invalidate_source_character_combo_box(&self) {
@@ -1936,6 +1969,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(source.midi_clock_transport_message.changed(), |view| {
                 view.invalidate_source_midi_clock_transport_message_type_combo_box();
             });
+        self.panel
+            .when_do_sync(source.osc_address_pattern.changed(), |view| {
+                view.invalidate_source_osc_address_pattern_edit_control();
+            });
     }
 
     fn invalidate_mode_controls(&self) {
@@ -2564,6 +2601,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category.get() {
             Midi => b.fill_combo_box(MidiSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box(VirtualControlElementType::into_enum_iter()),
+            _ => {}
         };
     }
 
@@ -2603,6 +2641,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 });
                 b.fill_combo_box_small(options);
             }
+            _ => {}
         };
     }
 
@@ -2820,6 +2859,9 @@ impl View for MappingPanel {
             // Source
             ID_SOURCE_NUMBER_EDIT_CONTROL => {
                 self.write(|p| p.update_source_parameter_number_message_number());
+            }
+            ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL => {
+                self.write(|p| p.update_source_osc_address_pattern());
             }
             // Mode
             ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {

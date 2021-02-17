@@ -6,7 +6,15 @@ use reaper_high::{
     MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
+use rosc::{OscError, OscPacket};
+use slog::warn;
 use std::collections::HashMap;
+use std::io;
+use std::io::Error;
+use std::net::{SocketAddr, UdpSocket};
+
+const OSC_BULK_SIZE: usize = 50;
+const OSC_BUFFER_SIZE: usize = 10_000;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -22,6 +30,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     metrics_enabled: bool,
     state: State,
+    osc_socket: UdpSocket,
+    osc_buffer: [u8; OSC_BUFFER_SIZE],
 }
 
 #[derive(Debug)]
@@ -70,6 +80,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             counter: 0,
             metrics_enabled,
             state: State::Normal,
+            osc_socket: {
+                // TODO-high
+                let s = UdpSocket::bind("0.0.0.0:7878").unwrap();
+                s.set_nonblocking(true)
+                    .expect("failed to enter OSC/UDP non-blocking mode");
+                s
+            },
+            osc_buffer: [0; OSC_BUFFER_SIZE],
         }
     }
 
@@ -87,6 +105,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
+        // TODO-high Support global target learning for OSC
+        self.process_osc();
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
@@ -140,6 +160,30 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 self.counter = 0;
             } else {
                 self.counter += 1;
+            }
+        }
+    }
+
+    fn process_osc(&mut self) {
+        for _ in 0..OSC_BULK_SIZE {
+            match self.osc_socket.recv(&mut self.osc_buffer) {
+                Ok(num_bytes) => {
+                    match rosc::decoder::decode(&self.osc_buffer[..num_bytes]) {
+                        Ok(packet) => {
+                            for p in &mut self.main_processors {
+                                p.process_incoming_osc_packet(&packet);
+                            }
+                        }
+                        Err(err) => {
+                            warn!(self.logger, "Error trying to decode OSC message: {:?}", err);
+                        }
+                    };
+                }
+                Err(ref err) if err.kind() != io::ErrorKind::WouldBlock => {
+                    warn!(self.logger, "Error trying to receive OSC message: {}", err);
+                }
+                // We don't need to handle "would block" because we are running in a loop anyway.
+                _ => {}
             }
         }
     }

@@ -7,7 +7,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, OscSourceValue,
+    SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -402,6 +403,7 @@ pub struct MappingCore {
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum CompoundMappingSource {
     Midi(MidiSource),
+    Osc(OscSource),
     Virtual(VirtualSource),
 }
 
@@ -420,6 +422,7 @@ impl CompoundMappingSource {
         match self {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
+            Osc(s) => s.format_control_value(value),
         }
     }
 
@@ -428,6 +431,7 @@ impl CompoundMappingSource {
         match self {
             Midi(s) => s.parse_control_value(text),
             Virtual(s) => s.parse_control_value(text),
+            Osc(s) => s.parse_control_value(text),
         }
     }
 
@@ -436,6 +440,7 @@ impl CompoundMappingSource {
         match self {
             Midi(s) => ExtendedSourceCharacter::Normal(s.character()),
             Virtual(s) => s.character(),
+            Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
         }
     }
 
@@ -448,6 +453,11 @@ impl CompoundMappingSource {
             Virtual(s) => Some(CompoundMappingSourceValue::Virtual(
                 s.feedback(feedback_value),
             )),
+            Osc(s) => {
+                // TODO-high Implement (needs Copy bound to be removed)
+                // s.feedback(feedback_value).map(CompoundMappingSourceValue::Osc)
+                None
+            }
         }
     }
 
@@ -455,7 +465,7 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Virtual(_) => false,
+            Virtual(_) | Osc(_) => false,
         }
     }
 }

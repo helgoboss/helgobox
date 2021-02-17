@@ -228,10 +228,13 @@ impl Session {
         midi_source: &MidiSource,
     ) -> Option<&SharedMapping> {
         let virt_source = self.virtualize_if_possible(midi_source);
+        use CompoundMappingSource::*;
         self.mappings(compartment)
             .find(|m| match m.borrow().source_model.create_source() {
-                CompoundMappingSource::Midi(s) => s == *midi_source,
-                CompoundMappingSource::Virtual(s) => Some(s) == virt_source,
+                Midi(s) => s == *midi_source,
+                Virtual(s) => Some(s) == virt_source,
+                // TODO-high Take a compound source as argument and compare it!
+                Osc(s) => false,
             })
     }
 

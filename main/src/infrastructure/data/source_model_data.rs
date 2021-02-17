@@ -14,6 +14,7 @@ use std::convert::TryInto;
 pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub category: SourceCategory,
+    // MIDI
     // midi_type would be a better name but we need backwards compatibility
     #[serde(default, skip_serializing_if = "is_default")]
     pub r#type: MidiSourceType,
@@ -37,6 +38,10 @@ pub struct SourceModelData {
     pub is_14_bit: Option<bool>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub message: MidiClockTransportMessage,
+    // OSC
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_address_pattern: String,
+    // Virtual
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -58,6 +63,7 @@ impl SourceModelData {
             is_registered: model.is_registered.get(),
             is_14_bit: model.is_14_bit.get(),
             message: model.midi_clock_transport_message.get(),
+            osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
         }
@@ -95,6 +101,9 @@ impl SourceModelData {
         model
             .midi_clock_transport_message
             .set_without_notification(self.message);
+        model
+            .osc_address_pattern
+            .set_without_notification(self.osc_address_pattern.clone());
         model
             .control_element_type
             .set_without_notification(self.control_element_type);
@@ -136,6 +145,7 @@ mod tests {
                 is_registered: None,
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
+                osc_address_pattern: "".to_owned(),
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -168,6 +178,7 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
+                osc_address_pattern: "".to_owned(),
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -186,6 +197,7 @@ mod tests {
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
+            osc_address_pattern: "".to_owned(),
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
@@ -221,6 +233,7 @@ mod tests {
             is_registered: None,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
+            osc_address_pattern: "".to_owned(),
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
@@ -266,6 +279,7 @@ mod tests {
                 is_registered: Some(false),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
+                osc_address_pattern: "".to_owned(),
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -302,6 +316,7 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Continue,
+                osc_address_pattern: "".to_owned(),
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }

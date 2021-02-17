@@ -22,7 +22,7 @@ use crate::core::Global;
 use crate::domain::ui_util::{
     format_as_double_percentage_without_unit, format_as_percentage_without_unit,
     format_as_symmetric_percentage_without_unit, parse_from_double_percentage,
-    parse_from_percentage, parse_from_symmetric_percentage,
+    parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
 use crate::domain::{DomainGlobal, RealearnTarget};
 use std::convert::TryInto;
@@ -188,7 +188,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackSendMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
-            | Transport { .. } => parse_from_percentage(text),
+            | Transport { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
     }
@@ -216,7 +216,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackSendMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
-            | Transport { .. } => parse_from_percentage(text),
+            | Transport { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
         }
     }

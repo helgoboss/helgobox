@@ -6,7 +6,7 @@ use crate::domain::{
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, MidiSource, SourceCharacter, UnitValue,
+    ControlValue, MidiClockTransportMessage, MidiSource, OscSource, SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -21,9 +21,8 @@ use std::fmt::Display;
 #[derive(Clone, Debug)]
 pub struct SourceModel {
     pub category: Prop<SourceCategory>,
+    // MIDI
     pub midi_source_type: Prop<MidiSourceType>,
-    pub control_element_type: Prop<VirtualControlElementType>,
-    pub control_element_index: Prop<u32>,
     pub channel: Prop<Option<Channel>>,
     pub midi_message_number: Prop<Option<U7>>,
     pub parameter_number_message_number: Prop<Option<U14>>,
@@ -31,6 +30,11 @@ pub struct SourceModel {
     pub midi_clock_transport_message: Prop<MidiClockTransportMessage>,
     pub is_registered: Prop<Option<bool>>,
     pub is_14_bit: Prop<Option<bool>>,
+    // OSC
+    pub osc_address_pattern: Prop<String>,
+    // Virtual
+    pub control_element_type: Prop<VirtualControlElementType>,
+    pub control_element_index: Prop<u32>,
 }
 
 impl Default for SourceModel {
@@ -47,6 +51,7 @@ impl Default for SourceModel {
             midi_clock_transport_message: prop(MidiClockTransportMessage::Start),
             is_registered: prop(Some(false)),
             is_14_bit: prop(Some(false)),
+            osc_address_pattern: prop("".to_owned()),
         }
     }
 }
@@ -66,6 +71,7 @@ impl SourceModel {
             .merge(self.is_14_bit.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
+            .merge(self.osc_address_pattern.changed())
     }
 
     pub fn apply_from_source(&mut self, source: &CompoundMappingSource) {
@@ -121,21 +127,22 @@ impl SourceModel {
                     .set(VirtualControlElementType::from_source(s));
                 self.control_element_index.set(s.control_element().index())
             }
+            Osc(s) => {
+                self.category.set(SourceCategory::Osc);
+                self.osc_address_pattern.set(s.address_pattern().to_owned())
+            }
         };
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
-        // TODO-low use cached
         self.create_source().format_control_value(value)
     }
 
     pub fn parse_control_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        // TODO-low use cached
         self.create_source().parse_control_value(text)
     }
 
     pub fn character(&self) -> ExtendedSourceCharacter {
-        // TODO-low use cached
         self.create_source().character()
     }
 
@@ -196,11 +203,20 @@ impl SourceModel {
                 let virtual_source = VirtualSource::new(self.create_control_element());
                 CompoundMappingSource::Virtual(virtual_source)
             }
+            Osc => {
+                let osc_source = OscSource::new(self.osc_address_pattern.get_ref().clone());
+                CompoundMappingSource::Osc(osc_source)
+            }
         }
     }
 
     pub fn supports_virtual_control_element_index(&self) -> bool {
         self.category.get() == SourceCategory::Virtual
+    }
+
+    pub fn supports_type(&self) -> bool {
+        use SourceCategory::*;
+        matches!(self.category.get(), Midi | Virtual)
     }
 
     pub fn supports_channel(&self) -> bool {
@@ -278,6 +294,10 @@ impl SourceModel {
 
     fn supports_parameter_number_message_props(&self) -> bool {
         self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
+    }
+
+    pub fn supports_osc_address_pattern(&self) -> bool {
+        self.category.get() == SourceCategory::Osc
     }
 
     fn channel_label(&self) -> Cow<str> {
@@ -379,6 +399,7 @@ impl Display for SourceModel {
                 "Virtual".into(),
                 self.create_control_element().to_string().into(),
             ],
+            Osc => vec!["OSC".into(), self.osc_address_pattern.get_ref().into()],
         };
         let non_empty_lines: Vec<_> = lines.into_iter().filter(|l| !l.is_empty()).collect();
         write!(f, "{}", non_empty_lines.join("\n"))
@@ -403,6 +424,9 @@ pub enum SourceCategory {
     #[serde(rename = "midi")]
     #[display(fmt = "MIDI")]
     Midi,
+    #[serde(rename = "osc")]
+    #[display(fmt = "OSC")]
+    Osc,
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
     Virtual,

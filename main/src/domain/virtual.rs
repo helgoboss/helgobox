@@ -1,4 +1,4 @@
-use crate::domain::ui_util::{format_as_percentage_without_unit, parse_from_percentage};
+use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
 use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, Target, UnitValue};
 use smallvec::alloc::fmt::Formatter;
@@ -72,7 +72,7 @@ impl VirtualSource {
     }
 
     pub fn parse_control_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        parse_from_percentage(text)
+        parse_unit_value_from_percentage(text)
     }
 
     pub fn character(&self) -> ExtendedSourceCharacter {

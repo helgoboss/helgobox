@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.2.0"
+version = "2.3.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -16,14 +16,14 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
-reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-#reaper-rx = { path = "../../reaper-rs/main/rx" }
-#reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-#reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-#reaper-low = { path = "../../reaper-rs/main/low" }
+# reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+# reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+# reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+# reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-rx = { path = "../../reaper-rs/main/rx" }
+reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
+reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
+reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 helgoboss-midi = { version = "0.1.2", features = ["serde", "serde_repr"] }
@@ -105,6 +105,8 @@ async-channel = "1.5.1"
 bytesize = "1.0.1"
 # For checking if an FX has loaded a specific chunk
 seahash = "4.1.0"
+# For OSC
+rosc = "0.4.2"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

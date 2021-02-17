@@ -7,10 +7,11 @@ use crate::domain::{
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscSourceValue, UnitValue};
 
 use crate::core::Global;
 use reaper_high::Reaper;
+use rosc::{OscMessage, OscPacket};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -155,16 +156,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     options,
                 } => {
                     if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                        // Most of the time, the main processor won't even receive a control
-                        // instruction (from the real-time processor) for a mapping for which
-                        // control is disabled, because the real-time processor doesn't process
-                        // disabled mappings. But if control is (temporarily) disabled because a
-                        // target condition is (temporarily) not met (e.g. "track must be
-                        // selected") and the real-time processor doesn't yet know about it, there
-                        // might be a short amount of time where we still receive control
-                        // statements. We filter them here.
-                        let feedback = m.control_if_enabled(value, options);
-                        self.send_feedback(feedback);
+                        control_and_optionally_feedback(
+                            &self.feedback_real_time_task_sender,
+                            m,
+                            value,
+                            options,
+                        );
                     };
                 }
             }
@@ -508,6 +505,41 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .unwrap();
     }
 
+    pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
+        // TODO-high Support control_is_globally_enabled (see RealTimeProcessor)
+        match packet {
+            OscPacket::Message(msg) => self.process_incoming_osc_message(msg),
+            // TODO-high Support bundles
+            OscPacket::Bundle(_) => {}
+        }
+    }
+
+    fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
+        // TODO-high We shouldn't clone this! Make this borrowable.
+        let source_value = OscSourceValue::Plain(msg.clone());
+        // TODO-high Support local learning (currently handled in real-time processor only)
+        // TODO-high Process virtual mappings
+        let compartment = MappingCompartment::MainMappings;
+        for mut m in self.mappings[compartment]
+            .values_mut()
+            .filter(|m| m.control_is_effectively_on())
+        {
+            // TODO-high Use source::control as soon as CompoundMappingSourceValue has OSC, too
+            if let CompoundMappingSource::Osc(s) = m.source() {
+                if let Some(control_value) = s.control(&source_value) {
+                    control_and_optionally_feedback(
+                        &self.feedback_real_time_task_sender,
+                        &mut m,
+                        control_value,
+                        ControlOptions {
+                            enforce_send_feedback_after_control: false,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
     fn process_activation_updates(
         &mut self,
         compartment: MappingCompartment,
@@ -743,6 +775,24 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
         debug!(self.logger, "Dropping main processor...");
         self.party_is_over_subject.next(());
     }
+}
+
+fn control_and_optionally_feedback(
+    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    mapping: &mut MainMapping,
+    value: ControlValue,
+    options: ControlOptions,
+) {
+    // Most of the time, the main processor won't even receive a MIDI-triggered control
+    // instruction from the real-time processor for a mapping for which
+    // control is disabled, because the real-time processor doesn't process
+    // disabled mappings. But if control is (temporarily) disabled because a
+    // target condition is (temporarily) not met (e.g. "track must be
+    // selected") and the real-time processor doesn't yet know about it, there
+    // might be a short amount of time where we still receive control
+    // statements. We filter them here.
+    let feedback = mapping.control_if_enabled(value, options);
+    send_feedback(sender, feedback);
 }
 
 fn send_feedback(
