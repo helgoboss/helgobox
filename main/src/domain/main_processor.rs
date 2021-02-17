@@ -1,8 +1,8 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, DomainEvent, DomainEventHandler, FeedbackBuffer,
     FeedbackRealTimeTask, MainMapping, MappingActivationEffect, MappingActivationUpdate,
-    MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext,
-    RealTimeMappingSourceValue, ReaperTarget,
+    MappingCompartment, MappingId, NormalRealTimeTask, PartialControlMatch, ProcessorContext,
+    RealTimeMappingSourceValue, ReaperTarget, VirtualSourceValue,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -515,20 +515,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
-        let source_value = OscSourceValue::Plain(msg);
+        let value = OscSourceValue::Plain(msg);
         // TODO-high Support local learning (currently handled in real-time processor only)
-        // TODO-high Process virtual mappings
-        self.control_main_mappings_osc(source_value);
+        // We do pattern matching in order to use Rust's borrow splitting.
+        if let [ref mut controller_mappings, ref mut main_mappings] = self.mappings.as_mut_slice() {
+            control_controller_mappings_osc(
+                &self.feedback_real_time_task_sender,
+                controller_mappings,
+                main_mappings,
+                value,
+            );
+        } else {
+            unreachable!()
+        };
+        self.control_main_mappings_osc(value);
     }
 
-    fn control_main_mappings_osc(&mut self, source_value: OscSourceValue) {
+    fn control_main_mappings_osc(&mut self, value: OscSourceValue) {
         let compartment = MappingCompartment::MainMappings;
         for mut m in self.mappings[compartment]
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
         {
             if let CompoundMappingSource::Osc(s) = m.source() {
-                if let Some(control_value) = s.control(source_value) {
+                if let Some(control_value) = s.control(value) {
                     control_and_optionally_feedback(
                         &self.feedback_real_time_task_sender,
                         &mut m,
@@ -803,5 +813,71 @@ fn send_feedback(
 ) {
     for v in source_values.into_iter() {
         sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
+    }
+}
+
+fn control_controller_mappings_osc(
+    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    // Mappings with virtual targets
+    controller_mappings: &mut HashMap<MappingId, MainMapping>,
+    // Mappings with virtual sources
+    main_mappings: &mut HashMap<MappingId, MainMapping>,
+    value: OscSourceValue,
+) {
+    for m in controller_mappings
+        .values_mut()
+        .filter(|m| m.control_is_effectively_on())
+    {
+        if let Some(control_match) = m.control_osc_virtualizing(value) {
+            use PartialControlMatch::*;
+            match control_match {
+                ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
+                    sender,
+                    main_mappings,
+                    virtual_source_value,
+                    ControlOptions {
+                        // We inherit "Send feedback after control" if it's
+                        // enabled for the virtual mapping. That's the easy way to do it.
+                        // Downside: If multiple real control elements are mapped to one virtual
+                        // control element, "feedback after control" will be sent to all of those,
+                        // which is technically not necessary. It would be enough to just send it
+                        // to the one that was touched. However, it also doesn't really hurt.
+                        enforce_send_feedback_after_control: m
+                            .options()
+                            .send_feedback_after_control,
+                    },
+                ),
+                ProcessDirect(control_value) => {
+                    control_and_optionally_feedback(
+                        sender,
+                        m,
+                        control_value,
+                        ControlOptions {
+                            enforce_send_feedback_after_control: false,
+                        },
+                    );
+                }
+            };
+        }
+    }
+}
+
+fn control_main_mappings_virtual(
+    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    mut main_mappings: &mut HashMap<MappingId, MainMapping>,
+    value: VirtualSourceValue,
+    options: ControlOptions,
+) {
+    // Controller mappings can't have virtual sources, so for now we only need to check
+    // main mappings.
+    for m in main_mappings
+        .values_mut()
+        .filter(|m| m.control_is_effectively_on())
+    {
+        if let CompoundMappingSource::Virtual(s) = &m.source() {
+            if let Some(control_value) = s.control(&value) {
+                control_and_optionally_feedback(sender, m, control_value, options);
+            }
+        }
     }
 }

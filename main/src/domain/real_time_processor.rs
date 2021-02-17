@@ -1,8 +1,8 @@
 use crate::domain::{
-    classify_midi_message, ControlMainTask, ControlOptions, MappingCompartment, MappingId,
-    MidiClockCalculator, MidiMessageClassification, MidiSourceScanner, NormalMainTask,
-    PartialControlMatch, RealTimeMapping, RealTimeMappingSourceValue,
-    UnresolvedCompoundMappingTarget, VirtualSourceValue,
+    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlOptions,
+    MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
+    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
+    RealTimeMappingSourceValue, UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -515,10 +515,11 @@ impl RealTimeProcessor {
 
     /// Returns whether this source value matched one of the mappings.
     fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
+        // We do pattern matching in order to use Rust's borrow splitting.
         let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
             self.mappings.as_mut_slice()
         {
-            control_controller_mappings(
+            control_controller_mappings_midi(
                 &self.control_main_task_sender,
                 controller_mappings,
                 main_mappings,
@@ -543,20 +544,19 @@ impl RealTimeProcessor {
             // doesn't. Check again that it's a REAPER target.
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
-            if let Some(control_value) = m
-                .source()
-                .control_real_time(&RealTimeMappingSourceValue::Midi(source_value))
-            {
-                forward_control_to_main_processor(
-                    &self.control_main_task_sender,
-                    compartment,
-                    m.id(),
-                    control_value,
-                    ControlOptions {
-                        enforce_send_feedback_after_control: false,
-                    },
-                );
-                matched = true;
+            if let CompoundMappingSource::Midi(s) = &m.source() {
+                if let Some(control_value) = s.control(&source_value) {
+                    forward_control_to_main_processor(
+                        &self.control_main_task_sender,
+                        compartment,
+                        m.id(),
+                        control_value,
+                        ControlOptions {
+                            enforce_send_feedback_after_control: false,
+                        },
+                    );
+                    matched = true;
+                }
             }
         }
         matched
@@ -774,7 +774,7 @@ pub enum MidiFeedbackOutput {
     Device(MidiOutputDevice),
 }
 
-fn control_controller_mappings(
+fn control_controller_mappings_midi(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     // Mappings with virtual targets
     controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
@@ -787,7 +787,7 @@ fn control_controller_mappings(
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_match) = m.control_real_time(value) {
+        if let Some(control_match) = m.control_midi_virtualizing(value) {
             use PartialControlMatch::*;
             let mapping_matched = match control_match {
                 ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
@@ -806,7 +806,7 @@ fn control_controller_mappings(
                             .send_feedback_after_control,
                     },
                 ),
-                ForwardToMain(control_value) => {
+                ProcessDirect(control_value) => {
                     forward_control_to_main_processor(
                         sender,
                         MappingCompartment::ControllerMappings,
@@ -859,18 +859,17 @@ fn control_main_mappings_virtual(
         .values()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_value) = m
-            .source()
-            .control_real_time(&RealTimeMappingSourceValue::Virtual(value))
-        {
-            forward_control_to_main_processor(
-                sender,
-                MappingCompartment::MainMappings,
-                m.id(),
-                control_value,
-                options,
-            );
-            matched = true;
+        if let CompoundMappingSource::Virtual(s) = &m.source() {
+            if let Some(control_value) = s.control(&value) {
+                forward_control_to_main_processor(
+                    sender,
+                    MappingCompartment::MainMappings,
+                    m.id(),
+                    control_value,
+                    options,
+                );
+                matched = true;
+            }
         }
     }
     matched

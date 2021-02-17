@@ -91,6 +91,10 @@ impl MainMapping {
         self.core.id
     }
 
+    pub fn options(&self) -> &ProcessorMappingOptions {
+        &self.core.options
+    }
+
     pub fn splinter_real_time_mapping(&self) -> RealTimeMapping {
         RealTimeMapping {
             core: self.core.clone(),
@@ -277,6 +281,21 @@ impl MainMapping {
             None
         }
     }
+
+    pub fn control_osc_virtualizing(
+        &mut self,
+        source_value: OscSourceValue,
+    ) -> Option<PartialControlMatch> {
+        if self.core.target.is_none() {
+            return None;
+        }
+        let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
+            s.control(source_value)?
+        } else {
+            return None;
+        };
+        match_partially(&mut self.core, control_value)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -333,37 +352,19 @@ impl RealTimeMapping {
         &self.core.options
     }
 
-    pub fn control_real_time(
+    pub fn control_midi_virtualizing(
         &mut self,
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
-        let target = self.core.target.as_ref()?;
-        let control_value = self
-            .core
-            .source
-            .control_real_time(&RealTimeMappingSourceValue::Midi(source_value))?;
-        use CompoundMappingTarget::*;
-        let result = match target {
-            Reaper(_) => {
-                // Send to main processor because this needs to be done in main thread.
-                PartialControlMatch::ForwardToMain(control_value)
-            }
-            Virtual(t) => {
-                // Determine resulting virtual control value in real-time processor.
-                // It's important to do that here. We need to know the result in order to
-                // return if there was actually a match of *real* non-virtual mappings.
-                // Unlike with REAPER targets, we also don't have threading issues here :)
-                let transformed_control_value = self.core.mode.control(control_value, t)?;
-                if self.core.options.prevent_echo_feedback {
-                    self.core.time_of_last_control = Some(Instant::now());
-                }
-                PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
-                    t.control_element(),
-                    transformed_control_value,
-                ))
-            }
+        if self.core.target.is_none() {
+            return None;
+        }
+        let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
+            s.control(&source_value)?
+        } else {
+            return None;
         };
-        Some(result)
+        match_partially(&mut self.core, control_value)
     }
 
     pub fn feedback(&self, feedback_value: UnitValue) -> Option<MidiSourceValue<RawShortMessage>> {
@@ -385,7 +386,7 @@ impl RealTimeMapping {
 
 pub enum PartialControlMatch {
     ProcessVirtual(VirtualSourceValue),
-    ForwardToMain(ControlValue),
+    ProcessDirect(ControlValue),
 }
 
 #[derive(Clone, Debug)]
@@ -408,15 +409,6 @@ pub enum CompoundMappingSource {
 }
 
 impl CompoundMappingSource {
-    pub fn control_real_time(&self, value: &RealTimeMappingSourceValue) -> Option<ControlValue> {
-        use CompoundMappingSource::*;
-        match (self, value) {
-            (Midi(s), RealTimeMappingSourceValue::Midi(v)) => s.control(v),
-            (Virtual(s), RealTimeMappingSourceValue::Virtual(v)) => s.control(v),
-            _ => None,
-        }
-    }
-
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
         match self {
@@ -669,4 +661,32 @@ pub enum MappingCompartment {
 pub enum ExtendedSourceCharacter {
     Normal(SourceCharacter),
     VirtualContinuous,
+}
+
+fn match_partially(
+    core: &mut MappingCore,
+    control_value: ControlValue,
+) -> Option<PartialControlMatch> {
+    use CompoundMappingTarget::*;
+    let result = match core.target.as_ref()? {
+        Reaper(_) => {
+            // Send to main processor because this needs to be done in main thread.
+            PartialControlMatch::ProcessDirect(control_value)
+        }
+        Virtual(t) => {
+            // Determine resulting virtual control value in real-time processor.
+            // It's important to do that here. We need to know the result in order to
+            // return if there was actually a match of *real* non-virtual mappings.
+            // Unlike with REAPER targets, we also don't have threading issues here :)
+            let transformed_control_value = core.mode.control(control_value, t)?;
+            if core.options.prevent_echo_feedback {
+                core.time_of_last_control = Some(Instant::now());
+            }
+            PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
+                t.control_element(),
+                transformed_control_value,
+            ))
+        }
+    };
+    Some(result)
 }
