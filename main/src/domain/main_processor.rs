@@ -1,8 +1,8 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingSourceValue, CompoundMappingTarget, DomainEvent,
-    DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
-    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext,
-    ReaperTarget,
+    CompoundMappingSource, CompoundMappingTarget, DomainEvent, DomainEventHandler, FeedbackBuffer,
+    FeedbackRealTimeTask, MainMapping, MappingActivationEffect, MappingActivationUpdate,
+    MappingCompartment, MappingId, NormalRealTimeTask, ProcessorContext,
+    RealTimeMappingSourceValue, ReaperTarget,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -523,7 +523,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
         {
-            // TODO-high Use source::control as soon as CompoundMappingSourceValue has OSC, too
             if let CompoundMappingSource::Osc(s) = m.source() {
                 if let Some(control_value) = s.control(source_value) {
                     control_and_optionally_feedback(
@@ -573,7 +572,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .handle_event(DomainEvent::UpdatedOnMappings(on_mappings));
     }
 
-    fn send_feedback(&self, source_values: impl IntoIterator<Item = CompoundMappingSourceValue>) {
+    fn send_feedback(&self, source_values: impl IntoIterator<Item = RealTimeMappingSourceValue>) {
         send_feedback(&self.feedback_real_time_task_sender, source_values);
     }
 
@@ -583,7 +582,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .flatten()
     }
 
-    fn feedback_all(&self) -> Vec<CompoundMappingSourceValue> {
+    fn feedback_all(&self) -> Vec<RealTimeMappingSourceValue> {
         self.all_mappings()
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
@@ -592,14 +591,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn feedback_all_in_compartment(
         &self,
         compartment: MappingCompartment,
-    ) -> Vec<CompoundMappingSourceValue> {
+    ) -> Vec<RealTimeMappingSourceValue> {
         self.mappings[compartment]
             .values()
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
     }
 
-    fn feedback_all_zero(&self) -> Vec<CompoundMappingSourceValue> {
+    fn feedback_all_zero(&self) -> Vec<RealTimeMappingSourceValue> {
         self.all_mappings()
             .filter(|m| m.feedback_is_effectively_on())
             .filter_map(|m| m.source().feedback(UnitValue::MIN))
@@ -796,7 +795,7 @@ fn control_and_optionally_feedback(
 
 fn send_feedback(
     sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    source_values: impl IntoIterator<Item = CompoundMappingSourceValue>,
+    source_values: impl IntoIterator<Item = RealTimeMappingSourceValue>,
 ) {
     for v in source_values.into_iter() {
         sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();

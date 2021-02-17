@@ -214,7 +214,7 @@ impl MainMapping {
         &mut self,
         value: ControlValue,
         options: ControlOptions,
-    ) -> Option<CompoundMappingSourceValue> {
+    ) -> Option<RealTimeMappingSourceValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
@@ -247,7 +247,7 @@ impl MainMapping {
         }
     }
 
-    pub fn feedback_if_enabled(&self) -> Option<CompoundMappingSourceValue> {
+    pub fn feedback_if_enabled(&self) -> Option<RealTimeMappingSourceValue> {
         if !self.feedback_is_effectively_on() {
             return None;
         }
@@ -268,7 +268,7 @@ impl MainMapping {
     fn feedback_after_control_if_enabled(
         &self,
         options: ControlOptions,
-    ) -> Option<CompoundMappingSourceValue> {
+    ) -> Option<RealTimeMappingSourceValue> {
         if self.core.options.send_feedback_after_control
             || options.enforce_send_feedback_after_control
         {
@@ -333,7 +333,7 @@ impl RealTimeMapping {
         &self.core.options
     }
 
-    pub fn control(
+    pub fn control_real_time(
         &mut self,
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
@@ -341,7 +341,7 @@ impl RealTimeMapping {
         let control_value = self
             .core
             .source
-            .control(&CompoundMappingSourceValue::Midi(source_value))?;
+            .control_real_time(&RealTimeMappingSourceValue::Midi(source_value))?;
         use CompoundMappingTarget::*;
         let result = match target {
             Reaper(_) => {
@@ -373,7 +373,7 @@ impl RealTimeMapping {
             }
         }
         let modified_value = self.core.mode.feedback(feedback_value)?;
-        if let Some(CompoundMappingSourceValue::Midi(midi_value)) =
+        if let Some(RealTimeMappingSourceValue::Midi(midi_value)) =
             self.core.source.feedback(modified_value)
         {
             Some(midi_value)
@@ -408,11 +408,11 @@ pub enum CompoundMappingSource {
 }
 
 impl CompoundMappingSource {
-    pub fn control(&self, value: &CompoundMappingSourceValue) -> Option<ControlValue> {
+    pub fn control_real_time(&self, value: &RealTimeMappingSourceValue) -> Option<ControlValue> {
         use CompoundMappingSource::*;
         match (self, value) {
-            (Midi(s), CompoundMappingSourceValue::Midi(v)) => s.control(v),
-            (Virtual(s), CompoundMappingSourceValue::Virtual(v)) => s.control(v),
+            (Midi(s), RealTimeMappingSourceValue::Midi(v)) => s.control(v),
+            (Virtual(s), RealTimeMappingSourceValue::Virtual(v)) => s.control(v),
             _ => None,
         }
     }
@@ -444,13 +444,13 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<CompoundMappingSourceValue> {
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<RealTimeMappingSourceValue> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s
                 .feedback(feedback_value)
-                .map(CompoundMappingSourceValue::Midi),
-            Virtual(s) => Some(CompoundMappingSourceValue::Virtual(
+                .map(RealTimeMappingSourceValue::Midi),
+            Virtual(s) => Some(RealTimeMappingSourceValue::Virtual(
                 s.feedback(feedback_value),
             )),
             Osc(s) => {
@@ -471,7 +471,7 @@ impl CompoundMappingSource {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum CompoundMappingSourceValue {
+pub enum RealTimeMappingSourceValue {
     Midi(MidiSourceValue<RawShortMessage>),
     Virtual(VirtualSourceValue),
 }

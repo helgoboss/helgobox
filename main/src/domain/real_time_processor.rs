@@ -1,7 +1,7 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSourceValue, ControlMainTask, ControlOptions,
-    MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
-    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
+    classify_midi_message, ControlMainTask, ControlOptions, MappingCompartment, MappingId,
+    MidiClockCalculator, MidiMessageClassification, MidiSourceScanner, NormalMainTask,
+    PartialControlMatch, RealTimeMapping, RealTimeMappingSourceValue,
     UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
@@ -321,7 +321,7 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(source_value) => {
-                    use CompoundMappingSourceValue::*;
+                    use RealTimeMappingSourceValue::*;
                     match source_value {
                         Midi(v) => self.feedback_midi(v, caller),
                         Virtual(v) => self.feedback_virtual(v, caller),
@@ -546,7 +546,7 @@ impl RealTimeProcessor {
         {
             if let Some(control_value) = m
                 .source()
-                .control(&CompoundMappingSourceValue::Midi(source_value))
+                .control_real_time(&RealTimeMappingSourceValue::Midi(source_value))
             {
                 control_main(
                     &self.control_main_task_sender,
@@ -748,7 +748,7 @@ impl MappingActivationUpdate {
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(CompoundMappingSourceValue),
+    Feedback(RealTimeMappingSourceValue),
 }
 
 impl Drop for RealTimeProcessor {
@@ -788,7 +788,7 @@ fn control_midi_virtual_and_reaper_targets(
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_match) = m.control(value) {
+        if let Some(control_match) = m.control_real_time(value) {
             use PartialControlMatch::*;
             let mapping_matched = match control_match {
                 ProcessVirtual(virtual_source_value) => control_virtual(
@@ -862,7 +862,7 @@ fn control_virtual(
     {
         if let Some(control_value) = m
             .source()
-            .control(&CompoundMappingSourceValue::Virtual(value))
+            .control_real_time(&RealTimeMappingSourceValue::Virtual(value))
         {
             control_main(
                 sender,
