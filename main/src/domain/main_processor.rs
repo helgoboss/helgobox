@@ -1,6 +1,6 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, ControlMode, DomainEvent, DomainEventHandler,
-    FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
+    DomainGlobal, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
     MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     PartialControlMatch, ProcessorContext, RealSource, RealTimeMappingSourceValue, ReaperTarget,
     VirtualSourceValue,
@@ -18,6 +18,7 @@ use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
+use std::str::FromStr;
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
@@ -640,6 +641,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = RealTimeMappingSourceValue>) {
+        // TODO-high Send virtual OSC feedback, too
+        // TODO-high Send to correct device
+        // TODO-high Don't even try to send OSC feedback if we know that we have MIDI feedback
+        // output
+        // DomainGlobal::get().send_osc_feedback(
+        //     &OscDeviceId::from_str("todo").unwrap(),
+        //     OscSourceValue::Plain(),
+        // );
         send_feedback(&self.feedback_real_time_task_sender, source_values);
     }
 
