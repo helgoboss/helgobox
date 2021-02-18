@@ -1,10 +1,9 @@
 use crate::core::Global;
 use crate::domain::{
-    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, OscPacketVec,
-    ReaperTarget,
+    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, ReaperTarget,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{OscSource, OscSourceValue};
+use helgoboss_learn::OscSource;
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
     MainTaskMiddleware, MeterMiddleware,
@@ -19,6 +18,8 @@ use std::io::Error;
 use std::net::{SocketAddr, UdpSocket};
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
+
+const OSC_BULK_SIZE: usize = 32;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -185,12 +186,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_osc(&mut self) {
-        let osc_packets_by_device: SmallVec<[(OscDeviceId, OscPacketVec); 32]> = self
+        pub type PacketVec = SmallVec<[OscPacket; OSC_BULK_SIZE]>;
+        let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); 32]> = self
             .osc_input_devices
             .iter_mut()
-            .map(|dev| (dev.id().clone(), dev.poll_multiple()))
+            .map(|dev| (dev.id().clone(), dev.poll_multiple(OSC_BULK_SIZE).collect()))
             .collect();
-        for (dev_id, packets) in osc_packets_by_device {
+        for (dev_id, packets) in packets_by_device {
             match &self.state {
                 State::Normal => {
                     for proc in &mut self.main_processors {
@@ -282,8 +284,6 @@ fn process_incoming_osc_message_for_learning(
     sender: &LearnSourceSender,
     msg: OscMessage,
 ) {
-    let value = OscSourceValue::Plain(&msg);
-    if let Some(source) = OscSource::from_source_value(value) {
-        let _ = sender.try_send((dev_id.clone(), source));
-    }
+    let source = OscSource::from_source_value(msg);
+    let _ = sender.try_send((dev_id.clone(), source));
 }

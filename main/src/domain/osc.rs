@@ -9,9 +9,7 @@ use std::io;
 use std::net::{ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
 
-const OSC_BULK_SIZE: usize = 32;
 const OSC_BUFFER_SIZE: usize = 10_000;
-pub type OscPacketVec = SmallVec<[OscPacket; OSC_BULK_SIZE]>;
 
 #[derive(Debug)]
 pub struct OscInputDevice {
@@ -60,10 +58,8 @@ impl OscInputDevice {
         }
     }
 
-    pub fn poll_multiple(&mut self) -> OscPacketVec {
-        (0..OSC_BULK_SIZE)
-            .flat_map(|_| self.poll().ok().flatten())
-            .collect()
+    pub fn poll_multiple(&mut self, n: usize) -> impl Iterator<Item = OscPacket> + '_ {
+        (0..n).flat_map(move |_| self.poll().ok().flatten())
     }
 }
 

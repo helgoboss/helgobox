@@ -1,6 +1,5 @@
 use crate::domain::{OscDeviceId, OscOutputDevice, RealearnTargetContext, ReaperTarget};
-use helgoboss_learn::OscSourceValue;
-use rosc::OscPacket;
+use rosc::{OscMessage, OscPacket};
 use std::cell::RefCell;
 
 make_available_globally_in_main_thread!(DomainGlobal);
@@ -21,16 +20,10 @@ impl DomainGlobal {
         self.last_touched_target.borrow().clone()
     }
 
-    pub fn send_osc_feedback(&self, dev_id: &OscDeviceId, value: OscSourceValue) {
+    pub fn send_osc_feedback(&self, dev_id: &OscDeviceId, msg: OscMessage) {
         let devices = self.osc_output_devices.borrow();
         if let Some(dev) = devices.iter().find(|d| d.id() == dev_id) {
-            match value {
-                OscSourceValue::Plain(msg) => {
-                    // TODO-high This cloning suggests that wrapping a reference in OscSourceValue
-                    //  is non-optimal.
-                    dev.send(&OscPacket::Message(msg.clone()));
-                }
-            }
+            dev.send(&OscPacket::Message(msg));
         }
     }
 

@@ -7,12 +7,13 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, OscSourceValue,
-    SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, SourceCharacter, Target,
+    UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
@@ -282,15 +283,12 @@ impl MainMapping {
         }
     }
 
-    pub fn control_osc_virtualizing(
-        &mut self,
-        source_value: OscSourceValue,
-    ) -> Option<PartialControlMatch> {
+    pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
         if self.core.target.is_none() {
             return None;
         }
         let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
-            s.control(source_value)?
+            s.control(msg)?
         } else {
             return None;
         };

@@ -8,7 +8,7 @@ use crate::domain::{
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscSource, OscSourceValue, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
 use crate::core::Global;
 use reaper_high::Reaper;
@@ -554,7 +554,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         match self.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
-                    let value = OscSourceValue::Plain(msg);
                     // We do pattern matching in order to use Rust's borrow splitting.
                     if let [ref mut controller_mappings, ref mut main_mappings] =
                         self.mappings.as_mut_slice()
@@ -563,36 +562,35 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &self.feedback_real_time_task_sender,
                             controller_mappings,
                             main_mappings,
-                            value,
+                            msg,
                         );
                     } else {
                         unreachable!()
                     };
-                    self.control_main_mappings_osc(value);
+                    self.control_main_mappings_osc(msg);
                 }
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
             } => {
-                if let Some(source) = OscSource::from_source_value(OscSourceValue::Plain(msg)) {
-                    self.event_handler.handle_event(DomainEvent::LearnedSource {
-                        source: RealSource::Osc(source),
-                        allow_virtual_sources,
-                    });
-                }
+                let source = OscSource::new(msg.addr.clone());
+                self.event_handler.handle_event(DomainEvent::LearnedSource {
+                    source: RealSource::Osc(source),
+                    allow_virtual_sources,
+                });
             }
             ControlMode::Disabled => {}
         }
     }
 
-    fn control_main_mappings_osc(&mut self, value: OscSourceValue) {
+    fn control_main_mappings_osc(&mut self, msg: &OscMessage) {
         let compartment = MappingCompartment::MainMappings;
         for mut m in self.mappings[compartment]
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
         {
             if let CompoundMappingSource::Osc(s) = m.source() {
-                if let Some(control_value) = s.control(value) {
+                if let Some(control_value) = s.control(msg) {
                     control_and_optionally_feedback(
                         &self.feedback_real_time_task_sender,
                         &mut m,
@@ -645,10 +643,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // TODO-high Send to correct device
         // TODO-high Don't even try to send OSC feedback if we know that we have MIDI feedback
         // output
-        // DomainGlobal::get().send_osc_feedback(
-        //     &OscDeviceId::from_str("todo").unwrap(),
-        //     OscSourceValue::Plain(),
-        // );
+        DomainGlobal::get().send_osc_feedback(
+            &OscDeviceId::from_str("todo").unwrap(),
+            OscSourceValue::Plain(),
+        );
         send_feedback(&self.feedback_real_time_task_sender, source_values);
     }
 
@@ -895,13 +893,13 @@ fn control_controller_mappings_osc(
     controller_mappings: &mut HashMap<MappingId, MainMapping>,
     // Mappings with virtual sources
     main_mappings: &mut HashMap<MappingId, MainMapping>,
-    value: OscSourceValue,
+    msg: &OscMessage,
 ) {
     for m in controller_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_match) = m.control_osc_virtualizing(value) {
+        if let Some(control_match) = m.control_osc_virtualizing(msg) {
             use PartialControlMatch::*;
             match control_match {
                 ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
