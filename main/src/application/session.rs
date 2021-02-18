@@ -7,7 +7,7 @@ use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    ProcessorContext, RealSource, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
+    OscDeviceId, ProcessorContext, RealSource, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -193,49 +193,51 @@ impl Session {
         self.id.get_ref()
     }
 
-    pub fn receives_midi_from(
-        &self,
-        device_id: MidiInputDeviceId,
-        channel: Option<Channel>,
-    ) -> bool {
-        match self.midi_control_input.get() {
-            MidiControlInput::FxInput => {
-                if let Some(track) = self.context().track() {
-                    if !track.is_armed(true) {
-                        return false;
-                    }
-                    if let Some(RecordingInput::Midi {
-                        device_id: dev_id,
-                        channel: ch,
-                    }) = track.recording_input()
-                    {
-                        (dev_id.is_none() || dev_id == Some(device_id))
-                            && (ch.is_none() || ch == channel)
+    pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {
+        match input_descriptor {
+            InputDescriptor::Midi { device_id, channel } => match self.midi_control_input.get() {
+                MidiControlInput::FxInput => {
+                    if let Some(track) = self.context().track() {
+                        if !track.is_armed(true) {
+                            return false;
+                        }
+                        if let Some(RecordingInput::Midi {
+                            device_id: dev_id,
+                            channel: ch,
+                        }) = track.recording_input()
+                        {
+                            (dev_id.is_none() || dev_id == Some(*device_id))
+                                && (ch.is_none() || ch == *channel)
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }
-                } else {
-                    false
                 }
-            }
-            MidiControlInput::Device(dev) => dev.id() == device_id,
+                MidiControlInput::Device(dev) => dev.id() == *device_id,
+            },
+            // TODO-high OSC device management
+            InputDescriptor::Osc { .. } => true,
         }
     }
 
     pub fn find_mapping_with_source(
         &self,
         compartment: MappingCompartment,
-        midi_source: &MidiSource,
+        actual_real_source: &RealSource,
     ) -> Option<&SharedMapping> {
-        let virt_source = self.virtualize_if_possible(&RealSource::Midi(midi_source.clone()));
+        let actual_virt_source = self.virtualize_if_possible(actual_real_source);
         use CompoundMappingSource::*;
-        self.mappings(compartment)
-            .find(|m| match m.borrow().source_model.create_source() {
-                Midi(s) => s == *midi_source,
-                Virtual(s) => Some(s) == virt_source,
-                // TODO-high OSC global find: Take a compound source as argument and compare it!
-                Osc(s) => false,
-            })
+        self.mappings(compartment).find(|m| {
+            let mapping_source = m.borrow().source_model.create_source();
+            match (mapping_source, actual_virt_source, actual_real_source) {
+                (Virtual(map_source), Some(act_source), _) => map_source == act_source,
+                (Midi(map_source), _, RealSource::Midi(act_source)) => map_source == *act_source,
+                (Osc(map_source), _, RealSource::Osc(act_source)) => map_source == *act_source,
+                _ => false,
+            }
+        })
     }
 
     pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
@@ -1720,3 +1722,13 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
+
+pub enum InputDescriptor {
+    Midi {
+        device_id: MidiInputDeviceId,
+        channel: Option<Channel>,
+    },
+    Osc {
+        device_id: OscDeviceId,
+    },
+}

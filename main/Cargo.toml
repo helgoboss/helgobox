@@ -60,7 +60,7 @@ slug = "0.1.4"
 nanoid = "0.3.0"
 # For web server (e.g. for projection)
 futures = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "sync"] }
+tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "sync", "macros"] }
 warp = { version = "0.2", features = ["tls"] }
 # For generating projection QR code
 qrcode = { version = "0.11" }
@@ -107,6 +107,8 @@ bytesize = "1.0.1"
 seahash = "4.1.0"
 # For OSC
 rosc = "0.4.2"
+# For being able to (de)serialize using FromStr
+serde_with = "1.6.4"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
