@@ -57,6 +57,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     context: ProcessorContext,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_mode: ControlMode,
+    control_is_globally_enabled: bool,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -96,6 +97,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             context,
             party_is_over_subject: Default::default(),
             control_mode: ControlMode::Controlling,
+            control_is_globally_enabled: true,
         }
     }
 
@@ -371,6 +373,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     debug!(self.logger, "Return to control mode");
                     self.control_mode = ControlMode::Controlling;
                 }
+                UpdateControlIsGloballyEnabled(is_enabled) => {
+                    self.control_is_globally_enabled = is_enabled;
+                }
             }
         }
         // Process parameter tasks
@@ -537,28 +542,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
-        let value = OscSourceValue::Plain(msg);
         match self.control_mode {
             ControlMode::Controlling => {
-                // We do pattern matching in order to use Rust's borrow splitting.
-                if let [ref mut controller_mappings, ref mut main_mappings] =
-                    self.mappings.as_mut_slice()
-                {
-                    control_controller_mappings_osc(
-                        &self.feedback_real_time_task_sender,
-                        controller_mappings,
-                        main_mappings,
-                        value,
-                    );
-                } else {
-                    unreachable!()
-                };
-                self.control_main_mappings_osc(value);
+                if self.control_is_globally_enabled {
+                    let value = OscSourceValue::Plain(msg);
+                    // We do pattern matching in order to use Rust's borrow splitting.
+                    if let [ref mut controller_mappings, ref mut main_mappings] =
+                        self.mappings.as_mut_slice()
+                    {
+                        control_controller_mappings_osc(
+                            &self.feedback_real_time_task_sender,
+                            controller_mappings,
+                            main_mappings,
+                            value,
+                        );
+                    } else {
+                        unreachable!()
+                    };
+                    self.control_main_mappings_osc(value);
+                }
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
             } => {
-                if let Some(source) = OscSource::from_source_value(value) {
+                if let Some(source) = OscSource::from_source_value(OscSourceValue::Plain(msg)) {
                     self.event_handler.handle_event(DomainEvent::LearnedSource {
                         source: RealSource::Osc(source),
                         allow_virtual_sources,
@@ -793,6 +800,7 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
+    UpdateControlIsGloballyEnabled(bool),
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

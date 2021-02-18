@@ -1551,10 +1551,12 @@ impl Session {
 
     /// Just syncs whether control globally enabled or not.
     fn sync_control_is_globally_enabled(&self) {
+        let enabled = self.control_is_globally_enabled();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(
-                self.control_is_globally_enabled(),
-            ))
+            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
+            .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
             .unwrap();
     }
 
