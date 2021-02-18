@@ -656,7 +656,7 @@ impl ReaperTarget {
 
     /// This is eventually going to replace Rx (touched method), at least for domain layer.
     // TODO-medium Touched should contain changed, it shouldn't be necessary to make two calls!
-    // TODO-high action_invoked
+    // TODO-medium Unlike the Rx stuff, this doesn't yet contain "Action touch".
     pub fn touched_from_change_event(evt: ChangeEvent) -> Option<ReaperTarget> {
         use ChangeEvent::*;
         use ReaperTarget::*;

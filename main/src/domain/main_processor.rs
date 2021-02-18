@@ -528,8 +528,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // TODO-high Support control_is_globally_enabled (see RealTimeProcessor)
         match packet {
             OscPacket::Message(msg) => self.process_incoming_osc_message(msg),
-            // TODO-high Support bundles
-            OscPacket::Bundle(_) => {}
+            OscPacket::Bundle(bundle) => {
+                for p in bundle.content.iter() {
+                    self.process_incoming_osc_packet(p);
+                }
+            }
         }
     }
 
@@ -537,7 +540,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let value = OscSourceValue::Plain(msg);
         match self.control_mode {
             ControlMode::Controlling => {
-                // TODO-high Support local learning (currently handled in real-time processor only)
                 // We do pattern matching in order to use Rust's borrow splitting.
                 if let [ref mut controller_mappings, ref mut main_mappings] =
                     self.mappings.as_mut_slice()

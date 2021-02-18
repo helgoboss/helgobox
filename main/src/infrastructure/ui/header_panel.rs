@@ -1228,9 +1228,9 @@ impl HeaderPanel {
         .do_async(move |view, _| {
             view.invalidate_preset_controls();
         });
-        // TODO-high This is lots of stuff done whenever changing just something small in a mapping
-        //  or group. Maybe micro optimization, I don't know. Alternatively we could just set a
-        //  dirty flag once something changed and reset it after saving!
+        // TODO-medium This is lots of stuff done whenever changing just something small in a
+        // mapping  or group. Maybe micro optimization, I don't know. Alternatively we could
+        // just set a  dirty flag once something changed and reset it after saving!
         // Mainly enables/disables save button depending on dirty state.
         when(
             session
