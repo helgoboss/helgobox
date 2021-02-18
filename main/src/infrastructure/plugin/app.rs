@@ -11,7 +11,8 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
+    OscDeviceManager, SharedControllerPresetManager, SharedMainPresetManager,
+    SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
@@ -19,7 +20,9 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 use helgoboss_learn::{MidiSource, OscSource};
 use helgoboss_midi::Channel;
-use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
+use reaper_high::{
+    ActionKind, CrashInfo, Fx, MiddlewareControlSurface, MidiInputDevice, Project, Reaper, Track,
+};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
@@ -51,6 +54,7 @@ pub struct App {
     controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
+    osc_device_manager: SharedOscDeviceManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -180,6 +184,9 @@ impl App {
             preset_link_manager: Rc::new(RefCell::new(FileBasedPresetLinkManager::new(
                 App::realearn_auto_load_configs_dir_path(),
             ))),
+            osc_device_manager: Rc::new(RefCell::new(OscDeviceManager::new(
+                App::realearn_osc_device_config_file_path(),
+            ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
@@ -249,7 +256,7 @@ impl App {
     // Executed whenever the first ReaLearn instance is loaded.
     pub fn wake_up(&self) {
         let prev_state = self.state.replace(AppState::WakingUp);
-        let sleeping_state = if let AppState::Sleeping(s) = prev_state {
+        let mut sleeping_state = if let AppState::Sleeping(s) = prev_state {
             s
         } else {
             panic!("App was not sleeping");
@@ -268,7 +275,7 @@ impl App {
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
-        // Audio hook and control surface
+        // Audio hook
         debug!(
             App::logger(),
             "Registering ReaLearn audio hook and control surface..."
@@ -276,10 +283,21 @@ impl App {
         let audio_hook_handle = session
             .audio_reg_hardware_hook_add(sleeping_state.audio_hook)
             .expect("couldn't register ReaLearn audio hook");
+        // OSC devices
+        let osc_devices = self
+            .osc_device_manager
+            .borrow_mut()
+            .connect_all_enabled_inputs();
+        // Control surface
+        sleeping_state
+            .control_surface
+            .middleware_mut()
+            .set_osc_devices(osc_devices);
         sleeping_state.control_surface.middleware().reset();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
+        // Awake state
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle,
@@ -300,7 +318,7 @@ impl App {
             App::logger(),
             "Unregistering ReaLearn control surface and audio hook..."
         );
-        let (control_surface, audio_hook) = unsafe {
+        let (mut control_surface, audio_hook) = unsafe {
             let control_surface = session
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
                 .expect("control surface was not registered");
@@ -309,6 +327,8 @@ impl App {
                 .expect("control surface was not registered");
             (control_surface, audio_hook)
         };
+        // Close OSC connections
+        control_surface.middleware_mut().clear_osc_devices();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
@@ -457,6 +477,10 @@ impl App {
         self.preset_link_manager.clone()
     }
 
+    pub fn osc_device_manager(&self) -> SharedOscDeviceManager {
+        self.osc_device_manager.clone()
+    }
+
     pub fn server(&self) -> &SharedRealearnServer {
         &self.server
     }
@@ -535,6 +559,10 @@ impl App {
 
     pub fn realearn_auto_load_configs_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("auto-load-configs")
+    }
+
+    pub fn realearn_osc_device_config_file_path() -> PathBuf {
+        App::realearn_resource_dir_path().join("osc.json")
     }
 
     // We need this to be static because we need it at plugin construction time, so we don't have

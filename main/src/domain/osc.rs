@@ -27,7 +27,7 @@ impl OscInputDevice {
         addr: impl ToSocketAddrs,
         logger: slog::Logger,
     ) -> Result<OscInputDevice, Box<dyn Error>> {
-        let s = UdpSocket::bind(addr).unwrap();
+        let s = UdpSocket::bind(addr)?;
         s.set_nonblocking(true)?;
         let dev = OscInputDevice {
             id,
@@ -93,7 +93,7 @@ impl FromStr for OscDeviceId {
         if trimmed.is_empty() {
             return Err("OSC device ID must not be empty");
         }
-        let valid_regex = regex!(r#"^[A-Za-z0-9_~]$"#);
+        let valid_regex = regex!(r#"^[A-Za-z0-9_~]+$"#);
         if valid_regex.is_match(trimmed) {
             return Err("OSC device must contain lowercase letters, digits and hyphens only");
         }

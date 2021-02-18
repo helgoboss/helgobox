@@ -58,6 +58,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_mode: ControlMode,
     control_is_globally_enabled: bool,
+    osc_device_id: Option<OscDeviceId>,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -98,6 +99,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             party_is_over_subject: Default::default(),
             control_mode: ControlMode::Controlling,
             control_is_globally_enabled: true,
+            osc_device_id: None,
         }
     }
 
@@ -188,6 +190,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for task in normal_tasks {
             use NormalMainTask::*;
             match task {
+                UpdateSettings { osc_device_id } => {
+                    self.osc_device_id = osc_device_id;
+                }
                 UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         self.logger,
@@ -530,8 +535,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn receives_osc_from(&self, device_id: &OscDeviceId) -> bool {
-        // TODO-high OSC config
-        true
+        self.osc_device_id.contains(device_id)
     }
 
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
@@ -792,6 +796,9 @@ pub enum NormalMainTask {
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
     RefreshAllTargets,
+    UpdateSettings {
+        osc_device_id: Option<OscDeviceId>,
+    },
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,

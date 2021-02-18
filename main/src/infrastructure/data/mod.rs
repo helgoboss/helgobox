@@ -42,3 +42,6 @@ use deserializers::*;
 
 mod migration;
 pub use migration::*;
+
+mod osc_device_management;
+pub use osc_device_management::*;

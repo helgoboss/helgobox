@@ -48,6 +48,7 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    pub osc_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
@@ -159,6 +160,7 @@ impl Session {
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
+            osc_device_id: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
@@ -217,8 +219,7 @@ impl Session {
                 }
                 MidiControlInput::Device(dev) => dev.id() == *device_id,
             },
-            // TODO-high OSC device management
-            InputDescriptor::Osc { .. } => true,
+            InputDescriptor::Osc { device_id } => self.osc_device_id.get_ref().contains(device_id),
         }
     }
 
@@ -265,7 +266,7 @@ impl Session {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
-        self.sync_settings_to_real_time_processor();
+        self.sync_settings();
         self.sync_control_is_globally_enabled();
         self.sync_feedback_is_globally_enabled();
     }
@@ -354,7 +355,7 @@ impl Session {
         when(self.settings_changed())
             .with(weak_session.clone())
             .do_async(move |s, _| {
-                s.borrow().sync_settings_to_real_time_processor();
+                s.borrow().sync_settings();
             });
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
         // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
@@ -425,6 +426,7 @@ impl Session {
             .merge(self.let_unmatched_events_through.changed())
             .merge(self.midi_control_input.changed())
             .merge(self.midi_feedback_output.changed())
+            .merge(self.osc_device_id.changed())
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
@@ -1495,7 +1497,11 @@ impl Session {
         AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
     }
 
-    fn sync_settings_to_real_time_processor(&self) {
+    fn sync_settings(&self) {
+        let task = NormalMainTask::UpdateSettings {
+            osc_device_id: self.osc_device_id.get_ref().clone(),
+        };
+        self.normal_main_task_sender.send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
