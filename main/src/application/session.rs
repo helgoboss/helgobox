@@ -233,7 +233,7 @@ impl Session {
             .find(|m| match m.borrow().source_model.create_source() {
                 Midi(s) => s == *midi_source,
                 Virtual(s) => Some(s) == virt_source,
-                // TODO-high Take a compound source as argument and compare it!
+                // TODO-high OSC global find: Take a compound source as argument and compare it!
                 Osc(s) => false,
             })
     }

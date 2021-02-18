@@ -530,7 +530,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
-        // TODO-high Support control_is_globally_enabled (see RealTimeProcessor)
         match packet {
             OscPacket::Message(msg) => self.process_incoming_osc_message(msg),
             OscPacket::Bundle(bundle) => {

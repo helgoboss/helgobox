@@ -81,7 +81,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             metrics_enabled,
             state: State::Normal,
             osc_socket: {
-                // TODO-high
+                // TODO-high OSC configuration
                 let s = UdpSocket::bind("0.0.0.0:7878").unwrap();
                 s.set_nonblocking(true)
                     .expect("failed to enter OSC/UDP non-blocking mode");
@@ -105,7 +105,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
-        // TODO-high Support global target learning for OSC
+        // TODO-high OSC global learning
         self.process_osc();
         self.main_task_middleware.run();
         self.future_middleware.run();
