@@ -93,7 +93,7 @@ impl FromStr for OscDeviceId {
         if trimmed.is_empty() {
             return Err("OSC device ID must not be empty");
         }
-        let valid_regex = regex!(r#"^[a-z0-9-]+$"#);
+        let valid_regex = regex!(r#"^[A-Za-z0-9_~]$"#);
         if valid_regex.is_match(trimmed) {
             return Err("OSC device must contain lowercase letters, digits and hyphens only");
         }
