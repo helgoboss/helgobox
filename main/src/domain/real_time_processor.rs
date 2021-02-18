@@ -1,5 +1,5 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlOptions,
+    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
     MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
     RealTimeMappingSourceValue, UnresolvedCompoundMappingTarget, VirtualSourceValue,
@@ -25,13 +25,6 @@ use vst::plugin::HostCallback;
 
 const NORMAL_BULK_SIZE: usize = 100;
 const FEEDBACK_BULK_SIZE: usize = 100;
-
-#[derive(PartialEq, Debug)]
-pub(crate) enum ControlMode {
-    Disabled,
-    Controlling,
-    LearningSource { allow_virtual_sources: bool },
-}
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
@@ -465,7 +458,7 @@ impl RealTimeProcessor {
         // unregistered synchronously.
         let _ = self
             .normal_main_task_sender
-            .send(NormalMainTask::LearnSource {
+            .send(NormalMainTask::LearnMidiSource {
                 source,
                 allow_virtual_sources,
             });

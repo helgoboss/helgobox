@@ -1,13 +1,14 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingTarget, DomainEvent, DomainEventHandler, FeedbackBuffer,
-    FeedbackRealTimeTask, MainMapping, MappingActivationEffect, MappingActivationUpdate,
-    MappingCompartment, MappingId, NormalRealTimeTask, PartialControlMatch, ProcessorContext,
-    RealTimeMappingSourceValue, ReaperTarget, VirtualSourceValue,
+    CompoundMappingSource, CompoundMappingTarget, ControlMode, DomainEvent, DomainEventHandler,
+    FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
+    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask,
+    PartialControlMatch, ProcessorContext, RealSource, RealTimeMappingSourceValue, ReaperTarget,
+    VirtualSourceValue,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscSourceValue, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscSource, OscSourceValue, UnitValue};
 
 use crate::core::Global;
 use reaper_high::Reaper;
@@ -55,6 +56,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     event_handler: EH,
     context: ProcessorContext,
     party_is_over_subject: LocalSubject<'static, (), ()>,
+    control_mode: ControlMode,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -93,6 +95,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             event_handler,
             context,
             party_is_over_subject: Default::default(),
+            control_mode: ControlMode::Controlling,
         }
     }
 
@@ -326,12 +329,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
-                LearnSource {
+                LearnMidiSource {
                     source,
                     allow_virtual_sources,
                 } => {
                     self.event_handler.handle_event(DomainEvent::LearnedSource {
-                        source,
+                        source: RealSource::Midi(source),
                         allow_virtual_sources,
                     });
                 }
@@ -351,6 +354,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.feedback_buffer.reset_all();
                         self.send_feedback(self.feedback_all_zero());
                     }
+                }
+                StartLearnSource {
+                    allow_virtual_sources,
+                } => {
+                    debug!(self.logger, "Start learning source");
+                    self.control_mode = ControlMode::LearningSource {
+                        allow_virtual_sources,
+                    };
+                }
+                DisableControl => {
+                    debug!(self.logger, "Disable control");
+                    self.control_mode = ControlMode::Disabled;
+                }
+                ReturnToControlMode => {
+                    debug!(self.logger, "Return to control mode");
+                    self.control_mode = ControlMode::Controlling;
                 }
             }
         }
@@ -516,19 +535,36 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
         let value = OscSourceValue::Plain(msg);
-        // TODO-high Support local learning (currently handled in real-time processor only)
-        // We do pattern matching in order to use Rust's borrow splitting.
-        if let [ref mut controller_mappings, ref mut main_mappings] = self.mappings.as_mut_slice() {
-            control_controller_mappings_osc(
-                &self.feedback_real_time_task_sender,
-                controller_mappings,
-                main_mappings,
-                value,
-            );
-        } else {
-            unreachable!()
-        };
-        self.control_main_mappings_osc(value);
+        match self.control_mode {
+            ControlMode::Controlling => {
+                // TODO-high Support local learning (currently handled in real-time processor only)
+                // We do pattern matching in order to use Rust's borrow splitting.
+                if let [ref mut controller_mappings, ref mut main_mappings] =
+                    self.mappings.as_mut_slice()
+                {
+                    control_controller_mappings_osc(
+                        &self.feedback_real_time_task_sender,
+                        controller_mappings,
+                        main_mappings,
+                        value,
+                    );
+                } else {
+                    unreachable!()
+                };
+                self.control_main_mappings_osc(value);
+            }
+            ControlMode::LearningSource {
+                allow_virtual_sources,
+            } => {
+                if let Some(source) = OscSource::from_source_value(value) {
+                    self.event_handler.handle_event(DomainEvent::LearnedSource {
+                        source: RealSource::Osc(source),
+                        allow_virtual_sources,
+                    });
+                }
+            }
+            ControlMode::Disabled => {}
+        }
     }
 
     fn control_main_mappings_osc(&mut self, value: OscSourceValue) {
@@ -671,20 +707,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Summary
         let msg = format!(
             "\n\
-                        # Main processor\n\
-                        \n\
-                        - Total main mapping count: {} \n\
-                        - Enabled main mapping count: {} \n\
-                        - Main mapping feedback subscription count: {} \n\
-                        - Total controller mapping count: {} \n\
-                        - Enabled controller mapping count: {} \n\
-                        - Controller mapping feedback subscription count: {} \n\
-                        - Feedback buffer length: {} \n\
-                        - Normal task count: {} \n\
-                        - Control task count: {} \n\
-                        - Feedback task count: {} \n\
-                        - Parameter values: {:?} \n\
-                        ",
+            # Main processor\n\
+            \n\
+            - State: {:?} \n\
+            - Total main mapping count: {} \n\
+            - Enabled main mapping count: {} \n\
+            - Main mapping feedback subscription count: {} \n\
+            - Total controller mapping count: {} \n\
+            - Enabled controller mapping count: {} \n\
+            - Controller mapping feedback subscription count: {} \n\
+            - Feedback buffer length: {} \n\
+            - Normal task count: {} \n\
+            - Control task count: {} \n\
+            - Feedback task count: {} \n\
+            - Parameter values: {:?} \n\
+            ",
+            self.control_mode,
             self.mappings[MappingCompartment::MainMappings].len(),
             self.mappings[MappingCompartment::MainMappings]
                 .values()
@@ -744,10 +782,15 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
-    LearnSource {
+    LearnMidiSource {
         source: MidiSource,
         allow_virtual_sources: bool,
     },
+    StartLearnSource {
+        allow_virtual_sources: bool,
+    },
+    DisableControl,
+    ReturnToControlMode,
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

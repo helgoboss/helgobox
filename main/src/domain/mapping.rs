@@ -690,3 +690,10 @@ fn match_partially(
     };
     Some(result)
 }
+
+#[derive(PartialEq, Debug)]
+pub(crate) enum ControlMode {
+    Disabled,
+    Controlling,
+    LearningSource { allow_virtual_sources: bool },
+}

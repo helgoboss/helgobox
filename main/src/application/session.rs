@@ -7,7 +7,7 @@ use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    ProcessorContext, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, RealSource, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -227,7 +227,7 @@ impl Session {
         compartment: MappingCompartment,
         midi_source: &MidiSource,
     ) -> Option<&SharedMapping> {
-        let virt_source = self.virtualize_if_possible(midi_source);
+        let virt_source = self.virtualize_if_possible(&RealSource::Midi(midi_source.clone()));
         use CompoundMappingSource::*;
         self.mappings(compartment)
             .find(|m| match m.borrow().source_model.create_source() {
@@ -428,28 +428,28 @@ impl Session {
             .merge(self.main_preset_auto_load_mode.changed())
     }
 
-    pub fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
+    pub fn learn_source(&mut self, source: RealSource, allow_virtual_sources: bool) {
         self.source_touched_subject
             .next(self.create_compound_source(source, allow_virtual_sources));
     }
 
     pub fn create_compound_source(
         &self,
-        source: MidiSource,
+        source: RealSource,
         allow_virtual_sources: bool,
     ) -> CompoundMappingSource {
         if allow_virtual_sources {
             if let Some(virt_source) = self.virtualize_if_possible(&source) {
                 CompoundMappingSource::Virtual(virt_source)
             } else {
-                CompoundMappingSource::Midi(source)
+                source.into_compound_source()
             }
         } else {
-            CompoundMappingSource::Midi(source)
+            source.into_compound_source()
         }
     }
 
-    fn virtualize_if_possible(&self, source: &MidiSource) -> Option<VirtualSource> {
+    fn virtualize_if_possible(&self, source: &RealSource) -> Option<VirtualSource> {
         for m in self.mappings(MappingCompartment::ControllerMappings) {
             let m = m.borrow();
             if !m.control_is_enabled.get() {
@@ -458,7 +458,7 @@ impl Session {
             if m.target_model.category.get() != TargetCategory::Virtual {
                 continue;
             }
-            if let CompoundMappingSource::Midi(s) = m.source_model.create_source() {
+            if let Some(s) = RealSource::from_compound_source(m.source_model.create_source()) {
                 if s == *source {
                     let virtual_source =
                         VirtualSource::new(m.target_model.create_control_element());
@@ -483,11 +483,20 @@ impl Session {
                 allow_virtual_sources,
             })
             .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::StartLearnSource {
+                allow_virtual_sources,
+            })
+            .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
+        let main_sender = self.normal_main_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {
             if reenable_control_after_touched {
                 rt_sender
                     .send(NormalRealTimeTask::ReturnToControlMode)
+                    .unwrap();
+                main_sender
+                    .send(NormalMainTask::ReturnToControlMode)
                     .unwrap();
             }
         })
@@ -1016,11 +1025,17 @@ impl Session {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::DisableControl)
             .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::DisableControl)
+            .unwrap();
     }
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::ReturnToControlMode)
+            .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::ReturnToControlMode)
             .unwrap();
     }
 

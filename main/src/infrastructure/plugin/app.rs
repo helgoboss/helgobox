@@ -4,8 +4,8 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    DomainGlobal, MainProcessor, MappingCompartment, RealearnAudioHook, RealearnAudioHookTask,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    DomainGlobal, MainProcessor, MappingCompartment, RealSource, RealearnAudioHook,
+    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
@@ -778,7 +778,7 @@ impl App {
                     VirtualControlElementType::Multi,
                 );
                 let mut m = mapping.borrow_mut();
-                let compound_source = s.create_compound_source(midi_source, true);
+                let compound_source = s.create_compound_source(RealSource::Midi(midi_source), true);
                 m.source_model.apply_from_source(&compound_source);
                 m.target_model
                     .apply_from_target(&reaper_target, s.context());
