@@ -1,7 +1,7 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, ControlMode, DomainEvent, DomainEventHandler,
     FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
-    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask,
+    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     PartialControlMatch, ProcessorContext, RealSource, RealTimeMappingSourceValue, ReaperTarget,
     VirtualSourceValue,
 };
@@ -527,6 +527,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.self_feedback_sender
             .send(FeedbackMainTask::TargetTouched)
             .unwrap();
+    }
+
+    pub fn receives_osc_from(&self, device_id: &OscDeviceId) -> bool {
+        // TODO-high OSC config
+        true
     }
 
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {

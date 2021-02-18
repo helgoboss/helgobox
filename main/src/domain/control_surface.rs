@@ -1,5 +1,8 @@
 use crate::core::Global;
-use crate::domain::{DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, ReaperTarget};
+use crate::domain::{
+    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, OscPacketVec,
+    ReaperTarget,
+};
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{OscSource, OscSourceValue};
 use reaper_high::{
@@ -9,13 +12,11 @@ use reaper_high::{
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscError, OscMessage, OscPacket};
 use slog::warn;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::io;
 use std::io::Error;
 use std::net::{SocketAddr, UdpSocket};
-
-const OSC_BULK_SIZE: usize = 50;
-const OSC_BUFFER_SIZE: usize = 10_000;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
@@ -33,8 +34,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     metrics_enabled: bool,
     state: State,
-    osc_socket: UdpSocket,
-    osc_buffer: [u8; OSC_BUFFER_SIZE],
+    osc_input_devices: Vec<OscInputDevice>,
 }
 
 #[derive(Debug)]
@@ -78,21 +78,16 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 Global::get().task_receiver(),
             ),
             future_middleware: FutureMiddleware::new(
-                logger,
+                logger.clone(),
                 Global::get().executor(),
                 Global::get().local_executor(),
             ),
             counter: 0,
             metrics_enabled,
             state: State::Normal,
-            osc_socket: {
-                // TODO-high OSC configuration
-                let s = UdpSocket::bind("0.0.0.0:7878").unwrap();
-                s.set_nonblocking(true)
-                    .expect("failed to enter OSC/UDP non-blocking mode");
-                s
-            },
-            osc_buffer: [0; OSC_BUFFER_SIZE],
+            osc_input_devices: vec![
+                OscInputDevice::connect(OscDeviceId::default(), "0.0.0.0:7878", logger).unwrap(),
+            ],
         }
     }
 
@@ -172,35 +167,28 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_osc(&mut self) {
-        for _ in 0..OSC_BULK_SIZE {
-            match self.osc_socket.recv(&mut self.osc_buffer) {
-                Ok(num_bytes) => {
-                    match rosc::decoder::decode(&self.osc_buffer[..num_bytes]) {
-                        Ok(packet) => match &self.state {
-                            State::Normal => {
-                                for p in &mut self.main_processors {
-                                    p.process_incoming_osc_packet(&packet);
-                                }
+        let osc_packets_by_device: SmallVec<[(OscDeviceId, OscPacketVec); 32]> = self
+            .osc_input_devices
+            .iter_mut()
+            .map(|dev| (dev.id().clone(), dev.poll_multiple()))
+            .collect();
+        for (dev_id, packets) in osc_packets_by_device {
+            match &self.state {
+                State::Normal => {
+                    for proc in &mut self.main_processors {
+                        if proc.receives_osc_from(&dev_id) {
+                            for packet in &packets {
+                                proc.process_incoming_osc_packet(packet);
                             }
-                            State::LearningSource(sender) => {
-                                process_incoming_osc_packet_for_learning(
-                                    &OscDeviceId::default(),
-                                    sender,
-                                    packet,
-                                )
-                            }
-                            State::LearningTarget(_) => {}
-                        },
-                        Err(err) => {
-                            warn!(self.logger, "Error trying to decode OSC message: {:?}", err);
                         }
-                    };
+                    }
                 }
-                Err(ref err) if err.kind() != io::ErrorKind::WouldBlock => {
-                    warn!(self.logger, "Error trying to receive OSC message: {}", err);
+                State::LearningSource(sender) => {
+                    for packet in packets {
+                        process_incoming_osc_packet_for_learning(&dev_id, sender, packet)
+                    }
                 }
-                // We don't need to handle "would block" because we are running in a loop anyway.
-                _ => {}
+                State::LearningTarget(_) => {}
             }
         }
     }
