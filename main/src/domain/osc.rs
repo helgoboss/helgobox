@@ -6,7 +6,7 @@ use slog::warn;
 use smallvec::SmallVec;
 use std::error::Error;
 use std::io;
-use std::net::{ToSocketAddrs, UdpSocket};
+use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
 
 const OSC_BUFFER_SIZE: usize = 10_000;
@@ -20,7 +20,7 @@ pub struct OscInputDevice {
 }
 
 impl OscInputDevice {
-    pub fn connect(
+    pub fn bind(
         id: OscDeviceId,
         addr: impl ToSocketAddrs,
         logger: slog::Logger,
@@ -76,7 +76,9 @@ impl OscOutputDevice {
         addr: impl ToSocketAddrs,
         logger: slog::Logger,
     ) -> Result<OscOutputDevice, Box<dyn Error>> {
-        let socket = UdpSocket::bind(addr)?;
+        let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))?;
+        socket.set_nonblocking(true)?;
+        socket.connect(addr)?;
         let dev = OscOutputDevice { id, socket, logger };
         Ok(dev)
     }
@@ -111,9 +113,9 @@ impl FromStr for OscDeviceId {
         if trimmed.is_empty() {
             return Err("OSC device ID must not be empty");
         }
-        let valid_regex = regex!(r#"^[A-Za-z0-9_~]+$"#);
-        if valid_regex.is_match(trimmed) {
-            return Err("OSC device must contain lowercase letters, digits and hyphens only");
+        let valid_regex = regex!(r#"^[A-Za-z0-9_~-]+$"#);
+        if !valid_regex.is_match(trimmed) {
+            return Err("OSC device ID contains illegal characters");
         }
         Ok(OscDeviceId(trimmed.to_owned()))
     }

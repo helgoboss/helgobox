@@ -48,7 +48,8 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
-    pub osc_device_id: Prop<Option<OscDeviceId>>,
+    pub osc_input_device_id: Prop<Option<OscDeviceId>>,
+    pub osc_output_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
@@ -160,7 +161,8 @@ impl Session {
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
-            osc_device_id: prop(None),
+            osc_input_device_id: prop(None),
+            osc_output_device_id: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
@@ -219,7 +221,9 @@ impl Session {
                 }
                 MidiControlInput::Device(dev) => dev.id() == *device_id,
             },
-            InputDescriptor::Osc { device_id } => self.osc_device_id.get_ref().contains(device_id),
+            InputDescriptor::Osc { device_id } => {
+                self.osc_input_device_id.get_ref().contains(device_id)
+            }
         }
     }
 
@@ -319,6 +323,7 @@ impl Session {
             // general.
             self.midi_feedback_output
                 .changed()
+                .merge(self.osc_output_device_id.changed())
                 .merge(self.containing_track_armed_or_disarmed())
                 .merge(self.send_feedback_only_if_armed.changed())
                 // We have this explicit stop criteria because we listen to global REAPER events.
@@ -426,7 +431,8 @@ impl Session {
             .merge(self.let_unmatched_events_through.changed())
             .merge(self.midi_control_input.changed())
             .merge(self.midi_feedback_output.changed())
-            .merge(self.osc_device_id.changed())
+            .merge(self.osc_input_device_id.changed())
+            .merge(self.osc_output_device_id.changed())
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
@@ -1499,7 +1505,8 @@ impl Session {
 
     fn sync_settings(&self) {
         let task = NormalMainTask::UpdateSettings {
-            osc_device_id: self.osc_device_id.get_ref().clone(),
+            osc_input_device_id: self.osc_input_device_id.get_ref().clone(),
+            osc_output_device_id: self.osc_output_device_id.get_ref().clone(),
         };
         self.normal_main_task_sender.send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {
@@ -1542,7 +1549,7 @@ impl Session {
     }
 
     fn feedback_is_globally_enabled(&self) -> bool {
-        self.midi_feedback_output.get().is_some()
+        (self.midi_feedback_output.get().is_some() || self.osc_output_device_id.get_ref().is_some())
             && self.context.containing_fx().is_enabled()
             && self.track_arm_conditions_are_met()
     }

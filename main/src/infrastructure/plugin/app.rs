@@ -284,15 +284,20 @@ impl App {
             .audio_reg_hardware_hook_add(sleeping_state.audio_hook)
             .expect("couldn't register ReaLearn audio hook");
         // OSC devices
-        let osc_devices = self
+        let osc_input_devices = self
             .osc_device_manager
             .borrow_mut()
             .connect_all_enabled_inputs();
+        let osc_output_devices = self
+            .osc_device_manager
+            .borrow_mut()
+            .connect_all_enabled_outputs();
+        DomainGlobal::get().set_osc_output_devices(osc_output_devices);
         // Control surface
         sleeping_state
             .control_surface
             .middleware_mut()
-            .set_osc_devices(osc_devices);
+            .set_osc_devices(osc_input_devices);
         sleeping_state.control_surface.middleware().reset();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
@@ -329,6 +334,7 @@ impl App {
         };
         // Close OSC connections
         control_surface.middleware_mut().clear_osc_devices();
+        DomainGlobal::get().clear_osc_output_devices();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();

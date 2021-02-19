@@ -1,8 +1,8 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
-    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
-    RealTimeMappingSourceValue, UnresolvedCompoundMappingTarget, VirtualSourceValue,
+    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping, RealTimeSourceValue,
+    UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -314,7 +314,7 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(source_value) => {
-                    use RealTimeMappingSourceValue::*;
+                    use RealTimeSourceValue::*;
                     match source_value {
                         Midi(v) => self.feedback_midi(v, caller),
                         Virtual(v) => self.feedback_virtual(v, caller),
@@ -740,7 +740,7 @@ impl MappingActivationUpdate {
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(RealTimeMappingSourceValue),
+    Feedback(RealTimeSourceValue),
 }
 
 impl Drop for RealTimeProcessor {

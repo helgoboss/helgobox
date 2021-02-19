@@ -219,7 +219,7 @@ impl MainMapping {
         &mut self,
         value: ControlValue,
         options: ControlOptions,
-    ) -> Option<RealTimeMappingSourceValue> {
+    ) -> Option<SourceValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
@@ -252,7 +252,7 @@ impl MainMapping {
         }
     }
 
-    pub fn feedback_if_enabled(&self) -> Option<RealTimeMappingSourceValue> {
+    pub fn feedback_if_enabled(&self) -> Option<SourceValue> {
         if !self.feedback_is_effectively_on() {
             return None;
         }
@@ -270,10 +270,7 @@ impl MainMapping {
         self.core.source.feedback(modified_value)
     }
 
-    fn feedback_after_control_if_enabled(
-        &self,
-        options: ControlOptions,
-    ) -> Option<RealTimeMappingSourceValue> {
+    fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<SourceValue> {
         if self.core.options.send_feedback_after_control
             || options.enforce_send_feedback_after_control
         {
@@ -372,9 +369,7 @@ impl RealTimeMapping {
             }
         }
         let modified_value = self.core.mode.feedback(feedback_value)?;
-        if let Some(RealTimeMappingSourceValue::Midi(midi_value)) =
-            self.core.source.feedback(modified_value)
-        {
+        if let Some(SourceValue::Midi(midi_value)) = self.core.source.feedback(modified_value) {
             Some(midi_value)
         } else {
             None
@@ -434,20 +429,12 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<RealTimeMappingSourceValue> {
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<SourceValue> {
         use CompoundMappingSource::*;
         match self {
-            Midi(s) => s
-                .feedback(feedback_value)
-                .map(RealTimeMappingSourceValue::Midi),
-            Virtual(s) => Some(RealTimeMappingSourceValue::Virtual(
-                s.feedback(feedback_value),
-            )),
-            Osc(s) => {
-                // TODO-high OSC feedback: Implement (needs Copy bound to be removed)
-                // s.feedback(feedback_value).map(CompoundMappingSourceValue::Osc)
-                None
-            }
+            Midi(s) => s.feedback(feedback_value).map(SourceValue::Midi),
+            Virtual(s) => Some(SourceValue::Virtual(s.feedback(feedback_value))),
+            Osc(s) => s.feedback(feedback_value).map(SourceValue::Osc),
         }
     }
 
@@ -461,9 +448,16 @@ impl CompoundMappingSource {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum RealTimeMappingSourceValue {
+pub enum RealTimeSourceValue {
     Midi(MidiSourceValue<RawShortMessage>),
     Virtual(VirtualSourceValue),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum SourceValue {
+    Midi(MidiSourceValue<RawShortMessage>),
+    Virtual(VirtualSourceValue),
+    Osc(OscMessage),
 }
 
 #[derive(Clone, PartialEq, Debug)]

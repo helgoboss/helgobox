@@ -43,6 +43,7 @@ pub struct SessionData {
     send_feedback_only_if_armed: bool,
     /// `None` means "<FX input>"
     #[serde(default, skip_serializing_if = "is_default")]
+    // TODO-high Implement OSC device persistence
     control_device_id: Option<String>,
     ///
     /// - `None` means "\<None>"
