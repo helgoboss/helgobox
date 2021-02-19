@@ -1127,7 +1127,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 "Character",
             ),
             Virtual => ("Number", "", ""),
-            Osc => ("", "Arg #", "Type tag"),
+            Osc => ("", "Argument", "Type"),
         };
         self.view
             .require_control(root::ID_SOURCE_CHANNEL_LABEL)
@@ -1142,12 +1142,6 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_source_control_visibilities(&self) {
         let source = self.source;
-        // Don't allow controller mappings to have virtual source
-        // TODO-high Now that we also have OSC (which is allowed for controller mappings) we must
-        //  find another way to avoid this!
-        // self.view
-        //     .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
-        //     .set_enabled(self.mapping.compartment() != MappingCompartment::ControllerMappings);
         // Show/hide stuff
         self.show_if(
             source.supports_type(),
@@ -2643,7 +2637,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX);
-        b.fill_combo_box(SourceCategory::into_enum_iter());
+        let is_main_mapping = self.mapping.compartment() == MappingCompartment::MainMappings;
+        b.fill_combo_box_small(
+            SourceCategory::into_enum_iter()
+                // Don't allow controller mappings to have virtual source
+                .filter(|c| is_main_mapping || *c != SourceCategory::Virtual),
+        );
     }
 
     fn fill_target_track_anchor_combo_box(&self) {
