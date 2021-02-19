@@ -284,6 +284,6 @@ fn process_incoming_osc_message_for_learning(
     sender: &LearnSourceSender,
     msg: OscMessage,
 ) {
-    let source = OscSource::from_source_value(msg);
+    let source = OscSource::from_source_value(msg, Some(0));
     let _ = sender.try_send((dev_id.clone(), source));
 }

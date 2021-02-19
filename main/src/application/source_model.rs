@@ -6,7 +6,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, MidiSource, OscSource, SourceCharacter, UnitValue,
+    ControlValue, MidiClockTransportMessage, MidiSource, OscArgDescriptor, OscSource, OscTypeTag,
+    SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -32,6 +33,8 @@ pub struct SourceModel {
     pub is_14_bit: Prop<Option<bool>>,
     // OSC
     pub osc_address_pattern: Prop<String>,
+    pub osc_arg_index: Prop<Option<u32>>,
+    pub osc_arg_type_tag: Prop<OscTypeTag>,
     // Virtual
     pub control_element_type: Prop<VirtualControlElementType>,
     pub control_element_index: Prop<u32>,
@@ -52,6 +55,8 @@ impl Default for SourceModel {
             is_registered: prop(Some(false)),
             is_14_bit: prop(Some(false)),
             osc_address_pattern: prop("".to_owned()),
+            osc_arg_index: prop(Some(0)),
+            osc_arg_type_tag: prop(Default::default()),
         }
     }
 }
@@ -72,6 +77,8 @@ impl SourceModel {
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
             .merge(self.osc_address_pattern.changed())
+            .merge(self.osc_arg_index.changed())
+            .merge(self.osc_arg_type_tag.changed())
     }
 
     pub fn apply_from_source(&mut self, source: &CompoundMappingSource) {
@@ -129,7 +136,11 @@ impl SourceModel {
             }
             Osc(s) => {
                 self.category.set(SourceCategory::Osc);
-                self.osc_address_pattern.set(s.address_pattern().to_owned())
+                self.osc_address_pattern.set(s.address_pattern().to_owned());
+                self.osc_arg_index
+                    .set(s.arg_descriptor().map(|d| d.index()));
+                self.osc_arg_type_tag
+                    .set(s.arg_descriptor().map(|d| d.type_tag()).unwrap_or_default());
             }
         };
     }
@@ -204,10 +215,21 @@ impl SourceModel {
                 CompoundMappingSource::Virtual(virtual_source)
             }
             Osc => {
-                let osc_source = OscSource::new(self.osc_address_pattern.get_ref().clone());
+                let osc_source = OscSource::new(
+                    self.osc_address_pattern.get_ref().clone(),
+                    self.osc_arg_descriptor(),
+                );
                 CompoundMappingSource::Osc(osc_source)
             }
         }
+    }
+
+    fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {
+        let arg_index = self.osc_arg_index.get()?;
+        Some(OscArgDescriptor::new(
+            arg_index,
+            self.osc_arg_type_tag.get(),
+        ))
     }
 
     pub fn supports_virtual_control_element_index(&self) -> bool {
@@ -296,7 +318,7 @@ impl SourceModel {
         self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
     }
 
-    pub fn supports_osc_address_pattern(&self) -> bool {
+    pub fn is_osc(&self) -> bool {
         self.category.get() == SourceCategory::Osc
     }
 

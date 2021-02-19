@@ -201,6 +201,7 @@ impl RealTimeProcessor {
                     debug!(self.logger, "Start learning source");
                     self.control_mode = ControlMode::LearningSource {
                         allow_virtual_sources,
+                        osc_arg_index_hint: None,
                     };
                     self.midi_source_scanner.reset();
                 }
@@ -267,6 +268,7 @@ impl RealTimeProcessor {
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
+                ..
             } => {
                 // Poll source scanner if we are learning a source currently (local learning)
                 if let Some((source, _)) = self.midi_source_scanner.poll() {
@@ -425,6 +427,7 @@ impl RealTimeProcessor {
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
+                ..
             } => {
                 if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
                     self.learn_source(source, allow_virtual_sources);

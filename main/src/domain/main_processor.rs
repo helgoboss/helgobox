@@ -8,7 +8,7 @@ use crate::domain::{
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscArgDescriptor, OscSource, UnitValue};
 
 use crate::core::Global;
 use reaper_high::Reaper;
@@ -372,10 +372,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 StartLearnSource {
                     allow_virtual_sources,
+                    osc_arg_index_hint,
                 } => {
                     debug!(self.logger, "Start learning source");
                     self.control_mode = ControlMode::LearningSource {
                         allow_virtual_sources,
+                        osc_arg_index_hint,
                     };
                 }
                 DisableControl => {
@@ -581,8 +583,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
+                osc_arg_index_hint,
             } => {
-                let source = OscSource::new(msg.addr.clone());
+                let source = OscSource::new(
+                    msg.addr.clone(),
+                    osc_arg_index_hint.and_then(|h| OscArgDescriptor::from_msg(msg, h)),
+                );
                 self.event_handler.handle_event(DomainEvent::LearnedSource {
                     source: RealSource::Osc(source),
                     allow_virtual_sources,
@@ -819,6 +825,7 @@ pub enum NormalMainTask {
     },
     StartLearnSource {
         allow_virtual_sources: bool,
+        osc_arg_index_hint: Option<u32>,
     },
     DisableControl,
     ReturnToControlMode,

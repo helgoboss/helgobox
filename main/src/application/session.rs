@@ -483,6 +483,7 @@ impl Session {
         &self,
         reenable_control_after_touched: bool,
         allow_virtual_sources: bool,
+        osc_arg_index_hint: Option<u32>,
     ) -> impl Event<CompoundMappingSource> {
         // TODO-low We should migrate this to the nice async-await mechanism that we use for global
         //  learning (via REAPER action). That way we don't need the subject and also don't need
@@ -496,6 +497,7 @@ impl Session {
         self.normal_main_task_sender
             .send(NormalMainTask::StartLearnSource {
                 allow_virtual_sources,
+                osc_arg_index_hint,
             })
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
@@ -969,15 +971,20 @@ impl Session {
         ignore_sources: HashSet<CompoundMappingSource>,
         allow_virtual_sources: bool,
     ) {
+        let osc_arg_index_hint = mapping.borrow().source_model.osc_arg_index.get();
         self.mapping_which_learns_source.set(Some(mapping));
         when(
-            self.source_touched(reenable_control_after_touched, allow_virtual_sources)
-                .filter(move |s| !ignore_sources.contains(s))
-                // We have this explicit stop criteria because we listen to global REAPER
-                // events.
-                .take_until(self.party_is_over())
-                .take_until(self.mapping_which_learns_source.changed_to(None))
-                .take(1),
+            self.source_touched(
+                reenable_control_after_touched,
+                allow_virtual_sources,
+                osc_arg_index_hint,
+            )
+            .filter(move |s| !ignore_sources.contains(s))
+            // We have this explicit stop criteria because we listen to global REAPER
+            // events.
+            .take_until(self.party_is_over())
+            .take_until(self.mapping_which_learns_source.changed_to(None))
+            .take(1),
         )
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))

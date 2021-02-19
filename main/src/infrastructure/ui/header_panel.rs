@@ -186,6 +186,7 @@ impl HeaderPanel {
                     .source_touched(
                         true,
                         active_compartment != MappingCompartment::ControllerMappings,
+                        None,
                     )
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),

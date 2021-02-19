@@ -687,5 +687,8 @@ fn match_partially(
 pub(crate) enum ControlMode {
     Disabled,
     Controlling,
-    LearningSource { allow_virtual_sources: bool },
+    LearningSource {
+        allow_virtual_sources: bool,
+        osc_arg_index_hint: Option<u32>,
+    },
 }
