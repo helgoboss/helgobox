@@ -56,7 +56,7 @@ impl OscDeviceManager {
     pub fn connect_all_enabled_inputs(&mut self) -> Vec<OscInputDevice> {
         self.devices
             .iter_mut()
-            .filter(|dev| dev.is_enabled_for_input())
+            .filter(|dev| dev.is_enabled_for_control())
             .flat_map(|dev| dev.connect_input())
             .collect()
     }
@@ -64,7 +64,7 @@ impl OscDeviceManager {
     pub fn connect_all_enabled_outputs(&mut self) -> Vec<OscOutputDevice> {
         self.devices
             .iter_mut()
-            .filter(|dev| dev.is_enabled_for_output())
+            .filter(|dev| dev.is_enabled_for_feedback())
             .flat_map(|dev| dev.connect_output())
             .collect()
     }
@@ -83,13 +83,13 @@ pub struct OscDevice {
     id: OscDeviceId,
     name: String,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    is_enabled_for_input: bool,
+    is_enabled_for_control: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     local_port: Option<u16>,
     #[serde(skip)]
     has_input_connection_problem: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    is_enabled_for_output: bool,
+    is_enabled_for_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     device_host: Option<Ipv4Addr>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -103,8 +103,8 @@ impl Default for OscDevice {
         Self {
             id: OscDeviceId::from_str(nanoid::nanoid!(8).as_str()).unwrap(),
             name: "".to_string(),
-            is_enabled_for_input: true,
-            is_enabled_for_output: true,
+            is_enabled_for_control: true,
+            is_enabled_for_feedback: true,
             local_port: None,
             device_host: None,
             device_port: None,
@@ -176,12 +176,13 @@ impl OscDevice {
     pub fn device_port(&self) -> Option<u16> {
         self.device_port
     }
-    pub fn is_enabled_for_input(&self) -> bool {
-        self.is_enabled_for_input
+
+    pub fn is_enabled_for_control(&self) -> bool {
+        self.is_enabled_for_control
     }
 
-    pub fn is_enabled_for_output(&self) -> bool {
-        self.is_enabled_for_output
+    pub fn is_enabled_for_feedback(&self) -> bool {
+        self.is_enabled_for_feedback
     }
 
     pub fn input_status(&self) -> OscDeviceStatus {
@@ -189,7 +190,7 @@ impl OscDevice {
         if !self.is_configured_for_input() {
             return Incomplete;
         }
-        if !self.is_enabled_for_input {
+        if !self.is_enabled_for_control {
             return Disabled;
         }
         if self.has_input_connection_problem {
@@ -203,7 +204,7 @@ impl OscDevice {
         if !self.is_configured_for_output() {
             return Incomplete;
         }
-        if !self.is_enabled_for_output {
+        if !self.is_enabled_for_feedback {
             return Disabled;
         }
         if self.has_output_connection_problem {
