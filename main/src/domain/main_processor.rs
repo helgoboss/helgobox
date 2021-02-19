@@ -3,7 +3,7 @@ use crate::domain::{
     DomainGlobal, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
     MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue, ReaperTarget,
-    SourceValue, VirtualSourceValue,
+    SourceValue, UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -167,6 +167,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 } => {
                     if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
                         control_and_optionally_feedback(
+                            &self.self_feedback_sender,
                             &self.feedback_real_time_task_sender,
                             m,
                             value,
@@ -493,6 +494,25 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.feedback_buffer
                         .buffer_feedback_for_mapping(compartment, mapping_id);
                 }
+                VirtualToOscFeedback(value) => {
+                    if let Some(osc_device_id) = &self.osc_output_device_id {
+                        if let ControlValue::Absolute(v) = value.control_value() {
+                            for m in self.mappings[MappingCompartment::ControllerMappings]
+                                .values()
+                                .filter(|m| m.feedback_is_effectively_on())
+                            {
+                                if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                                    if t.control_element() == value.control_element() {
+                                        if let Some(msg) = m.feedback_to_osc(v) {
+                                            DomainGlobal::get()
+                                                .send_osc_feedback(osc_device_id, msg);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 TargetTouched => {
                     for compartment in MappingCompartment::into_enum_iter() {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
@@ -515,6 +535,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                         self.feedback_subscriptions[compartment]
                                             .insert(m.id(), subscription);
                                         send_feedback(
+                                            &self.self_feedback_sender,
                                             &self.feedback_real_time_task_sender,
                                             m.feedback_if_enabled(),
                                             self.osc_output_device_id.as_ref(),
@@ -569,6 +590,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.mappings.as_mut_slice()
                     {
                         control_controller_mappings_osc(
+                            &self.self_feedback_sender,
                             &self.feedback_real_time_task_sender,
                             controller_mappings,
                             main_mappings,
@@ -607,6 +629,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if let CompoundMappingSource::Osc(s) = m.source() {
                 if let Some(control_value) = s.control(msg) {
                     control_and_optionally_feedback(
+                        &self.self_feedback_sender,
                         &self.feedback_real_time_task_sender,
                         &mut m,
                         control_value,
@@ -656,6 +679,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = SourceValue>) {
         send_feedback(
+            &self.self_feedback_sender,
             &self.feedback_real_time_task_sender,
             source_values,
             self.osc_output_device_id.as_ref(),
@@ -844,6 +868,7 @@ pub enum ParameterMainTask {
 pub enum FeedbackMainTask {
     /// Sent whenever a target value has been changed.
     Feedback(MappingCompartment, MappingId),
+    VirtualToOscFeedback(VirtualSourceValue),
     /// Sent whenever a target has been touched (usually a subset of the value change events)
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,
@@ -872,7 +897,8 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 }
 
 fn control_and_optionally_feedback(
-    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
+    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     mapping: &mut MainMapping,
     value: ControlValue,
     options: ControlOptions,
@@ -887,11 +913,12 @@ fn control_and_optionally_feedback(
     // might be a short amount of time where we still receive control
     // statements. We filter them here.
     let feedback = mapping.control_if_enabled(value, options);
-    send_feedback(sender, feedback, osc_device_id);
+    send_feedback(main_sender, rt_sender, feedback, osc_device_id);
 }
 
 fn send_feedback(
-    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
+    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     source_values: impl IntoIterator<Item = SourceValue>,
     osc_device_id: Option<&OscDeviceId>,
 ) {
@@ -904,13 +931,19 @@ fn send_feedback(
                 }
             }
             Midi(v) => {
-                sender
+                rt_sender
                     .send(FeedbackRealTimeTask::Feedback(RealTimeSourceValue::Midi(v)))
                     .unwrap();
             }
             Virtual(v) => {
-                // TODO-high Send virtual OSC feedback, too
-                sender
+                if osc_device_id.is_some() {
+                    // Borrowing the mappings again while iterating is unsafe so for now we send
+                    // the OSC feedback caused by virtual sources in the next main loop iteration.
+                    main_sender
+                        .send(FeedbackMainTask::VirtualToOscFeedback(v))
+                        .unwrap();
+                }
+                rt_sender
                     .send(FeedbackRealTimeTask::Feedback(
                         RealTimeSourceValue::Virtual(v),
                     ))
@@ -921,7 +954,8 @@ fn send_feedback(
 }
 
 fn control_controller_mappings_osc(
-    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
+    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     // Mappings with virtual targets
     controller_mappings: &mut HashMap<MappingId, MainMapping>,
     // Mappings with virtual sources
@@ -937,7 +971,8 @@ fn control_controller_mappings_osc(
             use PartialControlMatch::*;
             match control_match {
                 ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
-                    sender,
+                    main_sender,
+                    rt_sender,
                     main_mappings,
                     virtual_source_value,
                     ControlOptions {
@@ -955,7 +990,8 @@ fn control_controller_mappings_osc(
                 ),
                 ProcessDirect(control_value) => {
                     control_and_optionally_feedback(
-                        sender,
+                        main_sender,
+                        rt_sender,
                         m,
                         control_value,
                         ControlOptions {
@@ -970,7 +1006,8 @@ fn control_controller_mappings_osc(
 }
 
 fn control_main_mappings_virtual(
-    sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
+    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     mut main_mappings: &mut HashMap<MappingId, MainMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
@@ -984,7 +1021,14 @@ fn control_main_mappings_virtual(
     {
         if let CompoundMappingSource::Virtual(s) = &m.source() {
             if let Some(control_value) = s.control(&value) {
-                control_and_optionally_feedback(sender, m, control_value, options, osc_device_id);
+                control_and_optionally_feedback(
+                    main_sender,
+                    rt_sender,
+                    m,
+                    control_value,
+                    options,
+                    osc_device_id,
+                );
             }
         }
     }

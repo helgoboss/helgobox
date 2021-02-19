@@ -616,10 +616,9 @@ impl RealTimeProcessor {
                 .values()
                 .filter(|m| m.feedback_is_effectively_on())
             {
-                // TODO-low Mmh, very nested
                 if let Some(UnresolvedCompoundMappingTarget::Virtual(t)) = m.target() {
                     if t.control_element() == value.control_element() {
-                        if let Some(midi_value) = m.feedback(v) {
+                        if let Some(midi_value) = m.feedback_to_midi(v) {
                             self.feedback_midi(midi_value, caller);
                         }
                     }

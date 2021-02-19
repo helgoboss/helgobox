@@ -691,7 +691,7 @@ impl HeaderPanel {
                         .borrow()
                         .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
                     {
-                        // TODO-high We should set this to None as soon as available.
+                        // TODO-medium We should set this to None as soon as available.
                         session.midi_control_input.set(MidiControlInput::FxInput);
                         session.osc_input_device_id.set(Some(dev.id().clone()));
                         true

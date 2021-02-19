@@ -52,6 +52,8 @@ impl Display for MappingId {
 
 const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 
+// TODO-low The name is confusing. It should be MainThreadMapping or something because
+//  this can also be a controller mapping (a mapping in the controller compartment).
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
@@ -270,6 +272,15 @@ impl MainMapping {
         self.core.source.feedback(modified_value)
     }
 
+    pub fn feedback_to_osc(&self, feedback_value: UnitValue) -> Option<OscMessage> {
+        let modified_value = self.core.feedback(feedback_value)?;
+        if let Some(SourceValue::Osc(msg)) = self.core.source.feedback(modified_value) {
+            Some(msg)
+        } else {
+            None
+        }
+    }
+
     fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<SourceValue> {
         if self.core.options.send_feedback_after_control
             || options.enforce_send_feedback_after_control
@@ -362,13 +373,11 @@ impl RealTimeMapping {
         match_partially(&mut self.core, control_value)
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<MidiSourceValue<RawShortMessage>> {
-        if let Some(t) = self.core.time_of_last_control {
-            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
-                return None;
-            }
-        }
-        let modified_value = self.core.mode.feedback(feedback_value)?;
+    pub fn feedback_to_midi(
+        &self,
+        feedback_value: UnitValue,
+    ) -> Option<MidiSourceValue<RawShortMessage>> {
+        let modified_value = self.core.feedback(feedback_value)?;
         if let Some(SourceValue::Midi(midi_value)) = self.core.source.feedback(modified_value) {
             Some(midi_value)
         } else {
@@ -392,6 +401,17 @@ pub struct MappingCore {
     target: Option<CompoundMappingTarget>,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
+}
+
+impl MappingCore {
+    fn feedback(&self, feedback_value: UnitValue) -> Option<UnitValue> {
+        if let Some(t) = self.time_of_last_control {
+            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
+                return None;
+            }
+        }
+        self.mode.feedback(feedback_value)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
