@@ -1491,7 +1491,7 @@ impl View for HeaderPanel {
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
             .expect("menu bar couldn't be loaded");
-        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let ctx_menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
         let app = App::get();
         // Invalidate some menu items without result
         {
@@ -1505,12 +1505,12 @@ impl View for HeaderPanel {
                 } else {
                     (true, session.send_feedback_only_if_armed.get())
                 };
-                menu.set_item_enabled(item_id, enabled);
-                menu.set_item_checked(item_id, checked);
+                ctx_menu.set_item_enabled(item_id, enabled);
+                ctx_menu.set_item_checked(item_id, checked);
             }
             // Invalidate "Auto-correct settings"
             {
-                menu.set_item_checked(
+                ctx_menu.set_item_checked(
                     root::IDM_AUTO_CORRECT_SETTINGS,
                     session.auto_correct_settings.get(),
                 );
@@ -1524,8 +1524,8 @@ impl View for HeaderPanel {
                 &self.session().borrow(),
                 self.active_compartment(),
             );
-            menu.set_item_enabled(item_id, action.is_some());
-            menu.set_item_checked(
+            ctx_menu.set_item_enabled(item_id, action.is_some());
+            ctx_menu.set_item_checked(
                 item_id,
                 matches!(action, Some(PresetFxLinkAction::UnlinkFrom { .. })),
             );
@@ -1538,7 +1538,7 @@ impl View for HeaderPanel {
                     format!("Unlink current preset from FX \"{}\"", fx_name)
                 }
             };
-            menu.set_item_text(item_id, label);
+            ctx_menu.set_item_text(item_id, label);
             action
         };
         // Invalidate "Server enabled"
@@ -1558,51 +1558,29 @@ impl View for HeaderPanel {
                     Start
                 }
             };
-            menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
+            ctx_menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
             (next_server_action, server.http_port(), server.https_port())
         };
         // Invalidate "OSC devices"
-        {
-            let devs_menu = menu.turn_into_submenu(root::IDM_OSC_DEVICES);
-            const DEV_ADD_ITEM_ID: u32 = 50_000;
-            const DEV_FIRST_MENU_ID: u32 = DEV_ADD_ITEM_ID + 1;
-            const DEV_MENU_SPACE: u32 = 100;
-            const DEV_EDIT_ITEM_OFFSET: u32 = 1;
-            const DEV_REMOVE_ITEM_OFFSET: u32 = 2;
-            const DEV_ENABLED_FOR_CONTROL_ITEM_OFFSET: u32 = 3;
-            const DEV_ENABLED_FOR_FEEDBACK_ITEM_OFFSET: u32 = 4;
-            devs_menu.add_item(DEV_ADD_ITEM_ID, "<Add new>");
-            for (i, dev) in App::get()
-                .osc_device_manager()
-                .borrow()
-                .devices()
-                .enumerate()
-            {
-                let dev_menu_id = DEV_FIRST_MENU_ID + i as u32 * DEV_MENU_SPACE;
-                devs_menu.add_item(dev_menu_id, dev.name());
-                let dev_menu = devs_menu.turn_into_submenu(dev_menu_id);
-                dev_menu.add_item(dev_menu_id + DEV_EDIT_ITEM_OFFSET, "Edit");
-                dev_menu.add_item(dev_menu_id + DEV_REMOVE_ITEM_OFFSET, "Remove");
-                dev_menu.add_item(
-                    dev_menu_id + DEV_ENABLED_FOR_CONTROL_ITEM_OFFSET,
-                    "Enabled for control",
-                );
-                dev_menu.set_item_enabled(
-                    dev_menu_id + DEV_ENABLED_FOR_CONTROL_ITEM_OFFSET,
-                    dev.is_enabled_for_control(),
-                );
-                dev_menu.add_item(
-                    dev_menu_id + DEV_ENABLED_FOR_FEEDBACK_ITEM_OFFSET,
-                    "Enabled for feedback",
-                );
-                dev_menu.set_item_enabled(
-                    dev_menu_id + DEV_ENABLED_FOR_FEEDBACK_ITEM_OFFSET,
-                    dev.is_enabled_for_feedback(),
-                );
-            }
-        }
+        let devs_menu = {
+            use std::iter::once;
+            use swell_ui::menu_tree::*;
+            let dev_manager = App::get().osc_device_manager();
+            let dev_manager = dev_manager.borrow();
+            let mut entries = once(item("<New>", || Reaper::get().show_console_msg("New")))
+                .chain(dev_manager.devices().map(|dev| menu(dev.name(), vec![])));
+            let mut m = root_menu(entries.collect());
+            let swell_menu = ctx_menu.turn_into_submenu(root::IDM_OSC_DEVICES);
+            m.index(50_000);
+            fill_menu(swell_menu, &m);
+            m
+        };
         // Open menu
-        let result = match self.view.require_window().open_popup_menu(menu, location) {
+        let result = match self
+            .view
+            .require_window()
+            .open_popup_menu(ctx_menu, location)
+        {
             None => return,
             Some(r) => r,
         };
