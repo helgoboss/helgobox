@@ -1567,8 +1567,36 @@ impl View for HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
-            let mut entries = once(item("<New>", || Reaper::get().show_console_msg("New")))
-                .chain(dev_manager.devices().map(|dev| menu(dev.name(), vec![])));
+            let mut entries = once(item("<New>", || Reaper::get().show_console_msg("New"))).chain(
+                dev_manager.devices().map(|dev| {
+                    let dev_id = dev.id().clone();
+                    menu(
+                        dev.name(),
+                        vec![
+                            item("Edit...", || Reaper::get().show_console_msg("New")),
+                            item("Remove", move || {
+                                Reaper::get().show_console_msg(format!("Remove {:?}", dev_id))
+                            }),
+                            item_with_opts(
+                                "Enabled for control",
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: dev.is_enabled_for_control(),
+                                },
+                                || Reaper::get().show_console_msg("Enable/disable control"),
+                            ),
+                            item_with_opts(
+                                "Enabled for feedback",
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: dev.is_enabled_for_feedback(),
+                                },
+                                || Reaper::get().show_console_msg("Enable/disable feedback"),
+                            ),
+                        ],
+                    )
+                }),
+            );
             let mut m = root_menu(entries.collect());
             let swell_menu = ctx_menu.turn_into_submenu(root::IDM_OSC_DEVICES);
             m.index(50_000);
@@ -1653,7 +1681,12 @@ impl View for HeaderPanel {
                 };
                 self.view.require_window().alert("ReaLearn", msg);
             }
-            _ => unreachable!(),
+            _ => {
+                devs_menu
+                    .find_item_by_id(result)
+                    .expect("selected menu item not found")
+                    .invoke_handler();
+            }
         };
     }
 }

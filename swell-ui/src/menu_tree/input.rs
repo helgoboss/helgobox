@@ -66,17 +66,17 @@ impl Menu {
 pub struct Item {
     pub id: u32,
     pub text: String,
-    pub handler: Handler,
+    handler: Handler,
     pub opts: ItemOpts,
 }
 
-pub struct Handler(Box<dyn FnOnce()>);
-
-impl Handler {
-    pub fn invoke(self) {
-        (self.0)();
+impl Item {
+    pub fn invoke_handler(self) {
+        (self.handler.0)();
     }
 }
+
+struct Handler(Box<dyn FnOnce()>);
 
 impl Debug for Handler {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -204,7 +204,7 @@ mod tests {
         // Then
         let edit_item = devs_menu.find_item_by_id(53).unwrap();
         assert_eq!(edit_item.text.as_str(), "Edit...");
-        edit_item.handler.invoke();
+        edit_item.invoke_handler();
         assert_eq!(*a.borrow(), "dev-1-edit");
     }
 }
