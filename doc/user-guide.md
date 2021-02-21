@@ -503,6 +503,20 @@ Additionally, the header panel provides a context menu with the following entrie
           a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change in
           future in favor of a more nuanced approach!
 - **Help:** As the name says.
+- **OSC devices:** Allows one to display and modify the list of (globally) configured OSC devices.
+    - **&lt;New&gt;:** Opens a window for adding a new OSC devices.
+        - **Name:** A descriptive name of the device, e.g. "TouchOSC on my Android phone".
+        - **Local port:** Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
+          When using the TouchOSC app, this needs to be the same as configured for "Port (outgoing)" on the device.
+        - **Device host:** Required for feedback only. The IP address or host name of the OSC device to which ReaLearn
+          should send feedback messages. When using the TouchOSC app, this needs to be the same as configured for
+          "Local IP Address" on the device.
+        - **Device port:** Required for feedback only. The UDP port on which the OSC device listens for OSC feedback 
+          messages. When using the TouchOSC app, this needs to be the same as configured for "Port (incoming)" on the
+          device.  
+        - All OSC device configurations will be saved in the REAPER resource directory 
+          (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) in the JSON file
+          `Helgoboss/ReaLearn/osc.json`.
 - **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
   investigating bugs or understanding how this plug-in works.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
