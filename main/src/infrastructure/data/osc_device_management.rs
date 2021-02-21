@@ -92,7 +92,7 @@ impl OscDeviceManager {
 
     pub fn add_device(&mut self, dev: OscDevice) -> Result<(), &'static str> {
         self.config.devices.push(dev);
-        self.save_and_notify_changed();
+        self.save_and_notify_changed()?;
         Ok(())
     }
 
@@ -104,13 +104,21 @@ impl OscDeviceManager {
             .find(|d| d.id() == dev.id())
             .ok_or("couldn't find OSC device")?;
         std::mem::replace(old_dev, dev);
-        self.save_and_notify_changed();
+        self.save_and_notify_changed()?;
         Ok(())
     }
 
-    fn save_and_notify_changed(&mut self) {
-        self.save();
+    pub fn remove_device_by_id(&mut self, dev_id: OscDeviceId) -> Result<(), &'static str> {
+        self.config.devices.retain(|dev| dev.id != dev_id);
+        self.save_and_notify_changed()?;
+        Ok(())
+    }
+
+    fn save_and_notify_changed(&mut self) -> Result<(), &'static str> {
+        self.save()
+            .map_err(|_| "error when saving OSC device configuration")?;
         self.changed_subject.next(());
+        Ok(())
     }
 }
 
@@ -270,6 +278,14 @@ impl OscDevice {
 
     pub fn set_device_port(&mut self, device_port: Option<u16>) {
         self.device_port = device_port;
+    }
+
+    pub fn toggle_control(&mut self) {
+        self.is_enabled_for_control = !self.is_enabled_for_control;
+    }
+
+    pub fn toggle_feedback(&mut self) {
+        self.is_enabled_for_feedback = !self.is_enabled_for_feedback;
     }
 }
 

@@ -19,7 +19,7 @@ fn fill_menu_recursive(swell_menu: SwellMenu, entry: &Entry) {
         Entry::Item(i) => {
             swell_menu.add_item(i.id, i.text.as_str());
             if i.opts.checked {
-                swell_menu.set_item_enabled(i.id, true);
+                swell_menu.set_item_checked(i.id, true);
             }
             if !i.opts.enabled {
                 swell_menu.set_item_enabled(i.id, false);

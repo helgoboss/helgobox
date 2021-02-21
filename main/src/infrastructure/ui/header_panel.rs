@@ -1588,16 +1588,14 @@ impl View for HeaderPanel {
                         dev.name(),
                         vec![
                             item("Edit...", move || edit_existing_osc_device(&dev_id)),
-                            item("Remove", move || {
-                                Reaper::get().show_console_msg(format!("Remove {:?}", dev_id))
-                            }),
+                            item("Remove", move || remove_osc_device(dev_id)),
                             item_with_opts(
                                 "Enabled for control",
                                 ItemOpts {
                                     enabled: true,
                                     checked: dev.is_enabled_for_control(),
                                 },
-                                || Reaper::get().show_console_msg("Enable/disable control"),
+                                move || toggle_control_for_osc_device(dev_id),
                             ),
                             item_with_opts(
                                 "Enabled for feedback",
@@ -1605,7 +1603,7 @@ impl View for HeaderPanel {
                                     enabled: true,
                                     checked: dev.is_enabled_for_feedback(),
                                 },
-                                || Reaper::get().show_console_msg("Enable/disable feedback"),
+                                move || toggle_feedback_for_osc_device(dev_id),
                             ),
                         ],
                     )
@@ -1851,6 +1849,41 @@ fn edit_existing_osc_device(dev_id: &OscDeviceId) {
         .osc_device_manager()
         .borrow_mut()
         .update_device(dev);
+}
+
+fn toggle_control_for_osc_device(dev_id: OscDeviceId) {
+    let mut dev = App::get()
+        .osc_device_manager()
+        .borrow()
+        .find_device_by_id(&dev_id)
+        .unwrap()
+        .clone();
+    dev.toggle_control();
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .update_device(dev);
+}
+
+fn toggle_feedback_for_osc_device(dev_id: OscDeviceId) {
+    let mut dev = App::get()
+        .osc_device_manager()
+        .borrow()
+        .find_device_by_id(&dev_id)
+        .unwrap()
+        .clone();
+    dev.toggle_feedback();
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .update_device(dev);
+}
+
+fn remove_osc_device(dev_id: OscDeviceId) {
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .remove_device_by_id(dev_id);
 }
 
 #[derive(Debug)]
