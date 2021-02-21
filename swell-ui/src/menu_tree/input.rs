@@ -202,7 +202,7 @@ mod tests {
         // When
         devs_menu.index(50);
         // Then
-        let edit_item = devs_menu.find_item_by_id(53).unwrap();
+        let edit_item = devs_menu.find_item_by_id(52).unwrap();
         assert_eq!(edit_item.text.as_str(), "Edit...");
         edit_item.invoke_handler();
         assert_eq!(*a.borrow(), "dev-1-edit");
