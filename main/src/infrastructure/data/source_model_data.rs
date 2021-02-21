@@ -2,7 +2,7 @@ use super::none_if_minus_one;
 use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
 use crate::core::default_util::is_default;
 use crate::core::notification;
-use helgoboss_learn::{MidiClockTransportMessage, SourceCharacter};
+use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -14,6 +14,7 @@ use std::convert::TryInto;
 pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub category: SourceCategory,
+    // MIDI
     // midi_type would be a better name but we need backwards compatibility
     #[serde(default, skip_serializing_if = "is_default")]
     pub r#type: MidiSourceType,
@@ -37,6 +38,16 @@ pub struct SourceModelData {
     pub is_14_bit: Option<bool>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub message: MidiClockTransportMessage,
+    // OSC
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_address_pattern: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_type: OscTypeTag,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_is_relative: bool,
+    // Virtual
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -58,6 +69,10 @@ impl SourceModelData {
             is_registered: model.is_registered.get(),
             is_14_bit: model.is_14_bit.get(),
             message: model.midi_clock_transport_message.get(),
+            osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
+            osc_arg_index: model.osc_arg_index.get(),
+            osc_arg_type: model.osc_arg_type_tag.get(),
+            osc_arg_is_relative: model.osc_arg_is_relative.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
         }
@@ -95,6 +110,18 @@ impl SourceModelData {
         model
             .midi_clock_transport_message
             .set_without_notification(self.message);
+        model
+            .osc_address_pattern
+            .set_without_notification(self.osc_address_pattern.clone());
+        model
+            .osc_arg_index
+            .set_without_notification(self.osc_arg_index);
+        model
+            .osc_arg_type_tag
+            .set_without_notification(self.osc_arg_type);
+        model
+            .osc_arg_is_relative
+            .set_without_notification(self.osc_arg_is_relative);
         model
             .control_element_type
             .set_without_notification(self.control_element_type);
@@ -136,6 +163,10 @@ mod tests {
                 is_registered: None,
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
+                osc_address_pattern: "".to_owned(),
+                osc_arg_index: None,
+                osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -168,6 +199,10 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
+                osc_address_pattern: "".to_owned(),
+                osc_arg_index: None,
+                osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -186,6 +221,10 @@ mod tests {
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
+            osc_address_pattern: "".to_owned(),
+            osc_arg_index: None,
+            osc_arg_type: Default::default(),
+            osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
@@ -221,6 +260,10 @@ mod tests {
             is_registered: None,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
+            osc_address_pattern: "".to_owned(),
+            osc_arg_index: None,
+            osc_arg_type: Default::default(),
+            osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
@@ -266,6 +309,10 @@ mod tests {
                 is_registered: Some(false),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
+                osc_address_pattern: "".to_owned(),
+                osc_arg_index: Some(0),
+                osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -302,6 +349,10 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Continue,
+                osc_address_pattern: "".to_owned(),
+                osc_arg_index: Some(0),
+                osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }

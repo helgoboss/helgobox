@@ -1,7 +1,7 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSourceValue, ControlMainTask, ControlOptions,
+    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
-    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping,
+    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping, RealTimeSourceValue,
     UnresolvedCompoundMappingTarget, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
@@ -25,13 +25,6 @@ use vst::plugin::HostCallback;
 
 const NORMAL_BULK_SIZE: usize = 100;
 const FEEDBACK_BULK_SIZE: usize = 100;
-
-#[derive(PartialEq, Debug)]
-pub(crate) enum ControlMode {
-    Disabled,
-    Controlling,
-    LearningSource { allow_virtual_sources: bool },
-}
 
 #[derive(Debug)]
 pub struct RealTimeProcessor {
@@ -208,6 +201,7 @@ impl RealTimeProcessor {
                     debug!(self.logger, "Start learning source");
                     self.control_mode = ControlMode::LearningSource {
                         allow_virtual_sources,
+                        osc_arg_index_hint: None,
                     };
                     self.midi_source_scanner.reset();
                 }
@@ -274,6 +268,7 @@ impl RealTimeProcessor {
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
+                ..
             } => {
                 // Poll source scanner if we are learning a source currently (local learning)
                 if let Some((source, _)) = self.midi_source_scanner.poll() {
@@ -321,7 +316,7 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(source_value) => {
-                    use CompoundMappingSourceValue::*;
+                    use RealTimeSourceValue::*;
                     match source_value {
                         Midi(v) => self.feedback_midi(v, caller),
                         Virtual(v) => self.feedback_virtual(v, caller),
@@ -432,6 +427,7 @@ impl RealTimeProcessor {
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
+                ..
             } => {
                 if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
                     self.learn_source(source, allow_virtual_sources);
@@ -465,7 +461,7 @@ impl RealTimeProcessor {
         // unregistered synchronously.
         let _ = self
             .normal_main_task_sender
-            .send(NormalMainTask::LearnSource {
+            .send(NormalMainTask::LearnMidiSource {
                 source,
                 allow_virtual_sources,
             });
@@ -515,10 +511,11 @@ impl RealTimeProcessor {
 
     /// Returns whether this source value matched one of the mappings.
     fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
+        // We do pattern matching in order to use Rust's borrow splitting.
         let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
             self.mappings.as_mut_slice()
         {
-            control_midi_virtual_and_reaper_targets(
+            control_controller_mappings_midi(
                 &self.control_main_task_sender,
                 controller_mappings,
                 main_mappings,
@@ -527,35 +524,35 @@ impl RealTimeProcessor {
         } else {
             unreachable!()
         };
-        let matched_main =
-            self.control_midi_reaper_targets(MappingCompartment::MainMappings, value);
+        let matched_main = self.control_main_mappings_midi(value);
         matched_main || matched_controller
     }
 
-    fn control_midi_reaper_targets(
+    fn control_main_mappings_midi(
         &mut self,
-        compartment: MappingCompartment,
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> bool {
+        let compartment = MappingCompartment::MainMappings;
         let mut matched = false;
         for m in self.mappings[compartment]
             .values_mut()
+            // The UI prevents creating main mappings with virtual targets but a JSON import
+            // doesn't. Check again that it's a REAPER target.
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
-            if let Some(control_value) = m
-                .source()
-                .control(&CompoundMappingSourceValue::Midi(source_value))
-            {
-                control_main(
-                    &self.control_main_task_sender,
-                    compartment,
-                    m.id(),
-                    control_value,
-                    ControlOptions {
-                        enforce_send_feedback_after_control: false,
-                    },
-                );
-                matched = true;
+            if let CompoundMappingSource::Midi(s) = &m.source() {
+                if let Some(control_value) = s.control(&source_value) {
+                    forward_control_to_main_processor(
+                        &self.control_main_task_sender,
+                        compartment,
+                        m.id(),
+                        control_value,
+                        ControlOptions {
+                            enforce_send_feedback_after_control: false,
+                        },
+                    );
+                    matched = true;
+                }
             }
         }
         matched
@@ -619,10 +616,9 @@ impl RealTimeProcessor {
                 .values()
                 .filter(|m| m.feedback_is_effectively_on())
             {
-                // TODO-low Mmh, very nested
                 if let Some(UnresolvedCompoundMappingTarget::Virtual(t)) = m.target() {
                     if t.control_element() == value.control_element() {
-                        if let Some(midi_value) = m.feedback(v) {
+                        if let Some(midi_value) = m.feedback_to_midi(v) {
                             self.feedback_midi(midi_value, caller);
                         }
                     }
@@ -746,7 +742,7 @@ impl MappingActivationUpdate {
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(CompoundMappingSourceValue),
+    Feedback(RealTimeSourceValue),
 }
 
 impl Drop for RealTimeProcessor {
@@ -773,25 +769,25 @@ pub enum MidiFeedbackOutput {
     Device(MidiOutputDevice),
 }
 
-fn control_midi_virtual_and_reaper_targets(
+fn control_controller_mappings_midi(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    // Controller mappings
-    mappings_with_virtual_targets: &mut HashMap<MappingId, RealTimeMapping>,
-    // Main mappings
-    mappings_with_virtual_sources: &HashMap<MappingId, RealTimeMapping>,
+    // Mappings with virtual targets
+    controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    // Mappings with virtual sources
+    main_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: MidiSourceValue<RawShortMessage>,
 ) -> bool {
     let mut matched = false;
-    for m in mappings_with_virtual_targets
+    for m in controller_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_match) = m.control(value) {
+        if let Some(control_match) = m.control_midi_virtualizing(value) {
             use PartialControlMatch::*;
             let mapping_matched = match control_match {
-                ProcessVirtual(virtual_source_value) => control_virtual(
+                ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
                     sender,
-                    mappings_with_virtual_sources,
+                    main_mappings,
                     virtual_source_value,
                     ControlOptions {
                         // We inherit "Send feedback after control" to the main processor if it's
@@ -805,8 +801,8 @@ fn control_midi_virtual_and_reaper_targets(
                             .send_feedback_after_control,
                     },
                 ),
-                ForwardToMain(control_value) => {
-                    control_main(
+                ProcessDirect(control_value) => {
+                    forward_control_to_main_processor(
                         sender,
                         MappingCompartment::ControllerMappings,
                         m.id(),
@@ -826,7 +822,7 @@ fn control_midi_virtual_and_reaper_targets(
     matched
 }
 
-fn control_main(
+fn forward_control_to_main_processor(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     compartment: MappingCompartment,
     mapping_id: MappingId,
@@ -845,7 +841,7 @@ fn control_main(
 }
 
 /// Returns whether this source value matched one of the mappings.
-fn control_virtual(
+fn control_main_mappings_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     main_mappings: &HashMap<MappingId, RealTimeMapping>,
     value: VirtualSourceValue,
@@ -858,18 +854,17 @@ fn control_virtual(
         .values()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_value) = m
-            .source()
-            .control(&CompoundMappingSourceValue::Virtual(value))
-        {
-            control_main(
-                sender,
-                MappingCompartment::MainMappings,
-                m.id(),
-                control_value,
-                options,
-            );
-            matched = true;
+        if let CompoundMappingSource::Virtual(s) = &m.source() {
+            if let Some(control_value) = s.control(&value) {
+                forward_control_to_main_processor(
+                    sender,
+                    MappingCompartment::MainMappings,
+                    m.id(),
+                    control_value,
+                    options,
+                );
+                matched = true;
+            }
         }
     }
     matched

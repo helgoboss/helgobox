@@ -7,11 +7,13 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSource, MidiSourceValue, SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, SourceCharacter, Target,
+    UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
@@ -50,6 +52,8 @@ impl Display for MappingId {
 
 const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 
+// TODO-low The name is confusing. It should be MainThreadMapping or something because
+//  this can also be a controller mapping (a mapping in the controller compartment).
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
@@ -88,6 +92,10 @@ impl MainMapping {
 
     pub fn id(&self) -> MappingId {
         self.core.id
+    }
+
+    pub fn options(&self) -> &ProcessorMappingOptions {
+        &self.core.options
     }
 
     pub fn splinter_real_time_mapping(&self) -> RealTimeMapping {
@@ -213,7 +221,7 @@ impl MainMapping {
         &mut self,
         value: ControlValue,
         options: ControlOptions,
-    ) -> Option<CompoundMappingSourceValue> {
+    ) -> Option<SourceValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
@@ -246,7 +254,7 @@ impl MainMapping {
         }
     }
 
-    pub fn feedback_if_enabled(&self) -> Option<CompoundMappingSourceValue> {
+    pub fn feedback_if_enabled(&self) -> Option<SourceValue> {
         if !self.feedback_is_effectively_on() {
             return None;
         }
@@ -264,10 +272,16 @@ impl MainMapping {
         self.core.source.feedback(modified_value)
     }
 
-    fn feedback_after_control_if_enabled(
-        &self,
-        options: ControlOptions,
-    ) -> Option<CompoundMappingSourceValue> {
+    pub fn feedback_to_osc(&self, feedback_value: UnitValue) -> Option<OscMessage> {
+        let modified_value = self.core.feedback(feedback_value)?;
+        if let Some(SourceValue::Osc(msg)) = self.core.source.feedback(modified_value) {
+            Some(msg)
+        } else {
+            None
+        }
+    }
+
+    fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<SourceValue> {
         if self.core.options.send_feedback_after_control
             || options.enforce_send_feedback_after_control
         {
@@ -275,6 +289,16 @@ impl MainMapping {
         } else {
             None
         }
+    }
+
+    pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
+        self.core.target.as_ref()?;
+        let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
+            s.control(msg)?
+        } else {
+            return None;
+        };
+        match_partially(&mut self.core, control_value)
     }
 }
 
@@ -332,49 +356,25 @@ impl RealTimeMapping {
         &self.core.options
     }
 
-    pub fn control(
+    pub fn control_midi_virtualizing(
         &mut self,
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
-        let target = self.core.target.as_ref()?;
-        let control_value = self
-            .core
-            .source
-            .control(&CompoundMappingSourceValue::Midi(source_value))?;
-        use CompoundMappingTarget::*;
-        let result = match target {
-            Reaper(_) => {
-                // Send to main processor because this needs to be done in main thread.
-                PartialControlMatch::ForwardToMain(control_value)
-            }
-            Virtual(t) => {
-                // Determine resulting virtual control value in real-time processor.
-                // It's important to do that here. We need to know the result in order to
-                // return if there was actually a match of *real* non-virtual mappings.
-                // Unlike with REAPER targets, we also don't have threading issues here :)
-                let transformed_control_value = self.core.mode.control(control_value, t)?;
-                if self.core.options.prevent_echo_feedback {
-                    self.core.time_of_last_control = Some(Instant::now());
-                }
-                PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
-                    t.control_element(),
-                    transformed_control_value,
-                ))
-            }
+        self.core.target.as_ref()?;
+        let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
+            s.control(&source_value)?
+        } else {
+            return None;
         };
-        Some(result)
+        match_partially(&mut self.core, control_value)
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<MidiSourceValue<RawShortMessage>> {
-        if let Some(t) = self.core.time_of_last_control {
-            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
-                return None;
-            }
-        }
-        let modified_value = self.core.mode.feedback(feedback_value)?;
-        if let Some(CompoundMappingSourceValue::Midi(midi_value)) =
-            self.core.source.feedback(modified_value)
-        {
+    pub fn feedback_to_midi(
+        &self,
+        feedback_value: UnitValue,
+    ) -> Option<MidiSourceValue<RawShortMessage>> {
+        let modified_value = self.core.feedback(feedback_value)?;
+        if let Some(SourceValue::Midi(midi_value)) = self.core.source.feedback(modified_value) {
             Some(midi_value)
         } else {
             None
@@ -384,7 +384,7 @@ impl RealTimeMapping {
 
 pub enum PartialControlMatch {
     ProcessVirtual(VirtualSourceValue),
-    ForwardToMain(ControlValue),
+    ProcessDirect(ControlValue),
 }
 
 #[derive(Clone, Debug)]
@@ -399,27 +399,31 @@ pub struct MappingCore {
     time_of_last_control: Option<Instant>,
 }
 
+impl MappingCore {
+    fn feedback(&self, feedback_value: UnitValue) -> Option<UnitValue> {
+        if let Some(t) = self.time_of_last_control {
+            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
+                return None;
+            }
+        }
+        self.mode.feedback(feedback_value)
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum CompoundMappingSource {
     Midi(MidiSource),
+    Osc(OscSource),
     Virtual(VirtualSource),
 }
 
 impl CompoundMappingSource {
-    pub fn control(&self, value: &CompoundMappingSourceValue) -> Option<ControlValue> {
-        use CompoundMappingSource::*;
-        match (self, value) {
-            (Midi(s), CompoundMappingSourceValue::Midi(v)) => s.control(v),
-            (Virtual(s), CompoundMappingSourceValue::Virtual(v)) => s.control(v),
-            _ => None,
-        }
-    }
-
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
+            Osc(s) => s.format_control_value(value),
         }
     }
 
@@ -428,6 +432,7 @@ impl CompoundMappingSource {
         match self {
             Midi(s) => s.parse_control_value(text),
             Virtual(s) => s.parse_control_value(text),
+            Osc(s) => s.parse_control_value(text),
         }
     }
 
@@ -436,18 +441,16 @@ impl CompoundMappingSource {
         match self {
             Midi(s) => ExtendedSourceCharacter::Normal(s.character()),
             Virtual(s) => s.character(),
+            Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<CompoundMappingSourceValue> {
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<SourceValue> {
         use CompoundMappingSource::*;
         match self {
-            Midi(s) => s
-                .feedback(feedback_value)
-                .map(CompoundMappingSourceValue::Midi),
-            Virtual(s) => Some(CompoundMappingSourceValue::Virtual(
-                s.feedback(feedback_value),
-            )),
+            Midi(s) => s.feedback(feedback_value).map(SourceValue::Midi),
+            Virtual(s) => Some(SourceValue::Virtual(s.feedback(feedback_value))),
+            Osc(s) => s.feedback(feedback_value).map(SourceValue::Osc),
         }
     }
 
@@ -455,15 +458,22 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Virtual(_) => false,
+            Virtual(_) | Osc(_) => false,
         }
     }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum CompoundMappingSourceValue {
+pub enum RealTimeSourceValue {
     Midi(MidiSourceValue<RawShortMessage>),
     Virtual(VirtualSourceValue),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum SourceValue {
+    Midi(MidiSourceValue<RawShortMessage>),
+    Virtual(VirtualSourceValue),
+    Osc(OscMessage),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -659,4 +669,42 @@ pub enum MappingCompartment {
 pub enum ExtendedSourceCharacter {
     Normal(SourceCharacter),
     VirtualContinuous,
+}
+
+fn match_partially(
+    core: &mut MappingCore,
+    control_value: ControlValue,
+) -> Option<PartialControlMatch> {
+    use CompoundMappingTarget::*;
+    let result = match core.target.as_ref()? {
+        Reaper(_) => {
+            // Send to main processor because this needs to be done in main thread.
+            PartialControlMatch::ProcessDirect(control_value)
+        }
+        Virtual(t) => {
+            // Determine resulting virtual control value in real-time processor.
+            // It's important to do that here. We need to know the result in order to
+            // return if there was actually a match of *real* non-virtual mappings.
+            // Unlike with REAPER targets, we also don't have threading issues here :)
+            let transformed_control_value = core.mode.control(control_value, t)?;
+            if core.options.prevent_echo_feedback {
+                core.time_of_last_control = Some(Instant::now());
+            }
+            PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
+                t.control_element(),
+                transformed_control_value,
+            ))
+        }
+    };
+    Some(result)
+}
+
+#[derive(PartialEq, Debug)]
+pub(crate) enum ControlMode {
+    Disabled,
+    Controlling,
+    LearningSource {
+        allow_virtual_sources: bool,
+        osc_arg_index_hint: Option<u32>,
+    },
 }

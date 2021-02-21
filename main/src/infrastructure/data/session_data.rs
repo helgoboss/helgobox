@@ -1,7 +1,7 @@
 use crate::application::{MainPresetAutoLoadMode, ParameterSetting, Session};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    MappingCompartment, MidiControlInput, MidiFeedbackOutput, ParameterArray,
+    MappingCompartment, MidiControlInput, MidiFeedbackOutput, OscDeviceId, ParameterArray,
     PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
@@ -9,6 +9,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
+
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -43,12 +44,12 @@ pub struct SessionData {
     send_feedback_only_if_armed: bool,
     /// `None` means "<FX input>"
     #[serde(default, skip_serializing_if = "is_default")]
-    control_device_id: Option<String>,
+    control_device_id: Option<ControlDeviceId>,
     ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
     #[serde(default, skip_serializing_if = "is_default")]
-    feedback_device_id: Option<String>,
+    feedback_device_id: Option<FeedbackDeviceId>,
     // Not set before 1.12.0-pre9
     #[serde(default, skip_serializing_if = "is_default")]
     default_group: Option<GroupModelData>,
@@ -66,6 +67,20 @@ pub struct SessionData {
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
     #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum ControlDeviceId {
+    Osc(OscDeviceId),
+    Midi(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum FeedbackDeviceId {
+    Osc(OscDeviceId),
+    MidiOrFxOutput(String),
 }
 
 impl Default for SessionData {
@@ -111,18 +126,22 @@ impl SessionData {
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             always_auto_detect_mode: session.auto_correct_settings.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
-            control_device_id: {
+            control_device_id: if let Some(osc_dev_id) = session.osc_input_device_id.get() {
+                Some(ControlDeviceId::Osc(osc_dev_id))
+            } else {
                 use MidiControlInput::*;
                 match session.midi_control_input.get() {
                     FxInput => None,
-                    Device(dev) => Some(dev.id().to_string()),
+                    Device(dev) => Some(ControlDeviceId::Midi(dev.id().to_string())),
                 }
             },
-            feedback_device_id: {
+            feedback_device_id: if let Some(osc_dev_id) = session.osc_output_device_id.get() {
+                Some(FeedbackDeviceId::Osc(osc_dev_id))
+            } else {
                 use MidiFeedbackOutput::*;
                 session.midi_feedback_output.get().map(|o| match o {
-                    Device(dev) => dev.id().to_string(),
-                    FxOutput => "fx-output".to_string(),
+                    Device(dev) => FeedbackDeviceId::MidiOrFxOutput(dev.id().to_string()),
+                    FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
                 })
             },
             default_group: Some(GroupModelData::from_model(
@@ -163,29 +182,48 @@ impl SessionData {
     /// Returns and error if this session data is invalid.
     pub fn apply_to_model(&self, session: &mut Session) -> Result<(), &'static str> {
         // Validation
-        let control_input = match self.control_device_id.as_ref() {
-            None => MidiControlInput::FxInput,
-            Some(dev_id_string) => {
-                let raw_dev_id: u8 = dev_id_string
-                    .parse()
-                    .map_err(|_| "MIDI input device ID must be a number")?;
-                let dev_id: MidiInputDeviceId = raw_dev_id
-                    .try_into()
-                    .map_err(|_| "invalid MIDI input device ID")?;
-                MidiControlInput::Device(MidiInputDevice::new(dev_id))
+        let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
+            None => (MidiControlInput::FxInput, None),
+            Some(dev_id) => {
+                use ControlDeviceId::*;
+                match dev_id {
+                    Midi(midi_dev_id_string) => {
+                        let raw_midi_dev_id = midi_dev_id_string
+                            .parse::<u8>()
+                            .map_err(|_| "invalid MIDI input device ID")?;
+                        let midi_dev_id: MidiInputDeviceId = raw_midi_dev_id
+                            .try_into()
+                            .map_err(|_| "MIDI input device ID out of range")?;
+                        (
+                            MidiControlInput::Device(MidiInputDevice::new(midi_dev_id)),
+                            None,
+                        )
+                    }
+                    Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(*osc_dev_id)),
+                }
             }
         };
-        let feedback_output = match self.feedback_device_id.as_ref() {
-            None => None,
-            Some(id) => {
-                if id == "fx-output" {
-                    Some(MidiFeedbackOutput::FxOutput)
-                } else {
-                    let raw_dev_id: u8 = id
-                        .parse()
-                        .map_err(|_| "MIDI output device ID must be a number")?;
-                    let dev_id = MidiOutputDeviceId::new(raw_dev_id);
-                    Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(dev_id)))
+        let (midi_feedback_output, osc_feedback_output) = match self.feedback_device_id.as_ref() {
+            None => (None, None),
+            Some(dev_id) => {
+                use FeedbackDeviceId::*;
+                match dev_id {
+                    MidiOrFxOutput(s) if s == "fx-output" => {
+                        (Some(MidiFeedbackOutput::FxOutput), None)
+                    }
+                    MidiOrFxOutput(midi_dev_id_string) => {
+                        let midi_dev_id = midi_dev_id_string
+                            .parse::<u8>()
+                            .map(MidiOutputDeviceId::new)
+                            .map_err(|_| "invalid MIDI output device ID")?;
+                        (
+                            Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(
+                                midi_dev_id,
+                            ))),
+                            None,
+                        )
+                    }
+                    Osc(osc_dev_id) => (None, Some(*osc_dev_id)),
                 }
             }
         };
@@ -208,10 +246,16 @@ impl SessionData {
             .set_without_notification(self.send_feedback_only_if_armed);
         session
             .midi_control_input
-            .set_without_notification(control_input);
+            .set_without_notification(midi_control_input);
+        session
+            .osc_input_device_id
+            .set_without_notification(osc_control_input);
         session
             .midi_feedback_output
-            .set_without_notification(feedback_output);
+            .set_without_notification(midi_feedback_output);
+        session
+            .osc_output_device_id
+            .set_without_notification(osc_feedback_output);
         // Groups
         let final_default_group = self
             .default_group

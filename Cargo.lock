@@ -630,8 +630,18 @@ version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d706e75d87e35569db781a9b5e2416cff1236a47ed380831f959382ccd5f858"
 dependencies = [
- "darling_core",
- "darling_macro",
+ "darling_core 0.10.2",
+ "darling_macro 0.10.2",
+]
+
+[[package]]
+name = "darling"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11947000d710ff98138229f633039982f0fef2d9a3f546c21d610fee5f8631d5"
+dependencies = [
+ "darling_core 0.12.0",
+ "darling_macro 0.12.0",
 ]
 
 [[package]]
@@ -649,12 +659,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "darling_core"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae53b4d9cc89c40314ccf2bf9e6ff1eb19c31e3434542445a41893dbf041aec2"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "strsim 0.10.0",
+ "syn 1.0.44",
+]
+
+[[package]]
 name = "darling_macro"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b5a2f4ac4969822c62224815d069952656cadc7084fdca9751e6d959189b72"
 dependencies = [
- "darling_core",
+ "darling_core 0.10.2",
+ "quote 1.0.7",
+ "syn 1.0.44",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9cd9ac4d50d023af5e710cae1501afb063efcd917bd3fc026e8ed6493cc9755"
+dependencies = [
+ "darling_core 0.12.0",
  "quote 1.0.7",
  "syn 1.0.44",
 ]
@@ -1285,14 +1320,16 @@ dependencies = [
  "lazycell",
  "num",
  "num_enum 0.5.1",
+ "rosc",
  "serde",
  "serde_repr",
 ]
 
 [[package]]
 name = "helgoboss-midi"
-version = "0.1.2"
-source = "git+https://github.com/helgoboss/helgoboss-midi.git?branch=feature/5-polling-nrpn-scanner#cdbbf84e81b0c078f6b8144d53638a665fb160ee"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9734da3480ff1ccef68a089fb6555e342f1193a40f95581097bd945b0aef315a"
 dependencies = [
  "core-error",
  "derive_more",
@@ -2495,7 +2532,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "askama",
  "async-channel",
@@ -2534,6 +2571,7 @@ dependencies = [
  "reaper-medium",
  "reaper-rx",
  "regex",
+ "rosc",
  "runas",
  "rx-util",
  "rxrust",
@@ -2545,6 +2583,7 @@ dependencies = [
  "serde_json",
  "serde_prometheus",
  "serde_repr",
+ "serde_with",
  "slog",
  "slog-stdlog",
  "slug",
@@ -2566,7 +2605,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#5e5c95aec182a937aeb8f959ec5dc8d0bd5e7edb"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2590,7 +2629,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#5e5c95aec182a937aeb8f959ec5dc8d0bd5e7edb"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2603,9 +2642,9 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#5e5c95aec182a937aeb8f959ec5dc8d0bd5e7edb"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
- "darling",
+ "darling 0.10.2",
  "quote 1.0.7",
  "syn 1.0.44",
 ]
@@ -2613,7 +2652,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#5e5c95aec182a937aeb8f959ec5dc8d0bd5e7edb"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -2628,7 +2667,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#5e5c95aec182a937aeb8f959ec5dc8d0bd5e7edb"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "crossbeam-channel 0.4.4",
  "helgoboss-midi",
@@ -2701,6 +2740,15 @@ dependencies = [
  "untrusted",
  "web-sys",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "rosc"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab14890b28b4c78d4c0fda2482bdd32de58b7288ceda713b4deafa7b15852bf0"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -2910,6 +2958,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_with"
+version = "1.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b44be9227e214a0420707c9ca74c2d4991d9955bae9415a8f93f05cebf561be5"
+dependencies = [
+ "serde",
+ "serde_with_macros",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48b35457e9d855d3dc05ef32a73e0df1e2c0fd72c38796a4ee909160c8eeec2"
+dependencies = [
+ "darling 0.12.0",
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "syn 1.0.44",
+]
+
+[[package]]
 name = "serde_yaml"
 version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3078,6 +3148,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
+name = "strsim"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
 name = "swell-ui"
 version = "0.1.0"
 dependencies = [
@@ -3235,6 +3311,18 @@ dependencies = [
  "num_cpus",
  "pin-project-lite",
  "slab",
+ "tokio-macros",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e44da00bfc73a25f814cd8d7e57a68a5c31b74b3152a0a1d1f590c97ed06265a"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "syn 1.0.44",
 ]
 
 [[package]]
@@ -3523,8 +3611,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vst"
-version = "0.2.0"
-source = "git+https://github.com/helgoboss/vst-rs?branch=feature/custom-support-variant#8cb5571c919b5766aa936d469625f57ff755aece"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dfeaf21be445e1d9edf37bdedbf7ec24b43ed84ace6295cba3e0d01c1a49a27"
 dependencies = [
  "bitflags",
  "libc",

@@ -1,12 +1,22 @@
 use crate::core::Global;
-use crate::domain::{DomainEventHandler, DomainGlobal, MainProcessor, ReaperTarget};
+use crate::domain::{
+    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, ReaperTarget,
+};
 use crossbeam_channel::Receiver;
+use helgoboss_learn::OscSource;
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
     MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
+use rosc::{OscMessage, OscPacket};
+
+use smallvec::SmallVec;
 use std::collections::HashMap;
+
+type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
+
+const OSC_BULK_SIZE: usize = 32;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -22,19 +32,24 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     counter: u64,
     metrics_enabled: bool,
     state: State,
+    osc_input_devices: Vec<OscInputDevice>,
 }
 
 #[derive(Debug)]
 enum State {
     Normal,
+    LearningSource(LearnSourceSender),
     LearningTarget(async_channel::Sender<ReaperTarget>),
 }
 
 pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
+    // Removing a main processor is done synchronously by temporarily regaining ownership of the
+    // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
     LogDebugInfo,
     StartLearningTargets(async_channel::Sender<ReaperTarget>),
-    StopLearningTargets,
+    StartLearningSources(LearnSourceSender),
+    StopLearning,
 }
 
 pub enum RealearnControlSurfaceServerTask {
@@ -63,18 +78,27 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 Global::get().task_receiver(),
             ),
             future_middleware: FutureMiddleware::new(
-                logger,
+                logger.clone(),
                 Global::get().executor(),
                 Global::get().local_executor(),
             ),
             counter: 0,
             metrics_enabled,
             state: State::Normal,
+            osc_input_devices: vec![],
         }
     }
 
     pub fn remove_main_processor(&mut self, id: &str) {
         self.main_processors.retain(|p| p.instance_id() != id);
+    }
+
+    pub fn set_osc_input_devices(&mut self, devs: Vec<OscInputDevice>) {
+        self.osc_input_devices = devs;
+    }
+
+    pub fn clear_osc_input_devices(&mut self) {
+        self.osc_input_devices.clear();
     }
 
     pub fn reset(&self) {
@@ -84,6 +108,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // We don't want to execute tasks which accumulated during the "downtime" of Reaper.
         // So we just consume all without executing them.
         self.main_task_middleware.reset();
+        self.future_middleware.reset();
     }
 
     fn run_internal(&mut self) {
@@ -102,8 +127,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 StartLearningTargets(sender) => {
                     self.state = State::LearningTarget(sender);
                 }
-                StopLearningTargets => {
+                StopLearning => {
                     self.state = State::Normal;
+                }
+                StartLearningSources(sender) => {
+                    self.state = State::LearningSource(sender);
                 }
             }
         }
@@ -121,13 +149,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
+        self.process_osc();
         match &self.state {
             State::Normal => {
                 for p in &mut self.main_processors {
                     p.run_all();
                 }
             }
-            State::LearningTarget(_) => {
+            State::LearningSource(_) | State::LearningTarget(_) => {
                 for p in &mut self.main_processors {
                     p.run_essential();
                 }
@@ -144,7 +173,37 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    fn process_osc(&mut self) {
+        pub type PacketVec = SmallVec<[OscPacket; OSC_BULK_SIZE]>;
+        let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); 32]> = self
+            .osc_input_devices
+            .iter_mut()
+            .map(|dev| (*dev.id(), dev.poll_multiple(OSC_BULK_SIZE).collect()))
+            .collect();
+        for (dev_id, packets) in packets_by_device {
+            match &self.state {
+                State::Normal => {
+                    for proc in &mut self.main_processors {
+                        if proc.receives_osc_from(&dev_id) {
+                            for packet in &packets {
+                                proc.process_incoming_osc_packet(packet);
+                            }
+                        }
+                    }
+                }
+                State::LearningSource(sender) => {
+                    for packet in packets {
+                        process_incoming_osc_packet_for_learning(dev_id, sender, packet)
+                    }
+                }
+                State::LearningTarget(_) => {}
+            }
+        }
+    }
+
     fn handle_event_internal(&self, event: ControlSurfaceEvent) {
+        // We always need to forward to the change detection middleware even if we are in
+        // a mode in which the detected change event doesn't matter!
         self.change_detection_middleware.process(event, |e| {
             match &self.state {
                 State::Normal => {
@@ -163,6 +222,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         let _ = sender.try_send(target);
                     }
                 }
+                State::LearningSource(_) => {}
             }
         });
     }
@@ -190,4 +250,28 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
             self.handle_event_internal(event);
         }
     }
+}
+
+fn process_incoming_osc_packet_for_learning(
+    dev_id: OscDeviceId,
+    sender: &LearnSourceSender,
+    packet: OscPacket,
+) {
+    match packet {
+        OscPacket::Message(msg) => process_incoming_osc_message_for_learning(dev_id, sender, msg),
+        OscPacket::Bundle(bundle) => {
+            for p in bundle.content.into_iter() {
+                process_incoming_osc_packet_for_learning(dev_id, sender, p);
+            }
+        }
+    }
+}
+
+fn process_incoming_osc_message_for_learning(
+    dev_id: OscDeviceId,
+    sender: &LearnSourceSender,
+    msg: OscMessage,
+) {
+    let source = OscSource::from_source_value(msg, Some(0));
+    let _ = sender.try_send((dev_id, source));
 }

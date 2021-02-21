@@ -1,19 +1,8 @@
-use helgoboss_learn::UnitValue;
+use helgoboss_learn::{format_percentage_without_unit, parse_percentage_without_unit, UnitValue};
 use std::convert::TryInto;
 
 pub fn format_as_percentage_without_unit(value: UnitValue) -> String {
     format_percentage_without_unit(value.get())
-}
-
-fn format_percentage_without_unit(value: f64) -> String {
-    let percentage = value * 100.0;
-    if (percentage - percentage.round()).abs() < 0.001 {
-        // No fraction. Omit zeros after dot.
-        format!("{:.0}", percentage)
-    } else {
-        // Has fraction. We want to display these.
-        format!("{:.2}", percentage)
-    }
 }
 
 pub fn format_as_symmetric_percentage_without_unit(value: UnitValue) -> String {
@@ -26,9 +15,8 @@ pub fn format_as_double_percentage_without_unit(value: UnitValue) -> String {
     format_percentage_without_unit(double_unit_value)
 }
 
-pub fn parse_from_percentage(text: &str) -> Result<UnitValue, &'static str> {
-    let percentage: f64 = text.parse().map_err(|_| "not a valid decimal value")?;
-    (percentage / 100.0).try_into()
+pub fn parse_unit_value_from_percentage(text: &str) -> Result<UnitValue, &'static str> {
+    parse_percentage_without_unit(text)?.try_into()
 }
 
 pub fn parse_from_symmetric_percentage(text: &str) -> Result<UnitValue, &'static str> {

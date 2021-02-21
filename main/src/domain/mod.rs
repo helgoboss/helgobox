@@ -59,3 +59,6 @@ pub use realearn_target_context::*;
 
 mod domain_global;
 pub use domain_global::*;
+
+mod osc;
+pub use osc::*;

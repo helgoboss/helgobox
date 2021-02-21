@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.2.0"
+version = "2.3.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -16,21 +16,21 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
-reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+ reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+ reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+ reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+ reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 #reaper-rx = { path = "../../reaper-rs/main/rx" }
 #reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
 #reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
 #reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
-helgoboss-midi = { version = "0.1.2", features = ["serde", "serde_repr"] }
+helgoboss-midi = { version = "0.2", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr"] }
 c_str_macro = "1.0.2"
-vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
+vst = "0.2.1"
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
@@ -60,7 +60,7 @@ slug = "0.1.4"
 nanoid = "0.3.0"
 # For web server (e.g. for projection)
 futures = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "sync"] }
+tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "sync", "macros"] }
 warp = { version = "0.2", features = ["tls"] }
 # For generating projection QR code
 qrcode = { version = "0.11" }
@@ -105,6 +105,10 @@ async-channel = "1.5.1"
 bytesize = "1.0.1"
 # For checking if an FX has loaded a specific chunk
 seahash = "4.1.0"
+# For OSC
+rosc = "0.4.2"
+# For being able to (de)serialize using FromStr
+serde_with = "1.6.4"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

@@ -1,23 +1,25 @@
 use crate::application::{
-    GroupId, Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    GroupId, InputDescriptor, Session, SharedMapping, SharedSession, VirtualControlElementType,
+    WeakSession,
 };
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    DomainGlobal, MainProcessor, MappingCompartment, RealearnAudioHook, RealearnAudioHookTask,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    DomainGlobal, MainProcessor, MappingCompartment, OscDeviceId, RealSource, RealearnAudioHook,
+    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    SharedControllerPresetManager, SharedMainPresetManager, SharedPresetLinkManager,
+    OscDeviceManager, SharedControllerPresetManager, SharedMainPresetManager,
+    SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
-use helgoboss_learn::MidiSource;
-use helgoboss_midi::Channel;
+use helgoboss_learn::{MidiSource, OscSource};
+
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
@@ -50,6 +52,7 @@ pub struct App {
     controller_preset_manager: SharedControllerPresetManager,
     main_preset_manager: SharedMainPresetManager,
     preset_link_manager: SharedPresetLinkManager,
+    osc_device_manager: SharedOscDeviceManager,
     server: SharedRealearnServer,
     config: RefCell<AppConfig>,
     changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -179,6 +182,9 @@ impl App {
             preset_link_manager: Rc::new(RefCell::new(FileBasedPresetLinkManager::new(
                 App::realearn_auto_load_configs_dir_path(),
             ))),
+            osc_device_manager: Rc::new(RefCell::new(OscDeviceManager::new(
+                App::realearn_osc_device_config_file_path(),
+            ))),
             server: Rc::new(RefCell::new(RealearnServer::new(
                 config.main.server_http_port,
                 config.main.server_https_port,
@@ -225,6 +231,10 @@ impl App {
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
         let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
+        self.osc_device_manager
+            .borrow()
+            .changed()
+            .subscribe(|_| App::get().reconnect_osc_devices());
         Global::control_surface_rx()
             .fx_focused()
             .take_until(self.party_is_over())
@@ -245,10 +255,38 @@ impl App {
         self.state.replace(AppState::Sleeping(sleeping_state));
     }
 
+    fn reconnect_osc_devices(&self) {
+        // Control devices
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            // Disconnect
+            control_surface.middleware_mut().clear_osc_input_devices();
+            // Reconnect
+            let osc_input_devices = self
+                .osc_device_manager
+                .borrow_mut()
+                .connect_all_enabled_inputs();
+            control_surface
+                .middleware_mut()
+                .set_osc_input_devices(osc_input_devices);
+        });
+        // Feedback devices
+        {
+            // Disconnect
+            let global = DomainGlobal::get();
+            global.clear_osc_output_devices();
+            // Reconnect
+            let osc_output_devices = self
+                .osc_device_manager
+                .borrow_mut()
+                .connect_all_enabled_outputs();
+            global.set_osc_output_devices(osc_output_devices);
+        }
+    }
+
     // Executed whenever the first ReaLearn instance is loaded.
     pub fn wake_up(&self) {
         let prev_state = self.state.replace(AppState::WakingUp);
-        let sleeping_state = if let AppState::Sleeping(s) = prev_state {
+        let mut sleeping_state = if let AppState::Sleeping(s) = prev_state {
             s
         } else {
             panic!("App was not sleeping");
@@ -267,7 +305,7 @@ impl App {
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
-        // Audio hook and control surface
+        // Audio hook
         debug!(
             App::logger(),
             "Registering ReaLearn audio hook and control surface..."
@@ -275,10 +313,26 @@ impl App {
         let audio_hook_handle = session
             .audio_reg_hardware_hook_add(sleeping_state.audio_hook)
             .expect("couldn't register ReaLearn audio hook");
+        // OSC devices
+        let osc_input_devices = self
+            .osc_device_manager
+            .borrow_mut()
+            .connect_all_enabled_inputs();
+        let osc_output_devices = self
+            .osc_device_manager
+            .borrow_mut()
+            .connect_all_enabled_outputs();
+        DomainGlobal::get().set_osc_output_devices(osc_output_devices);
+        // Control surface
+        sleeping_state
+            .control_surface
+            .middleware_mut()
+            .set_osc_input_devices(osc_input_devices);
         sleeping_state.control_surface.middleware().reset();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
+        // Awake state
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle,
@@ -299,7 +353,7 @@ impl App {
             App::logger(),
             "Unregistering ReaLearn control surface and audio hook..."
         );
-        let (control_surface, audio_hook) = unsafe {
+        let (mut control_surface, audio_hook) = unsafe {
             let control_surface = session
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
                 .expect("control surface was not registered");
@@ -308,6 +362,9 @@ impl App {
                 .expect("control surface was not registered");
             (control_surface, audio_hook)
         };
+        // Close OSC connections
+        control_surface.middleware_mut().clear_osc_input_devices();
+        DomainGlobal::get().clear_osc_output_devices();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
@@ -407,6 +464,18 @@ impl App {
     /// real-time processor, whatever cleanup work is necessary, we can do right here because we
     /// are in main thread already.
     fn unregister_main_processor(&self, instance_id: &str) {
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            // Remove main processor.
+            control_surface
+                .middleware_mut()
+                .remove_main_processor(instance_id);
+        });
+    }
+
+    fn temporarily_reclaim_control_surface_ownership(
+        &self,
+        f: impl FnOnce(&mut RealearnControlSurface),
+    ) {
         // Shortly reclaim ownership of the control surface by unregistering it.
         let prev_state = self.state.replace(AppState::Suspended);
         let awake_state = if let AppState::Awake(s) = prev_state {
@@ -420,14 +489,12 @@ impl App {
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
                 .expect("control surface was not registered")
         };
-        // Remove main processor.
-        control_surface
-            .middleware_mut()
-            .remove_main_processor(instance_id);
+        // Execute necessary operations
+        f(&mut control_surface);
         // Give it back to REAPER.
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(control_surface)
-            .expect("couldn't register ReaLearn control surface");
+            .expect("couldn't reregister ReaLearn control surface");
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle: awake_state.audio_hook_handle,
@@ -454,6 +521,10 @@ impl App {
 
     pub fn preset_link_manager(&self) -> SharedPresetLinkManager {
         self.preset_link_manager.clone()
+    }
+
+    pub fn osc_device_manager(&self) -> SharedOscDeviceManager {
+        self.osc_device_manager.clone()
     }
 
     pub fn server(&self) -> &SharedRealearnServer {
@@ -534,6 +605,10 @@ impl App {
 
     pub fn realearn_auto_load_configs_dir_path() -> PathBuf {
         Self::realearn_data_dir_path().join("auto-load-configs")
+    }
+
+    pub fn realearn_osc_device_config_file_path() -> PathBuf {
+        App::realearn_resource_dir_path().join("osc.json")
     }
 
     // We need this to be static because we need it at plugin construction time, so we don't have
@@ -693,15 +768,29 @@ impl App {
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
             App::stop_learning_sources();
         });
-        let receiver = self.request_next_midi_sources();
-        while let Ok((dev_id, midi_source)) = receiver.recv().await {
-            if let Some((session, mapping)) =
-                self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
-            {
-                self.close_message_panel();
-                session
-                    .borrow()
-                    .show_mapping(compartment, mapping.borrow().id());
+        let midi_receiver = self.request_next_midi_sources();
+        let osc_receiver = self.request_next_osc_sources();
+        loop {
+            let next_source = tokio::select! {
+                Ok((dev_id, source)) = midi_receiver.recv() => {
+                    Some(QualifiedRealSource::Midi(dev_id, source))
+                }
+                Ok((dev_id, source)) = osc_receiver.recv() => {
+                    Some(QualifiedRealSource::Osc(dev_id, source))
+                }
+                else => None
+            };
+            if let Some(s) = next_source {
+                if let Some((session, mapping)) =
+                    self.find_first_relevant_session_with_source(compartment, &s)
+                {
+                    self.close_message_panel();
+                    session
+                        .borrow()
+                        .show_mapping(compartment, mapping.borrow().id());
+                }
+            } else {
+                break;
             }
         }
         Ok(())
@@ -741,11 +830,11 @@ impl App {
             );
             return Err("no ReaLearn instance");
         }
-        let (dev_id, midi_source) = self
-            .prompt_for_next_midi_source("Touch a control element!")
+        let real_source = self
+            .prompt_for_next_real_source("Touch a control element!")
             .await?;
         let session = if let Some(s) =
-            self.find_first_relevant_session_with_midi_from(dev_id, midi_source.channel())
+            self.find_first_relevant_session_with_input_from(&real_source)
         {
             s
         } else {
@@ -759,7 +848,7 @@ impl App {
             .await?;
         self.close_message_panel();
         let (session, mapping) = if let Some((session, mapping)) =
-            self.find_first_relevant_session_with_source(compartment, dev_id, &midi_source)
+            self.find_first_relevant_session_with_source(compartment, &real_source)
         {
             // There's already a mapping with that source. Change target of that mapping.
             mapping
@@ -778,7 +867,8 @@ impl App {
                     VirtualControlElementType::Multi,
                 );
                 let mut m = mapping.borrow_mut();
-                let compound_source = s.create_compound_source(midi_source, true);
+                let compound_source =
+                    s.create_compound_source(real_source.into_unqualified_real_source(), true);
                 m.source_model.apply_from_source(&compound_source);
                 m.target_model
                     .apply_from_target(&reaper_target, s.context());
@@ -809,23 +899,34 @@ impl App {
         Ok(())
     }
 
-    async fn prompt_for_next_midi_source(
+    async fn prompt_for_next_real_source(
         &self,
         msg: &str,
-    ) -> Result<(MidiInputDeviceId, MidiSource), &'static str> {
+    ) -> Result<QualifiedRealSource, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
             App::stop_learning_sources();
         });
-        self.request_next_midi_sources()
-            .recv()
-            .await
-            .map_err(|_| "stopped learning")
+        let midi_receiver = self.request_next_midi_sources();
+        let osc_receiver = self.request_next_osc_sources();
+        tokio::select! {
+            Ok((dev_id, source)) = midi_receiver.recv() => {
+                Ok(QualifiedRealSource::Midi(dev_id, source))
+            }
+            Ok((dev_id, source)) = osc_receiver.recv() => {
+                Ok(QualifiedRealSource::Osc(dev_id, source))
+            }
+            else => Err("stopped learning")
+        }
     }
 
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
             .send(RealearnAudioHookTask::StopLearningSources)
+            .unwrap();
+        App::get()
+            .control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::StopLearning)
             .unwrap();
     }
 
@@ -835,6 +936,14 @@ impl App {
         let (sender, receiver) = async_channel::unbounded();
         self.audio_hook_task_sender
             .send(RealearnAudioHookTask::StartLearningSources(sender))
+            .unwrap();
+        receiver
+    }
+
+    fn request_next_osc_sources(&self) -> async_channel::Receiver<(OscDeviceId, OscSource)> {
+        let (sender, receiver) = async_channel::unbounded();
+        self.control_surface_main_task_sender
+            .send(RealearnControlSurfaceMainTask::StartLearningSources(sender))
             .unwrap();
         receiver
     }
@@ -852,7 +961,7 @@ impl App {
     fn stop_learning_targets() {
         App::get()
             .control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::StopLearningTargets)
+            .send(RealearnControlSurfaceMainTask::StopLearning)
             .unwrap();
     }
 
@@ -948,52 +1057,44 @@ impl App {
         })
     }
 
-    fn find_first_relevant_session_with_midi_from(
+    fn find_first_relevant_session_with_input_from(
         &self,
-        device_id: MidiInputDeviceId,
-        channel: Option<Channel>,
+        real_source: &QualifiedRealSource,
     ) -> Option<SharedSession> {
-        self.find_first_session_with_midi_from(
-            Some(Reaper::get().current_project()),
-            device_id,
-            channel,
-        )
-        .or_else(|| self.find_first_session_with_midi_from(None, device_id, channel))
+        self.find_first_session_with_input_from(Some(Reaper::get().current_project()), real_source)
+            .or_else(|| self.find_first_session_with_input_from(None, real_source))
     }
 
-    fn find_first_session_with_midi_from(
+    fn find_first_session_with_input_from(
         &self,
         project: Option<Project>,
-        device_id: MidiInputDeviceId,
-        channel: Option<Channel>,
+        real_source: &QualifiedRealSource,
     ) -> Option<SharedSession> {
+        let input_descriptor = real_source.to_input_descriptor(false);
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == project && session.receives_midi_from(device_id, channel)
+            session.context().project() == project && session.receives_input_from(&input_descriptor)
         })
     }
 
     fn find_first_relevant_session_with_source(
         &self,
         compartment: MappingCompartment,
-        device_id: MidiInputDeviceId,
-        midi_source: &MidiSource,
+        real_source: &QualifiedRealSource,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.find_first_session_with_source(
             Some(Reaper::get().current_project()),
             compartment,
-            device_id,
-            midi_source,
+            real_source,
         )
-        .or_else(|| self.find_first_session_with_source(None, compartment, device_id, midi_source))
+        .or_else(|| self.find_first_session_with_source(None, compartment, real_source))
     }
 
     fn find_first_session_with_source(
         &self,
         project: Option<Project>,
         compartment: MappingCompartment,
-        device_id: MidiInputDeviceId,
-        midi_source: &MidiSource,
+        real_source: &QualifiedRealSource,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.sessions.borrow().iter().find_map(|session| {
             let session = session.upgrade()?;
@@ -1002,10 +1103,12 @@ impl App {
                 if s.context().project() != project {
                     return None;
                 }
-                if !s.receives_midi_from(device_id, None) {
+                let input_descriptor = real_source.to_input_descriptor(true);
+                if !s.receives_input_from(&input_descriptor) {
                     return None;
                 }
-                s.find_mapping_with_source(compartment, midi_source)?
+                let unqualified_real_source = real_source.clone().into_unqualified_real_source();
+                s.find_mapping_with_source(compartment, &unqualified_real_source)?
                     .clone()
             };
             Some((session, mapping))
@@ -1182,4 +1285,33 @@ fn determine_module_base_address() -> Option<usize> {
         .plugin_context()
         .h_instance()?;
     Some(hinstance.as_ptr() as usize)
+}
+
+#[derive(Clone)]
+enum QualifiedRealSource {
+    Midi(MidiInputDeviceId, MidiSource),
+    Osc(OscDeviceId, OscSource),
+}
+
+impl QualifiedRealSource {
+    fn to_input_descriptor(&self, ignore_midi_channel: bool) -> InputDescriptor {
+        match self {
+            QualifiedRealSource::Midi(dev_id, source) => InputDescriptor::Midi {
+                device_id: *dev_id,
+                channel: if ignore_midi_channel {
+                    None
+                } else {
+                    source.channel()
+                },
+            },
+            QualifiedRealSource::Osc(dev_id, _) => InputDescriptor::Osc { device_id: *dev_id },
+        }
+    }
+
+    fn into_unqualified_real_source(self) -> RealSource {
+        match self {
+            QualifiedRealSource::Midi(_, s) => RealSource::Midi(s),
+            QualifiedRealSource::Osc(_, s) => RealSource::Osc(s),
+        }
+    }
 }

@@ -22,20 +22,24 @@ use crate::application::{
     SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, ProcessorContext, ReaperTarget};
+use crate::domain::{MappingCompartment, OscDeviceId, ProcessorContext, ReaperTarget};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
-use crate::infrastructure::data::{ExtendedPresetManager, SessionData};
+use crate::infrastructure::data::{ExtendedPresetManager, OscDevice, SessionData};
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
 };
 
 use crate::infrastructure::ui::bindings::root;
+
 use crate::infrastructure::ui::{
     add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
     SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use std::cell::{Cell, RefCell};
+use std::net::Ipv4Addr;
+
+const OSC_INDEX_OFFSET: isize = 1000;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -184,6 +188,7 @@ impl HeaderPanel {
                     .source_touched(
                         true,
                         active_compartment != MappingCompartment::ControllerMappings,
+                        None,
                     )
                     .take_until(learning.changed_to(false))
                     .take_until(self.view.closed()),
@@ -289,8 +294,8 @@ impl HeaderPanel {
     }
 
     fn invalidate_all_controls(&self) {
-        self.invalidate_midi_control_input_combo_box();
-        self.invalidate_midi_feedback_output_combo_box();
+        self.invalidate_control_input_combo_box();
+        self.invalidate_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
         self.invalidate_group_controls();
@@ -302,9 +307,9 @@ impl HeaderPanel {
         self.invalidate_learn_many_button();
     }
 
-    fn invalidate_midi_control_input_combo_box(&self) {
-        self.invalidate_midi_control_input_combo_box_options();
-        self.invalidate_midi_control_input_combo_box_value();
+    fn invalidate_control_input_combo_box(&self) {
+        self.invalidate_control_input_combo_box_options();
+        self.invalidate_control_input_combo_box_value();
     }
 
     fn invalidate_compartment_combo_box(&self) {
@@ -514,25 +519,59 @@ impl HeaderPanel {
             .fill_combo_box(MainPresetAutoLoadMode::into_enum_iter());
     }
 
-    fn invalidate_midi_control_input_combo_box_options(&self) {
+    fn invalidate_control_input_combo_box_options(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
+        let osc_device_manager = App::get().osc_device_manager();
+        let osc_device_manager = osc_device_manager.borrow();
+        let osc_devices = osc_device_manager.devices();
         b.fill_combo_box_with_data_small(
-            iter::once((
-                -1isize,
-                "<FX input> (no support for MIDI clock sources)".to_string(),
-            ))
+            vec![
+                (-100isize, generate_midi_device_heading()),
+                (
+                    -1isize,
+                    "<FX input> (no support for MIDI clock sources)".to_string(),
+                ),
+            ]
+            .into_iter()
             .chain(
                 Reaper::get()
                     .midi_input_devices()
                     .filter(|d| d.is_available())
                     .map(|dev| (dev.id().get() as isize, get_midi_input_device_label(dev))),
-            ),
+            )
+            .chain(iter::once((
+                -100isize,
+                generate_osc_device_heading(osc_devices.len()),
+            )))
+            .chain(osc_devices.enumerate().map(|(i, dev)| {
+                (
+                    OSC_INDEX_OFFSET + i as isize,
+                    get_osc_device_label(dev, false),
+                )
+            })),
         )
     }
 
-    fn invalidate_midi_control_input_combo_box_value(&self) {
+    fn invalidate_control_input_combo_box_value(&self) {
         let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
         use MidiControlInput::*;
+        if let Some(osc_device_id) = self.session().borrow().osc_input_device_id.get_ref() {
+            // We currently don't let the UI set both a MIDI and OSC device. Although internally
+            // this would be perfectly possible, it could be confusing.
+            match App::get()
+                .osc_device_manager()
+                .borrow()
+                .find_index_by_id(osc_device_id)
+            {
+                None => {
+                    b.select_new_combo_box_item(format!("<Not present> ({})", osc_device_id));
+                }
+                Some(i) => b
+                    .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
+                    .unwrap(),
+            };
+            return;
+        }
         match self.session().borrow().midi_control_input.get() {
             FxInput => {
                 b.select_combo_box_item_by_data(-1).unwrap();
@@ -545,18 +584,22 @@ impl HeaderPanel {
         };
     }
 
-    fn invalidate_midi_feedback_output_combo_box(&self) {
-        self.invalidate_midi_feedback_output_combo_box_options();
-        self.invalidate_midi_feedback_output_combo_box_value();
+    fn invalidate_feedback_output_combo_box(&self) {
+        self.invalidate_feedback_output_combo_box_options();
+        self.invalidate_feedback_output_combo_box_value();
     }
 
-    fn invalidate_midi_feedback_output_combo_box_options(&self) {
+    fn invalidate_feedback_output_combo_box_options(&self) {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
+        let osc_device_manager = App::get().osc_device_manager();
+        let osc_device_manager = osc_device_manager.borrow();
+        let osc_devices = osc_device_manager.devices();
         b.fill_combo_box_with_data_small(
             vec![
                 (-1isize, "<None>".to_string()),
+                (-100isize, generate_midi_device_heading()),
                 (-2isize, "<FX output>".to_string()),
             ]
             .into_iter()
@@ -565,15 +608,42 @@ impl HeaderPanel {
                     .midi_output_devices()
                     .filter(|d| d.is_available())
                     .map(|dev| (dev.id().get() as isize, get_midi_output_device_label(dev))),
-            ),
+            )
+            .chain(iter::once((
+                -100isize,
+                generate_osc_device_heading(osc_devices.len()),
+            )))
+            .chain(osc_devices.enumerate().map(|(i, dev)| {
+                (
+                    OSC_INDEX_OFFSET + i as isize,
+                    get_osc_device_label(dev, true),
+                )
+            })),
         )
     }
 
-    fn invalidate_midi_feedback_output_combo_box_value(&self) {
+    fn invalidate_feedback_output_combo_box_value(&self) {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
         use MidiFeedbackOutput::*;
+        if let Some(osc_device_id) = self.session().borrow().osc_output_device_id.get_ref() {
+            // We currently don't let the UI set both a MIDI and OSC device. Although internally
+            // this would be perfectly possible, it could be confusing.
+            match App::get()
+                .osc_device_manager()
+                .borrow()
+                .find_index_by_id(osc_device_id)
+            {
+                None => {
+                    b.select_new_combo_box_item(format!("<Not present> ({})", osc_device_id));
+                }
+                Some(i) => b
+                    .select_combo_box_item_by_data(OSC_INDEX_OFFSET + i as isize)
+                    .unwrap(),
+            };
+            return;
+        }
         match self.session().borrow().midi_feedback_output.get() {
             None => {
                 b.select_combo_box_item_by_data(-1).unwrap();
@@ -606,33 +676,98 @@ impl HeaderPanel {
             .set_text_if_not_focused(main_state.search_expression.get_ref().as_str())
     }
 
-    fn update_midi_control_input(&self) {
-        let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
-        let value = match b.selected_combo_box_item_data() {
-            -1 => MidiControlInput::FxInput,
-            id if id >= 0 => {
-                let dev = Reaper::get().midi_input_device_by_id(MidiInputDeviceId::new(id as _));
-                MidiControlInput::Device(dev)
+    fn update_control_input(&self) {
+        let selection_was_valid = {
+            let b = self.view.require_control(root::ID_CONTROL_DEVICE_COMBO_BOX);
+            let session = self.session();
+            let mut session = session.borrow_mut();
+            match b.selected_combo_box_item_data() {
+                -1 => {
+                    session.osc_input_device_id.set(None);
+                    session.midi_control_input.set(MidiControlInput::FxInput);
+                    true
+                }
+                osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
+                    if let Some(dev) = App::get()
+                        .osc_device_manager()
+                        .borrow()
+                        .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
+                    {
+                        // TODO-medium We should set this to None as soon as available.
+                        session.midi_control_input.set(MidiControlInput::FxInput);
+                        session.osc_input_device_id.set(Some(*dev.id()));
+                        true
+                    } else {
+                        false
+                    }
+                }
+                midi_dev_id if midi_dev_id >= 0 => {
+                    let dev = Reaper::get()
+                        .midi_input_device_by_id(MidiInputDeviceId::new(midi_dev_id as _));
+                    session.osc_input_device_id.set(None);
+                    session
+                        .midi_control_input
+                        .set(MidiControlInput::Device(dev));
+                    true
+                }
+                _ => false,
             }
-            _ => unreachable!(),
         };
-        self.session().borrow_mut().midi_control_input.set(value);
+        if !selection_was_valid {
+            // This is most likely a section entry. Selection is not allowed.
+            self.invalidate_control_input_combo_box_value();
+        }
     }
 
-    fn update_midi_feedback_output(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        let value = match b.selected_combo_box_item_data() {
-            -2 => Some(MidiFeedbackOutput::FxOutput),
-            -1 => None,
-            id if id >= 0 => {
-                let dev = Reaper::get().midi_output_device_by_id(MidiOutputDeviceId::new(id as _));
-                Some(MidiFeedbackOutput::Device(dev))
+    fn update_feedback_output(&self) {
+        let selection_was_valid = {
+            let b = self
+                .view
+                .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
+            let session = self.session();
+            let mut session = session.borrow_mut();
+            match b.selected_combo_box_item_data() {
+                -2 => {
+                    session.osc_output_device_id.set(None);
+                    session
+                        .midi_feedback_output
+                        .set(Some(MidiFeedbackOutput::FxOutput));
+                    true
+                }
+                -1 => {
+                    session.osc_output_device_id.set(None);
+                    session.midi_feedback_output.set(None);
+                    true
+                }
+                osc_dev_index if osc_dev_index >= OSC_INDEX_OFFSET => {
+                    if let Some(dev) = App::get()
+                        .osc_device_manager()
+                        .borrow()
+                        .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
+                    {
+                        session.midi_feedback_output.set(None);
+                        session.osc_output_device_id.set(Some(*dev.id()));
+                        true
+                    } else {
+                        false
+                    }
+                }
+                midi_dev_id if midi_dev_id >= 0 => {
+                    let dev = Reaper::get()
+                        .midi_output_device_by_id(MidiOutputDeviceId::new(midi_dev_id as _));
+                    session.osc_output_device_id.set(None);
+                    session
+                        .midi_feedback_output
+                        .set(Some(MidiFeedbackOutput::Device(dev)));
+                    true
+                }
+                _ => false,
             }
-            _ => unreachable!(),
         };
-        self.session().borrow_mut().midi_feedback_output.set(value);
+        if !selection_was_valid {
+            // This is most likely a section entry. Selection is not allowed.
+            self.invalidate_feedback_output_combo_box_value();
+        }
     }
 
     fn update_compartment(&self) {
@@ -1161,22 +1296,34 @@ impl HeaderPanel {
         self.when(session.learn_many_state_changed(), |view| {
             view.invalidate_all_controls();
         });
-        self.when(session.midi_control_input.changed(), |view| {
-            view.invalidate_midi_control_input_combo_box();
-            view.invalidate_let_matched_events_through_check_box();
-            view.invalidate_let_unmatched_events_through_check_box();
-            let shared_session = view.session();
-            let mut session = shared_session.borrow_mut();
-            if session.auto_correct_settings.get() {
-                let control_input = session.midi_control_input.get();
-                session
-                    .send_feedback_only_if_armed
-                    .set(control_input == MidiControlInput::FxInput)
-            }
-        });
-        self.when(session.midi_feedback_output.changed(), |view| {
-            view.invalidate_midi_feedback_output_combo_box()
-        });
+        self.when(
+            session
+                .midi_control_input
+                .changed()
+                .merge(session.osc_input_device_id.changed()),
+            |view| {
+                view.invalidate_control_input_combo_box();
+                view.invalidate_let_matched_events_through_check_box();
+                view.invalidate_let_unmatched_events_through_check_box();
+                let shared_session = view.session();
+                let mut session = shared_session.borrow_mut();
+                if session.auto_correct_settings.get() {
+                    let osc_control_input = session.osc_input_device_id.get();
+                    let midi_control_input = session.midi_control_input.get();
+                    session.send_feedback_only_if_armed.set(
+                        osc_control_input.is_none()
+                            && midi_control_input == MidiControlInput::FxInput,
+                    );
+                }
+            },
+        );
+        self.when(
+            session
+                .midi_feedback_output
+                .changed()
+                .merge(session.osc_output_device_id.changed()),
+            |view| view.invalidate_feedback_output_combo_box(),
+        );
         self.when(session.group_changed(), |view| {
             view.invalidate_group_controls();
         });
@@ -1228,9 +1375,21 @@ impl HeaderPanel {
         .do_async(move |view, _| {
             view.invalidate_preset_controls();
         });
-        // TODO-high This is lots of stuff done whenever changing just something small in a mapping
-        //  or group. Maybe micro optimization, I don't know. Alternatively we could just set a
-        //  dirty flag once something changed and reset it after saving!
+        when(
+            App::get()
+                .osc_device_manager()
+                .borrow()
+                .changed()
+                .take_until(self.view.closed()),
+        )
+        .with(Rc::downgrade(&self))
+        .do_async(move |view, _| {
+            view.invalidate_control_input_combo_box();
+            view.invalidate_feedback_output_combo_box();
+        });
+        // TODO-medium This is lots of stuff done whenever changing just something small in a
+        // mapping  or group. Maybe micro optimization, I don't know. Alternatively we could
+        // just set a  dirty flag once something changed and reset it after saving!
         // Mainly enables/disables save button depending on dirty state.
         when(
             session
@@ -1328,8 +1487,8 @@ impl View for HeaderPanel {
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         use root::*;
         match resource_id {
-            ID_CONTROL_DEVICE_COMBO_BOX => self.update_midi_control_input(),
-            ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_midi_feedback_output(),
+            ID_CONTROL_DEVICE_COMBO_BOX => self.update_control_input(),
+            ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
             ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
             ID_GROUP_COMBO_BOX => self.update_group(),
             ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
@@ -1358,7 +1517,7 @@ impl View for HeaderPanel {
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
             .expect("menu bar couldn't be loaded");
-        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let ctx_menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
         let app = App::get();
         // Invalidate some menu items without result
         {
@@ -1372,12 +1531,12 @@ impl View for HeaderPanel {
                 } else {
                     (true, session.send_feedback_only_if_armed.get())
                 };
-                menu.set_item_enabled(item_id, enabled);
-                menu.set_item_checked(item_id, checked);
+                ctx_menu.set_item_enabled(item_id, enabled);
+                ctx_menu.set_item_checked(item_id, checked);
             }
             // Invalidate "Auto-correct settings"
             {
-                menu.set_item_checked(
+                ctx_menu.set_item_checked(
                     root::IDM_AUTO_CORRECT_SETTINGS,
                     session.auto_correct_settings.get(),
                 );
@@ -1391,8 +1550,8 @@ impl View for HeaderPanel {
                 &self.session().borrow(),
                 self.active_compartment(),
             );
-            menu.set_item_enabled(item_id, action.is_some());
-            menu.set_item_checked(
+            ctx_menu.set_item_enabled(item_id, action.is_some());
+            ctx_menu.set_item_checked(
                 item_id,
                 matches!(action, Some(PresetFxLinkAction::UnlinkFrom { .. })),
             );
@@ -1405,7 +1564,7 @@ impl View for HeaderPanel {
                     format!("Unlink current preset from FX \"{}\"", fx_name)
                 }
             };
-            menu.set_item_text(item_id, label);
+            ctx_menu.set_item_text(item_id, label);
             action
         };
         // Invalidate "Server enabled"
@@ -1425,11 +1584,54 @@ impl View for HeaderPanel {
                     Start
                 }
             };
-            menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
+            ctx_menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
             (next_server_action, server.http_port(), server.https_port())
         };
+        // Invalidate "OSC devices"
+        let devs_menu = {
+            use std::iter::once;
+            use swell_ui::menu_tree::*;
+            let dev_manager = App::get().osc_device_manager();
+            let dev_manager = dev_manager.borrow();
+            let entries =
+                once(item("<New>", edit_new_osc_device)).chain(dev_manager.devices().map(|dev| {
+                    let dev_id = *dev.id();
+                    menu(
+                        dev.name(),
+                        vec![
+                            item("Edit...", move || edit_existing_osc_device(&dev_id)),
+                            item("Remove", move || remove_osc_device(dev_id)),
+                            item_with_opts(
+                                "Enabled for control",
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: dev.is_enabled_for_control(),
+                                },
+                                move || toggle_control_for_osc_device(dev_id),
+                            ),
+                            item_with_opts(
+                                "Enabled for feedback",
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: dev.is_enabled_for_feedback(),
+                                },
+                                move || toggle_feedback_for_osc_device(dev_id),
+                            ),
+                        ],
+                    )
+                }));
+            let mut m = root_menu(entries.collect());
+            let swell_menu = ctx_menu.turn_into_submenu(root::IDM_OSC_DEVICES);
+            m.index(50_000);
+            fill_menu(swell_menu, &m);
+            m
+        };
         // Open menu
-        let result = match self.view.require_window().open_popup_menu(menu, location) {
+        let result = match self
+            .view
+            .require_window()
+            .open_popup_menu(ctx_menu, location)
+        {
             None => return,
             Some(r) => r,
         };
@@ -1502,7 +1704,12 @@ impl View for HeaderPanel {
                 };
                 self.view.require_window().alert("ReaLearn", msg);
             }
-            _ => unreachable!(),
+            _ => {
+                devs_menu
+                    .find_item_by_id(result)
+                    .expect("selected menu item not found")
+                    .invoke_handler();
+            }
         };
     }
 }
@@ -1558,6 +1765,18 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatu
     )
 }
 
+fn get_osc_device_label(dev: &OscDevice, is_output: bool) -> String {
+    format!(
+        "{}{}",
+        dev.name(),
+        if is_output {
+            dev.output_status()
+        } else {
+            dev.input_status()
+        }
+    )
+}
+
 impl Drop for HeaderPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping header panel...");
@@ -1598,5 +1817,125 @@ fn determine_next_preset_fx_link_action(
             preset_id: preset_id.to_string(),
             fx_id: FxId::from_fx(&last_fx),
         })
+    }
+}
+
+fn generate_midi_device_heading() -> String {
+    "----  MIDI  ----".to_owned()
+}
+
+fn generate_osc_device_heading(device_count: usize) -> String {
+    format!(
+        "----  OSC  ----{}",
+        if device_count == 0 {
+            " (add devices via context menu)"
+        } else {
+            ""
+        }
+    )
+}
+
+fn edit_new_osc_device() {
+    let dev = match edit_osc_device(OscDevice::default()) {
+        Ok(d) => d,
+        Err(EditOscDevError::Cancelled) => return,
+        res => res.unwrap(),
+    };
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .add_device(dev)
+        .unwrap();
+}
+
+fn edit_existing_osc_device(dev_id: &OscDeviceId) {
+    let dev = App::get()
+        .osc_device_manager()
+        .borrow()
+        .find_device_by_id(dev_id)
+        .unwrap()
+        .clone();
+    let dev = match edit_osc_device(dev) {
+        Ok(d) => d,
+        Err(EditOscDevError::Cancelled) => return,
+        res => res.unwrap(),
+    };
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .update_device(dev)
+        .unwrap();
+}
+
+fn toggle_control_for_osc_device(dev_id: OscDeviceId) {
+    let mut dev = App::get()
+        .osc_device_manager()
+        .borrow()
+        .find_device_by_id(&dev_id)
+        .unwrap()
+        .clone();
+    dev.toggle_control();
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .update_device(dev)
+        .unwrap();
+}
+
+fn toggle_feedback_for_osc_device(dev_id: OscDeviceId) {
+    let mut dev = App::get()
+        .osc_device_manager()
+        .borrow()
+        .find_device_by_id(&dev_id)
+        .unwrap()
+        .clone();
+    dev.toggle_feedback();
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .update_device(dev)
+        .unwrap();
+}
+
+fn remove_osc_device(dev_id: OscDeviceId) {
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .remove_device_by_id(dev_id)
+        .unwrap();
+}
+
+#[derive(Debug)]
+enum EditOscDevError {
+    Cancelled,
+    Unexpected(&'static str),
+}
+
+fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
+    let csv = Reaper::get()
+        .medium_reaper()
+        .get_user_inputs(
+            "ReaLearn",
+            4,
+            "Name,Local port (e.g. 7878),Device host (e.g. 192.168.x.y),Device port (e.g. 7878),separator=;,extrawidth=80",
+            format!(
+                "{};{};{};{}",
+                dev.name(),
+                dev.local_port().map(|p| p.to_string()).unwrap_or_default(),
+                dev.device_host().map(|a| a.to_string()).unwrap_or_default(),
+                dev.device_port().map(|p| p.to_string()).unwrap_or_default(),
+            ),
+            512,
+        )
+        .ok_or(EditOscDevError::Cancelled)?;
+    let splitted: Vec<_> = csv.to_str().split(';').collect();
+    if let [name, local_port, device_host, device_port] = splitted.as_slice() {
+        dev.set_name(name.to_string());
+        dev.set_local_port(local_port.parse::<u16>().ok());
+        dev.set_device_host(device_host.parse::<Ipv4Addr>().ok());
+        dev.set_device_port(device_port.parse::<u16>().ok());
+        Ok(dev)
+    } else {
+        Err(EditOscDevError::Unexpected("couldn't split"))
     }
 }

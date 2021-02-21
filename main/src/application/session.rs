@@ -7,7 +7,7 @@ use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    ProcessorContext, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
+    OscDeviceId, ProcessorContext, RealSource, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -20,7 +20,6 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-use helgoboss_learn::MidiSource;
 use helgoboss_midi::Channel;
 use itertools::Itertools;
 use reaper_medium::{MidiInputDeviceId, RecordingInput};
@@ -48,6 +47,8 @@ pub struct Session {
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    pub osc_input_device_id: Prop<Option<OscDeviceId>>,
+    pub osc_output_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
@@ -159,6 +160,8 @@ impl Session {
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
+            osc_input_device_id: prop(None),
+            osc_output_device_id: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
@@ -193,46 +196,52 @@ impl Session {
         self.id.get_ref()
     }
 
-    pub fn receives_midi_from(
-        &self,
-        device_id: MidiInputDeviceId,
-        channel: Option<Channel>,
-    ) -> bool {
-        match self.midi_control_input.get() {
-            MidiControlInput::FxInput => {
-                if let Some(track) = self.context().track() {
-                    if !track.is_armed(true) {
-                        return false;
-                    }
-                    if let Some(RecordingInput::Midi {
-                        device_id: dev_id,
-                        channel: ch,
-                    }) = track.recording_input()
-                    {
-                        (dev_id.is_none() || dev_id == Some(device_id))
-                            && (ch.is_none() || ch == channel)
+    pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {
+        match input_descriptor {
+            InputDescriptor::Midi { device_id, channel } => match self.midi_control_input.get() {
+                MidiControlInput::FxInput => {
+                    if let Some(track) = self.context().track() {
+                        if !track.is_armed(true) {
+                            return false;
+                        }
+                        if let Some(RecordingInput::Midi {
+                            device_id: dev_id,
+                            channel: ch,
+                        }) = track.recording_input()
+                        {
+                            (dev_id.is_none() || dev_id == Some(*device_id))
+                                && (ch.is_none() || ch == *channel)
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }
-                } else {
-                    false
                 }
+                MidiControlInput::Device(dev) => dev.id() == *device_id,
+            },
+            InputDescriptor::Osc { device_id } => {
+                self.osc_input_device_id.get_ref().contains(device_id)
             }
-            MidiControlInput::Device(dev) => dev.id() == device_id,
         }
     }
 
     pub fn find_mapping_with_source(
         &self,
         compartment: MappingCompartment,
-        midi_source: &MidiSource,
+        actual_real_source: &RealSource,
     ) -> Option<&SharedMapping> {
-        let virt_source = self.virtualize_if_possible(midi_source);
-        self.mappings(compartment)
-            .find(|m| match m.borrow().source_model.create_source() {
-                CompoundMappingSource::Midi(s) => s == *midi_source,
-                CompoundMappingSource::Virtual(s) => Some(s) == virt_source,
-            })
+        let actual_virt_source = self.virtualize_if_possible(actual_real_source);
+        use CompoundMappingSource::*;
+        self.mappings(compartment).find(|m| {
+            let mapping_source = m.borrow().source_model.create_source();
+            match (mapping_source, actual_virt_source, actual_real_source) {
+                (Virtual(map_source), Some(act_source), _) => map_source == act_source,
+                (Midi(map_source), _, RealSource::Midi(act_source)) => map_source == *act_source,
+                (Osc(map_source), _, RealSource::Osc(act_source)) => map_source == *act_source,
+                _ => false,
+            }
+        })
     }
 
     pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
@@ -260,7 +269,7 @@ impl Session {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
-        self.sync_settings_to_real_time_processor();
+        self.sync_settings();
         self.sync_control_is_globally_enabled();
         self.sync_feedback_is_globally_enabled();
     }
@@ -313,6 +322,7 @@ impl Session {
             // general.
             self.midi_feedback_output
                 .changed()
+                .merge(self.osc_output_device_id.changed())
                 .merge(self.containing_track_armed_or_disarmed())
                 .merge(self.send_feedback_only_if_armed.changed())
                 // We have this explicit stop criteria because we listen to global REAPER events.
@@ -349,7 +359,7 @@ impl Session {
         when(self.settings_changed())
             .with(weak_session.clone())
             .do_async(move |s, _| {
-                s.borrow().sync_settings_to_real_time_processor();
+                s.borrow().sync_settings();
             });
         // When FX is reordered, invalidate FX indexes. This is primarily for the GUI.
         // Existing GUID-tracked `Fx` instances will detect wrong index automatically.
@@ -420,33 +430,35 @@ impl Session {
             .merge(self.let_unmatched_events_through.changed())
             .merge(self.midi_control_input.changed())
             .merge(self.midi_feedback_output.changed())
+            .merge(self.osc_input_device_id.changed())
+            .merge(self.osc_output_device_id.changed())
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
     }
 
-    pub fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
+    pub fn learn_source(&mut self, source: RealSource, allow_virtual_sources: bool) {
         self.source_touched_subject
             .next(self.create_compound_source(source, allow_virtual_sources));
     }
 
     pub fn create_compound_source(
         &self,
-        source: MidiSource,
+        source: RealSource,
         allow_virtual_sources: bool,
     ) -> CompoundMappingSource {
         if allow_virtual_sources {
             if let Some(virt_source) = self.virtualize_if_possible(&source) {
                 CompoundMappingSource::Virtual(virt_source)
             } else {
-                CompoundMappingSource::Midi(source)
+                source.into_compound_source()
             }
         } else {
-            CompoundMappingSource::Midi(source)
+            source.into_compound_source()
         }
     }
 
-    fn virtualize_if_possible(&self, source: &MidiSource) -> Option<VirtualSource> {
+    fn virtualize_if_possible(&self, source: &RealSource) -> Option<VirtualSource> {
         for m in self.mappings(MappingCompartment::ControllerMappings) {
             let m = m.borrow();
             if !m.control_is_enabled.get() {
@@ -455,7 +467,7 @@ impl Session {
             if m.target_model.category.get() != TargetCategory::Virtual {
                 continue;
             }
-            if let CompoundMappingSource::Midi(s) = m.source_model.create_source() {
+            if let Some(s) = RealSource::from_compound_source(m.source_model.create_source()) {
                 if s == *source {
                     let virtual_source =
                         VirtualSource::new(m.target_model.create_control_element());
@@ -470,6 +482,7 @@ impl Session {
         &self,
         reenable_control_after_touched: bool,
         allow_virtual_sources: bool,
+        osc_arg_index_hint: Option<u32>,
     ) -> impl Event<CompoundMappingSource> {
         // TODO-low We should migrate this to the nice async-await mechanism that we use for global
         //  learning (via REAPER action). That way we don't need the subject and also don't need
@@ -480,11 +493,21 @@ impl Session {
                 allow_virtual_sources,
             })
             .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::StartLearnSource {
+                allow_virtual_sources,
+                osc_arg_index_hint,
+            })
+            .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
+        let main_sender = self.normal_main_task_sender.clone();
         self.source_touched_subject.clone().finalize(move || {
             if reenable_control_after_touched {
                 rt_sender
                     .send(NormalRealTimeTask::ReturnToControlMode)
+                    .unwrap();
+                main_sender
+                    .send(NormalMainTask::ReturnToControlMode)
                     .unwrap();
             }
         })
@@ -947,15 +970,20 @@ impl Session {
         ignore_sources: HashSet<CompoundMappingSource>,
         allow_virtual_sources: bool,
     ) {
+        let osc_arg_index_hint = mapping.borrow().source_model.osc_arg_index.get();
         self.mapping_which_learns_source.set(Some(mapping));
         when(
-            self.source_touched(reenable_control_after_touched, allow_virtual_sources)
-                .filter(move |s| !ignore_sources.contains(s))
-                // We have this explicit stop criteria because we listen to global REAPER
-                // events.
-                .take_until(self.party_is_over())
-                .take_until(self.mapping_which_learns_source.changed_to(None))
-                .take(1),
+            self.source_touched(
+                reenable_control_after_touched,
+                allow_virtual_sources,
+                osc_arg_index_hint,
+            )
+            .filter(move |s| !ignore_sources.contains(s))
+            // We have this explicit stop criteria because we listen to global REAPER
+            // events.
+            .take_until(self.party_is_over())
+            .take_until(self.mapping_which_learns_source.changed_to(None))
+            .take(1),
         )
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
@@ -1013,11 +1041,17 @@ impl Session {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::DisableControl)
             .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::DisableControl)
+            .unwrap();
     }
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::ReturnToControlMode)
+            .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::ReturnToControlMode)
             .unwrap();
     }
 
@@ -1475,7 +1509,12 @@ impl Session {
         AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
     }
 
-    fn sync_settings_to_real_time_processor(&self) {
+    fn sync_settings(&self) {
+        let task = NormalMainTask::UpdateSettings {
+            osc_input_device_id: self.osc_input_device_id.get(),
+            osc_output_device_id: self.osc_output_device_id.get(),
+        };
+        self.normal_main_task_sender.send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
@@ -1516,7 +1555,7 @@ impl Session {
     }
 
     fn feedback_is_globally_enabled(&self) -> bool {
-        self.midi_feedback_output.get().is_some()
+        (self.midi_feedback_output.get().is_some() || self.osc_output_device_id.get_ref().is_some())
             && self.context.containing_fx().is_enabled()
             && self.track_arm_conditions_are_met()
     }
@@ -1533,10 +1572,12 @@ impl Session {
 
     /// Just syncs whether control globally enabled or not.
     fn sync_control_is_globally_enabled(&self) {
+        let enabled = self.control_is_globally_enabled();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(
-                self.control_is_globally_enabled(),
-            ))
+            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
+            .unwrap();
+        self.normal_main_task_sender
+            .send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
             .unwrap();
     }
 
@@ -1700,3 +1741,13 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
+
+pub enum InputDescriptor {
+    Midi {
+        device_id: MidiInputDeviceId,
+        channel: Option<Channel>,
+    },
+    Osc {
+        device_id: OscDeviceId,
+    },
+}

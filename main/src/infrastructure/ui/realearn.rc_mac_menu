@@ -30,6 +30,7 @@ SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_CONTEXT_MENU)
             MENUITEM "Website", IDM_WEBSITE
             MENUITEM "Donate!", IDM_DONATE
         END
+        MENUITEM "OSC devices", IDM_OSC_DEVICES
         MENUITEM "Send feedback now", IDM_SEND_FEEDBACK_NOW
         MENUITEM "Log debug info", IDM_LOG_DEBUG_INFO
         MENUITEM "Link current preset to FX", IDM_LINK_TO_FX, INACTIVE
