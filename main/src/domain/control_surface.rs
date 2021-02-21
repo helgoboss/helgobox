@@ -49,9 +49,6 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     // Removing a main processor is done synchronously by temporarily regaining ownership of the
     // control surface from REAPER.
     AddMainProcessor(MainProcessor<EH>),
-    // If I don't box this, I get a stack overflow. WTH! Maybe related to smallvec?
-    AddOscDevice(Box<OscInputDevice>),
-    RemoveOscDevice(OscDeviceId),
     LogDebugInfo,
     StartLearningTargets(async_channel::Sender<ReaperTarget>),
     StartLearningSources(LearnSourceSender),
@@ -99,6 +96,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.main_processors.retain(|p| p.instance_id() != id);
     }
 
+    pub fn set_osc_input_devices(&mut self, devs: Vec<OscInputDevice>) {
+        self.osc_input_devices = devs;
+    }
+
+    pub fn clear_osc_input_devices(&mut self) {
+        self.osc_input_devices.clear();
+    }
+
     pub fn reset(&self) {
         self.change_detection_middleware.reset(|e| {
             self.rx_middleware.handle_change(e);
@@ -107,14 +112,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         // So we just consume all without executing them.
         self.main_task_middleware.reset();
         self.future_middleware.reset();
-    }
-
-    pub fn set_osc_devices(&mut self, devices: Vec<OscInputDevice>) {
-        self.osc_input_devices = devices;
-    }
-
-    pub fn clear_osc_devices(&mut self) {
-        self.osc_input_devices.clear();
     }
 
     fn run_internal(&mut self) {
@@ -126,12 +123,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             match t {
                 AddMainProcessor(p) => {
                     self.main_processors.push(p);
-                }
-                AddOscDevice(dev) => {
-                    self.osc_input_devices.push(*dev);
-                }
-                RemoveOscDevice(dev_id) => {
-                    self.osc_input_devices.retain(|dev| dev.id() != &dev_id);
                 }
                 LogDebugInfo => {
                     self.meter_middleware.log_metrics();

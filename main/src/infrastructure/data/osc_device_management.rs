@@ -1,8 +1,9 @@
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
+use crate::core::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
 use crate::infrastructure::plugin::App;
 use derive_more::Display;
-use rx_util::UnitEvent;
+use rx_util::{Notifier, UnitEvent};
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -117,7 +118,7 @@ impl OscDeviceManager {
     fn save_and_notify_changed(&mut self) -> Result<(), &'static str> {
         self.save()
             .map_err(|_| "error when saving OSC device configuration")?;
-        self.changed_subject.next(());
+        AsyncNotifier::notify(&mut self.changed_subject, &());
         Ok(())
     }
 }

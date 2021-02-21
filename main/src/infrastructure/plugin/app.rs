@@ -233,6 +233,10 @@ impl App {
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
         let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
+        self.osc_device_manager
+            .borrow()
+            .changed()
+            .subscribe(|_| App::get().reconnect_osc_devices());
         Global::control_surface_rx()
             .fx_focused()
             .take_until(self.party_is_over())
@@ -251,6 +255,34 @@ impl App {
             audio_hook: Box::new(audio_hook),
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
+    }
+
+    fn reconnect_osc_devices(&self) {
+        // Control devices
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            // Disconnect
+            control_surface.middleware_mut().clear_osc_input_devices();
+            // Reconnect
+            let osc_input_devices = self
+                .osc_device_manager
+                .borrow_mut()
+                .connect_all_enabled_inputs();
+            control_surface
+                .middleware_mut()
+                .set_osc_input_devices(osc_input_devices);
+        });
+        // Feedback devices
+        {
+            // Disconnect
+            let global = DomainGlobal::get();
+            global.clear_osc_output_devices();
+            // Reconnect
+            let osc_output_devices = self
+                .osc_device_manager
+                .borrow_mut()
+                .connect_all_enabled_outputs();
+            global.set_osc_output_devices(osc_output_devices);
+        }
     }
 
     // Executed whenever the first ReaLearn instance is loaded.
@@ -297,7 +329,7 @@ impl App {
         sleeping_state
             .control_surface
             .middleware_mut()
-            .set_osc_devices(osc_input_devices);
+            .set_osc_input_devices(osc_input_devices);
         sleeping_state.control_surface.middleware().reset();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
@@ -333,7 +365,7 @@ impl App {
             (control_surface, audio_hook)
         };
         // Close OSC connections
-        control_surface.middleware_mut().clear_osc_devices();
+        control_surface.middleware_mut().clear_osc_input_devices();
         DomainGlobal::get().clear_osc_output_devices();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
@@ -434,6 +466,18 @@ impl App {
     /// real-time processor, whatever cleanup work is necessary, we can do right here because we
     /// are in main thread already.
     fn unregister_main_processor(&self, instance_id: &str) {
+        self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            // Remove main processor.
+            control_surface
+                .middleware_mut()
+                .remove_main_processor(instance_id);
+        });
+    }
+
+    fn temporarily_reclaim_control_surface_ownership(
+        &self,
+        f: impl FnOnce(&mut RealearnControlSurface),
+    ) {
         // Shortly reclaim ownership of the control surface by unregistering it.
         let prev_state = self.state.replace(AppState::Suspended);
         let awake_state = if let AppState::Awake(s) = prev_state {
@@ -447,14 +491,12 @@ impl App {
                 .plugin_register_remove_csurf_inst(awake_state.control_surface_handle)
                 .expect("control surface was not registered")
         };
-        // Remove main processor.
-        control_surface
-            .middleware_mut()
-            .remove_main_processor(instance_id);
+        // Execute necessary operations
+        f(&mut control_surface);
         // Give it back to REAPER.
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(control_surface)
-            .expect("couldn't register ReaLearn control surface");
+            .expect("couldn't reregister ReaLearn control surface");
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle: awake_state.audio_hook_handle,
