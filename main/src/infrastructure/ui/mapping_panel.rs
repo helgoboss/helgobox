@@ -367,11 +367,20 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_source_is_14_bit(&mut self) {
-        self.mapping.source_model.is_14_bit.set(Some(
-            self.view
-                .require_control(root::ID_SOURCE_14_BIT_CHECK_BOX)
-                .is_checked(),
-        ));
+        let checked = self
+            .view
+            .require_control(root::ID_SOURCE_14_BIT_CHECK_BOX)
+            .is_checked();
+        use SourceCategory::*;
+        match self.mapping.source_model.category.get() {
+            Midi => {
+                self.mapping.source_model.is_14_bit.set(Some(checked));
+            }
+            Osc => {
+                self.mapping.source_model.osc_arg_is_relative.set(checked);
+            }
+            Virtual => {}
+        };
     }
 
     fn update_source_channel_or_control_element(&mut self) {
@@ -1172,7 +1181,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             &[root::ID_SOURCE_RPN_CHECK_BOX],
         );
         self.show_if(
-            source.supports_14_bit(),
+            source.supports_14_bit() || source.is_osc(),
             &[root::ID_SOURCE_14_BIT_CHECK_BOX],
         );
         self.show_if(
@@ -1282,15 +1291,22 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_source_14_bit_check_box(&self) {
-        self.view
-            .require_control(root::ID_SOURCE_14_BIT_CHECK_BOX)
-            .set_checked(
+        use SourceCategory::*;
+        let (checked, label) = match self.source.category.get() {
+            Midi => (
                 self.source
                     .is_14_bit
                     .get()
                     // 14-bit == None not yet supported
                     .unwrap_or(false),
-            );
+                "14-bit values",
+            ),
+            Osc => (self.source.osc_arg_is_relative.get(), "Is relative"),
+            Virtual => return,
+        };
+        let c = self.view.require_control(root::ID_SOURCE_14_BIT_CHECK_BOX);
+        c.set_text(label);
+        c.set_checked(checked);
     }
 
     fn invalidate_source_is_registered_check_box(&self) {
@@ -2033,6 +2049,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(source.osc_arg_type_tag.changed()),
             |view| {
                 view.invalidate_source_character_combo_box();
+                view.invalidate_mode_controls();
             },
         );
         self.panel
@@ -2042,6 +2059,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(source.osc_address_pattern.changed(), |view| {
                 view.invalidate_source_osc_address_pattern_edit_control();
+            });
+        self.panel
+            .when_do_sync(source.osc_arg_is_relative.changed(), |view| {
+                view.invalidate_source_controls();
             });
     }
 

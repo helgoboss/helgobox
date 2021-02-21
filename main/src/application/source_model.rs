@@ -35,6 +35,7 @@ pub struct SourceModel {
     pub osc_address_pattern: Prop<String>,
     pub osc_arg_index: Prop<Option<u32>>,
     pub osc_arg_type_tag: Prop<OscTypeTag>,
+    pub osc_arg_is_relative: Prop<bool>,
     // Virtual
     pub control_element_type: Prop<VirtualControlElementType>,
     pub control_element_index: Prop<u32>,
@@ -57,6 +58,7 @@ impl Default for SourceModel {
             osc_address_pattern: prop("".to_owned()),
             osc_arg_index: prop(Some(0)),
             osc_arg_type_tag: prop(Default::default()),
+            osc_arg_is_relative: prop(false),
         }
     }
 }
@@ -79,6 +81,7 @@ impl SourceModel {
             .merge(self.osc_address_pattern.changed())
             .merge(self.osc_arg_index.changed())
             .merge(self.osc_arg_type_tag.changed())
+            .merge(self.osc_arg_is_relative.changed())
     }
 
     pub fn apply_from_source(&mut self, source: &CompoundMappingSource) {
@@ -141,6 +144,11 @@ impl SourceModel {
                     .set(s.arg_descriptor().map(|d| d.index()));
                 self.osc_arg_type_tag
                     .set(s.arg_descriptor().map(|d| d.type_tag()).unwrap_or_default());
+                self.osc_arg_is_relative.set(
+                    s.arg_descriptor()
+                        .map(|d| d.is_relative())
+                        .unwrap_or_default(),
+                );
             }
         };
     }
@@ -229,6 +237,7 @@ impl SourceModel {
         Some(OscArgDescriptor::new(
             arg_index,
             self.osc_arg_type_tag.get(),
+            self.osc_arg_is_relative.get(),
         ))
     }
 

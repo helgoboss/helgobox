@@ -45,6 +45,8 @@ pub struct SourceModelData {
     pub osc_arg_index: Option<u32>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_arg_type: OscTypeTag,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_is_relative: bool,
     // Virtual
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
@@ -70,6 +72,7 @@ impl SourceModelData {
             osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
             osc_arg_index: model.osc_arg_index.get(),
             osc_arg_type: model.osc_arg_type_tag.get(),
+            osc_arg_is_relative: model.osc_arg_is_relative.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
         }
@@ -117,6 +120,9 @@ impl SourceModelData {
             .osc_arg_type_tag
             .set_without_notification(self.osc_arg_type);
         model
+            .osc_arg_is_relative
+            .set_without_notification(self.osc_arg_is_relative);
+        model
             .control_element_type
             .set_without_notification(self.control_element_type);
         model
@@ -160,6 +166,7 @@ mod tests {
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: None,
                 osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -195,6 +202,7 @@ mod tests {
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: None,
                 osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -216,6 +224,7 @@ mod tests {
             osc_address_pattern: "".to_owned(),
             osc_arg_index: None,
             osc_arg_type: Default::default(),
+            osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
@@ -254,6 +263,7 @@ mod tests {
             osc_address_pattern: "".to_owned(),
             osc_arg_index: None,
             osc_arg_type: Default::default(),
+            osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: 0,
         };
@@ -302,6 +312,7 @@ mod tests {
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: Some(0),
                 osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
@@ -341,6 +352,7 @@ mod tests {
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: Some(0),
                 osc_arg_type: Default::default(),
+                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: 0
             }
