@@ -484,7 +484,11 @@ impl<'a> MutableMappingPanel<'a> {
                     .set(value);
             }
             Osc => {
-                let value = text.and_then(|t| t.parse::<u32>().ok());
+                let value = text.and_then(|t| {
+                    let v = t.parse::<u32>().ok()?;
+                    // 1-rooted
+                    Some(v + 1)
+                });
                 self.mapping.source_model.osc_arg_index.set(value);
             }
             Virtual => return,
@@ -1325,7 +1329,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             Osc => {
                 if let Some(i) = self.source.osc_arg_index.get() {
-                    i.to_string()
+                    (i + 1).to_string()
                 } else {
                     "".to_owned()
                 }
