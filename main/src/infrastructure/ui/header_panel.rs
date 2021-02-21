@@ -1898,7 +1898,7 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
         .get_user_inputs(
             "ReaLearn",
             4,
-            "Name,Local port,Device host,Device port,separator=;",
+            "Name,Local port (e.g. 7878),Device host (e.g. 192.168.x.y),Device port (e.g. 7878),separator=;,extrawidth=80",
             format!(
                 "{};{};{};{}",
                 dev.name(),
