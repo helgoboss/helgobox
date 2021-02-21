@@ -1,7 +1,7 @@
 use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
 
-pub fn fill_menu<'a>(swell_menu: SwellMenu, menu: &Menu) {
+pub fn fill_menu(swell_menu: SwellMenu, menu: &Menu) {
     for e in &menu.entries {
         fill_menu_recursive(swell_menu, e);
     }

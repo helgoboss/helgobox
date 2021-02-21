@@ -126,10 +126,8 @@ impl SessionData {
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             always_auto_detect_mode: session.auto_correct_settings.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
-            control_device_id: if let Some(osc_dev_id) =
-                session.osc_input_device_id.get_ref().as_ref()
-            {
-                Some(ControlDeviceId::Osc(osc_dev_id.clone()))
+            control_device_id: if let Some(osc_dev_id) = session.osc_input_device_id.get() {
+                Some(ControlDeviceId::Osc(osc_dev_id))
             } else {
                 use MidiControlInput::*;
                 match session.midi_control_input.get() {
@@ -137,10 +135,8 @@ impl SessionData {
                     Device(dev) => Some(ControlDeviceId::Midi(dev.id().to_string())),
                 }
             },
-            feedback_device_id: if let Some(osc_dev_id) =
-                session.osc_output_device_id.get_ref().as_ref()
-            {
-                Some(FeedbackDeviceId::Osc(osc_dev_id.clone()))
+            feedback_device_id: if let Some(osc_dev_id) = session.osc_output_device_id.get() {
+                Some(FeedbackDeviceId::Osc(osc_dev_id))
             } else {
                 use MidiFeedbackOutput::*;
                 session.midi_feedback_output.get().map(|o| match o {
@@ -203,7 +199,7 @@ impl SessionData {
                             None,
                         )
                     }
-                    Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(osc_dev_id.clone())),
+                    Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(*osc_dev_id)),
                 }
             }
         };
@@ -227,7 +223,7 @@ impl SessionData {
                             None,
                         )
                     }
-                    Osc(osc_dev_id) => (None, Some(osc_dev_id.clone())),
+                    Osc(osc_dev_id) => (None, Some(*osc_dev_id)),
                 }
             }
         };

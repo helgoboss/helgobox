@@ -175,7 +175,7 @@ impl OscDevice {
 
     fn connect_input_internal(&self) -> Result<OscInputDevice, Box<dyn Error>> {
         OscInputDevice::bind(
-            self.id.clone(),
+            self.id,
             SocketAddrV4::new(
                 Ipv4Addr::UNSPECIFIED,
                 self.local_port.ok_or("local port not specified")?,
@@ -192,7 +192,7 @@ impl OscDevice {
 
     fn connect_output_internal(&self) -> Result<OscOutputDevice, Box<dyn Error>> {
         OscOutputDevice::connect(
-            self.id.clone(),
+            self.id,
             SocketAddrV4::new(
                 self.device_host.ok_or("device host not specified")?,
                 self.device_port.ok_or("local port not specified")?,

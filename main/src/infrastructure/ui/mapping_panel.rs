@@ -500,7 +500,7 @@ impl<'a> MutableMappingPanel<'a> {
                 });
                 self.mapping.source_model.osc_arg_index.set(value);
             }
-            Virtual => return,
+            Virtual => {}
         };
     }
 
@@ -1286,7 +1286,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 };
             }
             Virtual => b.select_combo_box_item(self.source.control_element_index.get() as _),
-            _ => return,
+            _ => {}
         };
     }
 

@@ -695,7 +695,7 @@ impl HeaderPanel {
                     {
                         // TODO-medium We should set this to None as soon as available.
                         session.midi_control_input.set(MidiControlInput::FxInput);
-                        session.osc_input_device_id.set(Some(dev.id().clone()));
+                        session.osc_input_device_id.set(Some(*dev.id()));
                         true
                     } else {
                         false
@@ -746,7 +746,7 @@ impl HeaderPanel {
                         .find_device_by_index((osc_dev_index - OSC_INDEX_OFFSET) as usize)
                     {
                         session.midi_feedback_output.set(None);
-                        session.osc_output_device_id.set(Some(dev.id().clone()));
+                        session.osc_output_device_id.set(Some(*dev.id()));
                         true
                     } else {
                         false
@@ -1581,9 +1581,9 @@ impl View for HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
-            let entries = once(item("<New>", || edit_new_osc_device())).chain(
-                dev_manager.devices().map(|dev| {
-                    let dev_id = dev.id().clone();
+            let entries =
+                once(item("<New>", edit_new_osc_device)).chain(dev_manager.devices().map(|dev| {
+                    let dev_id = *dev.id();
                     menu(
                         dev.name(),
                         vec![
@@ -1607,8 +1607,7 @@ impl View for HeaderPanel {
                             ),
                         ],
                     )
-                }),
-            );
+                }));
             let mut m = root_menu(entries.collect());
             let swell_menu = ctx_menu.turn_into_submenu(root::IDM_OSC_DEVICES);
             m.index(50_000);
@@ -1917,7 +1916,7 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
             512,
         )
         .ok_or(EditOscDevError::Cancelled)?;
-    let splitted: Vec<_> = csv.to_str().split(";").collect();
+    let splitted: Vec<_> = csv.to_str().split(';').collect();
     if let [name, local_port, device_host, device_port] = splitted.as_slice() {
         dev.set_name(name.to_string());
         dev.set_local_port(local_port.parse::<u16>().ok());

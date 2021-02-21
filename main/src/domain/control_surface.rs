@@ -14,9 +14,6 @@ use rosc::{OscMessage, OscPacket};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-
-
-
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
 const OSC_BULK_SIZE: usize = 32;
@@ -181,7 +178,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); 32]> = self
             .osc_input_devices
             .iter_mut()
-            .map(|dev| (dev.id().clone(), dev.poll_multiple(OSC_BULK_SIZE).collect()))
+            .map(|dev| (*dev.id(), dev.poll_multiple(OSC_BULK_SIZE).collect()))
             .collect();
         for (dev_id, packets) in packets_by_device {
             match &self.state {
@@ -196,7 +193,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 State::LearningSource(sender) => {
                     for packet in packets {
-                        process_incoming_osc_packet_for_learning(&dev_id, sender, packet)
+                        process_incoming_osc_packet_for_learning(dev_id, sender, packet)
                     }
                 }
                 State::LearningTarget(_) => {}
@@ -256,7 +253,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 }
 
 fn process_incoming_osc_packet_for_learning(
-    dev_id: &OscDeviceId,
+    dev_id: OscDeviceId,
     sender: &LearnSourceSender,
     packet: OscPacket,
 ) {
@@ -271,10 +268,10 @@ fn process_incoming_osc_packet_for_learning(
 }
 
 fn process_incoming_osc_message_for_learning(
-    dev_id: &OscDeviceId,
+    dev_id: OscDeviceId,
     sender: &LearnSourceSender,
     msg: OscMessage,
 ) {
     let source = OscSource::from_source_value(msg, Some(0));
-    let _ = sender.try_send((dev_id.clone(), source));
+    let _ = sender.try_send((dev_id, source));
 }

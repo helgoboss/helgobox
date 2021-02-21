@@ -20,7 +20,6 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-
 use helgoboss_midi::Channel;
 use itertools::Itertools;
 use reaper_medium::{MidiInputDeviceId, RecordingInput};
@@ -1512,8 +1511,8 @@ impl Session {
 
     fn sync_settings(&self) {
         let task = NormalMainTask::UpdateSettings {
-            osc_input_device_id: self.osc_input_device_id.get_ref().clone(),
-            osc_output_device_id: self.osc_output_device_id.get_ref().clone(),
+            osc_input_device_id: self.osc_input_device_id.get(),
+            osc_output_device_id: self.osc_output_device_id.get(),
         };
         self.normal_main_task_sender.send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {

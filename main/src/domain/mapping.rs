@@ -292,9 +292,7 @@ impl MainMapping {
     }
 
     pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
-        if self.core.target.is_none() {
-            return None;
-        }
+        self.core.target.as_ref()?;
         let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
             s.control(msg)?
         } else {
@@ -362,9 +360,7 @@ impl RealTimeMapping {
         &mut self,
         source_value: MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
-        if self.core.target.is_none() {
-            return None;
-        }
+        self.core.target.as_ref()?;
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
             s.control(&source_value)?
         } else {

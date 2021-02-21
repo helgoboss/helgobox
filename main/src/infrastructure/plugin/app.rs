@@ -20,9 +20,7 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 use helgoboss_learn::{MidiSource, OscSource};
 
-use reaper_high::{
-    ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track,
-};
+use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
@@ -1306,9 +1304,7 @@ impl QualifiedRealSource {
                     source.channel()
                 },
             },
-            QualifiedRealSource::Osc(dev_id, _) => InputDescriptor::Osc {
-                device_id: dev_id.clone(),
-            },
+            QualifiedRealSource::Osc(dev_id, _) => InputDescriptor::Osc { device_id: *dev_id },
         }
     }
 
