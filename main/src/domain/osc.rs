@@ -1,13 +1,13 @@
 use derive_more::Display;
 use rosc::OscPacket;
 use serde::{Deserialize, Serialize};
-use serde_with::DeserializeFromStr;
+
 use slog::warn;
-use smallvec::SmallVec;
+
 use std::error::Error;
 use std::io;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
-use std::str::FromStr;
+
 use uuid::Uuid;
 
 const OSC_BUFFER_SIZE: usize = 10_000;
@@ -93,7 +93,7 @@ impl OscOutputDevice {
             rosc::encoder::encode(packet).map_err(|_| "error trying to encode OSC packet")?;
         self.socket
             .send(&bytes)
-            .map_err(|_| "error trying to send OSC packet");
+            .map_err(|_| "error trying to send OSC packet")?;
         Ok(())
     }
 }

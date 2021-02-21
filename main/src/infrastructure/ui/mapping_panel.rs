@@ -2697,7 +2697,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category.get() {
             Midi => b.fill_combo_box(MidiSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box(VirtualControlElementType::into_enum_iter()),
-            OSC => {}
+            Osc => {}
         };
     }
 

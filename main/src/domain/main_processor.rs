@@ -3,12 +3,12 @@ use crate::domain::{
     DomainGlobal, FeedbackBuffer, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
     MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue, ReaperTarget,
-    SourceValue, UnresolvedCompoundMappingTarget, VirtualSourceValue,
+    SourceValue, VirtualSourceValue,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscArgDescriptor, OscSource, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
 use crate::core::Global;
 use reaper_high::Reaper;
@@ -18,7 +18,7 @@ use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
-use std::str::FromStr;
+
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
@@ -1005,7 +1005,7 @@ fn control_controller_mappings_osc(
 fn control_main_mappings_virtual(
     main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
     rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    mut main_mappings: &mut HashMap<MappingId, MainMapping>,
+    main_mappings: &mut HashMap<MappingId, MainMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
     osc_device_id: Option<&OscDeviceId>,

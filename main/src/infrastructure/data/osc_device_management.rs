@@ -12,7 +12,6 @@ use std::fs;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::str::FromStr;
 
 pub type SharedOscDeviceManager = Rc<RefCell<OscDeviceManager>>;
 
@@ -98,13 +97,13 @@ impl OscDeviceManager {
     }
 
     pub fn update_device(&mut self, dev: OscDevice) -> Result<(), &'static str> {
-        let mut old_dev = self
+        let old_dev = self
             .config
             .devices
             .iter_mut()
             .find(|d| d.id() == dev.id())
             .ok_or("couldn't find OSC device")?;
-        std::mem::replace(old_dev, dev);
+        let _ = std::mem::replace(old_dev, dev);
         self.save_and_notify_changed()?;
         Ok(())
     }

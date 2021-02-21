@@ -9,13 +9,13 @@ use reaper_high::{
     MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
-use rosc::{OscError, OscMessage, OscPacket};
-use slog::warn;
+use rosc::{OscMessage, OscPacket};
+
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::io;
-use std::io::Error;
-use std::net::{SocketAddr, UdpSocket};
+
+
+
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 

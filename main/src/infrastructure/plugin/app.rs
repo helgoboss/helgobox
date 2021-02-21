@@ -19,9 +19,9 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
 use helgoboss_learn::{MidiSource, OscSource};
-use helgoboss_midi::Channel;
+
 use reaper_high::{
-    ActionKind, CrashInfo, Fx, MiddlewareControlSurface, MidiInputDevice, Project, Reaper, Track,
+    ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track,
 };
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{MidiInputDeviceId, RegistrationHandle};

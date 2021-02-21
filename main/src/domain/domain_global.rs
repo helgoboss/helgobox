@@ -23,7 +23,7 @@ impl DomainGlobal {
     pub fn send_osc_feedback(&self, dev_id: &OscDeviceId, msg: OscMessage) {
         let devices = self.osc_output_devices.borrow();
         if let Some(dev) = devices.iter().find(|d| d.id() == dev_id) {
-            dev.send(&OscPacket::Message(msg));
+            let _ = dev.send(&OscPacket::Message(msg));
         }
     }
 

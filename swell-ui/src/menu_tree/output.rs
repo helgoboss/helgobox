@@ -1,4 +1,4 @@
-use crate::menu_tree::{Entry, Item, Menu};
+use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
 
 pub fn fill_menu<'a>(swell_menu: SwellMenu, menu: &Menu) {

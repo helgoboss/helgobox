@@ -9,7 +9,7 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 use reaper_high::{MidiInputDevice, MidiOutputDevice};
-use reaper_medium::StuffMidiMessageTarget::MidiAsControlInputQueue;
+
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -228,7 +228,6 @@ impl SessionData {
                         )
                     }
                     Osc(osc_dev_id) => (None, Some(osc_dev_id.clone())),
-                    _ => return Err("unknown feedback device ID"),
                 }
             }
         };

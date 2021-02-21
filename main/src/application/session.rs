@@ -20,7 +20,7 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-use helgoboss_learn::MidiSource;
+
 use helgoboss_midi::Channel;
 use itertools::Itertools;
 use reaper_medium::{MidiInputDeviceId, RecordingInput};

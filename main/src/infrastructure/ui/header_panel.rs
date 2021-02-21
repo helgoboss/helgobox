@@ -30,7 +30,7 @@ use crate::infrastructure::plugin::{
 };
 
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::dialog_util::prompt_for;
+
 use crate::infrastructure::ui::{
     add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
     SharedIndependentPanelManager, SharedMainState,
@@ -1581,7 +1581,7 @@ impl View for HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
-            let mut entries = once(item("<New>", || edit_new_osc_device())).chain(
+            let entries = once(item("<New>", || edit_new_osc_device())).chain(
                 dev_manager.devices().map(|dev| {
                     let dev_id = dev.id().clone();
                     menu(
@@ -1830,7 +1830,11 @@ fn edit_new_osc_device() {
         Err(EditOscDevError::Cancelled) => return,
         res => res.unwrap(),
     };
-    App::get().osc_device_manager().borrow_mut().add_device(dev);
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .add_device(dev)
+        .unwrap();
 }
 
 fn edit_existing_osc_device(dev_id: &OscDeviceId) {
@@ -1848,7 +1852,8 @@ fn edit_existing_osc_device(dev_id: &OscDeviceId) {
     App::get()
         .osc_device_manager()
         .borrow_mut()
-        .update_device(dev);
+        .update_device(dev)
+        .unwrap();
 }
 
 fn toggle_control_for_osc_device(dev_id: OscDeviceId) {
@@ -1862,7 +1867,8 @@ fn toggle_control_for_osc_device(dev_id: OscDeviceId) {
     App::get()
         .osc_device_manager()
         .borrow_mut()
-        .update_device(dev);
+        .update_device(dev)
+        .unwrap();
 }
 
 fn toggle_feedback_for_osc_device(dev_id: OscDeviceId) {
@@ -1876,14 +1882,16 @@ fn toggle_feedback_for_osc_device(dev_id: OscDeviceId) {
     App::get()
         .osc_device_manager()
         .borrow_mut()
-        .update_device(dev);
+        .update_device(dev)
+        .unwrap();
 }
 
 fn remove_osc_device(dev_id: OscDeviceId) {
     App::get()
         .osc_device_manager()
         .borrow_mut()
-        .remove_device_by_id(dev_id);
+        .remove_device_by_id(dev_id)
+        .unwrap();
 }
 
 #[derive(Debug)]
