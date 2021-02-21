@@ -493,12 +493,14 @@ impl<'a> MutableMappingPanel<'a> {
                     .set(value);
             }
             Osc => {
-                let value = text.and_then(|t| {
-                    let v = t.parse::<u32>().ok()?;
-                    // 1-rooted
-                    Some(v + 1)
-                });
-                self.mapping.source_model.osc_arg_index.set(value);
+                let value = text
+                    .and_then(|t| {
+                        let v = t.parse::<u32>().ok()?;
+                        // UI is 1-rooted
+                        Some(if v == 0 { v } else { v - 1 })
+                    })
+                    .unwrap_or(0);
+                self.mapping.source_model.osc_arg_index.set(Some(value));
             }
             Virtual => {}
         };
