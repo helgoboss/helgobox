@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-16 (v2.2.0)</code></td>
+  <td><code>2021-02-21 (v2.3.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -22,14 +22,14 @@
 
 ### What is ReaLearn?
 
-Probably you know already that ReaLearn is a kind of improved MIDI learn for REAPER. But what is it
+Probably you know already that ReaLearn is a sort of improvement over REAPER's built-in MIDI/OSC learn. But what is it
 exactly? Let me put it this way:
 
-> ReaLearn is an instrument. It allows you to take whatever MIDI controller you have, be it a
+> ReaLearn is an instrument. It allows you to take whatever MIDI/OSC controller you have, be it a
 > keyboard or some fader box, plug it in and play ... but instead of playing notes, you "play"
 > REAPER itself!
 >
-> And because ReaLearn supports MIDI feedback, you can also do the reverse: Let REAPER "play" your
+> And because ReaLearn supports MIDI/OSC feedback, you can also do the reverse: Let REAPER "play" your
 > controller.
 
 While this is still pretty vague, I think it captures the essence of ReaLearn. From a technical
@@ -71,7 +71,7 @@ If you want to learn multiple mappings in one go, this gets even easier via the 
 *a lot of* clicks.
 
 The result are mappings that you can customize as you desire, for example by setting a target value
-range. All of that with MIDI feedback support, which was previously only available in the less
+range. All of that with MIDI/OSC feedback support, which was previously only available in the less
 dynamic, more global control surface world.
 
 **Summary:** _ReaLearn is a sort of instrument for controlling REAPER._
@@ -169,7 +169,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 
 #### Adding a mapping
 
-**Let's see how to add and use our first mapping:**
+**Let's see how to add and use our first MIDI mapping:**
 
 1. Press the "Add one" button.
    - A new mapping called "1" should appear in the mapping rows panel.
@@ -360,17 +360,17 @@ So far we've covered the basics. Now let's look into everything in detail.
 The header panel provides the following user interface elements, no matter if the *main mappings* or
 *controller mappings* compartment is shown:
 
-- **MIDI control input:** By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
+- **Control input:** By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
   consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
-  Alternatively, ReaLearn can capture events directly from a MIDI hardware input. This dropdown lets
-  you choose the corresponding MIDI input device. Be aware that both will only work if _Enable input
+  Alternatively, ReaLearn can capture events directly from a MIDI hardware or OSC input. This dropdown lets
+  you choose the corresponding MIDI or OSC input device. Be aware that MIDI will only work if _Enable input
   from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
-- **MIDI feedback output:** Here you can choose if and where ReaLearn should send MIDI feedback. By
-  default it's set to _&lt;None&gt_; for no feedback. If you want to enable feedback, pick a MIDI
-  output device here. Keep in mind that _Enable output to this device_ must be checked in REAPER's
+- **Feedback output:** Here you can choose if and where ReaLearn should send MIDI/OSC feedback. By
+  default it's set to _&lt;None&gt_; for no feedback. If you want to enable feedback, pick a MIDI or OSC
+  output device here. Keep in mind that for MIDI, _Enable output to this device_ must be checked in REAPER's
   MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
   feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
-  Tip: Latter option is great for checking which MIDI messages ReaLearn sends to your device. Just add
+  Tip: Latter option is great for checking which MIDI messages ReaLearn would send to your device. Just add
   a "ReaControlMIDI" FX right below ReaLearn and press "Show Log". Please note that sending MIDI feedback
   to the FX output doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
     - ReaLearn FX is disabled.
@@ -395,9 +395,9 @@ The header panel provides the following user interface elements, no matter if th
   element is mapped to which target parameter. If you want to use this feature, just click this button
   and you will see detailed instructions on how to set this up. In order to use this feature, you need the
   *ReaLearn Companion* app, which has a [dedicated section](#companion-app) in this user guide.
-- **Let through:** By default, ReaLearn "eats" MIDI events for which there's at least one enabled mapping source.
-  In other words, it doesn't forward MIDI events which are used to control a target parameter. Unmatched MIDI events,
-  however, are forwarded to ReaLearn's FX output. This default setting usually makes much sense if you put the
+- **Let through:** By default, ReaLearn "eats" *FX input* MIDI events for which there's at least one enabled mapping
+  source. In other words, it doesn't forward MIDI events which are used to control a target parameter. Unmatched MIDI
+  events, however, are forwarded to ReaLearn's FX output. This default setting usually makes much sense if you put the
   ReaLearn FX in front of another instrument FX. Use these checkboxes to change that behavior. Please note that this
   refers to MIDI events coming from *FX input* only. MIDI events captured from a MIDI hardware input are never forwarded
   to ReaLearn's FX output.
@@ -442,7 +442,7 @@ The header panel provides the following user interface elements, no matter if th
   the on-screen instructions. Click *Stop* when you are finished with your bulk learning strike.
 - **Search:** Enter some text here in order to display just mappings whose name matches the text.
 - **Filter source:** If you work with many mappings and you have problems memorizing them, you
-  will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI
+  will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI/OSC
   events and temporarily disable all target control. You can play around freely on your controller
   without having to worry about messing up target parameters. Whenever ReaLearn detects a valid
   source, it will filter the mapping list by showing only mappings which have that source. This is a
@@ -469,7 +469,7 @@ Additionally, the header panel provides a context menu with the following entrie
     - **Send feedback only if track armed:** If MIDI control input is set to _&lt;FX input&gt;_,
       ReaLearn by default only sends feedback if the track is armed (unarming will naturally disable
       control, so disabling feedback is just consequent). However, if MIDI control input is set to a
-      hardware device, *auto-correct settings* will take care of unchecking this option in order to allow feedback
+      MIDI or OSC device, *auto-correct settings* will take care of unchecking this option in order to allow feedback
       even when unarmed (same reasoning). You can override this behavior with this checkbox. At the moment,
       it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
       naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
@@ -685,9 +685,9 @@ This section provides the following mapping-related settings and functions:
   change was caused by incoming source events of this mapping. However, it will still send feedback
   if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
 - **Send feedback after control:** This checkbox mainly exists for "fixing" controllers which allow
-  their LEDs to be controlled via incoming MIDI *but at the same time* insist on controlling these 
-  LEDs themselves. According to users, some Behringer X-Touch Compact buttons exhibit this behavior,
-  for example. This can lead to wrong LED states which don't reflect the actual state in REAPER.
+  their LEDs to be controlled via incoming MIDI/OSC *but at the same time* insist on controlling these 
+  LEDs themselves. For example, some Behringer X-Touch Compact buttons exhibit this behavior in MIDI mode. 
+  This can lead to wrong LED states which don't reflect the actual state in REAPER.
   If this checkbox is not checked (the normal case and recommended for most controllers), ReaLearn 
   will send feedback to the controller *only* if the target value has changed. For example, if you
   use a button to toggle a target value on and off, the target value will change only when pressing
@@ -726,7 +726,7 @@ For details, see below.
 At this occasion some words about ReaLearn's plug-in parameters. ReaLearn itself isn't just able to
 control parameters of other FX, it also offers FX parameters itself. At the moment these are
 "Parameter 1" to "Parameter 100". You can control them just like parameters in other FX: Via automation
-envelopes, via track controls, via REAPER's own MIDI learn ... and of course via ReaLearn itself.
+envelopes, via track controls, via REAPER's own MIDI/OSC learn ... and of course via ReaLearn itself.
 Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
 in conditional activation. In future, ReaLearn will provide additional ways to make use of parameters.
 
@@ -876,6 +876,7 @@ Sources share the following common settings and functions:
 - **Learn:** Starts or stops learning the source of this mapping.
 - **Category:** Lets you choose the source category.
     - **MIDI:** Incoming MIDI events.
+    - **OSC:** Incoming OSC events.
     - **Virtual:** Invocations of virtual control elements (coming from controller mappings). This source
       category is available for main mappings only. 
 - **Type:** Let's you choose the source type. Available types depend on the selected category.
@@ -1015,11 +1016,28 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 
 - **Message:** The specific transport message to which this source should react.
 
+##### Category "OSC"
+
+OSC sources allow configuration of the following aspects:
+
+- **Address:** This needs to correspond exactly to the address of the corresponding control element on your OSC device.
+  Example: `/1/fader1`. You don't need to figure that out yourself, just use the *Learn* function.
+- **Argument:** Each OSC message consists of an arbitrary number of arguments. In most cases, e.g. with faders, knobs or
+  buttons it's just one argument. X/Y controls often send 2 arguments, one for each axis. There are rare cases
+  in which messages have even more arguments. This field allows you to enter the number of the argument that ReaLearn
+  should look at and process. `1` denotes the first argument, `2` the second one, and so on.
+- **Type:** Denotes the argument type which ReaLearn should use to construct the proper feedback message. This is
+  usually the same type that's used for control direction. However, for control direction, this is irrelevant because
+  ReaLearn deals with whatever type arrives in the appropriate way. If you use *Learn*, the type is automatically 
+  filled. ReaLearn will always try to learn the type of the argument number entered in the *Argument* text field.
+- **Is relative:** Some messages transmitted by OSC devices are meant to be interpreted as relative
+  increments/decrements instead of absolute values, e.g. jog wheels. When you enable this checkbox, ReaLearn will
+  treat each received *1* value as an increment and *0* value a decrement.
+
 ##### Category "Virtual"
 
 As pointed out before, *virtual* sources exist in order to decouple your mappings from the actual
-MIDI source.
-
+MIDI/OSC source.
 
 The following virtual source types are kind of the lowest common denominator of possible controls. They
 are inspired by the popular 8-knobs/8-buttons layout. Sometimes the knobs are just knobs, sometimes they are rotary
@@ -1540,8 +1558,8 @@ In order to find these actions, open REAPER's *Actions* menu, choose *Show actio
   to touch some (learnable) REAPER parameter. As soon as you touch one that is mapped, it will open its mapping panel.
 - **ReaLearn: Learn single mapping (reassigning source):** Asks you to touch a control element and target and adds a new
   mapping in the first ReaLearn instance that it encounters. It prefers instances in the current project over 
-  monitoring FX. It automatically chooses the instance with the correct MIDI input. If there's an instance which already
-  has that source assigned, it will be reassigned to the new target that you touched.
+  monitoring FX. It automatically chooses the instance with the correct MIDI/OSC input. If there's an instance which 
+  already has that source assigned, it will be reassigned to the new target that you touched.
 - **ReaLearn: Learn single mapping (reassigning source) and open it:** Like *Learn single mapping* but additionally
   opens the mapping panel after having learned the mapping. This is great for subsequent fine tuning.
 - **ReaLearn: Learn source for last touched target (reassigning target):** This behaves similar to REAPER's built-in
@@ -1825,7 +1843,7 @@ project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX ch
 
 ## Tested controllers
 
-ReaLearn strives to support any general-purpose MIDI controller out there. However, there are some things
+ReaLearn strives to support any general-purpose MIDI/OSC controller out there. However, there are some things
 you should know:
 
 1. Not every controller works out of the box.
@@ -2014,3 +2032,18 @@ Works out of the box with above mentioned restrictions.
 
 - **Mackie Control**: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
   X-Touch's extra buttons. However, nothing prevents you from mapping those directly.
+
+### Hexler TouchOSC
+
+This is the OSC app which I used to test ReaLearn's OSC capabilities. It works both for control and feedback.
+
+Feedback for control elements that transmit messages with multiple arguments might not work as desired at the moment.
+E.g. TouchOSC expects values for both axes in case of X/Y controls instead of being satisfied with just one value
+and leaving the other axis untouched. Currently, ReaLearn can only send feedback messages that contain one real value
+and sets the other unchanged values to `Nil`.
+
+#### Presets
+
+There are no ReaLearn controller presets for TouchOSC layouts yet. Although technically possible in exactly the same way
+as with controller presets for MIDI devices, OSC layouts are very custom so I'm not sure if it would make much sense to
+create presets. Time will show.
