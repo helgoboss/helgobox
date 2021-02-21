@@ -1296,22 +1296,34 @@ impl HeaderPanel {
         self.when(session.learn_many_state_changed(), |view| {
             view.invalidate_all_controls();
         });
-        self.when(session.midi_control_input.changed(), |view| {
-            view.invalidate_control_input_combo_box();
-            view.invalidate_let_matched_events_through_check_box();
-            view.invalidate_let_unmatched_events_through_check_box();
-            let shared_session = view.session();
-            let mut session = shared_session.borrow_mut();
-            if session.auto_correct_settings.get() {
-                let control_input = session.midi_control_input.get();
-                session
-                    .send_feedback_only_if_armed
-                    .set(control_input == MidiControlInput::FxInput)
-            }
-        });
-        self.when(session.midi_feedback_output.changed(), |view| {
-            view.invalidate_feedback_output_combo_box()
-        });
+        self.when(
+            session
+                .midi_control_input
+                .changed()
+                .merge(session.osc_input_device_id.changed()),
+            |view| {
+                view.invalidate_control_input_combo_box();
+                view.invalidate_let_matched_events_through_check_box();
+                view.invalidate_let_unmatched_events_through_check_box();
+                let shared_session = view.session();
+                let mut session = shared_session.borrow_mut();
+                if session.auto_correct_settings.get() {
+                    let osc_control_input = session.osc_input_device_id.get();
+                    let midi_control_input = session.midi_control_input.get();
+                    session.send_feedback_only_if_armed.set(
+                        osc_control_input.is_none()
+                            && midi_control_input == MidiControlInput::FxInput,
+                    );
+                }
+            },
+        );
+        self.when(
+            session
+                .midi_feedback_output
+                .changed()
+                .merge(session.osc_output_device_id.changed()),
+            |view| view.invalidate_feedback_output_combo_box(),
+        );
         self.when(session.group_changed(), |view| {
             view.invalidate_group_controls();
         });

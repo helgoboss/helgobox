@@ -456,7 +456,7 @@ pub enum SourceCategory {
     #[display(fmt = "MIDI")]
     Midi,
     #[serde(rename = "osc")]
-    #[display(fmt = "OSC")]
+    #[display(fmt = "OSC (experimental)")]
     Osc,
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
