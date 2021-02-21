@@ -44,12 +44,12 @@ pub struct SessionData {
     send_feedback_only_if_armed: bool,
     /// `None` means "<FX input>"
     #[serde(default, skip_serializing_if = "is_default")]
-    control_device_id: Option<String>,
+    control_device_id: Option<ControlDeviceId>,
     ///
     /// - `None` means "\<None>"
     /// - `Some("fx-output")` means "\<FX output>"
     #[serde(default, skip_serializing_if = "is_default")]
-    feedback_device_id: Option<String>,
+    feedback_device_id: Option<FeedbackDeviceId>,
     // Not set before 1.12.0-pre9
     #[serde(default, skip_serializing_if = "is_default")]
     default_group: Option<GroupModelData>,
@@ -67,6 +67,20 @@ pub struct SessionData {
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
     #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum ControlDeviceId {
+    Osc(OscDeviceId),
+    Midi(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum FeedbackDeviceId {
+    Osc(OscDeviceId),
+    MidiOrFxOutput(String),
 }
 
 impl Default for SessionData {
@@ -115,23 +129,23 @@ impl SessionData {
             control_device_id: if let Some(osc_dev_id) =
                 session.osc_input_device_id.get_ref().as_ref()
             {
-                Some(osc_dev_id.to_string())
+                Some(ControlDeviceId::Osc(osc_dev_id.clone()))
             } else {
                 use MidiControlInput::*;
                 match session.midi_control_input.get() {
                     FxInput => None,
-                    Device(dev) => Some(dev.id().to_string()),
+                    Device(dev) => Some(ControlDeviceId::Midi(dev.id().to_string())),
                 }
             },
             feedback_device_id: if let Some(osc_dev_id) =
                 session.osc_output_device_id.get_ref().as_ref()
             {
-                Some(osc_dev_id.to_string())
+                Some(FeedbackDeviceId::Osc(osc_dev_id.clone()))
             } else {
                 use MidiFeedbackOutput::*;
                 session.midi_feedback_output.get().map(|o| match o {
-                    Device(dev) => dev.id().to_string(),
-                    FxOutput => "fx-output".to_string(),
+                    Device(dev) => FeedbackDeviceId::MidiOrFxOutput(dev.id().to_string()),
+                    FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
                 })
             },
             default_group: Some(GroupModelData::from_model(
@@ -174,41 +188,47 @@ impl SessionData {
         // Validation
         let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
             None => (MidiControlInput::FxInput, None),
-            Some(dev_id_string) => {
-                let raw_dev_id = dev_id_string.parse::<u8>();
-                if let Ok(raw_dev_id) = raw_dev_id {
-                    // MIDI
-                    let dev_id: MidiInputDeviceId = raw_dev_id
-                        .try_into()
-                        .map_err(|_| "invalid MIDI input device ID")?;
-                    (MidiControlInput::Device(MidiInputDevice::new(dev_id)), None)
-                } else {
-                    // OSC
-                    (
-                        MidiControlInput::FxInput,
-                        Some(dev_id_string.parse::<OscDeviceId>()?),
-                    )
+            Some(dev_id) => {
+                use ControlDeviceId::*;
+                match dev_id {
+                    Midi(midi_dev_id_string) => {
+                        let raw_midi_dev_id = midi_dev_id_string
+                            .parse::<u8>()
+                            .map_err(|_| "invalid MIDI input device ID")?;
+                        let midi_dev_id: MidiInputDeviceId = raw_midi_dev_id
+                            .try_into()
+                            .map_err(|_| "MIDI input device ID out of range")?;
+                        (
+                            MidiControlInput::Device(MidiInputDevice::new(midi_dev_id)),
+                            None,
+                        )
+                    }
+                    Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(osc_dev_id.clone())),
                 }
             }
         };
         let (midi_feedback_output, osc_feedback_output) = match self.feedback_device_id.as_ref() {
             None => (None, None),
-            Some(dev_id_string) => {
-                if dev_id_string == "fx-output" {
-                    (Some(MidiFeedbackOutput::FxOutput), None)
-                } else {
-                    let raw_dev_id = dev_id_string.parse::<u8>();
-                    if let Ok(raw_dev_id) = raw_dev_id {
-                        // MIDI
-                        let dev_id = MidiOutputDeviceId::new(raw_dev_id);
+            Some(dev_id) => {
+                use FeedbackDeviceId::*;
+                match dev_id {
+                    MidiOrFxOutput(s) if s == "fx-output" => {
+                        (Some(MidiFeedbackOutput::FxOutput), None)
+                    }
+                    MidiOrFxOutput(midi_dev_id_string) => {
+                        let midi_dev_id = midi_dev_id_string
+                            .parse::<u8>()
+                            .map(MidiOutputDeviceId::new)
+                            .map_err(|_| "invalid MIDI output device ID")?;
                         (
-                            Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(dev_id))),
+                            Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(
+                                midi_dev_id,
+                            ))),
                             None,
                         )
-                    } else {
-                        // OSC
-                        (None, Some(dev_id_string.parse::<OscDeviceId>()?))
                     }
+                    Osc(osc_dev_id) => (None, Some(osc_dev_id.clone())),
+                    _ => return Err("unknown feedback device ID"),
                 }
             }
         };

@@ -2,6 +2,7 @@ use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
 use crate::infrastructure::plugin::App;
 use derive_more::Display;
+use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -16,7 +17,7 @@ pub type SharedOscDeviceManager = Rc<RefCell<OscDeviceManager>>;
 
 #[derive(Debug)]
 pub struct OscDeviceManager {
-    devices: Vec<OscDevice>,
+    config: OscDeviceConfig,
     changed_subject: LocalSubject<'static, (), ()>,
     osc_device_config_file_path: PathBuf,
 }
@@ -24,11 +25,11 @@ pub struct OscDeviceManager {
 impl OscDeviceManager {
     pub fn new(osc_device_config_file_path: PathBuf) -> OscDeviceManager {
         let mut manager = OscDeviceManager {
+            config: Default::default(),
             osc_device_config_file_path,
-            devices: vec![],
             changed_subject: Default::default(),
         };
-        let _ = manager.load().unwrap();
+        let _ = manager.load();
         manager
     }
 
@@ -37,24 +38,39 @@ impl OscDeviceManager {
             .map_err(|_| "couldn't read OSC device config file".to_string())?;
         let config: OscDeviceConfig = serde_json::from_str(&json)
             .map_err(|e| format!("OSC device config file isn't valid. Details:\n\n{}", e))?;
-        self.devices = config.devices;
+        self.config = config;
+        Ok(())
+    }
+
+    fn save(&mut self) -> Result<(), String> {
+        fs::create_dir_all(&self.osc_device_config_file_path.parent().unwrap())
+            .map_err(|_| "couldn't create OSC device config file parent directory")?;
+        let json = serde_json::to_string_pretty(&self.config)
+            .map_err(|_| "couldn't serialize OSC device config")?;
+        fs::write(&self.osc_device_config_file_path, json)
+            .map_err(|_| "couldn't write OSC devie config file")?;
         Ok(())
     }
 
     pub fn devices(&self) -> impl Iterator<Item = &OscDevice> + ExactSizeIterator {
-        self.devices.iter()
+        self.config.devices.iter()
     }
 
     pub fn find_index_by_id(&self, id: &OscDeviceId) -> Option<usize> {
-        self.devices.iter().position(|dev| dev.id() == id)
+        self.config.devices.iter().position(|dev| dev.id() == id)
+    }
+
+    pub fn find_device_by_id(&self, id: &OscDeviceId) -> Option<&OscDevice> {
+        self.config.devices.iter().find(|dev| dev.id() == id)
     }
 
     pub fn find_device_by_index(&self, index: usize) -> Option<&OscDevice> {
-        self.devices.get(index)
+        self.config.devices.get(index)
     }
 
     pub fn connect_all_enabled_inputs(&mut self) -> Vec<OscInputDevice> {
-        self.devices
+        self.config
+            .devices
             .iter_mut()
             .filter(|dev| dev.is_enabled_for_control())
             .flat_map(|dev| dev.connect_input())
@@ -62,22 +78,50 @@ impl OscDeviceManager {
     }
 
     pub fn connect_all_enabled_outputs(&mut self) -> Vec<OscOutputDevice> {
-        self.devices
+        self.config
+            .devices
             .iter_mut()
             .filter(|dev| dev.is_enabled_for_feedback())
             .flat_map(|dev| dev.connect_output())
             .collect()
     }
+
+    pub fn changed(&self) -> impl UnitEvent {
+        self.changed_subject.clone()
+    }
+
+    pub fn add_device(&mut self, dev: OscDevice) -> Result<(), &'static str> {
+        self.config.devices.push(dev);
+        self.save_and_notify_changed();
+        Ok(())
+    }
+
+    pub fn update_device(&mut self, dev: OscDevice) -> Result<(), &'static str> {
+        let mut old_dev = self
+            .config
+            .devices
+            .iter_mut()
+            .find(|d| d.id() == dev.id())
+            .ok_or("couldn't find OSC device")?;
+        std::mem::replace(old_dev, dev);
+        self.save_and_notify_changed();
+        Ok(())
+    }
+
+    fn save_and_notify_changed(&mut self) {
+        self.save();
+        self.changed_subject.next(());
+    }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct OscDeviceConfig {
     #[serde(default)]
     devices: Vec<OscDevice>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OscDevice {
     id: OscDeviceId,
@@ -101,7 +145,7 @@ pub struct OscDevice {
 impl Default for OscDevice {
     fn default() -> Self {
         Self {
-            id: OscDeviceId::from_str(nanoid::nanoid!(8).as_str()).unwrap(),
+            id: OscDeviceId::random(),
             name: "".to_string(),
             is_enabled_for_control: true,
             is_enabled_for_feedback: true,
@@ -211,6 +255,21 @@ impl OscDevice {
             return UnableToBind;
         }
         Connected
+    }
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn set_local_port(&mut self, local_port: Option<u16>) {
+        self.local_port = local_port;
+    }
+
+    pub fn set_device_host(&mut self, device_host: Option<Ipv4Addr>) {
+        self.device_host = device_host;
+    }
+
+    pub fn set_device_port(&mut self, device_port: Option<u16>) {
+        self.device_port = device_port;
     }
 }
 

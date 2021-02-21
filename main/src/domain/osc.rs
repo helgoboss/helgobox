@@ -8,6 +8,7 @@ use std::error::Error;
 use std::io;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
+use uuid::Uuid;
 
 const OSC_BUFFER_SIZE: usize = 10_000;
 
@@ -101,22 +102,13 @@ impl OscOutputDevice {
 ///
 /// This uniquely identifies an OSC device according to ReaLearn's device configuration.
 #[derive(
-    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, DeserializeFromStr,
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize,
 )]
-pub struct OscDeviceId(String);
+#[serde(transparent)]
+pub struct OscDeviceId(uuid::Uuid);
 
-impl FromStr for OscDeviceId {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let trimmed = s.trim();
-        if trimmed.is_empty() {
-            return Err("OSC device ID must not be empty");
-        }
-        let valid_regex = regex!(r#"^[A-Za-z0-9_~-]+$"#);
-        if !valid_regex.is_match(trimmed) {
-            return Err("OSC device ID contains illegal characters");
-        }
-        Ok(OscDeviceId(trimmed.to_owned()))
+impl OscDeviceId {
+    pub fn random() -> OscDeviceId {
+        OscDeviceId(Uuid::new_v4())
     }
 }

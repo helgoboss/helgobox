@@ -30,12 +30,14 @@ use crate::infrastructure::plugin::{
 };
 
 use crate::infrastructure::ui::bindings::root;
+use crate::infrastructure::ui::dialog_util::prompt_for;
 use crate::infrastructure::ui::{
     add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
     SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use std::cell::{Cell, RefCell};
+use std::net::Ipv4Addr;
 
 const OSC_INDEX_OFFSET: isize = 1000;
 
@@ -292,7 +294,7 @@ impl HeaderPanel {
     }
 
     fn invalidate_all_controls(&self) {
-        self.invalidate_midi_control_input_combo_box();
+        self.invalidate_control_input_combo_box();
         self.invalidate_feedback_output_combo_box();
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
@@ -305,7 +307,7 @@ impl HeaderPanel {
         self.invalidate_learn_many_button();
     }
 
-    fn invalidate_midi_control_input_combo_box(&self) {
+    fn invalidate_control_input_combo_box(&self) {
         self.invalidate_control_input_combo_box_options();
         self.invalidate_control_input_combo_box_value();
     }
@@ -1295,7 +1297,7 @@ impl HeaderPanel {
             view.invalidate_all_controls();
         });
         self.when(session.midi_control_input.changed(), |view| {
-            view.invalidate_midi_control_input_combo_box();
+            view.invalidate_control_input_combo_box();
             view.invalidate_let_matched_events_through_check_box();
             view.invalidate_let_unmatched_events_through_check_box();
             let shared_session = view.session();
@@ -1360,6 +1362,18 @@ impl HeaderPanel {
         .with(Rc::downgrade(&self))
         .do_async(move |view, _| {
             view.invalidate_preset_controls();
+        });
+        when(
+            App::get()
+                .osc_device_manager()
+                .borrow()
+                .changed()
+                .take_until(self.view.closed()),
+        )
+        .with(Rc::downgrade(&self))
+        .do_async(move |view, _| {
+            view.invalidate_control_input_combo_box();
+            view.invalidate_feedback_output_combo_box();
         });
         // TODO-medium This is lots of stuff done whenever changing just something small in a
         // mapping  or group. Maybe micro optimization, I don't know. Alternatively we could
@@ -1567,13 +1581,13 @@ impl View for HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
-            let mut entries = once(item("<New>", || Reaper::get().show_console_msg("New"))).chain(
+            let mut entries = once(item("<New>", || edit_new_osc_device())).chain(
                 dev_manager.devices().map(|dev| {
                     let dev_id = dev.id().clone();
                     menu(
                         dev.name(),
                         vec![
-                            item("Edit...", || Reaper::get().show_console_msg("New")),
+                            item("Edit...", move || edit_existing_osc_device(&dev_id)),
                             item("Remove", move || {
                                 Reaper::get().show_console_msg(format!("Remove {:?}", dev_id))
                             }),
@@ -1810,4 +1824,66 @@ fn generate_osc_device_heading(device_count: usize) -> String {
             ""
         }
     )
+}
+
+fn edit_new_osc_device() {
+    let dev = match edit_osc_device(OscDevice::default()) {
+        Ok(d) => d,
+        Err(EditOscDevError::Cancelled) => return,
+        res => res.unwrap(),
+    };
+    App::get().osc_device_manager().borrow_mut().add_device(dev);
+}
+
+fn edit_existing_osc_device(dev_id: &OscDeviceId) {
+    let dev = App::get()
+        .osc_device_manager()
+        .borrow()
+        .find_device_by_id(dev_id)
+        .unwrap()
+        .clone();
+    let dev = match edit_osc_device(dev) {
+        Ok(d) => d,
+        Err(EditOscDevError::Cancelled) => return,
+        res => res.unwrap(),
+    };
+    App::get()
+        .osc_device_manager()
+        .borrow_mut()
+        .update_device(dev);
+}
+
+#[derive(Debug)]
+enum EditOscDevError {
+    Cancelled,
+    Unexpected(&'static str),
+}
+
+fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
+    let csv = Reaper::get()
+        .medium_reaper()
+        .get_user_inputs(
+            "ReaLearn",
+            4,
+            "Name,Local port,Device host,Device port,separator=;",
+            format!(
+                "{};{};{};{}",
+                dev.name(),
+                dev.local_port().map(|p| p.to_string()).unwrap_or_default(),
+                dev.device_host().map(|a| a.to_string()).unwrap_or_default(),
+                dev.device_port().map(|p| p.to_string()).unwrap_or_default(),
+            ),
+            512,
+        )
+        .ok_or(EditOscDevError::Cancelled)?;
+    let splitted: Vec<_> = csv.to_str().split(";").collect();
+    if let [name, local_port, device_host, device_port] = splitted.as_slice() {
+        dev.set_name(name.to_string());
+        dev.set_local_port(local_port.parse::<u16>().ok());
+        dev.set_device_host(device_host.parse::<Ipv4Addr>().ok());
+        dev.set_device_port(device_port.parse::<u16>().ok());
+        Ok(dev)
+    } else {
+        Err(EditOscDevError::Unexpected("couldn't split"))
+    }
 }
