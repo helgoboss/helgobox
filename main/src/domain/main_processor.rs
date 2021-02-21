@@ -19,7 +19,6 @@ use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
-
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
 const CONTROL_TASK_BULK_SIZE: usize = 32;

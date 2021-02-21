@@ -2,7 +2,6 @@ use crate::SwellStringArg;
 use reaper_low::{raw, Swell};
 use std::marker::PhantomData;
 
-
 /// Represents a top-level menu bar with resource management.
 #[derive(Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct MenuBar {
