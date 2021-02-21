@@ -607,10 +607,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             } => {
-                let source = OscSource::new(
-                    msg.addr.clone(),
-                    osc_arg_index_hint.and_then(|h| OscArgDescriptor::from_msg(msg, h)),
-                );
+                let source = OscSource::from_source_value(msg.clone(), osc_arg_index_hint);
                 self.event_handler.handle_event(DomainEvent::LearnedSource {
                     source: RealSource::Osc(source),
                     allow_virtual_sources,

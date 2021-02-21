@@ -1354,7 +1354,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let (label_text, item_index) = match self.source.category.get() {
             Midi => ("Character", self.source.custom_character.get().into()),
-            Osc => ("Arg type", self.source.osc_arg_type_tag.get().into()),
+            Osc => ("Type", self.source.osc_arg_type_tag.get().into()),
             Virtual => return,
         };
         self.view
