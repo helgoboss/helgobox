@@ -1327,8 +1327,9 @@ dependencies = [
 
 [[package]]
 name = "helgoboss-midi"
-version = "0.1.2"
-source = "git+https://github.com/helgoboss/helgoboss-midi.git?branch=feature/5-polling-nrpn-scanner#cdbbf84e81b0c078f6b8144d53638a665fb160ee"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9734da3480ff1ccef68a089fb6555e342f1193a40f95581097bd945b0aef315a"
 dependencies = [
  "core-error",
  "derive_more",
@@ -2604,6 +2605,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2627,6 +2629,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2639,6 +2642,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.7",
@@ -2648,6 +2652,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -2662,6 +2667,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d03cff05098a4b79b8b21ba1f95727d1c658140"
 dependencies = [
  "crossbeam-channel 0.4.4",
  "helgoboss-midi",
