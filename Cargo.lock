@@ -3605,8 +3605,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vst"
-version = "0.2.0"
-source = "git+https://github.com/helgoboss/vst-rs?branch=feature/custom-support-variant#8cb5571c919b5766aa936d469625f57ff755aece"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dfeaf21be445e1d9edf37bdedbf7ec24b43ed84ace6295cba3e0d01c1a49a27"
 dependencies = [
  "bitflags",
  "libc",

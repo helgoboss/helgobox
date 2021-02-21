@@ -30,7 +30,7 @@ helgoboss-midi = { version = "0.1.2", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr"] }
 c_str_macro = "1.0.2"
-vst = { git = "https://github.com/helgoboss/vst-rs", branch = "feature/custom-support-variant" }
+vst = "0.2.1"
 rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
