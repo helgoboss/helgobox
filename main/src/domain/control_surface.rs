@@ -10,15 +10,16 @@ use reaper_high::{
     MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
-use rosc::{OscMessage, OscPacket};
+use rosc::{OscBundle, OscMessage, OscPacket};
 
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::time::Instant;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
 const OSC_INCOMING_BULK_SIZE: usize = 32;
-const OSC_OUTGOING_BULK_SIZE: usize = 10;
+const OSC_OUTGOING_BULK_SIZE: usize = 16;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -37,6 +38,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
     osc_output_devices: Vec<OscOutputDevice>,
+    last_osc_transmission: Instant,
 }
 
 #[derive(Debug)]
@@ -97,6 +99,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             state: State::Normal,
             osc_input_devices: vec![],
             osc_output_devices: vec![],
+            last_osc_transmission: Instant::now(),
         }
     }
 
@@ -194,17 +197,32 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn process_global_feedback(&mut self) {
-        for t in self
+        // println!("{:?}", self.last_osc_transmission.elapsed());
+        // self.last_osc_transmission = Instant::now();
+        let tasks: SmallVec<[GlobalFeedbackTask; OSC_OUTGOING_BULK_SIZE]> = self
             .feedback_task_receiver
             .try_iter()
             .take(OSC_OUTGOING_BULK_SIZE)
-        {
-            use GlobalFeedbackTask::*;
-            match t {
-                SendOscFeedback(dev_id, msg) => {
-                    self.send_osc_feedback(&dev_id, msg);
-                }
+            .collect();
+        use itertools::Itertools;
+        let grouped_by_device = tasks
+            .into_iter()
+            .filter_map(|task| match task {
+                GlobalFeedbackTask::SendOscFeedback(dev_id, msg) => Some((dev_id, msg)),
+            })
+            .group_by(|(dev_id, msg)| *dev_id);
+        // if !tasks.is_empty() {
+        //     println!("{}", tasks.len(),);
+        // }
+        for (dev_id, group) in grouped_by_device.into_iter() {
+            if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
+                let _ = dev.send_bulk_as_bundle(group.map(|(dev_id, msg)| msg));
             }
+            // for (dev_id, msg) in group {
+            //     if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
+            //         let _ = dev.send(msg);
+            //     }
+            // }
         }
     }
 
@@ -238,12 +256,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 State::LearningTarget(_) => {}
             }
-        }
-    }
-
-    fn send_osc_feedback(&self, dev_id: &OscDeviceId, msg: OscMessage) {
-        if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
-            let _ = dev.send(&OscPacket::Message(msg));
         }
     }
 

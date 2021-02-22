@@ -83,7 +83,7 @@ tempfile = "3.1.0"
 runas = "0.2.1"
 # For building URls, e.g. companion web app URL
 url = "2.1.1"
-# For grouping mappings by virtual control elements
+# For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
 itertools = "0.9"
 # For being able to configure logging via environment variable RUST_LOG
 env_logger = "0.8.2"

@@ -1,5 +1,5 @@
 use derive_more::Display;
-use rosc::OscPacket;
+use rosc::{OscBundle, OscMessage, OscPacket};
 use serde::{Deserialize, Serialize};
 
 use slog::warn;
@@ -44,7 +44,10 @@ impl OscInputDevice {
     pub fn poll(&mut self) -> Result<Option<OscPacket>, &'static str> {
         match self.socket.recv(&mut self.osc_buffer) {
             Ok(num_bytes) => match rosc::decoder::decode(&self.osc_buffer[..num_bytes]) {
-                Ok(packet) => Ok(Some(packet)),
+                Ok(packet) => {
+                    println!("Received packet with {} bytes: {:#?}", num_bytes, &packet);
+                    Ok(Some(packet))
+                }
                 Err(err) => {
                     warn!(self.logger, "Error trying to decode OSC packet: {:?}", err);
                     Err("error trying to decode OSC messages")
@@ -84,16 +87,39 @@ impl OscOutputDevice {
         Ok(dev)
     }
 
-    pub fn id(&self) -> &OscDeviceId {
-        &self.id
+    pub fn id(&self) -> OscDeviceId {
+        self.id
     }
 
-    pub fn send(&self, packet: &OscPacket) -> Result<(), &'static str> {
-        let bytes =
-            rosc::encoder::encode(packet).map_err(|_| "error trying to encode OSC packet")?;
+    pub fn send(&self, msg: OscMessage) -> Result<(), &'static str> {
+        let bytes = rosc::encoder::encode(&OscPacket::Message(msg))
+            .map_err(|_| "error trying to encode OSC packet")?;
+        println!("Send single packet byte count: {}", bytes.len());
         self.socket
             .send(&bytes)
             .map_err(|_| "error trying to send OSC packet")?;
+        Ok(())
+    }
+
+    pub fn send_bulk_as_bundle(
+        &self,
+        messages: impl Iterator<Item = OscMessage>,
+    ) -> Result<(), &'static str> {
+        let bundle = OscBundle {
+            timetag: (0, 0),
+            content: messages.map(|msg| OscPacket::Message(msg)).collect(),
+        };
+        let bundle = OscPacket::Bundle(bundle);
+        let bytes = rosc::encoder::encode(&bundle)
+            .map_err(|_| "error trying to encode OSC bundle packet")?;
+        println!(
+            "Sending bundle packet with {} bytes: {:#?}",
+            bytes.len(),
+            &bundle
+        );
+        self.socket
+            .send(&bytes)
+            .map_err(|_| "error trying to send OSC bundle packet")?;
         Ok(())
     }
 }
