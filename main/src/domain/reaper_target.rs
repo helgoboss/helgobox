@@ -24,7 +24,7 @@ use crate::domain::ui_util::{
     format_as_symmetric_percentage_without_unit, parse_from_double_percentage,
     parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
-use crate::domain::{DomainGlobal, RealearnTarget};
+use crate::domain::{AdditionalFeedbackEvent, DomainGlobal, RealearnTarget};
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -971,6 +971,83 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | Transport { .. } => true,
             AllTrackFxEnable { .. } | TrackSendMute { .. } => false,
+        }
+    }
+
+    pub fn value_changed_from_additional_feedback_event(
+        &self,
+        evt: &AdditionalFeedbackEvent,
+    ) -> bool {
+        use AdditionalFeedbackEvent::*;
+        use ReaperTarget::*;
+        match self {
+            Action { action, .. } => {
+                matches!(evt, ActionInvoked(command_id) if *command_id == action.command_id())
+            }
+            LoadFxSnapshot { fx, .. } => {
+                matches!(evt, FxSnapshotLoaded(f) if f == fx)
+            }
+            _ => false,
+        }
+    }
+
+    pub fn value_changed_from_change_event(&self, evt: &ChangeEvent) -> bool {
+        use ChangeEvent::*;
+        use ReaperTarget::*;
+        // TODO-high LoadFxSnapshot (DomainGlobal) not handled
+        match self {
+            FxParameter { param } => {
+                matches!(evt, FxParameterValueChanged(p) if p == param)
+            }
+            TrackVolume { track } => {
+                matches!(evt, TrackVolumeChanged(t) if t == track)
+            }
+            TrackSendVolume { send } => {
+                matches!(evt, TrackSendVolumeChanged(s) if s == send)
+            }
+            TrackPan { track } | TrackWidth { track } => {
+                matches!(evt, TrackPanChanged(t) if t == track)
+            }
+            TrackArm { track } => {
+                matches!(evt, TrackArmChanged(t) if t == track)
+            }
+            TrackSelection { track, .. } => {
+                matches!(evt, TrackSelectedChanged(t) if t == track)
+            }
+            TrackMute { track } => {
+                matches!(evt, TrackMuteChanged(t) if t == track)
+            }
+            TrackSolo { track } => {
+                matches!(evt, TrackSoloChanged(t) if t == track)
+            }
+            TrackSendPan { send } => {
+                matches!(evt, TrackSendPanChanged(s) if s == send)
+            }
+            Tempo { .. } => matches!(evt, MasterTempoChanged),
+            Playrate { .. } => matches!(evt, MasterPlayrateChanged),
+            FxEnable { fx } => {
+                matches!(evt, FxEnabledChanged(f) if f == fx)
+            }
+            FxPreset { fx } => {
+                matches!(evt, FxPresetChanged(f) if f == fx)
+            }
+            SelectedTrack { project } => {
+                matches!(evt, TrackSelectedChanged(t) if t.project() == *project)
+            }
+            Transport { action, .. } => {
+                if *action == TransportAction::Repeat {
+                    matches!(evt, RepeatStateChanged)
+                } else {
+                    matches!(evt, PlayStateChanged)
+                }
+            }
+            // Handled from non-control-surface callbacks.
+            Action { .. }
+            | LoadFxSnapshot { .. }
+            // No value change notification available.
+            | TrackSendMute { .. }
+            | AllTrackFxEnable { .. }
+             => false,
         }
     }
 

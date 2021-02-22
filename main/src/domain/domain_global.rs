@@ -1,15 +1,21 @@
 use crate::domain::{RealearnTargetContext, ReaperTarget};
 use std::cell::RefCell;
 
-make_available_globally_in_main_thread!(DomainGlobal);
+make_available_globally_in_main_thread_on_demand!(DomainGlobal);
 
-#[derive(Default)]
 pub struct DomainGlobal {
     target_context: RefCell<RealearnTargetContext>,
     last_touched_target: RefCell<Option<ReaperTarget>>,
 }
 
 impl DomainGlobal {
+    pub fn new(target_context: RealearnTargetContext) -> Self {
+        Self {
+            target_context: RefCell::new(target_context),
+            last_touched_target: RefCell::new(None),
+        }
+    }
+
     pub fn target_context() -> &'static RefCell<RealearnTargetContext> {
         &DomainGlobal::get().target_context
     }

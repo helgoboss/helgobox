@@ -6,12 +6,13 @@ use crate::domain::{
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
 use reaper_high::{
-    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
+    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
     MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscBundle, OscMessage, OscPacket};
 
+use reaper_medium::CommandId;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -30,6 +31,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     feedback_task_receiver: Receiver<GlobalFeedbackTask>,
+    additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     meter_middleware: MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
@@ -58,6 +60,12 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     StopLearning,
 }
 
+/// Not all events in REAPER are communicated via a control surface, e.g. action invocations.
+pub enum AdditionalFeedbackEvent {
+    ActionInvoked(CommandId),
+    FxSnapshotLoaded(Fx),
+}
+
 pub enum GlobalFeedbackTask {
     SendOscFeedback(OscDeviceId, OscMessage),
 }
@@ -72,6 +80,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
         feedback_task_receiver: Receiver<GlobalFeedbackTask>,
+        additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -83,6 +92,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_task_receiver,
             server_task_receiver,
             feedback_task_receiver,
+            additional_feedback_event_receiver,
             meter_middleware: MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
@@ -125,6 +135,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     pub fn reset(&self) {
         self.change_detection_middleware.reset(|e| {
+            for m in &self.main_processors {
+                m.process_control_surface_change_event(&e);
+            }
             self.rx_middleware.handle_change(e);
         });
         // We don't want to execute tasks which accumulated during the "downtime" of Reaper.
@@ -169,6 +182,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     .unwrap();
                     let _ = sender.send(text);
                 }
+            }
+        }
+        for event in self.additional_feedback_event_receiver.try_iter().take(10) {
+            for p in &mut self.main_processors {
+                p.process_additional_feedback_event(&event)
             }
         }
         self.process_incoming_osc_messages();
@@ -265,6 +283,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.change_detection_middleware.process(event, |e| {
             match &self.state {
                 State::Normal => {
+                    // This is for feedback processing. No Rx!
+                    for m in &self.main_processors {
+                        m.process_control_surface_change_event(&e);
+                    }
+                    // The rest is only for upper layers (e.g. UI), not for processing.
                     self.rx_middleware.handle_change(e.clone());
                     if let Some(target) = ReaperTarget::touched_from_change_event(e) {
                         DomainGlobal::get().set_last_touched_target(target);

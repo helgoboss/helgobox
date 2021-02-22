@@ -1,9 +1,9 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingTarget, ControlMode, DomainEvent, DomainEventHandler,
-    FeedbackBuffer, FeedbackRealTimeTask, GlobalFeedbackTask, MainMapping, MappingActivationEffect,
-    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
-    PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue, ReaperTarget,
-    SourceValue, VirtualSourceValue,
+    AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget, ControlMode,
+    DomainEvent, DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, GlobalFeedbackTask,
+    MainMapping, MappingActivationEffect, MappingActivationUpdate, MappingCompartment, MappingId,
+    NormalRealTimeTask, OscDeviceId, PartialControlMatch, ProcessorContext, RealSource,
+    RealTimeSourceValue, ReaperTarget, SourceValue, VirtualSourceValue,
 };
 use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
@@ -11,7 +11,8 @@ use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
 use crate::core::Global;
-use reaper_high::Reaper;
+use reaper_high::{ChangeEvent, Reaper};
+use reaper_medium::CommandId;
 use rosc::{OscMessage, OscPacket};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -23,9 +24,6 @@ const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 32;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
-
-type FeedbackSubscriptionGuard = SubscriptionGuard<Box<dyn SubscriptionLike>>;
-type FeedbackSubscriptions = HashMap<MappingId, FeedbackSubscriptionGuard>;
 
 // TODO-low Making this a usize might save quite some code
 pub const PLUGIN_PARAMETER_COUNT: u32 = 100;
@@ -42,7 +40,6 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// At the moment only "Last touched" targets.
     target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     feedback_buffer: FeedbackBuffer,
-    feedback_subscriptions: EnumMap<MappingCompartment, FeedbackSubscriptions>,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -94,7 +91,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings: Default::default(),
             target_touch_dependent_mappings: Default::default(),
             feedback_buffer: Default::default(),
-            feedback_subscriptions: Default::default(),
             feedback_is_globally_enabled: false,
             parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
@@ -127,7 +123,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // then a track selection change changes the feedback value producer ... so
         // the main processor needs to unsubscribe from the old producer and
         // subscribe to the new one).
-        // TODO-medium We have prepared reaper-rs and ReaLearn enough to get rid of rxRust in this
+        // TODO-high We have prepared reaper-rs and ReaLearn enough to get rid of rxRust in this
         //  layer! We would just need to provide a method on ReaperTarget that takes a ChangeEvent
         //  and returns if it's affected or not.
         let self_sender = self.self_normal_sender.clone();
@@ -294,23 +290,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // (Re)subscribe to or unsubscribe from feedback
                     if self.feedback_is_globally_enabled {
                         match mapping.target() {
-                            Some(CompoundMappingTarget::Reaper(target))
+                            Some(CompoundMappingTarget::Reaper(_))
                                 if mapping.feedback_is_effectively_on() =>
                             {
-                                // (Re)subscribe
-                                let subscription = send_feedback_when_target_value_changed(
-                                    self.self_feedback_sender.clone(),
-                                    compartment,
-                                    mapping.id(),
-                                    target,
-                                );
-                                self.feedback_subscriptions[compartment]
-                                    .insert(mapping.id(), subscription);
                                 self.send_feedback(mapping.feedback_if_enabled());
                             }
                             _ => {
-                                // Unsubscribe (if the feedback was enabled before)
-                                self.feedback_subscriptions[compartment].remove(&mapping.id());
                                 // Indicate via feedback that this source is not in use anymore. But
                                 // only if feedback was enabled before (otherwise this could
                                 // overwrite the feedback value of
@@ -367,9 +352,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             );
                         }
                     } else {
-                        for compartment in MappingCompartment::into_enum_iter() {
-                            self.feedback_subscriptions[compartment].clear();
-                        }
                         self.feedback_buffer.reset_all();
                         self.send_feedback(self.feedback_all_zero());
                     }
@@ -494,8 +476,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             use FeedbackMainTask::*;
             match task {
                 Feedback(compartment, mapping_id) => {
+                    // With time buffering
                     self.feedback_buffer
                         .buffer_feedback_for_mapping(compartment, mapping_id);
+                    // // Without time buffering
+                    // if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                    //     let source_values = m.feedback_if_enabled();
+                    //     self.send_feedback(source_values);
+                    // }
                 }
                 VirtualToOscFeedback(value) => {
                     if let Some(osc_device_id) = &self.osc_output_device_id {
@@ -530,17 +518,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 if self.feedback_is_globally_enabled
                                     && m.feedback_is_effectively_on()
                                 {
-                                    if let Some(CompoundMappingTarget::Reaper(target)) = m.target()
-                                    {
-                                        // (Re)subscribe
-                                        let subscription = send_feedback_when_target_value_changed(
-                                            self.self_feedback_sender.clone(),
-                                            compartment,
-                                            m.id(),
-                                            target,
-                                        );
-                                        self.feedback_subscriptions[compartment]
-                                            .insert(m.id(), subscription);
+                                    if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
                                         send_feedback(
                                             &self.self_feedback_sender,
                                             &self.feedback_real_time_task_sender,
@@ -564,6 +542,43 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     mapping.feedback_if_enabled()
                 });
                 self.send_feedback(source_values);
+            }
+        }
+    }
+
+    pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
+        self.process_feedback_related_reaper_event(|target| {
+            target.value_changed_from_additional_feedback_event(event)
+        });
+    }
+
+    pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
+        self.process_feedback_related_reaper_event(|target| {
+            target.value_changed_from_change_event(event)
+        });
+    }
+
+    fn process_feedback_related_reaper_event(&self, f: impl Fn(&ReaperTarget) -> bool) {
+        if !self.feedback_is_globally_enabled {
+            return;
+        }
+        for compartment in MappingCompartment::into_enum_iter() {
+            for m in self.mappings[compartment].values() {
+                if m.feedback_is_effectively_on() {
+                    if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
+                        if f(target) {
+                            // With value capturing in *next* main loop cycle (as always).
+                            self.self_feedback_sender
+                                .send(FeedbackMainTask::Feedback(compartment, m.id()))
+                                .unwrap();
+                            // Immediate value capturing
+                            // // TODO-high This immediate value capturing seems to cause issues
+                            // //  e.g. with the demo project "Resonance" button mapping feedback.
+                            // let source_values = m.feedback_if_enabled();
+                            // self.send_feedback(source_values);
+                        }
+                    }
+                }
             }
         }
     }
@@ -739,24 +754,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if !self.feedback_is_globally_enabled {
             return;
         }
-        // Subscribe to target value changes for feedback. Before that, cancel all existing
-        // subscriptions.
-        self.feedback_subscriptions[compartment].clear();
-        for m in self.mappings[compartment]
-            .values()
-            .filter(|m| m.feedback_is_effectively_on())
-        {
-            if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
-                // Subscribe
-                let subscription = send_feedback_when_target_value_changed(
-                    self.self_feedback_sender.clone(),
-                    compartment,
-                    m.id(),
-                    target,
-                );
-                self.feedback_subscriptions[compartment].insert(m.id(), subscription);
-            }
-        }
         // Send feedback instantly to reflect this change in mappings.
         // At first indicate via feedback the sources which are not in use anymore.
         for s in now_unused_sources {
@@ -777,10 +774,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             - State: {:?} \n\
             - Total main mapping count: {} \n\
             - Enabled main mapping count: {} \n\
-            - Main mapping feedback subscription count: {} \n\
             - Total controller mapping count: {} \n\
             - Enabled controller mapping count: {} \n\
-            - Controller mapping feedback subscription count: {} \n\
             - Feedback buffer length: {} \n\
             - Normal task count: {} \n\
             - Control task count: {} \n\
@@ -793,13 +788,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.feedback_subscriptions[MappingCompartment::MainMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings]
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.feedback_subscriptions[MappingCompartment::ControllerMappings].len(),
             self.feedback_buffer.len(),
             task_count,
             self.control_task_receiver.len(),
@@ -817,22 +810,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self
         );
     }
-}
-
-fn send_feedback_when_target_value_changed(
-    self_sender: Sender<FeedbackMainTask>,
-    compartment: MappingCompartment,
-    mapping_id: MappingId,
-    target: &ReaperTarget,
-) -> FeedbackSubscriptionGuard {
-    target
-        .value_changed()
-        .subscribe(move |_| {
-            self_sender
-                .send(FeedbackMainTask::Feedback(compartment, mapping_id))
-                .unwrap();
-        })
-        .unsubscribe_when_dropped()
 }
 
 /// A task which is sent from time to time.
