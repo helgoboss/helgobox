@@ -106,7 +106,8 @@ impl OscOutputDevice {
         messages: impl Iterator<Item = OscMessage>,
     ) -> Result<(), &'static str> {
         let bundle = OscBundle {
-            timetag: (0, 0),
+            // That should be "immediately" according to the OSC Time Tag spec.
+            timetag: (0, 1),
             content: messages.map(|msg| OscPacket::Message(msg)).collect(),
         };
         let bundle = OscPacket::Bundle(bundle);
