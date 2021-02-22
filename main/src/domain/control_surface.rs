@@ -1,6 +1,7 @@
 use crate::core::Global;
 use crate::domain::{
-    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, ReaperTarget,
+    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, OscOutputDevice,
+    ReaperTarget,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -16,7 +17,8 @@ use std::collections::HashMap;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
-const OSC_BULK_SIZE: usize = 32;
+const OSC_INCOMING_BULK_SIZE: usize = 32;
+const OSC_OUTGOING_BULK_SIZE: usize = 10;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -26,6 +28,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_processors: Vec<MainProcessor<EH>>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
+    feedback_task_receiver: Receiver<GlobalFeedbackTask>,
     meter_middleware: MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
@@ -33,6 +36,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
+    osc_output_devices: Vec<OscOutputDevice>,
 }
 
 #[derive(Debug)]
@@ -52,6 +56,10 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     StopLearning,
 }
 
+pub enum GlobalFeedbackTask {
+    SendOscFeedback(OscDeviceId, OscMessage),
+}
+
 pub enum RealearnControlSurfaceServerTask {
     ProvidePrometheusMetrics(tokio::sync::oneshot::Sender<String>),
 }
@@ -61,6 +69,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
+        feedback_task_receiver: Receiver<GlobalFeedbackTask>,
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -71,6 +80,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_processors: Default::default(),
             main_task_receiver,
             server_task_receiver,
+            feedback_task_receiver,
             meter_middleware: MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
@@ -86,6 +96,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
+            osc_output_devices: vec![],
         }
     }
 
@@ -99,6 +110,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     pub fn clear_osc_input_devices(&mut self) {
         self.osc_input_devices.clear();
+    }
+
+    pub fn set_osc_output_devices(&mut self, devices: Vec<OscOutputDevice>) {
+        self.osc_output_devices = devices;
+    }
+
+    pub fn clear_osc_output_devices(&mut self) {
+        self.osc_output_devices.clear();
     }
 
     pub fn reset(&self) {
@@ -149,7 +168,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        self.process_osc();
+        self.process_incoming_osc_messages();
         match &self.state {
             State::Normal => {
                 for p in &mut self.main_processors {
@@ -162,6 +181,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
+        self.process_global_feedback();
         if self.metrics_enabled {
             // Roughly every 10 seconds
             if self.counter == 30 * 10 {
@@ -173,12 +193,32 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn process_osc(&mut self) {
-        pub type PacketVec = SmallVec<[OscPacket; OSC_BULK_SIZE]>;
+    fn process_global_feedback(&mut self) {
+        for t in self
+            .feedback_task_receiver
+            .try_iter()
+            .take(OSC_OUTGOING_BULK_SIZE)
+        {
+            use GlobalFeedbackTask::*;
+            match t {
+                SendOscFeedback(dev_id, msg) => {
+                    self.send_osc_feedback(&dev_id, msg);
+                }
+            }
+        }
+    }
+
+    fn process_incoming_osc_messages(&mut self) {
+        pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
         let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); 32]> = self
             .osc_input_devices
             .iter_mut()
-            .map(|dev| (*dev.id(), dev.poll_multiple(OSC_BULK_SIZE).collect()))
+            .map(|dev| {
+                (
+                    *dev.id(),
+                    dev.poll_multiple(OSC_INCOMING_BULK_SIZE).collect(),
+                )
+            })
             .collect();
         for (dev_id, packets) in packets_by_device {
             match &self.state {
@@ -198,6 +238,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 State::LearningTarget(_) => {}
             }
+        }
+    }
+
+    fn send_osc_feedback(&self, dev_id: &OscDeviceId, msg: OscMessage) {
+        if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
+            let _ = dev.send(&OscPacket::Message(msg));
         }
     }
 
