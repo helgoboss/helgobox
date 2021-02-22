@@ -494,6 +494,12 @@ impl App {
         self.global_frequent_task_sender.clone()
     }
 
+    pub fn additional_feedback_event_sender(
+        &self,
+    ) -> crossbeam_channel::Sender<AdditionalFeedbackEvent> {
+        self.additional_feedback_event_sender.clone()
+    }
+
     fn temporarily_reclaim_control_surface_ownership(
         &self,
         f: impl FnOnce(&mut RealearnControlSurface),

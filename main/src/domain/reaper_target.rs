@@ -640,6 +640,22 @@ impl ReaperTarget {
             .merge(rx.fx_reordered().map_to(()))
     }
 
+    pub fn is_potential_static_change_event(evt: &ChangeEvent) -> bool {
+        use ChangeEvent::*;
+        matches!(
+            evt,
+            FxFocused(_)
+                | ProjectSwitched(_)
+                | TrackAdded(_)
+                | TrackRemoved(_)
+                | TracksReordered(_)
+                | TrackNameChanged(_)
+                | FxAdded(_)
+                | FxRemoved(_)
+                | FxReordered(_)
+        )
+    }
+
     /// This contains all potential target-changing events which could also be fired by targets
     /// themselves. Be careful with those. Reentrancy very likely.
     ///
@@ -652,6 +668,11 @@ impl ReaperTarget {
     pub fn potential_dynamic_change_events() -> impl UnitEvent {
         let rx = Global::control_surface_rx();
         rx.track_selected_changed().map_to(())
+    }
+
+    pub fn is_potential_dynamic_change_event(evt: &ChangeEvent) -> bool {
+        use ChangeEvent::*;
+        matches!(evt, TrackSelectedChanged(_))
     }
 
     /// This is eventually going to replace Rx (touched method), at least for domain layer.
@@ -986,6 +1007,9 @@ impl ReaperTarget {
             }
             LoadFxSnapshot { fx, .. } => {
                 matches!(evt, FxSnapshotLoaded(f) if f == fx)
+            }
+            FxParameter { param } => {
+                matches!(evt, RealearnMonitoringFxParameterValueChanged(p) if p == param)
             }
             _ => false,
         }

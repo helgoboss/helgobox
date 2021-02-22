@@ -381,10 +381,10 @@ impl RealearnPlugin {
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     App::get().global_feedback_task_sender(),
+                    App::get().additional_feedback_event_sender(),
                     weak_session.clone(),
                     processor_context,
                 );
-                main_processor.activate();
                 App::get().register_processor_couple(
                     instance_id,
                     shared_real_time_processor,

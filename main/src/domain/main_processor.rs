@@ -14,8 +14,6 @@ use crate::core::Global;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::CommandId;
 use rosc::{OscMessage, OscPacket};
-use rx_util::UnitEvent;
-use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
@@ -50,10 +48,10 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     global_feedback_task_sender: crossbeam_channel::Sender<GlobalFeedbackTask>,
+    additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     parameters: ParameterArray,
     event_handler: EH,
     context: ProcessorContext,
-    party_is_over_subject: LocalSubject<'static, (), ()>,
     control_mode: ControlMode,
     control_is_globally_enabled: bool,
     osc_input_device_id: Option<OscDeviceId>,
@@ -72,6 +70,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
         feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         global_feedback_task_sender: crossbeam_channel::Sender<GlobalFeedbackTask>,
+        additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
         event_handler: EH,
         context: ProcessorContext,
     ) -> MainProcessor<EH> {
@@ -95,47 +94,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
             context,
-            party_is_over_subject: Default::default(),
             control_mode: ControlMode::Controlling,
             control_is_globally_enabled: true,
             osc_input_device_id: None,
             osc_output_device_id: None,
             global_feedback_task_sender,
+            additional_feedback_event_sender,
         }
     }
 
     pub fn instance_id(&self) -> &str {
         &self.instance_id
-    }
-
-    pub fn activate(&self) {
-        // Handle dynamic target changes and target activation depending on REAPER state.
-        //
-        // Whenever anything changes that just affects the main processor targets, resync all
-        // targets to the main processor. We don't want to resync to the real-time processor
-        // just because another track has been selected. First, it would reset any source state
-        // (e.g. short/long press timers). Second, it wouldn't change anything about the sources.
-        // We also don't want to resync modes to the main processor. First, it would reset any
-        // mode state (e.g. throttling data). Second, it would - again - not result in any change.
-        // There are several global conditions which affect whether feedback will be sent
-        // from a target or not. Similar global conditions decide what exactly produces the
-        // feedback values (e.g. when there's a target which uses <Selected track>,
-        // then a track selection change changes the feedback value producer ... so
-        // the main processor needs to unsubscribe from the old producer and
-        // subscribe to the new one).
-        // TODO-high We have prepared reaper-rs and ReaLearn enough to get rid of rxRust in this
-        //  layer! We would just need to provide a method on ReaperTarget that takes a ChangeEvent
-        //  and returns if it's affected or not.
-        let self_sender = self.self_normal_sender.clone();
-        ReaperTarget::potential_static_change_events()
-            .merge(ReaperTarget::potential_dynamic_change_events())
-            // We have this explicit stop criteria because we listen to global REAPER events.
-            .take_until(self.party_is_over_subject.clone())
-            .subscribe(move |_| {
-                // This should always succeed because at the time this is executed, "party is not
-                // yet over" and therefore the receiver exists.
-                self_sender.send(NormalMainTask::RefreshAllTargets).unwrap();
-            });
     }
 
     /// This should be regularly called by the control surface in normal mode.
@@ -414,17 +383,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 UpdateParameter { index, value } => {
                     debug!(self.logger, "Updating parameter {} to {}...", index, value);
-                    // Workaround REAPER's inability to notify about parameter changes in monitoring
-                    // FX by simulating the notification ourselves. Then parameter learning and
-                    // feedback works at least for ReaLearn monitoring FX instances, which is
-                    // especially useful for conditional activation.
+                    // Work around REAPER's inability to notify about parameter changes in
+                    // monitoring FX by simulating the notification ourselves.
+                    // Then parameter learning and feedback works at least for
+                    // ReaLearn monitoring FX instances, which is especially
+                    // useful for conditional activation.
                     if self.context.is_on_monitoring_fx_chain() {
-                        let parameter = self.context.containing_fx().parameter_by_index(index);
-                        let rx = Global::control_surface_rx();
-                        rx.fx_parameter_value_changed
-                            .borrow_mut()
-                            .next(parameter.clone());
-                        rx.fx_parameter_touched.borrow_mut().next(parameter);
+                        let param = self.context.containing_fx().parameter_by_index(index);
+                        self.additional_feedback_event_sender
+                            .send(
+                                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
+                                    param,
+                                ),
+                            )
+                            .unwrap();
                     }
                     // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
@@ -553,6 +525,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
+        if ReaperTarget::is_potential_static_change_event(event)
+            || ReaperTarget::is_potential_dynamic_change_event(event)
+        {
+            // Handle dynamic target changes and target activation depending on REAPER state.
+            //
+            // Whenever anything changes that just affects the main processor targets, resync all
+            // targets to the main processor. We don't want to resync to the real-time processor
+            // just because another track has been selected. First, it would reset any source state
+            // (e.g. short/long press timers). Second, it wouldn't change anything about the
+            // sources. We also don't want to resync modes to the main processor. First,
+            // it would reset any mode state (e.g. throttling data). Second, it would -
+            // again - not result in any change. There are several global conditions
+            // which affect whether feedback will be sent from a target or not. Similar
+            // global conditions decide what exactly produces the feedback values (e.g.
+            // when there's a target which uses <Selected track>, then a track selection
+            // change changes the feedback value producer).
+
+            // We don't have mutable access to self here (for good reentrancy reasons) so we
+            // do the refresh in the next main loop cycle. This is what we always did, also when
+            // this was still based on Rx!
+            self.self_normal_sender
+                .send(NormalMainTask::RefreshAllTargets)
+                .unwrap();
+        }
         self.process_feedback_related_reaper_event(|target| {
             target.value_changed_from_change_event(event)
         });
@@ -877,7 +873,6 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping main processor...");
-        self.party_is_over_subject.next(());
     }
 }
 

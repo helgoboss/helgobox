@@ -7,12 +7,13 @@ use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
-    MainTaskMiddleware, MeterMiddleware,
+    FxParameter, MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscBundle, OscMessage, OscPacket};
 
 use reaper_medium::CommandId;
+use rxrust::prelude::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -64,6 +65,12 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
 pub enum AdditionalFeedbackEvent {
     ActionInvoked(CommandId),
     FxSnapshotLoaded(Fx),
+    /// Work around REAPER's inability to notify about parameter changes in
+    /// monitoring FX by simulating the notification ourselves.
+    /// Then parameter learning and feedback works at least for
+    /// ReaLearn monitoring FX instances, which is especially
+    /// useful for conditional activation.
+    RealearnMonitoringFxParameterValueChanged(FxParameter),
 }
 
 pub enum GlobalFeedbackTask {
@@ -184,7 +191,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        for event in self.additional_feedback_event_receiver.try_iter().take(10) {
+        for event in self.additional_feedback_event_receiver.try_iter().take(30) {
+            match &event {
+                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(param) => {
+                    let rx = Global::control_surface_rx();
+                    rx.fx_parameter_value_changed
+                        .borrow_mut()
+                        .next(param.clone());
+                    rx.fx_parameter_touched.borrow_mut().next(param.clone());
+                }
+                _ => {}
+            }
             for p in &mut self.main_processors {
                 p.process_additional_feedback_event(&event)
             }
