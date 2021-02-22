@@ -1018,7 +1018,6 @@ impl ReaperTarget {
     pub fn value_changed_from_change_event(&self, evt: &ChangeEvent) -> bool {
         use ChangeEvent::*;
         use ReaperTarget::*;
-        // TODO-high LoadFxSnapshot (DomainGlobal) not handled
         match self {
             FxParameter { param } => {
                 matches!(evt, FxParameterValueChanged(p) if p == param)

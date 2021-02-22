@@ -307,6 +307,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     // The rest is only for upper layers (e.g. UI), not for processing.
                     self.rx_middleware.handle_change(e.clone());
                     if let Some(target) = ReaperTarget::touched_from_change_event(e) {
+                        // TODO-medium Now we have the necessary framework (AdditionalFeedbackEvent)
+                        //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
+                        //  touching for "Last touched" target and global learning (see
+                        //  LearningTarget state)! Connect the dots!
                         DomainGlobal::get().set_last_touched_target(target);
                         for p in &self.main_processors {
                             p.notify_target_touched();
