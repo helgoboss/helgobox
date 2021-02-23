@@ -4,9 +4,6 @@ pub use real_time_processor::*;
 mod main_processor;
 pub use main_processor::*;
 
-mod feedback_buffer;
-pub use feedback_buffer::*;
-
 mod mapping;
 pub use mapping::*;
 

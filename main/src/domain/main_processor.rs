@@ -1,15 +1,14 @@
 use crate::domain::{
     AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget, ControlMode,
-    DomainEvent, DomainEventHandler, FeedbackBuffer, FeedbackRealTimeTask, MainMapping,
-    MappingActivationEffect, MappingActivationUpdate, MappingCompartment, MappingId,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext,
-    RealSource, RealTimeSourceValue, ReaperTarget, SourceValue, VirtualSourceValue,
+    DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
+    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
+    OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue,
+    ReaperTarget, SourceValue, VirtualSourceValue,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscSource, Target, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
-use crate::core::Global;
 use reaper_high::{ChangeEvent, Reaper};
 use rosc::{OscMessage, OscPacket};
 use slog::debug;
@@ -37,7 +36,6 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
     /// At the moment only "Last touched" targets.
     target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
-    feedback_buffer: FeedbackBuffer,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -90,7 +88,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings: Default::default(),
             mappings_with_virtual_targets: Default::default(),
             target_touch_dependent_mappings: Default::default(),
-            feedback_buffer: Default::default(),
             feedback_is_globally_enabled: false,
             parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
@@ -347,7 +344,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             );
                         }
                     } else {
-                        self.feedback_buffer.reset_all();
                         self.send_feedback(self.feedback_all_zero());
                     }
                 }
@@ -478,20 +474,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for task in feedback_tasks {
             use FeedbackMainTask::*;
             match task {
-                TodoFeedback(source_value) => {
-                    self.send_feedback(Some(source_value));
-                }
-                Feedback(compartment, mapping_id) => {
-                    // With time buffering (as always)
-                    // self.feedback_buffer
-                    //     .buffer_feedback_for_mapping(compartment, mapping_id);
-                    // Without time buffering (experiment)
-                    if let Some(m) = self.mappings[compartment].get(&mapping_id) {
-                        let source_values = m.feedback_if_enabled();
-                        println!("DEFERRED {:?}", source_values);
-                        self.send_feedback(source_values);
-                    }
-                }
                 TargetTouched => {
                     for compartment in MappingCompartment::into_enum_iter() {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
@@ -520,30 +502,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
-        // Send feedback as soon as buffered long enough (feedback buffer - not used for OSC
-        // feedback)
-        if self.feedback_is_globally_enabled {
-            if let Some(mapping_ids) = self.feedback_buffer.poll() {
-                let source_values = mapping_ids.iter().filter_map(|(compartment, mapping_id)| {
-                    // Mappings with virtual targets are not relevant here because they don't cause
-                    // feedback on its own.
-                    let mapping = self.mappings[*compartment].get(mapping_id)?;
-                    mapping.feedback_if_enabled()
-                });
-                self.send_feedback(source_values);
-            }
-        }
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
-        println!("ADDITIONAL EVENT: {:?}", &event);
         self.process_feedback_related_reaper_event(|target| {
             target.value_changed_from_additional_feedback_event(event)
         });
     }
 
     pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
-        println!("CHANGE EVENT: {:?}", &event);
         if ReaperTarget::is_potential_static_change_event(event)
             || ReaperTarget::is_potential_dynamic_change_event(event)
         {
@@ -590,40 +557,24 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for compartment in MappingCompartment::into_enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
-            println!("COMPARTMENT {:?}", compartment);
             for m in self.mappings[compartment].values() {
                 if m.feedback_is_effectively_on() && !m.is_echo() {
                     if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
                         let (value_changed, new_value) = f(target);
                         if value_changed {
-                            // if self.osc_output_device_id.is_some() {
                             // Immediate value capturing. Makes OSC feedback *much* smoother in
                             // combination with high-throughput thread. Especially quick pulls
                             // of many faders at once profit from it because intermediate
                             // values are be captured and immediately sent so user doesn't see
                             // stuttering faders on their device.
-                            // // TODO-high This immediate value capturing seems to cause issues
-                            // //  e.g. with the demo project "Resonance" button mapping
-                            // feedback.
-                            // TODO-high Take
+                            // It's important to capture the current value from the event because
+                            // querying *at this time* from the target itself might result in
+                            // the old value to be returned. This is the case with FX parameter
+                            // changes for examples and especially in case of on/off targets this
+                            // can lead to horribly wrong feedback. Previously we didn't have this
+                            // issue because we always deferred to the next main loop cycle.
                             let source_value = m.feedback_given_or_current_value(new_value, target);
-                            println!("{:?}", source_value);
                             self.send_feedback(source_value);
-                            // if let Some(source_value) = source_values {
-                            //     self.self_feedback_sender
-                            //         .send(FeedbackMainTask::TodoFeedback(source_value));
-                            // }
-
-                            // } else {
-
-                            //     With value capturing in *next* main loop cycle (as always).
-                            // let source_values = m.feedback_if_enabled();
-                            // println!("IMMEDIATE {:?}", source_values);
-                            // self.self_feedback_sender
-                            //     .send(FeedbackMainTask::Feedback(compartment, m.id()))
-                            //     .unwrap();
-
-                            // }
                         }
                     }
                 }
@@ -830,9 +781,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for s in now_unused_sources {
             self.send_feedback(s.feedback(UnitValue::MIN));
         }
-        // Then discard the current feedback buffer and send feedback for all new mappings which
-        // are enabled.
-        self.feedback_buffer.reset_all_in_compartment(compartment);
         self.send_feedback(self.feedback_all_in_compartment(compartment));
     }
 
@@ -849,7 +797,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             - Enabled non-virtual controller mapping count: {} \n\
             - Total virtual controller mapping count: {} \n\
             - Enabled virtual controller mapping count: {} \n\
-            - Feedback buffer length: {} \n\
             - Normal task count: {} \n\
             - Control task count: {} \n\
             - Feedback task count: {} \n\
@@ -871,7 +818,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            self.feedback_buffer.len(),
             task_count,
             self.control_task_receiver.len(),
             self.feedback_task_receiver.len(),
@@ -929,9 +875,6 @@ pub enum ParameterMainTask {
 /// A feedback-related task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackMainTask {
-    /// Sent whenever a target value has been changed.
-    Feedback(MappingCompartment, MappingId),
-    TodoFeedback(SourceValue),
     /// Sent whenever a target has been touched (usually a subset of the value change events)
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,

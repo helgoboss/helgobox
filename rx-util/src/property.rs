@@ -449,9 +449,7 @@ mod tests {
         }
 
         fn to_ptr<T>(value: &mut T) -> *mut T {
-            let ptr = value as *mut T;
-            println!("{:?}", ptr);
-            ptr
+            value as *mut T
         }
 
         // Given
