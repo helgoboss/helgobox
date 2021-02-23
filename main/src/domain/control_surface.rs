@@ -11,7 +11,7 @@ use reaper_high::{
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
-use reaper_medium::CommandId;
+use reaper_medium::{CommandId, ReaperNormalizedFxParamValue};
 use rxrust::prelude::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -65,7 +65,10 @@ pub enum AdditionalFeedbackEvent {
     /// Then parameter learning and feedback works at least for
     /// ReaLearn monitoring FX instances, which is especially
     /// useful for conditional activation.
-    RealearnMonitoringFxParameterValueChanged(FxParameter),
+    RealearnMonitoringFxParameterValueChanged {
+        parameter: FxParameter,
+        new_value: ReaperNormalizedFxParamValue,
+    },
 }
 
 pub enum RealearnControlSurfaceServerTask {
@@ -171,14 +174,16 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
         }
         for event in self.additional_feedback_event_receiver.try_iter().take(30) {
-            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(param) =
-                &event
+            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged {
+                parameter,
+                ..
+            } = &event
             {
                 let rx = Global::control_surface_rx();
                 rx.fx_parameter_value_changed
                     .borrow_mut()
-                    .next(param.clone());
-                rx.fx_parameter_touched.borrow_mut().next(param.clone());
+                    .next(parameter.clone());
+                rx.fx_parameter_touched.borrow_mut().next(parameter.clone());
             }
             for p in &mut self.main_processors {
                 p.process_additional_feedback_event(&event)

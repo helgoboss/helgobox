@@ -1005,18 +1005,27 @@ impl ReaperTarget {
     ) -> (bool, Option<UnitValue>) {
         use AdditionalFeedbackEvent::*;
         use ReaperTarget::*;
-        // TODO-high Get the correct values here!
         match self {
             Action { action, .. } => match evt {
+                // We can't provide a value from the event itself because the action hooks don't
+                // pass values.
                 ActionInvoked(command_id) if *command_id == action.command_id() => (true, None),
                 _ => (false, None),
             },
             LoadFxSnapshot { fx, .. } => match evt {
+                // We can't provide a value from the event itself because it's on/off depending on
+                // the mappings which use the FX snapshot target with that FX and which chunk (hash)
+                // their snapshot has.
                 FxSnapshotLoaded(f) if f == fx => (true, None),
                 _ => (false, None),
             },
             FxParameter { param } => match evt {
-                RealearnMonitoringFxParameterValueChanged(p) if p == param => (true, None),
+                RealearnMonitoringFxParameterValueChanged {
+                    parameter,
+                    new_value,
+                } if parameter == param => {
+                    (true, Some(fx_parameter_unit_value(parameter, *new_value)))
+                }
                 _ => (false, None),
             },
             _ => (false, None),

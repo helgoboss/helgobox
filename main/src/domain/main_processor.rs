@@ -10,6 +10,7 @@ use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
 use reaper_high::{ChangeEvent, Reaper};
+use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
 use slog::debug;
 use smallvec::SmallVec;
@@ -415,12 +416,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // ReaLearn monitoring FX instances, which is especially
                     // useful for conditional activation.
                     if self.context.is_on_monitoring_fx_chain() {
-                        let param = self.context.containing_fx().parameter_by_index(index);
+                        let parameter = self.context.containing_fx().parameter_by_index(index);
                         self.additional_feedback_event_sender
                             .send(
-                                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
-                                    param,
-                                ),
+                                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged {
+                                    parameter,
+                                    new_value: ReaperNormalizedFxParamValue::new(value as _),
+                                },
                             )
                             .unwrap();
                     }
