@@ -204,7 +204,6 @@ impl OscOutputDevice {
         logger: slog::Logger,
     ) -> Result<OscOutputDevice, Box<dyn Error>> {
         let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))?;
-        socket.set_nonblocking(true)?;
         socket.connect(addr)?;
         let dev = OscOutputDevice { id, socket, logger };
         Ok(dev)
