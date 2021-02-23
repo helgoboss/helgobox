@@ -10,7 +10,6 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
 
 use core::mem;
-use smallvec::SmallVec;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -115,13 +114,12 @@ struct OscFeedbackHandler {
 
 impl OscFeedbackHandler {
     pub fn cycle(&mut self) {
-        let tasks: SmallVec<[OscFeedbackTask; OSC_OUTGOING_BULK_SIZE]> = self
+        use itertools::Itertools;
+        let grouped_by_device = self
             .task_receiver
             .try_iter()
             .take(OSC_OUTGOING_BULK_SIZE)
-            .collect();
-        use itertools::Itertools;
-        let grouped_by_device = tasks.into_iter().group_by(|task| task.dev_id);
+            .group_by(|task| task.dev_id);
         for (dev_id, group) in grouped_by_device.into_iter() {
             if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
                 // Haven't realized a performance difference between sending a bundle or single
