@@ -7,8 +7,9 @@ use crate::domain::{
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, OscSource, Target, UnitValue};
 
+use crate::core::Global;
 use reaper_high::{ChangeEvent, Reaper};
 use rosc::{OscMessage, OscPacket};
 use slog::debug;
@@ -477,15 +478,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for task in feedback_tasks {
             use FeedbackMainTask::*;
             match task {
+                TodoFeedback(source_value) => {
+                    self.send_feedback(Some(source_value));
+                }
                 Feedback(compartment, mapping_id) => {
                     // With time buffering (as always)
-                    self.feedback_buffer
-                        .buffer_feedback_for_mapping(compartment, mapping_id);
-                    // // Without time buffering (experiment)
-                    // if let Some(m) = self.mappings[compartment].get(&mapping_id) {
-                    //     let source_values = m.feedback_if_enabled();
-                    //     self.send_feedback(source_values);
-                    // }
+                    // self.feedback_buffer
+                    //     .buffer_feedback_for_mapping(compartment, mapping_id);
+                    // Without time buffering (experiment)
+                    if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                        let source_values = m.feedback_if_enabled();
+                        println!("DEFERRED {:?}", source_values);
+                        self.send_feedback(source_values);
+                    }
                 }
                 TargetTouched => {
                     for compartment in MappingCompartment::into_enum_iter() {
@@ -531,12 +536,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
+        println!("ADDITIONAL EVENT: {:?}", &event);
         self.process_feedback_related_reaper_event(|target| {
             target.value_changed_from_additional_feedback_event(event)
         });
     }
 
     pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
+        println!("CHANGE EVENT: {:?}", &event);
         if ReaperTarget::is_potential_static_change_event(event)
             || ReaperTarget::is_potential_dynamic_change_event(event)
         {
@@ -566,34 +573,57 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         });
     }
 
-    fn process_feedback_related_reaper_event(&self, f: impl Fn(&ReaperTarget) -> bool) {
+    /// The given function should return if the current target value is affected by this change
+    /// and - if possible - the new value. We do this because querying the value *immediately*
+    /// using the target's `current_value()` method will in some or even many (?) cases give us the
+    /// old value - which can lead to confusing feedback! In the past we unknowingly worked around
+    /// this by deferring the value query to the next main cycle, but now that we have the nice
+    /// non-rx change detection technique, we can do it right here, feedback without delay and
+    /// avoid a redundant query.
+    fn process_feedback_related_reaper_event(
+        &self,
+        f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
+    ) {
         if !self.feedback_is_globally_enabled {
             return;
         }
         for compartment in MappingCompartment::into_enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
+            println!("COMPARTMENT {:?}", compartment);
             for m in self.mappings[compartment].values() {
-                if m.feedback_is_effectively_on() {
+                if m.feedback_is_effectively_on() && !m.is_echo() {
                     if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
-                        if f(target) {
-                            if self.osc_output_device_id.is_some() {
-                                // Immediate value capturing. Makes OSC feedback *much* smoother in
-                                // combination with high-throughput thread. Especially quick pulls
-                                // of many faders at once profit from it because intermediate
-                                // values are be captured and immediately sent so user doesn't see
-                                // stuttering faders on their device.
-                                // // TODO-high This immediate value capturing seems to cause issues
-                                // //  e.g. with the demo project "Resonance" button mapping
-                                // feedback.
-                                let source_values = m.feedback_if_enabled();
-                                self.send_feedback(source_values);
-                            } else {
-                                // With value capturing in *next* main loop cycle (as always).
-                                self.self_feedback_sender
-                                    .send(FeedbackMainTask::Feedback(compartment, m.id()))
-                                    .unwrap();
-                            }
+                        let (value_changed, new_value) = f(target);
+                        if value_changed {
+                            // if self.osc_output_device_id.is_some() {
+                            // Immediate value capturing. Makes OSC feedback *much* smoother in
+                            // combination with high-throughput thread. Especially quick pulls
+                            // of many faders at once profit from it because intermediate
+                            // values are be captured and immediately sent so user doesn't see
+                            // stuttering faders on their device.
+                            // // TODO-high This immediate value capturing seems to cause issues
+                            // //  e.g. with the demo project "Resonance" button mapping
+                            // feedback.
+                            // TODO-high Take
+                            let source_value = m.feedback_given_or_current_value(new_value, target);
+                            println!("{:?}", source_value);
+                            self.send_feedback(source_value);
+                            // if let Some(source_value) = source_values {
+                            //     self.self_feedback_sender
+                            //         .send(FeedbackMainTask::TodoFeedback(source_value));
+                            // }
+
+                            // } else {
+
+                            //     With value capturing in *next* main loop cycle (as always).
+                            // let source_values = m.feedback_if_enabled();
+                            // println!("IMMEDIATE {:?}", source_values);
+                            // self.self_feedback_sender
+                            //     .send(FeedbackMainTask::Feedback(compartment, m.id()))
+                            //     .unwrap();
+
+                            // }
                         }
                     }
                 }
@@ -901,6 +931,7 @@ pub enum ParameterMainTask {
 pub enum FeedbackMainTask {
     /// Sent whenever a target value has been changed.
     Feedback(MappingCompartment, MappingId),
+    TodoFeedback(SourceValue),
     /// Sent whenever a target has been touched (usually a subset of the value change events)
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,

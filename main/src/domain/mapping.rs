@@ -262,16 +262,31 @@ impl MainMapping {
         if !self.feedback_is_effectively_on() {
             return None;
         }
-        if let Some(t) = self.core.time_of_last_control {
-            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
-                return None;
-            }
+        if self.core.is_echo() {
+            return None;
         }
         let target = match &self.core.target {
             Some(CompoundMappingTarget::Reaper(t)) => t,
             _ => return None,
         };
         let target_value = target.current_value()?;
+        self.feedback_given_value(target_value)
+    }
+
+    pub fn is_echo(&self) -> bool {
+        self.core.is_echo()
+    }
+
+    pub fn feedback_given_or_current_value(
+        &self,
+        target_value: Option<UnitValue>,
+        target: &ReaperTarget,
+    ) -> Option<SourceValue> {
+        let actual_value = target_value.or_else(|| target.current_value())?;
+        self.feedback_given_value(actual_value)
+    }
+
+    fn feedback_given_value(&self, target_value: UnitValue) -> Option<SourceValue> {
         let modified_value = self.core.mode.feedback(target_value)?;
         self.core.source.feedback(modified_value)
     }
@@ -412,12 +427,18 @@ pub struct MappingCore {
 
 impl MappingCore {
     fn feedback(&self, feedback_value: UnitValue) -> Option<UnitValue> {
-        if let Some(t) = self.time_of_last_control {
-            if t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY {
-                return None;
-            }
+        if self.is_echo() {
+            return None;
         }
         self.mode.feedback(feedback_value)
+    }
+
+    fn is_echo(&self) -> bool {
+        if let Some(t) = self.time_of_last_control {
+            t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY
+        } else {
+            false
+        }
     }
 }
 

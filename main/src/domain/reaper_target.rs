@@ -3,8 +3,8 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, ActionCharacter, ChangeEvent, Fx, FxParameter, FxParameterCharacter, Pan, PlayRate,
-    Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
+    Action, ActionCharacter, AvailablePanValue, ChangeEvent, Fx, FxParameter, FxParameterCharacter,
+    Pan, PlayRate, Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
 };
 use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
@@ -676,42 +676,46 @@ impl ReaperTarget {
     }
 
     /// This is eventually going to replace Rx (touched method), at least for domain layer.
-    // TODO-medium Touched should contain changed, it shouldn't be necessary to make two calls!
     // TODO-medium Unlike the Rx stuff, this doesn't yet contain "Action touch".
     pub fn touched_from_change_event(evt: ChangeEvent) -> Option<ReaperTarget> {
         use ChangeEvent::*;
         use ReaperTarget::*;
         let target = match evt {
-            TrackVolumeTouched(track) => TrackVolume { track },
-            TrackPanTouched { track, old, new } => {
-                figure_out_touched_pan_component(track, old, new)
+            TrackVolumeChanged(e) if e.touched => TrackVolume { track: e.track },
+            TrackPanChanged(e) if e.touched => {
+                if let AvailablePanValue::Complete(new_value) = e.new_value {
+                    figure_out_touched_pan_component(e.track, e.old_value, new_value)
+                } else {
+                    // Shouldn't result in this if touched.
+                    return None;
+                }
             }
-            TrackSendVolumeTouched(send) => TrackSendVolume { send },
-            TrackSendPanTouched(send) => TrackSendPan { send },
-            TrackArmChanged(track) => TrackArm { track },
-            TrackMuteTouched(track) => TrackMute { track },
-            TrackSoloChanged(track) => {
+            TrackSendVolumeChanged(e) if e.touched => TrackSendVolume { send: e.send },
+            TrackSendPanChanged(e) if e.touched => TrackSendPan { send: e.send },
+            TrackArmChanged(e) => TrackArm { track: e.track },
+            TrackMuteChanged(e) if e.touched => TrackMute { track: e.track },
+            TrackSoloChanged(e) => {
                 // When we press the solo button of some track, REAPER actually sends many
                 // change events, starting with the change event for the master track. This is
                 // not cool for learning because we could only ever learn master-track solo,
                 // which doesn't even make sense. So let's just filter it out.
-                if track.is_master_track() {
+                if e.track.is_master_track() {
                     return None;
                 }
-                TrackSolo { track }
+                TrackSolo { track: e.track }
             }
-            TrackSelectedChanged(track) => TrackSelection {
-                track,
+            TrackSelectedChanged(e) => TrackSelection {
+                track: e.track,
                 select_exclusively: false,
             },
-            FxEnabledChanged(fx) => FxEnable { fx },
-            FxParameterTouched(param) => FxParameter { param },
-            FxPresetChanged(fx) => FxPreset { fx },
-            MasterTempoTouched => Tempo {
+            FxEnabledChanged(e) => FxEnable { fx: e.fx },
+            FxParameterValueChanged(e) if e.touched => FxParameter { param: e.parameter },
+            FxPresetChanged(e) => FxPreset { fx: e.fx },
+            MasterTempoChanged(e) if e.touched => Tempo {
                 // TODO-low In future this might come from a certain project
                 project: Reaper::get().current_project(),
             },
-            MasterPlayrateTouched => Playrate {
+            MasterPlayrateChanged(e) if e.touched => Playrate {
                 // TODO-low In future this might come from a certain project
                 project: Reaper::get().current_project(),
             },
@@ -838,11 +842,11 @@ impl ReaperTarget {
         let result = match self {
             FxPreset { fx } => {
                 let index = if value == 0 { None } else { Some(value - 1) };
-                convert_preset_index_to_unit_value(fx, index)
+                fx_preset_unit_value(fx, index)
             }
             SelectedTrack { project } => {
                 let index = if value == 0 { None } else { Some(value - 1) };
-                convert_track_index_to_unit_value(*project, index)
+                selected_track_unit_value(*project, index)
             }
             FxParameter { param } => {
                 let step_size = param.step_size().ok_or("not supported")?;
@@ -998,70 +1002,196 @@ impl ReaperTarget {
     pub fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> bool {
+    ) -> (bool, Option<UnitValue>) {
         use AdditionalFeedbackEvent::*;
         use ReaperTarget::*;
+        // TODO-high Get the correct values here!
         match self {
-            Action { action, .. } => {
-                matches!(evt, ActionInvoked(command_id) if *command_id == action.command_id())
-            }
-            LoadFxSnapshot { fx, .. } => {
-                matches!(evt, FxSnapshotLoaded(f) if f == fx)
-            }
-            FxParameter { param } => {
-                matches!(evt, RealearnMonitoringFxParameterValueChanged(p) if p == param)
-            }
-            _ => false,
+            Action { action, .. } => match evt {
+                ActionInvoked(command_id) if *command_id == action.command_id() => (true, None),
+                _ => (false, None),
+            },
+            LoadFxSnapshot { fx, .. } => match evt {
+                FxSnapshotLoaded(f) if f == fx => (true, None),
+                _ => (false, None),
+            },
+            FxParameter { param } => match evt {
+                RealearnMonitoringFxParameterValueChanged(p) if p == param => (true, None),
+                _ => (false, None),
+            },
+            _ => (false, None),
         }
     }
 
-    pub fn value_changed_from_change_event(&self, evt: &ChangeEvent) -> bool {
+    /// Might return the new value if changed.
+    pub fn value_changed_from_change_event(&self, evt: &ChangeEvent) -> (bool, Option<UnitValue>) {
         use ChangeEvent::*;
         use ReaperTarget::*;
         match self {
             FxParameter { param } => {
-                matches!(evt, FxParameterValueChanged(p) if p == param)
+                match evt {
+                    FxParameterValueChanged(e) if &e.parameter == param => (
+                        true,
+                        Some(fx_parameter_unit_value(&e.parameter, e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackVolume { track } => {
-                matches!(evt, TrackVolumeChanged(t) if t == track)
+                match evt {
+                    TrackVolumeChanged(e) if &e.track == track => (
+                        true,
+                        Some(volume_unit_value(Volume::from_reaper_value(e.new_value)))
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackSendVolume { send } => {
-                matches!(evt, TrackSendVolumeChanged(s) if s == send)
+                match evt {
+                    TrackSendVolumeChanged(e) if &e.send == send => (
+                        true,
+                        Some(volume_unit_value(Volume::from_reaper_value(e.new_value)))
+                    ),
+                    _ => (false, None)
+                }
             }
-            TrackPan { track } | TrackWidth { track } => {
-                matches!(evt, TrackPanChanged(t) if t == track)
+            TrackPan { track } => {
+                match evt {
+                    TrackPanChanged(e) if &e.track == track => (
+                        true,
+                        {
+                            let pan = match e.new_value {
+                                AvailablePanValue::Complete(v) => v.main_pan(),
+                                AvailablePanValue::Incomplete(pan) => pan
+                            };
+                            Some(pan_unit_value(Pan::from_reaper_value(pan)))
+                        }
+                    ),
+                    _ => (false, None)
+                }
+            }
+            TrackWidth { track } => {
+                match evt {
+                    TrackPanChanged(e) if &e.track == track => (
+                        true,
+                        match e.new_value {
+                            AvailablePanValue::Complete(v) => if let Some(width) = v.width() {
+                                Some(width_unit_value(Width::from_reaper_value(width)))
+                            } else {
+                                None
+                            }
+                            AvailablePanValue::Incomplete(_) => None
+                        }
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackArm { track } => {
-                matches!(evt, TrackArmChanged(t) if t == track)
+                match evt {
+                    TrackArmChanged(e) if &e.track == track => (
+                        true,
+                        Some(track_arm_unit_value(e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackSelection { track, .. } => {
-                matches!(evt, TrackSelectedChanged(t) if t == track)
+                match evt {
+                    TrackSelectedChanged(e) if &e.track == track => (
+                        true,
+                        Some(track_selected_unit_value(e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackMute { track } => {
-                matches!(evt, TrackMuteChanged(t) if t == track)
+                match evt {
+                    TrackMuteChanged(e) if &e.track == track => (
+                        true,
+                        Some(mute_unit_value(e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackSolo { track } => {
-                matches!(evt, TrackSoloChanged(t) if t == track)
+                match evt {
+                    TrackSoloChanged(e) if &e.track == track => (
+                        true,
+                        Some(track_solo_unit_value(e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             TrackSendPan { send } => {
-                matches!(evt, TrackSendPanChanged(s) if s == send)
+                match evt {
+                    TrackSendPanChanged(e) if &e.send == send => (
+                        true,
+                        Some(pan_unit_value(Pan::from_reaper_value(e.new_value)))
+                    ),
+                    _ => (false, None)
+                }
             }
-            Tempo { .. } => matches!(evt, MasterTempoChanged),
-            Playrate { .. } => matches!(evt, MasterPlayrateChanged),
+            Tempo { .. } => match evt {
+                MasterTempoChanged(e) => (
+                    true,
+                    Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value)))
+                ),
+                _ => (false, None)
+            },
+            Playrate { .. } => match evt {
+                MasterPlayrateChanged(e) => (
+                    true,
+                    Some(playrate_unit_value(PlayRate::from_playback_speed_factor(e.new_value)))
+                ),
+                _ => (false, None)
+            },
             FxEnable { fx } => {
-                matches!(evt, FxEnabledChanged(f) if f == fx)
+                match evt {
+                    FxEnabledChanged(e) if &e.fx == fx => (
+                        true,
+                        Some(fx_enable_unit_value(e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             FxPreset { fx } => {
-                matches!(evt, FxPresetChanged(f) if f == fx)
+                match evt {
+                    FxPresetChanged(e) if &e.fx == fx => (true, None),
+                    _ => (false, None)
+                }
             }
             SelectedTrack { project } => {
-                matches!(evt, TrackSelectedChanged(t) if t.project() == *project)
+                match evt {
+                    TrackSelectedChanged(e) if &e.track.project() == project => (
+                        true,
+                        Some(track_selected_unit_value(e.new_value))
+                    ),
+                    _ => (false, None)
+                }
             }
             Transport { action, .. } => {
-                if *action == TransportAction::Repeat {
-                    matches!(evt, RepeatStateChanged)
-                } else {
-                    matches!(evt, PlayStateChanged)
+                match *action {
+                    TransportAction::PlayStop | TransportAction::PlayPause => match evt {
+                        PlayStateChanged(e) => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value.is_playing))
+                        ),
+                        _ => (false, None)
+                    }
+                    TransportAction::Record => match evt {
+                        PlayStateChanged(e) => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value.is_recording))
+                        ),
+                        _ => (false, None)
+                    }
+                    TransportAction::Repeat => match evt {
+                        RepeatStateChanged(e) => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value))
+                        ),
+                        _ => (false, None)
+                    }
                 }
             }
             // Handled from non-control-surface callbacks.
@@ -1070,7 +1200,7 @@ impl ReaperTarget {
             // No value change notification available.
             | TrackSendMute { .. }
             | AllTrackFxEnable { .. }
-             => false,
+             => (false, None),
         }
     }
 
@@ -1231,54 +1361,35 @@ impl Target for ReaperTarget {
                 }
             }
             FxParameter { param } => {
-                let v = param.reaper_normalized_value().get();
-                if !UnitValue::is_valid(v) {
-                    // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
-                    // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
-                    // know. In future, we might offer further customization possibilities here.
-                    // For now, we just report it as 0.0 or 1.0 and log a warning.
-                    warn!(
-                        Reaper::get().logger(),
-                        "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
-                        v,
-                        param
-                    );
-                    return Some(UnitValue::new_clamped(v));
-                }
-                UnitValue::new(v)
+                fx_parameter_unit_value(param, param.reaper_normalized_value())
             }
-            // The soft-normalized value can be > 1.0, e.g. when we have a volume of 12 dB and then
-            // lower the volume fader limit to a lower value. In that case we just report the
-            // highest possible value ... not much else we can do.
-            TrackVolume { track } => UnitValue::new_clamped(track.volume().soft_normalized_value()),
-            TrackSendVolume { send } => {
-                UnitValue::new_clamped(send.volume().soft_normalized_value())
-            }
-            TrackPan { track } => UnitValue::new(track.pan().normalized_value()),
-            TrackWidth { track } => UnitValue::new(track.width().normalized_value()),
-            TrackArm { track } => convert_bool_to_unit_value(track.is_armed(false)),
-            TrackSelection { track, .. } => convert_bool_to_unit_value(track.is_selected()),
-            TrackMute { track } => convert_bool_to_unit_value(track.is_muted()),
-            TrackSolo { track } => convert_bool_to_unit_value(track.is_solo()),
-            TrackSendPan { send } => UnitValue::new(send.pan().normalized_value()),
-            TrackSendMute { send } => convert_bool_to_unit_value(send.is_muted()),
-            Tempo { project } => UnitValue::new(project.tempo().normalized_value()),
-            Playrate { project } => UnitValue::new(project.play_rate().normalized_value().get()),
-            FxEnable { fx } => convert_bool_to_unit_value(fx.is_enabled()),
-            FxPreset { fx } => convert_preset_index_to_unit_value(fx, fx.preset_index().ok()?),
-            SelectedTrack { project } => convert_track_index_to_unit_value(
+            TrackVolume { track } => volume_unit_value(track.volume()),
+            TrackSendVolume { send } => volume_unit_value(send.volume()),
+            TrackPan { track } => pan_unit_value(track.pan()),
+            TrackWidth { track } => width_unit_value(track.width()),
+            TrackArm { track } => track_arm_unit_value(track.is_armed(false)),
+            TrackSelection { track, .. } => track_selected_unit_value(track.is_selected()),
+            TrackMute { track } => mute_unit_value(track.is_muted()),
+            TrackSolo { track } => track_solo_unit_value(track.is_solo()),
+            TrackSendPan { send } => pan_unit_value(send.pan()),
+            TrackSendMute { send } => mute_unit_value(send.is_muted()),
+            Tempo { project } => tempo_unit_value(project.tempo()),
+            Playrate { project } => playrate_unit_value(project.play_rate()),
+            FxEnable { fx } => fx_enable_unit_value(fx.is_enabled()),
+            FxPreset { fx } => fx_preset_unit_value(fx, fx.preset_index().ok()?),
+            SelectedTrack { project } => selected_track_unit_value(
                 *project,
                 project
                     .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
                     .and_then(|t| t.index()),
             ),
-            AllTrackFxEnable { track } => convert_bool_to_unit_value(track.fx_is_enabled()),
+            AllTrackFxEnable { track } => all_track_fx_enable_unit_value(track.fx_is_enabled()),
             Transport { project, action } => {
                 use TransportAction::*;
                 match action {
-                    PlayStop | PlayPause => convert_bool_to_unit_value(project.is_playing()),
-                    Record => convert_bool_to_unit_value(project.is_recording()),
-                    Repeat => convert_bool_to_unit_value(project.repeat_is_enabled()),
+                    PlayStop | PlayPause => transport_is_enabled_unit_value(project.is_playing()),
+                    Record => transport_is_enabled_unit_value(project.is_recording()),
+                    Repeat => transport_is_enabled_unit_value(project.repeat_is_enabled()),
                 }
             }
             LoadFxSnapshot { fx, chunk_hash, .. } => {
@@ -1472,11 +1583,11 @@ fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Opt
     }
 }
 
-fn convert_track_index_to_unit_value(project: Project, index: Option<u32>) -> UnitValue {
+fn selected_track_unit_value(project: Project, index: Option<u32>) -> UnitValue {
     convert_discrete_to_unit_value_with_none(index, project.track_count())
 }
 
-fn convert_preset_index_to_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
+fn fx_preset_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
     convert_discrete_to_unit_value_with_none(index, fx.preset_count().unwrap_or(0))
 }
 
@@ -1688,4 +1799,73 @@ fn figure_out_touched_pan_component(
     } else {
         ReaperTarget::TrackPan { track }
     }
+}
+
+fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamValue) -> UnitValue {
+    let v = value.get();
+    if !UnitValue::is_valid(v) {
+        // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
+        // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
+        // know. In future, we might offer further customization possibilities here.
+        // For now, we just report it as 0.0 or 1.0 and log a warning.
+        warn!(
+            Reaper::get().logger(),
+            "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
+            v,
+            param
+        );
+        return UnitValue::new_clamped(v);
+    }
+    UnitValue::new(v)
+}
+
+fn volume_unit_value(volume: Volume) -> UnitValue {
+    // The soft-normalized value can be > 1.0, e.g. when we have a volume of 12 dB and then
+    // lower the volume fader limit to a lower value. In that case we just report the
+    // highest possible value ... not much else we can do.
+    UnitValue::new_clamped(volume.soft_normalized_value())
+}
+
+fn pan_unit_value(pan: Pan) -> UnitValue {
+    UnitValue::new(pan.normalized_value())
+}
+
+fn width_unit_value(width: Width) -> UnitValue {
+    UnitValue::new(width.normalized_value())
+}
+
+fn track_arm_unit_value(is_armed: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_armed)
+}
+
+fn track_selected_unit_value(is_selected: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_selected)
+}
+
+fn mute_unit_value(is_mute: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_mute)
+}
+
+fn track_solo_unit_value(is_solo: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_solo)
+}
+
+fn tempo_unit_value(tempo: Tempo) -> UnitValue {
+    UnitValue::new(tempo.normalized_value())
+}
+
+fn playrate_unit_value(playrate: PlayRate) -> UnitValue {
+    UnitValue::new(playrate.normalized_value().get())
+}
+
+fn fx_enable_unit_value(is_enabled: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_enabled)
+}
+
+fn all_track_fx_enable_unit_value(is_enabled: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_enabled)
+}
+
+fn transport_is_enabled_unit_value(is_enabled: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_enabled)
 }

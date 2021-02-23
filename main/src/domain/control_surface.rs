@@ -56,6 +56,7 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
 }
 
 /// Not all events in REAPER are communicated via a control surface, e.g. action invocations.
+#[derive(Debug)]
 pub enum AdditionalFeedbackEvent {
     ActionInvoked(CommandId),
     FxSnapshotLoaded(Fx),
