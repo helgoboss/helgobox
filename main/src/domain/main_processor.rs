@@ -16,9 +16,10 @@ use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
-const FEEDBACK_TASK_BULK_SIZE: usize = 32;
+const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
+const VIRTUAL_OSC_FEEDBACK_BULK_SIZE: usize = 128;
 
 // TODO-low Making this a usize might save quite some code
 pub const PLUGIN_PARAMETER_COUNT: u32 = 100;
@@ -454,19 +455,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     //     self.send_feedback(source_values);
                     // }
                 }
-                VirtualToOscFeedback(value) => {
+                VirtualToOscFeedback(values) => {
                     if let Some(osc_device_id) = &self.osc_output_device_id {
-                        if let ControlValue::Absolute(v) = value.control_value() {
-                            for m in self.mappings[MappingCompartment::ControllerMappings]
-                                .values()
-                                .filter(|m| m.feedback_is_effectively_on())
-                            {
-                                if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
-                                    if t.control_element() == value.control_element() {
-                                        if let Some(msg) = m.feedback_to_osc(v) {
-                                            self.osc_feedback_task_sender
-                                                .send(OscFeedbackTask::new(*osc_device_id, msg))
-                                                .unwrap();
+                        for value in *values {
+                            if let ControlValue::Absolute(v) = value.control_value() {
+                                for m in self.mappings[MappingCompartment::ControllerMappings]
+                                    .values()
+                                    .filter(|m| m.feedback_is_effectively_on())
+                                {
+                                    if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                                        if t.control_element() == value.control_element() {
+                                            if let Some(msg) = m.feedback_to_osc(v) {
+                                                self.osc_feedback_task_sender
+                                                    .send(OscFeedbackTask::new(*osc_device_id, msg))
+                                                    .unwrap();
+                                            }
                                         }
                                     }
                                 }
@@ -851,7 +854,7 @@ pub enum ParameterMainTask {
 pub enum FeedbackMainTask {
     /// Sent whenever a target value has been changed.
     Feedback(MappingCompartment, MappingId),
-    VirtualToOscFeedback(VirtualSourceValue),
+    VirtualToOscFeedback(Box<SmallVec<[VirtualSourceValue; VIRTUAL_OSC_FEEDBACK_BULK_SIZE]>>),
     /// Sent whenever a target has been touched (usually a subset of the value change events)
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,
@@ -912,6 +915,7 @@ fn send_feedback(
     source_values: impl IntoIterator<Item = SourceValue>,
     osc_device_id: Option<&OscDeviceId>,
 ) {
+    let mut virtual_source_values = SmallVec::new();
     for source_value in source_values.into_iter() {
         use SourceValue::*;
         match source_value {
@@ -931,17 +935,25 @@ fn send_feedback(
                 if osc_device_id.is_some() {
                     // Borrowing the mappings again while iterating is unsafe so for now we send
                     // the OSC feedback caused by virtual sources in the next main loop iteration.
-                    main_sender
-                        .send(FeedbackMainTask::VirtualToOscFeedback(v))
+                    virtual_source_values.push(v);
+                } else {
+                    // TODO-low Maybe we should use the SmallVec here, too?
+                    rt_sender
+                        .send(FeedbackRealTimeTask::Feedback(
+                            RealTimeSourceValue::Virtual(v),
+                        ))
                         .unwrap();
                 }
-                rt_sender
-                    .send(FeedbackRealTimeTask::Feedback(
-                        RealTimeSourceValue::Virtual(v),
-                    ))
-                    .unwrap();
             }
         }
+    }
+    // TODO-high Virtual OSC feedback still isn't as snappy as non-virtual one.
+    if !virtual_source_values.is_empty() {
+        main_sender
+            .send(FeedbackMainTask::VirtualToOscFeedback(Box::new(
+                virtual_source_values,
+            )))
+            .unwrap();
     }
 }
 
