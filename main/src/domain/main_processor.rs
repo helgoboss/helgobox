@@ -30,8 +30,10 @@ pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_C
 pub struct MainProcessor<EH: DomainEventHandler> {
     instance_id: String,
     logger: slog::Logger,
-    /// Contains all mappings.
+    /// Contains mappings without virtual targets.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
+    /// Contains mappings with virtual targets.
+    mappings_with_virtual_targets: HashMap<MappingId, MainMapping>,
     /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
     /// At the moment only "Last touched" targets.
     target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
@@ -86,6 +88,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             normal_real_time_task_sender,
             feedback_real_time_task_sender,
             mappings: Default::default(),
+            mappings_with_virtual_targets: Default::default(),
             target_touch_dependent_mappings: Default::default(),
             feedback_buffer: Default::default(),
             feedback_is_globally_enabled: false,
@@ -111,6 +114,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.run_control();
     }
 
+    /// Processes control tasks coming from the real-time processor.
+    ///
     /// This should *not* be called by the control surface when it's globally learning targets
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
@@ -130,6 +135,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     value,
                     options,
                 } => {
+                    // Resolving mappings with virtual targets is not necessary anymore. It has
+                    // been done in the real-time processor already.
                     if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
                         control_and_optionally_feedback(
                             &self.self_feedback_sender,
@@ -168,19 +175,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.osc_input_device_id = osc_input_device_id;
                     self.osc_output_device_id = osc_output_device_id;
                 }
-                UpdateAllMappings(compartment, mappings) => {
+                UpdateAllMappings(compartment, mut mappings) => {
                     debug!(
                         self.logger,
                         "Updating {} {}...",
                         mappings.len(),
                         compartment
                     );
-                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
-                    // Refresh and put into hash map in order to quickly look up mappings by ID
+                    let mut unused_sources =
+                        self.currently_feedback_enabled_sources(compartment, true);
                     self.target_touch_dependent_mappings[compartment].clear();
-                    self.mappings[compartment] = mappings
-                        .into_iter()
-                        .map(|mut m| {
+                    // Refresh and splinter real-time mappings
+                    let real_time_mappings = mappings
+                        .iter_mut()
+                        .map(|m| {
                             m.refresh_all(&self.context, &self.parameters);
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
@@ -189,14 +197,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.needs_refresh_when_target_touched() {
                                 self.target_touch_dependent_mappings[compartment].insert(m.id());
                             }
-                            (m.id(), m)
+                            m.splinter_real_time_mapping()
                         })
                         .collect();
+                    // Put into hash map in order to quickly look up mappings by ID
+                    let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
+                    if compartment == MappingCompartment::ControllerMappings {
+                        let (virtual_target_mappings, normal_mappings) =
+                            mapping_tuples.partition(|(_, m)| m.has_virtual_target());
+                        self.mappings[compartment] = normal_mappings;
+                        self.mappings_with_virtual_targets = virtual_target_mappings;
+                    } else {
+                        self.mappings[compartment] = mapping_tuples.collect();
+                    }
                     // Sync to real-time processor
-                    let real_time_mappings = self.mappings[compartment]
-                        .values()
-                        .map(|m| m.splinter_real_time_mapping())
-                        .collect();
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateAllMappings(
                             compartment,
@@ -210,9 +224,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     debug!(self.logger, "Refreshing all targets...");
                     for compartment in MappingCompartment::into_enum_iter() {
                         let mut unused_sources =
-                            self.currently_feedback_enabled_sources(compartment);
+                            self.currently_feedback_enabled_sources(compartment, false);
                         let mut mappings_with_active_targets =
                             HashSet::with_capacity(self.mappings[compartment].len());
+                        // Mappings with virtual targets don't have to be refreshed because virtual
+                        // targets are always active and never change depending on circumstances.
                         for m in self.mappings[compartment].values_mut() {
                             let is_active = m.refresh_target(&self.context);
                             if is_active {
@@ -265,11 +281,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             _ => {
                                 // Indicate via feedback that this source is not in use anymore. But
                                 // only if feedback was enabled before (otherwise this could
-                                // overwrite the feedback value of
-                                // another enabled mapping which has the same
-                                // source).
+                                // overwrite the feedback value of another enabled mapping which has
+                                // the same source).
                                 let was_previously_enabled = self.mappings[compartment]
                                     .get(&mapping.id())
+                                    // Mappings with virtual targets can also get feedback-disabled.
+                                    .or(if compartment == MappingCompartment::ControllerMappings {
+                                        self.mappings_with_virtual_targets.get(&mapping.id())
+                                    } else {
+                                        None
+                                    })
                                     .map(|m| m.feedback_is_effectively_on())
                                     .contains(&true);
                                 if was_previously_enabled {
@@ -288,7 +309,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
                     }
-                    self.mappings[compartment].insert(mapping.id(), *mapping);
+                    let relevant_map = if mapping.has_virtual_target() {
+                        self.mappings[compartment].remove(&mapping.id());
+                        &mut self.mappings_with_virtual_targets
+                    } else {
+                        self.mappings_with_virtual_targets.remove(&mapping.id());
+                        &mut self.mappings[compartment]
+                    };
+                    relevant_map.insert(mapping.id(), *mapping);
                     // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
                     self.update_on_mappings();
                 }
@@ -361,7 +389,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Activation is only supported for main mappings
                     let compartment = MappingCompartment::MainMappings;
                     let mut activation_updates: Vec<MappingActivationUpdate> = vec![];
-                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
+                    let mut unused_sources =
+                        self.currently_feedback_enabled_sources(compartment, false);
+                    // Mappings with virtual targets can only exist in the controller compartment
+                    // and the mappings in there don't support conditional activation, so we don't
+                    // need to handle them here.
                     for m in &mut self.mappings[compartment].values_mut() {
                         if m.can_be_affected_by_parameters() {
                             m.refresh_activation(&self.parameters);
@@ -401,7 +433,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.parameters[index as usize] = value;
                     // Activation is only supported for main mappings
                     let compartment = MappingCompartment::MainMappings;
-                    let mut unused_sources = self.currently_feedback_enabled_sources(compartment);
+                    let mut unused_sources =
+                        self.currently_feedback_enabled_sources(compartment, false);
                     // In order to avoid a mutable borrow of mappings and an immutable borrow of
                     // parameters at the same time, we need to separate into READ activation
                     // affects and WRITE activation updates.
@@ -480,6 +513,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 TargetTouched => {
                     for compartment in MappingCompartment::into_enum_iter() {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
+                            // Virtual targets are not candidates for "Last touched" so we don't
+                            // need to consider them here.
                             if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
                                 m.refresh_target(&self.context);
                                 // Switching off shouldn't be necessary since the last touched
@@ -503,10 +538,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
-        // Send feedback as soon as buffered long enough
+        // Send feedback as soon as buffered long enough (feedback buffer - not used for OSC
+        // feedback)
         if self.feedback_is_globally_enabled {
             if let Some(mapping_ids) = self.feedback_buffer.poll() {
                 let source_values = mapping_ids.iter().filter_map(|(compartment, mapping_id)| {
+                    // Mappings with virtual targets are not relevant here because they don't cause
+                    // feedback on its own.
                     let mapping = self.mappings[*compartment].get(mapping_id)?;
                     mapping.feedback_if_enabled()
                 });
@@ -556,6 +594,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         for compartment in MappingCompartment::into_enum_iter() {
+            // Mappings with virtual targets don't need to be considered here because they don't
+            // cause feedback themselves.
             for m in self.mappings[compartment].values() {
                 if m.feedback_is_effectively_on() {
                     if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
@@ -610,6 +650,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
                     // We do pattern matching in order to use Rust's borrow splitting.
+                    // TODO-high Here we must take another approach! We don't need the splitting
+                    // anymore. We need two different functions, one for virtual processing and
+                    // the other one for non-virtual.
                     if let [ref mut controller_mappings, ref mut main_mappings] =
                         self.mappings.as_mut_slice()
                     {
@@ -644,6 +687,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn control_main_mappings_osc(&mut self, msg: &OscMessage) {
         let compartment = MappingCompartment::MainMappings;
+        // Main mappings cant' have virtual targets.
         for mut m in self.mappings[compartment]
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
@@ -711,18 +755,38 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &MainMapping> {
+        self.all_mappings_without_virtual_targets()
+            .chain(self.mappings_with_virtual_targets.values())
+    }
+
+    /// Includes virtual mappings if the controller mapping compartment is queried.
+    fn all_mappings_in_compartment(
+        &self,
+        compartment: MappingCompartment,
+    ) -> impl Iterator<Item = &MainMapping> {
+        self.mappings[compartment].values().chain(
+            self.mappings_with_virtual_targets
+                .values()
+                // Include virtual target mappings if we are talking about controller compartment.
+                .filter(move |_| compartment == MappingCompartment::ControllerMappings),
+        )
+    }
+
+    fn all_mappings_without_virtual_targets(&self) -> impl Iterator<Item = &MainMapping> {
         MappingCompartment::into_enum_iter()
             .map(move |compartment| self.mappings[compartment].values())
             .flatten()
     }
 
     fn feedback_all(&self) -> Vec<SourceValue> {
-        self.all_mappings()
+        // Virtual targets don't cause feedback themselves
+        self.all_mappings_without_virtual_targets()
             .filter_map(|m| m.feedback_if_enabled())
             .collect()
     }
 
     fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<SourceValue> {
+        // Virtual targets don't deliver feedback, so no need to handle them.
         self.mappings[compartment]
             .values()
             .filter_map(|m| m.feedback_if_enabled())
@@ -730,6 +794,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn feedback_all_zero(&self) -> Vec<SourceValue> {
+        // Mappings with virtual targets should be included here. Even though they can't cause
+        // feedback, they can *deliver* feedback. In this case, they should just reset to zero.
         self.all_mappings()
             .filter(|m| m.feedback_is_effectively_on())
             .filter_map(|m| m.source().feedback(UnitValue::MIN))
@@ -739,12 +805,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn currently_feedback_enabled_sources(
         &self,
         compartment: MappingCompartment,
+        include_virtual: bool,
     ) -> HashSet<CompoundMappingSource> {
-        self.mappings[compartment]
-            .values()
-            .filter(|m| m.feedback_is_effectively_on())
-            .map(|m| m.source().clone())
-            .collect()
+        if include_virtual {
+            self.all_mappings_in_compartment(compartment)
+                .filter(|m| m.feedback_is_effectively_on())
+                .map(|m| m.source().clone())
+                .collect()
+        } else {
+            self.mappings[compartment]
+                .values()
+                .filter(|m| m.feedback_is_effectively_on())
+                .map(|m| m.source().clone())
+                .collect()
+        }
     }
 
     fn handle_feedback_after_batch_mapping_update(
@@ -775,8 +849,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             - State: {:?} \n\
             - Total main mapping count: {} \n\
             - Enabled main mapping count: {} \n\
-            - Total controller mapping count: {} \n\
-            - Enabled controller mapping count: {} \n\
+            - Total non-virtual controller mapping count: {} \n\
+            - Enabled non-virtual controller mapping count: {} \n\
+            - Total virtual controller mapping count: {} \n\
+            - Enabled virtual controller mapping count: {} \n\
             - Feedback buffer length: {} \n\
             - Normal task count: {} \n\
             - Control task count: {} \n\
@@ -791,6 +867,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .count(),
             self.mappings[MappingCompartment::ControllerMappings].len(),
             self.mappings[MappingCompartment::ControllerMappings]
+                .values()
+                .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
+                .count(),
+            self.mappings_with_virtual_targets.len(),
+            self.mappings_with_virtual_targets
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),

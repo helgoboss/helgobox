@@ -176,7 +176,11 @@ impl RealTimeProcessor {
                         self.midi_clock_calculator.current_sample_count()
                     );
                     for m in self.mappings[compartment].values_mut() {
-                        m.update_target_activation(mappings_with_active_target.contains(&m.id()));
+                        if !m.has_virtual_target() {
+                            m.update_target_activation(
+                                mappings_with_active_target.contains(&m.id()),
+                            );
+                        }
                     }
                 }
                 UpdateSettings {
@@ -682,11 +686,11 @@ pub enum NormalRealTimeTask {
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
-    /// This takes care of propagating target activation states.
+    /// This takes care of propagating target activation states (for non-virtual mappings).
     ///
     /// The given set contains *all* mappings whose target is active.
     UpdateTargetActivations(MappingCompartment, HashSet<MappingId>),
-    /// Updates the activation state of multiple mappings.
+    /// Updates the activation state of multiple mappings (for non-virtual mappings).
     ///
     /// The given vector contains updates just for affected mappings. This is because when a
     /// parameter update occurs we can determine in a very granular way which targets are affected.

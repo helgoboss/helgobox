@@ -105,6 +105,10 @@ impl MainMapping {
         }
     }
 
+    pub fn has_virtual_target(&self) -> bool {
+        matches!(self.target(), Some(CompoundMappingTarget::Virtual(_)))
+    }
+
     /// Returns `Some` if this affects the mapping's activation state in any way.
     pub fn check_activation_effect(
         &self,
@@ -185,11 +189,11 @@ impl MainMapping {
     }
 
     pub fn is_active(&self) -> bool {
-        self.is_active_1 && self.is_active_2
+        self.has_virtual_target() || (self.is_active_1 && self.is_active_2)
     }
 
     fn is_effectively_active(&self) -> bool {
-        self.is_active() && self.core.options.target_is_active
+        self.has_virtual_target() || (self.is_active() && self.core.options.target_is_active)
     }
 
     pub fn is_effectively_on(&self) -> bool {
@@ -322,7 +326,7 @@ impl RealTimeMapping {
     }
 
     fn is_effectively_active(&self) -> bool {
-        self.is_active && self.core.options.target_is_active
+        self.has_virtual_target() || (self.is_active && self.core.options.target_is_active)
     }
 
     pub fn update_target_activation(&mut self, is_active: bool) {
@@ -339,6 +343,13 @@ impl RealTimeMapping {
 
     pub fn target(&self) -> Option<&UnresolvedCompoundMappingTarget> {
         self.core.unresolved_target.as_ref()
+    }
+
+    pub fn has_virtual_target(&self) -> bool {
+        matches!(
+            self.target(),
+            Some(UnresolvedCompoundMappingTarget::Virtual(_))
+        )
     }
 
     pub fn has_reaper_target(&self) -> bool {
