@@ -448,10 +448,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             use FeedbackMainTask::*;
             match task {
                 Feedback(compartment, mapping_id) => {
-                    // With time buffering
+                    // With time buffering (as always)
                     self.feedback_buffer
                         .buffer_feedback_for_mapping(compartment, mapping_id);
-                    // // Without time buffering
+                    // // Without time buffering (experiment)
                     // if let Some(m) = self.mappings[compartment].get(&mapping_id) {
                     //     let source_values = m.feedback_if_enabled();
                     //     self.send_feedback(source_values);
@@ -560,15 +560,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 if m.feedback_is_effectively_on() {
                     if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
                         if f(target) {
-                            // With value capturing in *next* main loop cycle (as always).
-                            self.self_feedback_sender
-                                .send(FeedbackMainTask::Feedback(compartment, m.id()))
-                                .unwrap();
-                            // Immediate value capturing
-                            // // TODO-high This immediate value capturing seems to cause issues
-                            // //  e.g. with the demo project "Resonance" button mapping feedback.
-                            // let source_values = m.feedback_if_enabled();
-                            // self.send_feedback(source_values);
+                            if self.osc_output_device_id.is_some() {
+                                // Immediate value capturing. Makes OSC feedback *much* smoother in
+                                // combination with high-throughput thread. Especially quick pulls
+                                // of many faders at once profit from it because intermediate
+                                // values are be captured and immediately sent so user doesn't see
+                                // stuttering faders on their device.
+                                // // TODO-high This immediate value capturing seems to cause issues
+                                // //  e.g. with the demo project "Resonance" button mapping
+                                // feedback.
+                                let source_values = m.feedback_if_enabled();
+                                self.send_feedback(source_values);
+                            } else {
+                                // With value capturing in *next* main loop cycle (as always).
+                                self.self_feedback_sender
+                                    .send(FeedbackMainTask::Feedback(compartment, m.id()))
+                                    .unwrap();
+                            }
                         }
                     }
                 }
