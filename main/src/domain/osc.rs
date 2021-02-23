@@ -1,3 +1,4 @@
+use crossbeam_channel::Receiver;
 use derive_more::Display;
 use rosc::{OscBundle, OscMessage, OscPacket};
 use serde::{Deserialize, Serialize};
@@ -8,16 +9,138 @@ use std::error::Error;
 use std::io;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
 
+use core::mem;
+use smallvec::SmallVec;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread::JoinHandle;
 use uuid::Uuid;
 
-const OSC_BUFFER_SIZE: usize = 10_000;
+const MAX_INCOMING_PACKET_SIZE: usize = 10_000;
+const OSC_OUTGOING_BULK_SIZE: usize = 16;
+
+pub struct OscFeedbackTask(pub OscDeviceId, pub OscMessage);
+
+#[derive(Debug)]
+pub struct OscFeedbackProcessor {
+    state: State,
+}
+
+#[derive(Debug)]
+enum State {
+    Stopped(StoppedState),
+    Starting,
+    Running(RunningState),
+    Stopping,
+}
+
+#[derive(Debug)]
+struct StoppedState {
+    task_receiver: Receiver<OscFeedbackTask>,
+}
+
+#[derive(Debug)]
+struct RunningState {
+    request_stop: Arc<AtomicBool>,
+    join_handle: JoinHandle<OscFeedbackHandler>,
+}
+
+impl OscFeedbackProcessor {
+    pub fn new(task_receiver: Receiver<OscFeedbackTask>) -> Self {
+        Self {
+            state: State::Stopped(StoppedState { task_receiver }),
+        }
+    }
+
+    pub fn start(&mut self, osc_output_devices: Vec<OscOutputDevice>) {
+        if osc_output_devices.is_empty() || !matches!(&self.state, State::Stopped(_)) {
+            return;
+        }
+        let state = if let State::Stopped(s) = mem::replace(&mut self.state, State::Starting) {
+            s
+        } else {
+            panic!("manager was not stopped");
+        };
+        let mut handler = OscFeedbackHandler {
+            task_receiver: state.task_receiver,
+            osc_output_devices,
+        };
+        let request_stop = Arc::new(AtomicBool::new(false));
+        let request_stop_clone = request_stop.clone();
+        let join_handle = std::thread::Builder::new()
+            .name("ReaLearn OSC sender".to_owned())
+            .spawn(move || {
+                while !request_stop_clone.load(Ordering::SeqCst) {
+                    handler.cycle();
+                }
+                handler
+            })
+            .unwrap();
+        self.state = State::Running(RunningState {
+            request_stop,
+            join_handle,
+        });
+    }
+
+    pub fn stop(&mut self) {
+        if !matches!(&self.state, State::Running(_)) {
+            return;
+        }
+        let state = if let State::Running(s) = mem::replace(&mut self.state, State::Stopping) {
+            s
+        } else {
+            panic!("manager was not started");
+        };
+        state.request_stop.store(true, Ordering::SeqCst);
+        let handler = state.join_handle.join().unwrap();
+        self.state = State::Stopped(StoppedState {
+            task_receiver: handler.return_task_receiver(),
+        });
+    }
+}
+
+struct OscFeedbackHandler {
+    task_receiver: Receiver<OscFeedbackTask>,
+    osc_output_devices: Vec<OscOutputDevice>,
+}
+
+impl OscFeedbackHandler {
+    pub fn cycle(&mut self) {
+        // println!("{:?}", self.last_osc_transmission.elapsed());
+        // self.last_osc_transmission = Instant::now();
+        let tasks: SmallVec<[OscFeedbackTask; OSC_OUTGOING_BULK_SIZE]> = self
+            .task_receiver
+            .try_iter()
+            .take(OSC_OUTGOING_BULK_SIZE)
+            .collect();
+        use itertools::Itertools;
+        let grouped_by_device = tasks.into_iter().group_by(|task| task.0);
+        // if !tasks.is_empty() {
+        //     println!("{}", tasks.len(),);
+        // }
+        for (dev_id, group) in grouped_by_device.into_iter() {
+            if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
+                let _ = dev.send_bulk_as_bundle(group.map(|task| task.1));
+            }
+            // for (dev_id, msg) in group {
+            //     if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
+            //         let _ = dev.send(msg);
+            //     }
+            // }
+        }
+    }
+
+    pub fn return_task_receiver(self) -> Receiver<OscFeedbackTask> {
+        self.task_receiver
+    }
+}
 
 #[derive(Debug)]
 pub struct OscInputDevice {
     id: OscDeviceId,
     socket: UdpSocket,
     logger: slog::Logger,
-    osc_buffer: [u8; OSC_BUFFER_SIZE],
+    osc_buffer: [u8; MAX_INCOMING_PACKET_SIZE],
 }
 
 impl OscInputDevice {
@@ -32,7 +155,7 @@ impl OscInputDevice {
             id,
             socket,
             logger,
-            osc_buffer: [0; OSC_BUFFER_SIZE],
+            osc_buffer: [0; MAX_INCOMING_PACKET_SIZE],
         };
         Ok(dev)
     }

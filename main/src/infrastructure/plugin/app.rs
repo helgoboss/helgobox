@@ -5,8 +5,8 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    AdditionalFeedbackEvent, DomainGlobal, GlobalFeedbackTask, MainProcessor, MappingCompartment,
-    OscDeviceId, RealSource, RealearnAudioHook, RealearnAudioHookTask,
+    AdditionalFeedbackEvent, DomainGlobal, MainProcessor, MappingCompartment, OscDeviceId,
+    OscFeedbackProcessor, OscFeedbackTask, RealSource, RealearnAudioHook, RealearnAudioHookTask,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
 };
@@ -63,12 +63,13 @@ pub struct App {
     list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
-    global_frequent_task_sender: crossbeam_channel::Sender<GlobalFeedbackTask>,
+    osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
     sessions: RefCell<Vec<WeakSession>>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
+    osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
 }
 
 #[derive(Debug)]
@@ -103,7 +104,6 @@ struct UninitializedState {
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
     control_surface_server_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
-    global_feedback_task_receiver: crossbeam_channel::Receiver<GlobalFeedbackTask>,
     additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
     audio_hook_task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
 }
@@ -171,14 +171,13 @@ impl App {
     fn new(config: AppConfig) -> App {
         let (main_sender, main_receiver) = crossbeam_channel::unbounded();
         let (server_sender, server_receiver) = crossbeam_channel::unbounded();
-        let (feedback_sender, feedback_receiver) = crossbeam_channel::unbounded();
+        let (osc_feedback_task_sender, osc_feedback_task_receiver) = crossbeam_channel::unbounded();
         let (additional_reaper_event_sender, additional_reaper_event_receiver) =
             crossbeam_channel::unbounded();
         let (audio_sender, audio_receiver) = crossbeam_channel::unbounded();
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             control_surface_server_task_receiver: server_receiver,
-            global_feedback_task_receiver: feedback_receiver,
             additional_feedback_event_receiver: additional_reaper_event_receiver,
             audio_hook_task_receiver: audio_receiver,
         };
@@ -209,12 +208,15 @@ impl App {
             list_of_recently_focused_fx: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
-            global_frequent_task_sender: feedback_sender,
+            osc_feedback_task_sender,
             additional_feedback_event_sender: additional_reaper_event_sender,
             audio_hook_task_sender: audio_sender,
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
             message_panel: Default::default(),
+            osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
+                osc_feedback_task_receiver,
+            ))),
         }
     }
 
@@ -263,7 +265,6 @@ impl App {
             &App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
-            uninit_state.global_feedback_task_receiver,
             uninit_state.additional_feedback_event_receiver,
             std::env::var("REALEARN_METER").is_ok(),
         ));
@@ -281,19 +282,25 @@ impl App {
             let middleware = control_surface.middleware_mut();
             // Disconnect
             middleware.clear_osc_input_devices();
-            middleware.clear_osc_output_devices();
             // Reconnect
             let osc_input_devices = self
                 .osc_device_manager
                 .borrow_mut()
                 .connect_all_enabled_inputs();
             middleware.set_osc_input_devices(osc_input_devices);
+        });
+        // Feedback devices
+        {
+            // Disconnect
+            let mut processor = self.osc_feedback_processor.borrow_mut();
+            processor.stop();
+            // Reconnect
             let osc_output_devices = self
                 .osc_device_manager
                 .borrow_mut()
                 .connect_all_enabled_outputs();
-            middleware.set_osc_output_devices(osc_output_devices);
-        });
+            processor.start(osc_output_devices);
+        }
     }
 
     // Executed whenever the first ReaLearn instance is loaded.
@@ -339,10 +346,13 @@ impl App {
             .osc_device_manager
             .borrow_mut()
             .connect_all_enabled_outputs();
+        // OSC processor
+        self.osc_feedback_processor
+            .borrow_mut()
+            .start(osc_output_devices);
         // Control surface
         let middleware = sleeping_state.control_surface.middleware_mut();
         middleware.set_osc_input_devices(osc_input_devices);
-        middleware.set_osc_output_devices(osc_output_devices);
         sleeping_state.control_surface.middleware().reset();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
@@ -380,7 +390,7 @@ impl App {
         // Close OSC connections
         let middleware = control_surface.middleware_mut();
         middleware.clear_osc_input_devices();
-        middleware.clear_osc_output_devices();
+        self.osc_feedback_processor.borrow_mut().stop();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<Self>();
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
@@ -490,14 +500,14 @@ impl App {
         });
     }
 
-    pub fn global_feedback_task_sender(&self) -> crossbeam_channel::Sender<GlobalFeedbackTask> {
-        self.global_frequent_task_sender.clone()
-    }
-
     pub fn additional_feedback_event_sender(
         &self,
     ) -> crossbeam_channel::Sender<AdditionalFeedbackEvent> {
         self.additional_feedback_event_sender.clone()
+    }
+
+    pub fn osc_feedback_task_sender(&self) -> crossbeam_channel::Sender<OscFeedbackTask> {
+        self.osc_feedback_task_sender.clone()
     }
 
     fn temporarily_reclaim_control_surface_ownership(

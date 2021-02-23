@@ -21,7 +21,6 @@ use std::time::Instant;
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
 const OSC_INCOMING_BULK_SIZE: usize = 32;
-const OSC_OUTGOING_BULK_SIZE: usize = 16;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -31,7 +30,6 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_processors: Vec<MainProcessor<EH>>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
-    feedback_task_receiver: Receiver<GlobalFeedbackTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     meter_middleware: MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
@@ -40,7 +38,6 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
-    osc_output_devices: Vec<OscOutputDevice>,
     last_osc_transmission: Instant,
 }
 
@@ -73,10 +70,6 @@ pub enum AdditionalFeedbackEvent {
     RealearnMonitoringFxParameterValueChanged(FxParameter),
 }
 
-pub enum GlobalFeedbackTask {
-    SendOscFeedback(OscDeviceId, OscMessage),
-}
-
 pub enum RealearnControlSurfaceServerTask {
     ProvidePrometheusMetrics(tokio::sync::oneshot::Sender<String>),
 }
@@ -86,7 +79,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
-        feedback_task_receiver: Receiver<GlobalFeedbackTask>,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         metrics_enabled: bool,
     ) -> Self {
@@ -98,7 +90,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_processors: Default::default(),
             main_task_receiver,
             server_task_receiver,
-            feedback_task_receiver,
             additional_feedback_event_receiver,
             meter_middleware: MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
@@ -115,7 +106,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
-            osc_output_devices: vec![],
             last_osc_transmission: Instant::now(),
         }
     }
@@ -130,14 +120,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     pub fn clear_osc_input_devices(&mut self) {
         self.osc_input_devices.clear();
-    }
-
-    pub fn set_osc_output_devices(&mut self, devices: Vec<OscOutputDevice>) {
-        self.osc_output_devices = devices;
-    }
-
-    pub fn clear_osc_output_devices(&mut self) {
-        self.osc_output_devices.clear();
     }
 
     pub fn reset(&self) {
@@ -219,7 +201,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        self.process_global_feedback();
         if self.metrics_enabled {
             // Roughly every 10 seconds
             if self.counter == 30 * 10 {
@@ -228,36 +209,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             } else {
                 self.counter += 1;
             }
-        }
-    }
-
-    fn process_global_feedback(&mut self) {
-        // println!("{:?}", self.last_osc_transmission.elapsed());
-        // self.last_osc_transmission = Instant::now();
-        let tasks: SmallVec<[GlobalFeedbackTask; OSC_OUTGOING_BULK_SIZE]> = self
-            .feedback_task_receiver
-            .try_iter()
-            .take(OSC_OUTGOING_BULK_SIZE)
-            .collect();
-        use itertools::Itertools;
-        let grouped_by_device = tasks
-            .into_iter()
-            .filter_map(|task| match task {
-                GlobalFeedbackTask::SendOscFeedback(dev_id, msg) => Some((dev_id, msg)),
-            })
-            .group_by(|(dev_id, msg)| *dev_id);
-        // if !tasks.is_empty() {
-        //     println!("{}", tasks.len(),);
-        // }
-        for (dev_id, group) in grouped_by_device.into_iter() {
-            if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
-                let _ = dev.send_bulk_as_bundle(group.map(|(dev_id, msg)| msg));
-            }
-            // for (dev_id, msg) in group {
-            //     if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
-            //         let _ = dev.send(msg);
-            //     }
-            // }
         }
     }
 
