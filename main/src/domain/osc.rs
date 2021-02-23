@@ -3,7 +3,7 @@ use derive_more::Display;
 use rosc::{OscBundle, OscMessage, OscPacket};
 use serde::{Deserialize, Serialize};
 
-use slog::warn;
+use slog::{trace, warn};
 
 use std::error::Error;
 use std::io;
@@ -19,7 +19,16 @@ use uuid::Uuid;
 const MAX_INCOMING_PACKET_SIZE: usize = 10_000;
 const OSC_OUTGOING_BULK_SIZE: usize = 16;
 
-pub struct OscFeedbackTask(pub OscDeviceId, pub OscMessage);
+pub struct OscFeedbackTask {
+    dev_id: OscDeviceId,
+    msg: OscMessage,
+}
+
+impl OscFeedbackTask {
+    pub fn new(dev_id: OscDeviceId, msg: OscMessage) -> Self {
+        Self { dev_id, msg }
+    }
+}
 
 #[derive(Debug)]
 pub struct OscFeedbackProcessor {
@@ -106,27 +115,20 @@ struct OscFeedbackHandler {
 
 impl OscFeedbackHandler {
     pub fn cycle(&mut self) {
-        // println!("{:?}", self.last_osc_transmission.elapsed());
-        // self.last_osc_transmission = Instant::now();
         let tasks: SmallVec<[OscFeedbackTask; OSC_OUTGOING_BULK_SIZE]> = self
             .task_receiver
             .try_iter()
             .take(OSC_OUTGOING_BULK_SIZE)
             .collect();
         use itertools::Itertools;
-        let grouped_by_device = tasks.into_iter().group_by(|task| task.0);
-        // if !tasks.is_empty() {
-        //     println!("{}", tasks.len(),);
-        // }
+        let grouped_by_device = tasks.into_iter().group_by(|task| task.dev_id);
         for (dev_id, group) in grouped_by_device.into_iter() {
             if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
-                let _ = dev.send_bulk_as_bundle(group.map(|task| task.1));
+                // Haven't realized a performance difference between sending a bundle or single
+                // messages. However, REAPER sends a bundle (maybe in order to use time tags).
+                // Let's do it, too.
+                let _ = dev.send_as_bundle(group.map(|task| task.msg));
             }
-            // for (dev_id, msg) in group {
-            //     if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
-            //         let _ = dev.send(msg);
-            //     }
-            // }
         }
     }
 
@@ -168,7 +170,12 @@ impl OscInputDevice {
         match self.socket.recv(&mut self.osc_buffer) {
             Ok(num_bytes) => match rosc::decoder::decode(&self.osc_buffer[..num_bytes]) {
                 Ok(packet) => {
-                    println!("Received packet with {} bytes: {:#?}", num_bytes, &packet);
+                    trace!(
+                        self.logger,
+                        "Received packet with {} bytes: {:#?}",
+                        num_bytes,
+                        &packet
+                    );
                     Ok(Some(packet))
                 }
                 Err(err) => {
@@ -213,17 +220,7 @@ impl OscOutputDevice {
         self.id
     }
 
-    pub fn send(&self, msg: OscMessage) -> Result<(), &'static str> {
-        let bytes = rosc::encoder::encode(&OscPacket::Message(msg))
-            .map_err(|_| "error trying to encode OSC packet")?;
-        println!("Send single packet byte count: {}", bytes.len());
-        self.socket
-            .send(&bytes)
-            .map_err(|_| "error trying to send OSC packet")?;
-        Ok(())
-    }
-
-    pub fn send_bulk_as_bundle(
+    pub fn send_as_bundle(
         &self,
         messages: impl Iterator<Item = OscMessage>,
     ) -> Result<(), &'static str> {
@@ -232,13 +229,14 @@ impl OscOutputDevice {
             timetag: (0, 1),
             content: messages.map(|msg| OscPacket::Message(msg)).collect(),
         };
-        let bundle = OscPacket::Bundle(bundle);
-        let bytes = rosc::encoder::encode(&bundle)
+        let packet = OscPacket::Bundle(bundle);
+        let bytes = rosc::encoder::encode(&packet)
             .map_err(|_| "error trying to encode OSC bundle packet")?;
-        println!(
+        trace!(
+            self.logger,
             "Sending bundle packet with {} bytes: {:#?}",
             bytes.len(),
-            &bundle
+            &packet
         );
         self.socket
             .send(&bytes)

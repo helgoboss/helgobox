@@ -1,7 +1,6 @@
 use crate::core::Global;
 use crate::domain::{
-    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, OscOutputDevice,
-    ReaperTarget,
+    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, ReaperTarget,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -10,13 +9,12 @@ use reaper_high::{
     FxParameter, MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
-use rosc::{OscBundle, OscMessage, OscPacket};
+use rosc::{OscMessage, OscPacket};
 
 use reaper_medium::CommandId;
 use rxrust::prelude::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::time::Instant;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
@@ -38,7 +36,6 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
-    last_osc_transmission: Instant,
 }
 
 #[derive(Debug)]
@@ -106,7 +103,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
-            last_osc_transmission: Instant::now(),
         }
     }
 

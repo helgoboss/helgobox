@@ -5,14 +5,11 @@ use crate::domain::{
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext,
     RealSource, RealTimeSourceValue, ReaperTarget, SourceValue, VirtualSourceValue,
 };
-use crossbeam_channel::Sender;
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
-use crate::core::Global;
 use reaper_high::{ChangeEvent, Reaper};
-use reaper_medium::CommandId;
 use rosc::{OscMessage, OscPacket};
 use slog::debug;
 use smallvec::SmallVec;
@@ -468,7 +465,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     if t.control_element() == value.control_element() {
                                         if let Some(msg) = m.feedback_to_osc(v) {
                                             self.osc_feedback_task_sender
-                                                .send(OscFeedbackTask(*osc_device_id, msg))
+                                                .send(OscFeedbackTask::new(*osc_device_id, msg))
                                                 .unwrap();
                                         }
                                     }
@@ -921,7 +918,7 @@ fn send_feedback(
             Osc(msg) => {
                 if let Some(id) = osc_device_id {
                     osc_feedback_task_sender
-                        .send(OscFeedbackTask(*id, msg))
+                        .send(OscFeedbackTask::new(*id, msg))
                         .unwrap();
                 }
             }
