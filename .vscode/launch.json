@@ -26,10 +26,9 @@
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                {"name": "REALEARN_LOG", "value": "debug,vst=info,hyper=trace"},
-                {"name": "REALEARN_METER", "value": "true"}
-            ],
-            "externalConsole": false
+                {"name": "REALEARN_LOG", "value": "debug,vst=info,hyper=trace"}
+                // {"name": "REALEARN_METER", "value": "true"}
+            ]
         },
         {
             "name": "Portable Windows 32-bit",
@@ -39,8 +38,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false
+            "environment": []
         },
         {
             "name": "Global Windows 64-bit",
@@ -50,8 +48,7 @@
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false
+            "environment": []
         },
         {
             "name": "Windows attach",

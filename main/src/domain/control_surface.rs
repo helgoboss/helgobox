@@ -5,18 +5,20 @@ use crate::domain::{
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
 use reaper_high::{
-    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware,
-    MainTaskMiddleware, MeterMiddleware,
+    ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
+    FxParameter, MainTaskMiddleware, MeterMiddleware,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
+use reaper_medium::{CommandId, ReaperNormalizedFxParamValue};
+use rxrust::prelude::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
-const OSC_BULK_SIZE: usize = 32;
+const OSC_INCOMING_BULK_SIZE: usize = 32;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -26,6 +28,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_processors: Vec<MainProcessor<EH>>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
+    additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     meter_middleware: MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
@@ -52,6 +55,22 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     StopLearning,
 }
 
+/// Not all events in REAPER are communicated via a control surface, e.g. action invocations.
+#[derive(Debug)]
+pub enum AdditionalFeedbackEvent {
+    ActionInvoked(CommandId),
+    FxSnapshotLoaded(Fx),
+    /// Work around REAPER's inability to notify about parameter changes in
+    /// monitoring FX by simulating the notification ourselves.
+    /// Then parameter learning and feedback works at least for
+    /// ReaLearn monitoring FX instances, which is especially
+    /// useful for conditional activation.
+    RealearnMonitoringFxParameterValueChanged {
+        parameter: FxParameter,
+        new_value: ReaperNormalizedFxParamValue,
+    },
+}
+
 pub enum RealearnControlSurfaceServerTask {
     ProvidePrometheusMetrics(tokio::sync::oneshot::Sender<String>),
 }
@@ -61,6 +80,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
+        additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -71,6 +91,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_processors: Default::default(),
             main_task_receiver,
             server_task_receiver,
+            additional_feedback_event_receiver,
             meter_middleware: MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
@@ -103,6 +124,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     pub fn reset(&self) {
         self.change_detection_middleware.reset(|e| {
+            for m in &self.main_processors {
+                m.process_control_surface_change_event(&e);
+            }
             self.rx_middleware.handle_change(e);
         });
         // We don't want to execute tasks which accumulated during the "downtime" of Reaper.
@@ -149,7 +173,23 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        self.process_osc();
+        for event in self.additional_feedback_event_receiver.try_iter().take(30) {
+            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged {
+                parameter,
+                ..
+            } = &event
+            {
+                let rx = Global::control_surface_rx();
+                rx.fx_parameter_value_changed
+                    .borrow_mut()
+                    .next(parameter.clone());
+                rx.fx_parameter_touched.borrow_mut().next(parameter.clone());
+            }
+            for p in &mut self.main_processors {
+                p.process_additional_feedback_event(&event)
+            }
+        }
+        self.process_incoming_osc_messages();
         match &self.state {
             State::Normal => {
                 for p in &mut self.main_processors {
@@ -173,12 +213,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn process_osc(&mut self) {
-        pub type PacketVec = SmallVec<[OscPacket; OSC_BULK_SIZE]>;
+    fn process_incoming_osc_messages(&mut self) {
+        pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
         let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); 32]> = self
             .osc_input_devices
             .iter_mut()
-            .map(|dev| (*dev.id(), dev.poll_multiple(OSC_BULK_SIZE).collect()))
+            .map(|dev| {
+                (
+                    *dev.id(),
+                    dev.poll_multiple(OSC_INCOMING_BULK_SIZE).collect(),
+                )
+            })
             .collect();
         for (dev_id, packets) in packets_by_device {
             match &self.state {
@@ -207,8 +252,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.change_detection_middleware.process(event, |e| {
             match &self.state {
                 State::Normal => {
+                    // This is for feedback processing. No Rx!
+                    for m in &self.main_processors {
+                        m.process_control_surface_change_event(&e);
+                    }
+                    // The rest is only for upper layers (e.g. UI), not for processing.
                     self.rx_middleware.handle_change(e.clone());
                     if let Some(target) = ReaperTarget::touched_from_change_event(e) {
+                        // TODO-medium Now we have the necessary framework (AdditionalFeedbackEvent)
+                        //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
+                        //  touching for "Last touched" target and global learning (see
+                        //  LearningTarget state)! Connect the dots!
                         DomainGlobal::get().set_last_touched_target(target);
                         for p in &self.main_processors {
                             p.notify_target_touched();

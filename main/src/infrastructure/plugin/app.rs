@@ -5,9 +5,10 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    DomainGlobal, MainProcessor, MappingCompartment, OscDeviceId, RealSource, RealearnAudioHook,
-    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, ReaperTarget, SharedRealTimeProcessor,
+    AdditionalFeedbackEvent, DomainGlobal, MainProcessor, MappingCompartment, OscDeviceId,
+    OscFeedbackProcessor, OscFeedbackTask, RealSource, RealearnAudioHook, RealearnAudioHookTask,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceServerTask, RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
@@ -22,7 +23,10 @@ use helgoboss_learn::{MidiSource, OscSource};
 
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
-use reaper_medium::{MidiInputDeviceId, RegistrationHandle};
+use reaper_medium::{
+    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, MidiInputDeviceId, ReaProject,
+    RegistrationHandle, SectionContext, WindowContext,
+};
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
@@ -59,10 +63,13 @@ pub struct App {
     list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
+    osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
+    additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
     sessions: RefCell<Vec<WeakSession>>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
+    osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
 }
 
 #[derive(Debug)]
@@ -97,6 +104,7 @@ struct UninitializedState {
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
     control_surface_server_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
+    additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
     audio_hook_task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
 }
 
@@ -163,10 +171,14 @@ impl App {
     fn new(config: AppConfig) -> App {
         let (main_sender, main_receiver) = crossbeam_channel::unbounded();
         let (server_sender, server_receiver) = crossbeam_channel::unbounded();
+        let (osc_feedback_task_sender, osc_feedback_task_receiver) = crossbeam_channel::unbounded();
+        let (additional_reaper_event_sender, additional_reaper_event_receiver) =
+            crossbeam_channel::unbounded();
         let (audio_sender, audio_receiver) = crossbeam_channel::unbounded();
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             control_surface_server_task_receiver: server_receiver,
+            additional_feedback_event_receiver: additional_reaper_event_receiver,
             audio_hook_task_receiver: audio_receiver,
         };
         App {
@@ -196,10 +208,15 @@ impl App {
             list_of_recently_focused_fx: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
+            osc_feedback_task_sender,
+            additional_feedback_event_sender: additional_reaper_event_sender,
             audio_hook_task_sender: audio_sender,
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
             message_panel: Default::default(),
+            osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
+                osc_feedback_task_receiver,
+            ))),
         }
     }
 
@@ -226,6 +243,9 @@ impl App {
         } else {
             panic!("App was not uninitialized anymore");
         };
+        DomainGlobal::make_available_globally(DomainGlobal::new(RealearnTargetContext::new(
+            self.additional_feedback_event_sender.clone(),
+        )));
         App::get().register_global_learn_actions();
         server::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
@@ -245,6 +265,7 @@ impl App {
             &App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
+            uninit_state.additional_feedback_event_receiver,
             std::env::var("REALEARN_METER").is_ok(),
         ));
         let audio_hook = RealearnAudioHook::new(uninit_state.audio_hook_task_receiver);
@@ -258,28 +279,27 @@ impl App {
     fn reconnect_osc_devices(&self) {
         // Control devices
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
+            let middleware = control_surface.middleware_mut();
             // Disconnect
-            control_surface.middleware_mut().clear_osc_input_devices();
+            middleware.clear_osc_input_devices();
             // Reconnect
             let osc_input_devices = self
                 .osc_device_manager
                 .borrow_mut()
                 .connect_all_enabled_inputs();
-            control_surface
-                .middleware_mut()
-                .set_osc_input_devices(osc_input_devices);
+            middleware.set_osc_input_devices(osc_input_devices);
         });
         // Feedback devices
         {
             // Disconnect
-            let global = DomainGlobal::get();
-            global.clear_osc_output_devices();
+            let mut processor = self.osc_feedback_processor.borrow_mut();
+            processor.stop();
             // Reconnect
             let osc_output_devices = self
                 .osc_device_manager
                 .borrow_mut()
                 .connect_all_enabled_outputs();
-            global.set_osc_output_devices(osc_output_devices);
+            processor.start(osc_output_devices);
         }
     }
 
@@ -302,9 +322,13 @@ impl App {
         session
             .plugin_register_add_hook_post_command::<ActionRxHookPostCommand<Global>>()
             .unwrap();
+        session
+            .plugin_register_add_hook_post_command::<Self>()
+            .unwrap();
         // This fails before REAPER 6.20 and therefore we don't have MIDI CC action feedback.
         let _ =
             session.plugin_register_add_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
+        let _ = session.plugin_register_add_hook_post_command_2::<Self>();
         // Audio hook
         debug!(
             App::logger(),
@@ -322,12 +346,13 @@ impl App {
             .osc_device_manager
             .borrow_mut()
             .connect_all_enabled_outputs();
-        DomainGlobal::get().set_osc_output_devices(osc_output_devices);
+        // OSC processor
+        self.osc_feedback_processor
+            .borrow_mut()
+            .start(osc_output_devices);
         // Control surface
-        sleeping_state
-            .control_surface
-            .middleware_mut()
-            .set_osc_input_devices(osc_input_devices);
+        let middleware = sleeping_state.control_surface.middleware_mut();
+        middleware.set_osc_input_devices(osc_input_devices);
         sleeping_state.control_surface.middleware().reset();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
@@ -363,10 +388,13 @@ impl App {
             (control_surface, audio_hook)
         };
         // Close OSC connections
-        control_surface.middleware_mut().clear_osc_input_devices();
-        DomainGlobal::get().clear_osc_output_devices();
+        let middleware = control_surface.middleware_mut();
+        middleware.clear_osc_input_devices();
+        self.osc_feedback_processor.borrow_mut().stop();
         // Actions
+        session.plugin_register_remove_hook_post_command_2::<Self>();
         session.plugin_register_remove_hook_post_command_2::<ActionRxHookPostCommand2<Global>>();
+        session.plugin_register_remove_hook_post_command::<Self>();
         session.plugin_register_remove_hook_post_command::<ActionRxHookPostCommand<Global>>();
         // Server
         self.server().borrow_mut().stop();
@@ -470,6 +498,16 @@ impl App {
                 .middleware_mut()
                 .remove_main_processor(instance_id);
         });
+    }
+
+    pub fn additional_feedback_event_sender(
+        &self,
+    ) -> crossbeam_channel::Sender<AdditionalFeedbackEvent> {
+        self.additional_feedback_event_sender.clone()
+    }
+
+    pub fn osc_feedback_task_sender(&self) -> crossbeam_channel::Sender<OscFeedbackTask> {
+        self.osc_feedback_task_sender.clone()
     }
 
     fn temporarily_reclaim_control_surface_ownership(
@@ -1313,5 +1351,32 @@ impl QualifiedRealSource {
             QualifiedRealSource::Midi(_, s) => RealSource::Midi(s),
             QualifiedRealSource::Osc(_, s) => RealSource::Osc(s),
         }
+    }
+}
+
+impl HookPostCommand for App {
+    fn call(command_id: CommandId, _flag: i32) {
+        App::get()
+            .additional_feedback_event_sender
+            .send(AdditionalFeedbackEvent::ActionInvoked(command_id))
+            .unwrap();
+    }
+}
+
+impl HookPostCommand2 for App {
+    fn call(
+        section: SectionContext,
+        command_id: CommandId,
+        _value_change: ActionValueChange,
+        _window: WindowContext,
+        _project: ReaProject,
+    ) {
+        if section != SectionContext::MainSection {
+            return;
+        }
+        App::get()
+            .additional_feedback_event_sender
+            .send(AdditionalFeedbackEvent::ActionInvoked(command_id))
+            .unwrap();
     }
 }
