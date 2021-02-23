@@ -146,6 +146,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             value,
                             options,
                             self.osc_output_device_id.as_ref(),
+                            &self.mappings_with_virtual_targets,
                         );
                     };
                 }
@@ -488,28 +489,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     //     self.send_feedback(source_values);
                     // }
                 }
-                VirtualToOscFeedback(values) => {
-                    if let Some(osc_device_id) = &self.osc_output_device_id {
-                        for value in *values {
-                            if let ControlValue::Absolute(v) = value.control_value() {
-                                for m in self.mappings[MappingCompartment::ControllerMappings]
-                                    .values()
-                                    .filter(|m| m.feedback_is_effectively_on())
-                                {
-                                    if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
-                                        if t.control_element() == value.control_element() {
-                                            if let Some(msg) = m.feedback_to_osc(v) {
-                                                self.osc_feedback_task_sender
-                                                    .send(OscFeedbackTask::new(*osc_device_id, msg))
-                                                    .unwrap();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
                 TargetTouched => {
                     for compartment in MappingCompartment::into_enum_iter() {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
@@ -694,6 +673,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 enforce_send_feedback_after_control: false,
                             },
                             self.osc_output_device_id.as_ref(),
+                            &self.mappings_with_virtual_targets,
                         );
                     }
                 }
@@ -927,7 +907,6 @@ pub enum ParameterMainTask {
 pub enum FeedbackMainTask {
     /// Sent whenever a target value has been changed.
     Feedback(MappingCompartment, MappingId),
-    VirtualToOscFeedback(Box<SmallVec<[VirtualSourceValue; VIRTUAL_OSC_FEEDBACK_BULK_SIZE]>>),
     /// Sent whenever a target has been touched (usually a subset of the value change events)
     /// and as a result the global "last touched target" has been updated.
     TargetTouched,
@@ -962,6 +941,7 @@ fn control_and_optionally_feedback(
     value: ControlValue,
     options: ControlOptions,
     osc_device_id: Option<&OscDeviceId>,
+    mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
 ) {
     // Most of the time, the main processor won't even receive a MIDI-triggered control
     // instruction from the real-time processor for a mapping for which
@@ -972,62 +952,14 @@ fn control_and_optionally_feedback(
     // might be a short amount of time where we still receive control
     // statements. We filter them here.
     let feedback = mapping.control_if_enabled(value, options);
-    send_feedback(
+    send_feedback_direct_virtual(
         main_sender,
         rt_sender,
         osc_feedback_task_sender,
         feedback,
         osc_device_id,
+        mappings_with_virtual_targets,
     );
-}
-
-fn send_feedback(
-    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
-    source_values: impl IntoIterator<Item = SourceValue>,
-    osc_device_id: Option<&OscDeviceId>,
-) {
-    let mut virtual_source_values = SmallVec::new();
-    for source_value in source_values.into_iter() {
-        use SourceValue::*;
-        match source_value {
-            Osc(msg) => {
-                if let Some(id) = osc_device_id {
-                    osc_feedback_task_sender
-                        .send(OscFeedbackTask::new(*id, msg))
-                        .unwrap();
-                }
-            }
-            Midi(v) => {
-                rt_sender
-                    .send(FeedbackRealTimeTask::Feedback(RealTimeSourceValue::Midi(v)))
-                    .unwrap();
-            }
-            Virtual(v) => {
-                if osc_device_id.is_some() {
-                    // Borrowing the mappings again while iterating is unsafe so for now we send
-                    // the OSC feedback caused by virtual sources in the next main loop iteration.
-                    virtual_source_values.push(v);
-                } else {
-                    // TODO-low Maybe we should use the SmallVec here, too?
-                    rt_sender
-                        .send(FeedbackRealTimeTask::Feedback(
-                            RealTimeSourceValue::Virtual(v),
-                        ))
-                        .unwrap();
-                }
-            }
-        }
-    }
-    // TODO-high Virtual OSC feedback still isn't as snappy as non-virtual one.
-    if !virtual_source_values.is_empty() {
-        main_sender
-            .send(FeedbackMainTask::VirtualToOscFeedback(Box::new(
-                virtual_source_values,
-            )))
-            .unwrap();
-    }
 }
 
 fn send_feedback_direct_virtual(
@@ -1053,14 +985,29 @@ fn send_feedback_direct_virtual(
                     .send(FeedbackRealTimeTask::Feedback(RealTimeSourceValue::Midi(v)))
                     .unwrap();
             }
-            Virtual(v) => {
-                if osc_device_id.is_some() {
-                    todo!()
+            Virtual(virtual_source_value) => {
+                if let Some(osc_device_id) = osc_device_id {
+                    if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
+                        for m in mappings_with_virtual_targets
+                            .values()
+                            .filter(|m| m.feedback_is_effectively_on())
+                        {
+                            if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                                if t.control_element() == virtual_source_value.control_element() {
+                                    if let Some(msg) = m.feedback_to_osc(v) {
+                                        osc_feedback_task_sender
+                                            .send(OscFeedbackTask::new(*osc_device_id, msg))
+                                            .unwrap();
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     // TODO-low Maybe we should use the SmallVec here, too?
                     rt_sender
                         .send(FeedbackRealTimeTask::Feedback(
-                            RealTimeSourceValue::Virtual(v),
+                            RealTimeSourceValue::Virtual(virtual_source_value),
                         ))
                         .unwrap();
                 }
@@ -1079,67 +1026,71 @@ fn control_virtual_mappings_osc(
     msg: &OscMessage,
     osc_device_id: Option<&OscDeviceId>,
 ) {
-    for m in mappings_with_virtual_targets
+    // Control
+    let source_values: Vec<_> = mappings_with_virtual_targets
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
-    {
-        if let Some(control_match) = m.control_osc_virtualizing(msg) {
-            use PartialControlMatch::*;
-            match control_match {
-                ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
-                    main_sender,
-                    rt_sender,
-                    osc_feedback_task_sender,
-                    main_mappings,
-                    virtual_source_value,
-                    ControlOptions {
-                        // We inherit "Send feedback after control" if it's
-                        // enabled for the virtual mapping. That's the easy way to do it.
-                        // Downside: If multiple real control elements are mapped to one virtual
-                        // control element, "feedback after control" will be sent to all of those,
-                        // which is technically not necessary. It would be enough to just send it
-                        // to the one that was touched. However, it also doesn't really hurt.
-                        enforce_send_feedback_after_control: m
-                            .options()
-                            .send_feedback_after_control,
-                    },
-                    osc_device_id,
-                ),
-                ProcessDirect(_) => {
-                    unreachable!("we shouldn't be here")
+        .flat_map(|m| {
+            if let Some(control_match) = m.control_osc_virtualizing(msg) {
+                use PartialControlMatch::*;
+                match control_match {
+                    ProcessVirtual(virtual_source_value) => {
+                        control_main_mappings_virtual(
+                            main_mappings,
+                            virtual_source_value,
+                            ControlOptions {
+                                // We inherit "Send feedback after control" if it's
+                                // enabled for the virtual mapping. That's the easy way to do it.
+                                // Downside: If multiple real control elements are mapped to one
+                                // virtual control element,
+                                // "feedback after control" will be sent to all of
+                                // those, which is technically not
+                                // necessary. It would be enough to just send it
+                                // to the one that was touched. However, it also doesn't really
+                                // hurt.
+                                enforce_send_feedback_after_control: m
+                                    .options()
+                                    .send_feedback_after_control,
+                            },
+                        )
+                    }
+                    ProcessDirect(_) => {
+                        unreachable!("we shouldn't be here")
+                    }
                 }
-            };
-        }
-    }
+            } else {
+                vec![]
+            }
+        })
+        .collect();
+    // Feedback
+    send_feedback_direct_virtual(
+        main_sender,
+        rt_sender,
+        osc_feedback_task_sender,
+        source_values,
+        osc_device_id,
+        mappings_with_virtual_targets,
+    );
 }
 
 fn control_main_mappings_virtual(
-    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
-    osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     main_mappings: &mut HashMap<MappingId, MainMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
-    osc_device_id: Option<&OscDeviceId>,
-) {
+) -> Vec<SourceValue> {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
-    for m in main_mappings
+    main_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
-    {
-        if let CompoundMappingSource::Virtual(s) = &m.source() {
-            if let Some(control_value) = s.control(&value) {
-                control_and_optionally_feedback(
-                    main_sender,
-                    rt_sender,
-                    osc_feedback_task_sender,
-                    m,
-                    control_value,
-                    options,
-                    osc_device_id,
-                );
+        .filter_map(|m| {
+            if let CompoundMappingSource::Virtual(s) = &m.source() {
+                let control_value = s.control(&value)?;
+                m.control_if_enabled(control_value, options)
+            } else {
+                None
             }
-        }
-    }
+        })
+        .collect()
 }
