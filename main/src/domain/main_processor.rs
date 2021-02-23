@@ -19,7 +19,6 @@ const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
-const VIRTUAL_OSC_FEEDBACK_BULK_SIZE: usize = 128;
 
 // TODO-low Making this a usize might save quite some code
 pub const PLUGIN_PARAMETER_COUNT: u32 = 100;
@@ -139,7 +138,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // been done in the real-time processor already.
                     if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
                         control_and_optionally_feedback(
-                            &self.self_feedback_sender,
                             &self.feedback_real_time_task_sender,
                             &self.osc_feedback_task_sender,
                             m,
@@ -503,7 +501,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 {
                                     if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
                                         send_feedback_direct_virtual(
-                                            &self.self_feedback_sender,
                                             &self.feedback_real_time_task_sender,
                                             &self.osc_feedback_task_sender,
                                             m.feedback_if_enabled(),
@@ -630,7 +627,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
                     control_virtual_mappings_osc(
-                        &self.self_feedback_sender,
                         &self.feedback_real_time_task_sender,
                         &self.osc_feedback_task_sender,
                         &mut self.mappings_with_virtual_targets,
@@ -664,7 +660,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
                         control_and_optionally_feedback(
-                            &self.self_feedback_sender,
                             &self.feedback_real_time_task_sender,
                             &self.osc_feedback_task_sender,
                             &mut m,
@@ -717,7 +712,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn send_feedback(&self, source_values: impl IntoIterator<Item = SourceValue>) {
         send_feedback_direct_virtual(
-            &self.self_feedback_sender,
             &self.feedback_real_time_task_sender,
             &self.osc_feedback_task_sender,
             source_values,
@@ -934,7 +928,6 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 }
 
 fn control_and_optionally_feedback(
-    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
     rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mapping: &mut MainMapping,
@@ -953,7 +946,6 @@ fn control_and_optionally_feedback(
     // statements. We filter them here.
     let feedback = mapping.control_if_enabled(value, options);
     send_feedback_direct_virtual(
-        main_sender,
         rt_sender,
         osc_feedback_task_sender,
         feedback,
@@ -963,7 +955,6 @@ fn control_and_optionally_feedback(
 }
 
 fn send_feedback_direct_virtual(
-    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
     rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     source_values: impl IntoIterator<Item = SourceValue>,
@@ -1017,7 +1008,6 @@ fn send_feedback_direct_virtual(
 }
 
 fn control_virtual_mappings_osc(
-    main_sender: &crossbeam_channel::Sender<FeedbackMainTask>,
     rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mappings_with_virtual_targets: &mut HashMap<MappingId, MainMapping>,
@@ -1065,7 +1055,6 @@ fn control_virtual_mappings_osc(
         .collect();
     // Feedback
     send_feedback_direct_virtual(
-        main_sender,
         rt_sender,
         osc_feedback_task_sender,
         source_values,

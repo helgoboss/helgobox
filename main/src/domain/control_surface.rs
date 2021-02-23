@@ -170,15 +170,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
         }
         for event in self.additional_feedback_event_receiver.try_iter().take(30) {
-            match &event {
-                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(param) => {
-                    let rx = Global::control_surface_rx();
-                    rx.fx_parameter_value_changed
-                        .borrow_mut()
-                        .next(param.clone());
-                    rx.fx_parameter_touched.borrow_mut().next(param.clone());
-                }
-                _ => {}
+            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(param) =
+                &event
+            {
+                let rx = Global::control_surface_rx();
+                rx.fx_parameter_value_changed
+                    .borrow_mut()
+                    .next(param.clone());
+                rx.fx_parameter_touched.borrow_mut().next(param.clone());
             }
             for p in &mut self.main_processors {
                 p.process_additional_feedback_event(&event)
