@@ -1,6 +1,7 @@
 use crate::core::Global;
 use crate::domain::{
     DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, ReaperTarget,
+    TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -11,7 +12,7 @@ use reaper_high::{
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
-use reaper_medium::{CommandId, ReaperNormalizedFxParamValue};
+use reaper_medium::{CommandId, GetTouchStateArgs, MediaTrack, ReaperNormalizedFxParamValue};
 use rxrust::prelude::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -58,17 +59,38 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
 /// Not all events in REAPER are communicated via a control surface, e.g. action invocations.
 #[derive(Debug)]
 pub enum AdditionalFeedbackEvent {
-    ActionInvoked(CommandId),
-    FxSnapshotLoaded(Fx),
+    ActionInvoked(ActionInvokedEvent),
+    FxSnapshotLoaded(FxSnapshotLoadedEvent),
     /// Work around REAPER's inability to notify about parameter changes in
     /// monitoring FX by simulating the notification ourselves.
     /// Then parameter learning and feedback works at least for
     /// ReaLearn monitoring FX instances, which is especially
     /// useful for conditional activation.
-    RealearnMonitoringFxParameterValueChanged {
-        parameter: FxParameter,
-        new_value: ReaperNormalizedFxParamValue,
-    },
+    RealearnMonitoringFxParameterValueChanged(RealearnMonitoringFxParameterValueChangedEvent),
+    ParameterAutomationTouchStateChanged(ParameterAutomationTouchStateChangedEvent),
+}
+
+#[derive(Debug)]
+pub struct ActionInvokedEvent {
+    pub command_id: CommandId,
+}
+
+#[derive(Debug)]
+pub struct FxSnapshotLoadedEvent {
+    pub fx: Fx,
+}
+
+#[derive(Debug)]
+pub struct RealearnMonitoringFxParameterValueChangedEvent {
+    pub parameter: FxParameter,
+    pub new_value: ReaperNormalizedFxParamValue,
+}
+
+#[derive(Debug)]
+pub struct ParameterAutomationTouchStateChangedEvent {
+    pub track: MediaTrack,
+    pub parameter_type: TouchedParameterType,
+    pub new_value: bool,
 }
 
 pub enum RealearnControlSurfaceServerTask {
@@ -174,16 +196,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
         }
         for event in self.additional_feedback_event_receiver.try_iter().take(30) {
-            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged {
-                parameter,
-                ..
-            } = &event
-            {
+            if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e) = &event {
                 let rx = Global::control_surface_rx();
                 rx.fx_parameter_value_changed
                     .borrow_mut()
-                    .next(parameter.clone());
-                rx.fx_parameter_touched.borrow_mut().next(parameter.clone());
+                    .next(e.parameter.clone());
+                rx.fx_parameter_touched
+                    .borrow_mut()
+                    .next(e.parameter.clone());
             }
             for p in &mut self.main_processors {
                 p.process_additional_feedback_event(&event)
@@ -303,6 +323,20 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
         } else {
             self.handle_event_internal(event);
         }
+    }
+
+    fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
+        if let Ok(domain_type) = TouchedParameterType::try_from_reaper(args.parameter_type) {
+            DomainGlobal::target_context()
+                .borrow()
+                .automation_parameter_is_touched(args.track, domain_type)
+        } else {
+            false
+        }
+    }
+
+    fn ext_supports_extended_touch(&self) -> bool {
+        true
     }
 }
 

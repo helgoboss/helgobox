@@ -5,9 +5,9 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    AdditionalFeedbackEvent, DomainGlobal, MainProcessor, MappingCompartment, OscDeviceId,
-    OscFeedbackProcessor, OscFeedbackTask, RealSource, RealearnAudioHook, RealearnAudioHookTask,
-    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    ActionInvokedEvent, AdditionalFeedbackEvent, DomainGlobal, MainProcessor, MappingCompartment,
+    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource, RealearnAudioHook,
+    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
@@ -1358,7 +1358,9 @@ impl HookPostCommand for App {
     fn call(command_id: CommandId, _flag: i32) {
         App::get()
             .additional_feedback_event_sender
-            .send(AdditionalFeedbackEvent::ActionInvoked(command_id))
+            .send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+                command_id,
+            }))
             .unwrap();
     }
 }
@@ -1376,7 +1378,9 @@ impl HookPostCommand2 for App {
         }
         App::get()
             .additional_feedback_event_sender
-            .send(AdditionalFeedbackEvent::ActionInvoked(command_id))
+            .send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+                command_id,
+            }))
             .unwrap();
     }
 }

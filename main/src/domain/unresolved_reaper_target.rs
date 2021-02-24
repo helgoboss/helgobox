@@ -1,7 +1,7 @@
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, SoloBehavior,
-    TransportAction,
+    TouchedParameterType, TransportAction,
 };
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
@@ -75,6 +75,10 @@ pub enum UnresolvedReaperTarget {
         chunk: Rc<String>,
     },
     LastTouched,
+    AutomationTouchState {
+        track_descriptor: TrackDescriptor,
+        parameter_type: TouchedParameterType,
+    },
 }
 
 impl UnresolvedReaperTarget {
@@ -175,6 +179,13 @@ impl UnresolvedReaperTarget {
             LastTouched => DomainGlobal::get()
                 .last_touched_target()
                 .ok_or("no last touched target")?,
+            AutomationTouchState {
+                track_descriptor,
+                parameter_type,
+            } => ReaperTarget::AutomationTouchState {
+                track: get_effective_track(context, &track_descriptor.track)?,
+                parameter_type: *parameter_type,
+            },
         };
         Ok(resolved)
     }
@@ -235,7 +246,10 @@ impl UnresolvedReaperTarget {
             | TrackSendMute {
                 track_descriptor, ..
             }
-            | AllTrackFxEnable { track_descriptor } => (Some(track_descriptor), None),
+            | AllTrackFxEnable { track_descriptor }
+            | AutomationTouchState {
+                track_descriptor, ..
+            } => (Some(track_descriptor), None),
             LastTouched => (None, None),
         }
     }

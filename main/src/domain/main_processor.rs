@@ -3,7 +3,7 @@ use crate::domain::{
     DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
     MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue,
-    ReaperTarget, SourceValue, VirtualSourceValue,
+    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue, VirtualSourceValue,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -419,10 +419,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         let parameter = self.context.containing_fx().parameter_by_index(index);
                         self.additional_feedback_event_sender
                             .send(
-                                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged {
-                                    parameter,
-                                    new_value: ReaperNormalizedFxParamValue::new(value as _),
-                                },
+                                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
+                                    RealearnMonitoringFxParameterValueChangedEvent {
+                                        parameter,
+                                        new_value: ReaperNormalizedFxParamValue::new(value as _),
+                                    },
+                                ),
                             )
                             .unwrap();
                     }

@@ -13,8 +13,9 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
     CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
-    TrackAnchor, TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
+    TouchedParameterType, TrackAnchor, TrackDescriptor, TransportAction,
+    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualControlElement, VirtualFx,
+    VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -57,6 +58,8 @@ pub struct TargetModel {
     pub transport_action: Prop<TransportAction>,
     // # For "Load FX snapshot" target
     pub fx_snapshot: Prop<Option<FxSnapshot>>,
+    // # For "Automation touch state" target
+    pub touched_parameter_type: Prop<TouchedParameterType>,
 }
 
 impl Default for TargetModel {
@@ -78,6 +81,7 @@ impl Default for TargetModel {
             solo_behavior: prop(Default::default()),
             transport_action: prop(TransportAction::default()),
             fx_snapshot: prop(None),
+            touched_parameter_type: prop(Default::default()),
         }
     }
 }
@@ -166,7 +170,28 @@ impl TargetModel {
             Transport { action, .. } => {
                 self.transport_action.set(*action);
             }
-            _ => {}
+            AutomationTouchState { parameter_type, .. } => {
+                self.touched_parameter_type.set(*parameter_type);
+            }
+            TrackSolo { behavior, .. } => {
+                self.solo_behavior.set(*behavior);
+            }
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | LoadFxSnapshot { .. } => {}
         };
     }
 
@@ -189,6 +214,7 @@ impl TargetModel {
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
             .merge(self.fx_snapshot.changed())
+            .merge(self.touched_parameter_type.changed())
     }
 
     fn track_descriptor(&self) -> TrackDescriptor {
@@ -282,6 +308,10 @@ impl TargetModel {
                             .clone(),
                     },
                     LastTouched => UnresolvedReaperTarget::LastTouched,
+                    AutomationTouchState => UnresolvedReaperTarget::AutomationTouchState {
+                        track_descriptor: self.track_descriptor(),
+                        parameter_type: self.touched_parameter_type.get(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -570,6 +600,12 @@ impl<'a> Display for TargetModelWithContext<'a> {
                             .unwrap_or_else(|| "-".to_owned())
                     ),
                     LastTouched => write!(f, "Last touched"),
+                    AutomationTouchState => write!(
+                        f,
+                        "Automation touch state\nTrack {}\n{}",
+                        self.track_label(),
+                        self.target.touched_parameter_type.get()
+                    ),
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
@@ -635,6 +671,8 @@ pub enum ReaperTargetType {
     LoadFxSnapshot = 19,
     #[display(fmt = "Last touched (experimental)")]
     LastTouched = 20,
+    #[display(fmt = "Automation touch state (experimental)")]
+    AutomationTouchState = 21,
 }
 
 impl Default for ReaperTargetType {
@@ -667,6 +705,7 @@ impl ReaperTargetType {
             AllTrackFxEnable { .. } => ReaperTargetType::AllTrackFxEnable,
             Transport { .. } => ReaperTargetType::Transport,
             LoadFxSnapshot { .. } => ReaperTargetType::LoadFxSnapshot,
+            AutomationTouchState { .. } => ReaperTargetType::AutomationTouchState,
         }
     }
 
@@ -675,7 +714,7 @@ impl ReaperTargetType {
         match self {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
-            | FxPreset | AllTrackFxEnable | LoadFxSnapshot => true,
+            | FxPreset | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
             Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched => false,
         }
     }
@@ -686,7 +725,8 @@ impl ReaperTargetType {
             FxParameter | FxEnable | FxPreset | LoadFxSnapshot => true,
             TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
             | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
-            | Playrate | SelectedTrack | AllTrackFxEnable | Transport | LastTouched => false,
+            | Playrate | SelectedTrack | AllTrackFxEnable | Transport | LastTouched
+            | AutomationTouchState => false,
         }
     }
 
@@ -696,7 +736,8 @@ impl ReaperTargetType {
             TrackSendVolume | TrackSendPan | TrackSendMute => true,
             FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
             | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched => false,
+            | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched
+            | AutomationTouchState => false,
         }
     }
 }

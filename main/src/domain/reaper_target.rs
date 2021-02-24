@@ -135,6 +135,10 @@ pub enum ReaperTarget {
         chunk: Rc<String>,
         chunk_hash: u64,
     },
+    AutomationTouchState {
+        track: Track,
+        parameter_type: TouchedParameterType,
+    },
 }
 
 impl RealearnTarget for ReaperTarget {
@@ -189,6 +193,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackSendMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
@@ -217,6 +222,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackSendMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
         }
@@ -260,6 +266,7 @@ impl RealearnTarget for ReaperTarget {
             | Playrate { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Transport { .. } => return Err("not supported"),
         };
@@ -285,6 +292,7 @@ impl RealearnTarget for ReaperTarget {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => format_as_percentage_without_unit(value),
             TrackWidth { .. } => format_as_symmetric_percentage_without_unit(value),
         }
@@ -311,6 +319,7 @@ impl RealearnTarget for ReaperTarget {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => format_as_percentage_without_unit(step_size),
             TrackWidth { .. } => format_as_double_percentage_without_unit(step_size),
         }
@@ -363,6 +372,7 @@ impl RealearnTarget for ReaperTarget {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackSendPan { .. } => "",
         }
@@ -388,6 +398,7 @@ impl RealearnTarget for ReaperTarget {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackSendPan { .. } => "",
         }
@@ -421,6 +432,7 @@ impl RealearnTarget for ReaperTarget {
             Tempo { .. }
             | Playrate { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
@@ -610,6 +622,20 @@ impl RealearnTarget for ReaperTarget {
                     DomainGlobal::target_context()
                         .borrow_mut()
                         .load_fx_snapshot(fx.clone(), chunk, *chunk_hash)
+                }
+            }
+            AutomationTouchState {
+                track,
+                parameter_type,
+            } => {
+                if value.as_absolute()?.is_zero() {
+                    DomainGlobal::target_context()
+                        .borrow_mut()
+                        .untouch_automation_parameter(track.raw(), *parameter_type);
+                } else {
+                    DomainGlobal::target_context()
+                        .borrow_mut()
+                        .touch_automation_parameter(track.raw(), *parameter_type);
                 }
             }
         };
@@ -882,6 +908,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Transport { .. } => return Err("not supported"),
         };
@@ -904,6 +931,7 @@ impl ReaperTarget {
             | TrackSelection { track, .. }
             | TrackMute { track }
             | TrackSolo { track, .. }
+            | AutomationTouchState { track, .. }
             | AllTrackFxEnable { track } => track.project(),
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track().project()
@@ -924,6 +952,7 @@ impl ReaperTarget {
             | TrackArm { track }
             | TrackSelection { track, .. }
             | TrackMute { track }
+            | AutomationTouchState { track, .. }
             | TrackSolo { track, .. } => track,
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track()
@@ -959,6 +988,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => return None,
         };
         Some(fx)
@@ -983,6 +1013,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Transport { .. } => return None,
         };
@@ -1009,6 +1040,7 @@ impl ReaperTarget {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | LoadFxSnapshot { .. }
+            | AutomationTouchState { .. }
             | Transport { .. } => true,
             AllTrackFxEnable { .. } | TrackSendMute { .. } => false,
         }
@@ -1024,22 +1056,31 @@ impl ReaperTarget {
             Action { action, .. } => match evt {
                 // We can't provide a value from the event itself because the action hooks don't
                 // pass values.
-                ActionInvoked(command_id) if *command_id == action.command_id() => (true, None),
+                ActionInvoked(e) if e.command_id == action.command_id() => (true, None),
                 _ => (false, None),
             },
             LoadFxSnapshot { fx, .. } => match evt {
                 // We can't provide a value from the event itself because it's on/off depending on
                 // the mappings which use the FX snapshot target with that FX and which chunk (hash)
                 // their snapshot has.
-                FxSnapshotLoaded(f) if f == fx => (true, None),
+                FxSnapshotLoaded(e) if &e.fx == fx => (true, None),
                 _ => (false, None),
             },
             FxParameter { param } => match evt {
-                RealearnMonitoringFxParameterValueChanged {
-                    parameter,
-                    new_value,
-                } if parameter == param => {
-                    (true, Some(fx_parameter_unit_value(parameter, *new_value)))
+                RealearnMonitoringFxParameterValueChanged(e) if &e.parameter == param => (
+                    true,
+                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                ),
+                _ => (false, None),
+            },
+            AutomationTouchState {
+                track,
+                parameter_type,
+            } => match evt {
+                ParameterAutomationTouchStateChanged(e)
+                    if e.track == track.raw() && e.parameter_type == *parameter_type =>
+                {
+                    (true, Some(touched_unit_value(e.new_value)))
                 }
                 _ => (false, None),
             },
@@ -1221,6 +1262,7 @@ impl ReaperTarget {
             // Handled from non-control-surface callbacks.
             Action { .. }
             | LoadFxSnapshot { .. }
+            | AutomationTouchState { .. }
             // No value change notification available.
             | TrackSendMute { .. }
             | AllTrackFxEnable { .. }
@@ -1361,7 +1403,11 @@ impl ReaperTarget {
                     csurf_rx.play_state_changed().box_it()
                 }
             }
-            AllTrackFxEnable { .. } | TrackSendMute { .. } => observable::never().box_it(),
+            // TODO-high Remove last usage of this method instead of implementing this for
+            // AutomationTouchState
+            AutomationTouchState { .. } | AllTrackFxEnable { .. } | TrackSendMute { .. } => {
+                observable::never().box_it()
+            }
         }
     }
 }
@@ -1422,6 +1468,15 @@ impl Target for ReaperTarget {
                     .current_fx_snapshot_chunk_hash(fx)
                     == Some(*chunk_hash);
                 convert_bool_to_unit_value(is_loaded)
+            }
+            AutomationTouchState {
+                track,
+                parameter_type,
+            } => {
+                let is_touched = DomainGlobal::target_context()
+                    .borrow()
+                    .automation_parameter_is_touched(track.raw(), *parameter_type);
+                touched_unit_value(is_touched)
             }
         };
         Some(result)
@@ -1496,6 +1551,7 @@ impl Target for ReaperTarget {
             | TrackSendMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
             | Transport { .. }
             | TrackSolo { .. } => ControlType::AbsoluteSwitch,
             TrackVolume { .. }
@@ -1801,6 +1857,7 @@ impl PanExt for reaper_medium::Pan {
             BalanceV4(p) => p,
             StereoPan { pan, .. } => pan,
             DualPan { left, .. } => left,
+            Unknown => ReaperPanValue::CENTER,
         }
     }
 
@@ -1870,6 +1927,10 @@ fn mute_unit_value(is_mute: bool) -> UnitValue {
     convert_bool_to_unit_value(is_mute)
 }
 
+fn touched_unit_value(is_touched: bool) -> UnitValue {
+    convert_bool_to_unit_value(is_touched)
+}
+
 fn track_solo_unit_value(is_solo: bool) -> UnitValue {
     convert_bool_to_unit_value(is_solo)
 }
@@ -1922,5 +1983,47 @@ impl Default for SoloBehavior {
         // We could choose ReaperPreference as default but that would be a bit against ReaLearn's
         // initial idea of being the number one tool for very project-specific mappings.
         SoloBehavior::InPlace
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TouchedParameterType {
+    Volume,
+    Pan,
+    Width,
+}
+
+impl Default for TouchedParameterType {
+    fn default() -> Self {
+        TouchedParameterType::Volume
+    }
+}
+
+impl TouchedParameterType {
+    pub fn try_from_reaper(
+        reaper_type: reaper_medium::TouchedParameterType,
+    ) -> Result<Self, &'static str> {
+        use reaper_medium::TouchedParameterType::*;
+        let res = match reaper_type {
+            Volume => Self::Volume,
+            Pan => Self::Pan,
+            Width => Self::Width,
+            Unknown => return Err("unknown touch parameter type"),
+        };
+        Ok(res)
     }
 }
