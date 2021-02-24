@@ -48,7 +48,6 @@ pub struct MappingPanel {
     main_panel: WeakView<MainPanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
-    target_value_change_subscription: RefCell<SubscriptionGuard<Box<dyn SubscriptionLike>>>,
     sliders: RefCell<Option<Sliders>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -103,9 +102,6 @@ impl MappingPanel {
                 None,
             )),
             is_invoked_programmatically: false.into(),
-            target_value_change_subscription: RefCell::new(SubscriptionGuard::new(Box::new(
-                LocalSubscription::default(),
-            ))),
             sliders: None.into(),
             party_is_over_subject: Default::default(),
         }
@@ -160,6 +156,24 @@ impl MappingPanel {
                 .expect("main view gone")
                 .force_scroll_to_mapping(id);
         }
+    }
+
+    pub fn notify_target_value_changed(
+        self: SharedView<Self>,
+        target: Option<&CompoundMappingTarget>,
+        new_value: UnitValue,
+    ) {
+        self.invoke_programmatically(|| {
+            invalidate_target_controls_free(
+                target,
+                self.view
+                    .require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
+                self.view
+                    .require_control(root::ID_TARGET_VALUE_EDIT_CONTROL),
+                self.view.require_control(root::ID_TARGET_VALUE_TEXT),
+                new_value,
+            );
+        });
     }
 
     pub fn hide(&self) {
@@ -304,16 +318,6 @@ impl MappingPanel {
         when(event.take_until(self.party_is_over()))
             .with(Rc::downgrade(self))
             .do_sync(decorate_reaction(reaction));
-    }
-
-    fn when_do_async(
-        self: &SharedView<Self>,
-        event: impl UnitEvent,
-        reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
-    ) -> SubscriptionWrapper<impl SubscriptionLike> {
-        when(event.take_until(self.party_is_over()))
-            .with(Rc::downgrade(self))
-            .do_async(decorate_reaction(reaction))
     }
 }
 
@@ -1913,13 +1917,18 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_value_controls(&self) {
         if let Some(t) = self.real_target() {
-            self.invalidate_target_controls_internal(
-                root::ID_TARGET_VALUE_SLIDER_CONTROL,
-                root::ID_TARGET_VALUE_EDIT_CONTROL,
-                root::ID_TARGET_VALUE_TEXT,
-                t.current_value().unwrap_or(UnitValue::MIN),
-            )
+            let value = t.current_value().unwrap_or(UnitValue::MIN);
+            self.invalidate_target_value_controls_with_value(value);
         }
+    }
+
+    fn invalidate_target_value_controls_with_value(&self, value: UnitValue) {
+        self.invalidate_target_controls_internal(
+            root::ID_TARGET_VALUE_SLIDER_CONTROL,
+            root::ID_TARGET_VALUE_EDIT_CONTROL,
+            root::ID_TARGET_VALUE_TEXT,
+            value,
+        )
     }
 
     fn invalidate_target_learn_button(&self) {
@@ -2328,30 +2337,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         value_text_control_id: u32,
         value: UnitValue,
     ) {
-        let (edit_text, value_text) = match &self.real_target() {
-            Some(target) => {
-                let edit_text = if target.character() == TargetCharacter::Discrete {
-                    target
-                        .convert_unit_value_to_discrete_value(value)
-                        .map(|v| v.to_string())
-                        .unwrap_or_else(|_| "".to_string())
-                } else {
-                    target.format_value_without_unit(value)
-                };
-                let value_text = self.get_text_right_to_target_edit_control(&target, value);
-                (edit_text, value_text)
-            }
-            None => ("".to_string(), "".to_string()),
-        };
-        self.view
-            .require_control(slider_control_id)
-            .set_slider_unit_value(value);
-        self.view
-            .require_control(edit_control_id)
-            .set_text_if_not_focused(edit_text);
-        self.view
-            .require_control(value_text_control_id)
-            .set_text(value_text);
+        invalidate_target_controls_free(
+            self.real_target().as_ref(),
+            self.view.require_control(slider_control_id),
+            self.view.require_control(edit_control_id),
+            self.view.require_control(value_text_control_id),
+            value,
+        );
     }
 
     fn get_text_right_to_step_size_edit_control(
@@ -2367,22 +2359,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t.step_size_unit(),
                 t.format_step_size_without_unit(step_size)
             )
-        }
-    }
-
-    fn get_text_right_to_target_edit_control(
-        &self,
-        t: &CompoundMappingTarget,
-        value: UnitValue,
-    ) -> String {
-        if t.hide_formatted_value() {
-            t.value_unit().to_string()
-        } else if t.character() == TargetCharacter::Discrete {
-            // Please note that discrete FX parameters can only show their *current* value,
-            // unless they implement the REAPER VST extension functions.
-            t.format_value(value)
-        } else {
-            format!("{}  {}", t.value_unit(), t.format_value(value))
         }
     }
 
@@ -2571,33 +2547,6 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_target_listeners(&self) {
         let target = self.target;
-        // Display target value changes in real-time!
-        self.panel.when_do_async(
-            // We want to subscribe to target value changes when subscribed for the first time ...
-            observable::of(())
-                // ... and resubscribe whenever the target model changes
-                .merge(target.changed())
-                // ... and some other events occur that might change the target "value producer"
-                // (e.g. volume of track 2) in some way.
-                .merge(ReaperTarget::potential_static_change_events())
-                .merge(ReaperTarget::potential_dynamic_change_events()),
-            |view| {
-                // Okay. Time to resubscribe.
-                let mut existing_subscription =
-                    view.panel.target_value_change_subscription.borrow_mut();
-                // Resubscribe if information in model is enough to create actual target.
-                if let Ok(CompoundMappingTarget::Reaper(t)) =
-                    view.target_with_context().create_target()
-                {
-                    let new_subscription =
-                        view.panel.when_do_async(t.value_changed(), |inner_view| {
-                            inner_view.invalidate_target_value_controls();
-                        });
-                    *existing_subscription =
-                        SubscriptionGuard::new(Box::new(new_subscription.into_inner()));
-                };
-            },
-        );
         self.panel.when_do_sync(
             target
                 .category
@@ -3168,4 +3117,43 @@ fn group_mappings_by_virtual_control_element<'a>(
         .into_iter()
         .filter_map(|(key, group)| key.map(|k| (k, group.collect())))
         .collect()
+}
+
+fn invalidate_target_controls_free(
+    real_target: Option<&CompoundMappingTarget>,
+    slider_control: Window,
+    edit_control: Window,
+    value_text_control: Window,
+    value: UnitValue,
+) {
+    let (edit_text, value_text) = match real_target {
+        Some(target) => {
+            let edit_text = if target.character() == TargetCharacter::Discrete {
+                target
+                    .convert_unit_value_to_discrete_value(value)
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|_| "".to_string())
+            } else {
+                target.format_value_without_unit(value)
+            };
+            let value_text = get_text_right_to_target_edit_control(&target, value);
+            (edit_text, value_text)
+        }
+        None => ("".to_string(), "".to_string()),
+    };
+    slider_control.set_slider_unit_value(value);
+    edit_control.set_text_if_not_focused(edit_text);
+    value_text_control.set_text(value_text);
+}
+
+fn get_text_right_to_target_edit_control(t: &CompoundMappingTarget, value: UnitValue) -> String {
+    if t.hide_formatted_value() {
+        t.value_unit().to_string()
+    } else if t.character() == TargetCharacter::Discrete {
+        // Please note that discrete FX parameters can only show their *current* value,
+        // unless they implement the REAPER VST extension functions.
+        t.format_value(value)
+    } else {
+        format!("{}  {}", t.value_unit(), t.format_value(value))
+    }
 }

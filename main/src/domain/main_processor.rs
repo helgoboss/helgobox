@@ -3,7 +3,8 @@ use crate::domain::{
     DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
     MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue, VirtualSourceValue,
+    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
+    TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -563,7 +564,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // cause feedback themselves.
             for m in self.mappings[compartment].values() {
                 if m.feedback_is_effectively_on() && !m.is_echo() {
-                    if let Some(CompoundMappingTarget::Reaper(target)) = m.target() {
+                    let compound_target = m.target();
+                    if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
                         let (value_changed, new_value) = f(target);
                         if value_changed {
                             // Immediate value capturing. Makes OSC feedback *much* smoother in
@@ -577,8 +579,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             // changes for examples and especially in case of on/off targets this
                             // can lead to horribly wrong feedback. Previously we didn't have this
                             // issue because we always deferred to the next main loop cycle.
-                            let source_value = m.feedback_given_or_current_value(new_value, target);
+                            let new_value = m
+                                .given_or_current_value(new_value, target)
+                                .unwrap_or(UnitValue::MIN);
+                            // Feedback
+                            let source_value = m.feedback_given_value(new_value);
                             self.send_feedback(source_value);
+                            // Inform session, e.g. for UI updates
+                            self.event_handler
+                                .handle_event(DomainEvent::TargetValueChanged(
+                                    TargetValueChangedEvent {
+                                        compartment,
+                                        mapping_id: m.id(),
+                                        target: compound_target,
+                                        new_value,
+                                    },
+                                ));
                         }
                     }
                 }

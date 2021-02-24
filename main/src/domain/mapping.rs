@@ -277,16 +277,15 @@ impl MainMapping {
         self.core.is_echo()
     }
 
-    pub fn feedback_given_or_current_value(
+    pub fn given_or_current_value(
         &self,
         target_value: Option<UnitValue>,
         target: &ReaperTarget,
-    ) -> Option<SourceValue> {
-        let actual_value = target_value.or_else(|| target.current_value())?;
-        self.feedback_given_value(actual_value)
+    ) -> Option<UnitValue> {
+        target_value.or_else(|| target.current_value())
     }
 
-    fn feedback_given_value(&self, target_value: UnitValue) -> Option<SourceValue> {
+    pub fn feedback_given_value(&self, target_value: UnitValue) -> Option<SourceValue> {
         let modified_value = self.core.mode.feedback(target_value)?;
         self.core.source.feedback(modified_value)
     }

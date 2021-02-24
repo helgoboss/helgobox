@@ -1,12 +1,9 @@
-use crate::core::AsyncNotifier;
 use crate::domain::{
     AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedParameterType,
 };
 use reaper_high::Fx;
 use reaper_medium::MediaTrack;
-use rx_util::{Event, Notifier};
-use rxrust::prelude::*;
 use std::collections::{HashMap, HashSet};
 
 /// Feedback for most targets comes from REAPER itself but there are some targets for which ReaLearn
@@ -14,7 +11,6 @@ use std::collections::{HashMap, HashSet};
 pub struct RealearnTargetContext {
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     // For "Load FX snapshot" target.
-    fx_snapshot_loaded_subject: LocalSubject<'static, Fx, ()>,
     fx_snapshot_chunk_hash_by_fx: HashMap<Fx, u64>,
     // For "Touch automation state" target.
     touched_things: HashSet<TouchedThing>,
@@ -40,7 +36,6 @@ impl RealearnTargetContext {
         additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     ) -> Self {
         Self {
-            fx_snapshot_loaded_subject: Default::default(),
             fx_snapshot_chunk_hash_by_fx: Default::default(),
             additional_feedback_event_sender,
             touched_things: Default::default(),
@@ -55,16 +50,11 @@ impl RealearnTargetContext {
         fx.set_tag_chunk(chunk);
         self.fx_snapshot_chunk_hash_by_fx
             .insert(fx.clone(), chunk_hash);
-        AsyncNotifier::notify(&mut self.fx_snapshot_loaded_subject, &fx);
         self.additional_feedback_event_sender
             .send(AdditionalFeedbackEvent::FxSnapshotLoaded(
                 FxSnapshotLoadedEvent { fx },
             ))
             .unwrap();
-    }
-
-    pub fn fx_snapshot_loaded(&self) -> impl Event<Fx> {
-        self.fx_snapshot_loaded_subject.clone()
     }
 
     pub fn touch_automation_parameter(

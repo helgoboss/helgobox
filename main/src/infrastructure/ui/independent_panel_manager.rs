@@ -3,7 +3,7 @@ use reaper_high::Reaper;
 use slog::debug;
 
 use crate::application::{SharedMapping, WeakSession};
-use crate::domain::MappingCompartment;
+use crate::domain::{MappingCompartment, TargetValueChangedEvent};
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -24,6 +24,21 @@ impl IndependentPanelManager {
             main_panel,
             mapping_panels: Default::default(),
             message_panel: SharedView::new(SessionMessagePanel::new(session)),
+        }
+    }
+
+    pub fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
+        for p in &self.mapping_panels {
+            if let Some(m) = p.displayed_mapping() {
+                let is_our_mapping = {
+                    let m = m.borrow();
+                    m.compartment() == event.compartment && m.id() == event.mapping_id
+                };
+                if is_our_mapping {
+                    p.clone()
+                        .notify_target_value_changed(event.target, event.new_value);
+                }
+            }
         }
     }
 

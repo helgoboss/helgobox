@@ -7,7 +7,8 @@ use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    OscDeviceId, ProcessorContext, RealSource, ReaperTarget, VirtualSource, PLUGIN_PARAMETER_COUNT,
+    OscDeviceId, ProcessorContext, RealSource, ReaperTarget, TargetValueChangedEvent,
+    VirtualSource, PLUGIN_PARAMETER_COUNT,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -28,6 +29,7 @@ use wrap_debug::WrapDebug;
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
+    fn target_value_changed(&self, event: TargetValueChangedEvent);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -1688,6 +1690,9 @@ impl DomainEventHandler for WeakSession {
             }
             UpdatedOnMappings(on_mappings) => {
                 session.on_mappings.set(on_mappings);
+            }
+            TargetValueChanged(e) => {
+                session.ui.target_value_changed(e);
             }
         }
     }

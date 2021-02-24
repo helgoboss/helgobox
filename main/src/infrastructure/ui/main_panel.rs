@@ -11,7 +11,7 @@ use std::cell::{Cell, RefCell};
 
 use crate::application::{SessionUi, WeakSession};
 use crate::core::when;
-use crate::domain::{MappingCompartment, MappingId};
+use crate::domain::{MappingCompartment, MappingId, TargetValueChangedEvent};
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
@@ -141,6 +141,14 @@ impl MainPanel {
         });
     }
 
+    fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager
+                .borrow()
+                .handle_changed_target_value(event);
+        }
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -188,6 +196,12 @@ impl SessionUi for Weak<MainPanel> {
         self.upgrade()
             .expect("main panel not existing anymore")
             .edit_mapping(compartment, mapping_id);
+    }
+
+    fn target_value_changed(&self, event: TargetValueChangedEvent) {
+        self.upgrade()
+            .expect("main panel not existing anymore")
+            .handle_changed_target_value(event);
     }
 }
 

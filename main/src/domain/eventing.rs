@@ -1,16 +1,25 @@
-use crate::domain::{CompoundMappingSource, MappingId};
-use helgoboss_learn::{MidiSource, OscSource};
+use crate::domain::{CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId};
+use helgoboss_learn::{MidiSource, OscSource, UnitValue};
 use std::collections::HashSet;
 use std::fmt::Debug;
 
 /// An event which is sent to upper layers and processed there
 #[derive(Debug)]
-pub enum DomainEvent {
+pub enum DomainEvent<'a> {
     LearnedSource {
         source: RealSource,
         allow_virtual_sources: bool,
     },
     UpdatedOnMappings(HashSet<MappingId>),
+    TargetValueChanged(TargetValueChangedEvent<'a>),
+}
+
+#[derive(Debug)]
+pub struct TargetValueChangedEvent<'a> {
+    pub compartment: MappingCompartment,
+    pub mapping_id: MappingId,
+    pub target: Option<&'a CompoundMappingTarget>,
+    pub new_value: UnitValue,
 }
 
 pub trait DomainEventHandler: Debug {
