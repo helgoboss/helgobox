@@ -5,6 +5,7 @@ use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
     TargetModelData,
 };
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 
@@ -59,10 +60,11 @@ impl MappingModelData {
         compartment: MappingCompartment,
         context: Option<&ProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
+        preset_version: Option<&Version>,
     ) -> MappingModel {
         // Preliminary group ID
         let mut model = MappingModel::new(compartment, GroupId::default());
-        self.apply_to_model(&mut model, context, migration_descriptor);
+        self.apply_to_model(&mut model, context, migration_descriptor, preset_version);
         model
     }
 
@@ -73,6 +75,7 @@ impl MappingModelData {
         model: &mut MappingModel,
         context: Option<&ProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
+        preset_version: Option<&Version>,
     ) {
         if let Some(id) = self.id {
             model.set_id_without_notification(id);
@@ -88,7 +91,7 @@ impl MappingModelData {
             &self.name,
         );
         self.target
-            .apply_to_model(model.target_model.borrow_mut(), context);
+            .apply_to_model(model.target_model.borrow_mut(), context, preset_version);
         model
             .control_is_enabled
             .set_without_notification(self.enabled_data.control_is_enabled);

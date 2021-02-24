@@ -9,7 +9,7 @@ use reaper_high::{
 use reaper_medium::{
     Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
     NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, ReaperPanValue,
-    ReaperWidthValue, UndoBehavior,
+    ReaperWidthValue, SoloMode, UndoBehavior,
 };
 use rx_util::{BoxedUnitEvent, Event, UnitEvent};
 use rxrust::prelude::*;
@@ -100,6 +100,7 @@ pub enum ReaperTarget {
     },
     TrackSolo {
         track: Track,
+        behavior: SoloBehavior,
     },
     TrackSendPan {
         send: TrackSend,
@@ -503,11 +504,16 @@ impl RealearnTarget for ReaperTarget {
                     track.mute();
                 }
             }
-            TrackSolo { track } => {
+            TrackSolo { track, behavior } => {
                 if value.as_absolute()?.is_zero() {
                     track.unsolo();
                 } else {
-                    track.solo();
+                    use SoloBehavior::*;
+                    match *behavior {
+                        InPlace => track.set_solo_mode(SoloMode::SoloInPlace),
+                        IgnoreRouting => track.set_solo_mode(SoloMode::SoloIgnoreRouting),
+                        ReaperPreference => track.solo(),
+                    }
                 }
             }
             TrackSendPan { send } => {
@@ -702,7 +708,10 @@ impl ReaperTarget {
                 if e.track.is_master_track() {
                     return None;
                 }
-                TrackSolo { track: e.track }
+                TrackSolo {
+                    track: e.track,
+                    behavior: Default::default(),
+                }
             }
             TrackSelectedChanged(e) => TrackSelection {
                 track: e.track,
@@ -778,7 +787,13 @@ impl ReaperTarget {
                     // not cool for learning because we could only ever learn master-track solo,
                     // which doesn't even make sense. So let's just filter it out.
                     .filter(|track| !track.is_master_track())
-                    .map(move |track| TrackSolo { track }.into()),
+                    .map(move |track| {
+                        TrackSolo {
+                            track,
+                            behavior: Default::default(),
+                        }
+                        .into()
+                    }),
             )
             .merge(
                 csurf_rx
@@ -888,7 +903,7 @@ impl ReaperTarget {
             | TrackArm { track }
             | TrackSelection { track, .. }
             | TrackMute { track }
-            | TrackSolo { track }
+            | TrackSolo { track, .. }
             | AllTrackFxEnable { track } => track.project(),
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track().project()
@@ -909,7 +924,7 @@ impl ReaperTarget {
             | TrackArm { track }
             | TrackSelection { track, .. }
             | TrackMute { track }
-            | TrackSolo { track } => track,
+            | TrackSolo { track, .. } => track,
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track()
             }
@@ -1122,7 +1137,7 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            TrackSolo { track } => {
+            TrackSolo { track, .. } => {
                 match evt {
                     TrackSoloChanged(e) if &e.track == track => (
                         true,
@@ -1288,7 +1303,7 @@ impl ReaperTarget {
                     .map_to(())
                     .box_it()
             }
-            TrackSolo { track } => {
+            TrackSolo { track, .. } => {
                 let track = track.clone();
                 csurf_rx
                     .track_solo_changed()
@@ -1379,7 +1394,7 @@ impl Target for ReaperTarget {
             TrackArm { track } => track_arm_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => track_selected_unit_value(track.is_selected()),
             TrackMute { track } => mute_unit_value(track.is_muted()),
-            TrackSolo { track } => track_solo_unit_value(track.is_solo()),
+            TrackSolo { track, .. } => track_solo_unit_value(track.is_solo()),
             TrackSendPan { send } => pan_unit_value(send.pan()),
             TrackSendMute { send } => mute_unit_value(send.is_muted()),
             Tempo { project } => tempo_unit_value(project.tempo()),
@@ -1877,4 +1892,35 @@ fn all_track_fx_enable_unit_value(is_enabled: bool) -> UnitValue {
 
 fn transport_is_enabled_unit_value(is_enabled: bool) -> UnitValue {
     convert_bool_to_unit_value(is_enabled)
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum SoloBehavior {
+    #[display(fmt = "Solo in place")]
+    InPlace,
+    #[display(fmt = "Solo (ignore routing)")]
+    IgnoreRouting,
+    #[display(fmt = "Use REAPER preference")]
+    ReaperPreference,
+}
+
+impl Default for SoloBehavior {
+    fn default() -> Self {
+        // We could choose ReaperPreference as default but that would be a bit against ReaLearn's
+        // initial idea of being the number one tool for very project-specific mappings.
+        SoloBehavior::InPlace
+    }
 }

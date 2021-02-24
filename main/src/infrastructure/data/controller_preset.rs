@@ -97,6 +97,7 @@ impl PresetData for ControllerPresetData {
                         MappingCompartment::ControllerMappings,
                         None,
                         &migration_descriptor,
+                        self.version.as_ref(),
                     )
                 })
                 .collect(),

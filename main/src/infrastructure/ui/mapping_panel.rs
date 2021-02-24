@@ -31,8 +31,8 @@ use crate::application::{
 use crate::core::Global;
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
-    ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter, TrackAnchor, TransportAction,
-    VirtualControlElement, VirtualFx, VirtualTrack,
+    ProcessorContext, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TrackAnchor,
+    TransportAction, VirtualControlElement, VirtualFx, VirtualTrack,
 };
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -970,6 +970,11 @@ impl<'a> MutableMappingPanel<'a> {
             target
                 .action_invocation_type
                 .set(index.try_into().expect("invalid action invocation type"));
+        } else if target.r#type.get() == ReaperTargetType::TrackSolo {
+            let index = main_combo.selected_combo_box_item_index();
+            target
+                .solo_behavior
+                .set(index.try_into().expect("invalid solo behavior"));
         }
     }
 
@@ -1587,6 +1592,16 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX);
         let target = self.target;
+        let hide_all = || {
+            label.hide();
+            main_combo.hide();
+            anchor_combo.hide();
+            input_fx_box.hide();
+        };
+        if target.category.get() != TargetCategory::Reaper {
+            hide_all();
+            return;
+        }
         if target.supports_fx() {
             main_combo.show();
             label.show();
@@ -1601,17 +1616,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.fill_target_send_combo_box(label, main_combo);
             self.set_target_send_combo_box_value(main_combo);
         } else if target.r#type.get() == ReaperTargetType::Action {
+            label.show();
             main_combo.show();
             anchor_combo.hide();
-            label.show();
             input_fx_box.hide();
             self.fill_target_invocation_type_combo_box(label, main_combo);
             self.set_target_invocation_type_combo_box_value(main_combo);
-        } else {
-            label.hide();
-            main_combo.hide();
+        } else if target.r#type.get() == ReaperTargetType::TrackSolo {
+            label.show();
+            main_combo.show();
             anchor_combo.hide();
             input_fx_box.hide();
+            self.fill_target_solo_behavior_combo_box(label, main_combo);
+            self.set_target_solo_behavior_combo_box_value(main_combo);
+        } else {
+            hide_all();
         }
     }
 
@@ -1646,6 +1665,15 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_target_invocation_type_combo_box(&self, label: Window, combo: Window) {
         label.set_text("Invoke");
         combo.fill_combo_box(ActionInvocationType::into_enum_iter());
+    }
+
+    fn set_target_solo_behavior_combo_box_value(&self, combo: Window) {
+        combo.select_combo_box_item(self.target.solo_behavior.get().into());
+    }
+
+    fn fill_target_solo_behavior_combo_box(&self, label: Window, combo: Window) {
+        label.set_text("Behavior");
+        combo.fill_combo_box(SoloBehavior::into_enum_iter());
     }
 
     fn set_target_invocation_type_combo_box_value(&self, combo: Window) {

@@ -1,6 +1,7 @@
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, TransportAction,
+    ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, SoloBehavior,
+    TransportAction,
 };
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
@@ -44,6 +45,7 @@ pub enum UnresolvedReaperTarget {
     },
     TrackSolo {
         track_descriptor: TrackDescriptor,
+        behavior: SoloBehavior,
     },
     TrackSendPan {
         track_descriptor: TrackDescriptor,
@@ -121,8 +123,12 @@ impl UnresolvedReaperTarget {
             TrackMute { track_descriptor } => ReaperTarget::TrackMute {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
-            TrackSolo { track_descriptor } => ReaperTarget::TrackSolo {
+            TrackSolo {
+                track_descriptor,
+                behavior,
+            } => ReaperTarget::TrackSolo {
                 track: get_effective_track(context, &track_descriptor.track)?,
+                behavior: *behavior,
             },
             TrackSendPan {
                 track_descriptor,
@@ -220,7 +226,9 @@ impl UnresolvedReaperTarget {
                 track_descriptor, ..
             }
             | TrackMute { track_descriptor }
-            | TrackSolo { track_descriptor }
+            | TrackSolo {
+                track_descriptor, ..
+            }
             | TrackSendPan {
                 track_descriptor, ..
             }

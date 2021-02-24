@@ -270,7 +270,12 @@ impl SessionData {
             session.set_mappings_without_notification(
                 compartment,
                 mappings.iter().map(|m| {
-                    m.to_model(compartment, Some(&processor_context), &migration_descriptor)
+                    m.to_model(
+                        compartment,
+                        Some(&processor_context),
+                        &migration_descriptor,
+                        self.version.as_ref(),
+                    )
                 }),
             );
         };

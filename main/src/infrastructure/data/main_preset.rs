@@ -109,6 +109,7 @@ impl PresetData for MainPresetData {
                         MappingCompartment::MainMappings,
                         None,
                         &migration_descriptor,
+                        self.version.as_ref(),
                     )
                 })
                 .collect(),

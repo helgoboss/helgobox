@@ -6,13 +6,14 @@ use crate::application::{
     get_guid_based_fx_at_index, FxAnchorType, FxSnapshot, ReaperTargetType, TargetCategory,
     TargetModel, VirtualControlElementType,
 };
-use crate::core::default_util::is_default;
+use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, FxAnchor, ProcessorContext, TrackAnchor, TransportAction, VirtualFx,
-    VirtualTrack,
+    ActionInvocationType, FxAnchor, ProcessorContext, SoloBehavior, TrackAnchor, TransportAction,
+    VirtualFx, VirtualTrack,
 };
 use derive_more::{Display, Error};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
@@ -59,6 +60,9 @@ pub struct TargetModelData {
     // Track selection target
     #[serde(default, skip_serializing_if = "is_default")]
     select_exclusively: bool,
+    // Track solo target (since v2.4.0, also changed default from "ignore routing" to "in place")
+    #[serde(default, skip_serializing_if = "is_none_or_some_default")]
+    solo_behavior: Option<SoloBehavior>,
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
     transport_action: TransportAction,
@@ -96,6 +100,7 @@ impl TargetModelData {
             send_index: model.send_index.get(),
             param_index: model.param_index.get(),
             select_exclusively: model.select_exclusively.get(),
+            solo_behavior: Some(model.solo_behavior.get()),
             transport_action: model.transport_action.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
@@ -105,7 +110,12 @@ impl TargetModelData {
 
     /// The context is necessary only if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
-    pub fn apply_to_model(&self, model: &mut TargetModel, context: Option<&ProcessorContext>) {
+    pub fn apply_to_model(
+        &self,
+        model: &mut TargetModel,
+        context: Option<&ProcessorContext>,
+        preset_version: Option<&Version>,
+    ) {
         model.category.set_without_notification(self.category);
         model.r#type.set_without_notification(self.r#type);
         let reaper = Reaper::get();
@@ -165,6 +175,17 @@ impl TargetModelData {
         model
             .select_exclusively
             .set_without_notification(self.select_exclusively);
+        let solo_behavior = self.solo_behavior.unwrap_or_else(|| {
+            let is_old_preset = preset_version
+                .map(|v| v < &Version::new(2, 4, 0))
+                .unwrap_or(true);
+            if is_old_preset {
+                SoloBehavior::IgnoreRouting
+            } else {
+                SoloBehavior::InPlace
+            }
+        });
+        model.solo_behavior.set_without_notification(solo_behavior);
         model
             .transport_action
             .set_without_notification(self.transport_action);

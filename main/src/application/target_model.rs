@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 use crate::application::VirtualControlElementType;
 use crate::domain::{
     get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, TrackAnchor,
-    TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
+    CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
+    TrackAnchor, TrackDescriptor, TransportAction, UnresolvedCompoundMappingTarget,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -51,6 +51,8 @@ pub struct TargetModel {
     pub send_index: Prop<Option<u32>>,
     // # For track selection targets
     pub select_exclusively: Prop<bool>,
+    // # For track solo targets
+    pub solo_behavior: Prop<SoloBehavior>,
     // # For transport target
     pub transport_action: Prop<TransportAction>,
     // # For "Load FX snapshot" target
@@ -73,6 +75,7 @@ impl Default for TargetModel {
             param_index: prop(0),
             send_index: prop(None),
             select_exclusively: prop(false),
+            solo_behavior: prop(Default::default()),
             transport_action: prop(TransportAction::default()),
             fx_snapshot: prop(None),
         }
@@ -181,6 +184,7 @@ impl TargetModel {
             .merge(self.param_index.changed())
             .merge(self.send_index.changed())
             .merge(self.select_exclusively.changed())
+            .merge(self.solo_behavior.changed())
             .merge(self.transport_action.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
@@ -242,6 +246,7 @@ impl TargetModel {
                     },
                     TrackSolo => UnresolvedReaperTarget::TrackSolo {
                         track_descriptor: self.track_descriptor(),
+                        behavior: self.solo_behavior.get(),
                     },
                     TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
                         track_descriptor: self.track_descriptor(),

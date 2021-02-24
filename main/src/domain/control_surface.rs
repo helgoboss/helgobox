@@ -215,7 +215,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn process_incoming_osc_messages(&mut self) {
         pub type PacketVec = SmallVec<[OscPacket; OSC_INCOMING_BULK_SIZE]>;
-        let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); 32]> = self
+        let packets_by_device: SmallVec<[(OscDeviceId, PacketVec); OSC_INCOMING_BULK_SIZE]> = self
             .osc_input_devices
             .iter_mut()
             .map(|dev| {
