@@ -31,8 +31,9 @@ use crate::application::{
 use crate::core::Global;
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
-    ProcessorContext, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TrackAnchor,
-    TransportAction, VirtualControlElement, VirtualFx, VirtualTrack,
+    ProcessorContext, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter,
+    TouchedParameterType, TrackAnchor, TransportAction, VirtualControlElement, VirtualFx,
+    VirtualTrack,
 };
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -975,6 +976,11 @@ impl<'a> MutableMappingPanel<'a> {
             target
                 .solo_behavior
                 .set(index.try_into().expect("invalid solo behavior"));
+        } else if target.r#type.get() == ReaperTargetType::AutomationTouchState {
+            let index = main_combo.selected_combo_box_item_index();
+            target
+                .touched_parameter_type
+                .set(index.try_into().expect("invalid touched parameter type"));
         }
     }
 
@@ -1629,6 +1635,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             input_fx_box.hide();
             self.fill_target_solo_behavior_combo_box(label, main_combo);
             self.set_target_solo_behavior_combo_box_value(main_combo);
+        } else if target.r#type.get() == ReaperTargetType::AutomationTouchState {
+            label.show();
+            main_combo.show();
+            anchor_combo.hide();
+            input_fx_box.hide();
+            self.fill_target_touched_parameter_type_combo_box(label, main_combo);
+            self.set_target_touched_parameter_type_combo_box_value(main_combo);
         } else {
             hide_all();
         }
@@ -1667,6 +1680,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo.fill_combo_box(ActionInvocationType::into_enum_iter());
     }
 
+    fn set_target_invocation_type_combo_box_value(&self, combo: Window) {
+        combo.select_combo_box_item(self.target.action_invocation_type.get().into());
+    }
+
     fn set_target_solo_behavior_combo_box_value(&self, combo: Window) {
         combo.select_combo_box_item(self.target.solo_behavior.get().into());
     }
@@ -1676,8 +1693,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo.fill_combo_box(SoloBehavior::into_enum_iter());
     }
 
-    fn set_target_invocation_type_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item(self.target.action_invocation_type.get().into());
+    fn set_target_touched_parameter_type_combo_box_value(&self, combo: Window) {
+        combo.select_combo_box_item(self.target.touched_parameter_type.get().into());
+    }
+
+    fn fill_target_touched_parameter_type_combo_box(&self, label: Window, combo: Window) {
+        label.set_text("Type");
+        combo.fill_combo_box(TouchedParameterType::into_enum_iter());
     }
 
     fn fill_target_fx_param_combo_box(&self, combo: Window) {
@@ -2622,6 +2644,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_target_line_three();
                 view.invalidate_mode_controls();
             });
+        self.panel.when_do_sync(
+            target
+                .solo_behavior
+                .changed()
+                .merge(target.touched_parameter_type.changed()),
+            |view| {
+                view.invalidate_target_line_three();
+            },
+        );
         self.panel
             .when_do_sync(target.fx_snapshot.changed(), |view| {
                 view.invalidate_target_line_four();

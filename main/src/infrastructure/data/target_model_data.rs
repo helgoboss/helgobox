@@ -9,8 +9,8 @@ use crate::application::{
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, FxAnchor, ProcessorContext, SoloBehavior, TrackAnchor, TransportAction,
-    VirtualFx, VirtualTrack,
+    ActionInvocationType, FxAnchor, ProcessorContext, SoloBehavior, TouchedParameterType,
+    TrackAnchor, TransportAction, VirtualFx, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -72,6 +72,8 @@ pub struct TargetModelData {
     control_element_index: u32,
     #[serde(default, skip_serializing_if = "is_default")]
     fx_snapshot: Option<FxSnapshot>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    touched_parameter_type: TouchedParameterType,
 }
 
 impl TargetModelData {
@@ -105,6 +107,7 @@ impl TargetModelData {
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
             fx_snapshot: model.fx_snapshot.get_ref().clone(),
+            touched_parameter_type: model.touched_parameter_type.get(),
         }
     }
 
@@ -198,6 +201,9 @@ impl TargetModelData {
         model
             .fx_snapshot
             .set_without_notification(self.fx_snapshot.clone());
+        model
+            .touched_parameter_type
+            .set_without_notification(self.touched_parameter_type);
     }
 }
 
