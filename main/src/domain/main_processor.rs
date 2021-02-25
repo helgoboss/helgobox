@@ -269,38 +269,44 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             Box::new(mapping.splinter_real_time_mapping()),
                         ))
                         .unwrap();
-                    // (Re)subscribe to or unsubscribe from feedback
+                    // Send feedback
                     if self.feedback_is_globally_enabled {
-                        match mapping.target() {
-                            Some(CompoundMappingTarget::Reaper(_))
-                                if mapping.feedback_is_effectively_on() =>
-                            {
+                        // Mappings with virtual targets can also get feedback-disabled.
+                        if let Some(previous_mapping) =
+                            self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
+                        {
+                            // An existing mapping is being overwritten.
+                            if previous_mapping.feedback_is_effectively_on() {
+                                // And its light is on.
+                                if mapping.source() == previous_mapping.source() {
+                                    // Source is the same.
+                                    if mapping.feedback_is_effectively_on() {
+                                        // Send new lights.
+                                        self.send_feedback(mapping.feedback());
+                                    } else {
+                                        // Indicate via feedback that this source is not in use
+                                        // anymore. But only
+                                        // if feedback was on before (otherwise this could
+                                        // overwrite the feedback value of another enabled mapping
+                                        // which has
+                                        // the same source).
+                                        self.send_feedback(mapping.zero_feedback());
+                                    }
+                                } else {
+                                    // Source has changed.
+                                    // Switch previous source light off.
+                                    self.send_feedback(previous_mapping.zero_feedback());
+                                    // Send new lights if on.
+                                    self.send_feedback(mapping.feedback_if_enabled());
+                                }
+                            } else {
+                                // Previous lights were off.
                                 self.send_feedback(mapping.feedback_if_enabled());
                             }
-                            _ => {
-                                // Indicate via feedback that this source is not in use anymore. But
-                                // only if feedback was enabled before (otherwise this could
-                                // overwrite the feedback value of another enabled mapping which has
-                                // the same source).
-                                let was_previously_enabled = self.mappings[compartment]
-                                    .get(&mapping.id())
-                                    // Mappings with virtual targets can also get feedback-disabled.
-                                    .or(if compartment == MappingCompartment::ControllerMappings {
-                                        self.mappings_with_virtual_targets.get(&mapping.id())
-                                    } else {
-                                        None
-                                    })
-                                    .map(|m| m.feedback_is_effectively_on())
-                                    .contains(&true);
-                                if was_previously_enabled {
-                                    // We assume that there's no other enabled mapping with the same
-                                    // source at this moment. It there is, it would be a weird setup
-                                    // with two conflicting feedback value sources - this wouldn't
-                                    // work well anyway.
-                                    self.send_feedback(mapping.source().feedback(UnitValue::MIN));
-                                }
-                            }
-                        };
+                        } else {
+                            // This mapping is new. Send feedback.
+                            self.send_feedback(mapping.feedback_if_enabled());
+                        }
                     }
                     // Update hash map entry
                     if mapping.needs_refresh_when_target_touched() {
@@ -505,6 +511,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+    }
+
+    fn get_normal_or_virtual_target_mapping(
+        &self,
+        compartment: MappingCompartment,
+        id: MappingId,
+    ) -> Option<&MainMapping> {
+        self.mappings[compartment].get(&id).or(
+            if compartment == MappingCompartment::ControllerMappings {
+                self.mappings_with_virtual_targets.get(&id)
+            } else {
+                None
+            },
+        )
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {

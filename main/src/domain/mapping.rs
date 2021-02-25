@@ -262,6 +262,10 @@ impl MainMapping {
         if !self.feedback_is_effectively_on() {
             return None;
         }
+        self.feedback()
+    }
+
+    pub fn feedback(&self) -> Option<SourceValue> {
         if self.core.is_echo() {
             return None;
         }
@@ -288,6 +292,10 @@ impl MainMapping {
     pub fn feedback_given_value(&self, value: UnitValue) -> Option<SourceValue> {
         let modified_value = self.core.mode.feedback(value)?;
         self.core.source.feedback(modified_value)
+    }
+
+    pub fn zero_feedback(&self) -> Option<SourceValue> {
+        self.source().feedback(UnitValue::MIN)
     }
 
     fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<SourceValue> {
