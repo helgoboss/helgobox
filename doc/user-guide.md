@@ -652,6 +652,9 @@ If a mapping is *off*, it doesn't have any effect.
 - **Remove:** Removes this mapping from the list.
 - **Learn source:** Starts or stops learning the source of this mapping.
 - **Learn target:** Starts or stops learning the target of this mapping.
+    - *Tip:* Learning a target that is currently being automated is not possible at the moment because
+      ReaLearn can't know if the value change notification is coming from the automation or your touch
+      interaction. 
 
 Each mapping row provides a context menu, which lets you move this mapping to another mapping group.
 
@@ -1267,6 +1270,9 @@ track.
 
 Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the
 track.
+
+Learning this target by pressing the "Solo" button of the *master* track is currently not possible but
+of course you can just select it manually in the dropdown menu.  
 
 ###### Track send pan target
 
