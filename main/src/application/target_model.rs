@@ -643,7 +643,7 @@ pub enum ReaperTargetType {
     TrackArm = 5,
     #[display(fmt = "Track selection")]
     TrackSelection = 6,
-    #[display(fmt = "Track mute (no feedback from automation)")]
+    #[display(fmt = "Track mute")]
     TrackMute = 7,
     #[display(fmt = "Track solo")]
     TrackSolo = 8,
