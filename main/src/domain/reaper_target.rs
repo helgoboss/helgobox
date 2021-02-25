@@ -1716,7 +1716,7 @@ impl PanExt for reaper_medium::Pan {
             BalanceV4(p) => p,
             StereoPan { pan, .. } => pan,
             DualPan { left, .. } => left,
-            Unknown => ReaperPanValue::CENTER,
+            Unknown(_) => ReaperPanValue::CENTER,
         }
     }
 
@@ -1881,7 +1881,7 @@ impl TouchedParameterType {
             Volume => Self::Volume,
             Pan => Self::Pan,
             Width => Self::Width,
-            Unknown => return Err("unknown touch parameter type"),
+            Unknown(_) => return Err("unknown touch parameter type"),
         };
         Ok(res)
     }
