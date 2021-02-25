@@ -574,46 +574,46 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
-        if !self.feedback_is_globally_enabled {
-            return;
-        }
         for compartment in MappingCompartment::into_enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
             for m in self.mappings[compartment].values() {
-                if m.feedback_is_effectively_on() && !m.is_echo() {
-                    let compound_target = m.target();
-                    if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
-                        let (value_changed, new_value) = f(target);
-                        if value_changed {
-                            // Immediate value capturing. Makes OSC feedback *much* smoother in
-                            // combination with high-throughput thread. Especially quick pulls
-                            // of many faders at once profit from it because intermediate
-                            // values are be captured and immediately sent so user doesn't see
-                            // stuttering faders on their device.
-                            // It's important to capture the current value from the event because
-                            // querying *at this time* from the target itself might result in
-                            // the old value to be returned. This is the case with FX parameter
-                            // changes for examples and especially in case of on/off targets this
-                            // can lead to horribly wrong feedback. Previously we didn't have this
-                            // issue because we always deferred to the next main loop cycle.
-                            let new_value = m
-                                .given_or_current_value(new_value, target)
-                                .unwrap_or(UnitValue::MIN);
-                            // Feedback
+                let feedback_desired = self.feedback_is_globally_enabled
+                    && m.feedback_is_effectively_on()
+                    && !m.is_echo();
+                let compound_target = m.target();
+                if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
+                    let (value_changed, new_value) = f(target);
+                    if value_changed {
+                        // Immediate value capturing. Makes OSC feedback *much* smoother in
+                        // combination with high-throughput thread. Especially quick pulls
+                        // of many faders at once profit from it because intermediate
+                        // values are be captured and immediately sent so user doesn't see
+                        // stuttering faders on their device.
+                        // It's important to capture the current value from the event because
+                        // querying *at this time* from the target itself might result in
+                        // the old value to be returned. This is the case with FX parameter
+                        // changes for examples and especially in case of on/off targets this
+                        // can lead to horribly wrong feedback. Previously we didn't have this
+                        // issue because we always deferred to the next main loop cycle.
+                        let new_value = m
+                            .given_or_current_value(new_value, target)
+                            .unwrap_or(UnitValue::MIN);
+                        // Feedback
+                        if feedback_desired {
                             let source_value = m.feedback_given_value(new_value);
                             self.send_feedback(source_value);
-                            // Inform session, e.g. for UI updates
-                            self.event_handler
-                                .handle_event(DomainEvent::TargetValueChanged(
-                                    TargetValueChangedEvent {
-                                        compartment,
-                                        mapping_id: m.id(),
-                                        target: compound_target,
-                                        new_value,
-                                    },
-                                ));
                         }
+                        // Inform session, e.g. for UI updates
+                        self.event_handler
+                            .handle_event(DomainEvent::TargetValueChanged(
+                                TargetValueChangedEvent {
+                                    compartment,
+                                    mapping_id: m.id(),
+                                    target: compound_target,
+                                    new_value,
+                                },
+                            ));
                     }
                 }
             }
