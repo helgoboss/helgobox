@@ -708,7 +708,11 @@ impl ReaperTarget {
     }
 
     /// This is eventually going to replace Rx (touched method), at least for domain layer.
-    // TODO-medium Unlike the Rx stuff, this doesn't yet contain "Action touch".
+    // TODO-medium Unlike the Rx stuff, this doesn't yet contain "Action touch". At the moment
+    //  this leads to "Last touched target" to not work with actions - which might even desirable
+    //  and should only added as soon as we allow explicitly enabling/disabling target types for
+    //  this. The 2nd effect is that actions are not available for global learning which could be
+    //  improved.
     pub fn touched_from_change_event(evt: ChangeEvent) -> Option<ReaperTarget> {
         use ChangeEvent::*;
         use ReaperTarget::*;
@@ -739,10 +743,17 @@ impl ReaperTarget {
                     behavior: Default::default(),
                 }
             }
-            TrackSelectedChanged(e) => TrackSelection {
-                track: e.track,
-                select_exclusively: false,
-            },
+            TrackSelectedChanged(e) => {
+                if track_sel_on_mouse_is_enabled() {
+                    // If this REAPER preference is enabled, it's often a false positive so better
+                    // we don't let this happen at all.
+                    return None;
+                }
+                TrackSelection {
+                    track: e.track,
+                    select_exclusively: false,
+                }
+            }
             FxEnabledChanged(e) => FxEnable { fx: e.fx },
             FxParameterValueChanged(e) if e.touched => FxParameter { param: e.parameter },
             FxPresetChanged(e) => FxPreset { fx: e.fx },
@@ -759,6 +770,8 @@ impl ReaperTarget {
         Some(target)
     }
 
+    // TODO-medium This is the last Rx trace we have in processing logic and we should replace it
+    //  in favor of async/await or direct calls. Still used by local learning and "Filter target".
     pub fn touched() -> impl Event<Rc<ReaperTarget>> {
         use ReaperTarget::*;
         let reaper = Reaper::get();
@@ -793,13 +806,22 @@ impl ReaperTarget {
                     .track_arm_changed()
                     .map(move |track| TrackArm { track }.into()),
             )
-            .merge(csurf_rx.track_selected_changed().map(move |track| {
-                TrackSelection {
-                    track,
-                    select_exclusively: false,
-                }
-                .into()
-            }))
+            .merge(
+                csurf_rx
+                    .track_selected_changed()
+                    .filter(|_| {
+                        // If this REAPER preference is enabled, it's often a false positive so
+                        // better we don't let this happen at all.
+                        !track_sel_on_mouse_is_enabled()
+                    })
+                    .map(move |track| {
+                        TrackSelection {
+                            track,
+                            select_exclusively: false,
+                        }
+                        .into()
+                    }),
+            )
             .merge(
                 csurf_rx
                     .track_mute_touched()
@@ -1884,5 +1906,31 @@ impl TouchedParameterType {
             Unknown(_) => return Err("unknown touch parameter type"),
         };
         Ok(res)
+    }
+}
+
+/// Returns if "Mouse click on volume/pan faders and track buttons changes track selection"
+/// is enabled in the REAPER preferences.
+fn track_sel_on_mouse_is_enabled() -> bool {
+    use once_cell::sync::Lazy;
+    static IS_ENABLED: Lazy<bool> = Lazy::new(query_track_sel_on_mouse_is_enabled);
+    *IS_ENABLED
+}
+
+fn query_track_sel_on_mouse_is_enabled() -> bool {
+    if let Some(res) = Reaper::get()
+        .medium_reaper()
+        .get_config_var("trackselonmouse")
+    {
+        if res.size != 4 {
+            // Shouldn't be.
+            return false;
+        }
+        let ptr = res.value.as_ptr() as *const u32;
+        let value = unsafe { *ptr };
+        // The second flag corresponds to that setting.
+        (value & 2) != 0
+    } else {
+        false
     }
 }
