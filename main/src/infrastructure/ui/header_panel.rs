@@ -1593,6 +1593,7 @@ impl View for HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
+            let parent_window = self.view.require_window();
             let entries =
                 once(item("<New>", edit_new_osc_device)).chain(dev_manager.devices().map(|dev| {
                     let dev_id = *dev.id();
@@ -1600,7 +1601,7 @@ impl View for HeaderPanel {
                         dev.name(),
                         vec![
                             item("Edit...", move || edit_existing_osc_device(&dev_id)),
-                            item("Remove", move || remove_osc_device(dev_id)),
+                            item("Remove", move || remove_osc_device(parent_window, dev_id)),
                             item_with_opts(
                                 "Enabled for control",
                                 ItemOpts {
@@ -1897,7 +1898,13 @@ fn toggle_feedback_for_osc_device(dev_id: OscDeviceId) {
         .unwrap();
 }
 
-fn remove_osc_device(dev_id: OscDeviceId) {
+fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
+    if !parent_window.confirm(
+        "ReaLearn",
+        "Do you really want to remove this OSC device? This is a global action. As a consequence, all existing ReaLearn instances which use this device will point to a device that doesn't exist anymore.",
+    ) {
+        return;
+    }
     App::get()
         .osc_device_manager()
         .borrow_mut()
