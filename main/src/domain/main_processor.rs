@@ -2,7 +2,7 @@ use crate::domain::{
     AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget, ControlMode,
     DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
     MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource, RealTimeSourceValue,
+    OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource,
     RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
     TargetValueChangedEvent, VirtualSourceValue,
 };
@@ -984,35 +984,37 @@ fn send_feedback_direct_virtual(
                 }
             }
             Midi(v) => {
-                rt_sender
-                    .send(FeedbackRealTimeTask::Feedback(RealTimeSourceValue::Midi(v)))
-                    .unwrap();
+                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
             }
             Virtual(virtual_source_value) => {
-                if let Some(osc_device_id) = osc_device_id {
-                    if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
-                        for m in mappings_with_virtual_targets
-                            .values()
-                            .filter(|m| m.feedback_is_effectively_on())
-                        {
-                            if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
-                                if t.control_element() == virtual_source_value.control_element() {
-                                    if let Some(msg) = m.feedback_to_osc(v) {
-                                        osc_feedback_task_sender
-                                            .send(OscFeedbackTask::new(*osc_device_id, msg))
-                                            .unwrap();
+                if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
+                    for m in mappings_with_virtual_targets
+                        .values()
+                        .filter(|m| m.feedback_is_effectively_on())
+                    {
+                        if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                            if t.control_element() == virtual_source_value.control_element() {
+                                if let Some(source_value) = m.feedback_given_value(v) {
+                                    match source_value {
+                                        Midi(v) => {
+                                            // TODO-low Maybe we should use the SmallVec here, too?
+                                            rt_sender
+                                                .send(FeedbackRealTimeTask::Feedback(v))
+                                                .unwrap();
+                                        }
+                                        Osc(msg) => {
+                                            if let Some(osc_device_id) = osc_device_id {
+                                                osc_feedback_task_sender
+                                                    .send(OscFeedbackTask::new(*osc_device_id, msg))
+                                                    .unwrap();
+                                            }
+                                        }
+                                        Virtual(_) => {}
                                     }
                                 }
                             }
                         }
                     }
-                } else {
-                    // TODO-low Maybe we should use the SmallVec here, too?
-                    rt_sender
-                        .send(FeedbackRealTimeTask::Feedback(
-                            RealTimeSourceValue::Virtual(virtual_source_value),
-                        ))
-                        .unwrap();
                 }
             }
         }

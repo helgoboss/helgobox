@@ -1,8 +1,7 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
-    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping, RealTimeSourceValue,
-    UnresolvedCompoundMappingTarget, VirtualSourceValue,
+    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -319,12 +318,8 @@ impl RealTimeProcessor {
         {
             use FeedbackRealTimeTask::*;
             match task {
-                Feedback(source_value) => {
-                    use RealTimeSourceValue::*;
-                    match source_value {
-                        Midi(v) => self.feedback_midi(v, caller),
-                        Virtual(v) => self.feedback_virtual(v, caller),
-                    };
+                Feedback(v) => {
+                    self.feedback_midi(v, caller);
                 }
                 ClearFeedback => {
                     self.clear_feedback(caller);
@@ -627,25 +622,6 @@ impl RealTimeProcessor {
         }
     }
 
-    fn feedback_virtual(&self, value: VirtualSourceValue, caller: Caller) {
-        if let ControlValue::Absolute(v) = value.control_value() {
-            for m in self
-                // Only controller mappings can have virtual targets.
-                .mappings[MappingCompartment::ControllerMappings]
-                .values()
-                .filter(|m| m.feedback_is_effectively_on())
-            {
-                if let Some(UnresolvedCompoundMappingTarget::Virtual(t)) = m.target() {
-                    if t.control_element() == value.control_element() {
-                        if let Some(midi_value) = m.feedback_to_midi(v) {
-                            self.feedback_midi(midi_value, caller);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     fn send_midi_to_fx_output(&self, msg: RawShortMessage, caller: Caller) {
         let host = if let Caller::Vst(h) = caller {
             h
@@ -761,7 +737,7 @@ impl MappingActivationUpdate {
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(RealTimeSourceValue),
+    Feedback(MidiSourceValue<RawShortMessage>),
     /// If this is sent when the main processor is dropped it should be still processed by the
     /// real-time processor before it's gone. Because the real-time processor will be removed
     /// asynchronously after the main processor has been removed synchronously and before actual

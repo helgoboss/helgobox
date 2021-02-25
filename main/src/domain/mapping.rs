@@ -285,18 +285,9 @@ impl MainMapping {
         target_value.or_else(|| target.current_value())
     }
 
-    pub fn feedback_given_value(&self, target_value: UnitValue) -> Option<SourceValue> {
-        let modified_value = self.core.mode.feedback(target_value)?;
+    pub fn feedback_given_value(&self, value: UnitValue) -> Option<SourceValue> {
+        let modified_value = self.core.mode.feedback(value)?;
         self.core.source.feedback(modified_value)
-    }
-
-    pub fn feedback_to_osc(&self, feedback_value: UnitValue) -> Option<OscMessage> {
-        let modified_value = self.core.feedback(feedback_value)?;
-        if let Some(SourceValue::Osc(msg)) = self.core.source.feedback(modified_value) {
-            Some(msg)
-        } else {
-            None
-        }
     }
 
     fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<SourceValue> {
@@ -333,10 +324,6 @@ impl RealTimeMapping {
 
     pub fn control_is_effectively_on(&self) -> bool {
         self.is_effectively_active() && self.core.options.control_is_enabled
-    }
-
-    pub fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.feedback_is_enabled
     }
 
     fn is_effectively_active(&self) -> bool {
@@ -401,18 +388,6 @@ impl RealTimeMapping {
         };
         match_partially(&mut self.core, control_value)
     }
-
-    pub fn feedback_to_midi(
-        &self,
-        feedback_value: UnitValue,
-    ) -> Option<MidiSourceValue<RawShortMessage>> {
-        let modified_value = self.core.feedback(feedback_value)?;
-        if let Some(SourceValue::Midi(midi_value)) = self.core.source.feedback(modified_value) {
-            Some(midi_value)
-        } else {
-            None
-        }
-    }
 }
 
 pub enum PartialControlMatch {
@@ -433,13 +408,6 @@ pub struct MappingCore {
 }
 
 impl MappingCore {
-    fn feedback(&self, feedback_value: UnitValue) -> Option<UnitValue> {
-        if self.is_echo() {
-            return None;
-        }
-        self.mode.feedback(feedback_value)
-    }
-
     fn is_echo(&self) -> bool {
         if let Some(t) = self.time_of_last_control {
             t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY
@@ -500,12 +468,6 @@ impl CompoundMappingSource {
             Virtual(_) | Osc(_) => false,
         }
     }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum RealTimeSourceValue {
-    Midi(MidiSourceValue<RawShortMessage>),
-    Virtual(VirtualSourceValue),
 }
 
 #[derive(Clone, PartialEq, Debug)]
