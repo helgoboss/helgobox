@@ -1644,7 +1644,7 @@ impl View for HeaderPanel {
             root::IDM_CONTACT_DEVELOPER => self.contact_developer(),
             root::IDM_WEBSITE => self.open_website(),
             root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
-            root::IDM_SEND_FEEDBACK_NOW => self.session().borrow().send_feedback(),
+            root::IDM_SEND_FEEDBACK_NOW => self.session().borrow().send_all_feedback(),
             root::IDM_AUTO_CORRECT_SETTINGS => self.toggle_always_auto_detect(),
             root::IDM_LINK_TO_FX => {
                 use PresetFxLinkAction::*;

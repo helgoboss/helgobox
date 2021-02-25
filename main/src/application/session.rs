@@ -1383,7 +1383,7 @@ impl Session {
         shared_mapping
     }
 
-    pub fn send_feedback(&self) {
+    pub fn send_all_feedback(&self) {
         self.normal_main_task_sender
             .send(NormalMainTask::FeedbackAll)
             .unwrap();

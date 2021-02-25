@@ -12,7 +12,10 @@ use reaper_high::{
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
-use reaper_medium::{CommandId, GetTouchStateArgs, MediaTrack, ReaperNormalizedFxParamValue};
+use reaper_medium::{
+    CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack,
+    ReaperNormalizedFxParamValue,
+};
 use rxrust::prelude::*;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -54,6 +57,7 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     StartLearningTargets(async_channel::Sender<ReaperTarget>),
     StartLearningSources(LearnSourceSender),
     StopLearning,
+    SendAllFeedback,
 }
 
 /// Not all events in REAPER are communicated via a control surface, e.g. action invocations.
@@ -144,7 +148,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.osc_input_devices.clear();
     }
 
-    pub fn reset(&self) {
+    /// Called when waking up ReaLearn (first instance appears again or the first time).
+    pub fn wake_up(&self) {
         self.change_detection_middleware.reset(|e| {
             for m in &self.main_processors {
                 m.process_control_surface_change_event(&e);
@@ -178,6 +183,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 StartLearningSources(sender) => {
                     self.state = State::LearningSource(sender);
+                }
+                SendAllFeedback => {
+                    for m in &self.main_processors {
+                        m.send_bulk_feedback();
+                    }
                 }
             }
         }
@@ -266,7 +276,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    fn handle_event_internal(&self, event: ControlSurfaceEvent) {
+    fn handle_event_internal(&self, event: ControlSurfaceEvent) -> bool {
         // We always need to forward to the change detection middleware even if we are in
         // a mode in which the detected change event doesn't matter!
         self.change_detection_middleware.process(event, |e| {
@@ -298,7 +308,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 State::LearningSource(_) => {}
             }
-        });
+        })
     }
 }
 
@@ -314,14 +324,14 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
         }
     }
 
-    fn handle_event(&self, event: ControlSurfaceEvent) {
+    fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
         if self.metrics_enabled {
             let elapsed = MeterMiddleware::measure(|| {
                 self.handle_event_internal(event);
             });
-            self.meter_middleware.record_event(event, elapsed);
+            self.meter_middleware.record_event(event, elapsed)
         } else {
-            self.handle_event_internal(event);
+            self.handle_event_internal(event)
         }
     }
 
@@ -335,8 +345,8 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
         }
     }
 
-    fn ext_supports_extended_touch(&self) -> bool {
-        true
+    fn ext_supports_extended_touch(&self, _: ExtSupportsExtendedTouchArgs) -> i32 {
+        1
     }
 }
 

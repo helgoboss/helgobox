@@ -246,7 +246,7 @@ impl App {
         DomainGlobal::make_available_globally(DomainGlobal::new(RealearnTargetContext::new(
             self.additional_feedback_event_sender.clone(),
         )));
-        App::get().register_global_learn_actions();
+        App::get().register_actions();
         server::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
@@ -353,7 +353,7 @@ impl App {
         // Control surface
         let middleware = sleeping_state.control_surface.middleware_mut();
         middleware.set_osc_input_devices(osc_input_devices);
-        sleeping_state.control_surface.middleware().reset();
+        sleeping_state.control_surface.middleware().wake_up();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
@@ -425,8 +425,8 @@ impl App {
     }
 
     pub fn unregister_processor_couple(&self, instance_id: &str) {
-        self.unregister_real_time_processor(instance_id.to_string());
         self.unregister_main_processor(instance_id);
+        self.unregister_real_time_processor(instance_id.to_string());
     }
 
     /// Attention: The real-time processor is removed *async*! That means it can still be called
@@ -729,11 +729,7 @@ impl App {
         self.message_panel.close();
     }
 
-    // TODO-medium I'm not sure if it's worth that constantly listening to target changes ...
-    //  But right now the control surface calls next() on the subjects anyway. And this listener
-    //  does nothing more than cloning the target and writing it to a variable. So maybe not so bad
-    //  performance-wise.
-    pub fn register_global_learn_actions(&self) {
+    pub fn register_actions(&self) {
         Reaper::get().register_action(
             "realearnLearnSourceForLastTouchedTarget",
             "ReaLearn: Learn source for last touched target (reassigning target)",
@@ -793,6 +789,17 @@ impl App {
                         .find_first_mapping_by_target(MappingCompartment::MainMappings)
                         .await;
                 });
+            },
+            ActionKind::NotToggleable,
+        );
+        let control_surface_sender = self.control_surface_main_task_sender.clone();
+        Reaper::get().register_action(
+            "REALEARN_SEND_ALL_FEEDBACK",
+            "ReaLearn: Send feedback for all instances",
+            move || {
+                control_surface_sender
+                    .send(RealearnControlSurfaceMainTask::SendAllFeedback)
+                    .unwrap();
             },
             ActionKind::NotToggleable,
         );

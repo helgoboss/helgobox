@@ -355,6 +355,14 @@ impl RealTimeMapping {
         &self.core.source
     }
 
+    pub fn zero_feedback_midi_source_value(&self) -> Option<MidiSourceValue<RawShortMessage>> {
+        if let CompoundMappingSource::Midi(source) = &self.core.source {
+            source.feedback(UnitValue::MIN)
+        } else {
+            None
+        }
+    }
+
     pub fn target(&self) -> Option<&UnresolvedCompoundMappingTarget> {
         self.core.unresolved_target.as_ref()
     }

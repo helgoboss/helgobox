@@ -326,6 +326,21 @@ impl RealTimeProcessor {
                         Virtual(v) => self.feedback_virtual(v, caller),
                     };
                 }
+                ClearFeedback => {
+                    self.clear_feedback(caller);
+                }
+            }
+        }
+    }
+
+    fn clear_feedback(&self, caller: Caller) {
+        // TODO-medium Maybe also send some "All CCs/notes off message" or even device specific
+        //  "All lights off" messages in future ... although this is something which might
+        //  not be that good if there are still other ReaLearn instances having feedback control
+        //  over this MIDI output.
+        for m in self.all_mappings() {
+            if let Some(source_value) = m.zero_feedback_midi_source_value() {
+                self.feedback_midi(source_value, caller);
             }
         }
     }
@@ -747,6 +762,12 @@ impl MappingActivationUpdate {
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
     Feedback(RealTimeSourceValue),
+    /// If this is sent when the main processor is dropped it should be still processed by the
+    /// real-time processor before it's gone. Because the real-time processor will be removed
+    /// asynchronously after the main processor has been removed synchronously and before actual
+    /// removal its `run*` function will still be called. See `RealearnAudioHook` comments for
+    /// details.
+    ClearFeedback,
 }
 
 impl Drop for RealTimeProcessor {

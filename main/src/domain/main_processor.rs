@@ -320,9 +320,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.update_on_mappings();
                 }
                 FeedbackAll => {
-                    if self.feedback_is_globally_enabled {
-                        self.send_feedback(self.feedback_all());
-                    }
+                    self.send_bulk_feedback();
                 }
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
@@ -346,7 +344,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             );
                         }
                     } else {
-                        self.send_feedback(self.feedback_all_zero());
+                        self.clear_feedback();
                     }
                 }
                 StartLearnSource {
@@ -745,6 +743,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .flatten()
     }
 
+    pub fn send_bulk_feedback(&self) {
+        if self.feedback_is_globally_enabled {
+            self.send_feedback(self.feedback_all());
+        }
+    }
+
     fn feedback_all(&self) -> Vec<SourceValue> {
         // Virtual targets don't cause feedback themselves
         self.all_mappings_without_virtual_targets()
@@ -760,10 +764,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
+    fn clear_feedback(&self) {
+        if self.osc_output_device_id.is_some() {
+            self.send_feedback(self.feedback_all_zero());
+        } else {
+            self.feedback_real_time_task_sender
+                .send(FeedbackRealTimeTask::ClearFeedback)
+                .unwrap();
+        }
+    }
+
     fn feedback_all_zero(&self) -> Vec<SourceValue> {
-        // Mappings with virtual targets should be included here. Even though they can't cause
-        // feedback, they can *deliver* feedback. In this case, they should just reset to zero.
-        self.all_mappings()
+        // Mappings with virtual targets should not be included here because they might not be in
+        // use and therefore should not *directly* send zeros. However, they will receive zeros
+        // if one of the main mappings with virtual sources are connected to them.
+        self.all_mappings_without_virtual_targets()
             .filter(|m| m.feedback_is_effectively_on())
             .filter_map(|m| m.source().feedback(UnitValue::MIN))
             .collect()
@@ -918,6 +933,9 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping main processor...");
+        if self.feedback_is_globally_enabled {
+            self.clear_feedback();
+        }
     }
 }
 
