@@ -493,14 +493,12 @@ impl RealearnTarget for ReaperTarget {
                 if value.as_absolute()?.is_zero() {
                     handle_track_exclusivity(track, *exclusivity, |t| t.select());
                     track.unselect();
+                } else if *exclusivity == TrackExclusivity::ExclusiveAll {
+                    // With have a dedicated REAPER function to select the track exclusively.
+                    track.select_exclusively();
                 } else {
-                    if *exclusivity == TrackExclusivity::ExclusiveAll {
-                        // With have a dedicated REAPER function to select the track exclusively.
-                        track.select_exclusively();
-                    } else {
-                        handle_track_exclusivity(track, *exclusivity, |t| t.unselect());
-                        track.select();
-                    }
+                    handle_track_exclusivity(track, *exclusivity, |t| t.unselect());
+                    track.select();
                 }
                 track.scroll_mixer();
             }
