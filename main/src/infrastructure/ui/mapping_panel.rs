@@ -32,8 +32,8 @@ use crate::core::Global;
 use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, FxAnchor, MappingCompartment, MappingId,
     ProcessorContext, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter,
-    TouchedParameterType, TrackAnchor, TransportAction, VirtualControlElement, VirtualFx,
-    VirtualTrack,
+    TouchedParameterType, TrackAnchor, TrackExclusivity, TransportAction, VirtualControlElement,
+    VirtualFx, VirtualTrack,
 };
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -855,8 +855,6 @@ impl<'a> MutableMappingPanel<'a> {
         let target = &mut self.mapping.target_model;
         if target.supports_fx() {
             target.enable_only_if_fx_has_focus.set(is_checked);
-        } else if target.r#type.get() == ReaperTargetType::TrackSelection {
-            target.select_exclusively.set(is_checked);
         }
     }
 
@@ -956,7 +954,7 @@ impl<'a> MutableMappingPanel<'a> {
             .with_context(self.session.context())
     }
 
-    fn update_target_from_combo_box_three(&mut self) {
+    fn update_target_from_combo_box_line_three(&mut self) {
         let main_combo = self
             .view
             .require_control(root::ID_TARGET_FX_OR_SEND_COMBO_BOX);
@@ -1027,13 +1025,20 @@ impl<'a> MutableMappingPanel<'a> {
         target.fx.set(Some(virtual_fx));
     }
 
-    fn update_target_fx_parameter(&mut self) {
-        let data = self
+    fn update_target_from_combo_box_line_four(&mut self) {
+        let combo = self
             .view
-            .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX)
-            .selected_combo_box_item_data();
+            .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX);
         let target = &mut self.mapping.target_model;
-        target.param_index.set(data as _);
+        if target.supports_track_exclusivity() {
+            let index = combo.selected_combo_box_item_index();
+            target
+                .track_exclusivity
+                .set(index.try_into().expect("invalid track exclusivity"));
+        } else {
+            let data = combo.selected_combo_box_item_data();
+            target.param_index.set(data as _);
+        }
     }
 }
 
@@ -1737,6 +1742,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
     }
 
+    fn fill_target_track_exclusivity_combo_box(&self, combo: Window) {
+        combo.fill_combo_box(TrackExclusivity::into_enum_iter());
+    }
+
+    fn set_target_track_exclusivity_combo_box_value(&self, combo: Window) {
+        combo.select_combo_box_item(self.target.track_exclusivity.get().into());
+    }
+
     fn fill_target_fx_combo_box(&self, label: Window, combo: Window) {
         label.set_text("FX");
         let mut v = vec![(
@@ -1842,10 +1855,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             } else {
                 b.hide();
             }
-        } else if target.r#type.get() == ReaperTargetType::TrackSelection {
-            b.show();
-            b.set_text("Select exclusively");
-            b.set_checked(target.select_exclusively.get());
         } else {
             b.hide();
         }
@@ -1876,6 +1885,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_TAKE_SNAPSHOT_BUTTON);
         let value_text = self.view.require_control(root::ID_TARGET_SNAPSHOT_NAME);
         let target = self.target;
+        let hide_all = || {
+            combo.hide();
+            label.hide();
+            button.hide();
+            value_text.hide();
+        };
         if target.category.get() == TargetCategory::Reaper {
             match target.r#type.get() {
                 ReaperTargetType::FxParameter => {
@@ -1900,18 +1915,21 @@ impl<'a> ImmutableMappingPanel<'a> {
                     value_text.set_text(snapshot_label);
                     value_text.show();
                 }
-                _ => {
-                    combo.hide();
-                    label.hide();
+                _ if target.supports_track_exclusivity() => {
+                    label.set_text("Exclusive");
+                    label.show();
+                    combo.show();
                     button.hide();
                     value_text.hide();
+                    self.fill_target_track_exclusivity_combo_box(combo);
+                    self.set_target_track_exclusivity_combo_box_value(combo);
+                }
+                _ => {
+                    hide_all();
                 }
             }
         } else {
-            combo.hide();
-            label.hide();
-            button.hide();
-            value_text.hide();
+            hide_all();
         }
     }
 
@@ -2606,6 +2624,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(target.fx_snapshot.changed(), |view| {
                 view.invalidate_target_line_four();
             });
+        self.panel
+            .when_do_sync(target.track_exclusivity.changed(), |view| {
+                view.invalidate_target_line_four();
+                view.invalidate_mode_controls();
+            });
     }
 
     fn register_mode_listeners(&self) {
@@ -2909,9 +2932,11 @@ impl View for MappingPanel {
                 self.write(|p| p.update_target_line_two_data()).unwrap();
             }
             ID_TARGET_FX_OR_SEND_COMBO_BOX | ID_TARGET_FX_ANCHOR_COMBO_BOX => {
-                self.write(|p| p.update_target_from_combo_box_three());
+                self.write(|p| p.update_target_from_combo_box_line_three());
             }
-            ID_TARGET_FX_PARAMETER_COMBO_BOX => self.write(|p| p.update_target_fx_parameter()),
+            ID_TARGET_FX_PARAMETER_COMBO_BOX => {
+                self.write(|p| p.update_target_from_combo_box_line_four())
+            }
             _ => unreachable!(),
         }
     }

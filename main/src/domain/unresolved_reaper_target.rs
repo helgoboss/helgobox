@@ -1,7 +1,7 @@
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TransportAction,
+    TouchedParameterType, TrackExclusivity, TransportAction,
 };
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
@@ -35,17 +35,20 @@ pub enum UnresolvedReaperTarget {
     },
     TrackArm {
         track_descriptor: TrackDescriptor,
+        exclusivity: TrackExclusivity,
     },
     TrackSelection {
         track_descriptor: TrackDescriptor,
-        select_exclusively: bool,
+        exclusivity: TrackExclusivity,
     },
     TrackMute {
         track_descriptor: TrackDescriptor,
+        exclusivity: TrackExclusivity,
     },
     TrackSolo {
         track_descriptor: TrackDescriptor,
         behavior: SoloBehavior,
+        exclusivity: TrackExclusivity,
     },
     TrackSendPan {
         track_descriptor: TrackDescriptor,
@@ -66,6 +69,7 @@ pub enum UnresolvedReaperTarget {
     SelectedTrack,
     AllTrackFxEnable {
         track_descriptor: TrackDescriptor,
+        exclusivity: TrackExclusivity,
     },
     Transport {
         action: TransportAction,
@@ -78,6 +82,7 @@ pub enum UnresolvedReaperTarget {
     AutomationTouchState {
         track_descriptor: TrackDescriptor,
         parameter_type: TouchedParameterType,
+        exclusivity: TrackExclusivity,
     },
 }
 
@@ -114,25 +119,35 @@ impl UnresolvedReaperTarget {
             TrackWidth { track_descriptor } => ReaperTarget::TrackWidth {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
-            TrackArm { track_descriptor } => ReaperTarget::TrackArm {
+            TrackArm {
+                track_descriptor,
+                exclusivity,
+            } => ReaperTarget::TrackArm {
                 track: get_effective_track(context, &track_descriptor.track)?,
+                exclusivity: *exclusivity,
             },
             TrackSelection {
                 track_descriptor,
-                select_exclusively,
+                exclusivity,
             } => ReaperTarget::TrackSelection {
                 track: get_effective_track(context, &track_descriptor.track)?,
-                select_exclusively: *select_exclusively,
+                exclusivity: *exclusivity,
             },
-            TrackMute { track_descriptor } => ReaperTarget::TrackMute {
+            TrackMute {
+                track_descriptor,
+                exclusivity,
+            } => ReaperTarget::TrackMute {
                 track: get_effective_track(context, &track_descriptor.track)?,
+                exclusivity: *exclusivity,
             },
             TrackSolo {
                 track_descriptor,
                 behavior,
+                exclusivity,
             } => ReaperTarget::TrackSolo {
                 track: get_effective_track(context, &track_descriptor.track)?,
                 behavior: *behavior,
+                exclusivity: *exclusivity,
             },
             TrackSendPan {
                 track_descriptor,
@@ -161,8 +176,12 @@ impl UnresolvedReaperTarget {
             SelectedTrack => ReaperTarget::SelectedTrack {
                 project: context.project_or_current_project(),
             },
-            AllTrackFxEnable { track_descriptor } => ReaperTarget::AllTrackFxEnable {
+            AllTrackFxEnable {
+                track_descriptor,
+                exclusivity,
+            } => ReaperTarget::AllTrackFxEnable {
                 track: get_effective_track(context, &track_descriptor.track)?,
+                exclusivity: *exclusivity,
             },
             Transport { action } => ReaperTarget::Transport {
                 project: context.project_or_current_project(),
@@ -182,9 +201,11 @@ impl UnresolvedReaperTarget {
             AutomationTouchState {
                 track_descriptor,
                 parameter_type,
+                exclusivity,
             } => ReaperTarget::AutomationTouchState {
                 track: get_effective_track(context, &track_descriptor.track)?,
                 parameter_type: *parameter_type,
+                exclusivity: *exclusivity,
             },
         };
         Ok(resolved)
@@ -232,11 +253,15 @@ impl UnresolvedReaperTarget {
             }
             | TrackPan { track_descriptor }
             | TrackWidth { track_descriptor }
-            | TrackArm { track_descriptor }
+            | TrackArm {
+                track_descriptor, ..
+            }
             | TrackSelection {
                 track_descriptor, ..
             }
-            | TrackMute { track_descriptor }
+            | TrackMute {
+                track_descriptor, ..
+            }
             | TrackSolo {
                 track_descriptor, ..
             }
@@ -246,7 +271,9 @@ impl UnresolvedReaperTarget {
             | TrackSendMute {
                 track_descriptor, ..
             }
-            | AllTrackFxEnable { track_descriptor }
+            | AllTrackFxEnable {
+                track_descriptor, ..
+            }
             | AutomationTouchState {
                 track_descriptor, ..
             } => (Some(track_descriptor), None),

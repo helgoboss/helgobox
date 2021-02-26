@@ -10,7 +10,7 @@ use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
     ActionInvocationType, FxAnchor, ProcessorContext, SoloBehavior, TouchedParameterType,
-    TrackAnchor, TransportAction, VirtualFx, VirtualTrack,
+    TrackAnchor, TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -57,12 +57,15 @@ pub struct TargetModelData {
         skip_serializing_if = "is_default"
     )]
     param_index: u32,
-    // Track selection target
+    // Track selection target (replaced with `track_exclusivity` since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
-    select_exclusively: bool,
+    select_exclusively: Option<bool>,
     // Track solo target (since v2.4.0, also changed default from "ignore routing" to "in place")
     #[serde(default, skip_serializing_if = "is_none_or_some_default")]
     solo_behavior: Option<SoloBehavior>,
+    // Toggleable track targets (since v2.4.0)
+    #[serde(default, skip_serializing_if = "is_default")]
+    track_exclusivity: TrackExclusivity,
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
     transport_action: TransportAction,
@@ -101,8 +104,9 @@ impl TargetModelData {
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             send_index: model.send_index.get(),
             param_index: model.param_index.get(),
-            select_exclusively: model.select_exclusively.get(),
+            select_exclusively: None,
             solo_behavior: Some(model.solo_behavior.get()),
+            track_exclusivity: model.track_exclusivity.get(),
             transport_action: model.transport_action.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: model.control_element_index.get(),
@@ -175,9 +179,19 @@ impl TargetModelData {
             .set_without_notification(self.enable_only_if_fx_has_focus);
         model.send_index.set_without_notification(self.send_index);
         model.param_index.set_without_notification(self.param_index);
+        let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
+            // Should only be set in versions < 2.4.0.
+            if select_exclusively {
+                TrackExclusivity::ExclusiveAll
+            } else {
+                TrackExclusivity::NonExclusive
+            }
+        } else {
+            self.track_exclusivity
+        };
         model
-            .select_exclusively
-            .set_without_notification(self.select_exclusively);
+            .track_exclusivity
+            .set_without_notification(track_exclusivity);
         let solo_behavior = self.solo_behavior.unwrap_or_else(|| {
             let is_old_preset = preset_version
                 .map(|v| v < &Version::new(2, 4, 0))

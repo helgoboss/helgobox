@@ -13,7 +13,7 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
     CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TrackAnchor, TrackDescriptor, TransportAction,
+    TouchedParameterType, TrackAnchor, TrackDescriptor, TrackExclusivity, TransportAction,
     UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualControlElement, VirtualFx,
     VirtualTarget, VirtualTrack,
 };
@@ -50,10 +50,10 @@ pub struct TargetModel {
     pub param_index: Prop<u32>,
     // # For track send targets
     pub send_index: Prop<Option<u32>>,
-    // # For track selection targets
-    pub select_exclusively: Prop<bool>,
     // # For track solo targets
     pub solo_behavior: Prop<SoloBehavior>,
+    // # For toggleable track targets
+    pub track_exclusivity: Prop<TrackExclusivity>,
     // # For transport target
     pub transport_action: Prop<TransportAction>,
     // # For "Load FX snapshot" target
@@ -77,8 +77,8 @@ impl Default for TargetModel {
             enable_only_if_fx_has_focus: prop(false),
             param_index: prop(0),
             send_index: prop(None),
-            select_exclusively: prop(false),
             solo_behavior: prop(Default::default()),
+            track_exclusivity: prop(Default::default()),
             transport_action: prop(TransportAction::default()),
             fx_snapshot: prop(None),
             touched_parameter_type: prop(Default::default()),
@@ -155,6 +155,9 @@ impl TargetModel {
         if let Some(send) = target.send() {
             self.send_index.set(Some(send.index()));
         }
+        if let Some(track_exclusivity) = target.track_exclusivity() {
+            self.track_exclusivity.set(track_exclusivity);
+        }
         match target {
             Action {
                 action,
@@ -208,8 +211,8 @@ impl TargetModel {
             .merge(self.enable_only_if_fx_has_focus.changed())
             .merge(self.param_index.changed())
             .merge(self.send_index.changed())
-            .merge(self.select_exclusively.changed())
             .merge(self.solo_behavior.changed())
+            .merge(self.track_exclusivity.changed())
             .merge(self.transport_action.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
@@ -262,17 +265,20 @@ impl TargetModel {
                     },
                     TrackArm => UnresolvedReaperTarget::TrackArm {
                         track_descriptor: self.track_descriptor(),
+                        exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSelection => UnresolvedReaperTarget::TrackSelection {
                         track_descriptor: self.track_descriptor(),
-                        select_exclusively: self.select_exclusively.get(),
+                        exclusivity: self.track_exclusivity.get(),
                     },
                     TrackMute => UnresolvedReaperTarget::TrackMute {
                         track_descriptor: self.track_descriptor(),
+                        exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSolo => UnresolvedReaperTarget::TrackSolo {
                         track_descriptor: self.track_descriptor(),
                         behavior: self.solo_behavior.get(),
+                        exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
                         track_descriptor: self.track_descriptor(),
@@ -293,6 +299,7 @@ impl TargetModel {
                     SelectedTrack => UnresolvedReaperTarget::SelectedTrack,
                     AllTrackFxEnable => UnresolvedReaperTarget::AllTrackFxEnable {
                         track_descriptor: self.track_descriptor(),
+                        exclusivity: self.track_exclusivity.get(),
                     },
                     Transport => UnresolvedReaperTarget::Transport {
                         action: self.transport_action.get(),
@@ -311,6 +318,7 @@ impl TargetModel {
                     AutomationTouchState => UnresolvedReaperTarget::AutomationTouchState {
                         track_descriptor: self.track_descriptor(),
                         parameter_type: self.touched_parameter_type.get(),
+                        exclusivity: self.track_exclusivity.get(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -348,6 +356,13 @@ impl TargetModel {
             return false;
         }
         self.r#type.get().supports_fx()
+    }
+
+    pub fn supports_track_exclusivity(&self) -> bool {
+        if !self.is_reaper() {
+            return false;
+        }
+        self.r#type.get().supports_track_exclusivity()
     }
 
     pub fn create_control_element(&self) -> VirtualControlElement {
@@ -738,6 +753,17 @@ impl ReaperTargetType {
             | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
             | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched
             | AutomationTouchState => false,
+        }
+    }
+
+    pub fn supports_track_exclusivity(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            TrackArm | TrackSelection | AllTrackFxEnable | TrackMute | TrackSolo
+            | AutomationTouchState => true,
+            TrackSendVolume | TrackSendPan | TrackSendMute | FxParameter | TrackVolume
+            | TrackPan | TrackWidth | FxEnable | FxPreset | Action | Tempo | Playrate
+            | SelectedTrack | Transport | LoadFxSnapshot | LastTouched => false,
         }
     }
 }

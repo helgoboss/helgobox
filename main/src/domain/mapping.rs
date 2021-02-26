@@ -237,7 +237,9 @@ impl MainMapping {
             if self.core.options.prevent_echo_feedback {
                 self.core.time_of_last_control = Some(Instant::now());
             }
-            target.control(final_value).unwrap();
+            // Be graceful here. TODO-medium In future we could display some kind of small
+            // unintrusive error message somewhere.
+            let _ = target.control(final_value);
             if target.supports_feedback() {
                 // The target value was changed and that triggered feedback. Therefore we don't
                 // need to send it here a second time (even if `send_feedback_after_control` is

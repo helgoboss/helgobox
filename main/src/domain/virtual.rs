@@ -19,7 +19,11 @@ impl VirtualTarget {
     }
 
     pub fn character(&self) -> TargetCharacter {
-        TargetCharacter::from_control_type(self.control_type())
+        use VirtualControlElement::*;
+        match self.control_element {
+            Multi(_) => TargetCharacter::VirtualMulti,
+            Button(_) => TargetCharacter::VirtualButton,
+        }
     }
 }
 

@@ -38,20 +38,6 @@ pub enum TargetCharacter {
     VirtualButton,
 }
 
-impl TargetCharacter {
-    pub fn from_control_type(control_type: ControlType) -> TargetCharacter {
-        use ControlType::*;
-        match control_type {
-            AbsoluteTrigger => TargetCharacter::Trigger,
-            AbsoluteSwitch => TargetCharacter::Switch,
-            AbsoluteContinuous | AbsoluteContinuousRoundable { .. } => TargetCharacter::Continuous,
-            AbsoluteDiscrete { .. } | Relative => TargetCharacter::Discrete,
-            VirtualMulti => TargetCharacter::VirtualMulti,
-            VirtualButton => TargetCharacter::VirtualButton,
-        }
-    }
-}
-
 /// This is a ReaLearn target.
 ///
 /// Unlike TargetModel, the real target has everything resolved already (e.g. track and FX) and
@@ -90,17 +76,20 @@ pub enum ReaperTarget {
     },
     TrackArm {
         track: Track,
+        exclusivity: TrackExclusivity,
     },
     TrackSelection {
         track: Track,
-        select_exclusively: bool,
+        exclusivity: TrackExclusivity,
     },
     TrackMute {
         track: Track,
+        exclusivity: TrackExclusivity,
     },
     TrackSolo {
         track: Track,
         behavior: SoloBehavior,
+        exclusivity: TrackExclusivity,
     },
     TrackSendPan {
         send: TrackSend,
@@ -125,6 +114,7 @@ pub enum ReaperTarget {
     },
     AllTrackFxEnable {
         track: Track,
+        exclusivity: TrackExclusivity,
     },
     Transport {
         project: Project,
@@ -138,12 +128,13 @@ pub enum ReaperTarget {
     AutomationTouchState {
         track: Track,
         parameter_type: TouchedParameterType,
+        exclusivity: TrackExclusivity,
     },
 }
 
 impl RealearnTarget for ReaperTarget {
     fn character(&self) -> TargetCharacter {
-        TargetCharacter::from_control_type(self.control_type())
+        self.control_type_and_character().1
     }
 
     fn open(&self) {
@@ -474,12 +465,12 @@ impl RealearnTarget for ReaperTarget {
                 param.set_reaper_normalized_value(v).unwrap();
             }
             TrackVolume { track } => {
-                let volume = Volume::from_soft_normalized_value(value.as_absolute()?.get());
-                track.set_volume(volume);
+                let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
+                track.set_volume(volume.unwrap_or(Volume::MIN));
             }
             TrackSendVolume { send } => {
-                let volume = Volume::from_soft_normalized_value(value.as_absolute()?.get());
-                send.set_volume(volume);
+                let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
+                send.set_volume(volume.unwrap_or(Volume::MIN));
             }
             TrackPan { track } => {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
@@ -489,43 +480,58 @@ impl RealearnTarget for ReaperTarget {
                 let width = Width::from_normalized_value(value.as_absolute()?.get());
                 track.set_width(width);
             }
-            TrackArm { track } => {
+            TrackArm { track, exclusivity } => {
                 if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.arm(false));
                     track.disarm(false);
                 } else {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.disarm(false));
                     track.arm(false);
                 }
             }
-            TrackSelection {
-                track,
-                select_exclusively,
-            } => {
+            TrackSelection { track, exclusivity } => {
                 if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.select());
                     track.unselect();
-                } else if *select_exclusively {
-                    track.select_exclusively();
                 } else {
-                    track.select();
+                    if *exclusivity == TrackExclusivity::ExclusiveAll {
+                        // With have a dedicated REAPER function to select the track exclusively.
+                        track.select_exclusively();
+                    } else {
+                        handle_track_exclusivity(track, *exclusivity, |t| t.unselect());
+                        track.select();
+                    }
                 }
                 track.scroll_mixer();
             }
-            TrackMute { track } => {
+            TrackMute { track, exclusivity } => {
                 if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.mute());
                     track.unmute();
                 } else {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.unmute());
                     track.mute();
                 }
             }
-            TrackSolo { track, behavior } => {
-                if value.as_absolute()?.is_zero() {
-                    track.unsolo();
-                } else {
+            TrackSolo {
+                track,
+                behavior,
+                exclusivity,
+            } => {
+                let solo_track = |t: &Track| {
                     use SoloBehavior::*;
                     match *behavior {
-                        InPlace => track.set_solo_mode(SoloMode::SoloInPlace),
-                        IgnoreRouting => track.set_solo_mode(SoloMode::SoloIgnoreRouting),
-                        ReaperPreference => track.solo(),
+                        InPlace => t.set_solo_mode(SoloMode::SoloInPlace),
+                        IgnoreRouting => t.set_solo_mode(SoloMode::SoloIgnoreRouting),
+                        ReaperPreference => t.solo(),
                     }
+                };
+                if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, solo_track);
+                    track.unsolo();
+                } else {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.unsolo());
+                    solo_track(track);
                 }
             }
             TrackSendPan { send } => {
@@ -572,10 +578,12 @@ impl RealearnTarget for ReaperTarget {
                 };
                 track.select_exclusively();
             }
-            AllTrackFxEnable { track } => {
+            AllTrackFxEnable { track, exclusivity } => {
                 if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.enable_fx());
                     track.disable_fx();
                 } else {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.disable_fx());
                     track.enable_fx();
                 }
             }
@@ -627,15 +635,19 @@ impl RealearnTarget for ReaperTarget {
             AutomationTouchState {
                 track,
                 parameter_type,
+                exclusivity,
             } => {
+                let mut ctx = DomainGlobal::target_context().borrow_mut();
                 if value.as_absolute()?.is_zero() {
-                    DomainGlobal::target_context()
-                        .borrow_mut()
-                        .untouch_automation_parameter(track.raw(), *parameter_type);
+                    handle_track_exclusivity(track, *exclusivity, |t| {
+                        ctx.touch_automation_parameter(t.raw(), *parameter_type)
+                    });
+                    ctx.untouch_automation_parameter(track.raw(), *parameter_type);
                 } else {
-                    DomainGlobal::target_context()
-                        .borrow_mut()
-                        .touch_automation_parameter(track.raw(), *parameter_type);
+                    handle_track_exclusivity(track, *exclusivity, |t| {
+                        ctx.untouch_automation_parameter(t.raw(), *parameter_type)
+                    });
+                    ctx.touch_automation_parameter(track.raw(), *parameter_type);
                 }
             }
         };
@@ -648,6 +660,109 @@ impl RealearnTarget for ReaperTarget {
 }
 
 impl ReaperTarget {
+    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+        use ReaperTarget::*;
+        use TargetCharacter::*;
+        match self {
+            Action {
+                invocation_type,
+                action,
+                ..
+            } => match *invocation_type {
+                ActionInvocationType::Trigger => {
+                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+                }
+                ActionInvocationType::Absolute => match action.character() {
+                    ActionCharacter::Toggle => (ControlType::AbsoluteContinuous, Switch),
+                    ActionCharacter::Trigger => (ControlType::AbsoluteContinuous, Continuous),
+                },
+                ActionInvocationType::Relative => (ControlType::Relative, Discrete),
+            },
+            FxParameter { param } => {
+                use GetParameterStepSizesResult::*;
+                match param.step_sizes() {
+                    None => (ControlType::AbsoluteContinuous, Continuous),
+                    Some(Normal {
+                        normal_step,
+                        small_step,
+                        ..
+                    }) => {
+                        // The reported step sizes relate to the reported value range, which is not
+                        // always the unit interval! Easy to test with JS
+                        // FX.
+                        let range = param.value_range();
+                        // We are primarily interested in the smallest step size that makes sense.
+                        // We can always create multiples of it.
+                        let span = (range.max_val - range.min_val).abs();
+                        if span == 0.0 {
+                            return (ControlType::AbsoluteContinuous, Continuous);
+                        }
+                        let pref_step_size = small_step.unwrap_or(normal_step);
+                        let step_size = pref_step_size / span;
+                        (
+                            ControlType::AbsoluteDiscrete {
+                                atomic_step_size: UnitValue::new(step_size),
+                            },
+                            Discrete,
+                        )
+                    }
+                    Some(Toggle) => (ControlType::AbsoluteContinuous, Switch),
+                }
+            }
+            Tempo { .. } => (
+                ControlType::AbsoluteContinuousRoundable {
+                    rounding_step_size: UnitValue::new(1.0 / bpm_span()),
+                },
+                Continuous,
+            ),
+            Playrate { .. } => (
+                ControlType::AbsoluteContinuousRoundable {
+                    rounding_step_size: UnitValue::new(
+                        1.0 / (playback_speed_factor_span() * 100.0),
+                    ),
+                },
+                Continuous,
+            ),
+            // `+ 1` because "<no preset>" is also a possible value.
+            FxPreset { fx } => {
+                let preset_count = fx.preset_count().unwrap_or(0);
+                (
+                    ControlType::AbsoluteDiscrete {
+                        atomic_step_size: convert_count_to_step_size(preset_count + 1),
+                    },
+                    Discrete,
+                )
+            }
+            // `+ 1` because "<Master track>" is also a possible value.
+            SelectedTrack { project } => (
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
+                },
+                Discrete,
+            ),
+            TrackSendMute { .. } | FxEnable { .. } | Transport { .. } => {
+                (ControlType::AbsoluteContinuous, Switch)
+            }
+            TrackSolo { exclusivity, .. }
+            | AllTrackFxEnable { exclusivity, .. }
+            | AutomationTouchState { exclusivity, .. }
+            | TrackArm { exclusivity, .. }
+            | TrackSelection { exclusivity, .. }
+            | TrackMute { exclusivity, .. } => {
+                if *exclusivity == TrackExclusivity::NonExclusive {
+                    (ControlType::AbsoluteContinuous, Switch)
+                } else {
+                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+                }
+            }
+            TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackSendPan { .. } => (ControlType::AbsoluteContinuous, Continuous),
+            LoadFxSnapshot { .. } => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+        }
+    }
     /// Notifies about other events which can affect the resulting `ReaperTarget`.
     ///
     /// The resulting `ReaperTarget` doesn't change only if one of our the model properties changes.
@@ -728,8 +843,14 @@ impl ReaperTarget {
             }
             TrackSendVolumeChanged(e) if e.touched => TrackSendVolume { send: e.send },
             TrackSendPanChanged(e) if e.touched => TrackSendPan { send: e.send },
-            TrackArmChanged(e) => TrackArm { track: e.track },
-            TrackMuteChanged(e) if e.touched => TrackMute { track: e.track },
+            TrackArmChanged(e) => TrackArm {
+                track: e.track,
+                exclusivity: Default::default(),
+            },
+            TrackMuteChanged(e) if e.touched => TrackMute {
+                track: e.track,
+                exclusivity: Default::default(),
+            },
             TrackSoloChanged(e) => {
                 // When we press the solo button of some track, REAPER actually sends many
                 // change events, starting with the change event for the master track. This is
@@ -741,9 +862,10 @@ impl ReaperTarget {
                 TrackSolo {
                     track: e.track,
                     behavior: Default::default(),
+                    exclusivity: Default::default(),
                 }
             }
-            TrackSelectedChanged(e) => {
+            TrackSelectedChanged(e) if e.new_value => {
                 if track_sel_on_mouse_is_enabled() {
                     // If this REAPER preference is enabled, it's often a false positive so better
                     // we don't let this happen at all.
@@ -751,7 +873,7 @@ impl ReaperTarget {
                 }
                 TrackSelection {
                     track: e.track,
-                    select_exclusively: false,
+                    exclusivity: Default::default(),
                 }
             }
             FxEnabledChanged(e) => FxEnable { fx: e.fx },
@@ -801,32 +923,36 @@ impl ReaperTarget {
             .merge(csurf_rx.track_pan_touched().map(move |(track, old, new)| {
                 figure_out_touched_pan_component(track, old, new).into()
             }))
-            .merge(
-                csurf_rx
-                    .track_arm_changed()
-                    .map(move |track| TrackArm { track }.into()),
-            )
+            .merge(csurf_rx.track_arm_changed().map(move |track| {
+                TrackArm {
+                    track,
+                    exclusivity: Default::default(),
+                }
+                .into()
+            }))
             .merge(
                 csurf_rx
                     .track_selected_changed()
-                    .filter(|_| {
+                    .filter(|(_, new_value)| {
                         // If this REAPER preference is enabled, it's often a false positive so
                         // better we don't let this happen at all.
-                        !track_sel_on_mouse_is_enabled()
+                        *new_value && !track_sel_on_mouse_is_enabled()
                     })
-                    .map(move |track| {
+                    .map(move |(track, _)| {
                         TrackSelection {
                             track,
-                            select_exclusively: false,
+                            exclusivity: Default::default(),
                         }
                         .into()
                     }),
             )
-            .merge(
-                csurf_rx
-                    .track_mute_touched()
-                    .map(move |track| TrackMute { track }.into()),
-            )
+            .merge(csurf_rx.track_mute_touched().map(move |track| {
+                TrackMute {
+                    track,
+                    exclusivity: Default::default(),
+                }
+                .into()
+            }))
             .merge(
                 csurf_rx
                     .track_solo_changed()
@@ -839,6 +965,7 @@ impl ReaperTarget {
                         TrackSolo {
                             track,
                             behavior: Default::default(),
+                            exclusivity: Default::default(),
                         }
                         .into()
                     }),
@@ -949,12 +1076,12 @@ impl ReaperTarget {
             TrackVolume { track }
             | TrackPan { track }
             | TrackWidth { track }
-            | TrackArm { track }
+            | TrackArm { track, .. }
             | TrackSelection { track, .. }
-            | TrackMute { track }
+            | TrackMute { track, .. }
             | TrackSolo { track, .. }
             | AutomationTouchState { track, .. }
-            | AllTrackFxEnable { track } => track.project(),
+            | AllTrackFxEnable { track, .. } => track.project(),
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track().project()
             }
@@ -971,16 +1098,16 @@ impl ReaperTarget {
             TrackVolume { track }
             | TrackPan { track }
             | TrackWidth { track }
-            | TrackArm { track }
+            | TrackArm { track, .. }
             | TrackSelection { track, .. }
-            | TrackMute { track }
+            | TrackMute { track, .. }
             | AutomationTouchState { track, .. }
             | TrackSolo { track, .. } => track,
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track()
             }
             FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.track()?,
-            AllTrackFxEnable { track } => track,
+            AllTrackFxEnable { track, .. } => track,
             Action { .. }
             | Tempo { .. }
             | Playrate { .. }
@@ -1042,6 +1169,33 @@ impl ReaperTarget {
         Some(send)
     }
 
+    pub fn track_exclusivity(&self) -> Option<TrackExclusivity> {
+        use ReaperTarget::*;
+        match self {
+            TrackSolo { exclusivity, .. } => Some(*exclusivity),
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | Transport { .. }
+            | LoadFxSnapshot { .. }
+            | AutomationTouchState { .. } => None,
+        }
+    }
+
     pub fn supports_feedback(&self) -> bool {
         use ReaperTarget::*;
         match self {
@@ -1098,6 +1252,7 @@ impl ReaperTarget {
             AutomationTouchState {
                 track,
                 parameter_type,
+                ..
             } => match evt {
                 ParameterAutomationTouchStateChanged(e)
                     if e.track == track.raw() && e.parameter_type == *parameter_type =>
@@ -1173,7 +1328,7 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            TrackArm { track } => {
+            TrackArm { track, .. } => {
                 match evt {
                     TrackArmChanged(e) if &e.track == track => (
                         true,
@@ -1191,7 +1346,7 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            TrackMute { track } => {
+            TrackMute { track, .. } => {
                 match evt {
                     TrackMuteChanged(e) if &e.track == track => (
                         true,
@@ -1249,9 +1404,9 @@ impl ReaperTarget {
             }
             SelectedTrack { project } => {
                 match evt {
-                    TrackSelectedChanged(e) if &e.track.project() == project => (
+                    TrackSelectedChanged(e) if e.new_value && &e.track.project() == project => (
                         true,
-                        Some(track_selected_unit_value(e.new_value))
+                        Some(selected_track_unit_value(*project, e.track.index()))
                     ),
                     _ => (false, None)
                 }
@@ -1318,9 +1473,9 @@ impl Target for ReaperTarget {
             TrackSendVolume { send } => volume_unit_value(send.volume()),
             TrackPan { track } => pan_unit_value(track.pan()),
             TrackWidth { track } => width_unit_value(track.width()),
-            TrackArm { track } => track_arm_unit_value(track.is_armed(false)),
+            TrackArm { track, .. } => track_arm_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => track_selected_unit_value(track.is_selected()),
-            TrackMute { track } => mute_unit_value(track.is_muted()),
+            TrackMute { track, .. } => mute_unit_value(track.is_muted()),
             TrackSolo { track, .. } => track_solo_unit_value(track.is_solo()),
             TrackSendPan { send } => pan_unit_value(send.pan()),
             TrackSendMute { send } => mute_unit_value(send.is_muted()),
@@ -1334,7 +1489,7 @@ impl Target for ReaperTarget {
                     .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
                     .and_then(|t| t.index()),
             ),
-            AllTrackFxEnable { track } => all_track_fx_enable_unit_value(track.fx_is_enabled()),
+            AllTrackFxEnable { track, .. } => all_track_fx_enable_unit_value(track.fx_is_enabled()),
             Transport { project, action } => {
                 use TransportAction::*;
                 match action {
@@ -1353,6 +1508,7 @@ impl Target for ReaperTarget {
             AutomationTouchState {
                 track,
                 parameter_type,
+                ..
             } => {
                 let is_touched = DomainGlobal::target_context()
                     .borrow()
@@ -1364,84 +1520,7 @@ impl Target for ReaperTarget {
     }
 
     fn control_type(&self) -> ControlType {
-        use ReaperTarget::*;
-        match self {
-            Action {
-                invocation_type,
-                action,
-                ..
-            } => {
-                use ActionInvocationType::*;
-                match *invocation_type {
-                    Trigger => ControlType::AbsoluteTrigger,
-                    Absolute => match action.character() {
-                        ActionCharacter::Toggle => ControlType::AbsoluteSwitch,
-                        ActionCharacter::Trigger => ControlType::AbsoluteContinuous,
-                    },
-                    Relative => ControlType::Relative,
-                }
-            }
-            FxParameter { param } => {
-                use GetParameterStepSizesResult::*;
-                match param.step_sizes() {
-                    None => ControlType::AbsoluteContinuous,
-                    Some(Normal {
-                        normal_step,
-                        small_step,
-                        ..
-                    }) => {
-                        // The reported step sizes relate to the reported value range, which is not
-                        // always the unit interval! Easy to test with JS
-                        // FX.
-                        let range = param.value_range();
-                        // We are primarily interested in the smallest step size that makes sense.
-                        // We can always create multiples of it.
-                        let span = (range.max_val - range.min_val).abs();
-                        if span == 0.0 {
-                            return ControlType::AbsoluteContinuous;
-                        }
-                        let pref_step_size = small_step.unwrap_or(normal_step);
-                        let step_size = pref_step_size / span;
-                        ControlType::AbsoluteDiscrete {
-                            atomic_step_size: UnitValue::new(step_size),
-                        }
-                    }
-                    Some(Toggle) => ControlType::AbsoluteSwitch,
-                }
-            }
-            Tempo { .. } => ControlType::AbsoluteContinuousRoundable {
-                rounding_step_size: UnitValue::new(1.0 / bpm_span()),
-            },
-            Playrate { .. } => ControlType::AbsoluteContinuousRoundable {
-                rounding_step_size: UnitValue::new(1.0 / (playback_speed_factor_span() * 100.0)),
-            },
-            // `+ 1` because "<no preset>" is also a possible value.
-            FxPreset { fx } => {
-                let preset_count = fx.preset_count().unwrap_or(0);
-                ControlType::AbsoluteDiscrete {
-                    atomic_step_size: convert_count_to_step_size(preset_count + 1),
-                }
-            }
-            // `+ 1` because "<Master track>" is also a possible value.
-            SelectedTrack { project } => ControlType::AbsoluteDiscrete {
-                atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
-            },
-            TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackSendMute { .. }
-            | FxEnable { .. }
-            | AllTrackFxEnable { .. }
-            | AutomationTouchState { .. }
-            | Transport { .. }
-            | TrackSolo { .. } => ControlType::AbsoluteSwitch,
-            TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackSendPan { .. } => ControlType::AbsoluteContinuous,
-            LoadFxSnapshot { .. } => ControlType::AbsoluteTrigger,
-        }
+        self.control_type_and_character().0
     }
 }
 
@@ -1494,7 +1573,9 @@ fn format_bpm(bpm: f64) -> String {
 }
 
 fn format_value_as_db_without_unit(value: UnitValue) -> String {
-    let db = Volume::from_soft_normalized_value(value.get()).db();
+    let db = Volume::try_from_soft_normalized_value(value.get())
+        .unwrap_or(Volume::MIN)
+        .db();
     if db == Db::MINUS_INF {
         "-inf".to_string()
     } else {
@@ -1503,7 +1584,9 @@ fn format_value_as_db_without_unit(value: UnitValue) -> String {
 }
 
 fn format_value_as_db(value: UnitValue) -> String {
-    Volume::from_soft_normalized_value(value.get()).to_string()
+    Volume::try_from_soft_normalized_value(value.get())
+        .unwrap_or(Volume::MIN)
+        .to_string()
 }
 
 fn format_value_as_pan(value: UnitValue) -> String {
@@ -1932,5 +2015,102 @@ fn query_track_sel_on_mouse_is_enabled() -> bool {
         (value & 2) != 0
     } else {
         false
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TrackExclusivity {
+    #[display(fmt = "No")]
+    NonExclusive,
+    #[display(fmt = "Within all tracks")]
+    ExclusiveAll,
+    #[display(fmt = "Within folder")]
+    ExclusiveFolder,
+}
+
+impl Default for TrackExclusivity {
+    fn default() -> Self {
+        TrackExclusivity::NonExclusive
+    }
+}
+
+fn handle_track_exclusivity(
+    track: &Track,
+    exclusivity: TrackExclusivity,
+    mut f: impl FnMut(&Track),
+) {
+    use TrackExclusivity::*;
+    match exclusivity {
+        NonExclusive => {}
+        ExclusiveAll => {
+            // TODO-medium This could be made faster by separating between heavy-weight and
+            //  light-weight tracks in reaper-rs.
+            for t in track.project().tracks() {
+                if &t == track {
+                    continue;
+                }
+                f(&t);
+            }
+        }
+        ExclusiveFolder => {
+            let track_index = match track.index() {
+                // We consider the master track as its own folder (same as non-exclusive).
+                None => return,
+                Some(i) => i,
+            };
+            let project = track.project();
+            // At first look at tracks above
+            {
+                let mut delta = 0;
+                for i in (0..track_index).rev() {
+                    let t = project.track_by_index(i).unwrap();
+                    delta -= t.folder_depth_change();
+                    if delta < 0 {
+                        // Reached parent folder
+                        break;
+                    }
+                    if delta == 0 {
+                        // Same level
+                        f(&t);
+                    }
+                }
+            }
+            // Then look at current track and tracks below.
+            let current_track_depth_change = track.folder_depth_change();
+            if current_track_depth_change >= 0 {
+                // Current track is not the last one in the folder, so look further.
+                // delta will starts with 1 if the current track is a folder.
+                let mut delta = current_track_depth_change;
+                for i in (track_index + 1)..project.track_count() {
+                    let t = match project.track_by_index(i) {
+                        None => break,
+                        Some(t) => t,
+                    };
+                    if delta <= 0 {
+                        // Same level, maybe last track in folder
+                        f(&t);
+                    }
+                    if delta < 0 {
+                        // Last track in folder
+                        break;
+                    }
+                    delta += t.folder_depth_change();
+                }
+            }
+        }
     }
 }

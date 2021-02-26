@@ -289,8 +289,7 @@ impl<'a> MappingModelWithContext<'a> {
             Some(t) => t,
         };
         match target.control_type() {
-            ControlType::AbsoluteTrigger => false,
-            ControlType::AbsoluteSwitch => false,
+            ControlType::AbsoluteContinuousRetriggerable => false,
             ControlType::AbsoluteContinuous => false,
             ControlType::AbsoluteContinuousRoundable { .. } => false,
             ControlType::AbsoluteDiscrete { .. } => true,

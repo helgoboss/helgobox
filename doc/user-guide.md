@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-21 (v2.3.0)</code></td>
+  <td><code>2021-02-26 (v2.4.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1139,6 +1139,15 @@ Only available for targets that are associated with a particular REAPER track:
 - **Track must be selected:** If checked, this mapping will be active only if the track set in
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
   _&lt;Selected&gt;_.
+  
+Targets which control an on/off-style property of tracks (e.g. "Track solo") additionally provide this:
+
+- **Exclusive:** By default, this option is set to "No".
+    - **No:** Makes the track target affect just this track.
+    - **Within all tracks:** Switches the property on (or off) for this track only, making sure that it's off (or on)
+      for all other tracks in the project.
+    - **Within folder:** Switches the property on (or off) for this track only, making sure that it's off (or on) for
+      all tracks in the same folder and same level. Very powerful feature!
 
 Only available for targets associated with a particular track send:
 
@@ -1258,8 +1267,10 @@ use the _Track selection_ target instead.
 Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the
 track.
 
-- **Select exclusively:** If unchecked, this leaves all other tracks' selection state untouched. If
-  checked, this unselects all other tracks when selecting this track.
+This target stops being learnable if you activate the REAPER preference
+"Mouse click on volume/pan faders and track buttons changes track selection" (because this preference would generate
+too many false positives). If you change the preference, ReaLearn will take it into consideration the next time
+you restart REAPER.
 
 ###### Track mute target
 
@@ -1271,8 +1282,16 @@ track.
 Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the
 track.
 
+Provides the following additional settings:
+
+- **Behavior:** See the REAPER user guide for details.
+    - **Solo in place:** Soloes the track while respecting REAPER's routing. This is REAPER's default and since
+      ReaLearn v2.4.0 also ReaLearn's default.
+    - **Solo (ignore routing):** Soloes the track muting everything else, no matter the routing.
+    - **Use REAPER preference:** Follows whatever is set in the REAPER preferences.
+
 Learning this target by pressing the "Solo" button of the *master* track is currently not possible but
-of course you can just select it manually in the dropdown menu.  
+of course you can just select it manually in the dropdown menu.
 
 ###### Track send pan target
 
@@ -1281,6 +1300,9 @@ Sets the track send's pan value.
 ###### Master tempo target
 
 Sets REAPER's master tempo.
+
+This target is not learnable anymore via the "Learn target" button and also not eligible for the "Last touched" target
+because it caused too many "false positives".
 
 ###### Master playrate target
 
@@ -1357,6 +1379,22 @@ This will control whatever target has last been touched in REAPER. It's similar 
 
 1. It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
 2. It offers feedback.
+
+###### Automation touch state
+
+When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control
+element which is bound to the automation envelope or not. As long as you keep touching it, it will overwrite
+existing automation. As soon as you release it, REAPER will leave the envelope untouched.
+
+Classical control surfaces implement this very intuitively by providing touch-sensitive faders. With this target, you
+can easily reproduce exactly this behavior via ReaLearn. You do this by mapping the touch event (which is usually
+nothing else than a MIDI note on/off message) to this target. The touch state is scoped to a particular track and
+parameter type which you can choose in the **Type* dropdown.
+
+However, ReaLearn wouldn't be ReaLearn if it wouldn't allow you to let totally different sources take control of the
+touch state. For example, if you have a push encoder, you could map the "push" event to the touch state, allowing you
+to write automation only while you are touching the encoder. Or if you don't have a push encoder, you could just use
+some spare button.
 
 ##### Category "Virtual"
 
