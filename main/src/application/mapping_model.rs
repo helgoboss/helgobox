@@ -179,14 +179,8 @@ impl MappingModel {
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
         let extension = MappingExtension {
-            activation_midi_data: RawMidiData::from_slice(&[
-                0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x01, 0xF7,
-            ])
-            .ok(),
-            deactivation_midi_data: RawMidiData::from_slice(&[
-                0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x14, 0xF7,
-            ])
-            .ok(),
+            activation_midi_data: None,
+            deactivation_midi_data: None,
         };
         MainMapping::new(
             id,
