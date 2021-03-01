@@ -40,6 +40,12 @@ use vst::buffer::AudioBuffer;
 use vst::event::Event;
 use vst::host::Host;
 
+const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
+const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
+const NORMAL_MAIN_TASK_QUEUE_SIZE: usize = 1000;
+const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
+const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
+
 reaper_vst_plugin!();
 
 pub struct RealearnPlugin {
@@ -90,17 +96,16 @@ impl Default for RealearnPlugin {
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
         firewall(|| {
-            // TODO-low Unbounded? Brave.
             let (normal_real_time_task_sender, normal_real_time_task_receiver) =
-                crossbeam_channel::unbounded();
+                crossbeam_channel::bounded(NORMAL_REAL_TIME_TASK_QUEUE_SIZE);
             let (feedback_real_time_task_sender, feedback_real_time_task_receiver) =
-                crossbeam_channel::unbounded();
+                crossbeam_channel::bounded(FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE);
             let (normal_main_task_sender, normal_main_task_receiver) =
-                crossbeam_channel::unbounded();
+                crossbeam_channel::bounded(NORMAL_MAIN_TASK_QUEUE_SIZE);
             let (control_main_task_sender, control_main_task_receiver) =
-                crossbeam_channel::unbounded();
+                crossbeam_channel::bounded(CONTROL_MAIN_TASK_QUEUE_SIZE);
             let (parameter_main_task_sender, parameter_main_task_receiver) =
-                crossbeam_channel::unbounded();
+                crossbeam_channel::bounded(PARAMETER_MAIN_TASK_QUEUE_SIZE);
             let instance_id = nanoid::nanoid!(8);
             let logger = App::logger().new(o!("instance" => instance_id.clone()));
             let plugin_parameters =
@@ -110,6 +115,7 @@ impl Plugin for RealearnPlugin {
                 &logger,
                 normal_real_time_task_receiver,
                 feedback_real_time_task_receiver,
+                feedback_real_time_task_sender.clone(),
                 normal_main_task_sender.clone(),
                 control_main_task_sender,
             );
@@ -170,7 +176,8 @@ impl Plugin for RealearnPlugin {
             use Supported::*;
             #[allow(overflowing_literals)]
             match can_do {
-                SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent => Supported::Yes,
+                SendEvents | SendMidiEvent | ReceiveEvents | ReceiveMidiEvent
+                | ReceiveSysExEvent => Supported::Yes,
                 // If we don't do this, REAPER for Linux won't give us a SWELL plug-in window, which
                 // leads to a horrible crash when doing CreateDialogParam. In our UI we use SWELL
                 // to put controls into the plug-in window. SWELL assumes that the parent window for

@@ -40,6 +40,12 @@ use std::rc::Rc;
 use swell_ui::{SharedView, View};
 use url::Url;
 
+const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
+const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
+const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 1000;
+const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 500;
+const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
+
 make_available_globally_in_main_thread!(App);
 
 pub type RealearnControlSurface =
@@ -169,12 +175,15 @@ impl App {
     }
 
     fn new(config: AppConfig) -> App {
-        let (main_sender, main_receiver) = crossbeam_channel::unbounded();
-        let (server_sender, server_receiver) = crossbeam_channel::unbounded();
-        let (osc_feedback_task_sender, osc_feedback_task_receiver) = crossbeam_channel::unbounded();
+        let (main_sender, main_receiver) =
+            crossbeam_channel::bounded(CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE);
+        let (server_sender, server_receiver) =
+            crossbeam_channel::bounded(CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE);
+        let (osc_feedback_task_sender, osc_feedback_task_receiver) =
+            crossbeam_channel::bounded(OSC_OUTGOING_QUEUE_SIZE);
         let (additional_reaper_event_sender, additional_reaper_event_receiver) =
-            crossbeam_channel::unbounded();
-        let (audio_sender, audio_receiver) = crossbeam_channel::unbounded();
+            crossbeam_channel::bounded(ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE);
+        let (audio_sender, audio_receiver) = crossbeam_channel::bounded(AUDIO_HOOK_TASK_QUEUE_SIZE);
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             control_surface_server_task_receiver: server_receiver,
@@ -978,7 +987,7 @@ impl App {
     fn request_next_midi_sources(
         &self,
     ) -> async_channel::Receiver<(MidiInputDeviceId, MidiSource)> {
-        let (sender, receiver) = async_channel::unbounded();
+        let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
             .send(RealearnAudioHookTask::StartLearningSources(sender))
             .unwrap();
@@ -986,7 +995,7 @@ impl App {
     }
 
     fn request_next_osc_sources(&self) -> async_channel::Receiver<(OscDeviceId, OscSource)> {
-        let (sender, receiver) = async_channel::unbounded();
+        let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
             .send(RealearnControlSurfaceMainTask::StartLearningSources(sender))
             .unwrap();
@@ -1011,7 +1020,7 @@ impl App {
     }
 
     fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
-        let (sender, receiver) = async_channel::unbounded();
+        let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
             .send(RealearnControlSurfaceMainTask::StartLearningTargets(sender))
             .unwrap();

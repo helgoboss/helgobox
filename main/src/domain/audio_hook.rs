@@ -8,6 +8,8 @@ use reaper_medium::{MidiEvent, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferAr
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex};
 
+const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
+
 /// This needs to be thread-safe because if "Allow live FX multiprocessing" is active in the REAPER
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
@@ -108,7 +110,11 @@ impl OnAudioBuffer for RealearnAudioHook {
             }
         };
         // 2. Process add/remove tasks.
-        for task in self.task_receiver.try_iter().take(1) {
+        for task in self
+            .task_receiver
+            .try_iter()
+            .take(AUDIO_HOOK_TASK_BULK_SIZE)
+        {
             use RealearnAudioHookTask::*;
             match task {
                 AddRealTimeProcessor(id, p) => {

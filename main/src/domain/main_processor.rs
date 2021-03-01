@@ -1,7 +1,7 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget, ControlMode,
-    DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping, MappingActivationEffect,
-    MappingActivationUpdate, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
+    ActivationChange, AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget,
+    ControlMode, DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping,
+    MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource,
     RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
     TargetValueChangedEvent, VirtualSourceValue,
@@ -19,6 +19,7 @@ use std::collections::{HashMap, HashSet};
 
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 64;
+const FEEDBACK_TASK_QUEUE_SIZE: usize = 1000;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
 
@@ -74,7 +75,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         event_handler: EH,
         context: ProcessorContext,
     ) -> MainProcessor<EH> {
-        let (self_feedback_sender, feedback_task_receiver) = crossbeam_channel::unbounded();
+        let (self_feedback_sender, feedback_task_receiver) =
+            crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
         MainProcessor {
             instance_id,
@@ -222,16 +224,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 RefreshAllTargets => {
                     debug!(self.logger, "Refreshing all targets...");
                     for compartment in MappingCompartment::into_enum_iter() {
+                        let mut activation_updates: Vec<ActivationChange> = vec![];
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment, false);
-                        let mut mappings_with_active_targets =
-                            HashSet::with_capacity(self.mappings[compartment].len());
                         // Mappings with virtual targets don't have to be refreshed because virtual
                         // targets are always active and never change depending on circumstances.
                         for m in self.mappings[compartment].values_mut() {
-                            let is_active = m.refresh_target(&self.context);
-                            if is_active {
-                                mappings_with_active_targets.insert(m.id());
+                            if let Some(upd) = m.refresh_target(&self.context) {
+                                activation_updates.push(upd);
                             }
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
@@ -243,7 +243,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         let _ = self.normal_real_time_task_sender.send(
                             NormalRealTimeTask::UpdateTargetActivations(
                                 compartment,
-                                mappings_with_active_targets,
+                                activation_updates,
                             ),
                         );
                         self.handle_feedback_after_batch_mapping_update(
@@ -390,7 +390,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.parameters = *parameters;
                     // Activation is only supported for main mappings
                     let compartment = MappingCompartment::MainMappings;
-                    let mut activation_updates: Vec<MappingActivationUpdate> = vec![];
+                    let mut mapping_activation_updates: Vec<ActivationChange> = vec![];
                     let mut unused_sources =
                         self.currently_feedback_enabled_sources(compartment, false);
                     // Mappings with virtual targets can only exist in the controller compartment
@@ -398,18 +398,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // need to handle them here.
                     for m in &mut self.mappings[compartment].values_mut() {
                         if m.can_be_affected_by_parameters() {
-                            m.refresh_activation(&self.parameters);
-                            let update = MappingActivationUpdate::new(m.id(), m.is_active());
-                            activation_updates.push(update);
+                            if let Some(update) = m.update_activation(&self.parameters) {
+                                mapping_activation_updates.push(update);
+                            }
                         }
                         if m.feedback_is_effectively_on() {
                             // Mark source as used
                             unused_sources.remove(m.source());
                         }
                     }
-                    self.process_activation_updates(
+                    self.process_mapping_activation_updates(
                         compartment,
-                        activation_updates,
+                        mapping_activation_updates,
                         &unused_sources,
                     );
                 }
@@ -452,11 +452,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         })
                         .collect();
                     // 2. Write
-                    let activation_updates: Vec<MappingActivationUpdate> = activation_effects
+                    let activation_updates: Vec<ActivationChange> = activation_effects
                         .into_iter()
                         .filter_map(|eff| {
                             let m = self.mappings[compartment].get_mut(&eff.id)?;
-                            m.update_activation(eff)
+                            m.update_activation_from_effect(eff)
                         })
                         .collect();
                     // Determine unused sources
@@ -466,7 +466,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             unused_sources.remove(m.source());
                         }
                     }
-                    self.process_activation_updates(
+                    self.process_mapping_activation_updates(
                         compartment,
                         activation_updates,
                         &unused_sources,
@@ -695,10 +695,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_activation_updates(
+    fn process_mapping_activation_updates(
         &mut self,
         compartment: MappingCompartment,
-        activation_updates: Vec<MappingActivationUpdate>,
+        activation_updates: Vec<ActivationChange>,
         unused_sources: &HashSet<CompoundMappingSource>,
     ) {
         if activation_updates.is_empty() {
@@ -904,6 +904,7 @@ pub enum NormalMainTask {
         osc_input_device_id: Option<OscDeviceId>,
         osc_output_device_id: Option<OscDeviceId>,
     },
+    UpdateControlIsGloballyEnabled(bool),
     UpdateFeedbackIsGloballyEnabled(bool),
     FeedbackAll,
     LogDebugInfo,
@@ -917,7 +918,6 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
-    UpdateControlIsGloballyEnabled(bool),
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

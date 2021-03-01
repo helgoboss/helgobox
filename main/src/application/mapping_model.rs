@@ -10,8 +10,8 @@ use crate::application::{
 use crate::core::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, MainMapping,
-    MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
-    ReaperTarget, TargetCharacter,
+    MappingCompartment, MappingExtension, MappingId, ProcessorContext, ProcessorMappingOptions,
+    RawMidiData, RealearnTarget, ReaperTarget, TargetCharacter,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -178,6 +178,16 @@ impl MappingModel {
             prevent_echo_feedback: self.prevent_echo_feedback.get(),
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
+        let extension = MappingExtension {
+            activation_midi_data: RawMidiData::from_slice(&[
+                0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x01, 0xF7,
+            ])
+            .ok(),
+            deactivation_midi_data: RawMidiData::from_slice(&[
+                0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x14, 0xF7,
+            ])
+            .ok(),
+        };
         MainMapping::new(
             id,
             source,
@@ -186,6 +196,7 @@ impl MappingModel {
             group_data.activation_condition,
             activation_condition,
             options,
+            extension,
         )
     }
 }

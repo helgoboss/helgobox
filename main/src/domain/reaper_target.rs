@@ -2034,7 +2034,7 @@ fn query_track_sel_on_mouse_is_enabled() -> bool {
 pub enum TrackExclusivity {
     #[display(fmt = "No")]
     NonExclusive,
-    #[display(fmt = "Within all tracks")]
+    #[display(fmt = "Within project")]
     ExclusiveAll,
     #[display(fmt = "Within folder")]
     ExclusiveFolder,

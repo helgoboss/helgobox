@@ -1,5 +1,5 @@
 use crate::domain::{
-    ActivationCondition, ControlOptions, MappingActivationEffect, MappingActivationUpdate, Mode,
+    ActivationChange, ActivationCondition, ControlOptions, MappingActivationEffect, Mode,
     ParameterArray, ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter,
     UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
 };
@@ -13,6 +13,8 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use reaper_low::raw;
+use reaper_medium::MidiFrameOffset;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
@@ -52,6 +54,12 @@ impl Display for MappingId {
 
 const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 
+#[derive(Debug)]
+pub struct MappingExtension {
+    pub activation_midi_data: Option<RawMidiData>,
+    pub deactivation_midi_data: Option<RawMidiData>,
+}
+
 // TODO-low The name is confusing. It should be MainThreadMapping or something because
 //  this can also be a controller mapping (a mapping in the controller compartment).
 #[derive(Debug)]
@@ -61,6 +69,7 @@ pub struct MainMapping {
     activation_condition_2: ActivationCondition,
     is_active_1: bool,
     is_active_2: bool,
+    extension: MappingExtension,
 }
 
 impl MainMapping {
@@ -72,6 +81,7 @@ impl MainMapping {
         activation_condition_1: ActivationCondition,
         activation_condition_2: ActivationCondition,
         options: ProcessorMappingOptions,
+        extension: MappingExtension,
     ) -> MainMapping {
         MainMapping {
             core: MappingCore {
@@ -87,6 +97,7 @@ impl MainMapping {
             activation_condition_2,
             is_active_1: false,
             is_active_2: false,
+            extension,
         }
     }
 
@@ -98,10 +109,12 @@ impl MainMapping {
         &self.core.options
     }
 
-    pub fn splinter_real_time_mapping(&self) -> RealTimeMapping {
+    pub fn splinter_real_time_mapping(&mut self) -> RealTimeMapping {
         RealTimeMapping {
             core: self.core.clone(),
             is_active: self.is_active(),
+            activation_midi_data: self.extension.activation_midi_data.take(),
+            deactivation_midi_data: self.extension.deactivation_midi_data.take(),
         }
     }
 
@@ -131,10 +144,10 @@ impl MainMapping {
             || self.activation_condition_2.can_be_affected_by_parameters()
     }
 
-    pub fn update_activation(
+    pub fn update_activation_from_effect(
         &mut self,
         activation_effect: MappingActivationEffect,
-    ) -> Option<MappingActivationUpdate> {
+    ) -> Option<ActivationChange> {
         let was_active_before = self.is_active();
         self.is_active_1 = activation_effect
             .active_1_effect
@@ -146,7 +159,7 @@ impl MainMapping {
         if now_is_active == was_active_before {
             return None;
         }
-        let update = MappingActivationUpdate {
+        let update = ActivationChange {
             id: self.id(),
             is_active: now_is_active,
         };
@@ -155,7 +168,7 @@ impl MainMapping {
 
     pub fn refresh_all(&mut self, context: &ProcessorContext, params: &ParameterArray) {
         self.refresh_target(context);
-        self.refresh_activation(params);
+        self.update_activation(params);
     }
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
@@ -167,7 +180,8 @@ impl MainMapping {
         )
     }
 
-    pub fn refresh_target(&mut self, context: &ProcessorContext) -> bool {
+    pub fn refresh_target(&mut self, context: &ProcessorContext) -> Option<ActivationChange> {
+        let was_active_before = self.core.options.target_is_active;
         let (target, is_active) = match self.core.unresolved_target.as_ref() {
             None => (None, false),
             Some(t) => match t.resolve(context).ok() {
@@ -180,12 +194,29 @@ impl MainMapping {
         };
         self.core.target = target;
         self.core.options.target_is_active = is_active;
-        is_active
+        if is_active == was_active_before {
+            return None;
+        }
+        let update = ActivationChange {
+            id: self.id(),
+            is_active,
+        };
+        Some(update)
     }
 
-    pub fn refresh_activation(&mut self, params: &ParameterArray) {
+    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
+        let was_active_before = self.is_active();
         self.is_active_1 = self.activation_condition_1.is_fulfilled(params);
         self.is_active_2 = self.activation_condition_2.is_fulfilled(params);
+        let now_is_active = self.is_active();
+        if now_is_active == was_active_before {
+            return None;
+        }
+        let update = ActivationChange {
+            id: self.id(),
+            is_active: now_is_active,
+        };
+        Some(update)
     }
 
     pub fn is_active(&self) -> bool {
@@ -321,10 +352,99 @@ impl MainMapping {
     }
 }
 
+/// Raw MIDI data which is compatible to both VST and REAPER MIDI data structures. The REAPER
+/// struct is more picky in that it needs offset and size directly in front of the raw data whereas
+/// the VST struct allows the data to be at a different address. That's why we need to follow the
+/// REAPER requirement.
+// TODO-high Can we skip this clone, please? See if RealTimeMapping can exist without it.
+#[derive(Clone, Debug)]
+pub struct RawMidiData {
+    midi_event: OwnedMidiEvent,
+}
+
+impl RawMidiData {
+    pub fn from_slice(midi_message: &[u8]) -> Result<Self, &'static str> {
+        let evt = OwnedMidiEvent::from_slice(MidiFrameOffset::new(0), midi_message)?;
+        Ok(Self::new(evt))
+    }
+
+    fn new(midi_event: OwnedMidiEvent) -> Self {
+        Self { midi_event }
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        &self.midi_event.midi_message
+    }
+}
+
+impl AsRef<raw::MIDI_event_t> for RawMidiData {
+    fn as_ref(&self) -> &raw::MIDI_event_t {
+        self.midi_event.as_ref()
+    }
+}
+
+const MAX_RAW_MIDI_DATA_LENGTH: usize = 256;
+
+/// An owned REAPER MIDI message.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[repr(C)]
+pub struct OwnedMidiEvent {
+    frame_offset: i32,
+    size: i32,
+    midi_message: [u8; MAX_RAW_MIDI_DATA_LENGTH],
+}
+
+impl OwnedMidiEvent {
+    pub fn new(
+        frame_offset: MidiFrameOffset,
+        size: u32,
+        midi_message: [u8; MAX_RAW_MIDI_DATA_LENGTH],
+    ) -> Self {
+        Self {
+            frame_offset: frame_offset.to_raw(),
+            size: size as _,
+            midi_message,
+        }
+    }
+
+    pub fn from_slice(
+        frame_offset: MidiFrameOffset,
+        midi_message: &[u8],
+    ) -> Result<Self, &'static str> {
+        if midi_message.len() > MAX_RAW_MIDI_DATA_LENGTH {
+            return Err("given MIDI message too long");
+        }
+        let mut array = [0; MAX_RAW_MIDI_DATA_LENGTH];
+        array[..midi_message.len()].copy_from_slice(&midi_message);
+        Ok(Self::new(frame_offset, midi_message.len() as _, array))
+    }
+}
+
+impl AsRef<raw::MIDI_event_t> for OwnedMidiEvent {
+    fn as_ref(&self) -> &raw::MIDI_event_t {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RealTimeMapping {
     core: MappingCore,
     is_active: bool,
+    activation_midi_data: Option<RawMidiData>,
+    deactivation_midi_data: Option<RawMidiData>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum LifecyclePhase {
+    Activation,
+    Deactivation,
+}
+
+impl From<bool> for LifecyclePhase {
+    fn from(v: bool) -> Self {
+        use LifecyclePhase::*;
+        if v { Activation } else { Deactivation }
+    }
 }
 
 impl RealTimeMapping {
@@ -332,12 +452,50 @@ impl RealTimeMapping {
         self.core.id
     }
 
+    pub fn activation_midi_data(&self) -> Option<&RawMidiData> {
+        self.activation_midi_data.as_ref()
+    }
+
+    pub fn deactivation_midi_data(&self) -> Option<&RawMidiData> {
+        self.deactivation_midi_data.as_ref()
+    }
+
+    pub fn lifecycle_midi_data(&self, phase: LifecyclePhase) -> Option<&RawMidiData> {
+        use LifecyclePhase::*;
+        match phase {
+            Activation => self.activation_midi_data.as_ref(),
+            Deactivation => self.deactivation_midi_data.as_ref(),
+        }
+    }
+
     pub fn control_is_effectively_on(&self) -> bool {
         self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
+    pub fn feedback_is_effectively_on(&self) -> bool {
+        self.is_effectively_active() && self.core.options.feedback_is_enabled
+    }
+
+    pub fn feedback_is_effectively_on_ignoring_mapping_activation(&self) -> bool {
+        self.is_effectively_active_ignoring_mapping_activation()
+            && self.core.options.feedback_is_enabled
+    }
+
+    pub fn feedback_is_effectively_on_ignoring_target_activation(&self) -> bool {
+        self.is_effectively_active_ignoring_target_activation()
+            && self.core.options.feedback_is_enabled
+    }
+
     fn is_effectively_active(&self) -> bool {
         self.has_virtual_target() || (self.is_active && self.core.options.target_is_active)
+    }
+
+    fn is_effectively_active_ignoring_target_activation(&self) -> bool {
+        self.has_virtual_target() || self.is_active
+    }
+
+    fn is_effectively_active_ignoring_mapping_activation(&self) -> bool {
+        self.has_virtual_target() || self.core.options.target_is_active
     }
 
     pub fn update_target_activation(&mut self, is_active: bool) {

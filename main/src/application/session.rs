@@ -1585,10 +1585,12 @@ impl Session {
 
     /// Just syncs whether feedback globally enabled or not.
     fn sync_feedback_is_globally_enabled(&self) {
+        let enabled = self.feedback_is_globally_enabled();
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
+            .unwrap();
         self.normal_main_task_sender
-            .send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(
-                self.feedback_is_globally_enabled(),
-            ))
+            .send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
             .unwrap();
     }
 

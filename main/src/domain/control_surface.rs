@@ -22,6 +22,9 @@ use std::collections::HashMap;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
+const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
+const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
+const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
 
 #[derive(Debug)]
@@ -166,7 +169,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
-        for t in self.main_task_receiver.try_iter().take(10) {
+        for t in self
+            .main_task_receiver
+            .try_iter()
+            .take(CONTROL_SURFACE_MAIN_TASK_BULK_SIZE)
+        {
             use RealearnControlSurfaceMainTask::*;
             match t {
                 AddMainProcessor(p) => {
@@ -191,7 +198,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        for t in self.server_task_receiver.try_iter().take(10) {
+        for t in self
+            .server_task_receiver
+            .try_iter()
+            .take(CONTROL_SURFACE_SERVER_TASK_BULK_SIZE)
+        {
             use RealearnControlSurfaceServerTask::*;
             match t {
                 ProvidePrometheusMetrics(sender) => {
@@ -205,7 +216,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        for event in self.additional_feedback_event_receiver.try_iter().take(30) {
+        for event in self
+            .additional_feedback_event_receiver
+            .try_iter()
+            .take(ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE)
+        {
             if let AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e) = &event {
                 let rx = Global::control_surface_rx();
                 rx.fx_parameter_value_changed

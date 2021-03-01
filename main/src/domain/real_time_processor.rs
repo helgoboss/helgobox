@@ -1,7 +1,8 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
-    MidiSourceScanner, NormalMainTask, PartialControlMatch, RealTimeMapping, VirtualSourceValue,
+    LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
+    MidiSourceScanner, NormalMainTask, PartialControlMatch, RawMidiData, RealTimeMapping,
+    VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -18,7 +19,7 @@ use enum_iterator::IntoEnumIterator;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
 use std::time::Duration;
-use vst::api::{EventType, Events, MidiEvent};
+use vst::api::{EventType, Events, MidiEvent, SysExEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
 
@@ -38,9 +39,11 @@ pub struct RealTimeProcessor {
     let_unmatched_events_through: bool,
     // State
     control_is_globally_enabled: bool,
+    feedback_is_globally_enabled: bool,
     // Inter-thread communication
     normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
+    feedback_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     // Scanners for more complex MIDI message types
@@ -58,6 +61,7 @@ impl RealTimeProcessor {
         parent_logger: &slog::Logger,
         normal_task_receiver: crossbeam_channel::Receiver<NormalRealTimeTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackRealTimeTask>,
+        feedback_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
     ) -> RealTimeProcessor {
@@ -68,6 +72,7 @@ impl RealTimeProcessor {
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
+            feedback_task_sender,
             normal_main_task_sender,
             control_main_task_sender,
             mappings: enum_map! {
@@ -83,6 +88,7 @@ impl RealTimeProcessor {
             midi_source_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
             control_is_globally_enabled: true,
+            feedback_is_globally_enabled: true,
         }
     }
 
@@ -108,7 +114,7 @@ impl RealTimeProcessor {
             // influence whether messages are let through or not. In this case, FX input events
             // are always unmatched.
             if self.let_unmatched_events_through {
-                self.send_midi_to_fx_output(msg, Caller::Vst(host))
+                self.send_short_midi_to_fx_output(msg, Caller::Vst(host))
             }
         }
     }
@@ -141,6 +147,16 @@ impl RealTimeProcessor {
                 UpdateControlIsGloballyEnabled(is_enabled) => {
                     self.control_is_globally_enabled = is_enabled;
                 }
+                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
+                    // Handle lifecycle MIDI
+                    if self.midi_feedback_output.is_some() {
+                        if is_enabled != self.feedback_is_globally_enabled {
+                            self.send_lifecycle_midi_for_all_mappings(is_enabled.into());
+                        }
+                    }
+                    // Set
+                    self.feedback_is_globally_enabled = is_enabled;
+                }
                 UpdateAllMappings(compartment, mappings) => {
                     debug!(
                         self.logger,
@@ -148,37 +164,83 @@ impl RealTimeProcessor {
                         mappings.len(),
                         compartment
                     );
-                    self.mappings[compartment].clear();
-                    for m in mappings.into_iter() {
-                        self.mappings[compartment].insert(m.id(), m);
+                    // Handle deactivation MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        self.send_lifecycle_midi_for_all_mappings_in(
+                            compartment,
+                            LifecyclePhase::Deactivation,
+                        );
+                    }
+                    // Set
+                    self.mappings[compartment] =
+                        mappings.into_iter().map(|m| (m.id(), m)).collect();
+                    // Handle activation MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        self.send_lifecycle_midi_for_all_mappings_in(
+                            compartment,
+                            LifecyclePhase::Activation,
+                        );
                     }
                 }
-                UpdateSingleMapping(compartment, mapping) => {
+                UpdateSingleMapping(compartment, m) => {
                     debug!(
                         self.logger,
                         "Updating single {} {:?}...",
                         compartment,
-                        mapping.id()
+                        m.id()
                     );
-                    self.mappings[compartment].insert(mapping.id(), *mapping);
+                    // Handle activation MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        let was_on_before = self.mappings[compartment]
+                            .get(&m.id())
+                            .map_or(false, |m| m.feedback_is_effectively_on());
+                        let is_on_now = m.feedback_is_effectively_on();
+                        if is_on_now {
+                            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                compartment,
+                                &*m,
+                                LifecyclePhase::Activation,
+                            );
+                        } else if was_on_before {
+                            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                compartment,
+                                &*m,
+                                LifecyclePhase::Deactivation,
+                            );
+                        }
+                    }
+                    // Insert
+                    self.mappings[compartment].insert(m.id(), *m);
                 }
-                UpdateTargetActivations(compartment, mappings_with_active_target) => {
-                    // TODO-low We should use an own logger and always log the sample count
-                    //  automatically.
+                UpdateTargetActivations(compartment, activation_updates) => {
                     // Also log sample count in order to be sure about invocation order
                     // (timestamp is not accurate enough on e.g. selection changes).
+                    // TODO-low We should use an own logger and always log the sample count
+                    //  automatically.
                     debug!(
                         self.logger,
-                        "Update target activations for {} {} at {} samples...",
-                        mappings_with_active_target.len(),
+                        "Update target activations in {} at {} samples...",
                         compartment,
                         self.midi_clock_calculator.current_sample_count()
                     );
-                    for m in self.mappings[compartment].values_mut() {
-                        if !m.has_virtual_target() {
-                            m.update_target_activation(
-                                mappings_with_active_target.contains(&m.id()),
-                            );
+                    // Apply updates
+                    for update in activation_updates.iter() {
+                        if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
+                            m.update_target_activation(update.is_active);
+                        }
+                    }
+                    // Handle lifecycle MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        for update in activation_updates.iter() {
+                            if let Some(m) = self.mappings[compartment].get(&update.id) {
+                                if m.feedback_is_effectively_on_ignoring_target_activation() {
+                                    self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                        compartment,
+                                        m,
+                                        update.is_active.into(),
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -188,11 +250,26 @@ impl RealTimeProcessor {
                     midi_control_input,
                     midi_feedback_output,
                 } => {
-                    debug!(self.logger, "Updating settings");
+                    debug!(self.logger, "Updating settings...");
+                    let feedback_output_changing =
+                        midi_feedback_output != self.midi_feedback_output;
+                    // Handle deactivation
+                    if self.processor_feedback_is_effectively_on() {
+                        if feedback_output_changing {
+                            self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Deactivation);
+                        }
+                    }
+                    // Update settings
                     self.let_matched_events_through = let_matched_events_through;
                     self.let_unmatched_events_through = let_unmatched_events_through;
                     self.midi_control_input = midi_control_input;
                     self.midi_feedback_output = midi_feedback_output;
+                    // Handle activation
+                    if self.processor_feedback_is_effectively_on() {
+                        if feedback_output_changing {
+                            self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);
+                        }
+                    }
                 }
                 UpdateSampleRate(sample_rate) => {
                     debug!(self.logger, "Updating sample rate");
@@ -223,17 +300,48 @@ impl RealTimeProcessor {
                 }
                 UpdateMappingActivations(compartment, activation_updates) => {
                     debug!(self.logger, "Update mapping activations...");
-                    for update in activation_updates.into_iter() {
+                    // Apply updates
+                    for update in activation_updates.iter() {
                         if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
                             m.update_activation(update.is_active);
-                        } else {
-                            panic!(
-                                "Couldn't find real-time mapping while updating mapping activations"
-                            );
+                        }
+                    }
+                    // Handle lifecycle MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        for update in activation_updates.iter() {
+                            if let Some(m) = self.mappings[compartment].get(&update.id) {
+                                if m.feedback_is_effectively_on_ignoring_mapping_activation() {
+                                    self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                        compartment,
+                                        m,
+                                        update.is_active.into(),
+                                    );
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+
+    fn processor_feedback_is_effectively_on(&self) -> bool {
+        self.feedback_is_globally_enabled && self.midi_feedback_output.is_some()
+    }
+
+    fn send_lifecycle_midi_for_all_mappings(&self, phase: LifecyclePhase) {
+        for compartment in MappingCompartment::into_enum_iter() {
+            self.send_lifecycle_midi_for_all_mappings_in(compartment, phase);
+        }
+    }
+
+    fn send_lifecycle_midi_for_all_mappings_in(
+        &self,
+        compartment: MappingCompartment,
+        phase: LifecyclePhase,
+    ) {
+        for m in self.mappings[compartment].values() {
+            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(compartment, m, phase);
         }
     }
 
@@ -303,8 +411,12 @@ impl RealTimeProcessor {
             // Feedback sent to FX output. Here we have to be more careful because sending feedback
             // to FX output involves host callback invocation. This can only be done from the VST
             // plug-in.
-            // TODO-medium Feedback tasks can queue up if VST processing stopped! Maybe we should
+            // TODO-high Feedback tasks can queue up if VST processing stopped! Maybe we should
             //  detect somehow if stopped and switch to audio hook in that case or stop sending?
+            //  I think we can detect this by processing suspend() and resume() and set some
+            //  variable (vst_processing_suspended). If it's inactive, we should use the audio hook
+            //  run to discard all feedback tasks. On resume, the VST processing should discard all
+            //  tasks which might still be left.
             Some(MidiFeedbackOutput::FxOutput) => Vst,
         }
     }
@@ -319,10 +431,17 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(v) => {
-                    self.feedback_midi(v, caller);
+                    self.send_midi_feedback(v, caller);
                 }
                 ClearFeedback => {
                     self.clear_feedback(caller);
+                }
+                SendLifecycleMidi(compartment, mapping_id, phase) => {
+                    if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                        if let Some(d) = m.lifecycle_midi_data(phase) {
+                            self.send_raw_midi_to_fx_output(d, caller);
+                        }
+                    }
                 }
             }
         }
@@ -335,7 +454,7 @@ impl RealTimeProcessor {
         //  over this MIDI output.
         for m in self.all_mappings() {
             if let Some(source_value) = m.zero_feedback_midi_source_value() {
-                self.feedback_midi(source_value, caller);
+                self.send_midi_feedback(source_value, caller);
             }
         }
     }
@@ -465,7 +584,7 @@ impl RealTimeProcessor {
                 .iter()
                 .flatten()
             {
-                self.send_midi_to_fx_output(*m, caller);
+                self.send_short_midi_to_fx_output(*m, caller);
             }
         }
     }
@@ -495,7 +614,7 @@ impl RealTimeProcessor {
             || (!matched && self.let_unmatched_events_through)
         {
             for m in msg.to_short_messages::<RawShortMessage>().iter() {
-                self.send_midi_to_fx_output(*m, caller);
+                self.send_short_midi_to_fx_output(*m, caller);
             }
         }
     }
@@ -579,7 +698,7 @@ impl RealTimeProcessor {
         if !self.let_matched_events_through {
             return;
         }
-        self.send_midi_to_fx_output(msg, caller);
+        self.send_short_midi_to_fx_output(msg, caller);
     }
 
     fn process_unmatched_short(&self, msg: RawShortMessage, caller: Caller) {
@@ -589,7 +708,7 @@ impl RealTimeProcessor {
         if !self.let_unmatched_events_through {
             return;
         }
-        self.send_midi_to_fx_output(msg, caller);
+        self.send_short_midi_to_fx_output(msg, caller);
     }
 
     fn is_consumed_by_at_least_one_source(&self, msg: RawShortMessage) -> bool {
@@ -597,7 +716,7 @@ impl RealTimeProcessor {
             .any(|m| m.control_is_effectively_on() && m.consumes(msg))
     }
 
-    fn feedback_midi(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
+    fn send_midi_feedback(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
         if let Some(output) = self.midi_feedback_output {
             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
@@ -606,7 +725,7 @@ impl RealTimeProcessor {
             match output {
                 MidiFeedbackOutput::FxOutput => {
                     for short in shorts.iter().flatten() {
-                        self.send_midi_to_fx_output(*short, caller);
+                        self.send_short_midi_to_fx_output(*short, caller);
                     }
                 }
                 MidiFeedbackOutput::Device(dev) => {
@@ -622,41 +741,106 @@ impl RealTimeProcessor {
         }
     }
 
-    fn send_midi_to_fx_output(&self, msg: RawShortMessage, caller: Caller) {
-        let host = if let Caller::Vst(h) = caller {
-            h
-        } else {
-            // We must not forward MIDI to VST output if this was called from the global audio hook.
-            // First, it could lead to strange effects because `HostCallback::process_events()` is
-            // supposed to be called only from the VST processing method.
-            // Second, it could even lead to a crash because the real-time processor is removed from
-            // the audio hook *after* the plug-in has been already unregistered, and then invoking
-            // the host callback (in particular dereferencing the AEffect) would be illegal.
-            // This is just a last safety check. Ideally, processing should stop before even calling
-            // this method.
-            panic!("send_midi_to_fx_output() should only be called from VST plug-in");
+    fn send_lifecycle_midi_to_feedback_output_from_audio_hook(
+        &self,
+        compartment: MappingCompartment,
+        m: &RealTimeMapping,
+        phase: LifecyclePhase,
+    ) {
+        if let Some(output) = self.midi_feedback_output {
+            match output {
+                MidiFeedbackOutput::FxOutput => {
+                    // We can't send it now because we don't have safe access to the host callback
+                    // because this method is being called from the audio hook.
+                    let _ =
+                        self.feedback_task_sender
+                            .send(FeedbackRealTimeTask::SendLifecycleMidi(
+                                compartment,
+                                m.id(),
+                                phase,
+                            ));
+                }
+                MidiFeedbackOutput::Device(dev) => {
+                    dev.with_midi_output(|mo| {
+                        if let Some(mo) = mo {
+                            if let Some(d) = m.lifecycle_midi_data(phase) {
+                                mo.send_msg(d, SendMidiTime::Instantly);
+                            }
+                        }
+                    });
+                }
+            };
+        }
+    }
+
+    fn send_raw_midi_to_fx_output(&self, data: &RawMidiData, caller: Caller) {
+        let host = match caller {
+            Caller::Vst(h) => h,
+            _ => return,
         };
-        let bytes = msg.to_bytes();
-        let mut event = MidiEvent {
-            event_type: EventType::Midi,
-            byte_size: std::mem::size_of::<MidiEvent>() as _,
-            delta_frames: 0,
-            flags: vst::api::MidiEventFlags::REALTIME_EVENT.bits(),
-            note_length: 0,
-            note_offset: 0,
-            midi_data: [bytes.0, bytes.1.get(), bytes.2.get()],
-            _midi_reserved: 0,
-            detune: 0,
-            note_off_velocity: 0,
-            _reserved1: 0,
-            _reserved2: 0,
-        };
-        let events = Events {
-            num_events: 1,
-            _reserved: 0,
-            events: [&mut event as *mut MidiEvent as _, null_mut()],
-        };
+        let event = build_sysex_midi_vst_event(data.bytes());
+        let events = build_vst_events(&event as *const _ as _);
         host.process_events(&events);
+    }
+
+    fn send_short_midi_to_fx_output(&self, msg: RawShortMessage, caller: Caller) {
+        let host = match caller {
+            Caller::Vst(h) => h,
+            _ => {
+                // We must not forward MIDI to VST output if this was called from the global audio
+                // hook. First, it could lead to strange effects because
+                // `HostCallback::process_events()` is supposed to be called only
+                // from the VST processing method. Second, it could even lead to a
+                // crash because the real-time processor is removed from
+                // the audio hook *after* the plug-in has been already unregistered, and then
+                // invoking the host callback (in particular dereferencing the
+                // AEffect) would be illegal. This is just a last safety check.
+                // Processing should stop before even calling this method.
+                return;
+            }
+        };
+        let event = build_short_midi_vst_event(msg);
+        let events = build_vst_events(&event as *const _ as _);
+        host.process_events(&events);
+    }
+}
+
+fn build_vst_events(event: *mut vst::api::Event) -> Events {
+    Events {
+        num_events: 1,
+        _reserved: 0,
+        events: [event, null_mut()],
+    }
+}
+
+fn build_sysex_midi_vst_event(bytes: &[u8]) -> SysExEvent {
+    SysExEvent {
+        event_type: EventType::SysEx,
+        byte_size: std::mem::size_of::<SysExEvent>() as _,
+        delta_frames: 0,
+        _flags: 0,
+        data_size: bytes.len() as _,
+        _reserved1: 0,
+        system_data: bytes as *const _ as _,
+        _reserved2: 0,
+    }
+}
+
+fn build_short_midi_vst_event(msg: RawShortMessage) -> MidiEvent {
+    let bytes = msg.to_bytes();
+    MidiEvent {
+        event_type: EventType::Midi,
+        byte_size: std::mem::size_of::<MidiEvent>() as _,
+        delta_frames: 0,
+        flags: vst::api::MidiEventFlags::REALTIME_EVENT.bits(),
+        note_length: 0,
+        note_offset: 0,
+        midi_data: [bytes.0, bytes.1.get(), bytes.2.get()],
+        _midi_reserved: 0,
+        detune: 0,
+        note_off_velocity: 0,
+        _reserved1: 0,
+        _reserved2: 0,
     }
 }
 
@@ -680,12 +864,12 @@ pub enum NormalRealTimeTask {
     /// This takes care of propagating target activation states (for non-virtual mappings).
     ///
     /// The given set contains *all* mappings whose target is active.
-    UpdateTargetActivations(MappingCompartment, HashSet<MappingId>),
+    UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
     /// Updates the activation state of multiple mappings (for non-virtual mappings).
     ///
     /// The given vector contains updates just for affected mappings. This is because when a
     /// parameter update occurs we can determine in a very granular way which targets are affected.
-    UpdateMappingActivations(MappingCompartment, Vec<MappingActivationUpdate>),
+    UpdateMappingActivations(MappingCompartment, Vec<ActivationChange>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource {
@@ -694,6 +878,7 @@ pub enum NormalRealTimeTask {
     DisableControl,
     ReturnToControlMode,
     UpdateControlIsGloballyEnabled(bool),
+    UpdateFeedbackIsGloballyEnabled(bool),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -721,15 +906,19 @@ impl MappingActivationEffect {
     }
 }
 
+/// Depending on the context this can be about mapping activation or target activation.
+///
+/// It's important that this reflects an actual change, otherwise the real-time processor might
+/// send lifecycle MIDI data in the wrong situations.
 #[derive(Copy, Clone, Debug)]
-pub struct MappingActivationUpdate {
+pub struct ActivationChange {
     pub id: MappingId,
     pub is_active: bool,
 }
 
-impl MappingActivationUpdate {
-    pub fn new(id: MappingId, is_active: bool) -> MappingActivationUpdate {
-        MappingActivationUpdate { id, is_active }
+impl ActivationChange {
+    pub fn new(id: MappingId, is_active: bool) -> ActivationChange {
+        ActivationChange { id, is_active }
     }
 }
 
@@ -744,6 +933,8 @@ pub enum FeedbackRealTimeTask {
     /// removal its `run*` function will still be called. See `RealearnAudioHook` comments for
     /// details.
     ClearFeedback,
+    // Used only if feedback output is <FX output>, otherwise done synchronously.
+    SendLifecycleMidi(MappingCompartment, MappingId, LifecyclePhase),
 }
 
 impl Drop for RealTimeProcessor {
