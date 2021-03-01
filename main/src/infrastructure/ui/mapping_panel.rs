@@ -193,10 +193,7 @@ impl MappingPanel {
                 return;
             }
         };
-        mapping
-            .borrow_mut()
-            .advanced_settings
-            .set(Some(yaml_mapping));
+        mapping.borrow_mut().advanced_settings.set(yaml_mapping);
     }
 
     pub fn notify_target_value_changed(
@@ -1148,6 +1145,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.mapping_header_panel.invalidate_controls();
         self.invalidate_mapping_prevent_echo_feedback_check_box();
         self.invalidate_mapping_send_feedback_after_control_check_box();
+        self.invalidate_mapping_advanced_settings_button();
         self.invalidate_source_controls();
         self.invalidate_target_controls();
         self.invalidate_mode_controls();
@@ -1171,6 +1169,17 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX);
         cb.set_checked(self.mapping.send_feedback_after_control.get());
+    }
+
+    fn invalidate_mapping_advanced_settings_button(&self) {
+        let cb = self.view.require_control(root::ID_MAPPING_ADVANCED_BUTTON);
+        let suffix = if let Some(m) = self.mapping.advanced_settings.get_ref() {
+            format!(" ({})", m.len())
+        } else {
+            "".to_owned()
+        };
+        let text = format!("Advanced settings {}", suffix);
+        cb.set_text(text);
     }
 
     fn invalidate_source_controls(&self) {
@@ -2061,6 +2070,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(self.mapping.send_feedback_after_control.changed(), |view| {
                 view.invalidate_mapping_send_feedback_after_control_check_box();
+            });
+        self.panel
+            .when_do_sync(self.mapping.advanced_settings.changed(), |view| {
+                view.invalidate_mapping_advanced_settings_button();
             });
         self.panel.when_do_sync(
             self.mapping
@@ -3237,7 +3250,7 @@ struct YamlParseError {
     entered_text: String,
 }
 
-fn edit_yaml(text: &str) -> Result<serde_yaml::mapping::Mapping, EditYamlError> {
+fn edit_yaml(text: &str) -> Result<Option<serde_yaml::mapping::Mapping>, EditYamlError> {
     let text = edit::edit_with_builder(
         text,
         edit::Builder::new()
@@ -3245,11 +3258,14 @@ fn edit_yaml(text: &str) -> Result<serde_yaml::mapping::Mapping, EditYamlError> 
             .suffix(".yaml"),
     )
     .map_err(EditYamlError::CouldNotGetText)?;
+    if text.trim().is_empty() {
+        return Ok(None);
+    }
     let yaml_mapping = serde_yaml::from_str(&text).map_err(|e| {
         EditYamlError::CouldNotParseText(YamlParseError {
             error: e,
             entered_text: text,
         })
     })?;
-    Ok(yaml_mapping)
+    Ok(Some(yaml_mapping))
 }

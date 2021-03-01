@@ -30,6 +30,8 @@ pub struct MappingModelData {
     prevent_echo_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     send_feedback_after_control: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    advanced: Option<serde_yaml::mapping::Mapping>,
 }
 
 impl MappingModelData {
@@ -50,6 +52,7 @@ impl MappingModelData {
             activation_condition_data: ActivationConditionData::from_model(
                 &model.activation_condition_model,
             ),
+            advanced: model.advanced_settings.get_ref().clone(),
         }
     }
 
@@ -104,5 +107,8 @@ impl MappingModelData {
         model
             .send_feedback_after_control
             .set_without_notification(self.send_feedback_after_control);
+        model
+            .advanced_settings
+            .set_without_notification(self.advanced.clone());
     }
 }
