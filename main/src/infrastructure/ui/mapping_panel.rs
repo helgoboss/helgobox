@@ -36,7 +36,9 @@ use crate::domain::{
     VirtualFx, VirtualTrack,
 };
 use itertools::Itertools;
+use serde_yaml::Mapping;
 use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
 use std::time::Duration;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
@@ -156,6 +158,45 @@ impl MappingPanel {
                 .expect("main view gone")
                 .force_scroll_to_mapping(id);
         }
+    }
+
+    fn edit_advanced_settings(&self) {
+        let mapping = self.mapping();
+        let mut advanced_settings_text: String = {
+            if let Some(settings) = mapping.borrow().advanced_settings.get_ref().as_ref() {
+                serde_yaml::to_string(settings).unwrap()
+            } else {
+                "".into()
+            }
+        };
+        let yaml_mapping = loop {
+            let error_msg = match edit_yaml(&advanced_settings_text) {
+                Ok(m) => break m,
+                Err(EditYamlError::CouldNotGetText(e)) => {
+                    match e.kind() {
+                        ErrorKind::NotFound => "Couldn't find text editor.".to_owned(),
+                        ErrorKind::InvalidData => {
+                            "File is not properly UTF-8 encoded. Either avoid any special characters or make sure you use UTF-8 encoding!".to_owned()
+                        }
+                        _ => e.to_string()
+                    }
+                }
+                Err(EditYamlError::CouldNotParseText(e)) => {
+                    advanced_settings_text = e.entered_text;
+                    e.error.to_string()
+                }
+            };
+            if !self.view.require_window().confirm(
+                "ReaLearn",
+                format!("Error: [{}]. Do you want to try again?", error_msg),
+            ) {
+                return;
+            }
+        };
+        mapping
+            .borrow_mut()
+            .advanced_settings
+            .set(Some(yaml_mapping));
     }
 
     pub fn notify_target_value_changed(
@@ -2868,6 +2909,9 @@ impl View for MappingPanel {
             ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX => {
                 self.write(|p| p.update_mapping_send_feedback_after_control())
             }
+            ID_MAPPING_ADVANCED_BUTTON => {
+                self.edit_advanced_settings();
+            }
             ID_MAPPING_FIND_IN_LIST_BUTTON => {
                 self.force_scroll_to_mapping_in_main_panel();
             }
@@ -3181,4 +3225,31 @@ fn get_text_right_to_target_edit_control(t: &CompoundMappingTarget, value: UnitV
     } else {
         format!("{}  {}", t.value_unit(), t.format_value(value))
     }
+}
+
+enum EditYamlError {
+    CouldNotGetText(std::io::Error),
+    CouldNotParseText(YamlParseError),
+}
+
+struct YamlParseError {
+    error: serde_yaml::Error,
+    entered_text: String,
+}
+
+fn edit_yaml(text: &str) -> Result<serde_yaml::mapping::Mapping, EditYamlError> {
+    let text = edit::edit_with_builder(
+        text,
+        edit::Builder::new()
+            .prefix("realearn-mapping-")
+            .suffix(".yaml"),
+    )
+    .map_err(EditYamlError::CouldNotGetText)?;
+    let yaml_mapping = serde_yaml::from_str(&text).map_err(|e| {
+        EditYamlError::CouldNotParseText(YamlParseError {
+            error: e,
+            entered_text: text,
+        })
+    })?;
+    Ok(yaml_mapping)
 }
