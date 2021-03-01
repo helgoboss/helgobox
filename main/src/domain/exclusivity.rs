@@ -12,7 +12,7 @@ pub trait HierarchyEntry: PartialEq {
 }
 
 pub fn handle_exclusivity<E: HierarchyEntry>(
-    provider: impl HierarchyEntryProvider<Entry = E>,
+    provider: &impl HierarchyEntryProvider<Entry = E>,
     exclusivity: TrackExclusivity,
     current_index: u32,
     current_entry: &E,
@@ -62,11 +62,11 @@ pub fn handle_exclusivity<E: HierarchyEntry>(
                         // Same level, maybe last track in folder
                         apply(i, &e);
                     }
+                    delta += e.folder_depth_change();
                     if delta < 0 {
                         // Last track in folder
                         break;
                     }
-                    delta += e.folder_depth_change();
                 }
             }
         }
@@ -76,14 +76,175 @@ pub fn handle_exclusivity<E: HierarchyEntry>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use maplit::hashset;
+    use std::collections::HashSet;
+    use {TestEntry as E, TestProvider as P};
 
-    #[test]
-    fn folder_scenario_1() {}
+    mod exclusive_folder {
+        use super::*;
+
+        #[test]
+        fn no_folders() {
+            // Given
+            let p = P(vec![E("-"), E("-"), E("-"), E("-")]);
+            // When
+            // Then
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                hashset![1, 2, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                hashset![0, 2, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                hashset![0, 1, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                hashset![0, 1, 2]
+            );
+        }
+
+        #[test]
+        fn top_folder() {
+            // Given
+            let p = P(vec![E("/"), E("-"), E("-"), E("-")]);
+            // When
+            // Then
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                hashset![2, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                hashset![1, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                hashset![1, 2]
+            );
+        }
+
+        #[test]
+        fn bottom_folder() {
+            // Given
+            let p = P(vec![E("-"), E("-"), E("-"), E("/")]);
+            // When
+            // Then
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                hashset![1, 2, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                hashset![0, 2, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                hashset![0, 1, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                hashset![0, 1, 2]
+            );
+        }
+
+        #[test]
+        fn top_next_folder() {
+            // Given
+            let p = P(vec![E("-"), E("/"), E("-"), E("-")]);
+            // When
+            // Then
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![1]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![0]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![3]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![2]);
+        }
+
+        #[test]
+        fn bottom_previous_folder() {
+            // Given
+            let p = P(vec![E("-"), E("-"), E("/"), E("-")]);
+            // When
+            // Then
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                hashset![1, 2]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                hashset![0, 2]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                hashset![0, 1]
+            );
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![]);
+        }
+
+        #[test]
+        fn small_flat_top_folder() {
+            // Given
+            let p = P(vec![E("/"), E(r#"\"#), E("-"), E("-")]);
+            // When
+            // Then
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                hashset![2, 3]
+            );
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                hashset![0, 3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                hashset![0, 2]
+            );
+        }
+
+        #[test]
+        fn large_flat_top_folder() {
+            // Given
+            let p = P(vec![E("/"), E("-"), E(r#"\"#), E("-")]);
+            // When
+            // Then
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![3]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![2]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![1]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![0]);
+        }
+
+        #[test]
+        fn large_nested_top_folder() {
+            // Given
+            let p = P(vec![E("/"), E("/"), E(r#"\\"#), E("-")]);
+            // When
+            // Then
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![3]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![0]);
+        }
+
+        #[test]
+        fn large_deeply_nested_top_folder() {
+            // Given
+            let p = P(vec![E("/"), E("/"), E("/"), E(r#"\\\"#), E("-")]);
+            // When
+            // Then
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![4]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![]);
+            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 4,), hashset![0]);
+        }
+    }
 
     struct TestProvider(Vec<TestEntry>);
-
-    #[derive(Copy, Clone, PartialEq)]
-    struct TestEntry(i32);
 
     impl HierarchyEntryProvider for TestProvider {
         type Entry = TestEntry;
@@ -97,9 +258,37 @@ mod tests {
         }
     }
 
+    #[derive(Copy, Clone, PartialEq)]
+    struct TestEntry(&'static str);
+
     impl HierarchyEntry for TestEntry {
         fn folder_depth_change(&self) -> i32 {
-            self.0
+            match self.0 {
+                "-" => 0,
+                "/" => 1,
+                r#"\"# => -1,
+                r#"\\"# => -2,
+                r#"\\\"# => -3,
+                _ => panic!("unknown entry symbol"),
+            }
         }
+    }
+
+    fn test(
+        provider: &TestProvider,
+        exclusivity: TrackExclusivity,
+        current_index: u32,
+    ) -> HashSet<u32> {
+        let mut affected_indexes = HashSet::new();
+        handle_exclusivity(
+            provider,
+            exclusivity,
+            current_index,
+            &provider.find_entry_by_index(current_index).unwrap(),
+            |i, _| {
+                affected_indexes.insert(i);
+            },
+        );
+        affected_indexes
     }
 }

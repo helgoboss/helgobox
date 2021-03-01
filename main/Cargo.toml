@@ -114,10 +114,18 @@ serde_with = "1.6.4"
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
 
+[dev-dependencies]
+# For creating HashSet literals in unit tests
+maplit = "1.0.2"
+
 [build-dependencies]
+# For making Git commit hash available to code
 built = { version = "0.4.3", features = ["git2", "chrono"] }
+# For generating bindings (for dialog resource IDs and EEL functions)
 bindgen = "0.52.0"
+# For compiling EEL and SWELL dialog resources
 cc = "1.0.50"
+# For embedding ResEdit files on Windows
 embed-resource = "1.3"
 
 [lib]

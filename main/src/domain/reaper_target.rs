@@ -2080,7 +2080,7 @@ fn handle_track_exclusivity(
         Some(i) => i,
     };
     handle_exclusivity(
-        track.project(),
+        &track.project(),
         exclusivity,
         track_index,
         track,
