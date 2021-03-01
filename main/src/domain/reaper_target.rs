@@ -24,7 +24,10 @@ use crate::domain::ui_util::{
     format_as_symmetric_percentage_without_unit, parse_from_double_percentage,
     parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
-use crate::domain::{AdditionalFeedbackEvent, DomainGlobal, RealearnTarget};
+use crate::domain::{
+    handle_exclusivity, AdditionalFeedbackEvent, DomainGlobal, HierarchyEntry,
+    HierarchyEntryProvider, RealearnTarget,
+};
 use std::convert::TryInto;
 use std::rc::Rc;
 
@@ -2046,69 +2049,41 @@ impl Default for TrackExclusivity {
     }
 }
 
+impl HierarchyEntryProvider for Project {
+    type Entry = Track;
+
+    fn find_entry_by_index(&self, index: u32) -> Option<Self::Entry> {
+        // TODO-medium This could be made faster by separating between heavy-weight and
+        //  light-weight tracks in reaper-rs.
+        self.track_by_index(index)
+    }
+
+    fn entry_count(&self) -> u32 {
+        self.track_count()
+    }
+}
+
+impl HierarchyEntry for Track {
+    fn folder_depth_change(&self) -> i32 {
+        self.folder_depth_change()
+    }
+}
+
 fn handle_track_exclusivity(
     track: &Track,
     exclusivity: TrackExclusivity,
     mut f: impl FnMut(&Track),
 ) {
-    use TrackExclusivity::*;
-    match exclusivity {
-        NonExclusive => {}
-        ExclusiveAll => {
-            // TODO-medium This could be made faster by separating between heavy-weight and
-            //  light-weight tracks in reaper-rs.
-            for t in track.project().tracks() {
-                if &t == track {
-                    continue;
-                }
-                f(&t);
-            }
-        }
-        ExclusiveFolder => {
-            let track_index = match track.index() {
-                // We consider the master track as its own folder (same as non-exclusive).
-                None => return,
-                Some(i) => i,
-            };
-            let project = track.project();
-            // At first look at tracks above
-            {
-                let mut delta = 0;
-                for i in (0..track_index).rev() {
-                    let t = project.track_by_index(i).unwrap();
-                    delta -= t.folder_depth_change();
-                    if delta < 0 {
-                        // Reached parent folder
-                        break;
-                    }
-                    if delta == 0 {
-                        // Same level
-                        f(&t);
-                    }
-                }
-            }
-            // Then look at current track and tracks below.
-            let current_track_depth_change = track.folder_depth_change();
-            if current_track_depth_change >= 0 {
-                // Current track is not the last one in the folder, so look further.
-                // delta will starts with 1 if the current track is a folder.
-                let mut delta = current_track_depth_change;
-                for i in (track_index + 1)..project.track_count() {
-                    let t = match project.track_by_index(i) {
-                        None => break,
-                        Some(t) => t,
-                    };
-                    if delta <= 0 {
-                        // Same level, maybe last track in folder
-                        f(&t);
-                    }
-                    if delta < 0 {
-                        // Last track in folder
-                        break;
-                    }
-                    delta += t.folder_depth_change();
-                }
-            }
-        }
-    }
+    let track_index = match track.index() {
+        // We consider the master track as its own folder (same as non-exclusive).
+        None => return,
+        Some(i) => i,
+    };
+    handle_exclusivity(
+        track.project(),
+        exclusivity,
+        track_index,
+        track,
+        |_, track| f(track),
+    );
 }
