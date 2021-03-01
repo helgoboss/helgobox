@@ -54,10 +54,21 @@ impl Display for MappingId {
 
 const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 
+#[derive(Clone, Debug)]
+pub enum LifecycleMidiMessage {
+    Short(RawShortMessage),
+    Raw(RawMidiData),
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct LifecycleMidiData {
+    pub activation_midi_messages: Vec<LifecycleMidiMessage>,
+    pub deactivation_midi_messages: Vec<LifecycleMidiMessage>,
+}
+
 #[derive(Debug)]
 pub struct MappingExtension {
-    pub activation_midi_data: Option<RawMidiData>,
-    pub deactivation_midi_data: Option<RawMidiData>,
+    pub lifecycle_midi_data: LifecycleMidiData,
 }
 
 // TODO-low The name is confusing. It should be MainThreadMapping or something because
@@ -113,8 +124,7 @@ impl MainMapping {
         RealTimeMapping {
             core: self.core.clone(),
             is_active: self.is_active(),
-            activation_midi_data: self.extension.activation_midi_data.take(),
-            deactivation_midi_data: self.extension.deactivation_midi_data.take(),
+            lifecycle_midi_data: std::mem::take(&mut self.extension.lifecycle_midi_data),
         }
     }
 
@@ -430,8 +440,7 @@ impl AsRef<raw::MIDI_event_t> for OwnedMidiEvent {
 pub struct RealTimeMapping {
     core: MappingCore,
     is_active: bool,
-    activation_midi_data: Option<RawMidiData>,
-    deactivation_midi_data: Option<RawMidiData>,
+    lifecycle_midi_data: LifecycleMidiData,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -452,19 +461,11 @@ impl RealTimeMapping {
         self.core.id
     }
 
-    pub fn activation_midi_data(&self) -> Option<&RawMidiData> {
-        self.activation_midi_data.as_ref()
-    }
-
-    pub fn deactivation_midi_data(&self) -> Option<&RawMidiData> {
-        self.deactivation_midi_data.as_ref()
-    }
-
-    pub fn lifecycle_midi_data(&self, phase: LifecyclePhase) -> Option<&RawMidiData> {
+    pub fn lifecycle_midi_messages(&self, phase: LifecyclePhase) -> &[LifecycleMidiMessage] {
         use LifecyclePhase::*;
         match phase {
-            Activation => self.activation_midi_data.as_ref(),
-            Deactivation => self.deactivation_midi_data.as_ref(),
+            Activation => &self.lifecycle_midi_data.activation_midi_messages,
+            Deactivation => &self.lifecycle_midi_data.deactivation_midi_messages,
         }
     }
 

@@ -9,9 +9,10 @@ use crate::application::{
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, MainMapping,
-    MappingCompartment, MappingExtension, MappingId, ProcessorContext, ProcessorMappingOptions,
-    RawMidiData, RealearnTarget, ReaperTarget, TargetCharacter,
+    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, LifecycleMidiData,
+    LifecycleMidiMessage, MainMapping, MappingCompartment, MappingExtension, MappingId,
+    ProcessorContext, ProcessorMappingOptions, RawMidiData, RealearnTarget, ReaperTarget,
+    TargetCharacter,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -181,14 +182,20 @@ impl MappingModel {
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
         let extension = MappingExtension {
-            activation_midi_data: RawMidiData::from_slice(&[
-                0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x01, 0xF7,
-            ])
-            .ok(),
-            deactivation_midi_data: RawMidiData::from_slice(&[
-                0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x14, 0xF7,
-            ])
-            .ok(),
+            lifecycle_midi_data: LifecycleMidiData {
+                activation_midi_messages: vec![LifecycleMidiMessage::Raw(
+                    RawMidiData::from_slice(&[
+                        0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x01, 0xF7,
+                    ])
+                    .unwrap(),
+                )],
+                deactivation_midi_messages: vec![LifecycleMidiMessage::Raw(
+                    RawMidiData::from_slice(&[
+                        0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x14, 0xF7,
+                    ])
+                    .unwrap(),
+                )],
+            },
         };
         MainMapping::new(
             id,

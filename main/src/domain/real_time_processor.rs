@@ -1,8 +1,8 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
-    MidiSourceScanner, NormalMainTask, PartialControlMatch, RawMidiData, RealTimeMapping,
-    VirtualSourceValue,
+    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
+    MidiMessageClassification, MidiSourceScanner, NormalMainTask, PartialControlMatch, RawMidiData,
+    RealTimeMapping, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
 use helgoboss_midi::{
@@ -440,9 +440,10 @@ impl RealTimeProcessor {
                 }
                 SendLifecycleMidi(compartment, mapping_id, phase) => {
                     if let Some(m) = self.mappings[compartment].get(&mapping_id) {
-                        if let Some(d) = m.lifecycle_midi_data(phase) {
-                            self.send_raw_midi_to_fx_output(d, caller);
-                        }
+                        self.send_lifecycle_midi_to_fx_output(
+                            m.lifecycle_midi_messages(phase),
+                            caller,
+                        );
                     }
                 }
             }
@@ -761,13 +762,29 @@ impl RealTimeProcessor {
                 MidiFeedbackOutput::Device(dev) => {
                     dev.with_midi_output(|mo| {
                         if let Some(mo) = mo {
-                            if let Some(d) = m.lifecycle_midi_data(phase) {
-                                mo.send_msg(d, SendMidiTime::Instantly);
+                            for m in m.lifecycle_midi_messages(phase) {
+                                match m {
+                                    LifecycleMidiMessage::Short(msg) => {
+                                        mo.send(*msg, SendMidiTime::Instantly);
+                                    }
+                                    LifecycleMidiMessage::Raw(data) => {
+                                        mo.send_msg(data, SendMidiTime::Instantly);
+                                    }
+                                }
                             }
                         }
                     });
                 }
             };
+        }
+    }
+
+    fn send_lifecycle_midi_to_fx_output(&self, messages: &[LifecycleMidiMessage], caller: Caller) {
+        for m in messages {
+            match m {
+                LifecycleMidiMessage::Short(msg) => self.send_short_midi_to_fx_output(*msg, caller),
+                LifecycleMidiMessage::Raw(data) => self.send_raw_midi_to_fx_output(data, caller),
+            }
         }
     }
 
