@@ -341,7 +341,9 @@ impl RealTimeProcessor {
         phase: LifecyclePhase,
     ) {
         for m in self.mappings[compartment].values() {
-            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(compartment, m, phase);
+            if m.feedback_is_effectively_on() {
+                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(compartment, m, phase);
+            }
         }
     }
 
