@@ -3,7 +3,7 @@ use crate::application::{
     WeakSession,
 };
 use crate::core::when;
-use crate::domain::MappingCompartment;
+use crate::domain::{MappingCompartment, ReaperTarget};
 
 use crate::core::Global;
 use crate::infrastructure::ui::bindings::root;
@@ -254,8 +254,7 @@ impl MappingRowPanel {
             mapping
                 .target_model
                 .changed()
-                // We also want to reflect track name changes immediately.
-                .merge(Global::control_surface_rx().track_name_changed().map_to(())),
+                .merge(ReaperTarget::potential_static_change_events()),
             |view| {
                 view.with_mapping(Self::invalidate_target_label);
             },
