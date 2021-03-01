@@ -75,7 +75,7 @@ impl RealearnPluginParameters {
         // Update parameters
         let parameters = session_data.parameters_as_array();
         self.parameter_main_task_sender
-            .send(ParameterMainTask::UpdateAllParameters(Box::new(parameters)))
+            .try_send(ParameterMainTask::UpdateAllParameters(Box::new(parameters)))
             .unwrap();
         *self.parameters_mut() = parameters;
         // Update session
@@ -194,7 +194,7 @@ impl PluginParameters for RealearnPluginParameters {
             // aware of this being called in another thread and it led to subtle errors of course
             // (https://github.com/helgoboss/realearn/issues/59).
             self.parameter_main_task_sender
-                .send(ParameterMainTask::UpdateParameter {
+                .try_send(ParameterMainTask::UpdateParameter {
                     index: index as _,
                     value,
                 })

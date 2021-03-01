@@ -51,7 +51,7 @@ impl RealearnTargetContext {
         self.fx_snapshot_chunk_hash_by_fx
             .insert(fx.clone(), chunk_hash);
         self.additional_feedback_event_sender
-            .send(AdditionalFeedbackEvent::FxSnapshotLoaded(
+            .try_send(AdditionalFeedbackEvent::FxSnapshotLoaded(
                 FxSnapshotLoadedEvent { fx },
             ))
             .unwrap();
@@ -65,7 +65,7 @@ impl RealearnTargetContext {
         self.touched_things
             .insert(TouchedThing::new(track, parameter_type));
         self.additional_feedback_event_sender
-            .send(
+            .try_send(
                 AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                     ParameterAutomationTouchStateChangedEvent {
                         track,
@@ -85,7 +85,7 @@ impl RealearnTargetContext {
         self.touched_things
             .remove(&TouchedThing::new(track, parameter_type));
         self.additional_feedback_event_sender
-            .send(
+            .try_send(
                 AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                     ParameterAutomationTouchStateChangedEvent {
                         track,

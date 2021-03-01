@@ -213,7 +213,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
-                        .send(NormalRealTimeTask::UpdateAllMappings(
+                        .try_send(NormalRealTimeTask::UpdateAllMappings(
                             compartment,
                             real_time_mappings,
                         ))
@@ -240,7 +240,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         }
                         // In some cases like closing projects, it's possible that this will fail
                         // because the real-time processor is already gone. But it doesn't matter.
-                        let _ = self.normal_real_time_task_sender.send(
+                        let _ = self.normal_real_time_task_sender.try_send(
                             NormalRealTimeTask::UpdateTargetActivations(
                                 compartment,
                                 activation_updates,
@@ -264,7 +264,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     mapping.refresh_all(&self.context, &self.parameters);
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
-                        .send(NormalRealTimeTask::UpdateSingleMapping(
+                        .try_send(NormalRealTimeTask::UpdateSingleMapping(
                             compartment,
                             Box::new(mapping.splinter_real_time_mapping()),
                         ))
@@ -423,7 +423,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     if self.context.is_on_monitoring_fx_chain() {
                         let parameter = self.context.containing_fx().parameter_by_index(index);
                         self.additional_feedback_event_sender
-                            .send(
+                            .try_send(
                                 AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
                                     RealearnMonitoringFxParameterValueChangedEvent {
                                         parameter,
@@ -555,7 +555,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // do the refresh in the next main loop cycle. This is what we always did, also when
             // this was still based on Rx!
             self.self_normal_sender
-                .send(NormalMainTask::RefreshAllTargets)
+                .try_send(NormalMainTask::RefreshAllTargets)
                 .unwrap();
         }
         self.process_feedback_related_reaper_event(|target| {
@@ -622,7 +622,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     pub fn notify_target_touched(&self) {
         self.self_feedback_sender
-            .send(FeedbackMainTask::TargetTouched)
+            .try_send(FeedbackMainTask::TargetTouched)
             .unwrap();
     }
 
@@ -709,7 +709,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
         // Communicate changes to real-time processor
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateMappingActivations(
+            .try_send(NormalRealTimeTask::UpdateMappingActivations(
                 compartment,
                 activation_updates,
             ))
@@ -789,7 +789,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.send_feedback(self.feedback_all_zero());
         } else {
             self.feedback_real_time_task_sender
-                .send(FeedbackRealTimeTask::ClearFeedback)
+                .try_send(FeedbackRealTimeTask::ClearFeedback)
                 .unwrap();
         }
     }
@@ -999,12 +999,14 @@ fn send_feedback_direct_virtual(
             Osc(msg) => {
                 if let Some(id) = osc_device_id {
                     osc_feedback_task_sender
-                        .send(OscFeedbackTask::new(*id, msg))
+                        .try_send(OscFeedbackTask::new(*id, msg))
                         .unwrap();
                 }
             }
             Midi(v) => {
-                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
+                rt_sender
+                    .try_send(FeedbackRealTimeTask::Feedback(v))
+                    .unwrap();
             }
             Virtual(virtual_source_value) => {
                 if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
@@ -1019,13 +1021,16 @@ fn send_feedback_direct_virtual(
                                         Midi(v) => {
                                             // TODO-low Maybe we should use the SmallVec here, too?
                                             rt_sender
-                                                .send(FeedbackRealTimeTask::Feedback(v))
+                                                .try_send(FeedbackRealTimeTask::Feedback(v))
                                                 .unwrap();
                                         }
                                         Osc(msg) => {
                                             if let Some(osc_device_id) = osc_device_id {
                                                 osc_feedback_task_sender
-                                                    .send(OscFeedbackTask::new(*osc_device_id, msg))
+                                                    .try_send(OscFeedbackTask::new(
+                                                        *osc_device_id,
+                                                        msg,
+                                                    ))
                                                     .unwrap();
                                             }
                                         }

@@ -491,12 +491,12 @@ impl Session {
         //  to pass the information through multiple processors whether we allow virtual sources.
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::StartLearnSource {
+            .try_send(NormalRealTimeTask::StartLearnSource {
                 allow_virtual_sources,
             })
             .unwrap();
         self.normal_main_task_sender
-            .send(NormalMainTask::StartLearnSource {
+            .try_send(NormalMainTask::StartLearnSource {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             })
@@ -506,10 +506,10 @@ impl Session {
         self.source_touched_subject.clone().finalize(move || {
             if reenable_control_after_touched {
                 rt_sender
-                    .send(NormalRealTimeTask::ReturnToControlMode)
+                    .try_send(NormalRealTimeTask::ReturnToControlMode)
                     .unwrap();
                 main_sender
-                    .send(NormalMainTask::ReturnToControlMode)
+                    .try_send(NormalMainTask::ReturnToControlMode)
                     .unwrap();
             }
         })
@@ -1041,19 +1041,19 @@ impl Session {
 
     fn disable_control(&self) {
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::DisableControl)
+            .try_send(NormalRealTimeTask::DisableControl)
             .unwrap();
         self.normal_main_task_sender
-            .send(NormalMainTask::DisableControl)
+            .try_send(NormalMainTask::DisableControl)
             .unwrap();
     }
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::ReturnToControlMode)
+            .try_send(NormalRealTimeTask::ReturnToControlMode)
             .unwrap();
         self.normal_main_task_sender
-            .send(NormalMainTask::ReturnToControlMode)
+            .try_send(NormalMainTask::ReturnToControlMode)
             .unwrap();
     }
 
@@ -1385,17 +1385,17 @@ impl Session {
 
     pub fn send_all_feedback(&self) {
         self.normal_main_task_sender
-            .send(NormalMainTask::FeedbackAll)
+            .try_send(NormalMainTask::FeedbackAll)
             .unwrap();
     }
 
     pub fn log_debug_info(&self) {
         self.log_debug_info_internal();
         self.normal_main_task_sender
-            .send(NormalMainTask::LogDebugInfo)
+            .try_send(NormalMainTask::LogDebugInfo)
             .unwrap();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::LogDebugInfo)
+            .try_send(NormalRealTimeTask::LogDebugInfo)
             .unwrap();
     }
 
@@ -1516,14 +1516,14 @@ impl Session {
             osc_input_device_id: self.osc_input_device_id.get(),
             osc_output_device_id: self.osc_output_device_id.get(),
         };
-        self.normal_main_task_sender.send(task).unwrap();
+        self.normal_main_task_sender.try_send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {
             let_matched_events_through: self.let_matched_events_through.get(),
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
             midi_control_input: self.midi_control_input.get(),
             midi_feedback_output: self.midi_feedback_output.get(),
         };
-        self.normal_real_time_task_sender.send(task).unwrap();
+        self.normal_real_time_task_sender.try_send(task).unwrap();
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
@@ -1533,7 +1533,7 @@ impl Session {
             .unwrap_or_default();
         let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
-            .send(NormalMainTask::UpdateSingleMapping(
+            .try_send(NormalMainTask::UpdateSingleMapping(
                 compartment,
                 Box::new(main_mapping),
             ))
@@ -1576,10 +1576,10 @@ impl Session {
     fn sync_control_is_globally_enabled(&self) {
         let enabled = self.control_is_globally_enabled();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
+            .try_send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
             .unwrap();
         self.normal_main_task_sender
-            .send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
+            .try_send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
             .unwrap();
     }
 
@@ -1587,10 +1587,10 @@ impl Session {
     fn sync_feedback_is_globally_enabled(&self) {
         let enabled = self.feedback_is_globally_enabled();
         self.normal_real_time_task_sender
-            .send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
+            .try_send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
             .unwrap();
         self.normal_main_task_sender
-            .send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
+            .try_send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
             .unwrap();
     }
 
@@ -1598,7 +1598,7 @@ impl Session {
     fn sync_all_mappings_full(&self, compartment: MappingCompartment) {
         let main_mappings = self.create_main_mappings(compartment);
         self.normal_main_task_sender
-            .send(NormalMainTask::UpdateAllMappings(
+            .try_send(NormalMainTask::UpdateAllMappings(
                 compartment,
                 main_mappings,
             ))

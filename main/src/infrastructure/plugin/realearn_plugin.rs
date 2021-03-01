@@ -275,7 +275,7 @@ impl Plugin for RealearnPlugin {
             // If task queue is full, don't spam user with error messages.
             let _ = self
                 .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+                .try_send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
     }
 
@@ -286,7 +286,7 @@ impl Plugin for RealearnPlugin {
             let _ = self
                 .normal_main_task_channel
                 .0
-                .send(NormalMainTask::FeedbackAll);
+                .try_send(NormalMainTask::FeedbackAll);
         });
     }
 }

@@ -594,7 +594,7 @@ impl RealTimeProcessor {
         // unregistered synchronously.
         let _ = self
             .normal_main_task_sender
-            .send(NormalMainTask::LearnMidiSource {
+            .try_send(NormalMainTask::LearnMidiSource {
                 source,
                 allow_virtual_sources,
             });
@@ -752,13 +752,9 @@ impl RealTimeProcessor {
                 MidiFeedbackOutput::FxOutput => {
                     // We can't send it now because we don't have safe access to the host callback
                     // because this method is being called from the audio hook.
-                    let _ =
-                        self.feedback_task_sender
-                            .send(FeedbackRealTimeTask::SendLifecycleMidi(
-                                compartment,
-                                m.id(),
-                                phase,
-                            ));
+                    let _ = self.feedback_task_sender.try_send(
+                        FeedbackRealTimeTask::SendLifecycleMidi(compartment, m.id(), phase),
+                    );
                 }
                 MidiFeedbackOutput::Device(dev) => {
                     dev.with_midi_output(|mo| {
@@ -1029,7 +1025,7 @@ fn forward_control_to_main_processor(
     };
     // If plug-in dropped, the receiver might be gone already because main processor is
     // unregistered synchronously.
-    let _ = sender.send(task);
+    let _ = sender.try_send(task);
 }
 
 /// Returns whether this source value matched one of the mappings.

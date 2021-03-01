@@ -421,13 +421,13 @@ impl App {
         main_processor: MainProcessor<WeakSession>,
     ) {
         self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::AddRealTimeProcessor(
+            .try_send(RealearnAudioHookTask::AddRealTimeProcessor(
                 instance_id,
                 real_time_processor,
             ))
             .unwrap();
         self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::AddMainProcessor(
+            .try_send(RealearnControlSurfaceMainTask::AddMainProcessor(
                 main_processor,
             ))
             .unwrap();
@@ -491,7 +491,7 @@ impl App {
     ///       output.
     fn unregister_real_time_processor(&self, instance_id: String) {
         self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::RemoveRealTimeProcessor(instance_id))
+            .try_send(RealearnAudioHookTask::RemoveRealTimeProcessor(instance_id))
             .unwrap();
     }
 
@@ -615,7 +615,7 @@ impl App {
         self.server.borrow().log_debug_info(session_id);
         self.controller_preset_manager.borrow().log_debug_info();
         self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::LogDebugInfo)
+            .try_send(RealearnControlSurfaceMainTask::LogDebugInfo)
             .unwrap();
         // Must be the last because it (intentionally) panics
         panic!("Backtrace");
@@ -807,7 +807,7 @@ impl App {
             "ReaLearn: Send feedback for all instances",
             move || {
                 control_surface_sender
-                    .send(RealearnControlSurfaceMainTask::SendAllFeedback)
+                    .try_send(RealearnControlSurfaceMainTask::SendAllFeedback)
                     .unwrap();
             },
             ActionKind::NotToggleable,
@@ -976,11 +976,11 @@ impl App {
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
-            .send(RealearnAudioHookTask::StopLearningSources)
+            .try_send(RealearnAudioHookTask::StopLearningSources)
             .unwrap();
         App::get()
             .control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::StopLearning)
+            .try_send(RealearnControlSurfaceMainTask::StopLearning)
             .unwrap();
     }
 
@@ -989,7 +989,7 @@ impl App {
     ) -> async_channel::Receiver<(MidiInputDeviceId, MidiSource)> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .send(RealearnAudioHookTask::StartLearningSources(sender))
+            .try_send(RealearnAudioHookTask::StartLearningSources(sender))
             .unwrap();
         receiver
     }
@@ -997,7 +997,7 @@ impl App {
     fn request_next_osc_sources(&self) -> async_channel::Receiver<(OscDeviceId, OscSource)> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::StartLearningSources(sender))
+            .try_send(RealearnControlSurfaceMainTask::StartLearningSources(sender))
             .unwrap();
         receiver
     }
@@ -1015,14 +1015,14 @@ impl App {
     fn stop_learning_targets() {
         App::get()
             .control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::StopLearning)
+            .try_send(RealearnControlSurfaceMainTask::StopLearning)
             .unwrap();
     }
 
     fn request_next_reaper_targets(&self) -> async_channel::Receiver<ReaperTarget> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
-            .send(RealearnControlSurfaceMainTask::StartLearningTargets(sender))
+            .try_send(RealearnControlSurfaceMainTask::StartLearningTargets(sender))
             .unwrap();
         receiver
     }
@@ -1374,7 +1374,7 @@ impl HookPostCommand for App {
     fn call(command_id: CommandId, _flag: i32) {
         App::get()
             .additional_feedback_event_sender
-            .send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+            .try_send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 command_id,
             }))
             .unwrap();
@@ -1394,7 +1394,7 @@ impl HookPostCommand2 for App {
         }
         App::get()
             .additional_feedback_event_sender
-            .send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
+            .try_send(AdditionalFeedbackEvent::ActionInvoked(ActionInvokedEvent {
                 command_id,
             }))
             .unwrap();
