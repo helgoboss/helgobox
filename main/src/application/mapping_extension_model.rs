@@ -18,10 +18,9 @@ struct LifecycleModel {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 enum LifecycleMidiMessageModel {
     Raw(RawMidiMessage),
-    Short(RawShortMessage),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -65,7 +64,6 @@ impl TryFrom<LifecycleMidiMessageModel> for LifecycleMidiMessage {
         use LifecycleMidiMessageModel::*;
         let message = match value {
             Raw(msg) => LifecycleMidiMessage::Raw(RawMidiData::try_from_slice(msg.bytes())?),
-            Short(msg) => LifecycleMidiMessage::Short(msg),
         };
         Ok(message)
     }
