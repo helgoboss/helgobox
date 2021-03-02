@@ -133,9 +133,6 @@ impl RealTimeProcessor {
 
     /// This should be regularly called by audio hook even during global MIDI source learning.
     pub fn run_from_audio_hook_essential(&mut self, sample_count: usize) {
-        if self.get_feedback_driver() == Driver::AudioHook {
-            self.process_feedback_tasks(Caller::AudioHook);
-        }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
@@ -318,6 +315,11 @@ impl RealTimeProcessor {
                     }
                 }
             }
+        }
+        // It's better to send feedback after processing the settings update - otherwise there's the
+        // danger that feedback it sent to the wrong device or not at all.
+        if self.get_feedback_driver() == Driver::AudioHook {
+            self.process_feedback_tasks(Caller::AudioHook);
         }
     }
 

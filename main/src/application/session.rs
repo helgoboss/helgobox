@@ -267,13 +267,16 @@ impl Session {
 
     fn initial_sync(&mut self, weak_session: WeakSession) {
         self.resubscribe_to_groups(weak_session.clone());
+        // It's important to sync feedback device first, otherwise the initial feedback messages
+        // won't arrive!
+        self.sync_settings();
+        self.sync_control_is_globally_enabled();
+        self.sync_feedback_is_globally_enabled();
+        // Now sync mappings - which includes initial feedback.
         for compartment in MappingCompartment::into_enum_iter() {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
-        self.sync_settings();
-        self.sync_control_is_globally_enabled();
-        self.sync_feedback_is_globally_enabled();
     }
 
     /// Connects the dots.
