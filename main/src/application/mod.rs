@@ -33,3 +33,6 @@ pub use conditional_activation_model::*;
 
 mod preset_link;
 pub use preset_link::*;
+
+mod mapping_extension_model;
+pub use mapping_extension_model::*;

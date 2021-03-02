@@ -4,17 +4,19 @@ use helgoboss_learn::{
 use rx_util::UnitEvent;
 
 use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionModel, GroupId, ModeModel, SourceModel,
-    TargetCategory, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionModel, GroupId, MappingExtensionModel,
+    ModeModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, LifecycleMidiData,
-    LifecycleMidiMessage, MainMapping, MappingCompartment, MappingExtension, MappingId,
-    ProcessorContext, ProcessorMappingOptions, RawMidiData, RealearnTarget, ReaperTarget,
-    TargetCharacter,
+    ActivationCondition, CompoundMappingTarget, DomainGlobal, ExtendedSourceCharacter,
+    LifecycleMidiData, LifecycleMidiMessage, MainMapping, MappingCompartment, MappingExtension,
+    MappingId, ProcessorContext, ProcessorMappingOptions, RawMidiData, RealearnTarget,
+    ReaperTarget, TargetCharacter,
 };
+use slog::warn;
 use std::cell::RefCell;
+use std::convert::TryInto;
 use std::rc::Rc;
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -157,11 +159,12 @@ impl MappingModel {
                 self.activation_condition_model
                     .changed_processing_relevant(),
             )
+            .merge(self.advanced_settings.changed())
     }
 
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
+    pub fn create_main_mapping(&self, group_data: GroupData, logger: &slog::Logger) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
@@ -181,22 +184,26 @@ impl MappingModel {
             prevent_echo_feedback: self.prevent_echo_feedback.get(),
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
-        let extension = MappingExtension {
-            lifecycle_midi_data: LifecycleMidiData {
-                activation_midi_messages: vec![LifecycleMidiMessage::Raw(
-                    RawMidiData::from_slice(&[
-                        0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x01, 0xF7,
-                    ])
-                    .unwrap(),
-                )],
-                deactivation_midi_messages: vec![LifecycleMidiMessage::Raw(
-                    RawMidiData::from_slice(&[
-                        0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42, 0x02, 0x00, 0x10, 0x77, 0x14, 0xF7,
-                    ])
-                    .unwrap(),
-                )],
-            },
-        };
+        // TODO-medium We should speed this up by doing it directly at change time or caching it.
+        let extension_model: MappingExtensionModel = self
+            .advanced_settings
+            .get_ref()
+            .clone()
+            .and_then(|yaml_mapping| {
+                match serde_yaml::from_value(serde_yaml::Value::Mapping(yaml_mapping)) {
+                    Ok(m) => Some(m),
+                    Err(e) => {
+                        warn!(
+                            logger,
+                            "error translating mapping";
+                            "mapping" => self.id().to_string(),
+                            "error" => e.to_string()
+                        );
+                        None
+                    }
+                }
+            })
+            .unwrap_or_default();
         MainMapping::new(
             id,
             source,
@@ -205,7 +212,7 @@ impl MappingModel {
             group_data.activation_condition,
             activation_condition,
             options,
-            extension,
+            extension_model.try_into().unwrap_or_default(),
         )
     }
 }

@@ -113,6 +113,8 @@ serde_with = "1.6.4"
 edit = "0.1.3"
 # For parsing/formatting advanced mapping settings
 serde_yaml = "0.8.17"
+# For parsing hexadecimal data notation to byte vector (for system-exclusive lifecycle MIDI messages)
+hex = "0.4.2"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

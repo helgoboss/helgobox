@@ -1531,7 +1531,7 @@ impl Session {
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
             .unwrap_or_default();
-        let main_mapping = m.create_main_mapping(group_data);
+        let main_mapping = m.create_main_mapping(group_data, &self.logger);
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateSingleMapping(
                 compartment,
@@ -1632,7 +1632,7 @@ impl Session {
                     .get(mapping.group_id.get_ref())
                     .map(|g| g.create_data())
                     .unwrap_or_default();
-                mapping.create_main_mapping(group_data)
+                mapping.create_main_mapping(group_data, &self.logger)
             })
             .collect()
     }

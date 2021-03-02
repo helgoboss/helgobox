@@ -66,9 +66,18 @@ pub struct LifecycleMidiData {
     pub deactivation_midi_messages: Vec<LifecycleMidiMessage>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MappingExtension {
-    pub lifecycle_midi_data: LifecycleMidiData,
+    /// If it's None, it means it's splintered already.
+    lifecycle_midi_data: Option<LifecycleMidiData>,
+}
+
+impl MappingExtension {
+    pub fn new(lifecycle_midi_data: LifecycleMidiData) -> Self {
+        Self {
+            lifecycle_midi_data: Some(lifecycle_midi_data),
+        }
+    }
 }
 
 // TODO-low The name is confusing. It should be MainThreadMapping or something because
@@ -124,7 +133,11 @@ impl MainMapping {
         RealTimeMapping {
             core: self.core.clone(),
             is_active: self.is_active(),
-            lifecycle_midi_data: std::mem::take(&mut self.extension.lifecycle_midi_data),
+            lifecycle_midi_data: self
+                .extension
+                .lifecycle_midi_data
+                .take()
+                .unwrap_or_default(),
         }
     }
 
@@ -373,8 +386,8 @@ pub struct RawMidiData {
 }
 
 impl RawMidiData {
-    pub fn from_slice(midi_message: &[u8]) -> Result<Self, &'static str> {
-        let evt = OwnedMidiEvent::from_slice(MidiFrameOffset::new(0), midi_message)?;
+    pub fn try_from_slice(midi_message: &[u8]) -> Result<Self, &'static str> {
+        let evt = OwnedMidiEvent::try_from_slice(MidiFrameOffset::new(0), midi_message)?;
         Ok(Self::new(evt))
     }
 
@@ -383,7 +396,7 @@ impl RawMidiData {
     }
 
     pub fn bytes(&self) -> &[u8] {
-        &self.midi_event.midi_message
+        &self.midi_event.bytes()
     }
 }
 
@@ -417,7 +430,7 @@ impl OwnedMidiEvent {
         }
     }
 
-    pub fn from_slice(
+    pub fn try_from_slice(
         frame_offset: MidiFrameOffset,
         midi_message: &[u8],
     ) -> Result<Self, &'static str> {
@@ -425,8 +438,15 @@ impl OwnedMidiEvent {
             return Err("given MIDI message too long");
         }
         let mut array = [0; MAX_RAW_MIDI_DATA_LENGTH];
+        // TODO-low I think copying from a slice is the only way to go. If we have an existing vec,
+        //  then REAPER's struct layout requires us to put something in front of the vec, which is
+        //  not easily possible without copying.
         array[..midi_message.len()].copy_from_slice(&midi_message);
         Ok(Self::new(frame_offset, midi_message.len() as _, array))
+    }
+
+    fn bytes(&self) -> &[u8] {
+        &self.midi_message[..self.size as usize]
     }
 }
 
