@@ -38,7 +38,7 @@ use crate::domain::{
 use itertools::Itertools;
 
 use std::collections::HashMap;
-use std::io::{ErrorKind};
+use std::io::ErrorKind;
 use std::time::Duration;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
