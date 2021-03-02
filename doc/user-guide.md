@@ -459,7 +459,8 @@ The header panel provides the following user interface elements, no matter if th
   automatically stop learning as soon as a target was touched. Press the **X** button to remove the
   filter and show all mappings again.
 
-Additionally, the header panel provides a context menu with the following entries:
+Additionally, the header panel provides a context menu (accessible via right-click on Windows and Linux, control-click
+on macOS) with the following entries:
 
 - **Options**
     - **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
@@ -608,7 +609,8 @@ helpful:
         - **&lt;Default&gt;:** Displays mappings that belong to the *default* group. This is where mappings
           end up if you don't care about grouping. This is a special group that can't be removed.
         - ***Custom group*:** Displays all mappings in your custom group.
-    - You can move existing mappings between groups by opening the context menu of the corresponding mapping row.
+    - You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows
+      and Linux, control-click on macOS) of the corresponding mapping row.
     - Groups are saved as part of the project, VST plug-in preset and compartment preset.
 - **Add:** Allows you to add a group and give it a specific name.
 - **Remove:** Removes the currently displayed group. It will ask you if you want to remove all the mappings in that
@@ -626,7 +628,8 @@ helpful:
   to it and will automatically load it. Whenever a non-linked FX gets focus, the mapping list is cleared so that
   no mapping is active anymore. Of course this makes sense only if you actually have linked some presets. Read on!
 
-The header context menu for the main mapping compartment contains the missing piece of the puzzle:
+The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main mapping
+compartment contains the missing piece of the puzzle:
 
 - **Link current preset to FX / Unlink current preset from FX:** This lets you link the currently active compartment
   preset with whatever FX window was focused before focusing ReaLearn. This only works if a preset is active and an
@@ -656,7 +659,8 @@ If a mapping is *off*, it doesn't have any effect.
       ReaLearn can't know if the value change notification is coming from the automation or your touch
       interaction. 
 
-Each mapping row provides a context menu, which lets you move this mapping to another mapping group.
+Each mapping row provides a context menu (accessible via right-click on Windows and Linux, control-click on macOS),
+which lets you move this mapping to another mapping group.
 
 ### Mapping panel
 

@@ -1829,7 +1829,7 @@ fn generate_osc_device_heading(device_count: usize) -> String {
     format!(
         "----  OSC  ----{}",
         if device_count == 0 {
-            " (add devices via context menu)"
+            " (add devices via right-click menu)"
         } else {
             ""
         }
