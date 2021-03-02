@@ -12,7 +12,7 @@ use helgoboss_midi::{
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
 use slog::debug;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::core::Global;
 use enum_iterator::IntoEnumIterator;
@@ -929,12 +929,6 @@ impl MappingActivationEffect {
 pub struct ActivationChange {
     pub id: MappingId,
     pub is_active: bool,
-}
-
-impl ActivationChange {
-    pub fn new(id: MappingId, is_active: bool) -> ActivationChange {
-        ActivationChange { id, is_active }
-    }
 }
 
 /// A feedback task (which is potentially sent very frequently).

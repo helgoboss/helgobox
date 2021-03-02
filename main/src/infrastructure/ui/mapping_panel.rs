@@ -36,9 +36,9 @@ use crate::domain::{
     VirtualFx, VirtualTrack,
 };
 use itertools::Itertools;
-use serde_yaml::Mapping;
+
 use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
+use std::io::{ErrorKind};
 use std::time::Duration;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 

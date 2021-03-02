@@ -9,12 +9,11 @@ use crate::application::{
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, DomainGlobal, ExtendedSourceCharacter,
-    LifecycleMidiData, LifecycleMidiMessage, MainMapping, MappingCompartment, MappingExtension,
-    MappingId, ProcessorContext, ProcessorMappingOptions, RawMidiData, RealearnTarget,
+    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, MainMapping,
+    MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
     ReaperTarget, TargetCharacter,
 };
-use slog::warn;
+
 use std::cell::RefCell;
 use std::convert::TryInto;
 use std::rc::Rc;
@@ -203,7 +202,11 @@ impl MappingModel {
 
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(&self, group_data: GroupData, logger: &slog::Logger) -> MainMapping {
+    pub fn create_main_mapping(
+        &self,
+        group_data: GroupData,
+        _logger: &slog::Logger,
+    ) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
