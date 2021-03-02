@@ -2095,6 +2095,27 @@ Works out of the box with above mentioned restrictions.
 - **Mackie Control**: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
   X-Touch's extra buttons. However, nothing prevents you from mapping those directly.
 
+### PreSonus FaderPort 8
+
+Works well, including 10-bit fader resolution and feedback for motorized faders and turning LEDs on/off.
+
+There's no specific support for the built-in displays yet. However, the owner's manual nicely describes what
+system-exclusive MIDI messages need to be sent to the device in order to change what's displayed. ReaLearn v2.5.0+
+supports sending system-exclusive MIDI messages whenever mappings get activated or deactivated, so in theory the
+displays could be operated. Future ReaLearn versions might make that easier. Same story with setting LED colors.
+
+#### Preparation
+
+Please start the device in "Studio One" operation mode. This mode should be the default. If not, press the first two
+Select buttons while powering the device on and then press the first Select button.
+
+MCU mode also works, but just partially and it doesn't offer complete customization of each control element. 
+
+#### Presets
+
+- **FaderPort 8**
+
+
 ### Hexler TouchOSC
 
 This is the OSC app which I used to test ReaLearn's OSC capabilities. It works both for control and feedback.
