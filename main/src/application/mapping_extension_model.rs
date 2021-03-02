@@ -20,15 +20,35 @@ struct LifecycleModel {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum LifecycleMidiMessageModel {
-    Raw(SysExMessage),
+    Raw(RawMidiMessage),
     Short(RawShortMessage),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(try_from = "String")]
-struct SysExMessage(Vec<u8>);
+#[serde(untagged)]
+enum RawMidiMessage {
+    HexString(RawHexStringMidiMessage),
+    ByteArray(RawByteArrayMidiMessage),
+}
 
-impl TryFrom<String> for SysExMessage {
+impl RawMidiMessage {
+    fn bytes(&self) -> &[u8] {
+        use RawMidiMessage::*;
+        match self {
+            HexString(msg) => &msg.0,
+            ByteArray(msg) => &msg.0,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(try_from = "String")]
+struct RawHexStringMidiMessage(Vec<u8>);
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RawByteArrayMidiMessage(Vec<u8>);
+
+impl TryFrom<String> for RawHexStringMidiMessage {
     type Error = hex::FromHexError;
 
     fn try_from(mut value: String) -> Result<Self, Self::Error> {
@@ -44,7 +64,7 @@ impl TryFrom<LifecycleMidiMessageModel> for LifecycleMidiMessage {
     fn try_from(value: LifecycleMidiMessageModel) -> Result<Self, Self::Error> {
         use LifecycleMidiMessageModel::*;
         let message = match value {
-            Raw(msg) => LifecycleMidiMessage::Raw(RawMidiData::try_from_slice(&msg.0)?),
+            Raw(msg) => LifecycleMidiMessage::Raw(RawMidiData::try_from_slice(msg.bytes())?),
             Short(msg) => LifecycleMidiMessage::Short(msg),
         };
         Ok(message)
