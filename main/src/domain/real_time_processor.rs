@@ -149,10 +149,10 @@ impl RealTimeProcessor {
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     // Handle lifecycle MIDI
-                    if self.midi_feedback_output.is_some() {
-                        if is_enabled != self.feedback_is_globally_enabled {
-                            self.send_lifecycle_midi_for_all_mappings(is_enabled.into());
-                        }
+                    if self.midi_feedback_output.is_some()
+                        && is_enabled != self.feedback_is_globally_enabled
+                    {
+                        self.send_lifecycle_midi_for_all_mappings(is_enabled.into());
                     }
                     // Set
                     self.feedback_is_globally_enabled = is_enabled;
@@ -254,10 +254,8 @@ impl RealTimeProcessor {
                     let feedback_output_changing =
                         midi_feedback_output != self.midi_feedback_output;
                     // Handle deactivation
-                    if self.processor_feedback_is_effectively_on() {
-                        if feedback_output_changing {
-                            self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Deactivation);
-                        }
+                    if self.processor_feedback_is_effectively_on() && feedback_output_changing {
+                        self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Deactivation);
                     }
                     // Update settings
                     self.let_matched_events_through = let_matched_events_through;
@@ -265,10 +263,8 @@ impl RealTimeProcessor {
                     self.midi_control_input = midi_control_input;
                     self.midi_feedback_output = midi_feedback_output;
                     // Handle activation
-                    if self.processor_feedback_is_effectively_on() {
-                        if feedback_output_changing {
-                            self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);
-                        }
+                    if self.processor_feedback_is_effectively_on() && feedback_output_changing {
+                        self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);
                     }
                 }
                 UpdateSampleRate(sample_rate) => {
@@ -768,7 +764,7 @@ impl RealTimeProcessor {
                                         mo.send(*msg, SendMidiTime::Instantly);
                                     }
                                     LifecycleMidiMessage::Raw(data) => {
-                                        mo.send_msg(data, SendMidiTime::Instantly);
+                                        mo.send_msg(&**data, SendMidiTime::Instantly);
                                     }
                                 }
                             }

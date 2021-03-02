@@ -58,7 +58,7 @@ const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 pub enum LifecycleMidiMessage {
     #[allow(unused)]
     Short(RawShortMessage),
-    Raw(RawMidiData),
+    Raw(Box<RawMidiData>),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -94,6 +94,7 @@ pub struct MainMapping {
 }
 
 impl MainMapping {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: MappingId,
         source: CompoundMappingSource,
@@ -453,7 +454,7 @@ impl OwnedMidiEvent {
 
 impl AsRef<raw::MIDI_event_t> for OwnedMidiEvent {
     fn as_ref(&self) -> &raw::MIDI_event_t {
-        unsafe { std::mem::transmute(self) }
+        unsafe { &*(self as *const OwnedMidiEvent as *const raw::MIDI_event_t) }
     }
 }
 

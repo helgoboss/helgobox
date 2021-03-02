@@ -1,6 +1,5 @@
 use crate::domain::{LifecycleMidiData, LifecycleMidiMessage, MappingExtension, RawMidiData};
 
-
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
@@ -63,7 +62,9 @@ impl TryFrom<LifecycleMidiMessageModel> for LifecycleMidiMessage {
     fn try_from(value: LifecycleMidiMessageModel) -> Result<Self, Self::Error> {
         use LifecycleMidiMessageModel::*;
         let message = match value {
-            Raw(msg) => LifecycleMidiMessage::Raw(RawMidiData::try_from_slice(msg.bytes())?),
+            Raw(msg) => {
+                LifecycleMidiMessage::Raw(Box::new(RawMidiData::try_from_slice(msg.bytes())?))
+            }
         };
         Ok(message)
     }
