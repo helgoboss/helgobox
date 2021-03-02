@@ -163,7 +163,7 @@ impl MappingPanel {
     fn edit_advanced_settings(&self) {
         let mapping = self.mapping();
         let mut advanced_settings_text: String = {
-            if let Some(settings) = mapping.borrow().advanced_settings.get_ref().as_ref() {
+            if let Some(settings) = mapping.borrow().advanced_settings() {
                 serde_yaml::to_string(settings).unwrap()
             } else {
                 "".into()
@@ -188,12 +188,21 @@ impl MappingPanel {
             };
             if !self.view.require_window().confirm(
                 "ReaLearn",
-                format!("Error: [{}]. Do you want to try again?", error_msg),
+                format!("Your settings don't appear to be valid YAML and therefore can't be saved:\n\n{}\n\nDo you want to try again?", error_msg),
             ) {
                 return;
             }
         };
-        mapping.borrow_mut().advanced_settings.set(yaml_mapping);
+        let result = { mapping.borrow_mut().set_advanced_settings(yaml_mapping) };
+        if let Err(e) = result {
+            self.view.require_window().alert(
+                "ReaLearn",
+                format!(
+                    "Your settings are valid YAML and will be saved but they contain the following error and therefore won't have any effect:\n\n{}",
+                    e
+                ),
+            );
+        };
     }
 
     pub fn notify_target_value_changed(
@@ -1173,7 +1182,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mapping_advanced_settings_button(&self) {
         let cb = self.view.require_control(root::ID_MAPPING_ADVANCED_BUTTON);
-        let suffix = if let Some(m) = self.mapping.advanced_settings.get_ref() {
+        let suffix = if let Some(m) = self.mapping.advanced_settings() {
             format!(" ({})", m.len())
         } else {
             "".to_owned()
@@ -2072,7 +2081,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mapping_send_feedback_after_control_check_box();
             });
         self.panel
-            .when_do_sync(self.mapping.advanced_settings.changed(), |view| {
+            .when_do_sync(self.mapping.advanced_settings_changed(), |view| {
                 view.invalidate_mapping_advanced_settings_button();
             });
         self.panel.when_do_sync(

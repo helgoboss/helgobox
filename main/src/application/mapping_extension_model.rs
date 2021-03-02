@@ -4,27 +4,27 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct MappingExtensionModel {
     on_activate: LifecycleModel,
     on_deactivate: LifecycleModel,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 struct LifecycleModel {
     send_midi_feedback: Vec<LifecycleMidiMessageModel>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum LifecycleMidiMessageModel {
     Raw(RawMidiMessage),
     Short(RawShortMessage),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 enum RawMidiMessage {
     HexString(RawHexStringMidiMessage),
@@ -41,11 +41,11 @@ impl RawMidiMessage {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "String")]
 struct RawHexStringMidiMessage(Vec<u8>);
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct RawByteArrayMidiMessage(Vec<u8>);
 
 impl TryFrom<String> for RawHexStringMidiMessage {

@@ -52,7 +52,7 @@ impl MappingModelData {
             activation_condition_data: ActivationConditionData::from_model(
                 &model.activation_condition_model,
             ),
-            advanced: model.advanced_settings.get_ref().clone(),
+            advanced: model.advanced_settings().cloned(),
         }
     }
 
@@ -107,8 +107,6 @@ impl MappingModelData {
         model
             .send_feedback_after_control
             .set_without_notification(self.send_feedback_after_control);
-        model
-            .advanced_settings
-            .set_without_notification(self.advanced.clone());
+        model.set_advanced_settings_without_notification(self.advanced.clone());
     }
 }

@@ -34,7 +34,8 @@ pub struct MappingModel {
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
-    pub advanced_settings: Prop<Option<serde_yaml::mapping::Mapping>>,
+    advanced_settings: Prop<Option<serde_yaml::mapping::Mapping>>,
+    extension_model: MappingExtensionModel,
 }
 
 pub type SharedMapping = Rc<RefCell<MappingModel>>;
@@ -85,11 +86,49 @@ impl MappingModel {
                 ..Default::default()
             },
             advanced_settings: prop(None),
+            extension_model: Default::default(),
         }
     }
 
     pub fn id(&self) -> MappingId {
         self.id
+    }
+
+    pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
+        self.advanced_settings.get_ref().as_ref()
+    }
+
+    pub fn set_advanced_settings(
+        &mut self,
+        value: Option<serde_yaml::Mapping>,
+    ) -> Result<(), String> {
+        self.advanced_settings.set(value);
+        self.update_extension_model_from_advanced_settings()?;
+        Ok(())
+    }
+
+    pub fn set_advanced_settings_without_notification(
+        &mut self,
+        value: Option<serde_yaml::Mapping>,
+    ) {
+        self.advanced_settings.set_without_notification(value);
+        let _ = self.update_extension_model_from_advanced_settings();
+    }
+
+    fn update_extension_model_from_advanced_settings(&mut self) -> Result<(), String> {
+        // Immediately update extension model
+        let extension_model = if let Some(yaml_mapping) = self.advanced_settings.get_ref() {
+            serde_yaml::from_value(serde_yaml::Value::Mapping(yaml_mapping.clone()))
+                .map_err(|e| e.to_string())?
+        } else {
+            Default::default()
+        };
+        self.extension_model = extension_model;
+        Ok(())
+    }
+
+    pub fn advanced_settings_changed(&self) -> impl UnitEvent {
+        self.advanced_settings.changed()
     }
 
     pub fn duplicate(&self) -> MappingModel {
@@ -184,26 +223,6 @@ impl MappingModel {
             prevent_echo_feedback: self.prevent_echo_feedback.get(),
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
-        // TODO-medium We should speed this up by doing it directly at change time or caching it.
-        let extension_model: MappingExtensionModel = self
-            .advanced_settings
-            .get_ref()
-            .clone()
-            .and_then(|yaml_mapping| {
-                match serde_yaml::from_value(serde_yaml::Value::Mapping(yaml_mapping)) {
-                    Ok(m) => Some(m),
-                    Err(e) => {
-                        warn!(
-                            logger,
-                            "error translating mapping";
-                            "mapping" => self.id().to_string(),
-                            "error" => e.to_string()
-                        );
-                        None
-                    }
-                }
-            })
-            .unwrap_or_default();
         MainMapping::new(
             id,
             source,
@@ -212,7 +231,7 @@ impl MappingModel {
             group_data.activation_condition,
             activation_condition,
             options,
-            extension_model.try_into().unwrap_or_default(),
+            self.extension_model.clone().try_into().unwrap_or_default(),
         )
     }
 }
