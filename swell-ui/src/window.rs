@@ -338,7 +338,15 @@ impl Window {
     }
 
     pub fn text(self) -> Result<String, &'static str> {
-        let (text, result) = with_string_buffer(256, |buffer, max_size| unsafe {
+        self.text_internal(256)
+    }
+
+    pub fn large_text(self) -> Result<String, &'static str> {
+        self.text_internal(20_000)
+    }
+
+    fn text_internal(self, max_size: u32) -> Result<String, &'static str> {
+        let (text, result) = with_string_buffer(max_size, |buffer, max_size| unsafe {
             Swell::get().GetWindowText(self.raw, buffer, max_size)
         });
         if result == 0 {

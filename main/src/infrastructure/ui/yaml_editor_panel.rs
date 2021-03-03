@@ -104,7 +104,7 @@ impl YamlEditorPanel {
     fn text(&self) -> String {
         self.view
             .require_control(root::ID_YAML_EDIT_CONTROL)
-            .text()
+            .large_text()
             .unwrap_or_default()
     }
 
@@ -155,7 +155,7 @@ impl View for YamlEditorPanel {
             raw::IDCANCEL => self.close(),
             root::ID_YAML_HELP_BUTTON => help(),
             root::ID_YAML_TEXT_EDITOR_BUTTON => self.open_in_text_editor(),
-            _ => unreachable!(),
+            _ => {}
         }
     }
 
