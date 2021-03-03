@@ -1719,13 +1719,20 @@ A mapping can change its active/inactive state based on the following factors:
   inactive when it's changed or unloaded.
 - **[Conditional activation](#conditional-activation):** A mapping can turn inactive when an activation condition
   is not satisfied anymore and can change back to active as soon as it's satisfied again.
+- **Target condition:** Targets can also have conditions (e.g. "Track must be selected"). They affect activation
+  state changes in the same way.
 - **Target validity:** A mapping can turn inactive when the target is not valid anymore, e.g. when it's a target that's
   based on the currently selected track but no track is currently selected. Analogously, it can turn active again once
   a valid target can be resolved.
 - **Feedback enabled checkbox:** A mapping can turn inactive as soon as this checkbox is unticked and turn active
-  again when ticking it. This is also the best way to test your configuration. 
+  again when ticking it. This is also the best way to test your configuration.
+
+(Controller) mappings with virtual targets are always considered active as long as the feedback checkbox is ticked.
+That's why they are perfectly suited for holding a bunch of controller initialization messages! This feature is
+for example used in the "PreSonus FaderPort Classic" controller preset, which needs to be put in a specific mode 
+before being usable. ReaLearn does this automatically simply by sending some mapping on-activate MIDI messages.
   
-These are the necessary configuration properties:
+These are the available configuration properties:
 
 ```yaml
 # Contains stuff to be done whenever this mapping becomes active.
