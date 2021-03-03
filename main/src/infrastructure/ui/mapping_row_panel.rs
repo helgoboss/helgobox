@@ -128,7 +128,7 @@ impl MappingRowPanel {
                     format!("{}\n({})", plain_label, first_mapping_name)
                 } else {
                     format!(
-                        "{}({} + {})",
+                        "{}\n({} + {})",
                         plain_label,
                         first_mapping_name,
                         mappings.len() - 1
