@@ -198,6 +198,7 @@ unsafe extern "C" fn view_dialog_proc(
                             // be the case.
                             1
                         }
+                        raw::EN_SETFOCUS => view.edit_control_focus_set(resource_id as _).into(),
                         raw::EN_KILLFOCUS => {
                             view.edit_control_focus_killed(resource_id as _).into()
                         }
@@ -229,6 +230,7 @@ unsafe extern "C" fn view_dialog_proc(
                     let distance = hiword_signed(wparam);
                     view.mouse_wheel_turned(distance as _).into()
                 }
+                raw::WM_KEYUP => view.key_up(wparam as _).into(),
                 raw::WM_CLOSE => {
                     let processed = view.close_requested();
                     if !processed {

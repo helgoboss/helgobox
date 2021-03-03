@@ -110,10 +110,26 @@ pub trait View {
         false
     }
 
+    /// WM_KEYUP. On macOS, a multi-line text field doesn't fire edit_control_changed but only this.
+    ///
+    /// Should return `true` if processed.
+    fn key_up(self: SharedView<Self>, _key_code: u8) -> bool {
+        false
+    }
+
     /// EN_CHANGE, LOWORD(wparam).
     ///
     /// Should return `true` if processed.
-    fn edit_control_changed(self: SharedView<Self>, _resource_id: u32) -> bool {
+    fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
+        let _ = resource_id;
+        false
+    }
+
+    /// EN_SETFOCUS, LOWORD(wparam).
+    ///
+    /// Should return `true` if processed.
+    fn edit_control_focus_set(self: SharedView<Self>, resource_id: u32) -> bool {
+        let _ = resource_id;
         false
     }
 
@@ -121,7 +137,7 @@ pub trait View {
     ///
     /// Should return `true` if processed.
     ///
-    /// Currently not fired on Linux!
+    /// Currently not fired on Linux and macOS!
     fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
         false
     }

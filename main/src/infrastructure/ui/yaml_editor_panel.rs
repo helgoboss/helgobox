@@ -159,11 +159,8 @@ impl View for YamlEditorPanel {
         }
     }
 
-    fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
-        match resource_id {
-            root::ID_YAML_EDIT_CONTROL => self.update_content(),
-            _ => return false,
-        };
+    fn key_up(self: SharedView<Self>, _key_code: u8) -> bool {
+        self.update_content();
         true
     }
 }
