@@ -110,7 +110,7 @@ rosc = "0.4.2"
 # For being able to (de)serialize using FromStr
 serde_with = "1.6.4"
 # For letting the user edit advanced mapping settings
-edit = "0.1.3"
+edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
 # For parsing/formatting advanced mapping settings
 serde_yaml = "0.8.17"
 # For parsing hexadecimal data notation to byte vector (for system-exclusive lifecycle MIDI messages)

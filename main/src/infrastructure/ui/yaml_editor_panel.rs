@@ -127,13 +127,6 @@ impl View for YamlEditorPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.invalidate_text_from_initial_content();
-        if cfg!(target_os = "macos") {
-            // "Open in text editor" doesn't work on macOS at the moment because it tries to open
-            // the command line editor and that fails. Can be fixed but feeling lazy.
-            window
-                .require_control(root::ID_YAML_TEXT_EDITOR_BUTTON)
-                .hide();
-        }
         true
     }
 

@@ -815,8 +815,7 @@ checksum = "134951f4028bdadb9b84baf4232681efbf277da25144b9b0ad65df75946c422b"
 [[package]]
 name = "edit"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cdd6936f8bd9782e28932eef853bfcd8548992ce5748bb3e7e88bad613d0ee0"
+source = "git+https://github.com/helgoboss/edit?branch=realearn#6d94fbbd4dbf346cf29d337c37560f5fc5eb9bcc"
 dependencies = [
  "tempfile",
  "which 4.0.2",
