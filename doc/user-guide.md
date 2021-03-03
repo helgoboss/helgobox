@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-02-26 (v2.4.0)</code></td>
+  <td><code>2021-03-03 (v2.5.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -719,6 +719,14 @@ This section provides the following mapping-related settings and functions:
   because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable"). By
   checking this checkbox, ReaLearn will send feedback whenever the target value change was caused
   by ReaLearn itself, which improves the situation at least a bit.
+- **Advanced settings:** This button is for experts. There are some advanced mapping-related settings in
+  ReaLearn that are not adjustable via its graphical user interface but only by writing text-based configuration.
+  Pressing this button should open a text editor in which you can write the configuration for this mapping.
+  As soon as you save the text file and close the text editor, ReaLearn will check the configuration that you
+  have entered and tell you if it's not correct. If the button label ends with a number, that number denotes the
+  number of top-level configuration properties set for that mapping. That way you can immediately see if a mapping
+  has advanced settings or not. You can learn more about the available properties in the section
+  [Advanced settings](#advanced-settings).
 - **Find in mapping list:** Scrolls the mapping rows panel so that the corresponding mapping row for
   this mapping gets visible.
   
@@ -1626,6 +1634,142 @@ In order to find these actions, open REAPER's *Actions* menu, choose *Show actio
   opens the mapping panel after having learned the mapping. This is great for subsequent fine tuning.
 - **ReaLearn: Learn source for last touched target (reassigning target):** This behaves similar to REAPER's built-in
   MIDI learn in that it always relates to the target that has been touched last.
+- **ReaLearn: Send feedback for all instances:** Makes each ReaLearn instance in all project tabs send feedback for all
+  mappings. That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but 
+  there are situations when it might come in handy.
+
+### Advanced settings
+
+This section describes the *Advanced settings* feature of the mapping panel (see section [Mapping](#mapping)) in more
+detail.
+
+#### The YAML language
+
+This feature allows you enter text that 
+conforms to the so-called [YAML](https://en.wikipedia.org/wiki/YAML) format. This is not a programming language, so you
+can't write loops, conditions or anything like that. Instead, think of it as a language for writing configuration. Do
+you know INI files? REAPER uses INI files to save configuration. YAML is a bit like that, just much more expressive 
+because it allows you to not only express flat key-value pairs (e.g. `edit_fontsize=29`) but also deeply nested
+configuration data and lists.
+
+**Important thing 1:** YAML is indentation-sensitive, so indentation matters! The bright side of this is that it always
+looks clean and nice. The dark side is that ReaLearn will refuse to save your settings if you messed up the indentation.
+Therefore: Be consistent with your indentation (e.g. use always an indentation of 2 spaces for nesting) and have an utmost
+attention to detail when doing copy and paste from the examples in this section!
+
+**Important thing 2:** When you close the text editor and ReaLearn saves your advanced settings as part of the mapping,
+it will not save the text that you have entered *verbatim*. It will save a structural representation of what you
+entered (and it will strip comments!). That means if you open the advanced settings again, your could text could look a
+bit different, in particular it can have a different formatting. But don't worry, it *means* exactly the same to
+ReaLearn.
+
+#### Why the hell did you come up with something like that?
+
+Deciding for textual configuration and YAML in particular was a conscious decision with the goal to provide a
+developer-friendly framework for rapidly extending ReaLearn with advanced features that don't urgently need a graphical
+user interface.
+
+- **Why ask the user to enter text instead of providing a convenient graphical user interface?**
+    - That's mostly a tradeoff due to the fact that my time available for developing ReaLearn is limited.
+    - It's much work to develop a graphical user interface for every feature. In fact, programming the user interface
+      often takes most of the time whereas implementing the actual logic is not that much effort.
+    - It's true that some sorts of functionality really benefit from having a fancy graphical user interface. But 
+      there's also functionality for which having it is not too important, e.g. functionality that is of configurational
+      nature and not used that often.
+    - Also, one of ReaLearn's goals is to give power users and programmers extra powers. Textual configuration can be
+      more powerful in many situations once the user knows how to go about it.  
+- **Why YAML?**
+    - YAML has the advantage of being popular among programmers, widely supported, highly structured and relatively
+      well readable/writable by both humans and machines.
+    - Many text editors offer built-in support for editing YAML.
+    - Makes it easy to provide data for even very complex features.
+- **Why not a scripting language?**
+    - Using a scripting language would spoil any future possibility to add a graphical user interface on top of some of
+      the functionality.
+    - It wouldn't allow ReaLearn to apply future optimizations and improvements. ReaLearn is rather declarative
+      in nature and a scripting language would destroy this quality.
+    - It's hard to come up with a stable and good API.
+    - It's harder to use than a configuration language.
+- **Why don't you save the text, just the structure?**
+    - Mostly because saving just the structure makes the entered data become a natural part of ReaLearn's main preset
+      format (JSON).
+    - However, this is something that might change in future, depending on how it proves itself in practice.
+    - Once we would start saving the actual text, it would be hard to go back.
+
+#### Supported configuration properties
+
+In this section you will find examples that cover all currently supported configuration properties. You can copy and
+paste the stuff you need to the text editor, remove the parts that you don't need and adjust the rest. Comments (lines
+starting with `#`) will be removed automatically.
+
+##### Mapping lifecycle actions
+
+ReaLearn allows you to define MIDI messages to be sent to the feedback output whenever a mapping turns active or
+inactive.
+
+Example use cases:
+
+- Accessing very device-specific featurs via system-exclusive MIDI messages.
+- Choosing a different LED color/style depending on the active mapping.
+- Initializing a sys-ex-controllable display with some mapping-specific text (more difficult).
+
+A mapping can change its active/inactive state based on the following factors:
+
+- **Preset loading/unloading:** A mapping can turn active when a ReaLearn instance or preset is loaded and turn
+  inactive when it's changed or unloaded.
+- **[Conditional activation](#conditional-activation):** A mapping can turn inactive when an activation condition
+  is not satisfied anymore and can change back to active as soon as it's satisfied again.
+- **Target validity:** A mapping can turn inactive when the target is not valid anymore, e.g. when it's a target that's
+  based on the currently selected track but no track is currently selected. Analogously, it can turn active again once
+  a valid target can be resolved.
+- **Feedback enabled checkbox:** A mapping can turn inactive as soon as this checkbox is unticked and turn active
+  again when ticking it. This is also the best way to test your configuration. 
+  
+These are the necessary configuration properties:
+
+```yaml
+# Contains stuff to be done whenever this mapping becomes active.
+on_activate:
+  # A list of MIDI messages to be sent to the feedback output when this mapping becomes active.
+  #
+  # At the moment, only messages of type "raw" are supported. Although this covers all possible types
+  # of MIDI messages, it's a bit hard to express e.g. simple NOTE ON or CC messages with this notation.
+  # In particular, you would need to know how MIDI messages are presented as byte sequences. Future ReaLearn
+  # versions will provide more convenient ways to describe simple MIDI messages.
+  send_midi_feedback:
+    # This is an example of a system-exclusive message ("SysEx"). It's usually expressed in hexadecimal string
+    # notation. Make sure to include the leading F0 and trailing F7, which is the begin and end marker of all
+    # system-exclusive messages!
+    - raw: F0 00 20 6B 7F 42 02 00 10 77 01 F7
+    # Instead of above hexadecimal string notation, you could also use an array of decimal numbers to describe a raw
+    # message. The following is a NOTE ON of note 74 on channel 1 with velocity 100.   
+    - raw:
+        # NOTE ON on channel 1
+        - 144
+        # Note number 74
+        - 74
+        # Note velocity 100
+        - 100
+
+# Contains stuff to be done whenever this mapping becomes inactive.
+on_deactivate:
+  # A list of MIDI messages to be sent to the feedback output when this mapping becomes inactive.
+  send_midi_feedback:
+    # Supports exactly the same kinds of messages as described above in "on_activate".
+    - raw: F0 00 20 6B 7F 42 02 00 10 77 14 F7
+```
+
+Please remember that YAML comments (e.g. `# The following line does this and that`) *will not be saved*! In case you
+want to explain something, you need to write it as YAML property, such as in the following example:
+
+```yaml
+comment: "The following configuration makes the rightmost pad of the MiniLab mkII light up in red color."
+on_activate:
+  send_midi_feedback:
+    - raw: F0 00 20 6B 7F 42 02 00 10 77 01 F7
+```
+
+ReaLearn will ignore any unknown properties.
 
 ## Companion app
 
