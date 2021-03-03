@@ -13,6 +13,7 @@
 #define ID_SHARED_GROUP_MAPPING_PANEL           132
 #define ID_GROUP_PANEL                          134
 #define IDR_ROW_PANEL_CONTEXT_MENU              136
+#define ID_YAML_EDITOR_PANEL                    139
 #define IDM_LOG_DEBUG_INFO                      40000
 #define IDM_MULTIS                              40000
 #define ID_ADD_MAPPING_BUTTON                   40000
@@ -20,6 +21,7 @@
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_MESSAGE_TEXT                         40000
 #define ID_TARGET_PICK_ACTION_BUTTON            40000
+#define ID_YAML_EDIT_INFO_TEXT                  40000
 #define IDM_BUTTONS                             40001
 #define IDM_SERVER_START                        40001
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
@@ -31,14 +33,17 @@
 #define ID_IMPORT_BUTTON                        40002
 #define ID_MAPPING_ROW_DUPLICATE_BUTTON         40002
 #define ID_SOURCE_CHANNEL_COMBO_BOX             40002
+#define ID_YAML_HELP_BUTTON                     40002
 #define IDM_SERVER_ADD_FIREWALL_RULE            40003
 #define ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX 40003
 #define ID_MAPPING_ROW_LEARN_SOURCE_BUTTON      40003
 #define ID_SOURCE_LEARN_BUTTON                  40003
+#define ID_YAML_TEXT_EDITOR_BUTTON              40003
 #define IDM_USER_GUIDE_OFFLINE                  40004
 #define ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX 40004
 #define ID_SOURCE_TYPE_COMBO_BOX                40004
 #define ID_UP_BUTTON                            40004
+#define ID_YAML_EDIT_CONTROL                    40004
 #define IDM_USER_GUIDE_ONLINE                   40005
 #define ID_EXPORT_BUTTON                        40005
 #define ID_MAPPING_ROW_SOURCE_LABEL_TEXT        40005

@@ -30,6 +30,9 @@ pub use session_message_panel::*;
 mod message_panel;
 pub use message_panel::*;
 
+mod yaml_editor_panel;
+pub use yaml_editor_panel::*;
+
 mod independent_panel_manager;
 pub use independent_panel_manager::*;
 

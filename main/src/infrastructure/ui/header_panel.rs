@@ -31,6 +31,7 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
+use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
     SharedIndependentPanelManager, SharedMainState,
@@ -1254,31 +1255,23 @@ impl HeaderPanel {
     }
 
     fn open_user_guide_online(&self) {
-        self.open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md");
+        open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md");
     }
 
     fn donate(&self) {
-        self.open_in_browser("https://paypal.me/helgoboss");
+        open_in_browser("https://paypal.me/helgoboss");
     }
 
     fn open_forum(&self) {
-        self.open_in_browser("https://forum.cockos.com/showthread.php?t=178015");
+        open_in_browser("https://forum.cockos.com/showthread.php?t=178015");
     }
 
     fn contact_developer(&self) {
-        self.open_in_browser("mailto:info@helgoboss.org");
+        open_in_browser("mailto:info@helgoboss.org");
     }
 
     fn open_website(&self) {
-        self.open_in_browser("https://www.helgoboss.org/projects/realearn/");
-    }
-
-    fn open_in_browser(&self, url: &str) {
-        if webbrowser::open(url).is_err() {
-            Reaper::get().show_console_msg(
-                format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
-            );
-        }
+        open_in_browser("https://www.helgoboss.org/projects/realearn/");
     }
 
     fn register_listeners(self: SharedView<Self>) {

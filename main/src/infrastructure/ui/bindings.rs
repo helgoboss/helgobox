@@ -15,6 +15,7 @@ pub mod root {
     pub const ID_SHARED_GROUP_MAPPING_PANEL: u32 = 132;
     pub const ID_GROUP_PANEL: u32 = 134;
     pub const IDR_ROW_PANEL_CONTEXT_MENU: u32 = 136;
+    pub const ID_YAML_EDITOR_PANEL: u32 = 139;
     pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
     pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
@@ -22,6 +23,7 @@ pub mod root {
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
     pub const ID_MESSAGE_TEXT: u32 = 40000;
     pub const ID_TARGET_PICK_ACTION_BUTTON: u32 = 40000;
+    pub const ID_YAML_EDIT_INFO_TEXT: u32 = 40000;
     pub const IDM_BUTTONS: u32 = 40001;
     pub const IDM_SERVER_START: u32 = 40001;
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
@@ -33,14 +35,17 @@ pub mod root {
     pub const ID_IMPORT_BUTTON: u32 = 40002;
     pub const ID_MAPPING_ROW_DUPLICATE_BUTTON: u32 = 40002;
     pub const ID_SOURCE_CHANNEL_COMBO_BOX: u32 = 40002;
+    pub const ID_YAML_HELP_BUTTON: u32 = 40002;
     pub const IDM_SERVER_ADD_FIREWALL_RULE: u32 = 40003;
     pub const ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX: u32 = 40003;
     pub const ID_MAPPING_ROW_LEARN_SOURCE_BUTTON: u32 = 40003;
     pub const ID_SOURCE_LEARN_BUTTON: u32 = 40003;
+    pub const ID_YAML_TEXT_EDITOR_BUTTON: u32 = 40003;
     pub const IDM_USER_GUIDE_OFFLINE: u32 = 40004;
     pub const ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX: u32 = 40004;
     pub const ID_SOURCE_TYPE_COMBO_BOX: u32 = 40004;
     pub const ID_UP_BUTTON: u32 = 40004;
+    pub const ID_YAML_EDIT_CONTROL: u32 = 40004;
     pub const IDM_USER_GUIDE_ONLINE: u32 = 40005;
     pub const ID_EXPORT_BUTTON: u32 = 40005;
     pub const ID_MAPPING_ROW_SOURCE_LABEL_TEXT: u32 = 40005;

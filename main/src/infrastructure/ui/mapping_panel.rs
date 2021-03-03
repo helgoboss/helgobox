@@ -1,6 +1,6 @@
-use crate::core::when;
+use crate::core::{notification, when};
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel};
+use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel};
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -38,7 +38,6 @@ use crate::domain::{
 use itertools::Itertools;
 
 use std::collections::HashMap;
-use std::io::ErrorKind;
 use std::time::Duration;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
 
@@ -51,6 +50,7 @@ pub struct MappingPanel {
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
+    advanced_settings_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
@@ -105,6 +105,7 @@ impl MappingPanel {
             )),
             is_invoked_programmatically: false.into(),
             sliders: None.into(),
+            advanced_settings_editor: Default::default(),
             party_is_over_subject: Default::default(),
         }
     }
@@ -162,47 +163,27 @@ impl MappingPanel {
 
     fn edit_advanced_settings(&self) {
         let mapping = self.mapping();
-        let mut advanced_settings_text: String = {
-            if let Some(settings) = mapping.borrow().advanced_settings() {
-                serde_yaml::to_string(settings).unwrap()
-            } else {
-                "".into()
-            }
-        };
-        let yaml_mapping = loop {
-            let error_msg = match edit_yaml(&advanced_settings_text) {
-                Ok(m) => break m,
-                Err(EditYamlError::CouldNotGetText(e)) => {
-                    match e.kind() {
-                        ErrorKind::NotFound => "Couldn't find text editor.".to_owned(),
-                        ErrorKind::InvalidData => {
-                            "File is not properly UTF-8 encoded. Either avoid any special characters or make sure you use UTF-8 encoding!".to_owned()
-                        }
-                        _ => e.to_string()
-                    }
-                }
-                Err(EditYamlError::CouldNotParseText(e)) => {
-                    advanced_settings_text = e.entered_text;
-                    e.error.to_string()
-                }
+        let yaml_mapping = { mapping.borrow().advanced_settings().cloned() };
+        let weak_mapping = Rc::downgrade(&mapping);
+        let editor = YamlEditorPanel::new(yaml_mapping, move |yaml_mapping| {
+            let m = match weak_mapping.upgrade() {
+                None => return,
+                Some(m) => m,
             };
-            if !self.view.require_window().confirm(
-                "ReaLearn",
-                format!("Your settings don't appear to be valid YAML and therefore can't be saved:\n\n{}\n\nDo you want to try again?", error_msg),
-            ) {
-                return;
-            }
-        };
-        let result = { mapping.borrow_mut().set_advanced_settings(yaml_mapping) };
-        if let Err(e) = result {
-            self.view.require_window().alert(
-                "ReaLearn",
-                format!(
-                    "Your settings are valid YAML and will be saved but they contain the following error and therefore won't have any effect:\n\n{}",
+            let result = { m.borrow_mut().set_advanced_settings(yaml_mapping) };
+            if let Err(e) = result {
+                notification::alert(format!(
+                    "Your advanced mapping settings have been applied and saved but they contain the following error and therefore won't have any effect:\n\n{}",
                     e
-                ),
-            );
+                ));
+            };
+        });
+        let editor = SharedView::new(editor);
+        let editor_clone = editor.clone();
+        if let Some(existing_editor) = self.advanced_settings_editor.replace(Some(editor)) {
+            existing_editor.close();
         };
+        editor_clone.open(self.view.require_window());
     }
 
     pub fn notify_target_value_changed(
@@ -227,6 +208,9 @@ impl MappingPanel {
         self.stop_party();
         self.view.require_window().hide();
         self.mapping.replace(None);
+        if let Some(p) = self.advanced_settings_editor.replace(None) {
+            p.close();
+        }
         self.mapping_header_panel.clear_item();
     }
 
@@ -3247,34 +3231,4 @@ fn get_text_right_to_target_edit_control(t: &CompoundMappingTarget, value: UnitV
     } else {
         format!("{}  {}", t.value_unit(), t.format_value(value))
     }
-}
-
-enum EditYamlError {
-    CouldNotGetText(std::io::Error),
-    CouldNotParseText(YamlParseError),
-}
-
-struct YamlParseError {
-    error: serde_yaml::Error,
-    entered_text: String,
-}
-
-fn edit_yaml(text: &str) -> Result<Option<serde_yaml::mapping::Mapping>, EditYamlError> {
-    let text = edit::edit_with_builder(
-        text,
-        edit::Builder::new()
-            .prefix("realearn-mapping-")
-            .suffix(".yaml"),
-    )
-    .map_err(EditYamlError::CouldNotGetText)?;
-    if text.trim().is_empty() {
-        return Ok(None);
-    }
-    let yaml_mapping = serde_yaml::from_str(&text).map_err(|e| {
-        EditYamlError::CouldNotParseText(YamlParseError {
-            error: e,
-            entered_text: text,
-        })
-    })?;
-    Ok(Some(yaml_mapping))
 }

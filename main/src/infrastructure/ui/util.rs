@@ -1,3 +1,4 @@
+use reaper_high::Reaper;
 use swell_ui::{DialogUnits, Dimensions};
 
 /// The optimal size of the main panel in dialog units.
@@ -125,5 +126,13 @@ pub mod view {
 
     fn rgb((r, g, b): (u8, u8, u8)) -> std::os::raw::c_int {
         Swell::RGB(r, g, b) as _
+    }
+}
+
+pub fn open_in_browser(url: &str) {
+    if webbrowser::open(url).is_err() {
+        Reaper::get().show_console_msg(
+            format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
+        );
     }
 }
