@@ -3036,6 +3036,11 @@ impl View for MappingPanel {
         };
     }
 
+    fn edit_control_focus_set(self: SharedView<Self>, resource_id: u32) -> bool {
+        println!("focus set {}", resource_id);
+        false
+    }
+
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
         if self.is_invoked_programmatically() {
             // We don't want to continue if the edit control change was not caused by the user.
@@ -3109,6 +3114,7 @@ impl View for MappingPanel {
     }
 
     fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
+        println!("focus killed {}", _resource_id);
         // This is also called when the window is hidden.
         // The edit control which is currently edited by the user doesn't get invalidated during
         // `edit_control_changed()`, for good reasons. But as soon as the edit control loses
