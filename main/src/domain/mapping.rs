@@ -54,14 +54,14 @@ impl Display for MappingId {
 
 const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum LifecycleMidiMessage {
     #[allow(unused)]
     Short(RawShortMessage),
     Raw(Box<RawMidiData>),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct LifecycleMidiData {
     pub activation_midi_messages: Vec<LifecycleMidiMessage>,
     pub deactivation_midi_messages: Vec<LifecycleMidiMessage>,
@@ -381,8 +381,7 @@ impl MainMapping {
 /// struct is more picky in that it needs offset and size directly in front of the raw data whereas
 /// the VST struct allows the data to be at a different address. That's why we need to follow the
 /// REAPER requirement.
-// TODO-high Can we skip this clone, please? See if RealTimeMapping can exist without it.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct RawMidiData {
     midi_event: OwnedMidiEvent,
 }
@@ -458,7 +457,7 @@ impl AsRef<raw::MIDI_event_t> for OwnedMidiEvent {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct RealTimeMapping {
     core: MappingCore,
     is_active: bool,
