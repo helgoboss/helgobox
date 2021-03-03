@@ -125,7 +125,7 @@ impl View for YamlEditorPanel {
         &self.view
     }
 
-    fn opened(self: SharedView<Self>, window: Window) -> bool {
+    fn opened(self: SharedView<Self>, _window: Window) -> bool {
         self.invalidate_text_from_initial_content();
         true
     }

@@ -350,6 +350,48 @@ impl MappingPanel {
             .with(Rc::downgrade(self))
             .do_sync(decorate_reaction(reaction));
     }
+
+    /// Returns self if not handled.
+    fn handle_potential_min_max_edit_control_change(
+        self: SharedView<Self>,
+        resource_id: u32,
+    ) -> Option<SharedView<Self>> {
+        use root::*;
+        match resource_id {
+            ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_target_value_from_edit_control());
+            }
+            ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_target_value_from_edit_control());
+            }
+            ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_jump_from_edit_control());
+            }
+            ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_jump_from_edit_control());
+            }
+            ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_source_value_from_edit_control());
+            }
+            ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_source_value_from_edit_control());
+            }
+            ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_step_from_edit_control());
+            }
+            ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_step_from_edit_control());
+            }
+            ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_min_length_from_edit_control());
+            }
+            ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL => {
+                self.write(|p| p.update_mode_max_length_from_edit_control());
+            }
+            _ => return Some(self),
+        };
+        None
+    }
 }
 
 fn decorate_reaction(
@@ -3036,11 +3078,6 @@ impl View for MappingPanel {
         };
     }
 
-    fn edit_control_focus_set(self: SharedView<Self>, resource_id: u32) -> bool {
-        println!("focus set {}", resource_id);
-        false
-    }
-
     fn edit_control_changed(self: SharedView<Self>, resource_id: u32) -> bool {
         if self.is_invoked_programmatically() {
             // We don't want to continue if the edit control change was not caused by the user.
@@ -3050,55 +3087,40 @@ impl View for MappingPanel {
             // dialog proc is not reentered - we are just reacting (async) to a change.
             return false;
         }
+        let view = if cfg!(target_os = "linux") {
+            // On Linux we handle the change immediately because SWELL on Linux doesn't support
+            // notification on focus kill.
+            match self.handle_potential_min_max_edit_control_change(resource_id) {
+                // Processed
+                None => return true,
+                // Not processed
+                Some(v) => v,
+            }
+        } else {
+            // On macOS and Windows we don't update the min/max values instantly but when leaving
+            // the edit field. This prevents annoying too clever behavior where e.g. entering the
+            // max value would "fix" a previously entered min value too soon.
+            self
+        };
         use root::*;
         match resource_id {
             // Source
             ID_SOURCE_NUMBER_EDIT_CONTROL => {
-                self.write(|p| p.update_source_parameter_number_message_number());
+                view.write(|p| p.update_source_parameter_number_message_number());
             }
             ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL => {
-                self.write(|p| p.update_source_osc_address_pattern());
+                view.write(|p| p.update_source_osc_address_pattern());
             }
             // Mode
-            ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_target_value_from_edit_control());
-            }
-            ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_target_value_from_edit_control());
-            }
-            ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_jump_from_edit_control());
-            }
-            ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_jump_from_edit_control());
-            }
-            ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_source_value_from_edit_control());
-            }
-            ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_source_value_from_edit_control());
-            }
-            ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_step_from_edit_control());
-            }
-            ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_step_from_edit_control());
-            }
-            ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_length_from_edit_control());
-            }
-            ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_length_from_edit_control());
-            }
             ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_eel_control_transformation());
+                view.write(|p| p.update_mode_eel_control_transformation());
             }
             ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_eel_feedback_transformation());
+                view.write(|p| p.update_mode_eel_feedback_transformation());
             }
             // Target
             ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (target, value) = self.write(|p| {
+                let (target, value) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                         .unwrap_or(UnitValue::MIN);
@@ -3113,8 +3135,12 @@ impl View for MappingPanel {
         true
     }
 
-    fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
-        println!("focus killed {}", _resource_id);
+    // This is not called on Linux anyway, so this guard is just for making sure that nothing breaks
+    // or is done two times if SWELL supports focus kill notification at some point on Linux.
+    #[cfg(not(target_os = "linux"))]
+    fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        let view = self.clone();
+        self.handle_potential_min_max_edit_control_change(resource_id);
         // This is also called when the window is hidden.
         // The edit control which is currently edited by the user doesn't get invalidated during
         // `edit_control_changed()`, for good reasons. But as soon as the edit control loses
@@ -3122,7 +3148,7 @@ impl View for MappingPanel {
         // entered an invalid value. Because we are lazy and edit controls are not
         // manipulated very frequently, we just invalidate all controls.
         // If this fails (because the mapping is not filled anymore), it's not a problem.
-        let _ = self.read(|p| {
+        let _ = view.read(|p| {
             p.invalidate_all_controls();
         });
         false

@@ -140,7 +140,7 @@ pub trait View {
     ///
     /// Should return `true` if processed.
     ///
-    /// Currently not fired on Linux and macOS!
+    /// Currently not fired on Linux!
     fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
         false
     }
