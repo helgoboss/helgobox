@@ -338,7 +338,7 @@ CAPTION "Advanced mapping settings"
 FONT 8, "Ms Shell Dlg"
 BEGIN
     PUSHBUTTON      "Open in text editor", ID_YAML_TEXT_EDITOR_BUTTON, 371, 291, 68, 14, 0, WS_EX_LEFT
-    EDITTEXT        ID_YAML_EDIT_CONTROL, 0, 0, 490, 284, ES_AUTOHSCROLL | ES_MULTILINE | ES_WANTRETURN, WS_EX_LEFT
+    EDITTEXT        ID_YAML_EDIT_CONTROL, 0, 0, 490, 284, WS_VSCROLL | ES_MULTILINE | ES_WANTRETURN, WS_EX_LEFT
     PUSHBUTTON      "Help", ID_YAML_HELP_BUTTON, 445, 291, 40, 14, 0, WS_EX_LEFT
     LTEXT           "Foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla foo bla", ID_YAML_EDIT_INFO_TEXT, 5, 294, 355, 9, SS_LEFT, WS_EX_LEFT
 END
