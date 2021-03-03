@@ -12,7 +12,7 @@ use crate::domain::{
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    OscDeviceManager, SharedControllerPresetManager, SharedMainPresetManager,
+    OscDevice, OscDeviceManager, SharedControllerPresetManager, SharedMainPresetManager,
     SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
@@ -572,6 +572,21 @@ impl App {
 
     pub fn osc_device_manager(&self) -> SharedOscDeviceManager {
         self.osc_device_manager.clone()
+    }
+
+    pub fn do_with_osc_device(&self, dev_id: OscDeviceId, f: impl FnOnce(&mut OscDevice)) {
+        let mut dev = App::get()
+            .osc_device_manager()
+            .borrow()
+            .find_device_by_id(&dev_id)
+            .unwrap()
+            .clone();
+        f(&mut dev);
+        App::get()
+            .osc_device_manager()
+            .borrow_mut()
+            .update_device(dev)
+            .unwrap();
     }
 
     pub fn server(&self) -> &SharedRealearnServer {

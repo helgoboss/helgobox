@@ -146,6 +146,8 @@ pub struct OscDevice {
     device_host: Option<Ipv4Addr>,
     #[serde(default, skip_serializing_if = "is_default")]
     device_port: Option<u16>,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    can_deal_with_bundles: bool,
     #[serde(skip)]
     has_output_connection_problem: bool,
 }
@@ -160,6 +162,7 @@ impl Default for OscDevice {
             local_port: None,
             device_host: None,
             device_port: None,
+            can_deal_with_bundles: true,
             has_input_connection_problem: false,
             has_output_connection_problem: false,
         }
@@ -198,6 +201,7 @@ impl OscDevice {
                 self.device_port.ok_or("local port not specified")?,
             ),
             App::logger().new(slog::o!("struct" => "OscOutputDevice", "id" => self.id.to_string())),
+            self.can_deal_with_bundles,
         )
     }
 
@@ -237,6 +241,10 @@ impl OscDevice {
         self.is_enabled_for_feedback
     }
 
+    pub fn can_deal_with_bundles(&self) -> bool {
+        self.can_deal_with_bundles
+    }
+
     pub fn input_status(&self) -> OscDeviceStatus {
         use OscDeviceStatus::*;
         if !self.is_configured_for_input() {
@@ -264,6 +272,7 @@ impl OscDevice {
         }
         Connected
     }
+
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -286,6 +295,10 @@ impl OscDevice {
 
     pub fn toggle_feedback(&mut self) {
         self.is_enabled_for_feedback = !self.is_enabled_for_feedback;
+    }
+
+    pub fn toggle_can_deal_with_bundles(&mut self) {
+        self.can_deal_with_bundles = !self.can_deal_with_bundles;
     }
 }
 

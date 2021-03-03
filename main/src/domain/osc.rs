@@ -122,10 +122,7 @@ impl OscFeedbackHandler {
             .group_by(|task| task.dev_id);
         for (dev_id, group) in grouped_by_device.into_iter() {
             if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
-                // Haven't realized a performance difference between sending a bundle or single
-                // messages. However, REAPER sends a bundle (maybe in order to use time tags).
-                // Let's do it, too.
-                let _ = dev.send_as_bundle(group.map(|task| task.msg));
+                let _ = dev.send(group.map(|task| task.msg));
             }
         }
     }
@@ -200,6 +197,7 @@ pub struct OscOutputDevice {
     id: OscDeviceId,
     socket: UdpSocket,
     logger: slog::Logger,
+    can_deal_with_bundles: bool,
 }
 
 impl OscOutputDevice {
@@ -207,10 +205,16 @@ impl OscOutputDevice {
         id: OscDeviceId,
         addr: impl ToSocketAddrs,
         logger: slog::Logger,
+        can_deal_with_bundles: bool,
     ) -> Result<OscOutputDevice, Box<dyn Error>> {
         let socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))?;
         socket.connect(addr)?;
-        let dev = OscOutputDevice { id, socket, logger };
+        let dev = OscOutputDevice {
+            id,
+            socket,
+            logger,
+            can_deal_with_bundles,
+        };
         Ok(dev)
     }
 
@@ -218,7 +222,18 @@ impl OscOutputDevice {
         self.id
     }
 
-    pub fn send_as_bundle(
+    pub fn send(&self, messages: impl Iterator<Item = OscMessage>) -> Result<(), &'static str> {
+        if self.can_deal_with_bundles {
+            // Haven't realized a performance difference between sending a bundle or single
+            // messages. However, REAPER sends a bundle (maybe in order to use time tags).
+            // Let's do it, too, if the device supports it.
+            self.send_as_bundle(messages)
+        } else {
+            self.send_as_messages(messages)
+        }
+    }
+
+    fn send_as_bundle(
         &self,
         messages: impl Iterator<Item = OscMessage>,
     ) -> Result<(), &'static str> {
@@ -239,6 +254,27 @@ impl OscOutputDevice {
         self.socket
             .send(&bytes)
             .map_err(|_| "error trying to send OSC bundle packet")?;
+        Ok(())
+    }
+
+    fn send_as_messages(
+        &self,
+        messages: impl Iterator<Item = OscMessage>,
+    ) -> Result<(), &'static str> {
+        for m in messages {
+            let packet = OscPacket::Message(m);
+            let bytes = rosc::encoder::encode(&packet)
+                .map_err(|_| "error trying to encode OSC message packet")?;
+            trace!(
+                self.logger,
+                "Sending message packet with {} bytes: {:#?}",
+                bytes.len(),
+                &packet
+            );
+            self.socket
+                .send(&bytes)
+                .map_err(|_| "error trying to send OSC message packet")?;
+        }
         Ok(())
     }
 }

@@ -1600,7 +1600,7 @@ impl View for HeaderPanel {
                     menu(
                         dev.name(),
                         vec![
-                            item("Edit...", move || edit_existing_osc_device(&dev_id)),
+                            item("Edit...", move || edit_existing_osc_device(dev_id)),
                             item("Remove", move || remove_osc_device(parent_window, dev_id)),
                             item_with_opts(
                                 "Enabled for control",
@@ -1608,7 +1608,9 @@ impl View for HeaderPanel {
                                     enabled: true,
                                     checked: dev.is_enabled_for_control(),
                                 },
-                                move || toggle_control_for_osc_device(dev_id),
+                                move || {
+                                    App::get().do_with_osc_device(dev_id, |d| d.toggle_control())
+                                },
                             ),
                             item_with_opts(
                                 "Enabled for feedback",
@@ -1616,7 +1618,21 @@ impl View for HeaderPanel {
                                     enabled: true,
                                     checked: dev.is_enabled_for_feedback(),
                                 },
-                                move || toggle_feedback_for_osc_device(dev_id),
+                                move || {
+                                    App::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
+                                },
+                            ),
+                            item_with_opts(
+                                "Can deal with OSC bundles",
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: dev.can_deal_with_bundles(),
+                                },
+                                move || {
+                                    App::get().do_with_osc_device(dev_id, |d| {
+                                        d.toggle_can_deal_with_bundles()
+                                    })
+                                },
                             ),
                         ],
                     )
@@ -1849,11 +1865,11 @@ fn edit_new_osc_device() {
         .unwrap();
 }
 
-fn edit_existing_osc_device(dev_id: &OscDeviceId) {
+fn edit_existing_osc_device(dev_id: OscDeviceId) {
     let dev = App::get()
         .osc_device_manager()
         .borrow()
-        .find_device_by_id(dev_id)
+        .find_device_by_id(&dev_id)
         .unwrap()
         .clone();
     let dev = match edit_osc_device(dev) {
@@ -1861,36 +1877,6 @@ fn edit_existing_osc_device(dev_id: &OscDeviceId) {
         Err(EditOscDevError::Cancelled) => return,
         res => res.unwrap(),
     };
-    App::get()
-        .osc_device_manager()
-        .borrow_mut()
-        .update_device(dev)
-        .unwrap();
-}
-
-fn toggle_control_for_osc_device(dev_id: OscDeviceId) {
-    let mut dev = App::get()
-        .osc_device_manager()
-        .borrow()
-        .find_device_by_id(&dev_id)
-        .unwrap()
-        .clone();
-    dev.toggle_control();
-    App::get()
-        .osc_device_manager()
-        .borrow_mut()
-        .update_device(dev)
-        .unwrap();
-}
-
-fn toggle_feedback_for_osc_device(dev_id: OscDeviceId) {
-    let mut dev = App::get()
-        .osc_device_manager()
-        .borrow()
-        .find_device_by_id(&dev_id)
-        .unwrap()
-        .clone();
-    dev.toggle_feedback();
     App::get()
         .osc_device_manager()
         .borrow_mut()

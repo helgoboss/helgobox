@@ -518,6 +518,17 @@ on macOS) with the following entries:
         - All OSC device configurations will be saved in the REAPER resource directory 
           (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) in the JSON file
           `Helgoboss/ReaLearn/osc.json`.
+    - ***Some device***
+        - **Edit:** Lets you edit an existing device (see *&lt;New&gt;*).
+        - **Remove:** Removes the device. This is a global action. As a consequence, all existing ReaLearn instances
+          which use this device will point to a device that doesn't exist anymore.
+        - **Enabled for control:** If you disable this, ReaLearn will stop listening to this device. This can save
+          resources, so you should do this with each device that is not in use (as an alternative for removing it
+          forever).
+        - **Enabled for feedback:** If you disable this, ReaLearn won't connect to this device.
+        - **Can deal with bundles:** By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
+          Some devices (e.g. from Behringer) can't deal with OSC bundles. Untick the checkbox in this case and ReaLearn
+          will send single OSC messages.
 - **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
   investigating bugs or understanding how this plug-in works.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
@@ -2281,3 +2292,12 @@ and sets the other unchanged values to `Nil`.
 There are no ReaLearn controller presets for TouchOSC layouts yet. Although technically possible in exactly the same way
 as with controller presets for MIDI devices, OSC layouts are very custom so I'm not sure if it would make much sense to
 create presets. Time will show.
+
+### Behringer X32
+
+I haven't tried this device myself but users reported that its OSC implementation can't deal with OSC bundles, only with
+OSC messages. Therefore you need to untick "Can deal with bundles" in the OSC device configuration.
+
+### Behringer XR18
+
+See Behringer X32.
