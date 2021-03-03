@@ -110,7 +110,10 @@ pub trait View {
         false
     }
 
-    /// WM_KEYUP. On macOS, a multi-line text field doesn't fire edit_control_changed but only this.
+    /// WM_KEYUP.
+    ///
+    /// On macOS, a multi-line text field fires this instead of edit_control_changed.
+    /// But it's not fired on Windows!
     ///
     /// Should return `true` if processed.
     fn key_up(self: SharedView<Self>, _key_code: u8) -> bool {
