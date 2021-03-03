@@ -2257,6 +2257,19 @@ Works out of the box with above mentioned restrictions.
 - **Mackie Control**: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
   X-Touch's extra buttons. However, nothing prevents you from mapping those directly.
 
+### PreSonus FaderPort Classic
+
+This works well, including 10-bit fader resolution, feedback for the motorized fader and turning LEDs on/off.
+
+#### Preparation
+
+This device needs to be initialized with some custom MIDI messages to enter a particular mode. However, ReaLearn does
+this for you automatically if you use the **FaderPort Classic** controller preset. 
+
+#### Presets
+
+- **FaderPort Classic**
+
 ### PreSonus FaderPort 8
 
 Works well, including 10-bit fader resolution and feedback for motorized faders and turning LEDs on/off.
