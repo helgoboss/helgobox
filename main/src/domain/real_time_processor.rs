@@ -713,7 +713,7 @@ impl RealTimeProcessor {
 
     fn send_midi_feedback(&self, value: &MidiSourceValue<RawShortMessage>, caller: Caller) {
         if let Some(output) = self.midi_feedback_output {
-            if let MidiSourceValue::SystemExclusive(msg) = value {
+            if let MidiSourceValue::Raw(msg) = value {
                 match output {
                     MidiFeedbackOutput::FxOutput => {
                         self.send_raw_midi_to_fx_output(msg, caller);

@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-03 (v2.5.0)</code></td>
+  <td><code>2021-03-05 (v2.6.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -222,7 +222,7 @@ More about that later.
 
 At this point: Congratulations! You have successfully made your first baby steps with ReaLearn.
 
-#### Some words about routing
+#### Some words about MIDI routing
 
 If you think that what we saw until now is not more than what REAPER's built-in MIDI learn already
 offers, I can't blame you. First, don't worry, there's more to come, this was just the beginning.
@@ -265,20 +265,27 @@ That should be it!
 
 If it doesn't work and you have ruled out MIDI connection issues, here are some possible causes:
 
-1. **Your controller is not capable of feedback via generic MIDI messages.**
-   - Some controllers _do_ support feedback, but not via MIDI. Or via MIDI but using some custom
-     sys-ex protocol instead of generic MIDI messages.
-   - In this case, ReaLearn can't help you. Reverse engineering custom protocols is out of
+1. **Your controller is not capable of feedback via MIDI messages.**
+   - Some controllers _do_ support feedback, but not via MIDI.
+   - If they support feedback via OSC, you are lucky because ReaLearn supports that, too. This is discussed
+     in another section.
+   - If it's another protocol, you are out of luck. Reverse engineering proprietary protocols is out of
      ReaLearn's scope.
    - Recommendation: Maybe you are able to find some bridge driver for your controller that is
      capable of translating generic MIDI messages to the proprietary protocol. Then it could work.
-   - Examples: Akai Advance keyboards, Native Instruments Kontrol keyboards, Arturia MiniLab
-2. **Your controller has multiple modes and currently is in the wrong one.**
+   - Examples: Akai Advance keyboards, Native Instruments Kontrol keyboards
+2. **Your controller doesn't support feedback via generic MIDI messages but via MIDI SysEx.**
+   - In this case, MIDI feedback is probably still achievable because since version 2.6.0 ReaLearn also supports
+     feedback via MIDI system-exclusive messages. However, it's not going to be straightforward.
+     Unless you find an existing controller preset for your controller, you'll have to read the MIDI specification
+     of your controller (hopefully there is one) ... or you need to experiment a lot.
+   - Examples: Arturia MiniLab mkII (but we have a controller preset for this one!)
+3. **Your controller has multiple modes and currently is in the wrong one.**
    - Some controllers, especially DAW controllers, are able to work with several protocols.
    - Recommendation: Consult your controller's manual and take the necessary steps to put it into
      something like a "generic MIDI" mode.
    - Example: Presonus Faderport
-3. **Your controller expects feedback via messages that are different from the control MIDI messages.**
+4. **Your controller expects feedback via messages that are different from the control MIDI messages.**
    - Usually, controllers with feedback support are kind of symmetric. Here's an example what I mean
      by that: Let's assume your motorized fader _emits_ CC 18 MIDI messages when you move it. That
      same motorized fader starts to move when it _receives_ CC 18 MIDI messages (messages of exactly
@@ -1056,6 +1063,136 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 
 - **Message:** The specific transport message to which this source should react.
 
+###### Raw MIDI source
+
+This source primarily deals with system-exclusive MIDI messages. It only supports feedback direction at the moment
+because I couldn't find a use case yet for control direction. If you also need it for control direction, please
+put a feature request, it's not difficult to add.
+
+- **Pattern:** Pattern describing the raw MIDI message.
+    
+**Pattern basics**
+
+In its most basic form, the pattern is a sequence of bytes notated as hexadecimal numbers. This is typical notation,
+especially for system-exclusive MIDI messages.
+
+Example:
+```
+F0 00 20 6B 7F 42 02 00 10 77 00 F7
+```
+
+If you enter this and feedback is set up correctly, this system-exclusive message will be sent to the device
+whenever the target value changes.
+
+Remarks:
+- You can check if the correct messages are sent by setting ReaLearn's feedback output to `<FX output>` and slapping
+  a ReaControlMIDI FX right below it. In ReaControlMIDI, press "Show log" and enable "Log sysex". Now
+  change the target value and you should see messages appearing the log.
+- Each byte is written using 2 hexadecimal digits.
+- Spaces between the bytes can be omitted.
+- You can express all types of MIDI messages using this raw notation, also the other ones in this list. If you want
+a system-exclusive MIDI message, you *must* include its start (`F0`) and end status byte (`F7`)!
+
+**Binary notation**
+
+ReaLearn also supports binary notation of a byte. You need to enclose the binary digits of one byte in brackets.
+
+Example:
+```
+F0 00 20 [0110 1011] 7F 42 02 00 10 77 00 F7
+```
+
+This is equivalent to the first example (`6B` in hexadecimal notation is the same as `0110 1011` in binary
+notation).
+
+Remarks:
+- Between the brackets, each digit represents one bit. The left bit is the most significant one.
+- Spaces between the two nibbles (4 bits) can be omitted.
+
+**Encoding the target value**
+    
+The examples I've shown you so far aren't real-world examples because there's no point in sending the same MIDI message to
+the device over and over again! If you really would want to send a constant MIDI message to the device, you would be
+much better off using a [Mapping lifecycle action](#mapping-lifecycle-actions), which allow you to send raw MIDI 
+messages once when a mapping is initialized, not on every target value change.
+
+In order to support true MIDI feedback, ReaLearn offers a way to encode the current target value as part of the raw MIDI
+message. Bytes which contain the target value (or a part of it) *must* be expressed using binary notation.
+
+Example:
+```
+F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
+```
+
+The second nibble of the second last byte contains the lowercase letters `dcba`. This is the portion of the byte that
+will contain the target value.
+
+Each letter represents one bit of the target value:
+
+- `a` - Bit 1 (least significant bit of the target value)
+- `b` - Bit 2
+- `c` - Bit 3
+- `d` - Bit 4
+- ...
+- `m` - Bit 13
+- `n` - Bit 14
+- `o` - Bit 15
+- `p` - Bit 16 (most significant bit of the target value)
+
+The resolution of the target value always corresponds to the letter in the whole pattern which represents the
+highest bit number. In the example above, the resolution is 4 bit because there's no letter greater than `d`
+in the pattern.
+
+In the following example, the resolution is 7 bit because `n` is the greatest letter in the whole pattern. 
+
+```
+F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
+```
+
+Remarks:
+- The highest resolution currently supported is 16 bit (= 65536 different values).
+- You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
+
+**Byte order**
+
+This form of notation is slightly unconventional but I think it's very flexible because it gives you much control over 
+the resulting MIDI message. This amount of control seems appropriate considering the many different ways
+hardware manufacturers used and still use to encode their MIDI data. When a number is expressed within more than
+one byte, manufacturers sometimes put the most significant byte first and sometimes the least significant one,
+there's no rule. This notation supports both because you decide where the bits end up:
+
+Example for "most significant byte first":
+
+```
+F0 00 20 6B 7F 42 02 00 10 [ponm lkji] [hgfe dcba] F7
+```
+
+Example for "least significant byte first":
+
+```
+F0 00 20 6B 7F 42 02 00 10 [hgfe dcba] [ponm lkji] F7
+```
+
+**More examples**
+
+"Romeo and Juliet" bits (separated by 2 bytes):
+
+```
+F0 [1111 000b] [a101 0100] F7
+```
+
+Simple on/off value (1 bit only):
+
+```
+F0 A0 [1111 010a] F7
+```
+
+This behaves like pitch wheel (because the pattern describes exactly the way how pitch wheel messages are encoded):
+
+```
+E0 [0gfe dcba] [0nml kjih]
+```
+
 ##### Category "OSC"
 
 OSC sources allow configuration of the following aspects:
@@ -1720,7 +1857,7 @@ inactive.
 
 Example use cases:
 
-- Accessing very device-specific featurs via system-exclusive MIDI messages.
+- Accessing very device-specific features via system-exclusive MIDI messages.
 - Choosing a different LED color/style depending on the active mapping.
 - Initializing a sys-ex-controllable display with some mapping-specific text (more difficult).
 

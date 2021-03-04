@@ -592,7 +592,7 @@ impl<'a> MutableMappingPanel<'a> {
             use SourceCategory::*;
             match self.mapping.source_model.category.get() {
                 Midi => {
-                    self.mapping.source_model.sysex_pattern.set(value);
+                    self.mapping.source_model.raw_midi_pattern.set(value);
                 }
                 Osc => {
                     self.mapping.source_model.osc_address_pattern.set(value);
@@ -1484,7 +1484,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         use SourceCategory::*;
         let value_text = match self.source.category.get() {
-            Midi => self.source.sysex_pattern.get_ref().as_str(),
+            Midi => self.source.raw_midi_pattern.get_ref().as_str(),
             Osc => self.source.osc_address_pattern.get_ref().as_str(),
             Virtual => return,
         };
@@ -2247,7 +2247,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             source
                 .osc_address_pattern
                 .changed()
-                .merge(source.sysex_pattern.changed()),
+                .merge(source.raw_midi_pattern.changed()),
             |view| {
                 view.invalidate_source_osc_address_pattern_edit_control();
             },

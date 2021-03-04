@@ -31,7 +31,7 @@ pub struct SourceModel {
     pub midi_clock_transport_message: Prop<MidiClockTransportMessage>,
     pub is_registered: Prop<Option<bool>>,
     pub is_14_bit: Prop<Option<bool>>,
-    pub sysex_pattern: Prop<String>,
+    pub raw_midi_pattern: Prop<String>,
     // OSC
     pub osc_address_pattern: Prop<String>,
     pub osc_arg_index: Prop<Option<u32>>,
@@ -56,7 +56,7 @@ impl Default for SourceModel {
             midi_clock_transport_message: prop(MidiClockTransportMessage::Start),
             is_registered: prop(Some(false)),
             is_14_bit: prop(Some(false)),
-            sysex_pattern: prop("".to_owned()),
+            raw_midi_pattern: prop("".to_owned()),
             osc_address_pattern: prop("".to_owned()),
             osc_arg_index: prop(Some(0)),
             osc_arg_type_tag: prop(Default::default()),
@@ -78,7 +78,7 @@ impl SourceModel {
             .merge(self.midi_clock_transport_message.changed())
             .merge(self.is_registered.changed())
             .merge(self.is_14_bit.changed())
-            .merge(self.sysex_pattern.changed())
+            .merge(self.raw_midi_pattern.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
             .merge(self.osc_address_pattern.changed())
@@ -131,12 +131,12 @@ impl SourceModel {
                     ClockTransport { message } => {
                         self.midi_clock_transport_message.set(*message);
                     }
-                    SystemExclusive {
+                    Raw {
                         pattern,
                         custom_character,
                     } => {
                         self.custom_character.set(*custom_character);
-                        self.sysex_pattern.set(pattern.to_string());
+                        self.raw_midi_pattern.set(pattern.to_string());
                     }
                     _ => {}
                 }
@@ -225,8 +225,8 @@ impl SourceModel {
                     ClockTransport => MidiSource::ClockTransport {
                         message: self.midi_clock_transport_message.get(),
                     },
-                    SystemExclusive => MidiSource::SystemExclusive {
-                        pattern: self.sysex_pattern.get_ref().parse().unwrap_or_default(),
+                    Raw => MidiSource::Raw {
+                        pattern: self.raw_midi_pattern.get_ref().parse().unwrap_or_default(),
                         custom_character: self.custom_character.get(),
                     },
                 };
@@ -325,7 +325,7 @@ impl SourceModel {
         use MidiSourceType::*;
         match self.midi_source_type.get() {
             ControlChangeValue if self.is_14_bit.get().contains(&false) => true,
-            SystemExclusive => true,
+            Raw => true,
             _ => false,
         }
     }
@@ -351,7 +351,7 @@ impl SourceModel {
 
     pub fn is_sys_ex(&self) -> bool {
         self.category.get() == SourceCategory::Midi
-            && self.midi_source_type.get() == MidiSourceType::SystemExclusive
+            && self.midi_source_type.get() == MidiSourceType::Raw
     }
 
     fn channel_label(&self) -> Cow<str> {
@@ -528,8 +528,8 @@ pub enum MidiSourceType {
     ClockTempo = 8,
     #[display(fmt = "MIDI clock transport")]
     ClockTransport = 9,
-    #[display(fmt = "System-exclusive")]
-    SystemExclusive = 10,
+    #[display(fmt = "Raw MIDI (feedback only)")]
+    Raw = 10,
 }
 
 impl Default for MidiSourceType {
@@ -553,7 +553,7 @@ impl MidiSourceType {
             ParameterNumberValue { .. } => MidiSourceType::ParameterNumberValue,
             ClockTempo => MidiSourceType::ClockTempo,
             ClockTransport { .. } => MidiSourceType::ClockTransport,
-            SystemExclusive { .. } => MidiSourceType::SystemExclusive,
+            Raw { .. } => MidiSourceType::Raw,
         }
     }
 
