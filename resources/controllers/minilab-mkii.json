@@ -1,5 +1,5 @@
 {
-  "version": "2.5.0",
+  "version": "2.6.0",
   "name": "MiniLab mkII",
   "mappings": [
     {
@@ -339,7 +339,8 @@
         "category": "virtual",
         "controlElementType": "button"
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "bdf00a1b-6e02-4d14-ad75-57b039a525c5",
@@ -377,7 +378,8 @@
         "controlElementType": "button",
         "controlElementIndex": 1
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "4aa2936e-8eca-4721-9b0b-bed4fe1402fc",
@@ -416,7 +418,8 @@
         "controlElementType": "button",
         "controlElementIndex": 2
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "a12a6238-02b2-4e31-a321-e71f03d72bb9",
@@ -455,7 +458,8 @@
         "controlElementType": "button",
         "controlElementIndex": 3
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "6bcacf10-fe40-4328-bb10-de5911123f7f",
@@ -494,7 +498,8 @@
         "controlElementType": "button",
         "controlElementIndex": 4
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "82416d25-7c7f-477f-8e6a-28a7cc1e9d13",
@@ -533,7 +538,8 @@
         "controlElementType": "button",
         "controlElementIndex": 5
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "bd784c4c-bfb9-451a-a163-24994f2a32ec",
@@ -572,7 +578,8 @@
         "controlElementType": "button",
         "controlElementIndex": 6
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "f9adda9a-db0b-4ab2-ad5d-3a8f299e58a5",
@@ -611,7 +618,8 @@
         "controlElementType": "button",
         "controlElementIndex": 7
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "ca55acad-ae52-4c72-9468-12b49856de86",
@@ -650,7 +658,8 @@
         "controlElementType": "button",
         "controlElementIndex": 8
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "b6e3ab14-f6c4-404f-ac30-7576ef1544a1",
@@ -689,7 +698,8 @@
         "controlElementType": "button",
         "controlElementIndex": 9
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "7f30fbfd-d870-4023-97e3-95206786d6d7",
@@ -728,7 +738,8 @@
         "controlElementType": "button",
         "controlElementIndex": 10
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "dd7ed76f-a2df-429e-b43a-4256518c015a",
@@ -767,7 +778,8 @@
         "controlElementType": "button",
         "controlElementIndex": 11
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "1d88f868-9a7b-4c5c-a33a-e42507a23a85",
@@ -806,7 +818,8 @@
         "controlElementType": "button",
         "controlElementIndex": 12
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "dc2503ba-892f-4a53-b5c5-de457764e712",
@@ -845,7 +858,8 @@
         "controlElementType": "button",
         "controlElementIndex": 13
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "63e63b0f-b0ea-4a84-984d-c4087907eb6f",
@@ -884,7 +898,8 @@
         "controlElementType": "button",
         "controlElementIndex": 14
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "d5069d82-eba1-46b2-a468-bcd854e46a85",
@@ -923,7 +938,8 @@
         "controlElementType": "button",
         "controlElementIndex": 15
       },
-      "feedbackIsEnabled": false
+      "feedbackIsEnabled": false,
+      "sendFeedbackAfterControl": true
     },
     {
       "id": "6978dee3-c1c5-4fb0-87ca-63859f725ce1",

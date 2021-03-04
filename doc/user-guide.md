@@ -2311,6 +2311,13 @@ Arturia's [MIDI Control Center](https://www.arturia.com/support/downloads&manual
 
 ![MiniLab mkII Setup](images/minilab-mkii-setup.png)
 
+Furthermore I recommend to set the colors of all the pads to "None". This way ReaLearn has best control over them.
+One more thing that can help is to switch off "Pad off backlight" to "Off" (you might need to update the firmware to
+get this option):
+
+![MiniLab mkII Setup 2](images/minilab-mkii-setup-2.png)
+
+
 #### Presets
 
 All MiniLab mkII controller presets assume relative values.
@@ -2322,6 +2329,8 @@ All MiniLab mkII controller presets assume relative values.
 - Visual feedback for the pad LEDs works thanks to ReaLearn's "Raw MIDI" source which uses system-exclusive MIDI
   messages to control the LEDs. 
 - LED color depends on the target value and is adjustable via "Source Min/Max".
+- This is one of the devices which needs the "Send feedback after control" workaround for the "Toggle buttons" mode,
+  so the pad LEDs might flicker a bit when using it.
 
 
 ### Novation "Launchpad Pro"
