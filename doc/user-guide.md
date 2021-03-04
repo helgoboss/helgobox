@@ -2298,6 +2298,32 @@ potential of ReaLearn can't be used.
 
 - **APC Key 25**
 
+### Arturia MiniLab mkII
+
+This keyboard works, including its relative encoders and since ReaLearn v2.6.0 also feedback via
+pad LEDs with different colors.
+
+#### Preparation
+
+By default, all encoders except the leftmost ones are configured to transmit absolute values (Option "Absolute").
+I strongly recommend changing this to transmit relative values (Option = "Relative #1"). Use 
+Arturia's [MIDI Control Center](https://www.arturia.com/support/downloads&manuals) to apply this change to each encoder:
+
+![MiniLab mkII Setup](images/minilab-mkii-setup.png)
+
+#### Presets
+
+All MiniLab mkII controller presets assume relative values.
+
+- **MiniLab mkII**
+
+#### Hints
+
+- Visual feedback for the pad LEDs works thanks to ReaLearn's "Raw MIDI" source which uses system-exclusive MIDI
+  messages to control the LEDs. 
+- LED color depends on the target value and is adjustable via "Source Min/Max".
+
+
 ### Novation "Launchpad Pro"
 
 This controller works well with ReaLearn, including feedback and LED color selection. There's a multitude of very
