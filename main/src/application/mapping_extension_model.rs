@@ -1,5 +1,7 @@
-use crate::domain::{LifecycleMidiData, LifecycleMidiMessage, MappingExtension, RawMidiData};
+use crate::domain::{LifecycleMidiData, LifecycleMidiMessage, MappingExtension};
 
+use crate::application::parse_hex_string;
+use helgoboss_learn::RawMidiEvent;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
@@ -49,9 +51,8 @@ struct RawByteArrayMidiMessage(Vec<u8>);
 impl TryFrom<String> for RawHexStringMidiMessage {
     type Error = hex::FromHexError;
 
-    fn try_from(mut value: String) -> Result<Self, Self::Error> {
-        value.retain(|c| c != ' ');
-        let vec = hex::decode(value)?;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        let vec = parse_hex_string(&value)?;
         Ok(Self(vec))
     }
 }
@@ -63,7 +64,7 @@ impl TryFrom<LifecycleMidiMessageModel> for LifecycleMidiMessage {
         use LifecycleMidiMessageModel::*;
         let message = match value {
             Raw(msg) => {
-                LifecycleMidiMessage::Raw(Box::new(RawMidiData::try_from_slice(msg.bytes())?))
+                LifecycleMidiMessage::Raw(Box::new(RawMidiEvent::try_from_slice(0, msg.bytes())?))
             }
         };
         Ok(message)

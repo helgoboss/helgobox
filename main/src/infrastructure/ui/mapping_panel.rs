@@ -584,12 +584,21 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    fn update_source_osc_address_pattern(&mut self) {
+    fn update_source_pattern(&mut self) {
         let c = self
             .view
             .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
         if let Ok(value) = c.text() {
-            self.mapping.source_model.osc_address_pattern.set(value);
+            use SourceCategory::*;
+            match self.mapping.source_model.category.get() {
+                Midi => {
+                    self.mapping.source_model.sysex_pattern.set(value);
+                }
+                Osc => {
+                    self.mapping.source_model.osc_address_pattern.set(value);
+                }
+                Virtual => {}
+            }
         }
     }
 
@@ -1240,14 +1249,15 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_source_control_labels(&self) {
         use SourceCategory::*;
-        let (row_three, row_four, row_five) = match self.source.category.get() {
+        let (row_three, row_four, row_five, last_row) = match self.source.category.get() {
             Midi => (
                 "Channel",
                 self.source.midi_source_type.get().number_label(),
                 "Character",
+                "Pattern",
             ),
-            Virtual => ("Number", "", ""),
-            Osc => ("", "Argument", "Type"),
+            Virtual => ("Number", "", "", ""),
+            Osc => ("", "Argument", "Type", "Address"),
         };
         self.view
             .require_control(root::ID_SOURCE_CHANNEL_LABEL)
@@ -1258,6 +1268,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_SOURCE_CHARACTER_LABEL_TEXT)
             .set_text(row_five);
+        self.view
+            .require_control(root::ID_SOURCE_OSC_ADDRESS_LABEL_TEXT)
+            .set_text(last_row);
     }
 
     fn invalidate_source_control_visibilities(&self) {
@@ -1314,7 +1327,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             &[root::ID_SOURCE_NUMBER_COMBO_BOX],
         );
         self.show_if(
-            source.is_osc(),
+            source.is_sys_ex() || source.is_osc(),
             &[
                 root::ID_SOURCE_OSC_ADDRESS_LABEL_TEXT,
                 root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL,
@@ -1469,7 +1482,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         if c.has_focus() {
             return;
         }
-        c.set_text_if_not_focused(self.source.osc_address_pattern.get_ref().as_str())
+        use SourceCategory::*;
+        let value_text = match self.source.category.get() {
+            Midi => self.source.sysex_pattern.get_ref().as_str(),
+            Osc => self.source.osc_address_pattern.get_ref().as_str(),
+            Virtual => return,
+        };
+        c.set_text(value_text);
     }
 
     fn invalidate_source_character_combo_box(&self) {
@@ -2224,10 +2243,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(source.midi_clock_transport_message.changed(), |view| {
                 view.invalidate_source_midi_clock_transport_message_type_combo_box();
             });
-        self.panel
-            .when_do_sync(source.osc_address_pattern.changed(), |view| {
+        self.panel.when_do_sync(
+            source
+                .osc_address_pattern
+                .changed()
+                .merge(source.sysex_pattern.changed()),
+            |view| {
                 view.invalidate_source_osc_address_pattern_edit_control();
-            });
+            },
+        );
         self.panel
             .when_do_sync(source.osc_arg_is_relative.changed(), |view| {
                 view.invalidate_source_controls();
@@ -3109,7 +3133,7 @@ impl View for MappingPanel {
                 view.write(|p| p.update_source_parameter_number_message_number());
             }
             ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL => {
-                view.write(|p| p.update_source_osc_address_pattern());
+                view.write(|p| p.update_source_pattern());
             }
             // Mode
             ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {

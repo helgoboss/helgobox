@@ -7,14 +7,12 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, SourceCharacter, Target,
-    UnitValue,
+    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, RawMidiEvent,
+    SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use reaper_low::raw;
-use reaper_medium::MidiFrameOffset;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
@@ -58,7 +56,7 @@ const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 pub enum LifecycleMidiMessage {
     #[allow(unused)]
     Short(RawShortMessage),
-    Raw(Box<RawMidiData>),
+    Raw(Box<RawMidiEvent>),
 }
 
 #[derive(Debug, Default)]
@@ -377,86 +375,6 @@ impl MainMapping {
     }
 }
 
-/// Raw MIDI data which is compatible to both VST and REAPER MIDI data structures. The REAPER
-/// struct is more picky in that it needs offset and size directly in front of the raw data whereas
-/// the VST struct allows the data to be at a different address. That's why we need to follow the
-/// REAPER requirement.
-#[derive(Debug)]
-pub struct RawMidiData {
-    midi_event: OwnedMidiEvent,
-}
-
-impl RawMidiData {
-    pub fn try_from_slice(midi_message: &[u8]) -> Result<Self, &'static str> {
-        let evt = OwnedMidiEvent::try_from_slice(MidiFrameOffset::new(0), midi_message)?;
-        Ok(Self::new(evt))
-    }
-
-    fn new(midi_event: OwnedMidiEvent) -> Self {
-        Self { midi_event }
-    }
-
-    pub fn bytes(&self) -> &[u8] {
-        &self.midi_event.bytes()
-    }
-}
-
-impl AsRef<raw::MIDI_event_t> for RawMidiData {
-    fn as_ref(&self) -> &raw::MIDI_event_t {
-        self.midi_event.as_ref()
-    }
-}
-
-const MAX_RAW_MIDI_DATA_LENGTH: usize = 256;
-
-/// An owned REAPER MIDI message.
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-#[repr(C)]
-pub struct OwnedMidiEvent {
-    frame_offset: i32,
-    size: i32,
-    midi_message: [u8; MAX_RAW_MIDI_DATA_LENGTH],
-}
-
-impl OwnedMidiEvent {
-    pub fn new(
-        frame_offset: MidiFrameOffset,
-        size: u32,
-        midi_message: [u8; MAX_RAW_MIDI_DATA_LENGTH],
-    ) -> Self {
-        Self {
-            frame_offset: frame_offset.to_raw(),
-            size: size as _,
-            midi_message,
-        }
-    }
-
-    pub fn try_from_slice(
-        frame_offset: MidiFrameOffset,
-        midi_message: &[u8],
-    ) -> Result<Self, &'static str> {
-        if midi_message.len() > MAX_RAW_MIDI_DATA_LENGTH {
-            return Err("given MIDI message too long");
-        }
-        let mut array = [0; MAX_RAW_MIDI_DATA_LENGTH];
-        // TODO-low I think copying from a slice is the only way to go. If we have an existing vec,
-        //  then REAPER's struct layout requires us to put something in front of the vec, which is
-        //  not easily possible without copying.
-        array[..midi_message.len()].copy_from_slice(&midi_message);
-        Ok(Self::new(frame_offset, midi_message.len() as _, array))
-    }
-
-    fn bytes(&self) -> &[u8] {
-        &self.midi_message[..self.size as usize]
-    }
-}
-
-impl AsRef<raw::MIDI_event_t> for OwnedMidiEvent {
-    fn as_ref(&self) -> &raw::MIDI_event_t {
-        unsafe { &*(self as *const OwnedMidiEvent as *const raw::MIDI_event_t) }
-    }
-}
-
 #[derive(Debug)]
 pub struct RealTimeMapping {
     core: MappingCore,
@@ -568,7 +486,7 @@ impl RealTimeMapping {
 
     pub fn control_midi_virtualizing(
         &mut self,
-        source_value: MidiSourceValue<RawShortMessage>,
+        source_value: &MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
         self.core.target.as_ref()?;
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {

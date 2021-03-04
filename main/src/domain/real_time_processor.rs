@@ -1,10 +1,10 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiSourceScanner, NormalMainTask, PartialControlMatch, RawMidiData,
+    MidiMessageClassification, MidiSourceScanner, NormalMainTask, PartialControlMatch,
     RealTimeMapping, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue};
+use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -411,12 +411,6 @@ impl RealTimeProcessor {
             // Feedback sent to FX output. Here we have to be more careful because sending feedback
             // to FX output involves host callback invocation. This can only be done from the VST
             // plug-in.
-            // TODO-high Feedback tasks can queue up if VST processing stopped! Maybe we should
-            //  detect somehow if stopped and switch to audio hook in that case or stop sending?
-            //  I think we can detect this by processing suspend() and resume() and set some
-            //  variable (vst_processing_suspended). If it's inactive, we should use the audio hook
-            //  run to discard all feedback tasks. On resume, the VST processing should discard all
-            //  tasks which might still be left.
             Some(MidiFeedbackOutput::FxOutput) => Vst,
         }
     }
@@ -431,7 +425,7 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 Feedback(v) => {
-                    self.send_midi_feedback(v, caller);
+                    self.send_midi_feedback(&v, caller);
                 }
                 ClearFeedback => {
                     self.clear_feedback(caller);
@@ -455,7 +449,7 @@ impl RealTimeProcessor {
         //  over this MIDI output.
         for m in self.all_mappings() {
             if let Some(source_value) = m.zero_feedback_midi_source_value() {
-                self.send_midi_feedback(source_value, caller);
+                self.send_midi_feedback(&source_value, caller);
             }
         }
     }
@@ -523,7 +517,7 @@ impl RealTimeProcessor {
                 if self.control_is_globally_enabled {
                     if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                        self.control_midi(source_value);
+                        self.control_midi(&source_value);
                     }
                 }
             }
@@ -573,7 +567,7 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage, caller: Caller) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        let matched = self.control_midi(source_value);
+        let matched = self.control_midi(&source_value);
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -607,7 +601,7 @@ impl RealTimeProcessor {
         caller: Caller,
     ) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        let matched = self.control_midi(source_value);
+        let matched = self.control_midi(&source_value);
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -629,7 +623,7 @@ impl RealTimeProcessor {
             // and therefore doesn't qualify anymore as a candidate for normal CC sources.
             return;
         }
-        let matched = self.control_midi(source_value);
+        let matched = self.control_midi(&source_value);
         if matched {
             self.process_matched_short(msg, caller);
         } else {
@@ -644,7 +638,7 @@ impl RealTimeProcessor {
     }
 
     /// Returns whether this source value matched one of the mappings.
-    fn control_midi(&mut self, value: MidiSourceValue<RawShortMessage>) -> bool {
+    fn control_midi(&mut self, value: &MidiSourceValue<RawShortMessage>) -> bool {
         // We do pattern matching in order to use Rust's borrow splitting.
         let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
             self.mappings.as_mut_slice()
@@ -664,7 +658,7 @@ impl RealTimeProcessor {
 
     fn control_main_mappings_midi(
         &mut self,
-        source_value: MidiSourceValue<RawShortMessage>,
+        source_value: &MidiSourceValue<RawShortMessage>,
     ) -> bool {
         let compartment = MappingCompartment::MainMappings;
         let mut matched = false;
@@ -675,7 +669,7 @@ impl RealTimeProcessor {
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
             if let CompoundMappingSource::Midi(s) = &m.source() {
-                if let Some(control_value) = s.control(&source_value) {
+                if let Some(control_value) = s.control(source_value) {
                     forward_control_to_main_processor(
                         &self.control_main_task_sender,
                         compartment,
@@ -717,28 +711,43 @@ impl RealTimeProcessor {
             .any(|m| m.control_is_effectively_on() && m.consumes(msg))
     }
 
-    fn send_midi_feedback(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
+    fn send_midi_feedback(&self, value: &MidiSourceValue<RawShortMessage>, caller: Caller) {
         if let Some(output) = self.midi_feedback_output {
-            let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
-            if shorts[0].is_none() {
-                return;
-            }
-            match output {
-                MidiFeedbackOutput::FxOutput => {
-                    for short in shorts.iter().flatten() {
-                        self.send_short_midi_to_fx_output(*short, caller);
+            if let MidiSourceValue::SystemExclusive(msg) = value {
+                match output {
+                    MidiFeedbackOutput::FxOutput => {
+                        self.send_raw_midi_to_fx_output(msg, caller);
                     }
-                }
-                MidiFeedbackOutput::Device(dev) => {
-                    dev.with_midi_output(|mo| {
-                        if let Some(mo) = mo {
-                            for short in shorts.iter().flatten() {
-                                mo.send(*short, SendMidiTime::Instantly);
+                    MidiFeedbackOutput::Device(dev) => {
+                        dev.with_midi_output(|mo| {
+                            if let Some(mo) = mo {
+                                mo.send_msg(&**msg, SendMidiTime::Instantly);
                             }
-                        }
-                    });
+                        });
+                    }
+                };
+            } else {
+                let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
+                if shorts[0].is_none() {
+                    return;
                 }
-            };
+                match output {
+                    MidiFeedbackOutput::FxOutput => {
+                        for short in shorts.iter().flatten() {
+                            self.send_short_midi_to_fx_output(*short, caller);
+                        }
+                    }
+                    MidiFeedbackOutput::Device(dev) => {
+                        dev.with_midi_output(|mo| {
+                            if let Some(mo) = mo {
+                                for short in shorts.iter().flatten() {
+                                    mo.send(*short, SendMidiTime::Instantly);
+                                }
+                            }
+                        });
+                    }
+                };
+            }
         }
     }
 
@@ -786,7 +795,7 @@ impl RealTimeProcessor {
         }
     }
 
-    fn send_raw_midi_to_fx_output(&self, data: &RawMidiData, caller: Caller) {
+    fn send_raw_midi_to_fx_output(&self, data: &RawMidiEvent, caller: Caller) {
         let host = match caller {
             Caller::Vst(h) => h,
             _ => return,
@@ -974,7 +983,7 @@ fn control_controller_mappings_midi(
     controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
     // Mappings with virtual sources
     main_mappings: &HashMap<MappingId, RealTimeMapping>,
-    value: MidiSourceValue<RawShortMessage>,
+    value: &MidiSourceValue<RawShortMessage>,
 ) -> bool {
     let mut matched = false;
     for m in controller_mappings
