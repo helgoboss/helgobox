@@ -20,6 +20,7 @@ use crate::domain::{
 use serde_repr::*;
 use std::borrow::Cow;
 
+use reaper_medium::{BookmarkId, BookmarkRef};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -60,6 +61,9 @@ pub struct TargetModel {
     pub fx_snapshot: Prop<Option<FxSnapshot>>,
     // # For "Automation touch state" target
     pub touched_parameter_type: Prop<TouchedParameterType>,
+    // # For "Go to marker/region" target
+    pub bookmark_ref: Prop<u32>,
+    pub is_region: Prop<bool>,
 }
 
 impl Default for TargetModel {
@@ -82,6 +86,8 @@ impl Default for TargetModel {
             transport_action: prop(TransportAction::default()),
             fx_snapshot: prop(None),
             touched_parameter_type: prop(Default::default()),
+            bookmark_ref: prop(0),
+            is_region: prop(false),
         }
     }
 }
@@ -179,6 +185,9 @@ impl TargetModel {
             TrackSolo { behavior, .. } => {
                 self.solo_behavior.set(*behavior);
             }
+            GoToBookmark { index, .. } => {
+                self.bookmark_ref.set(*index);
+            }
             TrackVolume { .. }
             | TrackSendVolume { .. }
             | TrackPan { .. }
@@ -218,6 +227,8 @@ impl TargetModel {
             .merge(self.control_element_index.changed())
             .merge(self.fx_snapshot.changed())
             .merge(self.touched_parameter_type.changed())
+            .merge(self.bookmark_ref.changed())
+            .merge(self.is_region.changed())
     }
 
     fn track_descriptor(&self) -> TrackDescriptor {
@@ -319,6 +330,12 @@ impl TargetModel {
                         track_descriptor: self.track_descriptor(),
                         parameter_type: self.touched_parameter_type.get(),
                         exclusivity: self.track_exclusivity.get(),
+                    },
+                    GoToBookmark => UnresolvedReaperTarget::GoToBookmark {
+                        is_region: self.is_region.get(),
+                        // TODO-high Introduce anchor and also allow by-position (supported on
+                        // deeper layers already).
+                        bookmark_ref: BookmarkRef::Id(BookmarkId::new(self.bookmark_ref.get())),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -621,6 +638,9 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.track_label(),
                         self.target.touched_parameter_type.get()
                     ),
+                    GoToBookmark => {
+                        write!(f, "Go to marker/region\n{}", self.target.bookmark_ref.get())
+                    }
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
@@ -688,6 +708,8 @@ pub enum ReaperTargetType {
     LastTouched = 20,
     #[display(fmt = "Automation touch state (experimental)")]
     AutomationTouchState = 21,
+    #[display(fmt = "Go to marker/region (experimental)")]
+    GoToBookmark = 22,
 }
 
 impl Default for ReaperTargetType {
@@ -721,6 +743,7 @@ impl ReaperTargetType {
             Transport { .. } => ReaperTargetType::Transport,
             LoadFxSnapshot { .. } => ReaperTargetType::LoadFxSnapshot,
             AutomationTouchState { .. } => ReaperTargetType::AutomationTouchState,
+            GoToBookmark { .. } => ReaperTargetType::GoToBookmark,
         }
     }
 
@@ -730,7 +753,9 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
             | FxPreset | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
-            Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched => false,
+            Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched | GoToBookmark => {
+                false
+            }
         }
     }
 
@@ -741,7 +766,7 @@ impl ReaperTargetType {
             TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
             | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
             | Playrate | SelectedTrack | AllTrackFxEnable | Transport | LastTouched
-            | AutomationTouchState => false,
+            | AutomationTouchState | GoToBookmark => false,
         }
     }
 
@@ -752,7 +777,7 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
             | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
             | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched
-            | AutomationTouchState => false,
+            | AutomationTouchState | GoToBookmark => false,
         }
     }
 
@@ -763,7 +788,7 @@ impl ReaperTargetType {
             | AutomationTouchState => true,
             TrackSendVolume | TrackSendPan | TrackSendMute | FxParameter | TrackVolume
             | TrackPan | TrackWidth | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | Transport | LoadFxSnapshot | LastTouched => false,
+            | SelectedTrack | Transport | LoadFxSnapshot | LastTouched | GoToBookmark => false,
         }
     }
 }

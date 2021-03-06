@@ -912,21 +912,25 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_is_input_fx(&mut self) {
-        let is_input_fx = self
+        let is_enabled = self
             .view
             .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX)
             .is_checked();
-        let new_virtual_fx = match self.mapping.target_model.fx.get_ref().as_ref() {
-            None | Some(VirtualFx::Focused) => Some(VirtualFx::Particular {
-                is_input_fx,
-                anchor: FxAnchor::Index(0),
-            }),
-            Some(VirtualFx::Particular { anchor, .. }) => Some(VirtualFx::Particular {
-                anchor: anchor.clone(),
-                is_input_fx,
-            }),
-        };
-        self.mapping.target_model.fx.set(new_virtual_fx);
+        if self.mapping.target_model.r#type.get() == ReaperTargetType::GoToBookmark {
+            self.mapping.target_model.is_region.set(is_enabled);
+        } else {
+            let new_virtual_fx = match self.mapping.target_model.fx.get_ref().as_ref() {
+                None | Some(VirtualFx::Focused) => Some(VirtualFx::Particular {
+                    is_input_fx: is_enabled,
+                    anchor: FxAnchor::Index(0),
+                }),
+                Some(VirtualFx::Particular { anchor, .. }) => Some(VirtualFx::Particular {
+                    anchor: anchor.clone(),
+                    is_input_fx: is_enabled,
+                }),
+            };
+            self.mapping.target_model.fx.set(new_virtual_fx);
+        }
     }
 
     fn update_target_only_if_fx_has_focus(&mut self) {
@@ -1017,6 +1021,9 @@ impl<'a> MutableMappingPanel<'a> {
                         .target_model
                         .transport_action
                         .set(data.try_into().expect("invalid transport action"));
+                } else if self.mapping.target_model.r#type.get() == ReaperTargetType::GoToBookmark {
+                    let data = main_combo.selected_combo_box_item_data();
+                    self.mapping.target_model.bookmark_ref.set(data as _);
                 }
             }
             Virtual => {
@@ -1605,6 +1612,20 @@ impl<'a> ImmutableMappingPanel<'a> {
                     label.set_text("Action");
                     self.fill_target_transport_action_combo_box(main_combo);
                     self.set_target_transport_action_combo_box_value(main_combo);
+                } else if self.target.r#type.get() == ReaperTargetType::GoToBookmark {
+                    label.show();
+                    main_combo.show();
+                    anchor_combo.hide();
+                    action_label.hide();
+                    pick_button.hide();
+                    let label_text = if self.target.is_region.get() {
+                        "Regions"
+                    } else {
+                        "Markers"
+                    };
+                    label.set_text(label_text);
+                    self.fill_target_bookmark_combo_box(main_combo);
+                    self.set_target_bookmark_combo_box_value(main_combo);
                 } else {
                     label.hide();
                     main_combo.hide();
@@ -1648,6 +1669,27 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_target_transport_action_combo_box(&self, combo: Window) {
         combo.fill_combo_box(TransportAction::into_enum_iter());
+    }
+
+    fn fill_target_bookmark_combo_box(&self, combo: Window) {
+        let project = self.target_with_context().project();
+        let is_region = self.target.is_region.get();
+        let bookmarks = project
+            .bookmarks()
+            .map(|b| b.info().unwrap())
+            .filter(|info| info.is_region() == is_region)
+            .enumerate()
+            .map(|(i, info)| {
+                let name_label = if info.name.trim().is_empty() {
+                    "-".to_owned()
+                } else {
+                    info.name
+                };
+                let label = format!("{}. [{}] {}", i + 1, info.id, name_label);
+                (info.id.get() as isize, label)
+            })
+            .collect();
+        combo.fill_combo_box_with_data_vec(bookmarks);
     }
 
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
@@ -1695,6 +1737,18 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn set_target_transport_action_combo_box_value(&self, combo: Window) {
         combo.select_combo_box_item(self.mapping.target_model.transport_action.get().into());
+    }
+
+    fn set_target_bookmark_combo_box_value(&self, combo: Window) {
+        // TODO-high If this is positional anchor, select by index instead
+        let bookmark_ref = self.mapping.target_model.bookmark_ref.get();
+        combo
+            .select_combo_box_item_by_data(bookmark_ref as _)
+            .unwrap_or_else(|_| {
+                combo.select_new_combo_box_item(
+                    format!("[{}] <Not present>", bookmark_ref).as_str(),
+                );
+            });
     }
 
     fn invalidate_target_line_three(&self) {
@@ -1755,6 +1809,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             input_fx_box.hide();
             self.fill_target_touched_parameter_type_combo_box(label, main_combo);
             self.set_target_touched_parameter_type_combo_box_value(main_combo);
+        } else if target.r#type.get() == ReaperTargetType::GoToBookmark {
+            label.hide();
+            main_combo.hide();
+            anchor_combo.hide();
+            input_fx_box.show();
+            input_fx_box.set_text("Regions");
         } else {
             hide_all();
         }
@@ -2719,6 +2779,15 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when_do_sync(target.action.changed(), |view| {
             view.invalidate_target_line_two();
         });
+        self.panel.when_do_sync(
+            target
+                .bookmark_ref
+                .changed()
+                .merge(target.is_region.changed()),
+            |view| {
+                view.invalidate_target_line_two();
+            },
+        );
         self.panel
             .when_do_sync(target.action_invocation_type.changed(), |view| {
                 view.invalidate_target_line_three();

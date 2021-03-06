@@ -7,13 +7,13 @@ use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
-    FxParameter, MainTaskMiddleware, MeterMiddleware,
+    FxParameter, MainTaskMiddleware, MeterMiddleware, Project, Reaper,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
 use reaper_medium::{
-    CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack,
+    CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, PositionInSeconds,
     ReaperNormalizedFxParamValue,
 };
 use rxrust::prelude::*;
@@ -40,6 +40,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
+    full_beats: u32,
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
@@ -75,6 +76,12 @@ pub enum AdditionalFeedbackEvent {
     /// useful for conditional activation.
     RealearnMonitoringFxParameterValueChanged(RealearnMonitoringFxParameterValueChangedEvent),
     ParameterAutomationTouchStateChanged(ParameterAutomationTouchStateChangedEvent),
+    PlayPositionChanged(PlayPositionChangedEvent),
+}
+
+#[derive(Debug)]
+pub struct PlayPositionChangedEvent {
+    pub new_value: PositionInSeconds,
 }
 
 #[derive(Debug)]
@@ -133,6 +140,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 Global::get().local_executor(),
             ),
             counter: 0,
+            full_beats: 0,
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
@@ -166,9 +174,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
+        // Run middlewares
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
+        // Process main tasks
         for t in self
             .main_task_receiver
             .try_iter()
@@ -198,6 +208,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
+        // Process server tasks
         for t in self
             .server_task_receiver
             .try_iter()
@@ -216,6 +227,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
+        // Process incoming additional feedback
         for event in self
             .additional_feedback_event_receiver
             .try_iter()
@@ -234,7 +246,25 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 p.process_additional_feedback_event(&event)
             }
         }
+        // Emit beats as feedback events
+        // TODO-high Make multi-project compatible.
+        let project = Reaper::get().current_project();
+        let reference_pos = if project.is_playing() {
+            project.play_position_latency_compensated()
+        } else {
+            project.edit_cursor_position()
+        };
+        if self.beat_has_changed(project, reference_pos) {
+            let event = AdditionalFeedbackEvent::PlayPositionChanged(PlayPositionChangedEvent {
+                new_value: reference_pos,
+            });
+            for p in &mut self.main_processors {
+                p.process_additional_feedback_event(&event);
+            }
+        }
+        // OSC
         self.process_incoming_osc_messages();
+        // Main processors
         match &self.state {
             State::Normal => {
                 for p in &mut self.main_processors {
@@ -247,6 +277,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
+        // Metrics
         if self.metrics_enabled {
             // Roughly every 10 seconds
             if self.counter == 30 * 10 {
@@ -324,6 +355,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 State::LearningSource(_) => {}
             }
         })
+    }
+
+    fn beat_has_changed(&mut self, project: Project, reference_pos: PositionInSeconds) -> bool {
+        let beat_info = project.beat_info_at(reference_pos);
+        let new_full_beats = beat_info.full_beats.get() as _;
+        let beat_changed = new_full_beats != self.full_beats;
+        self.full_beats = new_full_beats;
+        beat_changed
     }
 }
 

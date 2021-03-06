@@ -7,7 +7,7 @@ use reaper_high::{
     Pan, PlayRate, Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
 };
 use reaper_medium::{
-    Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
+    BookmarkRef, Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
     NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, ReaperPanValue,
     ReaperWidthValue, SoloMode, UndoBehavior,
 };
@@ -29,6 +29,7 @@ use crate::domain::{
     HierarchyEntryProvider, RealearnTarget,
 };
 use std::convert::TryInto;
+use std::num::NonZeroU32;
 use std::rc::Rc;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -133,6 +134,16 @@ pub enum ReaperTarget {
         parameter_type: TouchedParameterType,
         exclusivity: TrackExclusivity,
     },
+    GoToBookmark {
+        project: Project,
+        is_region: bool,
+        // This counts both markers and regions. We need it for getting the current value.
+        index: u32,
+        // This counts either only markers or only regions. We need it for control. The alternative
+        // would be an ID but unfortunately, marker IDs are not unique which means we would
+        // unnecessarily lack reliability to go to markers in a position-based way.
+        position: NonZeroU32,
+    },
 }
 
 impl RealearnTarget for ReaperTarget {
@@ -185,6 +196,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackMute { .. }
             | TrackSolo { .. }
             | TrackSendMute { .. }
+            | GoToBookmark { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
@@ -211,6 +223,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
             | TrackSendMute { .. }
@@ -253,6 +266,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
             | TrackSendMute { .. }
@@ -280,6 +294,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendMute { .. }
             | FxEnable { .. }
@@ -306,6 +321,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
             | TrackSendMute { .. }
@@ -360,6 +376,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackWidth { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendMute { .. }
             | FxEnable { .. }
@@ -386,6 +403,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendMute { .. }
             | FxEnable { .. }
@@ -412,6 +430,7 @@ impl RealearnTarget for ReaperTarget {
             FxEnable { .. }
             | TrackArm { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSendMute { .. }
             | TrackSelection { .. }
             | TrackSolo { .. } => format_value_as_on_off(value).to_string(),
@@ -651,6 +670,18 @@ impl RealearnTarget for ReaperTarget {
                     ctx.touch_automation_parameter(track.raw(), *parameter_type);
                 }
             }
+            GoToBookmark {
+                project,
+                is_region,
+                position,
+                ..
+            } => {
+                if *is_region {
+                    project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position))
+                } else {
+                    // TODO-high Implement for markers, too.
+                }
+            }
         };
         Ok(())
     }
@@ -761,7 +792,9 @@ impl ReaperTarget {
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackSendPan { .. } => (ControlType::AbsoluteContinuous, Continuous),
-            LoadFxSnapshot { .. } => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+            LoadFxSnapshot { .. } | GoToBookmark { .. } => {
+                (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+            }
         }
     }
     /// Notifies about other events which can affect the resulting `ReaperTarget`.
@@ -786,6 +819,7 @@ impl ReaperTarget {
             .merge(rx.fx_added().map_to(()))
             .merge(rx.fx_removed().map_to(()))
             .merge(rx.fx_reordered().map_to(()))
+            .merge(rx.bookmarks_changed())
     }
 
     pub fn is_potential_static_change_event(evt: &ChangeEvent) -> bool {
@@ -801,6 +835,7 @@ impl ReaperTarget {
                 | FxAdded(_)
                 | FxRemoved(_)
                 | FxReordered(_)
+                | BookmarksChanged(_)
         )
     }
 
@@ -1051,6 +1086,7 @@ impl ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
             | TrackSendMute { .. }
@@ -1086,7 +1122,10 @@ impl ReaperTarget {
             TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
                 send.source_track().project()
             }
-            Tempo { project } | Playrate { project } | SelectedTrack { project } => *project,
+            GoToBookmark { project, .. }
+            | Tempo { project }
+            | Playrate { project }
+            | SelectedTrack { project } => *project,
             FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.project()?,
         };
         Some(project)
@@ -1113,6 +1152,7 @@ impl ReaperTarget {
             | Tempo { .. }
             | Playrate { .. }
             | SelectedTrack { .. }
+            | GoToBookmark { .. }
             | Transport { .. } => return None,
         };
         Some(track)
@@ -1131,6 +1171,7 @@ impl ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
             | TrackSendMute { .. }
@@ -1158,6 +1199,7 @@ impl ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | GoToBookmark { .. }
             | TrackSolo { .. }
             | Tempo { .. }
             | Playrate { .. }
@@ -1186,6 +1228,7 @@ impl ReaperTarget {
             | TrackSendPan { .. }
             | TrackSendMute { .. }
             | Tempo { .. }
+            | GoToBookmark { .. }
             | Playrate { .. }
             | FxEnable { .. }
             | FxPreset { .. }
@@ -1215,6 +1258,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | FxEnable { .. }
             | FxPreset { .. }
+            | GoToBookmark { .. }
             | SelectedTrack { .. }
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
@@ -1260,6 +1304,10 @@ impl ReaperTarget {
                 {
                     (true, Some(touched_unit_value(e.new_value)))
                 }
+                _ => (false, None),
+            },
+            GoToBookmark { .. } => match evt {
+                PlayPositionChanged(_) => (true, None),
                 _ => (false, None),
             },
             _ => (false, None),
@@ -1437,6 +1485,15 @@ impl ReaperTarget {
                     }
                 }
             }
+            GoToBookmark { .. } => {
+                match evt {
+                    BookmarksChanged(_) => (
+                        true,
+                        None
+                    ),
+                    _ => (false, None)
+                }
+            }
             // Handled from non-control-surface callbacks.
             Action { .. }
             | LoadFxSnapshot { .. }
@@ -1515,6 +1572,21 @@ impl Target for ReaperTarget {
                     .borrow()
                     .automation_parameter_is_touched(track.raw(), *parameter_type);
                 touched_unit_value(is_touched)
+            }
+            GoToBookmark {
+                project,
+                is_region,
+                index,
+                ..
+            } => {
+                let current_bookmark = project.current_bookmark();
+                let relevant_index = if *is_region {
+                    current_bookmark.region_index
+                } else {
+                    current_bookmark.marker_index
+                };
+                let is_current = relevant_index == Some(*index);
+                convert_bool_to_unit_value(is_current)
             }
         };
         Some(result)

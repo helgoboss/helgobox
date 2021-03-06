@@ -5,9 +5,10 @@ use crate::domain::{
 };
 use derive_more::{Display, Error};
 use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
-use reaper_medium::{MasterTrackBehavior, TrackLocation};
+use reaper_medium::{BookmarkId, BookmarkRef, MasterTrackBehavior, TrackLocation};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
+use std::num::NonZeroU32;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -83,6 +84,10 @@ pub enum UnresolvedReaperTarget {
         track_descriptor: TrackDescriptor,
         parameter_type: TouchedParameterType,
         exclusivity: TrackExclusivity,
+    },
+    GoToBookmark {
+        is_region: bool,
+        bookmark_ref: BookmarkRef,
     },
 }
 
@@ -207,6 +212,33 @@ impl UnresolvedReaperTarget {
                 parameter_type: *parameter_type,
                 exclusivity: *exclusivity,
             },
+            GoToBookmark {
+                is_region,
+                bookmark_ref,
+            } => {
+                let project = context.project_or_current_project();
+                let (index, position) = match bookmark_ref {
+                    BookmarkRef::Position(p) => {
+                        let info = bookmark_index_infos(project, *is_region)
+                            .find(|info| info.index_within_type == p.get() - 1)
+                            .ok_or("bookmark with that type and position not found")?;
+                        (info.index, *p)
+                    }
+                    BookmarkRef::Id(id) => {
+                        let info = bookmark_index_infos(project, *is_region)
+                            .find(|info| info.id == *id)
+                            .ok_or("bookmark with that type and ID not found")?;
+                        let position = NonZeroU32::new(info.index_within_type + 1).unwrap();
+                        (info.index, position)
+                    }
+                };
+                ReaperTarget::GoToBookmark {
+                    project,
+                    is_region: *is_region,
+                    index,
+                    position,
+                }
+            }
         };
         Ok(resolved)
     }
@@ -240,7 +272,12 @@ impl UnresolvedReaperTarget {
     fn descriptors(&self) -> (Option<&TrackDescriptor>, Option<&FxDescriptor>) {
         use UnresolvedReaperTarget::*;
         match self {
-            Action { .. } | Tempo | Playrate | SelectedTrack | Transport { .. } => (None, None),
+            Action { .. }
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport { .. }
+            | GoToBookmark { .. } => (None, None),
             FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
             | FxParameter { fx_descriptor, .. }
@@ -709,4 +746,44 @@ fn get_guid_based_fx_by_guid_on_chain_with_index_hint(
         return Err("no FX with that GUID");
     }
     Ok(fx)
+}
+
+fn bookmark_index_infos(
+    project: Project,
+    is_region: bool,
+) -> impl Iterator<Item = BookmarkIndexInfo> {
+    project
+        .bookmarks()
+        // Enumerate across types
+        .enumerate()
+        .map(|(i, b)| {
+            b.with_info(|info| {
+                let info = info.unwrap();
+                LightBookmarkInfo {
+                    index: i as _,
+                    is_region: info.region_end_position.is_some(),
+                    id: info.id,
+                }
+            })
+        })
+        .filter(move |info| info.is_region == is_region)
+        // Enumerate within one type
+        .enumerate()
+        .map(|(i, info)| BookmarkIndexInfo {
+            id: info.id,
+            index: info.index,
+            index_within_type: i as _,
+        })
+}
+
+struct LightBookmarkInfo {
+    index: u32,
+    is_region: bool,
+    id: BookmarkId,
+}
+
+struct BookmarkIndexInfo {
+    id: BookmarkId,
+    index: u32,
+    index_within_type: u32,
 }
