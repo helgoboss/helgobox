@@ -1815,6 +1815,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             anchor_combo.hide();
             input_fx_box.show();
             input_fx_box.set_text("Regions");
+            input_fx_box.set_checked(target.is_region.get());
         } else {
             hide_all();
         }
