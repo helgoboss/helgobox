@@ -208,11 +208,12 @@ If the label remains at "Stop" at step 3, you need to have a look at your MIDI s
     ReaLearn on the other hand uses the track MIDI path - which is one reason why it is so flexible.
 - Make sure your audio hardware is not stuck (playback in REAPER should work).
 - Make sure the track is armed for recording and has the appropriate MIDI device input.
-- Make sure your controller is in MIDI mode.
-   - Some controllers, especially DAW controllers, are able to work with several protocols (MCU, HUI, ...).
-   - ReaLearn doesn't understand those proprietary protocols. Therefore you need to consult your controller's manual
-     and take the necessary steps to put it into something like a "general-purpose MIDI" mode.
-   - Example: Presonus Faderport
+- Sometimes it's necessary to make your controller enter a specific MIDI mode.
+   - Some controllers, especially DAW controllers, are able to work with several protocols (MCU, HUI, MIDI, ...).
+   - Although MCU and HUI is also just MIDI under the hood, they are more limited (because specialized) in comparison
+     to MIDI - so sometimes not all control elements work in the MCU/HUI mode of operation.
+   - Therefore you need to consult your controller's manual and take the necessary steps to put it into something like
+     a "general-purpose MIDI" mode.
 
 When you read this the first time, you might get the impression that this is a lot of work for
 setting up one simple control mapping. It's not. Learning mappings is a matter of a few secs after
