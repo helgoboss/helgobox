@@ -203,6 +203,15 @@ impl MainMapping {
         )
     }
 
+    pub fn wants_to_be_informed_about_beat_changes(&self) -> bool {
+        matches!(
+            self.core.unresolved_target,
+            Some(UnresolvedCompoundMappingTarget::Reaper(
+                UnresolvedReaperTarget::GoToBookmark { .. }
+            ))
+        )
+    }
+
     pub fn refresh_target(&mut self, context: &ProcessorContext) -> Option<ActivationChange> {
         let was_active_before = self.core.options.target_is_active;
         let (target, is_active) = match self.core.unresolved_target.as_ref() {

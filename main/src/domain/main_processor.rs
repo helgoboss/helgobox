@@ -39,6 +39,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
     /// At the moment only "Last touched" targets.
     target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    /// Contains IDs of those mappings whose feedback might change depending on the current beat.
+    beat_based_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -92,6 +94,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings: Default::default(),
             mappings_with_virtual_targets: Default::default(),
             target_touch_dependent_mappings: Default::default(),
+            beat_based_feedback_mappings: Default::default(),
             feedback_is_globally_enabled: false,
             parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
@@ -186,6 +189,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let mut unused_sources =
                         self.currently_feedback_enabled_sources(compartment, true);
                     self.target_touch_dependent_mappings[compartment].clear();
+                    self.beat_based_feedback_mappings[compartment].clear();
                     // Refresh and splinter real-time mappings
                     let real_time_mappings = mappings
                         .iter_mut()
@@ -197,6 +201,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             }
                             if m.needs_refresh_when_target_touched() {
                                 self.target_touch_dependent_mappings[compartment].insert(m.id());
+                            }
+                            if m.wants_to_be_informed_about_beat_changes() {
+                                self.beat_based_feedback_mappings[compartment].insert(m.id());
                             }
                             m.splinter_real_time_mapping()
                         })
@@ -313,6 +320,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.target_touch_dependent_mappings[compartment].insert(mapping.id());
                     } else {
                         self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
+                    }
+                    if mapping.wants_to_be_informed_about_beat_changes() {
+                        self.beat_based_feedback_mappings[compartment].insert(mapping.id());
+                    } else {
+                        self.beat_based_feedback_mappings[compartment].remove(&mapping.id());
                     }
                     let relevant_map = if mapping.has_virtual_target() {
                         self.mappings[compartment].remove(&mapping.id());
@@ -528,6 +540,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
+        if let AdditionalFeedbackEvent::PlayPositionChanged(_) = event {
+            // This is fired very frequently so we don't want to iterate over all mappings,
+            // just the ones that need to be notified for feedback or whatever.
+            for compartment in MappingCompartment::into_enum_iter() {
+                for mapping_id in self.beat_based_feedback_mappings[compartment].iter() {
+                    if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                        self.process_feedback_related_reaper_event_for_mapping(
+                            compartment,
+                            m,
+                            &|target| target.value_changed_from_additional_feedback_event(event),
+                        );
+                    }
+                }
+            }
+            return;
+        }
+        // Okay, not fired that frequently, we can iterate over all mappings.
         self.process_feedback_related_reaper_event(|target| {
             target.value_changed_from_additional_feedback_event(event)
         });
@@ -578,44 +607,50 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
             for m in self.mappings[compartment].values() {
-                let feedback_desired = self.feedback_is_globally_enabled
-                    && m.feedback_is_effectively_on()
-                    && !m.is_echo();
-                let compound_target = m.target();
-                if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
-                    let (value_changed, new_value) = f(target);
-                    if value_changed {
-                        // Immediate value capturing. Makes OSC feedback *much* smoother in
-                        // combination with high-throughput thread. Especially quick pulls
-                        // of many faders at once profit from it because intermediate
-                        // values are be captured and immediately sent so user doesn't see
-                        // stuttering faders on their device.
-                        // It's important to capture the current value from the event because
-                        // querying *at this time* from the target itself might result in
-                        // the old value to be returned. This is the case with FX parameter
-                        // changes for examples and especially in case of on/off targets this
-                        // can lead to horribly wrong feedback. Previously we didn't have this
-                        // issue because we always deferred to the next main loop cycle.
-                        let new_value = m
-                            .given_or_current_value(new_value, target)
-                            .unwrap_or(UnitValue::MIN);
-                        // Feedback
-                        if feedback_desired {
-                            let source_value = m.feedback_given_value(new_value);
-                            self.send_feedback(source_value);
-                        }
-                        // Inform session, e.g. for UI updates
-                        self.event_handler
-                            .handle_event(DomainEvent::TargetValueChanged(
-                                TargetValueChangedEvent {
-                                    compartment,
-                                    mapping_id: m.id(),
-                                    target: compound_target,
-                                    new_value,
-                                },
-                            ));
-                    }
+                self.process_feedback_related_reaper_event_for_mapping(compartment, m, &f);
+            }
+        }
+    }
+
+    fn process_feedback_related_reaper_event_for_mapping(
+        &self,
+        compartment: MappingCompartment,
+        m: &MainMapping,
+        f: &impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
+    ) {
+        let feedback_desired =
+            self.feedback_is_globally_enabled && m.feedback_is_effectively_on() && !m.is_echo();
+        let compound_target = m.target();
+        if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
+            let (value_changed, new_value) = f(target);
+            if value_changed {
+                // Immediate value capturing. Makes OSC feedback *much* smoother in
+                // combination with high-throughput thread. Especially quick pulls
+                // of many faders at once profit from it because intermediate
+                // values are be captured and immediately sent so user doesn't see
+                // stuttering faders on their device.
+                // It's important to capture the current value from the event because
+                // querying *at this time* from the target itself might result in
+                // the old value to be returned. This is the case with FX parameter
+                // changes for examples and especially in case of on/off targets this
+                // can lead to horribly wrong feedback. Previously we didn't have this
+                // issue because we always deferred to the next main loop cycle.
+                let new_value = m
+                    .given_or_current_value(new_value, target)
+                    .unwrap_or(UnitValue::MIN);
+                // Feedback
+                if feedback_desired {
+                    let source_value = m.feedback_given_value(new_value);
+                    self.send_feedback(source_value);
                 }
+                // Inform session, e.g. for UI updates
+                self.event_handler
+                    .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
+                        compartment,
+                        mapping_id: m.id(),
+                        target: compound_target,
+                        new_value,
+                    }));
             }
         }
     }
