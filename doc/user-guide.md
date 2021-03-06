@@ -515,13 +515,11 @@ on macOS) with the following entries:
     - **&lt;New&gt;:** Opens a window for adding a new OSC devices.
         - **Name:** A descriptive name of the device, e.g. "TouchOSC on my Android phone".
         - **Local port:** Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
-          When using the TouchOSC app, this needs to be the same as configured for "Port (outgoing)" on the device.
-        - **Device host:** Required for feedback only. The IP address or host name of the OSC device to which ReaLearn
-          should send feedback messages. When using the TouchOSC app, this needs to be the same as configured for
-          "Local IP Address" on the device.
+        - **Device host:** Required for feedback only. The IP address of the OSC device to which ReaLearn
+          should send feedback messages. When targeting an OSC software that runs on the same computer as REAPER and
+          ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
         - **Device port:** Required for feedback only. The UDP port on which the OSC device listens for OSC feedback 
-          messages. When using the TouchOSC app, this needs to be the same as configured for "Port (incoming)" on the
-          device.  
+          messages.
         - All OSC device configurations will be saved in the REAPER resource directory 
           (REAPER → Actions → Show action list... → Show REAPER resource path in explorer/finder) in the JSON file
           `Helgoboss/ReaLearn/osc.json`.
@@ -2465,18 +2463,35 @@ MCU mode also works, but just partially and it doesn't offer complete customizat
 
 ### Hexler TouchOSC
 
-This is the OSC app which I used to test ReaLearn's OSC capabilities. It works both for control and feedback.
+This is the main OSC app which I use to test ReaLearn's OSC capabilities. It works both for control and feedback.
 
 Feedback for control elements that transmit messages with multiple arguments might not work as desired at the moment.
 E.g. TouchOSC expects values for both axes in case of X/Y controls instead of being satisfied with just one value
 and leaving the other axis untouched. Currently, ReaLearn can only send feedback messages that contain one real value
 and sets the other unchanged values to `Nil`.
 
+#### Setup
+
+- **Local port:** This needs to be the same as configured for "Port (outgoing)" on the device.
+- **Device host:** This needs to be the same as configured for "Local IP Address" on the device.
+- **Device port:** This needs to be the same as configured for "Port (incoming)" on the device.
+
 #### Presets
 
 There are no ReaLearn controller presets for TouchOSC layouts yet. Although technically possible in exactly the same way
 as with controller presets for MIDI devices, OSC layouts are very custom so I'm not sure if it would make much sense to
 create presets. Time will show.
+
+### OSC/PILOT
+
+Works both for control and feedback.
+
+#### Setup
+
+- **Local port:** Set this to the same value as "Send to port" in OSC/PILOT (by default 8001).
+- **Device host:** Set this to `127.0.0.1` if OSC/PILOT runs on the same computer as REAPER, otherwise to the IP address
+  of the machine on which OSC/PILOT runs.
+- **Device port:** Set this to the same value as "Listen on port" in OSC/PILOT (by default 8000).
 
 ### Behringer X32
 
