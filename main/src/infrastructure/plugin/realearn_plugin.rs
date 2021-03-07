@@ -42,7 +42,8 @@ use vst::host::Host;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
 const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
-const NORMAL_MAIN_TASK_QUEUE_SIZE: usize = 1000;
+// Raised this limit to a safer number because of https://github.com/helgoboss/realearn/issues/201.
+const NORMAL_MAIN_TASK_QUEUE_SIZE: usize = 10_000;
 const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 
