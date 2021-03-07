@@ -915,7 +915,17 @@ pub enum TrackAnchorType {
 }
 
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    Serialize,
+    Deserialize,
 )]
 #[repr(usize)]
 pub enum BookmarkAnchorType {

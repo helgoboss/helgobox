@@ -1,10 +1,10 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use reaper_high::{Guid, Reaper};
+use reaper_high::{BookmarkType, Guid, Reaper};
 
 use crate::application::{
-    get_guid_based_fx_at_index, FxAnchorType, FxSnapshot, ReaperTargetType, TargetCategory,
-    TargetModel, VirtualControlElementType,
+    get_guid_based_fx_at_index, BookmarkAnchorType, FxAnchorType, FxSnapshot, ReaperTargetType,
+    TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
@@ -77,6 +77,9 @@ pub struct TargetModelData {
     fx_snapshot: Option<FxSnapshot>,
     #[serde(default, skip_serializing_if = "is_default")]
     touched_parameter_type: TouchedParameterType,
+    // Bookmark target
+    #[serde(flatten)]
+    bookmark_data: BookmarkData,
 }
 
 impl TargetModelData {
@@ -112,6 +115,11 @@ impl TargetModelData {
             control_element_index: model.control_element_index.get(),
             fx_snapshot: model.fx_snapshot.get_ref().clone(),
             touched_parameter_type: model.touched_parameter_type.get(),
+            bookmark_data: BookmarkData {
+                anchor: model.bookmark_anchor_type.get(),
+                r#ref: model.bookmark_ref.get(),
+                is_region: model.bookmark_type.get() == BookmarkType::Region,
+            },
         }
     }
 
@@ -218,6 +226,18 @@ impl TargetModelData {
         model
             .touched_parameter_type
             .set_without_notification(self.touched_parameter_type);
+        let bookmark_type = if self.bookmark_data.is_region {
+            BookmarkType::Region
+        } else {
+            BookmarkType::Marker
+        };
+        model.bookmark_type.set_without_notification(bookmark_type);
+        model
+            .bookmark_anchor_type
+            .set_without_notification(self.bookmark_data.anchor);
+        model
+            .bookmark_ref
+            .set_without_notification(self.bookmark_data.r#ref);
     }
 }
 
@@ -504,4 +524,19 @@ fn deserialize_fx(
         _ => return Err(DeserializationError::InvalidCombination),
     };
     Ok(virtual_fx)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BookmarkData {
+    #[serde(rename = "bookmarkAnchor", default, skip_serializing_if = "is_default")]
+    anchor: BookmarkAnchorType,
+    #[serde(rename = "bookmarkRef", default, skip_serializing_if = "is_default")]
+    r#ref: u32,
+    #[serde(
+        rename = "bookmarkIsRegion",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    is_region: bool,
 }
