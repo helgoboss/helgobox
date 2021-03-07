@@ -1684,20 +1684,27 @@ impl Drop for Session {
 impl DomainEventHandler for WeakSession {
     fn handle_event(&self, event: DomainEvent) {
         let session = self.upgrade().expect("session not existing anymore");
-        let mut session = session.borrow_mut();
         use DomainEvent::*;
         match event {
             LearnedSource {
                 source,
                 allow_virtual_sources,
             } => {
-                session.learn_source(source, allow_virtual_sources);
+                session
+                    .borrow_mut()
+                    .learn_source(source, allow_virtual_sources);
             }
             UpdatedOnMappings(on_mappings) => {
-                session.on_mappings.set(on_mappings);
+                session.borrow_mut().on_mappings.set(on_mappings);
             }
             TargetValueChanged(e) => {
-                session.ui.target_value_changed(e);
+                // If the session is borrowed already, just let it be. It happens only in a very
+                // particular case of reentrancy (because of a quirk in REAPER related to master
+                // tempo notification, https://github.com/helgoboss/realearn/issues/199). If the
+                // target value slider is not updated then ... so what.
+                if let Ok(s) = session.try_borrow_mut() {
+                    s.ui.target_value_changed(e);
+                }
             }
         }
     }
