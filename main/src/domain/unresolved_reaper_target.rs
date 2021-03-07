@@ -751,6 +751,9 @@ pub fn find_bookmark(
     anchor_type: BookmarkAnchorType,
     bookmark_ref: u32,
 ) -> Result<FindBookmarkResult, &'static str> {
+    if !project.is_available() {
+        return Err("project not available");
+    }
     match anchor_type {
         BookmarkAnchorType::Index => project
             .find_bookmark_by_type_and_index(bookmark_type, bookmark_ref)
