@@ -1,11 +1,15 @@
+use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, SoloBehavior,
     TouchedParameterType, TrackExclusivity, TransportAction,
 };
 use derive_more::{Display, Error};
-use reaper_high::{Action, Fx, FxChain, FxParameter, Guid, Project, Reaper, Track, TrackSend};
-use reaper_medium::{BookmarkId, BookmarkRef, MasterTrackBehavior, TrackLocation};
+use reaper_high::{
+    Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
+    Track, TrackSend,
+};
+use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackLocation};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::num::NonZeroU32;
@@ -86,8 +90,9 @@ pub enum UnresolvedReaperTarget {
         exclusivity: TrackExclusivity,
     },
     GoToBookmark {
-        is_region: bool,
-        bookmark_ref: BookmarkRef,
+        bookmark_type: BookmarkType,
+        bookmark_anchor_type: BookmarkAnchorType,
+        bookmark_ref: u32,
     },
 }
 
@@ -213,30 +218,22 @@ impl UnresolvedReaperTarget {
                 exclusivity: *exclusivity,
             },
             GoToBookmark {
-                is_region,
+                bookmark_type,
+                bookmark_anchor_type,
                 bookmark_ref,
             } => {
                 let project = context.project_or_current_project();
-                let (index, position) = match bookmark_ref {
-                    BookmarkRef::Position(p) => {
-                        let info = bookmark_index_infos(project, *is_region)
-                            .find(|info| info.index_within_type == p.get() - 1)
-                            .ok_or("bookmark with that type and position not found")?;
-                        (info.index, *p)
-                    }
-                    BookmarkRef::Id(id) => {
-                        let info = bookmark_index_infos(project, *is_region)
-                            .find(|info| info.id == *id)
-                            .ok_or("bookmark with that type and ID not found")?;
-                        let position = NonZeroU32::new(info.index_within_type + 1).unwrap();
-                        (info.index, position)
-                    }
-                };
+                let res = find_bookmark(
+                    project,
+                    *bookmark_type,
+                    *bookmark_anchor_type,
+                    *bookmark_ref,
+                )?;
                 ReaperTarget::GoToBookmark {
                     project,
-                    is_region: *is_region,
-                    index,
-                    position,
+                    bookmark_type: *bookmark_type,
+                    index: res.index,
+                    position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
                 }
             }
         };
@@ -748,42 +745,18 @@ fn get_guid_based_fx_by_guid_on_chain_with_index_hint(
     Ok(fx)
 }
 
-fn bookmark_index_infos(
+pub fn find_bookmark(
     project: Project,
-    is_region: bool,
-) -> impl Iterator<Item = BookmarkIndexInfo> {
-    project
-        .bookmarks()
-        // Enumerate across types
-        .enumerate()
-        .map(|(i, b)| {
-            b.with_info(|info| {
-                let info = info.unwrap();
-                LightBookmarkInfo {
-                    index: i as _,
-                    is_region: info.region_end_position.is_some(),
-                    id: info.id,
-                }
-            })
-        })
-        .filter(move |info| info.is_region == is_region)
-        // Enumerate within one type
-        .enumerate()
-        .map(|(i, info)| BookmarkIndexInfo {
-            id: info.id,
-            index: info.index,
-            index_within_type: i as _,
-        })
-}
-
-struct LightBookmarkInfo {
-    index: u32,
-    is_region: bool,
-    id: BookmarkId,
-}
-
-struct BookmarkIndexInfo {
-    id: BookmarkId,
-    index: u32,
-    index_within_type: u32,
+    bookmark_type: BookmarkType,
+    anchor_type: BookmarkAnchorType,
+    bookmark_ref: u32,
+) -> Result<FindBookmarkResult, &'static str> {
+    match anchor_type {
+        BookmarkAnchorType::Index => project
+            .find_bookmark_by_type_and_index(bookmark_type, bookmark_ref)
+            .ok_or("bookmark with that type and index not found"),
+        BookmarkAnchorType::Id => project
+            .find_bookmark_by_type_and_id(bookmark_type, BookmarkId::new(bookmark_ref))
+            .ok_or("bookmark with that type and ID not found"),
+    }
 }

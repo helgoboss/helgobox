@@ -3,8 +3,8 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, ActionCharacter, AvailablePanValue, ChangeEvent, Fx, FxParameter, FxParameterCharacter,
-    Pan, PlayRate, Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
+    Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxParameter,
+    FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
 };
 use reaper_medium::{
     BookmarkRef, Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
@@ -136,7 +136,7 @@ pub enum ReaperTarget {
     },
     GoToBookmark {
         project: Project,
-        is_region: bool,
+        bookmark_type: BookmarkType,
         // This counts both markers and regions. We need it for getting the current value.
         index: u32,
         // This counts either only markers or only regions. We need it for control. The alternative
@@ -672,16 +672,15 @@ impl RealearnTarget for ReaperTarget {
             }
             GoToBookmark {
                 project,
-                is_region,
+                bookmark_type,
                 position,
                 ..
-            } => {
-                if *is_region {
-                    project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position))
-                } else {
-                    // TODO-high Implement for markers, too.
+            } => match *bookmark_type {
+                BookmarkType::Marker => project.go_to_marker(BookmarkRef::Position(*position)),
+                BookmarkType::Region => {
+                    project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position));
                 }
-            }
+            },
         };
         Ok(())
     }
@@ -1575,15 +1574,14 @@ impl Target for ReaperTarget {
             }
             GoToBookmark {
                 project,
-                is_region,
+                bookmark_type,
                 index,
                 ..
             } => {
                 let current_bookmark = project.current_bookmark();
-                let relevant_index = if *is_region {
-                    current_bookmark.region_index
-                } else {
-                    current_bookmark.marker_index
+                let relevant_index = match *bookmark_type {
+                    BookmarkType::Marker => current_bookmark.marker_index,
+                    BookmarkType::Region => current_bookmark.region_index,
                 };
                 let is_current = relevant_index == Some(*index);
                 convert_bool_to_unit_value(is_current)

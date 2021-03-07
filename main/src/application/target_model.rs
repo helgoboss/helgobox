@@ -4,23 +4,23 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_high::{Action, Fx, FxParameter, Project, Track, TrackSend};
+use reaper_high::{Action, BookmarkType, Fx, FxParameter, Project, Track, TrackSend};
 
 use rx_util::{Event, UnitEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TrackAnchor, TrackDescriptor, TrackExclusivity, TransportAction,
-    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualControlElement, VirtualFx,
-    VirtualTarget, VirtualTrack,
+    find_bookmark, get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send,
+    ActionInvocationType, CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext,
+    ReaperTarget, SoloBehavior, TouchedParameterType, TrackAnchor, TrackDescriptor,
+    TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 
-use reaper_medium::{BookmarkId, BookmarkRef};
+use reaper_medium::BookmarkId;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -63,7 +63,8 @@ pub struct TargetModel {
     pub touched_parameter_type: Prop<TouchedParameterType>,
     // # For "Go to marker/region" target
     pub bookmark_ref: Prop<u32>,
-    pub is_region: Prop<bool>,
+    pub bookmark_type: Prop<BookmarkType>,
+    pub bookmark_anchor_type: Prop<BookmarkAnchorType>,
 }
 
 impl Default for TargetModel {
@@ -87,7 +88,8 @@ impl Default for TargetModel {
             fx_snapshot: prop(None),
             touched_parameter_type: prop(Default::default()),
             bookmark_ref: prop(0),
-            is_region: prop(false),
+            bookmark_type: prop(BookmarkType::Marker),
+            bookmark_anchor_type: prop(Default::default()),
         }
     }
 }
@@ -185,8 +187,13 @@ impl TargetModel {
             TrackSolo { behavior, .. } => {
                 self.solo_behavior.set(*behavior);
             }
-            GoToBookmark { index, .. } => {
+            GoToBookmark {
+                index,
+                bookmark_type,
+                ..
+            } => {
                 self.bookmark_ref.set(*index);
+                self.bookmark_type.set(*bookmark_type);
             }
             TrackVolume { .. }
             | TrackSendVolume { .. }
@@ -228,7 +235,8 @@ impl TargetModel {
             .merge(self.fx_snapshot.changed())
             .merge(self.touched_parameter_type.changed())
             .merge(self.bookmark_ref.changed())
-            .merge(self.is_region.changed())
+            .merge(self.bookmark_type.changed())
+            .merge(self.bookmark_anchor_type.changed())
     }
 
     fn track_descriptor(&self) -> TrackDescriptor {
@@ -332,10 +340,9 @@ impl TargetModel {
                         exclusivity: self.track_exclusivity.get(),
                     },
                     GoToBookmark => UnresolvedReaperTarget::GoToBookmark {
-                        is_region: self.is_region.get(),
-                        // TODO-high Introduce anchor and also allow by-position (supported on
-                        // deeper layers already).
-                        bookmark_ref: BookmarkRef::Id(BookmarkId::new(self.bookmark_ref.get())),
+                        bookmark_type: self.bookmark_type.get(),
+                        bookmark_anchor_type: self.bookmark_anchor_type.get(),
+                        bookmark_ref: self.bookmark_ref.get(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -639,12 +646,50 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.target.touched_parameter_type.get()
                     ),
                     GoToBookmark => {
-                        write!(f, "Go to marker/region\n{}", self.target.bookmark_ref.get())
+                        let bookmark_type = self.target.bookmark_type.get();
+                        let main_label = match bookmark_type {
+                            BookmarkType::Marker => "Go to marker",
+                            BookmarkType::Region => "Go to region",
+                        };
+                        let detail_label = {
+                            let anchor_type = self.target.bookmark_anchor_type.get();
+                            let bookmark_ref = self.target.bookmark_ref.get();
+                            let res = find_bookmark(
+                                self.project(),
+                                bookmark_type,
+                                anchor_type,
+                                bookmark_ref,
+                            );
+                            if let Ok(res) = res {
+                                get_bookmark_label(
+                                    res.index_within_type,
+                                    res.basic_info.id,
+                                    &res.bookmark.name(),
+                                )
+                            } else {
+                                get_non_present_bookmark_label(anchor_type, bookmark_ref)
+                            }
+                        };
+                        write!(f, "{}\n{}", main_label, detail_label)
                     }
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
         }
+    }
+}
+
+pub fn get_bookmark_label(index_within_type: u32, id: BookmarkId, name: &str) -> String {
+    format!("{}. {} (ID {})", index_within_type + 1, name, id)
+}
+
+pub fn get_non_present_bookmark_label(
+    anchor_type: BookmarkAnchorType,
+    bookmark_ref: u32,
+) -> String {
+    match anchor_type {
+        BookmarkAnchorType::Id => format!("<Not present> (ID {})", bookmark_ref),
+        BookmarkAnchorType::Index => format!("{}. <Not present>", bookmark_ref),
     }
 }
 
@@ -867,6 +912,23 @@ pub enum TrackAnchorType {
     Index,
     #[display(fmt = "By ID or name")]
     IdOrName,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
+)]
+#[repr(usize)]
+pub enum BookmarkAnchorType {
+    #[display(fmt = "By ID")]
+    Id,
+    #[display(fmt = "By position")]
+    Index,
+}
+
+impl Default for BookmarkAnchorType {
+    fn default() -> Self {
+        Self::Id
+    }
 }
 
 impl TrackAnchorType {

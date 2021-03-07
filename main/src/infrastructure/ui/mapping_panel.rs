@@ -8,7 +8,7 @@ use helgoboss_learn::{
     SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::Reaper;
+use reaper_high::{BookmarkType, Reaper};
 use reaper_low::raw;
 use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
 use rx_util::UnitEvent;
@@ -22,8 +22,9 @@ use std::ptr::null;
 use std::rc::Rc;
 
 use crate::application::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, get_fx_label, get_fx_param_label,
-    get_guid_based_fx_at_index, get_optional_fx_label, FxAnchorType, MappingModel, MidiSourceType,
+    convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
+    get_fx_param_label, get_guid_based_fx_at_index, get_non_present_bookmark_label,
+    get_optional_fx_label, BookmarkAnchorType, FxAnchorType, MappingModel, MidiSourceType,
     ModeModel, ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory,
     SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TrackAnchorType,
     VirtualControlElementType, WeakSession,
@@ -917,7 +918,12 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_INPUT_FX_CHECK_BOX)
             .is_checked();
         if self.mapping.target_model.r#type.get() == ReaperTargetType::GoToBookmark {
-            self.mapping.target_model.is_region.set(is_enabled);
+            let bookmark_type = if is_enabled {
+                BookmarkType::Region
+            } else {
+                BookmarkType::Marker
+            };
+            self.mapping.target_model.bookmark_type.set(bookmark_type);
         } else {
             let new_virtual_fx = match self.mapping.target_model.fx.get_ref().as_ref() {
                 None | Some(VirtualFx::Focused) => Some(VirtualFx::Particular {
@@ -1618,10 +1624,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     anchor_combo.hide();
                     action_label.hide();
                     pick_button.hide();
-                    let label_text = if self.target.is_region.get() {
-                        "Regions"
-                    } else {
-                        "Markers"
+                    let label_text = match self.target.bookmark_type.get() {
+                        BookmarkType::Marker => "Marker",
+                        BookmarkType::Region => "Region",
                     };
                     label.set_text(label_text);
                     self.fill_target_bookmark_combo_box(main_combo);
@@ -1673,19 +1678,15 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn fill_target_bookmark_combo_box(&self, combo: Window) {
         let project = self.target_with_context().project();
-        let is_region = self.target.is_region.get();
+        let bookmark_type = self.target.bookmark_type.get();
         let bookmarks = project
             .bookmarks()
-            .map(|b| b.info().unwrap())
-            .filter(|info| info.is_region() == is_region)
+            .map(|b| (b, b.basic_info()))
+            .filter(|(_, info)| info.bookmark_type() == bookmark_type)
             .enumerate()
-            .map(|(i, info)| {
-                let name_label = if info.name.trim().is_empty() {
-                    "-".to_owned()
-                } else {
-                    info.name
-                };
-                let label = format!("{}. [{}] {}", i + 1, info.id, name_label);
+            .map(|(i, (b, info))| {
+                let name = b.name();
+                let label = get_bookmark_label(i as _, info.id, &name);
                 (info.id.get() as isize, label)
             })
             .collect();
@@ -1740,15 +1741,26 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_bookmark_combo_box_value(&self, combo: Window) {
-        // TODO-high If this is positional anchor, select by index instead
         let bookmark_ref = self.mapping.target_model.bookmark_ref.get();
-        combo
-            .select_combo_box_item_by_data(bookmark_ref as _)
-            .unwrap_or_else(|_| {
-                combo.select_new_combo_box_item(
-                    format!("[{}] <Not present>", bookmark_ref).as_str(),
-                );
-            });
+        let anchor_type = self.mapping.target_model.bookmark_anchor_type.get();
+        let successful = match anchor_type {
+            BookmarkAnchorType::Id => combo
+                .select_combo_box_item_by_data(bookmark_ref as _)
+                .is_ok(),
+            BookmarkAnchorType::Index => {
+                if (bookmark_ref as usize) < combo.combo_box_item_count() {
+                    combo.select_combo_box_item(bookmark_ref as _);
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+        if !successful {
+            combo.select_new_combo_box_item(
+                get_non_present_bookmark_label(anchor_type, bookmark_ref).as_str(),
+            );
+        }
     }
 
     fn invalidate_target_line_three(&self) {
@@ -1815,7 +1827,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             anchor_combo.hide();
             input_fx_box.show();
             input_fx_box.set_text("Regions");
-            input_fx_box.set_checked(target.is_region.get());
+            let is_checked = target.bookmark_type.get() == BookmarkType::Region;
+            input_fx_box.set_checked(is_checked);
         } else {
             hide_all();
         }
@@ -2784,7 +2797,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .bookmark_ref
                 .changed()
-                .merge(target.is_region.changed()),
+                .merge(target.bookmark_type.changed()),
             |view| {
                 view.invalidate_target_line_two();
             },
