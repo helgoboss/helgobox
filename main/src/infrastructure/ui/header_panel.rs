@@ -316,7 +316,7 @@ impl HeaderPanel {
     fn invalidate_compartment_combo_box(&self) {
         self.view
             .require_control(root::ID_COMPARTMENT_COMBO_BOX)
-            .select_combo_box_item(self.active_compartment().into());
+            .select_combo_box_item_by_index(self.active_compartment().into());
     }
 
     fn invalidate_preset_auto_load_mode_combo_box(&self) {
@@ -325,7 +325,7 @@ impl HeaderPanel {
         if self.active_compartment() == MappingCompartment::MainMappings {
             label.show();
             combo.show();
-            combo.select_combo_box_item(
+            combo.select_combo_box_item_by_index(
                 self.session()
                     .borrow()
                     .main_preset_auto_load_mode

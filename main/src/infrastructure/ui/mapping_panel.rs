@@ -992,6 +992,28 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
+    fn update_target_line_two_anchor(&mut self) -> Result<(), &'static str> {
+        if self.mapping.target_model.supports_track() {
+            self.update_target_line_two_data()
+        } else {
+            self.update_target_bookmark_anchor();
+            Ok(())
+        }
+    }
+
+    fn update_target_bookmark_anchor(&mut self) {
+        let anchor_type: BookmarkAnchorType = self
+            .view
+            .require_control(root::ID_TARGET_TRACK_ANCHOR_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .unwrap_or(BookmarkAnchorType::Id);
+        self.mapping
+            .target_model
+            .bookmark_anchor_type
+            .set(anchor_type);
+    }
+
     fn update_target_line_two_data(&mut self) -> Result<(), &'static str> {
         let main_combo = self
             .view
@@ -1028,8 +1050,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .transport_action
                         .set(data.try_into().expect("invalid transport action"));
                 } else if self.mapping.target_model.r#type.get() == ReaperTargetType::GoToBookmark {
-                    let data = main_combo.selected_combo_box_item_data();
-                    self.mapping.target_model.bookmark_ref.set(data as _);
+                    let data: u32 = match self.mapping.target_model.bookmark_anchor_type.get() {
+                        BookmarkAnchorType::Id => main_combo.selected_combo_box_item_data() as _,
+                        BookmarkAnchorType::Index => {
+                            main_combo.selected_combo_box_item_index() as _
+                        }
+                    };
+                    self.mapping.target_model.bookmark_ref.set(data);
                 }
             }
             Virtual => {
@@ -1193,7 +1220,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_target_category_combo_box();
-        self.fill_target_track_anchor_combo_box();
         self.fill_target_fx_anchor_combo_box();
     }
 
@@ -1357,7 +1383,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_category_combo_box(&self) {
         self.view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
-            .select_combo_box_item(self.source.category.get().into());
+            .select_combo_box_item_by_index(self.source.category.get().into());
     }
 
     fn invalidate_target_category_combo_box(&self) {
@@ -1367,7 +1393,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_enabled(self.mapping.compartment() != MappingCompartment::MainMappings);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .select_combo_box_item(self.target.category.get().into());
+            .select_combo_box_item_by_index(self.target.category.get().into());
     }
 
     fn invalidate_source_type_combo_box(&self) {
@@ -1383,7 +1409,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             _ => return,
         };
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
-        b.select_combo_box_item(item_index);
+        b.select_combo_box_item_by_index(item_index);
     }
 
     fn invalidate_source_learn_button(&self) {
@@ -1418,7 +1444,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 };
             }
-            Virtual => b.select_combo_box_item(self.source.control_element_index.get() as _),
+            Virtual => {
+                b.select_combo_box_item_by_index(self.source.control_element_index.get() as _)
+            }
             _ => {}
         };
     }
@@ -1521,13 +1549,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(label_text);
         self.view
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX)
-            .select_combo_box_item(item_index);
+            .select_combo_box_item_by_index(item_index);
     }
 
     fn invalidate_source_midi_clock_transport_message_type_combo_box(&self) {
         self.view
             .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX)
-            .select_combo_box_item(self.source.midi_clock_transport_message.get().into());
+            .select_combo_box_item_by_index(self.source.midi_clock_transport_message.get().into());
     }
 
     fn invalidate_target_controls(&self) {
@@ -1571,7 +1599,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Reaper => self.target.r#type.get().into(),
             Virtual => self.target.control_element_type.get().into(),
         };
-        b.select_combo_box_item(item_index);
+        b.select_combo_box_item_by_index(item_index);
     }
 
     fn invalidate_target_line_two(&self) {
@@ -1599,6 +1627,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     pick_button.hide();
                     label.set_text("Track");
                     self.fill_target_track_combo_box(main_combo);
+                    self.fill_track_anchor_combo_box(anchor_combo);
                     self.invalidate_target_track_combo_box_value(main_combo, anchor_combo);
                 } else if self.target.r#type.get() == ReaperTargetType::Action {
                     label.show();
@@ -1621,7 +1650,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 } else if self.target.r#type.get() == ReaperTargetType::GoToBookmark {
                     label.show();
                     main_combo.show();
-                    anchor_combo.hide();
+                    anchor_combo.show();
                     action_label.hide();
                     pick_button.hide();
                     let label_text = match self.target.bookmark_type.get() {
@@ -1630,7 +1659,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     };
                     label.set_text(label_text);
                     self.fill_target_bookmark_combo_box(main_combo);
+                    self.fill_target_bookmark_anchor_combo_box(anchor_combo);
                     self.set_target_bookmark_combo_box_value(main_combo);
+                    self.set_target_bookmark_anchor_combo_box_value(anchor_combo);
                 } else {
                     label.hide();
                     main_combo.hide();
@@ -1647,7 +1678,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 pick_button.hide();
                 label.set_text("Number");
                 main_combo.fill_combo_box_small(1..=100);
-                main_combo.select_combo_box_item(self.target.control_element_index.get() as _);
+                main_combo
+                    .select_combo_box_item_by_index(self.target.control_element_index.get() as _);
             }
         };
     }
@@ -1699,6 +1731,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .with_context(self.session.context())
     }
 
+    fn set_target_bookmark_anchor_combo_box_value(&self, b: Window) {
+        let anchor = self.mapping.target_model.bookmark_anchor_type.get();
+        b.select_combo_box_item_by_index(anchor.into());
+    }
+
     fn invalidate_target_track_combo_box_value(&self, track_combo: Window, anchor_combo: Window) {
         use VirtualTrack::*;
         let virtual_track = self.target.track.get_ref();
@@ -1728,16 +1765,18 @@ impl<'a> ImmutableMappingPanel<'a> {
         if let Some(a) = anchor {
             let anchor_type = TrackAnchorType::from_anchor(a);
             anchor_combo.show();
-            anchor_combo.select_combo_box_item(anchor_type.into());
+            anchor_combo.select_combo_box_item_by_index(anchor_type.into());
         } else {
             anchor_combo.hide();
             // We should at least initialize it so that it has a value. It's used for updating.
-            anchor_combo.select_combo_box_item(0);
+            anchor_combo.select_combo_box_item_by_index(0);
         }
     }
 
     fn set_target_transport_action_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item(self.mapping.target_model.transport_action.get().into());
+        combo.select_combo_box_item_by_index(
+            self.mapping.target_model.transport_action.get().into(),
+        );
     }
 
     fn set_target_bookmark_combo_box_value(&self, combo: Window) {
@@ -1749,7 +1788,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .is_ok(),
             BookmarkAnchorType::Index => {
                 if (bookmark_ref as usize) < combo.combo_box_item_count() {
-                    combo.select_combo_box_item(bookmark_ref as _);
+                    combo.select_combo_box_item_by_index(bookmark_ref as _);
                     true
                 } else {
                     false
@@ -1868,11 +1907,11 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_invocation_type_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item(self.target.action_invocation_type.get().into());
+        combo.select_combo_box_item_by_index(self.target.action_invocation_type.get().into());
     }
 
     fn set_target_solo_behavior_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item(self.target.solo_behavior.get().into());
+        combo.select_combo_box_item_by_index(self.target.solo_behavior.get().into());
     }
 
     fn fill_target_solo_behavior_combo_box(&self, label: Window, combo: Window) {
@@ -1881,7 +1920,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_touched_parameter_type_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item(self.target.touched_parameter_type.get().into());
+        combo.select_combo_box_item_by_index(self.target.touched_parameter_type.get().into());
     }
 
     fn fill_target_touched_parameter_type_combo_box(&self, label: Window, combo: Window) {
@@ -1925,7 +1964,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_track_exclusivity_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item(self.target.track_exclusivity.get().into());
+        combo.select_combo_box_item_by_index(self.target.track_exclusivity.get().into());
     }
 
     fn fill_target_fx_combo_box(&self, label: Window, combo: Window) {
@@ -2000,11 +2039,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         if let Some(a) = anchor {
             let anchor_type = FxAnchorType::from_anchor(&a);
             anchor_combo.show();
-            anchor_combo.select_combo_box_item(anchor_type.into());
+            anchor_combo.select_combo_box_item_by_index(anchor_type.into());
         } else {
             anchor_combo.hide();
             // We should at least initialize it so that it has a value. It's used for updating.
-            anchor_combo.select_combo_box_item(0);
+            anchor_combo.select_combo_box_item_by_index(0);
         }
         // Input FX checkbox
         let label = if let VirtualTrack::Master = self.mapping.target_model.track.get_ref() {
@@ -2352,7 +2391,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_type_combo_box(&self) {
         self.view
             .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
-            .select_combo_box_item(self.mode.r#type.get().into());
+            .select_combo_box_item_by_index(self.mode.r#type.get().into());
     }
 
     fn invalidate_mode_control_appearance(&self) {
@@ -2717,7 +2756,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_out_of_range_behavior_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
-            .select_combo_box_item(self.mode.out_of_range_behavior.get().into());
+            .select_combo_box_item_by_index(self.mode.out_of_range_behavior.get().into());
     }
 
     fn invalidate_mode_round_target_value_check_box(&self) {
@@ -2797,7 +2836,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .bookmark_ref
                 .changed()
-                .merge(target.bookmark_type.changed()),
+                .merge(target.bookmark_type.changed())
+                .merge(target.bookmark_anchor_type.changed()),
             |view| {
                 view.invalidate_target_line_two();
             },
@@ -2899,11 +2939,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn fill_target_track_anchor_combo_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_TARGET_TRACK_ANCHOR_COMBO_BOX);
+    fn fill_track_anchor_combo_box(&self, b: Window) {
         b.fill_combo_box(TrackAnchorType::into_enum_iter());
+    }
+
+    fn fill_target_bookmark_anchor_combo_box(&self, b: Window) {
+        b.fill_combo_box(BookmarkAnchorType::into_enum_iter());
     }
 
     fn fill_target_fx_anchor_combo_box(&self) {
@@ -3127,8 +3168,11 @@ impl View for MappingPanel {
             // Target
             ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
             ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
-            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX | ID_TARGET_TRACK_ANCHOR_COMBO_BOX => {
+            ID_TARGET_TRACK_OR_COMMAND_COMBO_BOX => {
                 self.write(|p| p.update_target_line_two_data()).unwrap();
+            }
+            ID_TARGET_TRACK_ANCHOR_COMBO_BOX => {
+                self.write(|p| p.update_target_line_two_anchor()).unwrap();
             }
             ID_TARGET_FX_OR_SEND_COMBO_BOX | ID_TARGET_FX_ANCHOR_COMBO_BOX => {
                 self.write(|p| p.update_target_from_combo_box_line_three());

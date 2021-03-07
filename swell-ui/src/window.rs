@@ -276,7 +276,7 @@ impl Window {
         }
     }
 
-    pub fn select_combo_box_item(self, index: usize) {
+    pub fn select_combo_box_item_by_index(self, index: usize) {
         unsafe {
             Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
         }
@@ -286,13 +286,13 @@ impl Window {
         let item_index = (0..self.combo_box_item_count())
             .find(|index| self.combo_box_item_data(*index) == item_data)
             .ok_or("couldn't find combo box item by item data")?;
-        self.select_combo_box_item(item_index);
+        self.select_combo_box_item_by_index(item_index);
         Ok(())
     }
 
     pub fn select_new_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {
         self.add_combo_box_item(label);
-        self.select_combo_box_item(self.combo_box_item_count() - 1);
+        self.select_combo_box_item_by_index(self.combo_box_item_count() - 1);
     }
 
     pub fn combo_box_item_count(self) -> usize {

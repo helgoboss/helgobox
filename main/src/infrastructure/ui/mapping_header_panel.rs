@@ -243,7 +243,7 @@ impl MappingHeaderPanel {
     fn invalidate_activation_type_combo_box(&self, item: &dyn Item) {
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
-            .select_combo_box_item(item.activation_type().into());
+            .select_combo_box_item_by_index(item.activation_type().into());
     }
 
     fn invalidate_activation_setting_1_controls(&self, item: &dyn Item) {
@@ -260,7 +260,7 @@ impl MappingHeaderPanel {
                 let param_index = item.program_condition().param_index();
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX)
-                    .select_combo_box_item(param_index as _);
+                    .select_combo_box_item_by_index(param_index as _);
             }
             _ => {}
         };
@@ -280,7 +280,7 @@ impl MappingHeaderPanel {
                 let program_index = item.program_condition().program_index();
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
-                    .select_combo_box_item(program_index as _);
+                    .select_combo_box_item_by_index(program_index as _);
             }
             _ => {}
         };
