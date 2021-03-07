@@ -121,17 +121,56 @@ impl MappingPanel {
 
     fn take_snapshot(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        // Important that neither session nor mapping is mutably borrowed while doing this because
-        // state of our ReaLearn instance is not unlikely to be queried as well!
-        let fx_snapshot = mapping
-            .borrow()
-            .target_model
-            .take_fx_snapshot(self.session().borrow().context())?;
-        mapping
-            .borrow_mut()
-            .target_model
-            .fx_snapshot
-            .set(Some(fx_snapshot));
+        let target_type = mapping.borrow().target_model.r#type.get();
+        match target_type {
+            ReaperTargetType::LoadFxSnapshot => {
+                // Important that neither session nor mapping is mutably borrowed while doing this
+                // because state of our ReaLearn instance is not unlikely to be
+                // queried as well!
+                let fx_snapshot = mapping
+                    .borrow()
+                    .target_model
+                    .take_fx_snapshot(self.session().borrow().context())?;
+                mapping
+                    .borrow_mut()
+                    .target_model
+                    .fx_snapshot
+                    .set(Some(fx_snapshot));
+            }
+            ReaperTargetType::GoToBookmark => {
+                let project = self
+                    .session()
+                    .borrow()
+                    .context()
+                    .project_or_current_project();
+                let current_bookmark_data = project.current_bookmark();
+                let (bookmark_type, bookmark_index) = match (
+                    current_bookmark_data.marker_index,
+                    current_bookmark_data.region_index,
+                ) {
+                    (None, None) => return Err("no bookmark at current position"),
+                    (Some(i), None) => (BookmarkType::Marker, i),
+                    (None, Some(i)) => (BookmarkType::Region, i),
+                    (Some(mi), Some(ri)) => {
+                        match mapping.borrow().target_model.bookmark_type.get() {
+                            BookmarkType::Marker => (BookmarkType::Marker, mi),
+                            BookmarkType::Region => (BookmarkType::Region, ri),
+                        }
+                    }
+                };
+                let bookmark_id = project
+                    .find_bookmark_by_index(bookmark_index)
+                    .unwrap()
+                    .basic_info()
+                    .id;
+                let mut mapping = mapping.borrow_mut();
+                let target = &mut mapping.target_model;
+                target.bookmark_anchor_type.set(BookmarkAnchorType::Id);
+                target.bookmark_type.set(bookmark_type);
+                target.bookmark_ref.set(bookmark_id.get());
+            }
+            _ => {}
+        }
         Ok(())
     }
 
@@ -2121,6 +2160,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::LoadFxSnapshot => {
                     label.set_text("Snapshot");
+                    button.set_text("Take snapshot!");
                     label.show();
                     combo.hide();
                     button.show();
@@ -2131,6 +2171,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     };
                     value_text.set_text(snapshot_label);
                     value_text.show();
+                }
+                ReaperTargetType::GoToBookmark => {
+                    button.set_text("Set to now!");
+                    combo.hide();
+                    label.hide();
+                    button.show();
+                    value_text.hide();
                 }
                 _ if target.supports_track_exclusivity() => {
                     label.set_text("Exclusive");
