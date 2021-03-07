@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-05 (v2.6.0)</code></td>
+  <td><code>2021-03-07 (v2.6.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -738,12 +738,18 @@ This section provides the following mapping-related settings and functions:
   by ReaLearn itself, which improves the situation at least a bit.
 - **Advanced settings:** This button is for experts. There are some advanced mapping-related settings in
   ReaLearn that are not adjustable via its graphical user interface but only by writing text-based configuration.
-  Pressing this button should open a text editor in which you can write the configuration for this mapping.
-  As soon as you save the text file and close the text editor, ReaLearn will check the configuration that you
-  have entered and tell you if it's not correct. If the button label ends with a number, that number denotes the
+  Pressing this button should open a small window in which you can write the configuration for this mapping.
+  If the button label ends with a number, that number denotes the
   number of top-level configuration properties set for that mapping. That way you can immediately see if a mapping
   has advanced settings or not. You can learn more about the available properties in the section
   [Advanced settings](#advanced-settings).
+    - **Open in text editor:** Opens the settings in the system text editor or whatever program is associated with 
+      YAML files. It depends on your system setup if this works or not. If it does and if your text editor is good,
+      this can make editing larger YAML snippets more convenient (e.g. by providing syntax highlighting). As soon
+      as you save the file and close the editor, the text will automatically appear in the "Advanced settings"
+      text area.
+    - **Help:** Will open an online version of the user guide section that describes the available configuration
+      properties.
 - **Find in mapping list:** Scrolls the mapping rows panel so that the corresponding mapping row for
   this mapping gets visible.
   
@@ -1518,7 +1524,7 @@ Sets the track's width value (applicable if the track is in stereo pan mode).
 
 Mutes/unmutes the track send.
 
-###### Load FX snapshot
+###### Load FX snapshot target
 
 Restores a certain state of a particular FX. Before using this target, you need to take a snapshot of the desired FX
 state using the *Take snapshot!* button. This snapshot will be saved as part of ReaLearn's state itself and as a direct
@@ -1531,7 +1537,7 @@ Please note that some plug-ins have *very large* states. Therefore you should ke
 will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
 can quickly add up and make REAPER/ReaLearn slow!
 
-###### Last touched
+###### Last touched target
 
 This will control whatever target has last been touched in REAPER. It's similar to the built-in REAPER action
 "Adjust last touched FX parameter" but provides the following benefits:
@@ -1539,7 +1545,7 @@ This will control whatever target has last been touched in REAPER. It's similar 
 1. It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
 2. It offers feedback.
 
-###### Automation touch state
+###### Automation touch state target
 
 When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control
 element which is bound to the automation envelope or not. As long as you keep touching it, it will overwrite
@@ -1554,6 +1560,30 @@ However, ReaLearn wouldn't be ReaLearn if it wouldn't allow you to let totally d
 touch state. For example, if you have a push encoder, you could map the "push" event to the touch state, allowing you
 to write automation only while you are touching the encoder. Or if you don't have a push encoder, you could just use
 some spare button.
+
+###### Go to marger/region
+
+Navigates to a specific marker or region. Here's the behavior in detail:
+
+- Regions
+    - If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
+    - If the project is playing, playback will continue with the given region as soon as the currently playing region
+      or measure has finished playing. This is called "smooth seek".
+- Markers
+    - If the project is stopped, the editor cursor immediately jumps to the given marker.
+    - If the project is playing, playback will immediately be continued at the given marker.
+    
+The cool thing about this target compared to REAPER's built-in actions is that it allows to target arbitrarily many
+markers/regions (either by position or by ID) ... and that it supports visual feedback! If you assign this target to a
+button which has an LED and, you will be possible to see which marker/region is currently playing just by looking at
+your controller.
+
+User interface elements specific to this target:
+
+- **Anchor:** The dropdown next to the marker/bookmark list allows you to choose if you want to refer to the
+  marker/region by its user-assigned ID or by its position on the timeline.
+- **Regions:** Switches between markers and regions.
+- **Set to now!:** This sets the target to the currently playing (or currently focused, if stopped) marker/region.  
 
 ##### Category "Virtual"
 
