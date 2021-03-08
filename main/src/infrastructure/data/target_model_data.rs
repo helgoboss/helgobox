@@ -287,6 +287,7 @@ fn serialize_track(virtual_track: &VirtualTrack) -> TrackData {
             name: None,
             index: Some(*index),
         },
+        Dynamic(_) => todo!(),
     }
 }
 

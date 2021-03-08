@@ -1115,17 +1115,24 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_track() => match self.mapping.target_model.track_type.get() {
+                    VirtualTrackType::Dynamic => {
+                        let expression = control.text().unwrap_or_default();
+                        self.mapping.target_model.track_expression.set(expression);
+                    }
                     VirtualTrackType::ByName => {
                         let name = control.text().unwrap_or_default();
                         self.mapping.target_model.track_name.set(name);
                     }
                     VirtualTrackType::ByIndex => {
-                        let index = control
+                        let position: i32 = control
                             .text()
                             .unwrap_or_default()
                             .parse()
                             .unwrap_or_default();
-                        self.mapping.target_model.track_index.set(index);
+                        self.mapping
+                            .target_model
+                            .track_index
+                            .set(position.max(0) as _);
                     }
                     _ => {}
                 },
@@ -1820,7 +1827,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_track() => {
                     let text = match self.target.track_type.get() {
-                        VirtualTrackType::ByIndex => self.target.track_index.get().to_string(),
+                        VirtualTrackType::Dynamic => self.target.track_expression.get_ref().clone(),
+                        VirtualTrackType::ByIndex => {
+                            let index = self.target.track_index.get();
+                            (index + 1).to_string()
+                        }
                         VirtualTrackType::ByName => self.target.track_name.get_ref().clone(),
                         _ => {
                             control.hide();

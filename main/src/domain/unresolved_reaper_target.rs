@@ -5,6 +5,7 @@ use crate::domain::{
     TouchedParameterType, TrackExclusivity, TransportAction,
 };
 use derive_more::{Display, Error};
+use fasteval::{Compiler, Evaler, Instruction, Slab};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     Track, TrackSend,
@@ -15,7 +16,7 @@ use std::fmt;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum UnresolvedReaperTarget {
     Action {
         action: Action,
@@ -339,33 +340,68 @@ pub fn get_track_send(
     Ok(send)
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct TrackDescriptor {
     pub track: VirtualTrack,
     pub enable_only_if_track_selected: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct FxDescriptor {
     pub track_descriptor: TrackDescriptor,
     pub fx: VirtualFx,
     pub enable_only_if_fx_has_focus: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum VirtualTrack {
     /// Current track (the one which contains the ReaLearn instance).
     This,
     /// Currently selected track.
     Selected,
+    /// Based on parameter values.
+    Dynamic(ExpressionEvaluator),
     /// Master track.
     Master,
+    /// Particular.
     ById(Guid),
+    /// Particular.
     ByName(String),
+    /// Particular.
     ByIndex(u32),
     /// This is the old default for targeting a particular track and it exists solely for backward
     /// compatibility.
     ByIdOrName(Guid, String),
+}
+
+#[derive(Debug)]
+pub struct ExpressionEvaluator {
+    slab: Slab,
+    instruction: Instruction,
+}
+
+impl ExpressionEvaluator {
+    pub fn compile(expression: &str) -> Result<ExpressionEvaluator, Box<dyn std::error::Error>> {
+        let parser = fasteval::Parser::new();
+        let mut slab = fasteval::Slab::new();
+        let instruction = parser
+            .parse(expression, &mut slab.ps)?
+            .from(&slab.ps)
+            .compile(&slab.ps, &mut slab.cs);
+        let evaluator = Self { slab, instruction };
+        Ok(evaluator)
+    }
+
+    pub fn evaluate(&self) -> f64 {
+        self.evaluate_internal().unwrap_or_default()
+    }
+
+    fn evaluate_internal(&self) -> Result<f64, fasteval::Error> {
+        use fasteval::eval_compiled_ref;
+        let mut ns = fasteval::EmptyNamespace;
+        let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut ns);
+        Ok(val)
+    }
 }
 
 impl fmt::Display for VirtualTrack {
@@ -375,6 +411,7 @@ impl fmt::Display for VirtualTrack {
             This => f.write_str("<This>"),
             Selected => f.write_str("<Selected>"),
             Master => f.write_str("<Master>"),
+            Dynamic(_) => f.write_str("<Dynamic>"),
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
             ByName(name) => write!(f, "\"{}\"", name),
@@ -425,6 +462,17 @@ impl VirtualTrack {
             Selected => project
                 .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
                 .ok_or(TrackResolveError::NoTrackSelected)?,
+            Dynamic(evaluator) => {
+                let result = evaluator.evaluate();
+                let index = result.max(0.0) as u32;
+                project
+                    .track_by_index(index)
+                    .ok_or(TrackResolveError::TrackNotFound {
+                        guid: None,
+                        name: None,
+                        index: Some(index),
+                    })?
+            }
             Master => project.master_track(),
             ByIdOrName(guid, name) => {
                 let t = project.track_by_guid(guid);
@@ -678,7 +726,7 @@ pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<F
                     // resync the FX whenever something has changed anyway. But
                     // for monitoring FX it could still be good (which we don't get notified
                     // about unfortunately).
-                    if descriptor.track_descriptor.track == VirtualTrack::Selected {
+                    if matches!(descriptor.track_descriptor.track, VirtualTrack::Selected) {
                         FxAnchor::Index(*index)
                     } else {
                         anchor.clone()

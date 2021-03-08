@@ -12,14 +12,15 @@ use serde::{Deserialize, Serialize};
 use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TrackDescriptor, TrackExclusivity, TransportAction,
-    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualControlElement, VirtualFx,
-    VirtualTarget, VirtualTrack,
+    CompoundMappingTarget, ExpressionEvaluator, FxAnchor, FxDescriptor, ProcessorContext,
+    ReaperTarget, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
+    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 
+use fasteval::Compiler;
 use reaper_medium::BookmarkId;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -45,6 +46,7 @@ pub struct TargetModel {
     pub track_id: Prop<Option<Guid>>,
     pub track_name: Prop<String>,
     pub track_index: Prop<u32>,
+    pub track_expression: Prop<String>,
     pub enable_only_if_track_selected: Prop<bool>,
     // # For track FX targets
     pub fx: Prop<Option<VirtualFx>>,
@@ -82,6 +84,7 @@ impl Default for TargetModel {
             track_id: prop(None),
             track_name: prop("".to_owned()),
             track_index: prop(0),
+            track_expression: prop("".to_owned()),
             enable_only_if_track_selected: prop(false),
             fx: prop(None),
             enable_only_if_fx_has_focus: prop(false),
@@ -254,6 +257,7 @@ impl TargetModel {
             .merge(self.track_id.changed())
             .merge(self.track_name.changed())
             .merge(self.track_index.changed())
+            .merge(self.track_expression.changed())
             .merge(self.enable_only_if_track_selected.changed())
             .merge(self.fx.changed())
             .merge(self.enable_only_if_fx_has_focus.changed())
@@ -280,9 +284,13 @@ impl TargetModel {
             ById => VirtualTrack::ById(self.track_id.get()?),
             ByName => VirtualTrack::ByName(self.track_name.get_ref().clone()),
             ByIndex => VirtualTrack::ByIndex(self.track_index.get()),
-            // TODO-high The unwrap is not cool
             ByIdOrName => {
                 VirtualTrack::ByIdOrName(self.track_id.get()?, self.track_name.get_ref().clone())
+            }
+            Dynamic => {
+                let evaluator =
+                    ExpressionEvaluator::compile(self.track_expression.get_ref()).ok()?;
+                VirtualTrack::Dynamic(evaluator)
             }
         };
         Some(track)
@@ -965,6 +973,8 @@ pub enum VirtualTrackType {
     This,
     #[display(fmt = "<Selected>")]
     Selected,
+    #[display(fmt = "<Dynamic>")]
+    Dynamic,
     #[display(fmt = "<Master>")]
     Master,
     #[display(fmt = "By ID")]
@@ -1021,27 +1031,8 @@ impl VirtualTrackType {
             ById(_) => VirtualTrackType::ById,
             ByName(_) => VirtualTrackType::ByName,
             ByIndex(_) => VirtualTrackType::ByIndex,
+            Dynamic(_) => VirtualTrackType::Dynamic,
         }
-    }
-
-    pub fn to_virtual_track(self, track: Track) -> Result<VirtualTrack, &'static str> {
-        use VirtualTrackType::*;
-        let get_name = || {
-            track
-                .name()
-                .map(|n| n.into_string())
-                .ok_or("track must have name")
-        };
-        let virtual_track = match self {
-            This => VirtualTrack::This,
-            Selected => VirtualTrack::Selected,
-            Master => VirtualTrack::Master,
-            ById => VirtualTrack::ById(*track.guid()),
-            ByName => VirtualTrack::ByName(get_name()?),
-            ByIndex => VirtualTrack::ByIndex(track.index().ok_or("track must have index")?),
-            ByIdOrName => VirtualTrack::ByIdOrName(*track.guid(), get_name()?),
-        };
-        Ok(virtual_track)
     }
 
     pub fn refers_to_project(&self) -> bool {

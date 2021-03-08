@@ -84,6 +84,7 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     activation_condition_1: ActivationCondition,
     activation_condition_2: ActivationCondition,
     is_active_1: bool,
@@ -108,11 +109,11 @@ impl MainMapping {
                 id,
                 source,
                 mode,
-                unresolved_target,
                 target: None,
                 options,
                 time_of_last_control: None,
             },
+            unresolved_target,
             activation_condition_1,
             activation_condition_2,
             is_active_1: false,
@@ -196,7 +197,7 @@ impl MainMapping {
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
         matches!(
-            self.core.unresolved_target,
+            self.unresolved_target,
             Some(UnresolvedCompoundMappingTarget::Reaper(
                 UnresolvedReaperTarget::LastTouched
             ))
@@ -205,7 +206,7 @@ impl MainMapping {
 
     pub fn wants_to_be_informed_about_beat_changes(&self) -> bool {
         matches!(
-            self.core.unresolved_target,
+            self.unresolved_target,
             Some(UnresolvedCompoundMappingTarget::Reaper(
                 UnresolvedReaperTarget::GoToBookmark { .. }
             ))
@@ -214,7 +215,7 @@ impl MainMapping {
 
     pub fn refresh_target(&mut self, context: &ProcessorContext) -> Option<ActivationChange> {
         let was_active_before = self.core.options.target_is_active;
-        let (target, is_active) = match self.core.unresolved_target.as_ref() {
+        let (target, is_active) = match self.unresolved_target.as_ref() {
             None => (None, false),
             Some(t) => match t.resolve(context).ok() {
                 None => (None, false),
@@ -467,22 +468,12 @@ impl RealTimeMapping {
         }
     }
 
-    pub fn target(&self) -> Option<&UnresolvedCompoundMappingTarget> {
-        self.core.unresolved_target.as_ref()
-    }
-
     pub fn has_virtual_target(&self) -> bool {
-        matches!(
-            self.target(),
-            Some(UnresolvedCompoundMappingTarget::Virtual(_))
-        )
+        matches!(&self.core.target, Some(CompoundMappingTarget::Virtual(_)))
     }
 
     pub fn has_reaper_target(&self) -> bool {
-        matches!(
-            self.core.unresolved_target,
-            Some(UnresolvedCompoundMappingTarget::Reaper(_))
-        )
+        matches!(&self.core.target, Some(CompoundMappingTarget::Reaper(_)))
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
@@ -517,8 +508,6 @@ pub struct MappingCore {
     id: MappingId,
     source: CompoundMappingSource,
     mode: Mode,
-    // TODO-medium Take targets out of MappingCore because RealTimeMapping doesn't need most of it!
-    unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     target: Option<CompoundMappingTarget>,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
@@ -594,7 +583,7 @@ pub enum SourceValue {
     Osc(OscMessage),
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Debug)]
 pub enum UnresolvedCompoundMappingTarget {
     Reaper(UnresolvedReaperTarget),
     Virtual(VirtualTarget),
