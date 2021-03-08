@@ -1089,7 +1089,7 @@ impl HeaderPanel {
 
     fn save_active_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
-        let (context, mut mappings, preset_id, compartment) = {
+        let (context, params, mut mappings, preset_id, compartment) = {
             let session = session.borrow();
             let compartment = self.active_compartment();
             let preset_id = match compartment {
@@ -1106,12 +1106,13 @@ impl HeaderPanel {
                 .collect();
             (
                 session.context().clone(),
+                *session.parameters(),
                 mappings,
                 preset_id.to_owned(),
                 compartment,
             )
         };
-        let extended_context = ExtendedProcessorContext::new(&context, todo!());
+        let extended_context = ExtendedProcessorContext::new(&context, &params);
         self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let session = session.borrow();
         match compartment {
@@ -1178,16 +1179,21 @@ impl HeaderPanel {
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
-        let (context, mut mappings, compartment) = {
+        let (context, params, mut mappings, compartment) = {
             let session = session.borrow_mut();
             let compartment = self.active_compartment();
             let mappings: Vec<_> = session
                 .mappings(compartment)
                 .map(|ptr| ptr.borrow().clone())
                 .collect();
-            (session.context().clone(), mappings, compartment)
+            (
+                session.context().clone(),
+                *session.parameters(),
+                mappings,
+                compartment,
+            )
         };
-        let extended_context = ExtendedProcessorContext::new(&context, todo!());
+        let extended_context = ExtendedProcessorContext::new(&context, &params);
         self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),

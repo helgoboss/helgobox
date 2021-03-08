@@ -559,7 +559,7 @@ impl Session {
                         });
                     all_subscriptions.add(subscription);
                 }
-                // Keep auto-detecting mode settings
+                // Keep auto-correcting mode settings
                 if self.auto_correct_settings.get() {
                     let processor_context = self.context().clone();
                     let subscription = when(
@@ -570,11 +570,16 @@ impl Session {
                     )
                     .with(Rc::downgrade(&shared_mapping))
                     .do_sync(move |mapping, _| {
-                        // TODO-high We need access to the parameters when adjusting the mode but
-                        // we can't just copy them! Find a solution.
-                        // mapping
-                        //     .borrow_mut()
-                        //     .adjust_mode_if_necessary(&processor_context);
+                        // Parameter values are not important for mode auto correction because
+                        // dynamic targets don't really profit from it anyway. Therefore just
+                        // use zero parameters.
+                        let extended_context = ExtendedProcessorContext::new(
+                            &processor_context,
+                            &ZEROED_PLUGIN_PARAMETERS,
+                        );
+                        mapping
+                            .borrow_mut()
+                            .adjust_mode_if_necessary(extended_context);
                     });
                     all_subscriptions.add(subscription);
                 }
@@ -1584,6 +1589,10 @@ impl Session {
             None => true,
             Some(t) => t.is_available() && t.is_armed(false),
         }
+    }
+
+    pub fn parameters(&self) -> &ParameterArray {
+        &self.parameters
     }
 
     /// Just syncs whether control globally enabled or not.
