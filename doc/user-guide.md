@@ -1575,7 +1575,7 @@ Navigates to a specific marker or region. Here's the behavior in detail:
     
 The cool thing about this target compared to REAPER's built-in actions is that it allows to target arbitrarily many
 markers/regions (either by position or by ID) ... and that it supports visual feedback! If you assign this target to a
-button which has an LED and, you will be possible to see which marker/region is currently playing just by looking at
+button which has an LED, you will see which marker/region is currently playing just by looking at
 your controller.
 
 User interface elements specific to this target:
