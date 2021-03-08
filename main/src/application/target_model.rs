@@ -4,18 +4,18 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_high::{Action, BookmarkType, Fx, FxParameter, Project, Track, TrackSend};
+use reaper_high::{Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackSend};
 
 use rx_util::{Event, UnitEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    find_bookmark, get_effective_track, get_fx, get_fx_chain, get_fx_param, get_track_send,
-    ActionInvocationType, CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext,
-    ReaperTarget, SoloBehavior, TouchedParameterType, TrackAnchor, TrackDescriptor,
-    TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
+    find_bookmark, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
+    CompoundMappingTarget, FxAnchor, FxDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
+    TouchedParameterType, TrackDescriptor, TrackExclusivity, TransportAction,
+    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualControlElement, VirtualFx,
+    VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -41,8 +41,10 @@ pub struct TargetModel {
     pub action: Prop<Option<Action>>,
     pub action_invocation_type: Prop<ActionInvocationType>,
     // # For track targets
-    // TODO-low Maybe replace VirtualTrack::Particular(track) with Particular(GUID)
-    pub track: Prop<VirtualTrack>,
+    pub track_type: Prop<VirtualTrackType>,
+    pub track_id: Prop<Option<Guid>>,
+    pub track_name: Prop<String>,
+    pub track_index: Prop<u32>,
     pub enable_only_if_track_selected: Prop<bool>,
     // # For track FX targets
     pub fx: Prop<Option<VirtualFx>>,
@@ -76,7 +78,10 @@ impl Default for TargetModel {
             r#type: prop(ReaperTargetType::FxParameter),
             action: prop(None),
             action_invocation_type: prop(ActionInvocationType::default()),
-            track: prop(VirtualTrack::This),
+            track_type: prop(VirtualTrackType::This),
+            track_id: prop(None),
+            track_name: prop("".to_owned()),
+            track_index: prop(0),
             enable_only_if_track_selected: prop(false),
             fx: prop(None),
             enable_only_if_fx_has_focus: prop(false),
@@ -142,6 +147,30 @@ impl TargetModel {
         }
     }
 
+    pub fn set_virtual_track(&mut self, track: VirtualTrack) {
+        self.track_type
+            .set(VirtualTrackType::from_virtual_track(&track));
+        self.track_id.set(track.id());
+        if let Some(name) = track.name() {
+            self.track_name.set(name.clone());
+        }
+        if let Some(i) = track.index() {
+            self.track_index.set(i);
+        }
+    }
+
+    pub fn set_virtual_track_without_notification(&mut self, track: &VirtualTrack) {
+        self.track_type
+            .set_without_notification(VirtualTrackType::from_virtual_track(&track));
+        self.track_id.set_without_notification(track.id());
+        if let Some(name) = track.name() {
+            self.track_name.set_without_notification(name.clone());
+        }
+        if let Some(i) = track.index() {
+            self.track_index.set_without_notification(i);
+        }
+    }
+
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
         use ReaperTarget::*;
         self.category.set(TargetCategory::Reaper);
@@ -156,9 +185,9 @@ impl TargetModel {
                 // convention and ours).
                 context.project_or_current_project().master_track()
             };
-            self.track.set(virtualize_track(track, context));
+            self.set_virtual_track(virtualize_track(track, context));
         } else if let Some(track) = target.track() {
-            self.track.set(virtualize_track(track.clone(), context));
+            self.set_virtual_track(virtualize_track(track.clone(), context));
         }
         if let Some(send) = target.send() {
             self.send_index.set(Some(send.index()));
@@ -221,7 +250,10 @@ impl TargetModel {
             .merge(self.r#type.changed())
             .merge(self.action.changed())
             .merge(self.action_invocation_type.changed())
-            .merge(self.track.changed())
+            .merge(self.track_type.changed())
+            .merge(self.track_id.changed())
+            .merge(self.track_name.changed())
+            .merge(self.track_index.changed())
             .merge(self.enable_only_if_track_selected.changed())
             .merge(self.fx.changed())
             .merge(self.enable_only_if_fx_has_focus.changed())
@@ -239,16 +271,34 @@ impl TargetModel {
             .merge(self.bookmark_anchor_type.changed())
     }
 
-    fn track_descriptor(&self) -> TrackDescriptor {
-        TrackDescriptor {
-            track: self.track.get_ref().clone(),
+    pub fn virtual_track(&self) -> Option<VirtualTrack> {
+        use VirtualTrackType::*;
+        let track = match self.track_type.get() {
+            This => VirtualTrack::This,
+            Selected => VirtualTrack::Selected,
+            Master => VirtualTrack::Master,
+            ById => VirtualTrack::ById(self.track_id.get()?),
+            ByName => VirtualTrack::ByName(self.track_name.get_ref().clone()),
+            ByIndex => VirtualTrack::ByIndex(self.track_index.get()),
+            // TODO-high The unwrap is not cool
+            ByIdOrName => {
+                VirtualTrack::ByIdOrName(self.track_id.get()?, self.track_name.get_ref().clone())
+            }
+        };
+        Some(track)
+    }
+
+    fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
+        let desc = TrackDescriptor {
+            track: self.virtual_track().ok_or("virtual track not complete")?,
             enable_only_if_track_selected: self.enable_only_if_track_selected.get(),
-        }
+        };
+        Ok(desc)
     }
 
     fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
         let desc = FxDescriptor {
-            track_descriptor: self.track_descriptor(),
+            track_descriptor: self.track_descriptor()?,
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus.get(),
             fx: self.fx.get_ref().clone().ok_or("FX not set")?,
         };
@@ -270,41 +320,41 @@ impl TargetModel {
                         fx_param_index: self.param_index.get(),
                     },
                     TrackVolume => UnresolvedReaperTarget::TrackVolume {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                     },
                     TrackSendVolume => UnresolvedReaperTarget::TrackSendVolume {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         send_index: self.send_index.get().ok_or("send index not set")?,
                     },
                     TrackPan => UnresolvedReaperTarget::TrackPan {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                     },
                     TrackWidth => UnresolvedReaperTarget::TrackWidth {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                     },
                     TrackArm => UnresolvedReaperTarget::TrackArm {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSelection => UnresolvedReaperTarget::TrackSelection {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                     },
                     TrackMute => UnresolvedReaperTarget::TrackMute {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSolo => UnresolvedReaperTarget::TrackSolo {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         behavior: self.solo_behavior.get(),
                         exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         send_index: self.send_index.get().ok_or("send index not set")?,
                     },
                     TrackSendMute => UnresolvedReaperTarget::TrackSendMute {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         send_index: self.send_index.get().ok_or("send index not set")?,
                     },
                     Tempo => UnresolvedReaperTarget::Tempo,
@@ -317,7 +367,7 @@ impl TargetModel {
                     },
                     SelectedTrack => UnresolvedReaperTarget::SelectedTrack,
                     AllTrackFxEnable => UnresolvedReaperTarget::AllTrackFxEnable {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                     },
                     Transport => UnresolvedReaperTarget::Transport {
@@ -335,7 +385,7 @@ impl TargetModel {
                     },
                     LastTouched => UnresolvedReaperTarget::LastTouched,
                     AutomationTouchState => UnresolvedReaperTarget::AutomationTouchState {
-                        track_descriptor: self.track_descriptor(),
+                        track_descriptor: self.track_descriptor()?,
                         parameter_type: self.touched_parameter_type.get(),
                         exclusivity: self.track_exclusivity.get(),
                     },
@@ -509,14 +559,21 @@ impl<'a> TargetModelWithContext<'a> {
 
     // TODO-low Consider returning a Cow
     pub fn effective_track(&self) -> Result<Track, &'static str> {
-        get_effective_track(&self.context, self.target.track.get_ref())
+        self.target
+            .virtual_track()
+            .ok_or("virtual track not complete")?
+            .resolve(&self.context)
+            .map_err(|_| "particular track couldn't be resolved")
     }
 
     // Returns an error if that send (or track) doesn't exist.
     fn track_send(&self) -> Result<TrackSend, &'static str> {
         get_track_send(
             &self.context,
-            self.target.track.get_ref(),
+            &self
+                .target
+                .virtual_track()
+                .ok_or("virtual track not complete")?,
             self.target.send_index.get().ok_or("send index not set")?,
         )
     }
@@ -546,11 +603,11 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     fn track_label(&self) -> String {
-        self.target
-            .track
-            .get_ref()
-            .with_context(self.context)
-            .to_string()
+        if let Some(t) = self.target.virtual_track() {
+            t.with_context(self.context).to_string()
+        } else {
+            "<Undefined>".to_owned()
+        }
     }
 }
 
@@ -878,9 +935,9 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
         VirtualTrack::Master
     } else if context.is_on_monitoring_fx_chain() {
         // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
-        VirtualTrack::Particular(TrackAnchor::Index(track.index().expect("impossible")))
+        VirtualTrack::ByIndex(track.index().expect("impossible"))
     } else {
-        VirtualTrack::Particular(TrackAnchor::Id(*track.guid()))
+        VirtualTrack::ById(*track.guid())
     }
 }
 
@@ -903,15 +960,27 @@ fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
     Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
 )]
 #[repr(usize)]
-pub enum TrackAnchorType {
+pub enum VirtualTrackType {
+    #[display(fmt = "<This>")]
+    This,
+    #[display(fmt = "<Selected>")]
+    Selected,
+    #[display(fmt = "<Master>")]
+    Master,
     #[display(fmt = "By ID")]
-    Id,
+    ById,
     #[display(fmt = "By name")]
-    Name,
+    ByName,
     #[display(fmt = "By position")]
-    Index,
+    ByIndex,
     #[display(fmt = "By ID or name")]
-    IdOrName,
+    ByIdOrName,
+}
+
+impl Default for VirtualTrackType {
+    fn default() -> Self {
+        Self::This
+    }
 }
 
 #[derive(
@@ -941,32 +1010,43 @@ impl Default for BookmarkAnchorType {
     }
 }
 
-impl TrackAnchorType {
-    pub fn from_anchor(anchor: &TrackAnchor) -> Self {
-        use TrackAnchor::*;
-        match anchor {
-            IdOrName(_, _) => TrackAnchorType::IdOrName,
-            Id(_) => TrackAnchorType::Id,
-            Name(_) => TrackAnchorType::Name,
-            Index(_) => TrackAnchorType::Index,
+impl VirtualTrackType {
+    pub fn from_virtual_track(virtual_track: &VirtualTrack) -> Self {
+        use VirtualTrack::*;
+        match virtual_track {
+            This => VirtualTrackType::This,
+            Selected => VirtualTrackType::Selected,
+            Master => VirtualTrackType::Master,
+            ByIdOrName(_, _) => VirtualTrackType::ByIdOrName,
+            ById(_) => VirtualTrackType::ById,
+            ByName(_) => VirtualTrackType::ByName,
+            ByIndex(_) => VirtualTrackType::ByIndex,
         }
     }
 
-    pub fn to_anchor(self, track: Track) -> Result<TrackAnchor, &'static str> {
-        use TrackAnchorType::*;
+    pub fn to_virtual_track(self, track: Track) -> Result<VirtualTrack, &'static str> {
+        use VirtualTrackType::*;
         let get_name = || {
             track
                 .name()
                 .map(|n| n.into_string())
                 .ok_or("track must have name")
         };
-        let anchor = match self {
-            Id => TrackAnchor::Id(*track.guid()),
-            Name => TrackAnchor::Name(get_name()?),
-            Index => TrackAnchor::Index(track.index().ok_or("track must have index")?),
-            IdOrName => TrackAnchor::IdOrName(*track.guid(), get_name()?),
+        let virtual_track = match self {
+            This => VirtualTrack::This,
+            Selected => VirtualTrack::Selected,
+            Master => VirtualTrack::Master,
+            ById => VirtualTrack::ById(*track.guid()),
+            ByName => VirtualTrack::ByName(get_name()?),
+            ByIndex => VirtualTrack::ByIndex(track.index().ok_or("track must have index")?),
+            ByIdOrName => VirtualTrack::ByIdOrName(*track.guid(), get_name()?),
         };
-        Ok(anchor)
+        Ok(virtual_track)
+    }
+
+    pub fn refers_to_project(&self) -> bool {
+        use VirtualTrackType::*;
+        matches!(self, ByIdOrName | ById)
     }
 }
 

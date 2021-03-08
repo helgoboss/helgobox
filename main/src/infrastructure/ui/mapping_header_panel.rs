@@ -120,7 +120,7 @@ impl MappingHeaderPanel {
             .set_text(format!("{} Feedback enabled", symbols::arrow_left_symbol()));
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
-            .fill_combo_box(ActivationType::into_enum_iter());
+            .fill_combo_box_indexed(ActivationType::into_enum_iter());
         self.invalidate_controls();
     }
 

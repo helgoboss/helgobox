@@ -1,5 +1,5 @@
 use crate::application::{GroupModel, MappingModel, SharedGroup, SharedMapping, TargetCategory};
-use crate::domain::{ProcessorContext, TrackAnchor, VirtualFx, VirtualTrack};
+use crate::domain::{ProcessorContext, VirtualFx, VirtualTrack};
 use std::fmt;
 use std::fmt::Debug;
 
@@ -43,7 +43,7 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
     let target = &mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {
-            if target.supports_track() && target.track.get_ref().refers_to_project() {
+            if target.supports_track() && target.track_type.get().refers_to_project() {
                 return true;
             }
             if target.supports_fx() {
@@ -79,13 +79,13 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: &Proces
             } else {
                 false
             };
-            if target.supports_track() && target.track.get_ref().refers_to_project() {
+            if target.supports_track() && target.track_type.get().refers_to_project() {
                 let new_virtual_track = if changed_to_focused_fx {
                     // Track doesn't matter at all. We change it to <This>. Looks nice.
                     Some(VirtualTrack::This)
                 } else if let Ok(t) = target.with_context(context).effective_track() {
                     if let Some(i) = t.index() {
-                        Some(VirtualTrack::Particular(TrackAnchor::Index(i)))
+                        Some(VirtualTrack::ByIndex(i))
                     } else {
                         None
                     }
@@ -93,7 +93,7 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: &Proces
                     None
                 };
                 if let Some(t) = new_virtual_track {
-                    target.track.set(t);
+                    target.set_virtual_track(t);
                 }
             }
         }

@@ -511,13 +511,13 @@ impl HeaderPanel {
     fn fill_compartment_combo_box(&self) {
         self.view
             .require_control(root::ID_COMPARTMENT_COMBO_BOX)
-            .fill_combo_box(MappingCompartment::into_enum_iter());
+            .fill_combo_box_indexed(MappingCompartment::into_enum_iter());
     }
 
     fn fill_preset_auto_load_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_AUTO_LOAD_COMBO_BOX)
-            .fill_combo_box(MainPresetAutoLoadMode::into_enum_iter());
+            .fill_combo_box_indexed(MainPresetAutoLoadMode::into_enum_iter());
     }
 
     fn invalidate_control_input_combo_box_options(&self) {

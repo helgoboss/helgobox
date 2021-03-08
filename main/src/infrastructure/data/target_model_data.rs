@@ -10,7 +10,7 @@ use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
     ActionInvocationType, FxAnchor, ProcessorContext, SoloBehavior, TouchedParameterType,
-    TrackAnchor, TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
+    TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -101,7 +101,7 @@ impl TargetModelData {
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
-            track_data: serialize_track(model.track.get_ref()),
+            track_data: serialize_track(&model.virtual_track().unwrap_or(VirtualTrack::This)),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_data: serialize_fx(model.fx.get_ref().as_ref()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
@@ -170,7 +170,7 @@ impl TargetModelData {
                 VirtualTrack::This
             }
         };
-        model.track.set_without_notification(virtual_track.clone());
+        model.set_virtual_track_without_notification(&virtual_track);
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
@@ -267,27 +267,25 @@ fn serialize_track(virtual_track: &VirtualTrack) -> TrackData {
             name: None,
             index: None,
         },
-        Particular(anchor) => match anchor {
-            TrackAnchor::IdOrName(guid, name) => TrackData {
-                guid: Some(guid.to_string_without_braces()),
-                name: Some(name.clone()),
-                index: None,
-            },
-            TrackAnchor::Id(guid) => TrackData {
-                guid: Some(guid.to_string_without_braces()),
-                name: None,
-                index: None,
-            },
-            TrackAnchor::Name(name) => TrackData {
-                guid: None,
-                name: Some(name.clone()),
-                index: None,
-            },
-            TrackAnchor::Index(index) => TrackData {
-                guid: None,
-                name: None,
-                index: Some(*index),
-            },
+        ByIdOrName(guid, name) => TrackData {
+            guid: Some(guid.to_string_without_braces()),
+            name: Some(name.clone()),
+            index: None,
+        },
+        ById(guid) => TrackData {
+            guid: Some(guid.to_string_without_braces()),
+            name: None,
+            index: None,
+        },
+        ByName(name) => TrackData {
+            guid: None,
+            name: Some(name.clone()),
+            index: None,
+        },
+        ByIndex(index) => TrackData {
+            guid: None,
+            name: None,
+            index: Some(*index),
         },
     }
 }
@@ -407,22 +405,21 @@ fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, Deserializa
         } => {
             let guid = Guid::from_string_without_braces(g)
                 .map_err(|_| DeserializationError::InvalidGuid(g.to_string()))?;
-            let anchor = match name {
-                None => TrackAnchor::Id(guid),
-                Some(n) => TrackAnchor::IdOrName(guid, n.clone()),
-            };
-            VirtualTrack::Particular(anchor)
+            match name {
+                None => VirtualTrack::ById(guid),
+                Some(n) => VirtualTrack::ByIdOrName(guid, n.clone()),
+            }
         }
         TrackData {
             guid: None,
             name: Some(n),
             ..
-        } => VirtualTrack::Particular(TrackAnchor::Name(n.clone())),
+        } => VirtualTrack::ByName(n.clone()),
         TrackData {
             guid: None,
             name: None,
             index: Some(i),
-        } => VirtualTrack::Particular(TrackAnchor::Index(*i)),
+        } => VirtualTrack::ByIndex(*i),
     };
     Ok(virtual_track)
 }
