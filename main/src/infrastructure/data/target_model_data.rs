@@ -4,7 +4,7 @@ use reaper_high::{BookmarkType, Guid, Reaper};
 
 use crate::application::{
     get_guid_based_fx_at_index, BookmarkAnchorType, FxAnchorType, FxSnapshot, ReaperTargetType,
-    TargetCategory, TargetModel, VirtualControlElementType,
+    TargetCategory, TargetModel, TrackPropValues, VirtualControlElementType, VirtualTrackType,
 };
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
@@ -101,10 +101,7 @@ impl TargetModelData {
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
-            track_data: serialize_track(
-                &model.virtual_track().unwrap_or(VirtualTrack::This),
-                &model.track_expression.get_ref(),
-            ),
+            track_data: serialize_track(model.track()),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_data: serialize_fx(model.fx.get_ref().as_ref()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
@@ -166,18 +163,12 @@ impl TargetModelData {
         model
             .action_invocation_type
             .set_without_notification(invocation_type);
-        let virtual_track = match deserialize_track(&self.track_data) {
-            Ok(t) => t,
-            Err(e) => {
-                handle_deserialization_error(e);
-                VirtualTrack::This
-            }
-        };
-        // TODO-high This doesn't work anymore. We must not communicate via virtual tracks.
-        model.set_virtual_track_without_notification(&virtual_track);
+        let track_prop_values = deserialize_track(&self.track_data);
+        model.set_track_without_notification(track_prop_values);
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
+        let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let virtual_fx = match deserialize_fx(&self.fx_data, context, &virtual_track) {
             Ok(f) => f,
             Err(e) => {
@@ -253,9 +244,9 @@ fn handle_deserialization_error(e: DeserializationError) {
     }
 }
 
-fn serialize_track(virtual_track: &VirtualTrack, expression: &str) -> TrackData {
-    use VirtualTrack::*;
-    match virtual_track {
+fn serialize_track(track: TrackPropValues) -> TrackData {
+    use VirtualTrackType::*;
+    match track.r#type {
         This => TrackData {
             guid: None,
             name: None,
@@ -274,35 +265,35 @@ fn serialize_track(virtual_track: &VirtualTrack, expression: &str) -> TrackData 
             index: None,
             expression: None,
         },
-        ByIdOrName(guid, name) => TrackData {
-            guid: Some(guid.to_string_without_braces()),
-            name: Some(name.clone()),
+        ByIdOrName => TrackData {
+            guid: track.id.map(|id| id.to_string_without_braces()),
+            name: Some(track.name),
             index: None,
             expression: None,
         },
-        ById(guid) => TrackData {
-            guid: Some(guid.to_string_without_braces()),
+        ById => TrackData {
+            guid: track.id.map(|id| id.to_string_without_braces()),
             name: None,
             index: None,
             expression: None,
         },
-        ByName(name) => TrackData {
+        ByName => TrackData {
             guid: None,
-            name: Some(name.clone()),
+            name: Some(track.name),
             index: None,
             expression: None,
         },
-        ByIndex(index) => TrackData {
+        ByIndex => TrackData {
             guid: None,
             name: None,
-            index: Some(*index),
+            index: Some(track.index),
             expression: None,
         },
-        Dynamic(_) => TrackData {
+        Dynamic => TrackData {
             guid: None,
             name: None,
             index: None,
-            expression: Some(expression.to_owned()),
+            expression: Some(track.expression),
         },
     }
 }
@@ -412,47 +403,70 @@ pub enum DeserializationError {
     InvalidCombination,
 }
 
-fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, DeserializationError> {
-    let virtual_track = match track_data {
+fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
+    match track_data {
         TrackData {
             guid: None,
             name: None,
             index: None,
             expression: None,
-        } => VirtualTrack::This,
-        TrackData { guid: Some(g), .. } if g == "master" => VirtualTrack::Master,
-        TrackData { guid: Some(g), .. } if g == "selected" => VirtualTrack::Selected,
+        } => TrackPropValues::from_virtual_track(VirtualTrack::This),
+        TrackData { guid: Some(g), .. } if g == "master" => {
+            TrackPropValues::from_virtual_track(VirtualTrack::Master)
+        }
+        TrackData { guid: Some(g), .. } if g == "selected" => {
+            TrackPropValues::from_virtual_track(VirtualTrack::Selected)
+        }
         TrackData {
             guid: Some(g),
             name,
             ..
         } => {
-            let guid = Guid::from_string_without_braces(g)
-                .map_err(|_| DeserializationError::InvalidGuid(g.to_string()))?;
+            let id = Guid::from_string_without_braces(g).ok();
             match name {
-                None => VirtualTrack::ById(guid),
-                Some(n) => VirtualTrack::ByIdOrName(guid, n.clone()),
+                None => TrackPropValues {
+                    r#type: VirtualTrackType::ById,
+                    id,
+                    ..Default::default()
+                },
+                Some(n) => TrackPropValues {
+                    r#type: VirtualTrackType::ByIdOrName,
+                    id,
+                    name: n.clone(),
+                    ..Default::default()
+                },
             }
         }
         TrackData {
             guid: None,
             name: Some(n),
             ..
-        } => VirtualTrack::ByName(n.clone()),
+        } => TrackPropValues {
+            r#type: VirtualTrackType::ByName,
+            name: n.clone(),
+            ..Default::default()
+        },
         TrackData {
             guid: None,
             name: None,
             index: Some(i),
             ..
-        } => VirtualTrack::ByIndex(*i),
+        } => TrackPropValues {
+            r#type: VirtualTrackType::ByIndex,
+            index: *i,
+            ..Default::default()
+        },
         TrackData {
             guid: None,
             name: None,
             index: None,
             expression: Some(e),
-        } => VirtualTrack::Dynamic(todo!()),
-    };
-    Ok(virtual_track)
+        } => TrackPropValues {
+            r#type: VirtualTrackType::Dynamic,
+            expression: e.clone(),
+            ..Default::default()
+        },
+    }
 }
 
 fn deserialize_fx(

@@ -775,11 +775,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         target_activation_updates: Vec<ActivationChange>,
         unused_sources: &HashSet<CompoundMappingSource>,
     ) {
-        if mapping_activation_updates.is_empty() {
-            return;
-        }
         // Send feedback
-        // TODO-low Feedback could be reduced to just the activation/target update mappings
+        // TODO-high Feedback could be reduced to just the activation updated and refreshed mappings
         self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
         // Communicate activation changes to real-time processor
         if !mapping_activation_updates.is_empty() {
@@ -799,7 +796,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .unwrap();
         }
         // Update on mappings
-        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
+        // TODO-high Mmh, iterating over all mappings might be a bit overkill here.
         self.update_on_mappings();
     }
 

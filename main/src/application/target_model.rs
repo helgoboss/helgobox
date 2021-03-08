@@ -154,27 +154,24 @@ impl TargetModel {
     }
 
     pub fn set_virtual_track(&mut self, track: VirtualTrack) {
-        self.track_type
-            .set(VirtualTrackType::from_virtual_track(&track));
-        self.track_id.set(track.id());
-        if let Some(name) = track.name() {
-            self.track_name.set(name.clone());
-        }
-        if let Some(i) = track.index() {
-            self.track_index.set(i);
-        }
+        self.set_track(TrackPropValues::from_virtual_track(track));
     }
 
-    pub fn set_virtual_track_without_notification(&mut self, track: &VirtualTrack) {
-        self.track_type
-            .set_without_notification(VirtualTrackType::from_virtual_track(&track));
-        self.track_id.set_without_notification(track.id());
-        if let Some(name) = track.name() {
-            self.track_name.set_without_notification(name.clone());
-        }
-        if let Some(i) = track.index() {
-            self.track_index.set_without_notification(i);
-        }
+    pub fn set_track(&mut self, track: TrackPropValues) {
+        self.track_type.set(track.r#type);
+        self.track_id.set(track.id);
+        self.track_name.set(track.name);
+        self.track_index.set(track.index);
+        self.track_expression.set(track.expression);
+    }
+
+    pub fn set_track_without_notification(&mut self, track: TrackPropValues) {
+        self.track_type.set_without_notification(track.r#type);
+        self.track_id.set_without_notification(track.id);
+        self.track_name.set_without_notification(track.name);
+        self.track_index.set_without_notification(track.index);
+        self.track_expression
+            .set_without_notification(track.expression);
     }
 
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
@@ -297,6 +294,16 @@ impl TargetModel {
             }
         };
         Some(track)
+    }
+
+    pub fn track(&self) -> TrackPropValues {
+        TrackPropValues {
+            r#type: self.track_type.get(),
+            id: self.track_id.get(),
+            name: self.track_name.get_ref().clone(),
+            expression: self.track_expression.get_ref().clone(),
+            index: self.track_index.get(),
+        }
     }
 
     fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
@@ -1134,5 +1141,26 @@ impl Display for FxSnapshot {
             fmt_size,
             self.fx_name,
         )
+    }
+}
+
+#[derive(Default)]
+pub struct TrackPropValues {
+    pub r#type: VirtualTrackType,
+    pub id: Option<Guid>,
+    pub name: String,
+    pub expression: String,
+    pub index: u32,
+}
+
+impl TrackPropValues {
+    pub fn from_virtual_track(track: VirtualTrack) -> Self {
+        Self {
+            r#type: VirtualTrackType::from_virtual_track(&track),
+            id: track.id(),
+            name: track.name().cloned().unwrap_or_default(),
+            index: track.index().unwrap_or_default(),
+            expression: Default::default(),
+        }
     }
 }

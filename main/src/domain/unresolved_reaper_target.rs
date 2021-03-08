@@ -681,7 +681,7 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use VirtualTrack::*;
         match self.virtual_track {
-            This | Selected | Master => write!(f, "{}", self.virtual_track),
+            This | Selected | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
             _ => {
                 if let Ok(t) = self.virtual_track.resolve(self.context) {
                     f.write_str(&get_track_label(&t))
