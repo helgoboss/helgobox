@@ -1083,8 +1083,18 @@ impl<'a> MutableMappingPanel<'a> {
                 t if t.supports_track() => {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
-                    let guid = project.track_by_index(i as _).map(|t| *t.guid());
-                    self.mapping.target_model.track_id.set(guid);
+                    if let Some(track) = project.track_by_index(i as _) {
+                        self.mapping.target_model.track_id.set(Some(*track.guid()));
+                        // We also set index and name so that we can easily switch between types.
+                        self.mapping
+                            .target_model
+                            .track_index
+                            .set_without_notification(i as _);
+                        self.mapping
+                            .target_model
+                            .track_name
+                            .set_without_notification(track.name().unwrap().into_string());
+                    }
                 }
                 _ => {}
             },
@@ -1095,6 +1105,33 @@ impl<'a> MutableMappingPanel<'a> {
                     .control_element_index
                     .set(i as u32)
             }
+        }
+    }
+
+    fn handle_target_line_2_edit_control_change(&mut self) {
+        let control = self
+            .view
+            .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_track() => match self.mapping.target_model.track_type.get() {
+                    VirtualTrackType::ByName => {
+                        let name = control.text().unwrap_or_default();
+                        self.mapping.target_model.track_name.set(name);
+                    }
+                    VirtualTrackType::ByIndex => {
+                        let index = control
+                            .text()
+                            .unwrap_or_default()
+                            .parse()
+                            .unwrap_or_default();
+                        self.mapping.target_model.track_index.set(index);
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
         }
     }
 
@@ -1775,11 +1812,40 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
+    fn invalidate_target_line_2_edit_control(&self) {
+        let control = self
+            .view
+            .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_track() => {
+                    let text = match self.target.track_type.get() {
+                        VirtualTrackType::ByIndex => self.target.track_index.get().to_string(),
+                        VirtualTrackType::ByName => self.target.track_name.get_ref().clone(),
+                        _ => {
+                            control.hide();
+                            return;
+                        }
+                    };
+                    control.set_text_if_not_focused(text);
+                    control.show();
+                }
+                _ => {
+                    control.hide();
+                }
+            },
+            TargetCategory::Virtual => {
+                control.hide();
+            }
+        }
+    }
+
     fn invalidate_target_line_2(&self) {
         self.invalidate_target_line_2_label_1();
         self.invalidate_target_line_2_label_2();
         self.invalidate_target_line_2_combo_box_1();
         self.invalidate_target_line_2_combo_box_2();
+        self.invalidate_target_line_2_edit_control();
         self.invalidate_target_line_2_button();
     }
 
@@ -3245,24 +3311,26 @@ impl View for MappingPanel {
             // max value would "fix" a previously entered min value too soon.
             self
         };
-        use root::*;
         match resource_id {
             // Source
-            ID_SOURCE_NUMBER_EDIT_CONTROL => {
+            root::ID_SOURCE_NUMBER_EDIT_CONTROL => {
                 view.write(|p| p.update_source_parameter_number_message_number());
             }
-            ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL => {
+            root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL => {
                 view.write(|p| p.update_source_pattern());
             }
             // Mode
-            ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
+            root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
                 view.write(|p| p.update_mode_eel_control_transformation());
             }
-            ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
+            root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL => {
                 view.write(|p| p.update_mode_eel_feedback_transformation());
             }
             // Target
-            ID_TARGET_VALUE_EDIT_CONTROL => {
+            root::ID_TARGET_LINE_2_EDIT_CONTROL => {
+                view.write(|p| p.handle_target_line_2_edit_control_change())
+            }
+            root::ID_TARGET_VALUE_EDIT_CONTROL => {
                 let (target, value) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)

@@ -22,6 +22,7 @@ pub mod root {
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 40000;
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
     pub const ID_MESSAGE_TEXT: u32 = 40000;
+    pub const ID_TARGET_LINE_2_EDIT_CONTROL: u32 = 40000;
     pub const ID_YAML_EDIT_INFO_TEXT: u32 = 40000;
     pub const IDM_BUTTONS: u32 = 40001;
     pub const IDM_SERVER_START: u32 = 40001;

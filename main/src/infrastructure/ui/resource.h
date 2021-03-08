@@ -20,6 +20,7 @@
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_MESSAGE_TEXT                         40000
+#define ID_TARGET_LINE_2_EDIT_CONTROL           40000
 #define ID_YAML_EDIT_INFO_TEXT                  40000
 #define IDM_BUTTONS                             40001
 #define IDM_SERVER_START                        40001
