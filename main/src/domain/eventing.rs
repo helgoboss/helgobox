@@ -1,4 +1,6 @@
-use crate::domain::{CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId};
+use crate::domain::{
+    CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, ParameterArray,
+};
 use helgoboss_learn::{MidiSource, OscSource, UnitValue};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -11,6 +13,11 @@ pub enum DomainEvent<'a> {
         allow_virtual_sources: bool,
     },
     UpdatedOnMappings(HashSet<MappingId>),
+    UpdatedParameter {
+        index: u32,
+        value: f32,
+    },
+    UpdatedAllParameters(Box<ParameterArray>),
     TargetValueChanged(TargetValueChangedEvent<'a>),
 }
 

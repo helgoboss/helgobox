@@ -409,6 +409,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateAllParameters(parameters) => {
                     debug!(self.logger, "Updating all parameters...");
                     self.parameters = *parameters;
+                    self.event_handler
+                        .handle_event(DomainEvent::UpdatedAllParameters(parameters));
                     // Activation is only supported for main mappings
                     // Mappings with virtual targets can only exist in the controller compartment
                     // and the mappings in there don't support conditional activation. However,
@@ -468,6 +470,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
+                    self.event_handler
+                        .handle_event(DomainEvent::UpdatedParameter { index, value });
                     // Mapping activation is only supported for main mappings but target activation
                     // might change also in non-virtual controller mappings due to dynamic targets.
                     for compartment in MappingCompartment::enum_iter() {

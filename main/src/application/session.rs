@@ -1717,6 +1717,12 @@ impl DomainEventHandler for WeakSession {
                     s.ui.target_value_changed(e);
                 }
             }
+            UpdatedParameter { index, value } => {
+                session.borrow_mut().parameters[index as usize] = value;
+            }
+            UpdatedAllParameters(params) => {
+                session.borrow_mut().parameters = *params;
+            }
         }
     }
 }
