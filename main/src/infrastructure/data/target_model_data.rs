@@ -9,8 +9,8 @@ use crate::application::{
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, FxAnchor, ProcessorContext, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
+    ActionInvocationType, ExtendedProcessorContext, FxAnchor, ProcessorContext, SoloBehavior,
+    TouchedParameterType, TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -101,7 +101,10 @@ impl TargetModelData {
             invocation_type: model.action_invocation_type.get(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
-            track_data: serialize_track(&model.virtual_track().unwrap_or(VirtualTrack::This)),
+            track_data: serialize_track(
+                &model.virtual_track().unwrap_or(VirtualTrack::This),
+                &model.track_expression.get_ref(),
+            ),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_data: serialize_fx(model.fx.get_ref().as_ref()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
@@ -128,7 +131,7 @@ impl TargetModelData {
     pub fn apply_to_model(
         &self,
         model: &mut TargetModel,
-        context: Option<&ProcessorContext>,
+        context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
     ) {
         model.category.set_without_notification(self.category);
@@ -170,6 +173,7 @@ impl TargetModelData {
                 VirtualTrack::This
             }
         };
+        // TODO-high This doesn't work anymore. We must not communicate via virtual tracks.
         model.set_virtual_track_without_notification(&virtual_track);
         model
             .enable_only_if_track_selected
@@ -249,45 +253,57 @@ fn handle_deserialization_error(e: DeserializationError) {
     }
 }
 
-fn serialize_track(virtual_track: &VirtualTrack) -> TrackData {
+fn serialize_track(virtual_track: &VirtualTrack, expression: &str) -> TrackData {
     use VirtualTrack::*;
     match virtual_track {
         This => TrackData {
             guid: None,
             name: None,
             index: None,
+            expression: None,
         },
         Selected => TrackData {
             guid: Some("selected".to_string()),
             name: None,
             index: None,
+            expression: None,
         },
         Master => TrackData {
             guid: Some("master".to_string()),
             name: None,
             index: None,
+            expression: None,
         },
         ByIdOrName(guid, name) => TrackData {
             guid: Some(guid.to_string_without_braces()),
             name: Some(name.clone()),
             index: None,
+            expression: None,
         },
         ById(guid) => TrackData {
             guid: Some(guid.to_string_without_braces()),
             name: None,
             index: None,
+            expression: None,
         },
         ByName(name) => TrackData {
             guid: None,
             name: Some(name.clone()),
             index: None,
+            expression: None,
         },
         ByIndex(index) => TrackData {
             guid: None,
             name: None,
             index: Some(*index),
+            expression: None,
         },
-        Dynamic(_) => todo!(),
+        Dynamic(_) => TrackData {
+            guid: None,
+            name: None,
+            index: None,
+            expression: Some(expression.to_owned()),
+        },
     }
 }
 
@@ -382,6 +398,12 @@ struct TrackData {
     name: Option<String>,
     #[serde(rename = "trackIndex", default, skip_serializing_if = "is_default")]
     index: Option<u32>,
+    #[serde(
+        rename = "trackExpression",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    expression: Option<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
@@ -396,6 +418,7 @@ fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, Deserializa
             guid: None,
             name: None,
             index: None,
+            expression: None,
         } => VirtualTrack::This,
         TrackData { guid: Some(g), .. } if g == "master" => VirtualTrack::Master,
         TrackData { guid: Some(g), .. } if g == "selected" => VirtualTrack::Selected,
@@ -420,14 +443,21 @@ fn deserialize_track(track_data: &TrackData) -> Result<VirtualTrack, Deserializa
             guid: None,
             name: None,
             index: Some(i),
+            ..
         } => VirtualTrack::ByIndex(*i),
+        TrackData {
+            guid: None,
+            name: None,
+            index: None,
+            expression: Some(e),
+        } => VirtualTrack::Dynamic(todo!()),
     };
     Ok(virtual_track)
 }
 
 fn deserialize_fx(
     fx_data: &FxData,
-    context: Option<&ProcessorContext>,
+    context: Option<ExtendedProcessorContext>,
     virtual_track: &VirtualTrack,
 ) -> Result<Option<VirtualFx>, DeserializationError> {
     let virtual_fx = match fx_data {

@@ -1,7 +1,7 @@
 use crate::domain::{
-    ActivationChange, ActivationCondition, ControlOptions, MappingActivationEffect, Mode,
-    ParameterArray, ProcessorContext, RealearnTarget, ReaperTarget, TargetCharacter,
-    UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
+    ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
+    MappingActivationEffect, Mode, ParameterArray, ProcessorContext, RealearnTarget, ReaperTarget,
+    TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -162,8 +162,16 @@ impl MainMapping {
         MappingActivationEffect::new(self.id(), effect_1, effect_2)
     }
 
+    /// Returns if this target is dynamic.
+    pub fn target_can_be_affected_by_parameters(&self) -> bool {
+        match &self.unresolved_target {
+            Some(UnresolvedCompoundMappingTarget::Reaper(t)) => t.can_be_affected_by_parameters(),
+            _ => false,
+        }
+    }
+
     /// Returns if this activation condition is affected by parameter changes in general.
-    pub fn can_be_affected_by_parameters(&self) -> bool {
+    pub fn activation_can_be_affected_by_parameters(&self) -> bool {
         self.activation_condition_1.can_be_affected_by_parameters()
             || self.activation_condition_2.can_be_affected_by_parameters()
     }
@@ -190,7 +198,7 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn refresh_all(&mut self, context: &ProcessorContext, params: &ParameterArray) {
+    pub fn refresh_all(&mut self, context: ExtendedProcessorContext, params: &ParameterArray) {
         self.refresh_target(context);
         self.update_activation(params);
     }
@@ -213,7 +221,10 @@ impl MainMapping {
         )
     }
 
-    pub fn refresh_target(&mut self, context: &ProcessorContext) -> Option<ActivationChange> {
+    pub fn refresh_target(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<ActivationChange> {
         let was_active_before = self.core.options.target_is_active;
         let (target, is_active) = match self.unresolved_target.as_ref() {
             None => (None, false),
@@ -592,7 +603,7 @@ pub enum UnresolvedCompoundMappingTarget {
 impl UnresolvedCompoundMappingTarget {
     pub fn resolve(
         &self,
-        context: &ProcessorContext,
+        context: ExtendedProcessorContext,
     ) -> Result<CompoundMappingTarget, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved = match self {
@@ -771,6 +782,14 @@ pub enum MappingCompartment {
     ControllerMappings,
     #[display(fmt = "Main mappings")]
     MainMappings,
+}
+
+impl MappingCompartment {
+    /// We could also use the generated `into_enum_iter()` everywhere but IDE completion
+    /// in IntelliJ Rust doesn't work for that at the time of this writing.
+    pub fn enum_iter() -> impl Iterator<Item = MappingCompartment> + ExactSizeIterator {
+        MappingCompartment::into_enum_iter()
+    }
 }
 
 pub enum ExtendedSourceCharacter {

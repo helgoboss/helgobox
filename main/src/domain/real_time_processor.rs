@@ -328,7 +328,7 @@ impl RealTimeProcessor {
     }
 
     fn send_lifecycle_midi_for_all_mappings(&self, phase: LifecyclePhase) {
-        for compartment in MappingCompartment::into_enum_iter() {
+        for compartment in MappingCompartment::enum_iter() {
             self.send_lifecycle_midi_for_all_mappings_in(compartment, phase);
         }
     }
@@ -632,7 +632,7 @@ impl RealTimeProcessor {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {
-        MappingCompartment::into_enum_iter()
+        MappingCompartment::enum_iter()
             .map(move |compartment| self.mappings[compartment].values())
             .flatten()
     }
@@ -884,8 +884,6 @@ pub enum NormalRealTimeTask {
         midi_feedback_output: Option<MidiFeedbackOutput>,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
-    ///
-    /// The given set contains *all* mappings whose target is active.
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
     /// Updates the activation state of multiple mappings (for non-virtual mappings).
     ///

@@ -1,5 +1,5 @@
 use crate::application::{GroupModel, MappingModel, SharedGroup, SharedMapping, TargetCategory};
-use crate::domain::{ProcessorContext, VirtualFx, VirtualTrack};
+use crate::domain::{ExtendedProcessorContext, ProcessorContext, VirtualFx, VirtualTrack};
 use std::fmt;
 use std::fmt::Debug;
 
@@ -31,7 +31,7 @@ pub fn mappings_have_project_references(mappings: &[MappingModel]) -> bool {
 
 pub fn make_mappings_project_independent(
     mappings: &mut [MappingModel],
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
 ) {
     mappings
         .iter_mut()
@@ -59,7 +59,7 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
     }
 }
 
-fn make_mapping_project_independent(mapping: &mut MappingModel, context: &ProcessorContext) {
+fn make_mapping_project_independent(mapping: &mut MappingModel, context: ExtendedProcessorContext) {
     let target = &mut mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {

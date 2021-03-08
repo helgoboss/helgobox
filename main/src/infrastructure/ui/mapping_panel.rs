@@ -31,10 +31,10 @@ use crate::application::{
 };
 use crate::core::Global;
 use crate::domain::{
-    get_non_present_virtual_track_label, ActionInvocationType, CompoundMappingTarget, FxAnchor,
-    MappingCompartment, MappingId, ProcessorContext, RealearnTarget, ReaperTarget, SoloBehavior,
-    TargetCharacter, TouchedParameterType, TrackExclusivity, TransportAction,
-    VirtualControlElement, VirtualFx,
+    get_non_present_virtual_track_label, ActionInvocationType, CompoundMappingTarget,
+    ExtendedProcessorContext, FxAnchor, MappingCompartment, MappingId, ProcessorContext,
+    RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TouchedParameterType,
+    TrackExclusivity, TransportAction, VirtualControlElement, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -130,7 +130,7 @@ impl MappingPanel {
                 let fx_snapshot = mapping
                     .borrow()
                     .target_model
-                    .take_fx_snapshot(self.session().borrow().context())?;
+                    .take_fx_snapshot(self.session().borrow().extended_context())?;
                 mapping
                     .borrow_mut()
                     .target_model
@@ -693,7 +693,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn reset_mode(&mut self) {
-        self.mapping.reset_mode(self.session.context());
+        self.mapping.reset_mode(self.session.extended_context());
     }
 
     fn update_mode_type(&mut self) {
@@ -704,7 +704,7 @@ impl<'a> MutableMappingPanel<'a> {
                 .expect("invalid mode type"),
         );
         self.mapping
-            .set_preferred_mode_values(self.session.context());
+            .set_preferred_mode_values(self.session.extended_context());
     }
 
     fn update_mode_min_target_value_from_edit_control(&mut self) {
@@ -933,7 +933,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn mapping_uses_step_counts(&self) -> bool {
         self.mapping
-            .with_context(self.session.context())
+            .with_context(self.session.extended_context())
             .uses_step_counts()
     }
 
@@ -1153,7 +1153,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
         self.mapping
             .target_model
-            .with_context(self.session.context())
+            .with_context(self.session.extended_context())
     }
 
     fn update_target_from_combo_box_line_three(&mut self) {
@@ -1165,7 +1165,12 @@ impl<'a> MutableMappingPanel<'a> {
             let anchor_combo = self
                 .view
                 .require_control(root::ID_TARGET_FX_ANCHOR_COMBO_BOX);
-            Self::update_target_fx(self.session.context(), main_combo, anchor_combo, target);
+            Self::update_target_fx(
+                self.session.extended_context(),
+                main_combo,
+                anchor_combo,
+                target,
+            );
         } else if target.supports_send() {
             let data = main_combo.selected_combo_box_item_data();
             let send_index = if data == -1 { None } else { Some(data as u32) };
@@ -1189,7 +1194,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_target_fx(
-        context: &ProcessorContext,
+        context: ExtendedProcessorContext,
         main_combo: Window,
         anchor_combo: Window,
         target: &mut TargetModel,
@@ -1788,8 +1793,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                         VirtualTrackType::ById | VirtualTrackType::ByIdOrName
                     ) {
                         combo.show();
-                        let context = self.session.context();
-                        let project = context.project_or_current_project();
+                        let context = self.session.extended_context();
+                        let project = context.context.project_or_current_project();
                         combo.fill_combo_box_indexed(track_combo_box_entries(project));
                         if let Some(virtual_track) = self.target.virtual_track() {
                             if let Ok(track) = virtual_track.resolve(context) {
@@ -1871,7 +1876,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
         self.mapping
             .target_model
-            .with_context(self.session.context())
+            .with_context(self.session.extended_context())
     }
 
     fn invalidate_target_line_three(&self) {
@@ -2482,7 +2487,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn mapping_uses_step_counts(&self) -> bool {
         self.mapping
-            .with_context(self.session.context())
+            .with_context(self.session.extended_context())
             .uses_step_counts()
     }
 

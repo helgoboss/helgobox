@@ -5,10 +5,10 @@ use crate::application::{
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
-    MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    OscDeviceId, ProcessorContext, RealSource, ReaperTarget, TargetValueChangedEvent,
-    VirtualSource, PLUGIN_PARAMETER_COUNT,
+    CompoundMappingSource, DomainEvent, DomainEventHandler, ExtendedProcessorContext, MainMapping,
+    MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
+    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, RealSource, ReaperTarget,
+    TargetValueChangedEvent, VirtualSource, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
@@ -76,6 +76,7 @@ pub struct Session {
     normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
+    parameters: ParameterArray,
     parameter_settings: Vec<ParameterSetting>,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
@@ -186,6 +187,7 @@ impl Session {
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
+            parameters: ZEROED_PLUGIN_PARAMETERS,
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
@@ -273,7 +275,7 @@ impl Session {
         self.sync_control_is_globally_enabled();
         self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
-        for compartment in MappingCompartment::into_enum_iter() {
+        for compartment in MappingCompartment::enum_iter() {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
@@ -289,7 +291,7 @@ impl Session {
         when(self.auto_correct_settings.changed())
             .with(weak_session.clone())
             .do_async(|shared_session, _| {
-                for compartment in MappingCompartment::into_enum_iter() {
+                for compartment in MappingCompartment::enum_iter() {
                     shared_session
                         .borrow_mut()
                         .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
@@ -424,7 +426,7 @@ impl Session {
         for m in self.all_mappings() {
             m.borrow_mut()
                 .target_model
-                .invalidate_fx_index(&self.context);
+                .invalidate_fx_index(self.extended_context());
         }
     }
 
@@ -568,9 +570,11 @@ impl Session {
                     )
                     .with(Rc::downgrade(&shared_mapping))
                     .do_sync(move |mapping, _| {
-                        mapping
-                            .borrow_mut()
-                            .adjust_mode_if_necessary(&processor_context);
+                        // TODO-high We need access to the parameters when adjusting the mode but
+                        // we can't just copy them! Find a solution.
+                        // mapping
+                        //     .borrow_mut()
+                        //     .adjust_mode_if_necessary(&processor_context);
                     });
                     all_subscriptions.add(subscription);
                 }
@@ -634,6 +638,10 @@ impl Session {
 
     pub fn context(&self) -> &ProcessorContext {
         &self.context
+    }
+
+    pub fn extended_context(&self) -> ExtendedProcessorContext {
+        ExtendedProcessorContext::new(&self.context, &self.parameters)
     }
 
     pub fn add_default_group(&mut self, name: String) -> GroupId {
@@ -921,7 +929,7 @@ impl Session {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
-        MappingCompartment::into_enum_iter()
+        MappingCompartment::enum_iter()
             .map(move |compartment| self.mappings(compartment))
             .flatten()
     }
@@ -1170,7 +1178,7 @@ impl Session {
         &self,
         mapping_id: MappingId,
     ) -> Option<(MappingCompartment, usize)> {
-        MappingCompartment::into_enum_iter().find_map(|compartment| {
+        MappingCompartment::enum_iter().find_map(|compartment| {
             let index = self.index_of_mapping(compartment, mapping_id)?;
             Some((compartment, index))
         })
@@ -1451,8 +1459,11 @@ impl Session {
         compartment: MappingCompartment,
         target: &ReaperTarget,
     ) -> Option<&SharedMapping> {
-        self.mappings(compartment)
-            .find(|m| m.borrow().with_context(&self.context).has_target(target))
+        self.mappings(compartment).find(|m| {
+            m.borrow()
+                .with_context(self.extended_context())
+                .has_target(target)
+        })
     }
 
     pub fn toggle_learn_source_for_target(

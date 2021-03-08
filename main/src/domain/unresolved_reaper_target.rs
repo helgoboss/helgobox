@@ -1,8 +1,8 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TransportAction,
+    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ProcessorContext,
+    ReaperTarget, SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
 };
 use derive_more::{Display, Error};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
@@ -98,7 +98,7 @@ pub enum UnresolvedReaperTarget {
 }
 
 impl UnresolvedReaperTarget {
-    pub fn resolve(&self, context: &ProcessorContext) -> Result<ReaperTarget, &'static str> {
+    pub fn resolve(&self, context: ExtendedProcessorContext) -> Result<ReaperTarget, &'static str> {
         use UnresolvedReaperTarget::*;
         let resolved = match self {
             Action {
@@ -107,7 +107,7 @@ impl UnresolvedReaperTarget {
             } => ReaperTarget::Action {
                 action: action.clone(),
                 invocation_type: *invocation_type,
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             FxParameter {
                 fx_descriptor,
@@ -173,10 +173,10 @@ impl UnresolvedReaperTarget {
                 send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             Tempo => ReaperTarget::Tempo {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             Playrate => ReaperTarget::Playrate {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             FxEnable { fx_descriptor } => ReaperTarget::FxEnable {
                 fx: get_fx(context, fx_descriptor)?,
@@ -185,7 +185,7 @@ impl UnresolvedReaperTarget {
                 fx: get_fx(context, fx_descriptor)?,
             },
             SelectedTrack => ReaperTarget::SelectedTrack {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             AllTrackFxEnable {
                 track_descriptor,
@@ -195,7 +195,7 @@ impl UnresolvedReaperTarget {
                 exclusivity: *exclusivity,
             },
             Transport { action } => ReaperTarget::Transport {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
                 action: *action,
             },
             LoadFxPreset {
@@ -223,7 +223,7 @@ impl UnresolvedReaperTarget {
                 bookmark_anchor_type,
                 bookmark_ref,
             } => {
-                let project = context.project_or_current_project();
+                let project = context.context.project_or_current_project();
                 let res = find_bookmark(
                     project,
                     *bookmark_type,
@@ -265,6 +265,15 @@ impl UnresolvedReaperTarget {
             }
         }
         true
+    }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        let descriptors = self.descriptors();
+        let track_is_dynamic = match descriptors.0 {
+            None => false,
+            Some(td) => matches!(&td.track, VirtualTrack::Dynamic(_)),
+        };
+        track_is_dynamic
     }
 
     fn descriptors(&self) -> (Option<&TrackDescriptor>, Option<&FxDescriptor>) {
@@ -318,7 +327,7 @@ impl UnresolvedReaperTarget {
 }
 
 pub fn get_effective_track(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
 ) -> Result<Track, &'static str> {
     virtual_track
@@ -328,7 +337,7 @@ pub fn get_effective_track(
 
 // Returns an error if that send (or track) doesn't exist.
 pub fn get_track_send(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
     send_index: u32,
 ) -> Result<TrackSend, &'static str> {
@@ -392,14 +401,19 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self) -> f64 {
-        self.evaluate_internal().unwrap_or_default()
+    pub fn evaluate(&self, params: &ParameterArray) -> f64 {
+        self.evaluate_internal(params).unwrap_or_default()
     }
 
-    fn evaluate_internal(&self) -> Result<f64, fasteval::Error> {
+    fn evaluate_internal(&self, params: &ParameterArray) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
-        let mut ns = fasteval::EmptyNamespace;
-        let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut ns);
+        let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
+            match name {
+                "p1" => Some(params[0] as _),
+                _ => None,
+            }
+        };
+        let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
         Ok(val)
     }
 }
@@ -447,11 +461,12 @@ impl VirtualFx {
 }
 
 impl VirtualTrack {
-    pub fn resolve(&self, context: &ProcessorContext) -> Result<Track, TrackResolveError> {
+    pub fn resolve(&self, context: ExtendedProcessorContext) -> Result<Track, TrackResolveError> {
         use VirtualTrack::*;
-        let project = context.project_or_current_project();
+        let project = context.context.project_or_current_project();
         let track = match self {
             This => context
+                .context
                 .containing_fx()
                 .track()
                 .cloned()
@@ -463,7 +478,7 @@ impl VirtualTrack {
                 .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
                 .ok_or(TrackResolveError::NoTrackSelected)?,
             Dynamic(evaluator) => {
-                let result = evaluator.evaluate();
+                let result = evaluator.evaluate(context.params);
                 let index = result.max(0.0) as u32;
                 project
                     .track_by_index(index)
@@ -519,7 +534,7 @@ impl VirtualTrack {
 
     pub fn with_context<'a>(
         &'a self,
-        context: &'a ProcessorContext,
+        context: ExtendedProcessorContext<'a>,
     ) -> VirtualTrackWithContext<'a> {
         VirtualTrackWithContext {
             virtual_track: self,
@@ -659,7 +674,7 @@ pub enum FxResolveError {
 
 pub struct VirtualTrackWithContext<'a> {
     virtual_track: &'a VirtualTrack,
-    context: &'a ProcessorContext,
+    context: ExtendedProcessorContext<'a>,
 }
 
 impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
@@ -668,7 +683,7 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
         match self.virtual_track {
             This | Selected | Master => write!(f, "{}", self.virtual_track),
             _ => {
-                if let Ok(t) = self.virtual_track.resolve(&self.context) {
+                if let Ok(t) = self.virtual_track.resolve(self.context) {
                     f.write_str(&get_track_label(&t))
                 } else {
                     f.write_str(&get_non_present_virtual_track_label(&self.virtual_track))
@@ -700,7 +715,7 @@ fn get_track_label(track: &Track) -> String {
 
 // Returns an error if that param (or FX) doesn't exist.
 pub fn get_fx_param(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     descriptor: &FxDescriptor,
     param_index: u32,
 ) -> Result<FxParameter, &'static str> {
@@ -713,7 +728,10 @@ pub fn get_fx_param(
 }
 
 // Returns an error if the FX doesn't exist.
-pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
+pub fn get_fx(
+    context: ExtendedProcessorContext,
+    descriptor: &FxDescriptor,
+) -> Result<Fx, &'static str> {
     match &descriptor.fx {
         VirtualFx::Particular {
             is_input_fx,
@@ -754,7 +772,7 @@ fn get_index_based_fx_on_chain(fx_chain: &FxChain, fx_index: u32) -> Result<Fx, 
 }
 
 pub fn get_fx_chain(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
 ) -> Result<FxChain, &'static str> {

@@ -12,9 +12,9 @@ use serde::{Deserialize, Serialize};
 use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, ExpressionEvaluator, FxAnchor, FxDescriptor, ProcessorContext,
-    ReaperTarget, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
-    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
+    CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FxAnchor, FxDescriptor,
+    ProcessorContext, ReaperTarget, SoloBehavior, TouchedParameterType, TrackDescriptor,
+    TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
     VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
@@ -103,7 +103,10 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
-    pub fn take_fx_snapshot(&self, context: &ProcessorContext) -> Result<FxSnapshot, &'static str> {
+    pub fn take_fx_snapshot(
+        &self,
+        context: ExtendedProcessorContext,
+    ) -> Result<FxSnapshot, &'static str> {
         let fx = self.with_context(context).fx()?;
         let fx_info = fx.info();
         let fx_snapshot = FxSnapshot {
@@ -119,7 +122,7 @@ impl TargetModel {
         Ok(fx_snapshot)
     }
 
-    pub fn invalidate_fx_index(&mut self, context: &ProcessorContext) {
+    pub fn invalidate_fx_index(&mut self, context: ExtendedProcessorContext) {
         if !self.supports_fx() {
             return;
         }
@@ -412,7 +415,10 @@ impl TargetModel {
         }
     }
 
-    pub fn with_context<'a>(&'a self, context: &'a ProcessorContext) -> TargetModelWithContext<'a> {
+    pub fn with_context<'a>(
+        &'a self,
+        context: ExtendedProcessorContext<'a>,
+    ) -> TargetModelWithContext<'a> {
         TargetModelWithContext {
             target: self,
             context,
@@ -526,7 +532,7 @@ pub fn get_fx_label(index: u32, fx: &Fx) -> String {
 
 pub struct TargetModelWithContext<'a> {
     target: &'a TargetModel,
-    context: &'a ProcessorContext,
+    context: ExtendedProcessorContext<'a>,
 }
 
 impl<'a> TargetModelWithContext<'a> {
@@ -542,7 +548,7 @@ impl<'a> TargetModelWithContext<'a> {
     /// track/FX/parameter) is not available.
     pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
         let unresolved = self.target.create_target()?;
-        unresolved.resolve(&self.context)
+        unresolved.resolve(self.context)
     }
 
     pub fn is_known_to_be_roundable(&self) -> bool {
@@ -558,11 +564,11 @@ impl<'a> TargetModelWithContext<'a> {
     }
     // Returns an error if the FX doesn't exist.
     pub fn fx(&self) -> Result<Fx, &'static str> {
-        get_fx(&self.context, &self.target.fx_descriptor()?)
+        get_fx(self.context, &self.target.fx_descriptor()?)
     }
 
     pub fn project(&self) -> Project {
-        self.context.project_or_current_project()
+        self.context.context.project_or_current_project()
     }
 
     // TODO-low Consider returning a Cow
@@ -570,14 +576,14 @@ impl<'a> TargetModelWithContext<'a> {
         self.target
             .virtual_track()
             .ok_or("virtual track not complete")?
-            .resolve(&self.context)
+            .resolve(self.context)
             .map_err(|_| "particular track couldn't be resolved")
     }
 
     // Returns an error if that send (or track) doesn't exist.
     fn track_send(&self) -> Result<TrackSend, &'static str> {
         get_track_send(
-            &self.context,
+            self.context,
             &self
                 .target
                 .virtual_track()
@@ -589,7 +595,7 @@ impl<'a> TargetModelWithContext<'a> {
     // Returns an error if that param (or FX) doesn't exist.
     fn fx_param(&self) -> Result<FxParameter, &'static str> {
         get_fx_param(
-            &self.context,
+            self.context,
             &self.target.fx_descriptor()?,
             self.target.param_index.get(),
         )
@@ -620,7 +626,7 @@ impl<'a> TargetModelWithContext<'a> {
 }
 
 pub fn get_guid_based_fx_at_index(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,

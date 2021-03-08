@@ -147,7 +147,7 @@ impl MappingRowPanel {
     fn invalidate_target_label(&self, mapping: &MappingModel) {
         let target_model_string = mapping
             .target_model
-            .with_context(self.session().borrow().context())
+            .with_context(self.session().borrow().extended_context())
             .to_string();
         self.view
             .require_window()

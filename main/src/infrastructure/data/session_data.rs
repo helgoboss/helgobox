@@ -1,8 +1,8 @@
 use crate::application::{MainPresetAutoLoadMode, ParameterSetting, Session};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    MappingCompartment, MidiControlInput, MidiFeedbackOutput, OscDeviceId, ParameterArray,
-    PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
+    OscDeviceId, ParameterArray, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -180,7 +180,11 @@ impl SessionData {
     /// # Errors
     ///
     /// Returns and error if this session data is invalid.
-    pub fn apply_to_model(&self, session: &mut Session) -> Result<(), &'static str> {
+    pub fn apply_to_model(
+        &self,
+        session: &mut Session,
+        params: &ParameterArray,
+    ) -> Result<(), &'static str> {
         // Validation
         let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
             None => (MidiControlInput::FxInput, None),
@@ -265,14 +269,15 @@ impl SessionData {
         session.default_group().replace(final_default_group);
         session.set_groups_without_notification(self.groups.iter().map(|g| g.to_model()));
         // Mappings
-        let processor_context = session.context().clone();
+        let context = session.context().clone();
+        let extended_context = ExtendedProcessorContext::new(&context, &params);
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             session.set_mappings_without_notification(
                 compartment,
                 mappings.iter().map(|m| {
                     m.to_model(
                         compartment,
-                        Some(&processor_context),
+                        Some(extended_context),
                         &migration_descriptor,
                         self.version.as_ref(),
                     )

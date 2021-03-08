@@ -22,7 +22,9 @@ use crate::application::{
     SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, OscDeviceId, ProcessorContext, ReaperTarget};
+use crate::domain::{
+    ExtendedProcessorContext, MappingCompartment, OscDeviceId, ProcessorContext, ReaperTarget,
+};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::{ExtendedPresetManager, OscDevice, SessionData};
 use crate::infrastructure::plugin::{
@@ -511,7 +513,7 @@ impl HeaderPanel {
     fn fill_compartment_combo_box(&self) {
         self.view
             .require_control(root::ID_COMPARTMENT_COMBO_BOX)
-            .fill_combo_box_indexed(MappingCompartment::into_enum_iter());
+            .fill_combo_box_indexed(MappingCompartment::enum_iter());
     }
 
     fn fill_preset_auto_load_mode_combo_box(&self) {
@@ -1109,7 +1111,8 @@ impl HeaderPanel {
                 compartment,
             )
         };
-        self.make_mappings_project_independent_if_desired(context, &mut mappings);
+        let extended_context = ExtendedProcessorContext::new(&context, todo!());
+        self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let session = session.borrow();
         match compartment {
             MappingCompartment::ControllerMappings => {
@@ -1162,14 +1165,14 @@ impl HeaderPanel {
     /// Don't borrow the session while calling this!
     fn make_mappings_project_independent_if_desired(
         &self,
-        context: ProcessorContext,
+        context: ExtendedProcessorContext,
         mut mappings: &mut [MappingModel],
     ) {
         let msg = "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?";
         if mappings_have_project_references(&mappings)
             && self.view.require_window().confirm("ReaLearn", msg)
         {
-            make_mappings_project_independent(&mut mappings, &context);
+            make_mappings_project_independent(&mut mappings, context);
         }
     }
 
@@ -1184,7 +1187,8 @@ impl HeaderPanel {
                 .collect();
             (session.context().clone(), mappings, compartment)
         };
-        self.make_mappings_project_independent_if_desired(context, &mut mappings);
+        let extended_context = ExtendedProcessorContext::new(&context, todo!());
+        self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),
             Some(n) => n,

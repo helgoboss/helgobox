@@ -9,9 +9,9 @@ use crate::application::{
 };
 use crate::core::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, ExtendedSourceCharacter, MainMapping,
-    MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions, RealearnTarget,
-    ReaperTarget, TargetCharacter,
+    ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
+    MainMapping, MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions,
+    RealearnTarget, ReaperTarget, TargetCharacter,
 };
 
 use std::cell::RefCell;
@@ -147,7 +147,7 @@ impl MappingModel {
 
     pub fn with_context<'a>(
         &'a self,
-        context: &'a ProcessorContext,
+        context: ExtendedProcessorContext<'a>,
     ) -> MappingModelWithContext<'a> {
         MappingModelWithContext {
             mapping: self,
@@ -155,7 +155,7 @@ impl MappingModel {
         }
     }
 
-    pub fn adjust_mode_if_necessary(&mut self, context: &ProcessorContext) {
+    pub fn adjust_mode_if_necessary(&mut self, context: ExtendedProcessorContext) {
         let with_context = self.with_context(context);
         if with_context.mode_makes_sense().contains(&false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
@@ -165,13 +165,13 @@ impl MappingModel {
         }
     }
 
-    pub fn reset_mode(&mut self, context: &ProcessorContext) {
+    pub fn reset_mode(&mut self, context: ExtendedProcessorContext) {
         self.mode_model.reset_within_type();
         self.set_preferred_mode_values(context);
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
-    pub fn set_preferred_mode_values(&mut self, context: &ProcessorContext) {
+    pub fn set_preferred_mode_values(&mut self, context: ExtendedProcessorContext) {
         self.mode_model
             .step_interval
             .set(self.with_context(context).preferred_step_interval())
@@ -257,7 +257,7 @@ impl Default for GroupData {
 
 pub struct MappingModelWithContext<'a> {
     mapping: &'a MappingModel,
-    context: &'a ProcessorContext,
+    context: ExtendedProcessorContext<'a>,
 }
 
 impl<'a> MappingModelWithContext<'a> {
