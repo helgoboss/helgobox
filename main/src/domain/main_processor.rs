@@ -3,7 +3,7 @@ use crate::domain::{
     ControlMode, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackRealTimeTask,
     MainMapping, MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask,
     OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
     TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
@@ -47,8 +47,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+    feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     parameters: ParameterArray,
@@ -69,8 +69,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+        normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+        feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
         event_handler: EH,
@@ -222,7 +222,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
-                        .try_send(NormalRealTimeTask::UpdateAllMappings(
+                        .send(NormalRealTimeTask::UpdateAllMappings(
                             compartment,
                             real_time_mappings,
                         ))
@@ -262,7 +262,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             // In some cases like closing projects, it's possible that this will
                             // fail because the real-time processor is
                             // already gone. But it doesn't matter.
-                            let _ = self.normal_real_time_task_sender.try_send(
+                            let _ = self.normal_real_time_task_sender.send(
                                 NormalRealTimeTask::UpdateTargetActivations(
                                     compartment,
                                     activation_updates,
@@ -291,7 +291,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     );
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
-                        .try_send(NormalRealTimeTask::UpdateSingleMapping(
+                        .send(NormalRealTimeTask::UpdateSingleMapping(
                             compartment,
                             Box::new(mapping.splinter_real_time_mapping()),
                         ))
@@ -811,7 +811,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Communicate activation changes to real-time processor
         if !mapping_activation_updates.is_empty() {
             self.normal_real_time_task_sender
-                .try_send(NormalRealTimeTask::UpdateMappingActivations(
+                .send(NormalRealTimeTask::UpdateMappingActivations(
                     compartment,
                     mapping_activation_updates,
                 ))
@@ -819,7 +819,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
         if !target_activation_updates.is_empty() {
             self.normal_real_time_task_sender
-                .try_send(NormalRealTimeTask::UpdateTargetActivations(
+                .send(NormalRealTimeTask::UpdateTargetActivations(
                     compartment,
                     target_activation_updates,
                 ))
@@ -913,7 +913,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.send_feedback(self.feedback_all_zero());
         } else {
             self.feedback_real_time_task_sender
-                .try_send(FeedbackRealTimeTask::ClearFeedback)
+                .send(FeedbackRealTimeTask::ClearFeedback)
                 .unwrap();
         }
     }
@@ -1103,7 +1103,7 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 }
 
 fn control_and_optionally_feedback(
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mapping: &mut MainMapping,
     value: ControlValue,
@@ -1130,7 +1130,7 @@ fn control_and_optionally_feedback(
 }
 
 fn send_feedback_direct_virtual(
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     source_values: impl IntoIterator<Item = SourceValue>,
     osc_device_id: Option<&OscDeviceId>,
@@ -1147,9 +1147,7 @@ fn send_feedback_direct_virtual(
                 }
             }
             Midi(v) => {
-                rt_sender
-                    .try_send(FeedbackRealTimeTask::Feedback(v))
-                    .unwrap();
+                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
             }
             Virtual(virtual_source_value) => {
                 if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
@@ -1164,7 +1162,7 @@ fn send_feedback_direct_virtual(
                                         Midi(v) => {
                                             // TODO-low Maybe we should use the SmallVec here, too?
                                             rt_sender
-                                                .try_send(FeedbackRealTimeTask::Feedback(v))
+                                                .send(FeedbackRealTimeTask::Feedback(v))
                                                 .unwrap();
                                         }
                                         Osc(msg) => {
@@ -1190,7 +1188,7 @@ fn send_feedback_direct_virtual(
 }
 
 fn control_virtual_mappings_osc(
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mappings_with_virtual_targets: &mut HashMap<MappingId, MainMapping>,
     // Contains mappings with virtual sources

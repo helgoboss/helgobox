@@ -871,6 +871,38 @@ enum Caller<'a> {
     AudioHook,
 }
 
+#[derive(Debug)]
+pub struct RealTimeSender<T> {
+    sender: crossbeam_channel::Sender<T>,
+}
+
+impl<T> Clone for RealTimeSender<T> {
+    fn clone(&self) -> Self {
+        Self {
+            sender: self.sender.clone(),
+        }
+    }
+}
+
+impl<T> RealTimeSender<T> {
+    pub fn new(sender: crossbeam_channel::Sender<T>) -> Self {
+        Self { sender }
+    }
+
+    pub fn send(&self, task: T) -> Result<(), &'static str> {
+        self.sender
+            .try_send(task)
+            .map_err(|_| "real-time channel full or disconnected")
+        // if Reaper::get().audio_is_running() || self.sender.ca{
+        //     self.sender
+        //         .try_send(task)
+        //         .map_err(|_| "real-time channel full or disconnected")
+        // } else {
+        //     return Err("audio not running");
+        // }
+    }
+}
+
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
