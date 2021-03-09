@@ -3,6 +3,7 @@ use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ProcessorContext,
     ReaperTarget, SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
+    PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
@@ -408,10 +409,16 @@ impl ExpressionEvaluator {
     fn evaluate_internal(&self, params: &ParameterArray) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
-            match name {
-                "p1" => Some(params[0] as _),
-                _ => None,
+            if !name.starts_with('p') {
+                return None;
             }
+            let value: u32 = name[1..].parse().ok()?;
+            if !(1..=PLUGIN_PARAMETER_COUNT).contains(&value) {
+                return None;
+            }
+            let index = (value - 1) as usize;
+            let param_value = params[index];
+            Some(param_value as f64)
         };
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
         Ok(val)
