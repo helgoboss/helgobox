@@ -1,7 +1,20 @@
+use crate::domain::ParameterArray;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::TypeSpecificPluginContext;
 use std::ptr::NonNull;
 use vst::plugin::HostCallback;
+
+#[derive(Copy, Clone, Debug)]
+pub struct ExtendedProcessorContext<'a> {
+    pub context: &'a ProcessorContext,
+    pub params: &'a ParameterArray,
+}
+
+impl<'a> ExtendedProcessorContext<'a> {
+    pub fn new(context: &'a ProcessorContext, params: &'a ParameterArray) -> Self {
+        Self { context, params }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct ProcessorContext {

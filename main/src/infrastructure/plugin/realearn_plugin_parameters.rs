@@ -72,12 +72,6 @@ impl RealearnPluginParameters {
     }
 
     fn apply_session_data_internal(&self, session_data: &SessionData) {
-        // Update parameters
-        let parameters = session_data.parameters_as_array();
-        self.parameter_main_task_sender
-            .try_send(ParameterMainTask::UpdateAllParameters(Box::new(parameters)))
-            .unwrap();
-        *self.parameters_mut() = parameters;
         // Update session
         let shared_session = self.session().expect("session should exist already");
         let mut session = shared_session.borrow_mut();
@@ -86,9 +80,16 @@ impl RealearnPluginParameters {
                 "The session that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.",
             );
         }
-        if let Err(e) = session_data.apply_to_model(&mut session) {
+        let parameters = session_data.parameters_as_array();
+        if let Err(e) = session_data.apply_to_model(&mut session, &parameters) {
             notification::warn(e);
         }
+        // Update parameters
+        self.parameter_main_task_sender
+            .try_send(ParameterMainTask::UpdateAllParameters(Box::new(parameters)))
+            .unwrap();
+        *self.parameters_mut() = parameters;
+        // Notify
         session.notify_everything_has_changed(Rc::downgrade(&shared_session));
         session.mark_project_as_dirty();
     }

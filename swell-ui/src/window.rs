@@ -183,12 +183,19 @@ impl Window {
         self.fill_combo_box_with_data_internal(items);
     }
 
-    pub fn fill_combo_box<I: Display>(self, items: impl Iterator<Item = I> + ExactSizeIterator) {
+    pub fn fill_combo_box_indexed<I: Display>(
+        self,
+        items: impl Iterator<Item = I> + ExactSizeIterator,
+    ) {
         self.clear_combo_box();
         self.maybe_init_combo_box_storage(items.len());
         for item in items {
             self.add_combo_box_item(item.to_string());
         }
+    }
+
+    pub fn fill_combo_box_indexed_vec<I: Display>(self, items: Vec<I>) {
+        self.fill_combo_box_indexed(items.into_iter())
     }
 
     pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item = I>) {
@@ -276,7 +283,15 @@ impl Window {
         }
     }
 
-    pub fn select_combo_box_item_by_index(self, index: usize) {
+    pub fn select_combo_box_item_by_index(self, index: usize) -> Result<(), &'static str> {
+        if index >= self.combo_box_item_count() {
+            return Err("index for combo box selection out of bound");
+        }
+        self.select_combo_box_item_by_index_internal(index);
+        Ok(())
+    }
+
+    pub fn select_combo_box_item_by_index_internal(self, index: usize) {
         unsafe {
             Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
         }
@@ -286,13 +301,13 @@ impl Window {
         let item_index = (0..self.combo_box_item_count())
             .find(|index| self.combo_box_item_data(*index) == item_data)
             .ok_or("couldn't find combo box item by item data")?;
-        self.select_combo_box_item_by_index(item_index);
+        self.select_combo_box_item_by_index_internal(item_index);
         Ok(())
     }
 
     pub fn select_new_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {
         self.add_combo_box_item(label);
-        self.select_combo_box_item_by_index(self.combo_box_item_count() - 1);
+        self.select_combo_box_item_by_index_internal(self.combo_box_item_count() - 1);
     }
 
     pub fn combo_box_item_count(self) -> usize {
@@ -357,6 +372,15 @@ impl Window {
 
     pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
+    }
+
+    pub fn set_text_or_hide<'a>(self, text: Option<impl Into<SwellStringArg<'a>>>) {
+        if let Some(t) = text {
+            self.set_text(t);
+            self.show();
+        } else {
+            self.hide();
+        }
     }
 
     pub fn set_text_if_not_focused<'a>(self, text: impl Into<SwellStringArg<'a>>) {

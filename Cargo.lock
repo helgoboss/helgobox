@@ -952,6 +952,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
+name = "fasteval"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f4cdac9e4065d7c48e30770f8665b8cef9a3a73a63a4056a33a5f395bc7cf75"
+
+[[package]]
 name = "flate2"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2585,7 +2591,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.6.0"
+version = "2.7.0"
 dependencies = [
  "askama",
  "async-channel",
@@ -2605,6 +2611,7 @@ dependencies = [
  "enum-iterator",
  "enum-map",
  "env_logger 0.8.2",
+ "fasteval",
  "futures",
  "futures-timer 3.0.2",
  "helgoboss-learn",
@@ -2662,7 +2669,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#73d95fc70b52bb8155136ec6032c3c8dda316951"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7108e5e26afc7374dc47c3d4a2261349875d7bc5"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2686,7 +2693,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#73d95fc70b52bb8155136ec6032c3c8dda316951"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7108e5e26afc7374dc47c3d4a2261349875d7bc5"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2699,7 +2706,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#73d95fc70b52bb8155136ec6032c3c8dda316951"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7108e5e26afc7374dc47c3d4a2261349875d7bc5"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.7",
@@ -2709,7 +2716,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#73d95fc70b52bb8155136ec6032c3c8dda316951"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7108e5e26afc7374dc47c3d4a2261349875d7bc5"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -2724,7 +2731,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#73d95fc70b52bb8155136ec6032c3c8dda316951"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#7108e5e26afc7374dc47c3d4a2261349875d7bc5"
 dependencies = [
  "crossbeam-channel 0.4.4",
  "helgoboss-midi",

@@ -1,10 +1,11 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TransportAction,
+    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ReaperTarget,
+    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction, PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
+use fasteval::{Compiler, Evaler, Instruction, Slab};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     Track, TrackSend,
@@ -15,7 +16,7 @@ use std::fmt;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum UnresolvedReaperTarget {
     Action {
         action: Action,
@@ -97,7 +98,7 @@ pub enum UnresolvedReaperTarget {
 }
 
 impl UnresolvedReaperTarget {
-    pub fn resolve(&self, context: &ProcessorContext) -> Result<ReaperTarget, &'static str> {
+    pub fn resolve(&self, context: ExtendedProcessorContext) -> Result<ReaperTarget, &'static str> {
         use UnresolvedReaperTarget::*;
         let resolved = match self {
             Action {
@@ -106,7 +107,7 @@ impl UnresolvedReaperTarget {
             } => ReaperTarget::Action {
                 action: action.clone(),
                 invocation_type: *invocation_type,
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             FxParameter {
                 fx_descriptor,
@@ -172,10 +173,10 @@ impl UnresolvedReaperTarget {
                 send: get_track_send(context, &track_descriptor.track, *send_index)?,
             },
             Tempo => ReaperTarget::Tempo {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             Playrate => ReaperTarget::Playrate {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             FxEnable { fx_descriptor } => ReaperTarget::FxEnable {
                 fx: get_fx(context, fx_descriptor)?,
@@ -184,7 +185,7 @@ impl UnresolvedReaperTarget {
                 fx: get_fx(context, fx_descriptor)?,
             },
             SelectedTrack => ReaperTarget::SelectedTrack {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
             },
             AllTrackFxEnable {
                 track_descriptor,
@@ -194,7 +195,7 @@ impl UnresolvedReaperTarget {
                 exclusivity: *exclusivity,
             },
             Transport { action } => ReaperTarget::Transport {
-                project: context.project_or_current_project(),
+                project: context.context.project_or_current_project(),
                 action: *action,
             },
             LoadFxPreset {
@@ -222,7 +223,7 @@ impl UnresolvedReaperTarget {
                 bookmark_anchor_type,
                 bookmark_ref,
             } => {
-                let project = context.project_or_current_project();
+                let project = context.context.project_or_current_project();
                 let res = find_bookmark(
                     project,
                     *bookmark_type,
@@ -264,6 +265,14 @@ impl UnresolvedReaperTarget {
             }
         }
         true
+    }
+
+    pub fn can_be_affected_by_parameters(&self) -> bool {
+        let descriptors = self.descriptors();
+        match descriptors.0 {
+            None => false,
+            Some(td) => matches!(&td.track, VirtualTrack::Dynamic(_)),
+        }
     }
 
     fn descriptors(&self) -> (Option<&TrackDescriptor>, Option<&FxDescriptor>) {
@@ -317,33 +326,17 @@ impl UnresolvedReaperTarget {
 }
 
 pub fn get_effective_track(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
 ) -> Result<Track, &'static str> {
-    use VirtualTrack::*;
-    let track = match virtual_track {
-        This => context
-            .containing_fx()
-            .track()
-            .cloned()
-            // If this is monitoring FX, we want this to resolve to the master track since
-            // in most functions, monitoring FX chain is the "input FX chain" of the master track.
-            .unwrap_or_else(|| context.project_or_current_project().master_track()),
-        Selected => context
-            .project_or_current_project()
-            .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-            .ok_or("no track selected")?,
-        Master => context.project_or_current_project().master_track(),
-        Particular(anchor) => anchor
-            .resolve(context.project_or_current_project())
-            .map_err(|_| "particular track couldn't be resolved")?,
-    };
-    Ok(track)
+    virtual_track
+        .resolve(context)
+        .map_err(|_| "track couldn't be resolved")
 }
 
 // Returns an error if that send (or track) doesn't exist.
 pub fn get_track_send(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
     send_index: u32,
 ) -> Result<TrackSend, &'static str> {
@@ -355,33 +348,95 @@ pub fn get_track_send(
     Ok(send)
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct TrackDescriptor {
     pub track: VirtualTrack,
     pub enable_only_if_track_selected: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct FxDescriptor {
     pub track_descriptor: TrackDescriptor,
     pub fx: VirtualFx,
     pub enable_only_if_fx_has_focus: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Display)]
+#[derive(Debug)]
 pub enum VirtualTrack {
     /// Current track (the one which contains the ReaLearn instance).
-    #[display(fmt = "<This>")]
     This,
     /// Currently selected track.
-    #[display(fmt = "<Selected>")]
     Selected,
+    /// Based on parameter values.
+    Dynamic(Box<ExpressionEvaluator>),
     /// Master track.
-    #[display(fmt = "<Master>")]
     Master,
-    /// A particular track.
-    #[display(fmt = "<Particular>")]
-    Particular(TrackAnchor),
+    /// Particular.
+    ById(Guid),
+    /// Particular.
+    ByName(String),
+    /// Particular.
+    ByIndex(u32),
+    /// This is the old default for targeting a particular track and it exists solely for backward
+    /// compatibility.
+    ByIdOrName(Guid, String),
+}
+
+#[derive(Debug)]
+pub struct ExpressionEvaluator {
+    slab: Slab,
+    instruction: Instruction,
+}
+
+impl ExpressionEvaluator {
+    pub fn compile(expression: &str) -> Result<ExpressionEvaluator, Box<dyn std::error::Error>> {
+        let parser = fasteval::Parser::new();
+        let mut slab = fasteval::Slab::new();
+        let instruction = parser
+            .parse(expression, &mut slab.ps)?
+            .from(&slab.ps)
+            .compile(&slab.ps, &mut slab.cs);
+        let evaluator = Self { slab, instruction };
+        Ok(evaluator)
+    }
+
+    pub fn evaluate(&self, params: &ParameterArray) -> f64 {
+        self.evaluate_internal(params).unwrap_or_default()
+    }
+
+    fn evaluate_internal(&self, params: &ParameterArray) -> Result<f64, fasteval::Error> {
+        use fasteval::eval_compiled_ref;
+        let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
+            if !name.starts_with('p') {
+                return None;
+            }
+            let value: u32 = name[1..].parse().ok()?;
+            if !(1..=PLUGIN_PARAMETER_COUNT).contains(&value) {
+                return None;
+            }
+            let index = (value - 1) as usize;
+            let param_value = params[index];
+            Some(param_value as f64)
+        };
+        let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
+        Ok(val)
+    }
+}
+
+impl fmt::Display for VirtualTrack {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use VirtualTrack::*;
+        match self {
+            This => f.write_str("<This>"),
+            Selected => f.write_str("<Selected>"),
+            Master => f.write_str("<Master>"),
+            Dynamic(_) => f.write_str("<Dynamic>"),
+            ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
+            ById(id) => write!(f, "{}", id.to_string_without_braces()),
+            ByName(name) => write!(f, "\"{}\"", name),
+            ByIndex(i) => write!(f, "{}", i + 1),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Display)]
@@ -411,9 +466,95 @@ impl VirtualFx {
 }
 
 impl VirtualTrack {
+    pub fn resolve(&self, context: ExtendedProcessorContext) -> Result<Track, TrackResolveError> {
+        use VirtualTrack::*;
+        let project = context.context.project_or_current_project();
+        let track = match self {
+            This => context
+                .context
+                .containing_fx()
+                .track()
+                .cloned()
+                // If this is monitoring FX, we want this to resolve to the master track since
+                // in most functions, monitoring FX chain is the "input FX chain" of the master
+                // track.
+                .unwrap_or_else(|| project.master_track()),
+            Selected => project
+                .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+                .ok_or(TrackResolveError::NoTrackSelected)?,
+            Dynamic(evaluator) => {
+                let index = Self::evaluate_to_track_index(evaluator, context);
+                project
+                    .track_by_index(index)
+                    .ok_or(TrackResolveError::TrackNotFound {
+                        guid: None,
+                        name: None,
+                        index: Some(index),
+                    })?
+            }
+            Master => project.master_track(),
+            ByIdOrName(guid, name) => {
+                let t = project.track_by_guid(guid);
+                if t.is_available() {
+                    t
+                } else {
+                    find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
+                        guid: Some(*guid),
+                        name: Some(name.clone()),
+                        index: None,
+                    })?
+                }
+            }
+            ById(guid) => {
+                let t = project.track_by_guid(guid);
+                if !t.is_available() {
+                    return Err(TrackResolveError::TrackNotFound {
+                        guid: Some(*guid),
+                        name: None,
+                        index: None,
+                    });
+                }
+                t
+            }
+            ByName(name) => {
+                find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
+                    guid: None,
+                    name: Some(name.clone()),
+                    index: None,
+                })?
+            }
+            ByIndex(index) => {
+                project
+                    .track_by_index(*index)
+                    .ok_or(TrackResolveError::TrackNotFound {
+                        guid: None,
+                        name: None,
+                        index: Some(*index),
+                    })?
+            }
+        };
+        Ok(track)
+    }
+
+    pub fn calculated_track_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+        if let VirtualTrack::Dynamic(evaluator) = self {
+            Some(Self::evaluate_to_track_index(evaluator, context))
+        } else {
+            None
+        }
+    }
+
+    fn evaluate_to_track_index(
+        evaluator: &ExpressionEvaluator,
+        context: ExtendedProcessorContext,
+    ) -> u32 {
+        let result = evaluator.evaluate(context.params);
+        result.max(0.0) as u32
+    }
+
     pub fn with_context<'a>(
         &'a self,
-        context: &'a ProcessorContext,
+        context: ExtendedProcessorContext<'a>,
     ) -> VirtualTrackWithContext<'a> {
         VirtualTrackWithContext {
             virtual_track: self,
@@ -421,29 +562,29 @@ impl VirtualTrack {
         }
     }
 
-    pub fn refers_to_project(&self) -> bool {
+    pub fn id(&self) -> Option<Guid> {
         use VirtualTrack::*;
         match self {
-            Particular(anchor) => {
-                use TrackAnchor::*;
-                match anchor {
-                    IdOrName(_, _) | Id(_) => true,
-                    Name(_) | Index(_) => false,
-                }
-            }
-            This | Selected | Master => false,
+            ById(id) | ByIdOrName(id, _) => Some(*id),
+            _ => None,
         }
     }
-}
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TrackAnchor {
-    /// This is the old default and exists solely for backward compatibility.
-    IdOrName(Guid, String),
-    /// This is the new default.
-    Id(Guid),
-    Name(String),
-    Index(u32),
+    pub fn index(&self) -> Option<u32> {
+        use VirtualTrack::*;
+        match self {
+            ByIndex(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        use VirtualTrack::*;
+        match self {
+            ByName(name) | ByIdOrName(_, name) => Some(name),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -462,18 +603,6 @@ pub enum FxAnchor {
     IdOrIndex(Option<Guid>, u32),
 }
 
-impl fmt::Display for TrackAnchor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use TrackAnchor::*;
-        match self {
-            IdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
-            Id(id) => write!(f, "{}", id.to_string_without_braces()),
-            Name(name) => write!(f, "\"{}\"", name),
-            Index(i) => write!(f, "{}", i + 1),
-        }
-    }
-}
-
 impl fmt::Display for FxAnchor {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use FxAnchor::*;
@@ -487,54 +616,6 @@ impl fmt::Display for FxAnchor {
                 write!(f, "{} ({})", guid.to_string_without_braces(), i + 1)
             }
         }
-    }
-}
-
-impl TrackAnchor {
-    pub fn resolve(&self, project: Project) -> Result<Track, TrackResolveError> {
-        use TrackAnchor::*;
-        let track = match self {
-            IdOrName(guid, name) => {
-                let t = project.track_by_guid(guid);
-                if t.is_available() {
-                    t
-                } else {
-                    find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                        guid: Some(*guid),
-                        name: Some(name.clone()),
-                        index: None,
-                    })?
-                }
-            }
-            Id(guid) => {
-                let t = project.track_by_guid(guid);
-                if !t.is_available() {
-                    return Err(TrackResolveError::TrackNotFound {
-                        guid: Some(*guid),
-                        name: None,
-                        index: None,
-                    });
-                }
-                t
-            }
-            Name(name) => {
-                find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                    guid: None,
-                    name: Some(name.clone()),
-                    index: None,
-                })?
-            }
-            Index(index) => {
-                project
-                    .track_by_index(*index)
-                    .ok_or(TrackResolveError::TrackNotFound {
-                        guid: None,
-                        name: None,
-                        index: Some(*index),
-                    })?
-            }
-        };
-        Ok(track)
     }
 }
 
@@ -553,6 +634,7 @@ pub enum TrackResolveError {
         name: Option<String>,
         index: Option<u32>,
     },
+    NoTrackSelected,
 }
 
 impl FxAnchor {
@@ -612,23 +694,27 @@ pub enum FxResolveError {
 
 pub struct VirtualTrackWithContext<'a> {
     virtual_track: &'a VirtualTrack,
-    context: &'a ProcessorContext,
+    context: ExtendedProcessorContext<'a>,
 }
 
 impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use VirtualTrack::*;
         match self.virtual_track {
-            This | Selected | Master => write!(f, "{}", self.virtual_track),
-            Particular(anchor) => {
-                if let Ok(t) = anchor.resolve(self.context.project_or_current_project()) {
-                    write!(f, "{}", get_track_label(&t))
+            This | Selected | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
+            _ => {
+                if let Ok(t) = self.virtual_track.resolve(self.context) {
+                    f.write_str(&get_track_label(&t))
                 } else {
-                    write!(f, "<Not present> ({})", anchor)
+                    f.write_str(&get_non_present_virtual_track_label(&self.virtual_track))
                 }
             }
         }
     }
+}
+
+pub fn get_non_present_virtual_track_label(track: &VirtualTrack) -> String {
+    format!("<Not present> ({})", track)
 }
 
 fn get_track_label(track: &Track) -> String {
@@ -649,7 +735,7 @@ fn get_track_label(track: &Track) -> String {
 
 // Returns an error if that param (or FX) doesn't exist.
 pub fn get_fx_param(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     descriptor: &FxDescriptor,
     param_index: u32,
 ) -> Result<FxParameter, &'static str> {
@@ -662,7 +748,10 @@ pub fn get_fx_param(
 }
 
 // Returns an error if the FX doesn't exist.
-pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<Fx, &'static str> {
+pub fn get_fx(
+    context: ExtendedProcessorContext,
+    descriptor: &FxDescriptor,
+) -> Result<Fx, &'static str> {
     match &descriptor.fx {
         VirtualFx::Particular {
             is_input_fx,
@@ -675,7 +764,7 @@ pub fn get_fx(context: &ProcessorContext, descriptor: &FxDescriptor) -> Result<F
                     // resync the FX whenever something has changed anyway. But
                     // for monitoring FX it could still be good (which we don't get notified
                     // about unfortunately).
-                    if descriptor.track_descriptor.track == VirtualTrack::Selected {
+                    if matches!(descriptor.track_descriptor.track, VirtualTrack::Selected) {
                         FxAnchor::Index(*index)
                     } else {
                         anchor.clone()
@@ -703,7 +792,7 @@ fn get_index_based_fx_on_chain(fx_chain: &FxChain, fx_index: u32) -> Result<Fx, 
 }
 
 pub fn get_fx_chain(
-    context: &ProcessorContext,
+    context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
 ) -> Result<FxChain, &'static str> {

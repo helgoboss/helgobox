@@ -1,12 +1,11 @@
 use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget,
-    ControlMode, DomainEvent, DomainEventHandler, FeedbackRealTimeTask, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
+    ControlMode, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackRealTimeTask,
+    MainMapping, MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask,
+    OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
     TargetValueChangedEvent, VirtualSourceValue,
 };
-use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 
@@ -48,8 +47,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+    feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     parameters: ParameterArray,
@@ -70,8 +69,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
-        feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+        normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
+        feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
         event_handler: EH,
@@ -194,7 +193,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let real_time_mappings = mappings
                         .iter_mut()
                         .map(|m| {
-                            m.refresh_all(&self.context, &self.parameters);
+                            m.refresh_all(
+                                ExtendedProcessorContext::new(&self.context, &self.parameters),
+                                &self.parameters,
+                            );
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
@@ -220,42 +222,57 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
-                        .try_send(NormalRealTimeTask::UpdateAllMappings(
+                        .send(NormalRealTimeTask::UpdateAllMappings(
                             compartment,
                             real_time_mappings,
                         ))
                         .unwrap();
-                    self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
+                    self.handle_feedback_after_having_updated_all_mappings(
+                        compartment,
+                        &unused_sources,
+                    );
                     self.update_on_mappings();
                 }
+                // This is sent on events such as track list change, FX focus etc.
                 RefreshAllTargets => {
                     debug!(self.logger, "Refreshing all targets...");
-                    for compartment in MappingCompartment::into_enum_iter() {
+                    for compartment in MappingCompartment::enum_iter() {
                         let mut activation_updates: Vec<ActivationChange> = vec![];
+                        let mut changed_mappings = vec![];
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment, false);
                         // Mappings with virtual targets don't have to be refreshed because virtual
                         // targets are always active and never change depending on circumstances.
                         for m in self.mappings[compartment].values_mut() {
-                            if let Some(upd) = m.refresh_target(&self.context) {
-                                activation_updates.push(upd);
+                            let context =
+                                ExtendedProcessorContext::new(&self.context, &self.parameters);
+                            let (target_changed, activation_udpate) = m.refresh_target(context);
+                            if target_changed {
+                                changed_mappings.push(m.id())
+                            }
+                            if let Some(u) = activation_udpate {
+                                activation_updates.push(u);
                             }
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(m.source());
                             }
                         }
-                        // In some cases like closing projects, it's possible that this will fail
-                        // because the real-time processor is already gone. But it doesn't matter.
-                        let _ = self.normal_real_time_task_sender.try_send(
-                            NormalRealTimeTask::UpdateTargetActivations(
-                                compartment,
-                                activation_updates,
-                            ),
-                        );
-                        self.handle_feedback_after_batch_mapping_update(
+                        if !activation_updates.is_empty() {
+                            // In some cases like closing projects, it's possible that this will
+                            // fail because the real-time processor is
+                            // already gone. But it doesn't matter.
+                            let _ = self.normal_real_time_task_sender.send(
+                                NormalRealTimeTask::UpdateTargetActivations(
+                                    compartment,
+                                    activation_updates,
+                                ),
+                            );
+                        }
+                        self.handle_feedback_after_having_updated_particular_mappings(
                             compartment,
                             &unused_sources,
+                            changed_mappings.into_iter(),
                         );
                     }
                     self.update_on_mappings();
@@ -268,10 +285,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         mapping.id()
                     );
                     // Refresh
-                    mapping.refresh_all(&self.context, &self.parameters);
+                    mapping.refresh_all(
+                        ExtendedProcessorContext::new(&self.context, &self.parameters),
+                        &self.parameters,
+                    );
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
-                        .try_send(NormalRealTimeTask::UpdateSingleMapping(
+                        .send(NormalRealTimeTask::UpdateSingleMapping(
                             compartment,
                             Box::new(mapping.splinter_real_time_mapping()),
                         ))
@@ -355,8 +375,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
-                        for compartment in MappingCompartment::into_enum_iter() {
-                            self.handle_feedback_after_batch_mapping_update(
+                        for compartment in MappingCompartment::enum_iter() {
+                            self.handle_feedback_after_having_updated_all_mappings(
                                 compartment,
                                 &HashSet::new(),
                             );
@@ -386,6 +406,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateControlIsGloballyEnabled(is_enabled) => {
                     self.control_is_globally_enabled = is_enabled;
                 }
+                FullResyncToRealTimeProcessorPlease => {
+                    // We cannot provide everything that the real-time processor needs so we need
+                    // to delegate to the session in order to let it do the resync (could be
+                    // changed by also holding unnecessary things but for now, why not taking the
+                    // session detour).
+                    self.event_handler
+                        .handle_event(DomainEvent::FullResyncRequested);
+                }
             }
         }
         // Process parameter tasks
@@ -400,30 +428,49 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateAllParameters(parameters) => {
                     debug!(self.logger, "Updating all parameters...");
                     self.parameters = *parameters;
+                    self.event_handler
+                        .handle_event(DomainEvent::UpdatedAllParameters(parameters));
                     // Activation is only supported for main mappings
-                    let compartment = MappingCompartment::MainMappings;
-                    let mut mapping_activation_updates: Vec<ActivationChange> = vec![];
-                    let mut unused_sources =
-                        self.currently_feedback_enabled_sources(compartment, false);
                     // Mappings with virtual targets can only exist in the controller compartment
-                    // and the mappings in there don't support conditional activation, so we don't
-                    // need to handle them here.
-                    for m in &mut self.mappings[compartment].values_mut() {
-                        if m.can_be_affected_by_parameters() {
-                            if let Some(update) = m.update_activation(&self.parameters) {
-                                mapping_activation_updates.push(update);
+                    // and the mappings in there don't support conditional activation. However,
+                    // REAPER targets in the controller compartment can use <Dynamic> and therefore
+                    // might need a refresh in response to parameter changes.
+                    for compartment in MappingCompartment::enum_iter() {
+                        let mut mapping_activation_changes: Vec<ActivationChange> = vec![];
+                        let mut target_activation_changes: Vec<ActivationChange> = vec![];
+                        let mut changed_mappings = vec![];
+                        let mut unused_sources =
+                            self.currently_feedback_enabled_sources(compartment, false);
+                        for m in &mut self.mappings[compartment].values_mut() {
+                            if m.activation_can_be_affected_by_parameters() {
+                                if let Some(update) = m.update_activation(&self.parameters) {
+                                    mapping_activation_changes.push(update);
+                                }
+                            }
+                            if m.target_can_be_affected_by_parameters() {
+                                let context =
+                                    ExtendedProcessorContext::new(&self.context, &self.parameters);
+                                let (has_changed, activation_change) = m.refresh_target(context);
+                                if has_changed {
+                                    changed_mappings.push(m.id())
+                                }
+                                if let Some(u) = activation_change {
+                                    target_activation_changes.push(u);
+                                }
+                            }
+                            if m.feedback_is_effectively_on() {
+                                // Mark source as used
+                                unused_sources.remove(m.source());
                             }
                         }
-                        if m.feedback_is_effectively_on() {
-                            // Mark source as used
-                            unused_sources.remove(m.source());
-                        }
+                        self.process_mapping_updates_due_to_parameter_changes(
+                            compartment,
+                            mapping_activation_changes,
+                            target_activation_changes,
+                            &unused_sources,
+                            changed_mappings.into_iter(),
+                        );
                     }
-                    self.process_mapping_activation_updates(
-                        compartment,
-                        mapping_activation_updates,
-                        &unused_sources,
-                    );
                 }
                 UpdateParameter { index, value } => {
                     debug!(self.logger, "Updating parameter {} to {}...", index, value);
@@ -448,41 +495,62 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Update own value (important to do first)
                     let previous_value = self.parameters[index as usize];
                     self.parameters[index as usize] = value;
-                    // Activation is only supported for main mappings
-                    let compartment = MappingCompartment::MainMappings;
-                    let mut unused_sources =
-                        self.currently_feedback_enabled_sources(compartment, false);
-                    // In order to avoid a mutable borrow of mappings and an immutable borrow of
-                    // parameters at the same time, we need to separate into READ activation
-                    // affects and WRITE activation updates.
-                    // 1. Read
-                    let activation_effects: Vec<MappingActivationEffect> = self.mappings
-                        [compartment]
-                        .values()
-                        .filter_map(|m| {
-                            m.check_activation_effect(&self.parameters, index, previous_value)
-                        })
-                        .collect();
-                    // 2. Write
-                    let activation_updates: Vec<ActivationChange> = activation_effects
-                        .into_iter()
-                        .filter_map(|eff| {
-                            let m = self.mappings[compartment].get_mut(&eff.id)?;
-                            m.update_activation_from_effect(eff)
-                        })
-                        .collect();
-                    // Determine unused sources
-                    for m in self.mappings[compartment].values() {
-                        if m.feedback_is_effectively_on() {
-                            // Mark source as used
-                            unused_sources.remove(m.source());
+                    self.event_handler
+                        .handle_event(DomainEvent::UpdatedParameter { index, value });
+                    // Mapping activation is only supported for main mappings but target activation
+                    // might change also in non-virtual controller mappings due to dynamic targets.
+                    for compartment in MappingCompartment::enum_iter() {
+                        let mut changed_mappings = HashSet::new();
+                        let mut unused_sources =
+                            self.currently_feedback_enabled_sources(compartment, false);
+                        // In order to avoid a mutable borrow of mappings and an immutable borrow of
+                        // parameters at the same time, we need to separate into READ activation
+                        // affects and WRITE activation updates.
+                        // 1. Mapping activation: Read
+                        let activation_effects: Vec<MappingActivationEffect> = self.mappings
+                            [compartment]
+                            .values()
+                            .filter_map(|m| {
+                                m.check_activation_effect(&self.parameters, index, previous_value)
+                            })
+                            .collect();
+                        // 2. Mapping activation: Write
+                        let mapping_activation_updates: Vec<ActivationChange> = activation_effects
+                            .into_iter()
+                            .filter_map(|eff| {
+                                changed_mappings.insert(eff.id);
+                                let m = self.mappings[compartment].get_mut(&eff.id)?;
+                                m.update_activation_from_effect(eff)
+                            })
+                            .collect();
+                        // 3. Target refreshment and determine unused sources
+                        let mut target_activation_changes: Vec<ActivationChange> = vec![];
+                        for m in &mut self.mappings[compartment].values_mut() {
+                            if m.target_can_be_affected_by_parameters() {
+                                let context =
+                                    ExtendedProcessorContext::new(&self.context, &self.parameters);
+                                let (target_has_changed, activation_change) =
+                                    m.refresh_target(context);
+                                if target_has_changed {
+                                    changed_mappings.insert(m.id());
+                                }
+                                if let Some(c) = activation_change {
+                                    target_activation_changes.push(c);
+                                }
+                            }
+                            if m.feedback_is_effectively_on() {
+                                // Mark source as used
+                                unused_sources.remove(m.source());
+                            }
                         }
+                        self.process_mapping_updates_due_to_parameter_changes(
+                            compartment,
+                            mapping_activation_updates,
+                            target_activation_changes,
+                            &unused_sources,
+                            changed_mappings.into_iter(),
+                        )
                     }
-                    self.process_mapping_activation_updates(
-                        compartment,
-                        activation_updates,
-                        &unused_sources,
-                    )
                 }
             }
         }
@@ -496,14 +564,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             use FeedbackMainTask::*;
             match task {
                 TargetTouched => {
-                    for compartment in MappingCompartment::into_enum_iter() {
+                    for compartment in MappingCompartment::enum_iter() {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
                             // Virtual targets are not candidates for "Last touched" so we don't
                             // need to consider them here.
                             if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                                m.refresh_target(&self.context);
-                                // Switching off shouldn't be necessary since the last touched
-                                // target can never be "unset".
+                                // We don't need to track activation updates because this target
+                                // is always on. Switching off is not necessary since the last
+                                // touched target can never be "unset".
+                                m.refresh_target(ExtendedProcessorContext::new(
+                                    &self.context,
+                                    &self.parameters,
+                                ));
                                 if self.feedback_is_globally_enabled
                                     && m.feedback_is_effectively_on()
                                 {
@@ -543,7 +615,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if let AdditionalFeedbackEvent::PlayPositionChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
-            for compartment in MappingCompartment::into_enum_iter() {
+            for compartment in MappingCompartment::enum_iter() {
                 for mapping_id in self.beat_based_feedback_mappings[compartment].iter() {
                     if let Some(m) = self.mappings[compartment].get(&mapping_id) {
                         self.process_feedback_related_reaper_event_for_mapping(
@@ -603,7 +675,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
-        for compartment in MappingCompartment::into_enum_iter() {
+        for compartment in MappingCompartment::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
             for m in self.mappings[compartment].values() {
@@ -706,7 +778,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn control_non_virtual_mappings_osc(&mut self, msg: &OscMessage) {
-        for compartment in MappingCompartment::into_enum_iter() {
+        for compartment in MappingCompartment::enum_iter() {
             for mut m in self.mappings[compartment]
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
@@ -730,27 +802,38 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn process_mapping_activation_updates(
+    fn process_mapping_updates_due_to_parameter_changes(
         &mut self,
         compartment: MappingCompartment,
-        activation_updates: Vec<ActivationChange>,
+        mapping_activation_updates: Vec<ActivationChange>,
+        target_activation_updates: Vec<ActivationChange>,
         unused_sources: &HashSet<CompoundMappingSource>,
+        changed_mappings: impl Iterator<Item = MappingId>,
     ) {
-        if activation_updates.is_empty() {
-            return;
-        }
         // Send feedback
-        // TODO-low Feedback could be reduced to just the activation update mappings
-        self.handle_feedback_after_batch_mapping_update(compartment, &unused_sources);
-        // Communicate changes to real-time processor
-        self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::UpdateMappingActivations(
-                compartment,
-                activation_updates,
-            ))
-            .unwrap();
+        self.handle_feedback_after_having_updated_particular_mappings(
+            compartment,
+            &unused_sources,
+            changed_mappings,
+        );
+        // Communicate activation changes to real-time processor
+        if !mapping_activation_updates.is_empty() {
+            self.normal_real_time_task_sender
+                .send(NormalRealTimeTask::UpdateMappingActivations(
+                    compartment,
+                    mapping_activation_updates,
+                ))
+                .unwrap();
+        }
+        if !target_activation_updates.is_empty() {
+            self.normal_real_time_task_sender
+                .send(NormalRealTimeTask::UpdateTargetActivations(
+                    compartment,
+                    target_activation_updates,
+                ))
+                .unwrap();
+        }
         // Update on mappings
-        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
         self.update_on_mappings();
     }
 
@@ -793,7 +876,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn all_mappings_without_virtual_targets(&self) -> impl Iterator<Item = &MainMapping> {
-        MappingCompartment::into_enum_iter()
+        MappingCompartment::enum_iter()
             .map(move |compartment| self.mappings[compartment].values())
             .flatten()
     }
@@ -811,6 +894,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
+    fn feedback_particular_mappings(
+        &self,
+        compartment: MappingCompartment,
+        mapping_ids: impl Iterator<Item = MappingId>,
+    ) -> Vec<SourceValue> {
+        // Virtual targets don't deliver feedback, so no need to handle them.
+        mapping_ids
+            .filter_map(|id| {
+                let m = self.mappings[compartment].get(&id)?;
+                m.feedback_if_enabled()
+            })
+            .collect()
+    }
+
     fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<SourceValue> {
         // Virtual targets don't deliver feedback, so no need to handle them.
         self.mappings[compartment]
@@ -824,7 +921,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.send_feedback(self.feedback_all_zero());
         } else {
             self.feedback_real_time_task_sender
-                .try_send(FeedbackRealTimeTask::ClearFeedback)
+                .send(FeedbackRealTimeTask::ClearFeedback)
                 .unwrap();
         }
     }
@@ -858,7 +955,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn handle_feedback_after_batch_mapping_update(
+    fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
         compartment: MappingCompartment,
         now_unused_sources: &HashSet<CompoundMappingSource>,
@@ -866,12 +963,31 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if !self.feedback_is_globally_enabled {
             return;
         }
-        // Send feedback instantly to reflect this change in mappings.
-        // At first indicate via feedback the sources which are not in use anymore.
+        self.send_zero_feedback_for_unused_sources(now_unused_sources);
+        self.send_feedback(self.feedback_all_in_compartment(compartment));
+    }
+
+    fn handle_feedback_after_having_updated_particular_mappings(
+        &mut self,
+        compartment: MappingCompartment,
+        now_unused_sources: &HashSet<CompoundMappingSource>,
+        mapping_ids: impl Iterator<Item = MappingId>,
+    ) {
+        if !self.feedback_is_globally_enabled {
+            return;
+        }
+        self.send_zero_feedback_for_unused_sources(now_unused_sources);
+        self.send_feedback(self.feedback_particular_mappings(compartment, mapping_ids));
+    }
+
+    /// Indicate via zero feedback the sources which are not in use anymore.
+    fn send_zero_feedback_for_unused_sources(
+        &self,
+        now_unused_sources: &HashSet<CompoundMappingSource>,
+    ) {
         for s in now_unused_sources {
             self.send_feedback(s.feedback(UnitValue::MIN));
         }
-        self.send_feedback(self.feedback_all_in_compartment(compartment));
     }
 
     fn log_debug_info(&mut self, task_count: usize) {
@@ -953,6 +1069,13 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
+    /// This is sent by the real-time processor after it has not been called for a while because
+    /// the audio device was closed. It wants everything resynced:
+    ///
+    /// - All mappings
+    /// - Instance settings
+    /// - Feedback
+    FullResyncToRealTimeProcessorPlease,
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).
@@ -995,7 +1118,7 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 }
 
 fn control_and_optionally_feedback(
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mapping: &mut MainMapping,
     value: ControlValue,
@@ -1022,7 +1145,7 @@ fn control_and_optionally_feedback(
 }
 
 fn send_feedback_direct_virtual(
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     source_values: impl IntoIterator<Item = SourceValue>,
     osc_device_id: Option<&OscDeviceId>,
@@ -1039,9 +1162,7 @@ fn send_feedback_direct_virtual(
                 }
             }
             Midi(v) => {
-                rt_sender
-                    .try_send(FeedbackRealTimeTask::Feedback(v))
-                    .unwrap();
+                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
             }
             Virtual(virtual_source_value) => {
                 if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
@@ -1056,7 +1177,7 @@ fn send_feedback_direct_virtual(
                                         Midi(v) => {
                                             // TODO-low Maybe we should use the SmallVec here, too?
                                             rt_sender
-                                                .try_send(FeedbackRealTimeTask::Feedback(v))
+                                                .send(FeedbackRealTimeTask::Feedback(v))
                                                 .unwrap();
                                         }
                                         Osc(msg) => {
@@ -1082,7 +1203,7 @@ fn send_feedback_direct_virtual(
 }
 
 fn control_virtual_mappings_osc(
-    rt_sender: &crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mappings_with_virtual_targets: &mut HashMap<MappingId, MainMapping>,
     // Contains mappings with virtual sources

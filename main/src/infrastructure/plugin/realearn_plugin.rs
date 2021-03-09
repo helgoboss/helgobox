@@ -6,7 +6,7 @@ use super::RealearnEditor;
 use crate::core::Global;
 use crate::domain::{
     ControlMainTask, FeedbackRealTimeTask, MainProcessor, NormalMainTask, ParameterMainTask,
-    ProcessorContext, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, RealTimeSender, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -75,9 +75,9 @@ pub struct RealearnPlugin {
     // Will be cloned to session as soon as it gets created.
     parameter_main_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     // Will be cloned to session as soon as it gets created.
-    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     // Will be cloned to session as soon as it gets created.
-    feedback_real_time_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
+    feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
     // Called in real-time audio thread only.
     // We keep it in this struct in order to be able to inform it about incoming FX MIDI messages
     // and drive its processing without detour. Well, almost. We share it with the global ReaLearn
@@ -128,8 +128,8 @@ impl Plugin for RealearnPlugin {
                 main_panel: SharedView::new(MainPanel::new(Arc::downgrade(&plugin_parameters))),
                 reaper_guard: None,
                 plugin_parameters,
-                normal_real_time_task_sender,
-                feedback_real_time_task_sender,
+                normal_real_time_task_sender: RealTimeSender::new(normal_real_time_task_sender),
+                feedback_real_time_task_sender: RealTimeSender::new(feedback_real_time_task_sender),
                 normal_main_task_channel: (normal_main_task_sender, normal_main_task_receiver),
                 real_time_processor: Arc::new(Mutex::new(real_time_processor)),
                 parameter_main_task_receiver,
@@ -273,10 +273,11 @@ impl Plugin for RealearnPlugin {
         firewall(|| {
             // This is called in main thread, so we need to send it to the real-time processor via
             // channel. Real-time processor needs sample rate to do some MIDI clock calculations.
-            // If task queue is full, don't spam user with error messages.
+            // If task queue is full or audio not running, spamming the user with error messages,
+            // so what. Don't spam the user with error messages.
             let _ = self
                 .normal_real_time_task_sender
-                .try_send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
+                .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
     }
 

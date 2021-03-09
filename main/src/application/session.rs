@@ -5,12 +5,12 @@ use crate::application::{
 };
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, DomainEvent, DomainEventHandler, MainMapping, MappingCompartment,
-    MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask,
-    OscDeviceId, ProcessorContext, RealSource, ReaperTarget, TargetValueChangedEvent,
-    VirtualSource, PLUGIN_PARAMETER_COUNT,
+    CompoundMappingSource, DomainEvent, DomainEventHandler, ExtendedProcessorContext, MainMapping,
+    MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
+    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, RealSource, RealTimeSender,
+    ReaperTarget, TargetValueChangedEvent, VirtualSource, PLUGIN_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
-use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 
 use reaper_high::Reaper;
@@ -30,6 +30,7 @@ use wrap_debug::WrapDebug;
 pub trait SessionUi {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
+    fn parameters_changed(&self, session: &Session);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -73,9 +74,10 @@ pub struct Session {
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
-    normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+    normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
+    parameters: ParameterArray,
     parameter_settings: Vec<ParameterSetting>,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
@@ -143,7 +145,7 @@ impl Session {
         instance_id: String,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
-        normal_real_time_task_sender: crossbeam_channel::Sender<NormalRealTimeTask>,
+        normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         ui: impl SessionUi + 'static,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
@@ -186,6 +188,7 @@ impl Session {
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
+            parameters: ZEROED_PLUGIN_PARAMETERS,
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
@@ -273,7 +276,7 @@ impl Session {
         self.sync_control_is_globally_enabled();
         self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
-        for compartment in MappingCompartment::into_enum_iter() {
+        for compartment in MappingCompartment::enum_iter() {
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
@@ -289,7 +292,7 @@ impl Session {
         when(self.auto_correct_settings.changed())
             .with(weak_session.clone())
             .do_async(|shared_session, _| {
-                for compartment in MappingCompartment::into_enum_iter() {
+                for compartment in MappingCompartment::enum_iter() {
                     shared_session
                         .borrow_mut()
                         .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
@@ -424,7 +427,7 @@ impl Session {
         for m in self.all_mappings() {
             m.borrow_mut()
                 .target_model
-                .invalidate_fx_index(&self.context);
+                .invalidate_fx_index(self.extended_context());
         }
     }
 
@@ -494,7 +497,7 @@ impl Session {
         //  to pass the information through multiple processors whether we allow virtual sources.
         // TODO-low Would be nicer to do this on subscription instead of immediately. from_fn()?
         self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::StartLearnSource {
+            .send(NormalRealTimeTask::StartLearnSource {
                 allow_virtual_sources,
             })
             .unwrap();
@@ -509,7 +512,7 @@ impl Session {
         self.source_touched_subject.clone().finalize(move || {
             if reenable_control_after_touched {
                 rt_sender
-                    .try_send(NormalRealTimeTask::ReturnToControlMode)
+                    .send(NormalRealTimeTask::ReturnToControlMode)
                     .unwrap();
                 main_sender
                     .try_send(NormalMainTask::ReturnToControlMode)
@@ -557,7 +560,7 @@ impl Session {
                         });
                     all_subscriptions.add(subscription);
                 }
-                // Keep auto-detecting mode settings
+                // Keep auto-correcting mode settings
                 if self.auto_correct_settings.get() {
                     let processor_context = self.context().clone();
                     let subscription = when(
@@ -568,9 +571,16 @@ impl Session {
                     )
                     .with(Rc::downgrade(&shared_mapping))
                     .do_sync(move |mapping, _| {
+                        // Parameter values are not important for mode auto correction because
+                        // dynamic targets don't really profit from it anyway. Therefore just
+                        // use zero parameters.
+                        let extended_context = ExtendedProcessorContext::new(
+                            &processor_context,
+                            &ZEROED_PLUGIN_PARAMETERS,
+                        );
                         mapping
                             .borrow_mut()
-                            .adjust_mode_if_necessary(&processor_context);
+                            .adjust_mode_if_necessary(extended_context);
                     });
                     all_subscriptions.add(subscription);
                 }
@@ -634,6 +644,10 @@ impl Session {
 
     pub fn context(&self) -> &ProcessorContext {
         &self.context
+    }
+
+    pub fn extended_context(&self) -> ExtendedProcessorContext {
+        ExtendedProcessorContext::new(&self.context, &self.parameters)
     }
 
     pub fn add_default_group(&mut self, name: String) -> GroupId {
@@ -921,7 +935,7 @@ impl Session {
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
-        MappingCompartment::into_enum_iter()
+        MappingCompartment::enum_iter()
             .map(move |compartment| self.mappings(compartment))
             .flatten()
     }
@@ -1044,7 +1058,7 @@ impl Session {
 
     fn disable_control(&self) {
         self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::DisableControl)
+            .send(NormalRealTimeTask::DisableControl)
             .unwrap();
         self.normal_main_task_sender
             .try_send(NormalMainTask::DisableControl)
@@ -1053,7 +1067,7 @@ impl Session {
 
     fn enable_control(&self) {
         self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::ReturnToControlMode)
+            .send(NormalRealTimeTask::ReturnToControlMode)
             .unwrap();
         self.normal_main_task_sender
             .try_send(NormalMainTask::ReturnToControlMode)
@@ -1170,7 +1184,7 @@ impl Session {
         &self,
         mapping_id: MappingId,
     ) -> Option<(MappingCompartment, usize)> {
-        MappingCompartment::into_enum_iter().find_map(|compartment| {
+        MappingCompartment::enum_iter().find_map(|compartment| {
             let index = self.index_of_mapping(compartment, mapping_id)?;
             Some((compartment, index))
         })
@@ -1398,7 +1412,7 @@ impl Session {
             .try_send(NormalMainTask::LogDebugInfo)
             .unwrap();
         self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::LogDebugInfo)
+            .send(NormalRealTimeTask::LogDebugInfo)
             .unwrap();
     }
 
@@ -1451,8 +1465,11 @@ impl Session {
         compartment: MappingCompartment,
         target: &ReaperTarget,
     ) -> Option<&SharedMapping> {
-        self.mappings(compartment)
-            .find(|m| m.borrow().with_context(&self.context).has_target(target))
+        self.mappings(compartment).find(|m| {
+            m.borrow()
+                .with_context(self.extended_context())
+                .has_target(target)
+        })
     }
 
     pub fn toggle_learn_source_for_target(
@@ -1526,7 +1543,7 @@ impl Session {
             midi_control_input: self.midi_control_input.get(),
             midi_feedback_output: self.midi_feedback_output.get(),
         };
-        self.normal_real_time_task_sender.try_send(task).unwrap();
+        self.normal_real_time_task_sender.send(task).unwrap();
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
@@ -1575,11 +1592,15 @@ impl Session {
         }
     }
 
+    pub fn parameters(&self) -> &ParameterArray {
+        &self.parameters
+    }
+
     /// Just syncs whether control globally enabled or not.
     fn sync_control_is_globally_enabled(&self) {
         let enabled = self.control_is_globally_enabled();
         self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
+            .send(NormalRealTimeTask::UpdateControlIsGloballyEnabled(enabled))
             .unwrap();
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateControlIsGloballyEnabled(enabled))
@@ -1590,7 +1611,7 @@ impl Session {
     fn sync_feedback_is_globally_enabled(&self) {
         let enabled = self.feedback_is_globally_enabled();
         self.normal_real_time_task_sender
-            .try_send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
+            .send(NormalRealTimeTask::UpdateFeedbackIsGloballyEnabled(enabled))
             .unwrap();
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateFeedbackIsGloballyEnabled(enabled))
@@ -1705,6 +1726,19 @@ impl DomainEventHandler for WeakSession {
                 if let Ok(s) = session.try_borrow_mut() {
                     s.ui.target_value_changed(e);
                 }
+            }
+            UpdatedParameter { index, value } => {
+                let mut session = session.borrow_mut();
+                session.parameters[index as usize] = value;
+                session.ui.parameters_changed(&session);
+            }
+            UpdatedAllParameters(params) => {
+                let mut session = session.borrow_mut();
+                session.parameters = *params;
+                session.ui.parameters_changed(&session);
+            }
+            FullResyncRequested => {
+                session.borrow_mut().initial_sync(self.clone());
             }
         }
     }

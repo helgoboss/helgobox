@@ -145,10 +145,14 @@ impl MappingRowPanel {
     }
 
     fn invalidate_target_label(&self, mapping: &MappingModel) {
-        let target_model_string = mapping
-            .target_model
-            .with_context(self.session().borrow().context())
-            .to_string();
+        let session = self.session();
+        let session = session.borrow();
+        let context = session.extended_context();
+        if !context.context.project_or_current_project().is_available() {
+            // Prevent error on project close
+            return;
+        }
+        let target_model_string = mapping.target_model.with_context(context).to_string();
         self.view
             .require_window()
             .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)

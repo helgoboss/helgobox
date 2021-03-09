@@ -1,6 +1,6 @@
 use crate::application::{GroupId, MappingModel};
 use crate::core::default_util::is_default;
-use crate::domain::{MappingCompartment, MappingId, ProcessorContext};
+use crate::domain::{ExtendedProcessorContext, MappingCompartment, MappingId};
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
     TargetModelData,
@@ -61,7 +61,7 @@ impl MappingModelData {
     pub fn to_model(
         &self,
         compartment: MappingCompartment,
-        context: Option<&ProcessorContext>,
+        context: Option<ExtendedProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
     ) -> MappingModel {
@@ -76,7 +76,7 @@ impl MappingModelData {
     fn apply_to_model(
         &self,
         model: &mut MappingModel,
-        context: Option<&ProcessorContext>,
+        context: Option<ExtendedProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
     ) {

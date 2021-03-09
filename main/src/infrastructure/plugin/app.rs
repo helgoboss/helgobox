@@ -43,7 +43,7 @@ use url::Url;
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
 const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 1000;
-const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 500;
+const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
@@ -620,7 +620,6 @@ impl App {
         - State: {:#?}\n\
         - Session count: {}\n\
         - Module base address: {:?}\n\
-        - Backtrace (GENERATED INTENTIONALLY!)
         ",
             self.state.borrow(),
             self.sessions.borrow().len(),
@@ -632,8 +631,6 @@ impl App {
         self.control_surface_main_task_sender
             .try_send(RealearnControlSurfaceMainTask::LogDebugInfo)
             .unwrap();
-        // Must be the last because it (intentionally) panics
-        panic!("Backtrace");
     }
 
     pub fn changed(&self) -> impl UnitEvent {

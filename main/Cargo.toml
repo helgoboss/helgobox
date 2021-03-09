@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.6.0"
+version = "2.7.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -115,6 +115,8 @@ edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
 serde_yaml = "0.8.17"
 # For parsing hexadecimal data notation to byte vector (for system-exclusive lifecycle MIDI messages)
 hex = "0.4.2"
+# For evaluation of <Dynamic> formulas
+fasteval = { version = "0.2.4", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

@@ -9,7 +9,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{SessionUi, WeakSession};
+use crate::application::{Session, SessionUi, WeakSession};
 use crate::core::when;
 use crate::domain::{MappingCompartment, MappingId, TargetValueChangedEvent};
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
@@ -149,6 +149,14 @@ impl MainPanel {
         }
     }
 
+    fn handle_changed_parameters(&self, session: &Session) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager
+                .borrow()
+                .handle_changed_parameters(session);
+        }
+    }
+
     fn when(
         self: &SharedView<Self>,
         event: impl UnitEvent,
@@ -193,16 +201,20 @@ impl View for MainPanel {
 
 impl SessionUi for Weak<MainPanel> {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
-        self.upgrade()
-            .expect("main panel not existing anymore")
-            .edit_mapping(compartment, mapping_id);
+        upgrade_panel(self).edit_mapping(compartment, mapping_id);
     }
 
     fn target_value_changed(&self, event: TargetValueChangedEvent) {
-        self.upgrade()
-            .expect("main panel not existing anymore")
-            .handle_changed_target_value(event);
+        upgrade_panel(self).handle_changed_target_value(event);
     }
+
+    fn parameters_changed(&self, session: &Session) {
+        upgrade_panel(self).handle_changed_parameters(session);
+    }
+}
+
+fn upgrade_panel(panel: &Weak<MainPanel>) -> Rc<MainPanel> {
+    panel.upgrade().expect("main panel not existing anymore")
 }
 
 impl Drop for MainPanel {
