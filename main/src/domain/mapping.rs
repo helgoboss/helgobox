@@ -1,7 +1,7 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
-    MappingActivationEffect, Mode, ParameterArray, ProcessorContext, RealearnTarget, ReaperTarget,
-    TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
+    MappingActivationEffect, Mode, ParameterArray, RealearnTarget, ReaperTarget, TargetCharacter,
+    UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;

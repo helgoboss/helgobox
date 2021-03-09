@@ -20,7 +20,6 @@ use crate::domain::{
 use serde_repr::*;
 use std::borrow::Cow;
 
-use fasteval::Compiler;
 use reaper_medium::BookmarkId;
 use std::fmt;
 use std::fmt::{Display, Formatter};

@@ -6,7 +6,6 @@ use crate::domain::{
     RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
     TargetValueChangedEvent, VirtualSourceValue,
 };
-use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
 

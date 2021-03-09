@@ -1,5 +1,5 @@
 use crate::application::{GroupModel, MappingModel, SharedGroup, SharedMapping, TargetCategory};
-use crate::domain::{ExtendedProcessorContext, ProcessorContext, VirtualFx, VirtualTrack};
+use crate::domain::{ExtendedProcessorContext, VirtualFx, VirtualTrack};
 use std::fmt;
 use std::fmt::Debug;
 

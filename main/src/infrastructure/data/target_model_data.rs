@@ -9,8 +9,8 @@ use crate::application::{
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, ExtendedProcessorContext, FxAnchor, ProcessorContext, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
+    ActionInvocationType, ExtendedProcessorContext, FxAnchor, SoloBehavior, TouchedParameterType,
+    TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;

@@ -15,7 +15,6 @@ use slog::debug;
 use std::collections::HashMap;
 
 use crate::core::Global;
-use enum_iterator::IntoEnumIterator;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
 use std::time::Duration;

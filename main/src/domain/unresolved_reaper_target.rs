@@ -1,9 +1,8 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ProcessorContext,
-    ReaperTarget, SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
-    PLUGIN_PARAMETER_COUNT,
+    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ReaperTarget,
+    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction, PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
@@ -408,7 +407,7 @@ impl ExpressionEvaluator {
 
     fn evaluate_internal(&self, params: &ParameterArray) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
-        let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
+        let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
             if !name.starts_with('p') {
                 return None;
             }

@@ -10,8 +10,8 @@ use crate::application::{
 use crate::core::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
-    MainMapping, MappingCompartment, MappingId, ProcessorContext, ProcessorMappingOptions,
-    RealearnTarget, ReaperTarget, TargetCharacter,
+    MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, RealearnTarget,
+    ReaperTarget, TargetCharacter,
 };
 
 use std::cell::RefCell;

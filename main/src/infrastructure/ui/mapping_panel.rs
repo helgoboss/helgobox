@@ -32,9 +32,9 @@ use crate::application::{
 use crate::core::Global;
 use crate::domain::{
     get_non_present_virtual_track_label, ActionInvocationType, CompoundMappingTarget,
-    ExtendedProcessorContext, FxAnchor, MappingCompartment, MappingId, ProcessorContext,
-    RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TouchedParameterType,
-    TrackExclusivity, TransportAction, VirtualControlElement, VirtualFx,
+    ExtendedProcessorContext, FxAnchor, MappingCompartment, MappingId, RealearnTarget,
+    ReaperTarget, SoloBehavior, TargetCharacter, TouchedParameterType, TrackExclusivity,
+    TransportAction, VirtualControlElement, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -1485,7 +1485,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_category_combo_box(&self) {
         self.view
             .require_control(root::ID_SOURCE_CATEGORY_COMBO_BOX)
-            .select_combo_box_item_by_index(self.source.category.get().into());
+            .select_combo_box_item_by_index(self.source.category.get().into())
+            .unwrap();
     }
 
     fn invalidate_target_category_combo_box(&self) {
@@ -1495,7 +1496,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_enabled(self.mapping.compartment() != MappingCompartment::MainMappings);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .select_combo_box_item_by_index(self.target.category.get().into());
+            .select_combo_box_item_by_index(self.target.category.get().into())
+            .unwrap();
     }
 
     fn invalidate_source_type_combo_box(&self) {
@@ -1511,7 +1513,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             _ => return,
         };
         let b = self.view.require_control(root::ID_SOURCE_TYPE_COMBO_BOX);
-        b.select_combo_box_item_by_index(item_index);
+        b.select_combo_box_item_by_index(item_index).unwrap();
     }
 
     fn invalidate_source_learn_button(&self) {
@@ -1547,7 +1549,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 };
             }
             Virtual => {
-                b.select_combo_box_item_by_index(self.source.control_element_index.get() as _);
+                b.select_combo_box_item_by_index(self.source.control_element_index.get() as _)
+                    .unwrap();
             }
             _ => {}
         };
@@ -1651,13 +1654,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(label_text);
         self.view
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX)
-            .select_combo_box_item_by_index(item_index);
+            .select_combo_box_item_by_index(item_index)
+            .unwrap();
     }
 
     fn invalidate_source_midi_clock_transport_message_type_combo_box(&self) {
         self.view
             .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX)
-            .select_combo_box_item_by_index(self.source.midi_clock_transport_message.get().into());
+            .select_combo_box_item_by_index(self.source.midi_clock_transport_message.get().into())
+            .unwrap();
     }
 
     fn invalidate_target_controls(&self) {
@@ -1701,7 +1706,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Reaper => self.target.r#type.get().into(),
             Virtual => self.target.control_element_type.get().into(),
         };
-        b.select_combo_box_item_by_index(item_index);
+        b.select_combo_box_item_by_index(item_index).unwrap();
     }
 
     fn target_category(&self) -> TargetCategory {
@@ -1761,13 +1766,17 @@ impl<'a> ImmutableMappingPanel<'a> {
                 if self.target.supports_track() {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualTrackType::into_enum_iter());
-                    combo.select_combo_box_item_by_index(self.target.track_type.get().into());
+                    combo
+                        .select_combo_box_item_by_index(self.target.track_type.get().into())
+                        .unwrap();
                 } else if self.reaper_target_type() == ReaperTargetType::GoToBookmark {
                     combo.show();
                     combo.fill_combo_box_indexed(BookmarkAnchorType::into_enum_iter());
-                    combo.select_combo_box_item_by_index(
-                        self.target.bookmark_anchor_type.get().into(),
-                    );
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.target.bookmark_anchor_type.get().into(),
+                        )
+                        .unwrap();
                 } else {
                     combo.hide();
                 }
@@ -1787,9 +1796,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Transport => {
                     combo.show();
                     combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
-                    combo.select_combo_box_item_by_index(
-                        self.mapping.target_model.transport_action.get().into(),
-                    );
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.transport_action.get().into(),
+                        )
+                        .unwrap();
                 }
                 ReaperTargetType::GoToBookmark => {
                     combo.show();
@@ -1835,7 +1846,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Virtual => {
                 combo.show();
                 combo.fill_combo_box_small(1..=100);
-                combo.select_combo_box_item_by_index(self.target.control_element_index.get() as _);
+                combo
+                    .select_combo_box_item_by_index(self.target.control_element_index.get() as _)
+                    .unwrap();
             }
         }
     }
@@ -2001,11 +2014,15 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_invocation_type_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item_by_index(self.target.action_invocation_type.get().into());
+        combo
+            .select_combo_box_item_by_index(self.target.action_invocation_type.get().into())
+            .unwrap();
     }
 
     fn set_target_solo_behavior_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item_by_index(self.target.solo_behavior.get().into());
+        combo
+            .select_combo_box_item_by_index(self.target.solo_behavior.get().into())
+            .unwrap();
     }
 
     fn fill_target_solo_behavior_combo_box(&self, label: Window, combo: Window) {
@@ -2014,7 +2031,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_touched_parameter_type_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item_by_index(self.target.touched_parameter_type.get().into());
+        combo
+            .select_combo_box_item_by_index(self.target.touched_parameter_type.get().into())
+            .unwrap();
     }
 
     fn fill_target_touched_parameter_type_combo_box(&self, label: Window, combo: Window) {
@@ -2058,7 +2077,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn set_target_track_exclusivity_combo_box_value(&self, combo: Window) {
-        combo.select_combo_box_item_by_index(self.target.track_exclusivity.get().into());
+        combo
+            .select_combo_box_item_by_index(self.target.track_exclusivity.get().into())
+            .unwrap();
     }
 
     fn fill_target_fx_combo_box(&self, label: Window, combo: Window) {
@@ -2133,11 +2154,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         if let Some(a) = anchor {
             let anchor_type = FxAnchorType::from_anchor(&a);
             anchor_combo.show();
-            anchor_combo.select_combo_box_item_by_index(anchor_type.into());
+            anchor_combo
+                .select_combo_box_item_by_index(anchor_type.into())
+                .unwrap();
         } else {
             anchor_combo.hide();
             // We should at least initialize it so that it has a value. It's used for updating.
-            anchor_combo.select_combo_box_item_by_index(0);
+            anchor_combo.select_combo_box_item_by_index(0).unwrap();
         }
         // Input FX checkbox
         let label = if let VirtualTrackType::Master = self.mapping.target_model.track_type.get() {
@@ -2494,7 +2517,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_type_combo_box(&self) {
         self.view
             .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
-            .select_combo_box_item_by_index(self.mode.r#type.get().into());
+            .select_combo_box_item_by_index(self.mode.r#type.get().into())
+            .unwrap();
     }
 
     fn invalidate_mode_control_appearance(&self) {
@@ -2859,7 +2883,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_out_of_range_behavior_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
-            .select_combo_box_item_by_index(self.mode.out_of_range_behavior.get().into());
+            .select_combo_box_item_by_index(self.mode.out_of_range_behavior.get().into())
+            .unwrap();
     }
 
     fn invalidate_mode_round_target_value_check_box(&self) {

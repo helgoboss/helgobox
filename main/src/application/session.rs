@@ -10,7 +10,6 @@ use crate::domain::{
     NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, RealSource, ReaperTarget,
     TargetValueChangedEvent, VirtualSource, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
-use enum_iterator::IntoEnumIterator;
 use enum_map::EnumMap;
 
 use reaper_high::Reaper;
