@@ -75,8 +75,8 @@ impl RealTimeProcessor {
             normal_main_task_sender,
             control_main_task_sender,
             mappings: enum_map! {
-                ControllerMappings => HashMap::with_capacity(100),
-                MainMappings => HashMap::with_capacity(500),
+                ControllerMappings => HashMap::with_capacity(1000),
+                MainMappings => HashMap::with_capacity(5000),
             },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
