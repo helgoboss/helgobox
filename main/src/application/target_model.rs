@@ -289,7 +289,7 @@ impl TargetModel {
             Dynamic => {
                 let evaluator =
                     ExpressionEvaluator::compile(self.track_expression.get_ref()).ok()?;
-                VirtualTrack::Dynamic(evaluator)
+                VirtualTrack::Dynamic(Box::new(evaluator))
             }
         };
         Some(track)

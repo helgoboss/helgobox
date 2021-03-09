@@ -269,11 +269,10 @@ impl UnresolvedReaperTarget {
 
     pub fn can_be_affected_by_parameters(&self) -> bool {
         let descriptors = self.descriptors();
-        let track_is_dynamic = match descriptors.0 {
+        match descriptors.0 {
             None => false,
             Some(td) => matches!(&td.track, VirtualTrack::Dynamic(_)),
-        };
-        track_is_dynamic
+        }
     }
 
     fn descriptors(&self) -> (Option<&TrackDescriptor>, Option<&FxDescriptor>) {
@@ -369,7 +368,7 @@ pub enum VirtualTrack {
     /// Currently selected track.
     Selected,
     /// Based on parameter values.
-    Dynamic(ExpressionEvaluator),
+    Dynamic(Box<ExpressionEvaluator>),
     /// Master track.
     Master,
     /// Particular.
