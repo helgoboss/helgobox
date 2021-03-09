@@ -1737,6 +1737,9 @@ impl DomainEventHandler for WeakSession {
                 session.parameters = *params;
                 session.ui.parameters_changed(&session);
             }
+            FullResyncRequested => {
+                session.borrow_mut().initial_sync(self.clone());
+            }
         }
     }
 }

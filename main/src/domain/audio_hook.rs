@@ -7,6 +7,7 @@ use reaper_high::Reaper;
 use reaper_medium::{MidiEvent, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferArgs};
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
 
@@ -16,6 +17,11 @@ pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
 type LearnSourceSender = async_channel::Sender<(MidiInputDeviceId, MidiSource)>;
 
+// This kind of tasks is always processed, even after a rebirth when multiple processor syncs etc.
+// have already accumulated. Because at the moment there's no way to request a full resync of all
+// real-time processors from the control surface. In practice there's no danger that too many of
+// those infrequent tasks accumulate so it's not an issue. Therefore the convention for now is to
+// also send them when audio is not running.
 pub enum RealearnAudioHookTask {
     /// First parameter is the ID.
     //
@@ -32,6 +38,7 @@ pub struct RealearnAudioHook {
     state: AudioHookState,
     real_time_processors: SmallVec<[(String, SharedRealTimeProcessor); 256]>,
     task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
+    time_of_last_run: Option<Instant>,
 }
 
 #[derive(Debug)]
@@ -53,6 +60,7 @@ impl RealearnAudioHook {
             state: AudioHookState::Normal,
             real_time_processors: Default::default(),
             task_receiver,
+            time_of_last_run: None,
         }
     }
 }
@@ -62,11 +70,18 @@ impl OnAudioBuffer for RealearnAudioHook {
         if args.is_post {
             return;
         }
+        let current_time = Instant::now();
+        let time_of_last_run = self.time_of_last_run.replace(current_time);
+        let is_rebirth = if let Some(time) = time_of_last_run {
+            current_time.duration_since(time) > Duration::from_secs(1)
+        } else {
+            false
+        };
         match &mut self.state {
             AudioHookState::Normal => {
                 // 1. Call real-time processors.
                 //
-                // Calling the real-time processor *before* processing its remove task might have
+                // Calling the real-time processor *before* processing its remove task has
                 // the benefit, that it can still do some final work (e.g. clearing
                 // LEDs by sending zero feedback) before it's removed. That's also
                 // one of the reasons why we remove the real-time processor async by
@@ -78,7 +93,9 @@ impl OnAudioBuffer for RealearnAudioHook {
                     // better. We also call it by the plug-in `process()` method though in order to
                     // be able to send MIDI to <FX output> and to stop doing so
                     // synchronously if the plug-in is gone.
-                    p.lock().unwrap().run_from_audio_hook_all(args.len as _);
+                    p.lock()
+                        .unwrap()
+                        .run_from_audio_hook_all(args.len as _, is_rebirth);
                 }
             }
             AudioHookState::LearningSource {
@@ -88,7 +105,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                 for (_, p) in self.real_time_processors.iter() {
                     p.lock()
                         .unwrap()
-                        .run_from_audio_hook_essential(args.len as _);
+                        .run_from_audio_hook_essential(args.len as _, is_rebirth);
                 }
                 for dev in Reaper::get().midi_input_devices() {
                     dev.with_midi_input(|mi| {

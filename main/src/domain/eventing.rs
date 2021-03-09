@@ -19,6 +19,7 @@ pub enum DomainEvent<'a> {
     },
     UpdatedAllParameters(Box<ParameterArray>),
     TargetValueChanged(TargetValueChangedEvent<'a>),
+    FullResyncRequested,
 }
 
 #[derive(Debug)]

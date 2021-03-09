@@ -125,17 +125,34 @@ impl RealTimeProcessor {
     }
 
     /// This should be regularly called by audio hook in normal mode.
-    pub fn run_from_audio_hook_all(&mut self, sample_count: usize) {
-        self.run_from_audio_hook_essential(sample_count);
+    pub fn run_from_audio_hook_all(&mut self, sample_count: usize, is_rebirth: bool) {
+        self.run_from_audio_hook_essential(sample_count, is_rebirth);
         self.run_from_audio_hook_control_and_learn();
     }
 
+    fn discard_all_tasks_and_request_full_sync(&mut self) {
+        let discarded_normal_task_count = self.normal_task_receiver.try_iter().count();
+        let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
+        self.normal_main_task_sender
+            .send(NormalMainTask::FullResyncToRealTimeProcessorPlease)
+            .unwrap();
+        debug!(
+            self.logger,
+            "Discarded {} normal and {} feedback tasks. Requested full sync.",
+            discarded_normal_task_count,
+            discarded_feedback_task_count
+        );
+    }
+
     /// This should be regularly called by audio hook even during global MIDI source learning.
-    pub fn run_from_audio_hook_essential(&mut self, sample_count: usize) {
+    pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, is_rebirth: bool) {
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
         // Process occasional tasks sent from other thread (probably main thread)
+        if is_rebirth {
+            self.discard_all_tasks_and_request_full_sync();
+        }
         let normal_task_count = self.normal_task_receiver.len();
         for task in self.normal_task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             use NormalRealTimeTask::*;
@@ -886,20 +903,42 @@ impl<T> Clone for RealTimeSender<T> {
 
 impl<T> RealTimeSender<T> {
     pub fn new(sender: crossbeam_channel::Sender<T>) -> Self {
+        assert!(
+            sender.capacity().is_some(),
+            "real-time sender channel must be bounded!"
+        );
         Self { sender }
     }
 
-    pub fn send(&self, task: T) -> Result<(), &'static str> {
-        self.sender
-            .try_send(task)
-            .map_err(|_| "real-time channel full or disconnected")
-        // if Reaper::get().audio_is_running() || self.sender.ca{
-        //     self.sender
-        //         .try_send(task)
-        //         .map_err(|_| "real-time channel full or disconnected")
-        // } else {
-        //     return Err("audio not running");
-        // }
+    pub fn send(&self, task: T) -> Result<(), crossbeam_channel::TrySendError<T>> {
+        if Reaper::get().audio_is_running() {
+            // Audio is running so sending should always work. If not, it's an unexpected error and
+            // we must return it.
+            self.sender.try_send(task)
+        } else {
+            // Audio is not running. Maybe this is just a very temporary outage or a short initial
+            // non-running state.
+            if self.channel_still_has_some_headroom() {
+                // Channel still has some headroom, so we send the task in order to support a
+                // temporary outage. This should not fail unless another sender has exhausted the
+                // channel in the meanwhile. Even then, so what. See "else" branch.
+                let _ = self.sender.send(task);
+                Ok(())
+            } else {
+                // Channel has already accumulated lots of tasks. Don't send!
+                // It's not bad if we don't send this task because the real-time processor will
+                // not be able to process it anyway at the moment (it's not going to be called
+                // because the audio engine is stopped). Fear not, ReaLearn's audio hook has logic
+                // that detects a "rebirth" - the moment when the audio cycle starts again. In this
+                // case it will request a full resync of everything so nothing should get lost
+                // in theory.
+                Ok(())
+            }
+        }
+    }
+
+    fn channel_still_has_some_headroom(&self) -> bool {
+        self.sender.len() <= self.sender.capacity().unwrap() / 2
     }
 }
 

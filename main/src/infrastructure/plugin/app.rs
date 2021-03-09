@@ -43,7 +43,7 @@ use url::Url;
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
 const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 1000;
-const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 500;
+const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);

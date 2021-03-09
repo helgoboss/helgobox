@@ -406,6 +406,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateControlIsGloballyEnabled(is_enabled) => {
                     self.control_is_globally_enabled = is_enabled;
                 }
+                FullResyncToRealTimeProcessorPlease => {
+                    // We cannot provide everything that the real-time processor needs so we need
+                    // to delegate to the session in order to let it do the resync (could be
+                    // changed by also holding unnecessary things but for now, why not taking the
+                    // session detour).
+                    self.event_handler
+                        .handle_event(DomainEvent::FullResyncRequested);
+                }
             }
         }
         // Process parameter tasks
@@ -1061,6 +1069,13 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
+    /// This is sent by the real-time processor after it has not been called for a while because
+    /// the audio device was closed. It wants everything resynced:
+    ///
+    /// - All mappings
+    /// - Instance settings
+    /// - Feedback
+    FullResyncToRealTimeProcessorPlease,
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).
