@@ -134,6 +134,10 @@ impl MainMapping {
         RealTimeMapping {
             core: self.core.clone(),
             is_active: self.is_active(),
+            target_type: self.unresolved_target.as_ref().map(|t| match t {
+                UnresolvedCompoundMappingTarget::Reaper(_) => UnresolvedTargetType::Reaper,
+                UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetType::Virtual,
+            }),
             lifecycle_midi_data: self
                 .extension
                 .lifecycle_midi_data
@@ -403,7 +407,14 @@ impl MainMapping {
 pub struct RealTimeMapping {
     core: MappingCore,
     is_active: bool,
+    target_type: Option<UnresolvedTargetType>,
     lifecycle_midi_data: LifecycleMidiData,
+}
+
+#[derive(Debug)]
+pub enum UnresolvedTargetType {
+    Reaper,
+    Virtual,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -483,11 +494,11 @@ impl RealTimeMapping {
     }
 
     pub fn has_virtual_target(&self) -> bool {
-        matches!(&self.core.target, Some(CompoundMappingTarget::Virtual(_)))
+        matches!(self.target_type, Some(UnresolvedTargetType::Virtual))
     }
 
     pub fn has_reaper_target(&self) -> bool {
-        matches!(&self.core.target, Some(CompoundMappingTarget::Reaper(_)))
+        matches!(self.target_type, Some(UnresolvedTargetType::Reaper))
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
