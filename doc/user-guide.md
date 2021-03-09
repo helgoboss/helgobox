@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-07 (v2.6.0)</code></td>
+  <td><code>2021-03-09 (v2.7.0)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1262,15 +1262,16 @@ best for your musical use case.
 A target is a thing that is supposed to be controlled. The following settings and functions are
 shared among all targets:
 
-- **Category:** Lets you choose the target category.
-    - **REAPER:** Targets that are about changing something in REAPER.
-    - **Virtual:** Targets that invoke virtual control elements. This source
-      category is available for controller mappings only. 
-- **Learn:** Starts or stops learning the target of this mapping. 
+- **Learn:** Starts or stops learning the target of this mapping.
 - **Go there:** If applicable, pressing this button makes the target of this mapping visible in
   REAPER. E.g. if the target is a track FX parameter, the corresponding track FX window will be
   displayed.
-- **Type:** Let's you choose the target type.
+- **Type:** 
+    - **Left dropdown:** Lets you choose the target category.
+        - **REAPER:** Targets that are about changing something in REAPER.
+        - **Virtual:** Targets that invoke virtual control elements. This source
+          category is available for controller mappings only.
+    - **Right dropdown:** Lets you choose a target type within that category.
 
 ##### Category "REAPER"
 
@@ -1279,28 +1280,56 @@ REAPER targets additionally have this:
 
 Only available for targets that are associated with a particular REAPER track:
 
-- **Track:** The track associated with this target. In addition to concrete tracks, the following
-  options are possible:
+- **Track:** The track associated with this target. The following options are possible:
   - **&lt;This&gt;**: Track which hosts this ReaLearn instance. If ReaLearn is on the monitoring FX
     chain, this resolves to the master track of the current project.
   - **&lt;Selected&gt;**: Currently selected track.
+  - **&lt;Dynamic&gt;**: This allows you to make the track depend on the values of ReaLearn's internal parameters.
+      - **Expression field:** When you choose this option, a text field will appear next to it. This lets you enter a
+        mathematical expression whose result should be a *track index* (the first track in the project has index 0).
+        You can access the values of ReaLearn's internal parameters by using the variables `p1` to `p100`. All of them
+        are normalized floating point values, that means they are decimal numbers between `0.0` and `1.0`. Please note
+        that the expression language is *not EEL* - this is a notable difference to ReaLearn's control/feedback
+        transformation and EEL activation condition text fields! The expression language used here just
+        provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also 
+        doesn't allow or need any assignment to an output variable. Here are some examples:
+          - `p1 * 99`: Will point to track with index 0 (first track) if "Parameter 1" is set to the minimum and to
+            track with index 99 (= track position 100) if it's set to the maximum. If you use a formula like that,
+            you should make sure that "Parameter 1" is controlled with a step size that allows for exactly 100 different
+            values. This conforms to ReaLearn's default step size 0.01 = 1%. In future, it will probably be possible
+            to configure each of ReaLearn's internal parameter with a discrete number that represents the number of 
+            discrete values that it is supposed to represent. When that feature is there, you should configure
+            "Parameter 1" to represent 100 values and then ReaLearn will take care of using the correct step size
+            automatically when setting up a mapping for controlling that parameter. 
+          - `floor(p1 * 3) * 100 + p2 * 99`: This will treat "Parameter 1" as a kind of bank selector that allows you
+            to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each. "Parameter 2" will select the track
+            number within the bank. You see, this is very flexible.
+          - **You should not to use any other constructs than the ones in these examples!** It's not
+            impossible that the expression engine gets replaced with another one in future ... and I 
+            can't guarantee that it will support some of the more exotic features of the current expression engine.
+      - **Result label:** For your convenience, you will find a small text label next to the expression text field that 
+        always shows the current result of your formula. 
   - **&lt;Master&gt;**: Master track of the project which hosts this ReaLearn instance. 
       - If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
       - If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX
         chain, this option is the right choice as well. Make sure to enable the "Monitoring FX" checkbox. 
-- **Track anchor:** If you select a concrete track, another dropdown will appear to the right of the
-  track dropdown. It lets you choose how ReaLearn will identify your track.
-  - **By ID:** Refers to the track by its unique ID (the default). Choose this if you want ReaLearn to always control this
-    very particular track even in case you move it somewhere else or rename it. Please note that it's *not possible*
-    with this setting to create a ReaLearn preset that is reusable among different projects. Because a track ID
-    is globally unique, even across projects. That also means it doesn't make sense to use this setting in a
+  - **By ID:** Lets you pick a specific track and refer to it by its unique ID. Choose this if you want ReaLearn to
+    always control a very particular track even in case you move it somewhere else or rename it. Please note that it's
+    *not possible* with this setting to create a ReaLearn preset that is reusable among different projects. Because a 
+    track ID is globally unique, even across projects. That also means it doesn't make sense to use this setting in a 
     ReaLearn monitoring FX instance.
-  - **Ny name:** Refers to the track by its name. In case there are multiple tracks with the same name, it will
-    always prefer the first one. This will allow you to use one ReaLearn preset across multiple projects that
-    have similar naming schemes, e.g. as monitoring FX.
-  - **By position:** Refers to the track by its position in the track list. This will allow preset reuse as well.
-  - **By ID or name:** This refers to the track by its unique ID with its name as fallback. This was the default
-    behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
+      - **Track dropdown:** You can simply pick the desired track in the dropdown that appears next to this option.
+  - **By name:** Allows you to choose a track depending on its name. In case there are multiple tracks with the same 
+    name, it will always prefer the first one. This will allow you to use one ReaLearn preset across multiple projects
+    that have similar naming schemes, e.g. as monitoring FX.
+      - **Name field:** Here you can enter a name. At the moment this name needs to match the track name *exactly*.
+        It wouldn't be a big deal to implement wildcard matching. In that case just open a feature request.
+  - **By position:** Letss you refer to a track by a fixed position in the track list. This will allow reuse across
+    multiple projects as well.
+      - **Position field:** Here you should enter a *track position* (first track in the project has position 1).
+  - **By ID or name:** This lets you refer to a track by its unique ID and name as fallback. This was the default
+    behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons. You shouldn't use it
+    anymore.
 - **Track must be selected:** If checked, this mapping will be active only if the track set in
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
   _&lt;Selected&gt;_.
@@ -1490,7 +1519,7 @@ It's *not* suited for activating a particular preset (e.g. by setting *Target Mi
 because the preset list of an FX is usually not constant. As soon as you modify the preset list, this value will might
 suddenly point to a completely different preset. Even worse, the actual preset might have been deleted.
 
-If you want to activate a particular preset, please use the [Load FX snapshot](#load-fx-snapshot) target
+If you want to activate a particular preset, please use the [Load FX snapshot target](#load-fx-snapshot-target)
 instead.
 
 ###### Selected track target
@@ -1580,8 +1609,10 @@ your controller.
 
 User interface elements specific to this target:
 
-- **Anchor:** The dropdown next to the marker/bookmark list allows you to choose if you want to refer to the
-  marker/region by its user-assigned ID or by its position on the timeline.
+- **Marker/region:** 
+    - **Left dropdown:** This dropdown lets you choose if you want to refer to a marker/region by its 
+      user-assigned ID or by its position on the timeline.
+    - **Right dropdown:** This dropdown displays the markers or regions (depending on the *Regions* checkbox state).
 - **Regions:** Switches between markers and regions.
 - **Set to now!:** This sets the target to the currently playing (or currently focused, if stopped) marker/region.  
 
