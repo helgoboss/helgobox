@@ -374,6 +374,15 @@ impl Window {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
     }
 
+    pub fn set_text_or_hide<'a>(self, text: Option<impl Into<SwellStringArg<'a>>>) {
+        if let Some(t) = text {
+            self.set_text(t);
+            self.show();
+        } else {
+            self.hide();
+        }
+    }
+
     pub fn set_text_if_not_focused<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         if self.has_focus() {
             return;

@@ -30,6 +30,7 @@ use wrap_debug::WrapDebug;
 pub trait SessionUi {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
+    fn parameters_changed(&self, session: &Session);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -1727,10 +1728,14 @@ impl DomainEventHandler for WeakSession {
                 }
             }
             UpdatedParameter { index, value } => {
-                session.borrow_mut().parameters[index as usize] = value;
+                let mut session = session.borrow_mut();
+                session.parameters[index as usize] = value;
+                session.ui.parameters_changed(&session);
             }
             UpdatedAllParameters(params) => {
-                session.borrow_mut().parameters = *params;
+                let mut session = session.borrow_mut();
+                session.parameters = *params;
+                session.ui.parameters_changed(&session);
             }
         }
     }

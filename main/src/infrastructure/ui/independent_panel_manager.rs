@@ -2,7 +2,7 @@ use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{SharedMapping, WeakSession};
+use crate::application::{Session, SharedMapping, WeakSession};
 use crate::domain::{MappingCompartment, TargetValueChangedEvent};
 use swell_ui::{SharedView, View, WeakView, Window};
 
@@ -39,6 +39,12 @@ impl IndependentPanelManager {
                         .notify_target_value_changed(event.target, event.new_value);
                 }
             }
+        }
+    }
+
+    pub fn handle_changed_parameters(&self, session: &Session) {
+        for p in &self.mapping_panels {
+            let _ = p.clone().notify_parameters_changed(session);
         }
     }
 

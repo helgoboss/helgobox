@@ -244,6 +244,22 @@ impl MappingPanel {
         });
     }
 
+    pub fn notify_parameters_changed(
+        self: SharedView<Self>,
+        session: &Session,
+    ) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping")?;
+        let mapping = mapping.borrow();
+        self.invoke_programmatically(|| {
+            invalidate_dynamic_expression_result(
+                &mapping.target_model,
+                session.extended_context(),
+                self.view.require_control(root::ID_TARGET_LINE_2_LABEL_3),
+            );
+        });
+        Ok(())
+    }
+
     pub fn hide(&self) {
         self.stop_party();
         self.view.require_window().hide();
@@ -1710,13 +1726,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => Some("Number"),
         };
-        let label = self.view.require_control(root::ID_TARGET_LINE_2_LABEL_1);
-        if let Some(t) = text {
-            label.set_text(t);
-            label.show();
-        } else {
-            label.hide();
-        }
+        self.view
+            .require_control(root::ID_TARGET_LINE_2_LABEL_1)
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_2_label_2(&self) {
@@ -1727,13 +1739,17 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => None,
         };
-        let label = self.view.require_control(root::ID_TARGET_LINE_2_LABEL_2);
-        if let Some(t) = text {
-            label.set_text(t);
-            label.show();
-        } else {
-            label.hide();
-        }
+        self.view
+            .require_control(root::ID_TARGET_LINE_2_LABEL_2)
+            .set_text_or_hide(text);
+    }
+
+    fn invalidate_target_line_2_label_3(&self) {
+        invalidate_dynamic_expression_result(
+            self.target,
+            self.session.extended_context(),
+            self.view.require_control(root::ID_TARGET_LINE_2_LABEL_3),
+        );
     }
 
     fn invalidate_target_line_2_combo_box_1(&self) {
@@ -1859,6 +1875,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2(&self) {
         self.invalidate_target_line_2_label_1();
         self.invalidate_target_line_2_label_2();
+        self.invalidate_target_line_2_label_3();
         self.invalidate_target_line_2_combo_box_1();
         self.invalidate_target_line_2_combo_box_2();
         self.invalidate_target_line_2_edit_control();
@@ -2895,6 +2912,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.track_index.changed())
                 .merge(target.track_id.changed())
                 .merge(target.track_name.changed())
+                .merge(target.track_expression.changed())
                 .merge(target.bookmark_type.changed())
                 .merge(target.bookmark_anchor_type.changed())
                 .merge(target.bookmark_ref.changed())
@@ -3534,4 +3552,27 @@ fn select_bookmark_in_combo_box(combo: Window, anchor_type: BookmarkAnchorType, 
             get_non_present_bookmark_label(anchor_type, bookmark_ref).as_str(),
         );
     }
+}
+
+fn invalidate_dynamic_expression_result(
+    target: &TargetModel,
+    context: ExtendedProcessorContext,
+    label: Window,
+) {
+    let text = match target.category.get() {
+        TargetCategory::Reaper => {
+            if target.r#type.get().supports_track()
+                && target.track_type.get() == VirtualTrackType::Dynamic
+            {
+                target
+                    .virtual_track()
+                    .and_then(|t| t.calculated_track_index(context))
+                    .map(|i| i.to_string())
+            } else {
+                None
+            }
+        }
+        TargetCategory::Virtual => None,
+    };
+    label.set_text_or_hide(text);
 }

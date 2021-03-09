@@ -485,8 +485,7 @@ impl VirtualTrack {
                 .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
                 .ok_or(TrackResolveError::NoTrackSelected)?,
             Dynamic(evaluator) => {
-                let result = evaluator.evaluate(context.params);
-                let index = result.max(0.0) as u32;
+                let index = Self::evaluate_to_track_index(evaluator, context);
                 project
                     .track_by_index(index)
                     .ok_or(TrackResolveError::TrackNotFound {
@@ -537,6 +536,22 @@ impl VirtualTrack {
             }
         };
         Ok(track)
+    }
+
+    pub fn calculated_track_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+        if let VirtualTrack::Dynamic(evaluator) = self {
+            Some(Self::evaluate_to_track_index(evaluator, context))
+        } else {
+            None
+        }
+    }
+
+    fn evaluate_to_track_index(
+        evaluator: &ExpressionEvaluator,
+        context: ExtendedProcessorContext,
+    ) -> u32 {
+        let result = evaluator.evaluate(context.params);
+        result.max(0.0) as u32
     }
 
     pub fn with_context<'a>(
