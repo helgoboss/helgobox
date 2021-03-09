@@ -620,7 +620,6 @@ impl App {
         - State: {:#?}\n\
         - Session count: {}\n\
         - Module base address: {:?}\n\
-        - Backtrace (GENERATED INTENTIONALLY!)
         ",
             self.state.borrow(),
             self.sessions.borrow().len(),
@@ -632,8 +631,6 @@ impl App {
         self.control_surface_main_task_sender
             .try_send(RealearnControlSurfaceMainTask::LogDebugInfo)
             .unwrap();
-        // Must be the last because it (intentionally) panics
-        panic!("Backtrace");
     }
 
     pub fn changed(&self) -> impl UnitEvent {
