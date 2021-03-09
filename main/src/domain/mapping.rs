@@ -221,10 +221,12 @@ impl MainMapping {
         )
     }
 
+    /// The boolean tells if the resolved target changed in some way, the activation change says if
+    /// activation changed from off to on or on to off.
     pub fn refresh_target(
         &mut self,
         context: ExtendedProcessorContext,
-    ) -> Option<ActivationChange> {
+    ) -> (bool, Option<ActivationChange>) {
         let was_active_before = self.core.options.target_is_active;
         let (target, is_active) = match self.unresolved_target.as_ref() {
             None => (None, false),
@@ -236,16 +238,17 @@ impl MainMapping {
                 }
             },
         };
+        let target_changed = target != self.core.target;
         self.core.target = target;
         self.core.options.target_is_active = is_active;
         if is_active == was_active_before {
-            return None;
+            return (target_changed, None);
         }
         let update = ActivationChange {
             id: self.id(),
             is_active,
         };
-        Some(update)
+        (target_changed, Some(update))
     }
 
     pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
