@@ -6,7 +6,8 @@ use super::RealearnEditor;
 use crate::core::Global;
 use crate::domain::{
     ControlMainTask, FeedbackRealTimeTask, MainProcessor, NormalMainTask, ParameterMainTask,
-    ProcessorContext, RealTimeSender, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
+    ProcessorContext, RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor,
+    PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -246,8 +247,7 @@ impl Plugin for RealearnPlugin {
                     let is_reaper_generated =
                         transport_is_starting && msg.r#type() == ShortMessageType::NoteOff;
                     self.real_time_processor
-                        .lock()
-                        .unwrap()
+                        .lock_recover()
                         .process_incoming_midi_from_vst(
                             offset,
                             msg,
@@ -264,8 +264,7 @@ impl Plugin for RealearnPlugin {
         // (TimeInfoFlags::TRANSPORT_CHANGED doesn't work the way we want it).
         self.was_playing_in_last_cycle = self.is_now_playing();
         self.real_time_processor
-            .lock()
-            .unwrap()
+            .lock_recover()
             .run_from_vst(buffer.samples(), &self.host);
     }
 

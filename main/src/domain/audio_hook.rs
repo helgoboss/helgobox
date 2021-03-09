@@ -6,7 +6,7 @@ use helgoboss_midi::ShortMessage;
 use reaper_high::Reaper;
 use reaper_medium::{MidiEvent, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferArgs};
 use smallvec::SmallVec;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
@@ -72,7 +72,7 @@ impl OnAudioBuffer for RealearnAudioHook {
         }
         let current_time = Instant::now();
         let time_of_last_run = self.time_of_last_run.replace(current_time);
-        let is_rebirth = if let Some(time) = time_of_last_run {
+        let might_be_rebirth = if let Some(time) = time_of_last_run {
             current_time.duration_since(time) > Duration::from_secs(1)
         } else {
             false
@@ -93,9 +93,8 @@ impl OnAudioBuffer for RealearnAudioHook {
                     // better. We also call it by the plug-in `process()` method though in order to
                     // be able to send MIDI to <FX output> and to stop doing so
                     // synchronously if the plug-in is gone.
-                    p.lock()
-                        .unwrap()
-                        .run_from_audio_hook_all(args.len as _, is_rebirth);
+                    p.lock_recover()
+                        .run_from_audio_hook_all(args.len as _, might_be_rebirth);
                 }
             }
             AudioHookState::LearningSource {
@@ -103,9 +102,8 @@ impl OnAudioBuffer for RealearnAudioHook {
                 midi_source_scanner,
             } => {
                 for (_, p) in self.real_time_processors.iter() {
-                    p.lock()
-                        .unwrap()
-                        .run_from_audio_hook_essential(args.len as _, is_rebirth);
+                    p.lock_recover()
+                        .run_from_audio_hook_essential(args.len as _, might_be_rebirth);
                 }
                 for dev in Reaper::get().midi_input_devices() {
                     dev.with_midi_input(|mi| {
@@ -162,4 +160,21 @@ fn process_midi_event(
         return None;
     }
     midi_source_scanner.feed_short(raw_msg, Some(dev_id))
+}
+
+pub trait RealTimeProcessorLocker {
+    fn lock_recover(&self) -> MutexGuard<RealTimeProcessor>;
+}
+
+impl RealTimeProcessorLocker for SharedRealTimeProcessor {
+    /// This ignores poisoning, which is okay in our case because if the real-time
+    /// processor has panicked, we will see it in the REAPER console. No need to
+    /// hide that error with lots of follow-up poisoning errors! This is a kind of
+    /// recovery mechanism.
+    fn lock_recover(&self) -> MutexGuard<RealTimeProcessor> {
+        match self.lock() {
+            Ok(guard) => guard,
+            Err(e) => e.into_inner(),
+        }
+    }
 }

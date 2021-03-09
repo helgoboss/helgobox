@@ -125,33 +125,46 @@ impl RealTimeProcessor {
     }
 
     /// This should be regularly called by audio hook in normal mode.
-    pub fn run_from_audio_hook_all(&mut self, sample_count: usize, is_rebirth: bool) {
-        self.run_from_audio_hook_essential(sample_count, is_rebirth);
+    pub fn run_from_audio_hook_all(&mut self, sample_count: usize, might_be_rebirth: bool) {
+        self.run_from_audio_hook_essential(sample_count, might_be_rebirth);
         self.run_from_audio_hook_control_and_learn();
     }
 
-    fn discard_all_tasks_and_request_full_sync(&mut self) {
-        let discarded_normal_task_count = self.normal_task_receiver.try_iter().count();
-        let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
-        self.normal_main_task_sender
+    fn request_full_sync_and_discard_tasks_if_successful(&mut self) {
+        if self
+            .normal_main_task_sender
             .send(NormalMainTask::FullResyncToRealTimeProcessorPlease)
-            .unwrap();
-        debug!(
-            self.logger,
-            "Discarded {} normal and {} feedback tasks. Requested full sync.",
-            discarded_normal_task_count,
-            discarded_feedback_task_count
-        );
+            .is_ok()
+        {
+            // Requesting a full resync was successful so we can safely discard accumulated tasks.
+            let discarded_normal_task_count = self.normal_task_receiver.try_iter().count();
+            let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
+            debug!(
+                self.logger,
+                "Successfully requested full sync. Discarded {} normal and {} feedback tasks.",
+                discarded_normal_task_count,
+                discarded_feedback_task_count
+            );
+        } else {
+            debug!(
+                self.logger,
+                "Small audio device outage detected but probably related to project load so no action taken.",
+            );
+        }
     }
 
     /// This should be regularly called by audio hook even during global MIDI source learning.
-    pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, is_rebirth: bool) {
+    ///
+    /// The rebirth parameter is `true` if this could be the first audio cycle after an "unplanned"
+    /// downtime of the audio device. It could also be just a downtime related to opening the
+    /// project itself, which we detect to some degree. See the code that reacts to this parameter.
+    pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
         // Process occasional tasks sent from other thread (probably main thread)
-        if is_rebirth {
-            self.discard_all_tasks_and_request_full_sync();
+        if might_be_rebirth {
+            self.request_full_sync_and_discard_tasks_if_successful();
         }
         let normal_task_count = self.normal_task_receiver.len();
         for task in self.normal_task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
