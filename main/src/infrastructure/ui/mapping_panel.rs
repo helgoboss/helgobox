@@ -1142,13 +1142,11 @@ impl<'a> MutableMappingPanel<'a> {
                     VirtualTrackType::ByIndex => {
                         let position: i32 = control
                             .text()
-                            .unwrap_or_default()
-                            .parse()
-                            .unwrap_or_default();
-                        self.mapping
-                            .target_model
-                            .track_index
-                            .set(position.max(0) as _);
+                            .ok()
+                            .and_then(|text| text.parse().ok())
+                            .unwrap_or(1);
+                        let index = std::cmp::max(position - 1, 0) as u32;
+                        self.mapping.target_model.track_index.set(index);
                     }
                     _ => {}
                 },
