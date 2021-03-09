@@ -239,7 +239,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     debug!(self.logger, "Refreshing all targets...");
                     for compartment in MappingCompartment::enum_iter() {
                         let mut activation_updates: Vec<ActivationChange> = vec![];
-                        let mut mappings_with_target_changes = vec![];
+                        let mut changed_mappings = vec![];
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment, false);
                         // Mappings with virtual targets don't have to be refreshed because virtual
@@ -249,7 +249,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 ExtendedProcessorContext::new(&self.context, &self.parameters);
                             let (target_changed, activation_udpate) = m.refresh_target(context);
                             if target_changed {
-                                mappings_with_target_changes.push(m.id())
+                                changed_mappings.push(m.id())
                             }
                             if let Some(u) = activation_udpate {
                                 activation_updates.push(u);
@@ -273,7 +273,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.handle_feedback_after_having_updated_particular_mappings(
                             compartment,
                             &unused_sources,
-                            &mappings_with_target_changes,
+                            changed_mappings.into_iter(),
                         );
                     }
                     self.update_on_mappings();
@@ -431,7 +431,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     for compartment in MappingCompartment::enum_iter() {
                         let mut mapping_activation_changes: Vec<ActivationChange> = vec![];
                         let mut target_activation_changes: Vec<ActivationChange> = vec![];
-                        let mut mappings_with_target_changes = vec![];
+                        let mut changed_mappings = vec![];
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment, false);
                         for m in &mut self.mappings[compartment].values_mut() {
@@ -445,7 +445,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     ExtendedProcessorContext::new(&self.context, &self.parameters);
                                 let (has_changed, activation_change) = m.refresh_target(context);
                                 if has_changed {
-                                    mappings_with_target_changes.push(m.id())
+                                    changed_mappings.push(m.id())
                                 }
                                 if let Some(u) = activation_change {
                                     target_activation_changes.push(u);
@@ -461,7 +461,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             mapping_activation_changes,
                             target_activation_changes,
                             &unused_sources,
-                            &mappings_with_target_changes,
+                            changed_mappings.into_iter(),
                         );
                     }
                 }
@@ -493,7 +493,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Mapping activation is only supported for main mappings but target activation
                     // might change also in non-virtual controller mappings due to dynamic targets.
                     for compartment in MappingCompartment::enum_iter() {
-                        let mut mappings_with_target_changes = vec![];
+                        let mut changed_mappings = HashSet::new();
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment, false);
                         // In order to avoid a mutable borrow of mappings and an immutable borrow of
@@ -511,19 +511,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         let mapping_activation_updates: Vec<ActivationChange> = activation_effects
                             .into_iter()
                             .filter_map(|eff| {
+                                changed_mappings.insert(eff.id);
                                 let m = self.mappings[compartment].get_mut(&eff.id)?;
                                 m.update_activation_from_effect(eff)
                             })
                             .collect();
-                        // 3. Target activation and determine unused sources
+                        // 3. Target refreshment and determine unused sources
                         let mut target_activation_changes: Vec<ActivationChange> = vec![];
                         for m in &mut self.mappings[compartment].values_mut() {
                             if m.target_can_be_affected_by_parameters() {
                                 let context =
                                     ExtendedProcessorContext::new(&self.context, &self.parameters);
-                                let (has_changed, activation_change) = m.refresh_target(context);
-                                if has_changed {
-                                    mappings_with_target_changes.push(m.id());
+                                let (target_has_changed, activation_change) =
+                                    m.refresh_target(context);
+                                if target_has_changed {
+                                    changed_mappings.insert(m.id());
                                 }
                                 if let Some(c) = activation_change {
                                     target_activation_changes.push(c);
@@ -539,7 +541,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             mapping_activation_updates,
                             target_activation_changes,
                             &unused_sources,
-                            &mappings_with_target_changes,
+                            changed_mappings.into_iter(),
                         )
                     }
                 }
@@ -799,13 +801,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         mapping_activation_updates: Vec<ActivationChange>,
         target_activation_updates: Vec<ActivationChange>,
         unused_sources: &HashSet<CompoundMappingSource>,
-        mappings_with_changed_targets: &[MappingId],
+        changed_mappings: impl Iterator<Item = MappingId>,
     ) {
         // Send feedback
         self.handle_feedback_after_having_updated_particular_mappings(
             compartment,
             &unused_sources,
-            mappings_with_changed_targets,
+            changed_mappings,
         );
         // Communicate activation changes to real-time processor
         if !mapping_activation_updates.is_empty() {
@@ -888,13 +890,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn feedback_particular_mappings(
         &self,
         compartment: MappingCompartment,
-        mapping_ids: &[MappingId],
+        mapping_ids: impl Iterator<Item = MappingId>,
     ) -> Vec<SourceValue> {
         // Virtual targets don't deliver feedback, so no need to handle them.
         mapping_ids
-            .iter()
             .filter_map(|id| {
-                let m = self.mappings[compartment].get(id)?;
+                let m = self.mappings[compartment].get(&id)?;
                 m.feedback_if_enabled()
             })
             .collect()
@@ -963,7 +964,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &mut self,
         compartment: MappingCompartment,
         now_unused_sources: &HashSet<CompoundMappingSource>,
-        mapping_ids: &[MappingId],
+        mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         if !self.feedback_is_globally_enabled {
             return;
