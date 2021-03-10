@@ -1144,6 +1144,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .unwrap_or_default();
                     self.mapping.target_model.fx_type.set(fx_type);
                 }
+                t if t.supports_send() => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .route_type
+                        .set(i.try_into().expect("invalid route type"));
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -1255,13 +1262,6 @@ impl<'a> MutableMappingPanel<'a> {
                                 .set_without_notification(fx.name().into_string());
                         }
                     }
-                }
-                t if t.supports_send() => {
-                    let i = combo.selected_combo_box_item_index();
-                    self.mapping
-                        .target_model
-                        .route_type
-                        .set(i.try_into().expect("invalid route type"));
                 }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
@@ -2246,6 +2246,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.fx_type.get().into())
                         .unwrap();
                 }
+                t if t.supports_send() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TrackRouteType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.route_type.get().into())
+                        .unwrap();
+                }
                 _ => combo.hide(),
             },
             TargetCategory::Virtual => {
@@ -2327,13 +2334,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     } else {
                         combo.hide();
                     }
-                }
-                t if t.supports_send() => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(TrackRouteType::into_enum_iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.route_type.get().into())
-                        .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();
