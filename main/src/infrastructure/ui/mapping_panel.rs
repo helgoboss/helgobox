@@ -26,8 +26,8 @@ use crate::application::{
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, BookmarkAnchorType,
     MappingModel, MidiSourceType, ModeModel, ReaperTargetType, Session, SharedMapping,
     SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession,
+    TargetModelWithContext, TrackRouteSelectorType, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
 use crate::domain::{
@@ -220,17 +220,17 @@ impl MappingPanel {
         let mapping = self.displayed_mapping().ok_or("no mapping")?;
         let mapping = mapping.borrow();
         self.invoke_programmatically(|| {
-            invalidate_dynamic_track_expression_result(
+            invalidate_target_line_2_expression_result(
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_2_LABEL_3),
             );
-            invalidate_dynamic_fx_expression_result(
+            invalidat_target_line_3_expression_result(
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_3_LABEL_3),
             );
-            invalidate_dynamic_fx_parameter_expression_result(
+            invalidate_target_line_4_expression_result(
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
@@ -1163,6 +1163,16 @@ impl<'a> MutableMappingPanel<'a> {
                         .unwrap_or_default();
                     self.mapping.target_model.param_type.set(param_type);
                 }
+                t if t.supports_send() => {
+                    let selector_type = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.mapping
+                        .target_model
+                        .route_selector_type
+                        .set(selector_type);
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -1287,8 +1297,16 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::FxParameter => {
-                    let i = combo.selected_combo_box_item_index();
-                    self.mapping.target_model.param_index.set(i as _);
+                    if let Ok(fx) = self.target_with_context().fx() {
+                        let i = combo.selected_combo_box_item_index();
+                        let param = fx.parameter_by_index(i as _);
+                        self.mapping.target_model.param_index.set(i as _);
+                        // We also set name so that we can easily switch between types.
+                        self.mapping
+                            .target_model
+                            .param_name
+                            .set(param.name().into_string());
+                    }
                 }
                 t if t.supports_track_exclusivity() => {
                     let i = combo.selected_combo_box_item_index();
@@ -1298,8 +1316,22 @@ impl<'a> MutableMappingPanel<'a> {
                         .set(i.try_into().expect("invalid track exclusivity"));
                 }
                 t if t.supports_send() => {
-                    let i = combo.selected_combo_box_item_index();
-                    self.mapping.target_model.route_index.set(i as _);
+                    if let Ok(track) = self.target_with_context().effective_track() {
+                        let i = combo.selected_combo_box_item_index();
+                        if let Some(send) = track.send_by_index(i as _) {
+                            let target_track = send.target_track();
+                            self.mapping.target_model.route_id.set(Some(*track.guid()));
+                            // We also set index and name so that we can easily switch between
+                            // types.
+                            self.mapping.target_model.route_index.set(i as _);
+                            self.mapping.target_model.route_name.set(
+                                target_track
+                                    .name()
+                                    .map(|s| s.into_string())
+                                    .unwrap_or_default(),
+                            );
+                        }
+                    }
                 }
                 _ => {}
             },
@@ -1380,6 +1412,22 @@ impl<'a> MutableMappingPanel<'a> {
                         let index = parse_position_as_index(control);
                         self.mapping.target_model.param_index.set(index);
                     }
+                },
+                t if t.supports_send() => match self.mapping.target_model.route_selector_type.get()
+                {
+                    TrackRouteSelectorType::Dynamic => {
+                        let expression = control.text().unwrap_or_default();
+                        self.mapping.target_model.route_expression.set(expression);
+                    }
+                    TrackRouteSelectorType::ByName => {
+                        let name = control.text().unwrap_or_default();
+                        self.mapping.target_model.route_name.set(name);
+                    }
+                    TrackRouteSelectorType::ByIndex => {
+                        let index = parse_position_as_index(control);
+                        self.mapping.target_model.route_index.set(index);
+                    }
+                    _ => {}
                 },
                 _ => {}
             },
@@ -1834,7 +1882,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_2_label_3(&self) {
-        invalidate_dynamic_track_expression_result(
+        invalidate_target_line_2_expression_result(
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_2_LABEL_3),
@@ -2033,7 +2081,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_3_label_3(&self) {
-        invalidate_dynamic_fx_expression_result(
+        invalidat_target_line_3_expression_result(
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_3_LABEL_3),
@@ -2041,7 +2089,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_4_label_3(&self) {
-        invalidate_dynamic_fx_parameter_expression_result(
+        invalidate_target_line_4_expression_result(
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
@@ -2060,6 +2108,24 @@ impl<'a> ImmutableMappingPanel<'a> {
                             self.target.param_expression.get_ref().clone()
                         }
                         VirtualFxParameterType::ByName => self.target.param_name.get_ref().clone(),
+                        _ => {
+                            control.hide();
+                            return;
+                        }
+                    };
+                    control.set_text_if_not_focused(text);
+                    control.show();
+                }
+                t if t.supports_send() => {
+                    let text = match self.target.route_selector_type.get() {
+                        TrackRouteSelectorType::Dynamic => {
+                            self.target.route_expression.get_ref().clone()
+                        }
+                        TrackRouteSelectorType::ByName => self.target.route_name.get_ref().clone(),
+                        TrackRouteSelectorType::ByIndex => {
+                            let index = self.target.route_index.get();
+                            (index + 1).to_string()
+                        }
                         _ => {
                             control.hide();
                             return;
@@ -2201,6 +2267,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.param_type.get().into())
                         .unwrap();
                 }
+                t if t.supports_send() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TrackRouteSelectorType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.target.route_selector_type.get().into(),
+                        )
+                        .unwrap();
+                }
                 _ => combo.hide(),
             },
             TargetCategory::Virtual => {
@@ -2327,21 +2402,25 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .unwrap();
                 }
                 t if t.supports_send() => {
-                    combo.show();
-                    let context = self.session.extended_context();
-                    if let Ok(track) = self.target.with_context(context).effective_track() {
-                        // Fill
-                        combo.fill_combo_box_indexed(send_combo_box_entries(&track));
-                        // Set
-                        let i = self.target.route_index.get();
-                        combo
-                            .select_combo_box_item_by_index(i as _)
-                            .unwrap_or_else(|_| {
-                                let pity_label = format!("{}. <Not present>", i + 1);
-                                combo.select_new_combo_box_item(pity_label);
-                            });
+                    if self.target.route_selector_type.get() == TrackRouteSelectorType::ById {
+                        combo.show();
+                        let context = self.session.extended_context();
+                        if let Ok(track) = self.target.with_context(context).effective_track() {
+                            // Fill
+                            combo.fill_combo_box_indexed(send_combo_box_entries(&track));
+                            // Set
+                            let i = self.target.route_index.get();
+                            combo
+                                .select_combo_box_item_by_index(i as _)
+                                .unwrap_or_else(|_| {
+                                    let pity_label = format!("{}. <Not present>", i + 1);
+                                    combo.select_new_combo_box_item(pity_label);
+                                });
+                        } else {
+                            combo.select_only_combo_box_item("<Requires track>");
+                        }
                     } else {
-                        combo.select_only_combo_box_item("<Requires track>");
+                        combo.hide();
                     }
                 }
                 _ => {
@@ -3782,7 +3861,7 @@ fn select_bookmark_in_combo_box(combo: Window, anchor_type: BookmarkAnchorType, 
     }
 }
 
-fn invalidate_dynamic_track_expression_result(
+fn invalidate_target_line_2_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
@@ -3805,7 +3884,7 @@ fn invalidate_dynamic_track_expression_result(
     label.set_text_or_hide(text);
 }
 
-fn invalidate_dynamic_fx_expression_result(
+fn invalidat_target_line_3_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
@@ -3826,7 +3905,7 @@ fn invalidate_dynamic_fx_expression_result(
     label.set_text_or_hide(text);
 }
 
-fn invalidate_dynamic_fx_parameter_expression_result(
+fn invalidate_target_line_4_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
@@ -3839,6 +3918,14 @@ fn invalidate_dynamic_fx_parameter_expression_result(
                 target
                     .virtual_fx_parameter()
                     .and_then(|p| p.calculated_fx_parameter_index(context))
+                    .map(|i| i.to_string())
+            }
+            t if t.supports_send()
+                && target.route_selector_type.get() == TrackRouteSelectorType::Dynamic =>
+            {
+                target
+                    .track_route_selector()
+                    .and_then(|p| p.calculated_route_index(context))
                     .map(|i| i.to_string())
             }
             _ => None,
