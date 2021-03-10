@@ -129,6 +129,15 @@ impl Window {
         }
     }
 
+    pub fn set_checked_or_hide(self, is_checked: Option<bool>) {
+        if let Some(state) = is_checked {
+            self.show();
+            self.set_checked(state);
+        } else {
+            self.hide();
+        }
+    }
+
     pub fn set_checked(self, is_checked: bool) {
         unsafe {
             Swell::get().SendMessage(
@@ -303,6 +312,11 @@ impl Window {
             .ok_or("couldn't find combo box item by item data")?;
         self.select_combo_box_item_by_index_internal(item_index);
         Ok(())
+    }
+
+    pub fn select_only_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {
+        self.clear_combo_box();
+        self.select_new_combo_box_item(label);
     }
 
     pub fn select_new_combo_box_item<'a>(self, label: impl Into<SwellStringArg<'a>>) {

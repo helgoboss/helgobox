@@ -46,14 +46,7 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
             if target.supports_track() && target.track_type.get().refers_to_project() {
                 return true;
             }
-            if target.supports_fx() {
-                if let Some(fx) = target.fx.get_ref() {
-                    if fx.refers_to_project() {
-                        return true;
-                    }
-                }
-            }
-            false
+            target.supports_fx() && target.fx_type.get().refers_to_project()
         }
         TargetCategory::Virtual => false,
     }
@@ -64,14 +57,9 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
     match target.category.get() {
         TargetCategory::Reaper => {
             let changed_to_focused_fx = if target.supports_fx() {
-                let refers_to_project = target
-                    .fx
-                    .get_ref()
-                    .as_ref()
-                    .map(VirtualFx::refers_to_project)
-                    .unwrap_or(false);
+                let refers_to_project = target.fx_type.get().refers_to_project();
                 if refers_to_project {
-                    target.fx.set(Some(VirtualFx::Focused));
+                    target.set_virtual_fx(VirtualFx::Focused);
                     true
                 } else {
                     false

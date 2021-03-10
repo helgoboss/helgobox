@@ -1590,14 +1590,14 @@ touch state. For example, if you have a push encoder, you could map the "push" e
 to write automation only while you are touching the encoder. Or if you don't have a push encoder, you could just use
 some spare button.
 
-###### Go to marger/region
+###### Go to marker/region
 
 Navigates to a specific marker or region. Here's the behavior in detail:
 
 - Regions
     - If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
     - If the project is playing, playback will continue with the given region as soon as the currently playing region
-      or measure has finished playing. This is called "smooth seek".
+      (or measure if not within a region) has finished playing. This is called "smooth seek".
 - Markers
     - If the project is stopped, the editor cursor immediately jumps to the given marker.
     - If the project is playing, playback will immediately be continued at the given marker.
@@ -1606,6 +1606,8 @@ The cool thing about this target compared to REAPER's built-in actions is that i
 markers/regions (either by position or by ID) ... and that it supports visual feedback! If you assign this target to a
 button which has an LED, you will see which marker/region is currently playing just by looking at
 your controller.
+
+Please note that this doesn't work when recording!
 
 User interface elements specific to this target:
 

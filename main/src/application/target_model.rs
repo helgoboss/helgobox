@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FxAnchor, FxDescriptor,
+    CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FxDescriptor,
     ProcessorContext, ReaperTarget, SoloBehavior, TouchedParameterType, TrackDescriptor,
     TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
+    VirtualChainFx, VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -48,7 +48,12 @@ pub struct TargetModel {
     pub track_expression: Prop<String>,
     pub enable_only_if_track_selected: Prop<bool>,
     // # For track FX targets
-    pub fx: Prop<Option<VirtualFx>>,
+    pub fx_type: Prop<VirtualFxType>,
+    pub fx_is_input_fx: Prop<bool>,
+    pub fx_id: Prop<Option<Guid>>,
+    pub fx_name: Prop<String>,
+    pub fx_index: Prop<u32>,
+    pub fx_expression: Prop<String>,
     pub enable_only_if_fx_has_focus: Prop<bool>,
     // # For track FX parameter targets
     pub param_index: Prop<u32>,
@@ -79,13 +84,18 @@ impl Default for TargetModel {
             r#type: prop(ReaperTargetType::FxParameter),
             action: prop(None),
             action_invocation_type: prop(ActionInvocationType::default()),
-            track_type: prop(VirtualTrackType::This),
+            track_type: prop(Default::default()),
             track_id: prop(None),
             track_name: prop("".to_owned()),
             track_index: prop(0),
             track_expression: prop("".to_owned()),
             enable_only_if_track_selected: prop(false),
-            fx: prop(None),
+            fx_type: prop(Default::default()),
+            fx_is_input_fx: prop(false),
+            fx_id: prop(None),
+            fx_name: prop("".to_owned()),
+            fx_index: prop(0),
+            fx_expression: prop("".to_owned()),
             enable_only_if_fx_has_focus: prop(false),
             param_index: prop(0),
             send_index: prop(None),
@@ -126,16 +136,16 @@ impl TargetModel {
             return;
         }
         if let Ok(actual_fx) = self.with_context(context).fx() {
-            let new_virtual_fx = match self.fx.get_ref() {
+            let new_virtual_fx = match self.virtual_fx() {
                 Some(virtual_fx) => {
                     match virtual_fx {
-                        VirtualFx::Particular {
+                        VirtualFx::ChainFx {
                             is_input_fx,
-                            anchor,
+                            chain_fx: anchor,
                         } => match anchor {
-                            FxAnchor::IdOrIndex(guid, _) => Some(VirtualFx::Particular {
-                                is_input_fx: *is_input_fx,
-                                anchor: FxAnchor::IdOrIndex(*guid, actual_fx.index()),
+                            VirtualChainFx::ByIdOrIndex(guid, _) => Some(VirtualFx::ChainFx {
+                                is_input_fx,
+                                chain_fx: VirtualChainFx::ByIdOrIndex(guid, actual_fx.index()),
                             }),
                             _ => None,
                         },
@@ -147,7 +157,7 @@ impl TargetModel {
                 None => None,
             };
             if let Some(virtual_fx) = new_virtual_fx {
-                self.fx.set(Some(virtual_fx));
+                self.set_virtual_fx(virtual_fx);
             }
         }
     }
@@ -173,13 +183,35 @@ impl TargetModel {
             .set_without_notification(track.expression);
     }
 
+    pub fn set_virtual_fx(&mut self, fx: VirtualFx) {
+        self.set_fx(FxPropValues::from_virtual_fx(fx));
+    }
+
+    pub fn set_fx(&mut self, fx: FxPropValues) {
+        self.fx_type.set(fx.r#type);
+        self.fx_is_input_fx.set(fx.is_input_fx);
+        self.fx_id.set(fx.id);
+        self.fx_name.set(fx.name);
+        self.fx_index.set(fx.index);
+        self.fx_expression.set(fx.expression);
+    }
+
+    pub fn set_fx_without_notification(&mut self, fx: FxPropValues) {
+        self.fx_type.set_without_notification(fx.r#type);
+        self.fx_is_input_fx.set_without_notification(fx.is_input_fx);
+        self.fx_id.set_without_notification(fx.id);
+        self.fx_name.set_without_notification(fx.name);
+        self.fx_index.set_without_notification(fx.index);
+        self.fx_expression.set_without_notification(fx.expression);
+    }
+
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
         use ReaperTarget::*;
         self.category.set(TargetCategory::Reaper);
         self.r#type.set(ReaperTargetType::from_target(target));
         if let Some(actual_fx) = target.fx() {
             let virtual_fx = virtualize_fx(actual_fx, context);
-            self.fx.set(Some(virtual_fx));
+            self.set_virtual_fx(virtual_fx);
             let track = if let Some(track) = actual_fx.track() {
                 track.clone()
             } else {
@@ -258,7 +290,11 @@ impl TargetModel {
             .merge(self.track_index.changed())
             .merge(self.track_expression.changed())
             .merge(self.enable_only_if_track_selected.changed())
-            .merge(self.fx.changed())
+            .merge(self.fx_type.changed())
+            .merge(self.fx_id.changed())
+            .merge(self.fx_name.changed())
+            .merge(self.fx_index.changed())
+            .merge(self.fx_expression.changed())
             .merge(self.enable_only_if_fx_has_focus.changed())
             .merge(self.param_index.changed())
             .merge(self.send_index.changed())
@@ -305,6 +341,45 @@ impl TargetModel {
         }
     }
 
+    pub fn virtual_fx(&self) -> Option<VirtualFx> {
+        use VirtualFxType::*;
+        let fx = match self.fx_type.get() {
+            Focused => VirtualFx::Focused,
+            _ => VirtualFx::ChainFx {
+                is_input_fx: self.fx_is_input_fx.get(),
+                chain_fx: self.virtual_chain_fx()?,
+            },
+        };
+        Some(fx)
+    }
+
+    pub fn virtual_chain_fx(&self) -> Option<VirtualChainFx> {
+        use VirtualFxType::*;
+        let fx = match self.fx_type.get() {
+            Focused => return None,
+            ById => VirtualChainFx::ById(self.fx_id.get()?, Some(self.fx_index.get())),
+            ByName => VirtualChainFx::ByName(self.fx_name.get_ref().clone()),
+            ByIndex => VirtualChainFx::ByIndex(self.fx_index.get()),
+            ByIdOrIndex => VirtualChainFx::ByIdOrIndex(self.fx_id.get(), self.fx_index.get()),
+            Dynamic => {
+                let evaluator = ExpressionEvaluator::compile(self.fx_expression.get_ref()).ok()?;
+                VirtualChainFx::Dynamic(Box::new(evaluator))
+            }
+        };
+        Some(fx)
+    }
+
+    pub fn fx(&self) -> FxPropValues {
+        FxPropValues {
+            r#type: self.fx_type.get(),
+            is_input_fx: self.fx_is_input_fx.get(),
+            id: self.fx_id.get(),
+            name: self.fx_name.get_ref().clone(),
+            expression: self.fx_expression.get_ref().clone(),
+            index: self.fx_index.get(),
+        }
+    }
+
     fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
         let desc = TrackDescriptor {
             track: self.virtual_track().ok_or("virtual track not complete")?,
@@ -317,7 +392,7 @@ impl TargetModel {
         let desc = FxDescriptor {
             track_descriptor: self.track_descriptor()?,
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus.get(),
-            fx: self.fx.get_ref().clone().ok_or("FX not set")?,
+            fx: self.virtual_fx().ok_or("FX not set")?,
         };
         Ok(desc)
     }
@@ -521,13 +596,15 @@ pub fn get_virtual_fx_label(fx: Option<&Fx>, virtual_fx: Option<&VirtualFx>) -> 
     };
     match virtual_fx {
         VirtualFx::Focused => "<Focused>".into(),
-        VirtualFx::Particular { anchor, .. } => get_optional_fx_label(anchor, fx).into(),
+        VirtualFx::ChainFx {
+            chain_fx: anchor, ..
+        } => get_optional_fx_label(anchor, fx).into(),
     }
 }
 
-pub fn get_optional_fx_label(anchor: &FxAnchor, fx: Option<&Fx>) -> String {
+pub fn get_optional_fx_label(virtual_chain_fx: &VirtualChainFx, fx: Option<&Fx>) -> String {
     match fx {
-        None => format!("<Not present> ({})", anchor),
+        None => format!("<Not present> ({})", virtual_chain_fx),
         Some(fx) => get_fx_label(fx.index(), fx),
     }
 }
@@ -615,7 +692,7 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     fn fx_label(&self) -> Cow<str> {
-        get_virtual_fx_label(self.fx().ok().as_ref(), self.target.fx.get_ref().as_ref())
+        get_virtual_fx_label(self.fx().ok().as_ref(), self.target.virtual_fx().as_ref())
     }
 
     fn fx_param_label(&self) -> Cow<str> {
@@ -962,16 +1039,16 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
 }
 
 fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
-    VirtualFx::Particular {
+    VirtualFx::ChainFx {
         is_input_fx: fx.is_input_fx(),
-        anchor: if context.is_on_monitoring_fx_chain() {
+        chain_fx: if context.is_on_monitoring_fx_chain() {
             // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
-            FxAnchor::Index(fx.index())
+            VirtualChainFx::ByIndex(fx.index())
         } else if let Some(guid) = fx.guid() {
-            FxAnchor::Id(guid, Some(fx.index()))
+            VirtualChainFx::ById(guid, Some(fx.index()))
         } else {
             // Don't know how that can happen but let's handle it gracefully.
-            FxAnchor::IdOrIndex(None, fx.index())
+            VirtualChainFx::ByIdOrIndex(None, fx.index())
         },
     }
 }
@@ -1036,14 +1113,14 @@ impl VirtualTrackType {
     pub fn from_virtual_track(virtual_track: &VirtualTrack) -> Self {
         use VirtualTrack::*;
         match virtual_track {
-            This => VirtualTrackType::This,
-            Selected => VirtualTrackType::Selected,
-            Master => VirtualTrackType::Master,
-            ByIdOrName(_, _) => VirtualTrackType::ByIdOrName,
-            ById(_) => VirtualTrackType::ById,
-            ByName(_) => VirtualTrackType::ByName,
-            ByIndex(_) => VirtualTrackType::ByIndex,
-            Dynamic(_) => VirtualTrackType::Dynamic,
+            This => Self::This,
+            Selected => Self::Selected,
+            Dynamic(_) => Self::Dynamic,
+            Master => Self::Master,
+            ByIdOrName(_, _) => Self::ByIdOrName,
+            ById(_) => Self::ById,
+            ByName(_) => Self::ByName,
+            ByIndex(_) => Self::ByIndex,
         }
     }
 
@@ -1067,41 +1144,54 @@ impl VirtualTrackType {
     Deserialize,
 )]
 #[repr(usize)]
-pub enum FxAnchorType {
+pub enum VirtualFxType {
+    #[display(fmt = "<Focused>")]
+    #[serde(rename = "focused")]
+    Focused,
+    #[display(fmt = "<Dynamic>")]
+    #[serde(rename = "dynamic")]
+    Dynamic,
     #[display(fmt = "By ID")]
     #[serde(rename = "id")]
-    Id,
+    ById,
     #[display(fmt = "By name")]
     #[serde(rename = "name")]
-    Name,
+    ByName,
     #[display(fmt = "By position")]
     #[serde(rename = "index")]
-    Index,
+    ByIndex,
     #[display(fmt = "By ID or pos")]
     #[serde(rename = "id-or-index")]
-    IdOrIndex,
+    ByIdOrIndex,
 }
 
-impl FxAnchorType {
-    pub fn from_anchor(anchor: &FxAnchor) -> Self {
-        use FxAnchor::*;
-        match anchor {
-            Id(_, _) => FxAnchorType::Id,
-            Name(_) => FxAnchorType::Name,
-            Index(_) => FxAnchorType::Index,
-            IdOrIndex(_, _) => FxAnchorType::IdOrIndex,
+impl Default for VirtualFxType {
+    fn default() -> Self {
+        Self::ById
+    }
+}
+
+impl VirtualFxType {
+    pub fn from_virtual_fx(virtual_fx: &VirtualFx) -> Self {
+        use VirtualFx::*;
+        match virtual_fx {
+            Focused => VirtualFxType::Focused,
+            ChainFx { chain_fx, .. } => {
+                use VirtualChainFx::*;
+                match chain_fx {
+                    Dynamic(_) => Self::Dynamic,
+                    ById(_, _) => Self::ById,
+                    ByName(_) => Self::ByName,
+                    ByIndex(_) => Self::ByIndex,
+                    ByIdOrIndex(_, _) => Self::ByIdOrIndex,
+                }
+            }
         }
     }
 
-    pub fn to_anchor(self, fx: &Fx) -> Result<FxAnchor, &'static str> {
-        use FxAnchorType::*;
-        let anchor = match self {
-            Id => FxAnchor::Id(fx.guid().ok_or("FX not GUID-based")?, Some(fx.index())),
-            Name => FxAnchor::Name(fx.name().into_string()),
-            Index => FxAnchor::Index(fx.index()),
-            IdOrIndex => FxAnchor::IdOrIndex(fx.guid(), fx.index()),
-        };
-        Ok(anchor)
+    pub fn refers_to_project(&self) -> bool {
+        use VirtualFxType::*;
+        matches!(self, ById | ByIdOrIndex)
     }
 }
 
@@ -1159,6 +1249,29 @@ impl TrackPropValues {
             id: track.id(),
             name: track.name().cloned().unwrap_or_default(),
             index: track.index().unwrap_or_default(),
+            expression: Default::default(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct FxPropValues {
+    pub r#type: VirtualFxType,
+    pub is_input_fx: bool,
+    pub id: Option<Guid>,
+    pub name: String,
+    pub expression: String,
+    pub index: u32,
+}
+
+impl FxPropValues {
+    pub fn from_virtual_fx(fx: VirtualFx) -> Self {
+        Self {
+            r#type: VirtualFxType::from_virtual_fx(&fx),
+            is_input_fx: fx.is_input_fx(),
+            id: fx.id(),
+            name: fx.name().map(|s| s.to_owned()).unwrap_or_default(),
+            index: fx.index().unwrap_or_default(),
             expression: Default::default(),
         }
     }

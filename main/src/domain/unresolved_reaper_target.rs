@@ -367,7 +367,7 @@ pub enum VirtualTrack {
     This,
     /// Currently selected track.
     Selected,
-    /// Based on parameter values.
+    /// Position in project based on parameter values.
     Dynamic(Box<ExpressionEvaluator>),
     /// Master track.
     Master,
@@ -439,28 +439,43 @@ impl fmt::Display for VirtualTrack {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Display)]
+#[derive(Debug)]
 pub enum VirtualFx {
     /// Focused or last focused FX.
-    #[display(fmt = "<Focused>")]
     Focused,
     /// Particular FX.
-    #[display(fmt = "<Particular>")]
-    Particular { is_input_fx: bool, anchor: FxAnchor },
+    ChainFx {
+        is_input_fx: bool,
+        chain_fx: VirtualChainFx,
+    },
 }
 
 impl VirtualFx {
-    pub fn refers_to_project(&self) -> bool {
-        use VirtualFx::*;
+    pub fn id(&self) -> Option<Guid> {
         match self {
-            Particular { anchor, .. } => {
-                use FxAnchor::*;
-                match anchor {
-                    Id(_, _) | IdOrIndex(_, _) => true,
-                    Name(_) | Index(_) => false,
-                }
-            }
-            Focused => false,
+            VirtualFx::Focused => None,
+            VirtualFx::ChainFx { chain_fx, .. } => chain_fx.id(),
+        }
+    }
+
+    pub fn is_input_fx(&self) -> bool {
+        match self {
+            VirtualFx::Focused => false,
+            VirtualFx::ChainFx { is_input_fx, .. } => *is_input_fx,
+        }
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        match self {
+            VirtualFx::Focused => None,
+            VirtualFx::ChainFx { chain_fx, .. } => chain_fx.index(),
+        }
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        match self {
+            VirtualFx::Focused => None,
+            VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
         }
     }
 }
@@ -587,32 +602,36 @@ impl VirtualTrack {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum FxAnchor {
+#[derive(Debug)]
+pub enum VirtualChainFx {
+    /// Position in FX chain based on parameter values.
+    Dynamic(Box<ExpressionEvaluator>),
     /// This is the new default.
     ///
     /// The index is just used as performance hint, not as fallback.
-    Id(Guid, Option<u32>),
-    Name(String),
-    Index(u32),
+    ById(Guid, Option<u32>),
+    ByName(String),
+    ByIndex(u32),
     /// This is the old default.
     ///
     /// The index comes into play as fallback whenever track is "<Selected>" or the GUID can't be
     /// determined (is `None`). I'm not sure how latter is possible but I keep it for backward
-    /// compatibility.
-    IdOrIndex(Option<Guid>, u32),
+    /// compatibility. // TODO-high This could actually be the case with pre 1.12.0 presets now
+    /// that we don't lookup the GUID on load anymore.
+    ByIdOrIndex(Option<Guid>, u32),
 }
 
-impl fmt::Display for FxAnchor {
+impl fmt::Display for VirtualChainFx {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use FxAnchor::*;
+        use VirtualChainFx::*;
         match self {
-            Id(guid, _) => {
+            Dynamic(_) => f.write_str("<Dynamic>"),
+            ById(guid, _) => {
                 write!(f, "{}", guid.to_string_without_braces())
             }
-            Name(name) => write!(f, "\"{}\"", name),
-            IdOrIndex(None, i) | Index(i) => write!(f, "{}", i + 1),
-            IdOrIndex(Some(guid), i) => {
+            ByName(name) => write!(f, "\"{}\"", name),
+            ByIdOrIndex(None, i) | ByIndex(i) => write!(f, "{}", i + 1),
+            ByIdOrIndex(Some(guid), i) => {
                 write!(f, "{} ({})", guid.to_string_without_braces(), i + 1)
             }
         }
@@ -637,11 +656,25 @@ pub enum TrackResolveError {
     NoTrackSelected,
 }
 
-impl FxAnchor {
-    pub fn resolve(&self, fx_chain: &FxChain) -> Result<Fx, FxResolveError> {
-        use FxAnchor::*;
+impl VirtualChainFx {
+    pub fn resolve(
+        &self,
+        fx_chain: &FxChain,
+        context: ExtendedProcessorContext,
+    ) -> Result<Fx, FxResolveError> {
+        use VirtualChainFx::*;
         let fx = match self {
-            Id(guid, index) => get_guid_based_fx_by_guid_on_chain_with_index_hint(
+            Dynamic(evaluator) => {
+                let index = Self::evaluate_to_fx_index(evaluator, context);
+                get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
+                    FxResolveError::FxNotFound {
+                        guid: None,
+                        name: None,
+                        index: Some(index),
+                    }
+                })?
+            }
+            ById(guid, index) => get_guid_based_fx_by_guid_on_chain_with_index_hint(
                 fx_chain, guid, *index,
             )
             .map_err(|_| FxResolveError::FxNotFound {
@@ -649,20 +682,23 @@ impl FxAnchor {
                 name: None,
                 index: None,
             })?,
-            Name(name) => {
+            ByName(name) => {
                 find_fx_by_name(fx_chain, name).ok_or_else(|| FxResolveError::FxNotFound {
                     guid: None,
                     name: Some(name.clone()),
                     index: None,
                 })?
             }
-            IdOrIndex(None, index) | Index(index) => get_index_based_fx_on_chain(fx_chain, *index)
-                .map_err(|_| FxResolveError::FxNotFound {
-                    guid: None,
-                    name: None,
-                    index: Some(*index),
-                })?,
-            IdOrIndex(Some(guid), index) => {
+            ByIndex(index) | ByIdOrIndex(None, index) => {
+                get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
+                    FxResolveError::FxNotFound {
+                        guid: None,
+                        name: None,
+                        index: Some(*index),
+                    }
+                })?
+            }
+            ByIdOrIndex(Some(guid), index) => {
                 // Track by GUID because target relates to a very particular FX
                 get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, Some(*index))
                     // Fall back to index-based
@@ -675,6 +711,48 @@ impl FxAnchor {
             }
         };
         Ok(fx)
+    }
+
+    pub fn calculated_fx_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+        if let VirtualChainFx::Dynamic(evaluator) = self {
+            Some(Self::evaluate_to_fx_index(evaluator, context))
+        } else {
+            None
+        }
+    }
+
+    fn evaluate_to_fx_index(
+        evaluator: &ExpressionEvaluator,
+        context: ExtendedProcessorContext,
+    ) -> u32 {
+        let result = evaluator.evaluate(context.params);
+        result.max(0.0) as u32
+    }
+
+    pub fn id(&self) -> Option<Guid> {
+        use VirtualChainFx::*;
+        match self {
+            ById(id, _) => Some(*id),
+            ByIdOrIndex(id, _) => *id,
+            _ => None,
+        }
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        use VirtualChainFx::*;
+        match self {
+            ByIndex(i) | ByIdOrIndex(_, i) => Some(*i),
+            ById(_, index_hint) => *index_hint,
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        use VirtualChainFx::*;
+        match self {
+            ByName(name) => Some(name),
+            _ => None,
+        }
     }
 }
 
@@ -753,33 +831,46 @@ pub fn get_fx(
     descriptor: &FxDescriptor,
 ) -> Result<Fx, &'static str> {
     match &descriptor.fx {
-        VirtualFx::Particular {
+        VirtualFx::Focused => Reaper::get()
+            .focused_fx()
+            .ok_or("couldn't get (last) focused FX"),
+        VirtualFx::ChainFx {
             is_input_fx,
-            anchor,
+            chain_fx,
         } => {
-            let actual_anchor = match anchor {
-                FxAnchor::IdOrIndex(_, index) => {
+            enum MaybeOwned<'a, T> {
+                Owned(T),
+                Borrowed(&'a T),
+            }
+            impl<'a, T> MaybeOwned<'a, T> {
+                fn get(&self) -> &T {
+                    match self {
+                        MaybeOwned::Owned(o) => &o,
+                        MaybeOwned::Borrowed(b) => b,
+                    }
+                }
+            }
+            let chain_fx = match chain_fx {
+                VirtualChainFx::ByIdOrIndex(_, index) => {
                     // Actually it's not that important whether we create an index-based or
                     // GUID-based FX. The session listeners will recreate and
                     // resync the FX whenever something has changed anyway. But
                     // for monitoring FX it could still be good (which we don't get notified
                     // about unfortunately).
                     if matches!(descriptor.track_descriptor.track, VirtualTrack::Selected) {
-                        FxAnchor::Index(*index)
+                        MaybeOwned::Owned(VirtualChainFx::ByIndex(*index))
                     } else {
-                        anchor.clone()
+                        MaybeOwned::Borrowed(chain_fx)
                     }
                 }
-                _ => anchor.clone(),
+                _ => MaybeOwned::Borrowed(chain_fx),
             };
             let fx_chain = get_fx_chain(context, &descriptor.track_descriptor.track, *is_input_fx)?;
-            actual_anchor
-                .resolve(&fx_chain)
+            chain_fx
+                .get()
+                .resolve(&fx_chain, context)
                 .map_err(|_| "couldn't resolve particular FX")
         }
-        VirtualFx::Focused => Reaper::get()
-            .focused_fx()
-            .ok_or("couldn't get (last) focused FX"),
     }
 }
 

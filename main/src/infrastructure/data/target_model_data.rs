@@ -3,14 +3,14 @@ use super::none_if_minus_one;
 use reaper_high::{BookmarkType, Guid, Reaper};
 
 use crate::application::{
-    get_guid_based_fx_at_index, BookmarkAnchorType, FxAnchorType, FxSnapshot, ReaperTargetType,
-    TargetCategory, TargetModel, TrackPropValues, VirtualControlElementType, VirtualTrackType,
+    BookmarkAnchorType, FxPropValues, FxSnapshot, ReaperTargetType, TargetCategory, TargetModel,
+    TrackPropValues, VirtualControlElementType, VirtualFxType, VirtualTrackType,
 };
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, ExtendedProcessorContext, FxAnchor, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TransportAction, VirtualFx, VirtualTrack,
+    ActionInvocationType, ExtendedProcessorContext, SoloBehavior, TouchedParameterType,
+    TrackExclusivity, TransportAction, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -103,7 +103,7 @@ impl TargetModelData {
             invoke_relative: None,
             track_data: serialize_track(model.track()),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
-            fx_data: serialize_fx(model.fx.get_ref().as_ref()),
+            fx_data: serialize_fx(model.fx()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             send_index: model.send_index.get(),
             param_index: model.param_index.get(),
@@ -168,15 +168,8 @@ impl TargetModelData {
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
-        let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
-        let virtual_fx = match deserialize_fx(&self.fx_data, context, &virtual_track) {
-            Ok(f) => f,
-            Err(e) => {
-                handle_deserialization_error(e);
-                None
-            }
-        };
-        model.fx.set_without_notification(virtual_fx);
+        let fx_prop_values = deserialize_fx(&self.fx_data);
+        model.set_fx_without_notification(fx_prop_values);
         model
             .enable_only_if_fx_has_focus
             .set_without_notification(self.enable_only_if_fx_has_focus);
@@ -236,14 +229,6 @@ impl TargetModelData {
     }
 }
 
-fn handle_deserialization_error(e: DeserializationError) {
-    use DeserializationError::*;
-    match e {
-        InvalidGuid(guid) => notification::warn(&format!("Invalid GUID {}", guid)),
-        InvalidCombination => notification::warn("Invalid combination of attributes"),
-    }
-}
-
 fn serialize_track(track: TrackPropValues) -> TrackData {
     use VirtualTrackType::*;
     match track.r#type {
@@ -298,60 +283,57 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
     }
 }
 
-fn serialize_fx(virtual_fx: Option<&VirtualFx>) -> FxData {
-    let virtual_fx = match virtual_fx {
-        None => {
-            return FxData {
-                anchor: None,
-                guid: None,
-                index: None,
-                name: None,
-                is_input_fx: false,
-            };
-        }
-        Some(f) => f,
-    };
-    use VirtualFx::*;
-    match virtual_fx {
+fn serialize_fx(fx: FxPropValues) -> FxData {
+    use VirtualFxType::*;
+    match fx.r#type {
         Focused => FxData {
             anchor: None,
             guid: Some("focused".to_string()),
             index: None,
             name: None,
             is_input_fx: false,
+            expression: None,
         },
-        Particular {
-            is_input_fx,
-            anchor,
-        } => match anchor {
-            FxAnchor::Id(guid, index_hint) => FxData {
-                anchor: Some(FxAnchorType::Id),
-                index: *index_hint,
-                guid: Some(Guid::to_string_without_braces(guid)),
-                name: None,
-                is_input_fx: *is_input_fx,
-            },
-            FxAnchor::Name(name) => FxData {
-                anchor: Some(FxAnchorType::Name),
-                index: None,
-                guid: None,
-                name: Some(name.clone()),
-                is_input_fx: *is_input_fx,
-            },
-            FxAnchor::Index(index) => FxData {
-                anchor: Some(FxAnchorType::Index),
-                index: Some(*index),
-                guid: None,
-                name: None,
-                is_input_fx: *is_input_fx,
-            },
-            FxAnchor::IdOrIndex(guid, index) => FxData {
-                anchor: Some(FxAnchorType::IdOrIndex),
-                index: Some(*index),
-                guid: guid.as_ref().map(Guid::to_string_without_braces),
-                name: None,
-                is_input_fx: *is_input_fx,
-            },
+        Dynamic => FxData {
+            // TODO-high Should this be a new "Dynamic" anchor or is expression enough?
+            anchor: None,
+            guid: None,
+            index: None,
+            name: None,
+            is_input_fx: fx.is_input_fx,
+            expression: Some(fx.expression),
+        },
+        ById => FxData {
+            anchor: Some(VirtualFxType::ById),
+            index: Some(fx.index),
+            guid: fx.id.map(|id| id.to_string_without_braces()),
+            name: None,
+            is_input_fx: fx.is_input_fx,
+            expression: None,
+        },
+        ByName => FxData {
+            anchor: Some(VirtualFxType::ByName),
+            index: None,
+            guid: None,
+            name: Some(fx.name),
+            is_input_fx: fx.is_input_fx,
+            expression: None,
+        },
+        ByIndex => FxData {
+            anchor: Some(VirtualFxType::ByIndex),
+            index: Some(fx.index),
+            guid: None,
+            name: None,
+            is_input_fx: fx.is_input_fx,
+            expression: None,
+        },
+        ByIdOrIndex => FxData {
+            anchor: Some(VirtualFxType::ByIdOrIndex),
+            index: Some(fx.index),
+            guid: fx.id.map(|id| id.to_string_without_braces()),
+            name: None,
+            is_input_fx: fx.is_input_fx,
+            expression: None,
         },
     }
 }
@@ -361,7 +343,7 @@ fn serialize_fx(virtual_fx: Option<&VirtualFx>) -> FxData {
 struct FxData {
     /// Since 1.12.0-pre8
     #[serde(rename = "fxAnchor", default, skip_serializing_if = "is_default")]
-    anchor: Option<FxAnchorType>,
+    anchor: Option<VirtualFxType>,
     #[serde(
         rename = "fxIndex",
         deserialize_with = "none_if_minus_one",
@@ -377,6 +359,8 @@ struct FxData {
     name: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     is_input_fx: bool,
+    #[serde(rename = "fxExpression", default, skip_serializing_if = "is_default")]
+    expression: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -399,7 +383,6 @@ struct TrackData {
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
 pub enum DeserializationError {
-    InvalidGuid(#[error(not(source))] String),
     InvalidCombination,
 }
 
@@ -469,88 +452,89 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
     }
 }
 
-fn deserialize_fx(
-    fx_data: &FxData,
-    context: Option<ExtendedProcessorContext>,
-    virtual_track: &VirtualTrack,
-) -> Result<Option<VirtualFx>, DeserializationError> {
-    let virtual_fx = match fx_data {
-        FxData { guid: Some(g), .. } if g == "focused" => Some(VirtualFx::Focused),
+fn deserialize_fx(fx_data: &FxData) -> FxPropValues {
+    match fx_data {
+        FxData { guid: Some(g), .. } if g == "focused" => FxPropValues {
+            r#type: VirtualFxType::Focused,
+            ..Default::default()
+        },
         FxData {
             index: None,
             name: None,
             guid: None,
+            expression: None,
             ..
-        } => None,
+        } => FxPropValues::default(),
         // Since ReaLearn 1.12.0
         FxData {
-            anchor: Some(FxAnchorType::Id),
+            anchor: Some(VirtualFxType::ById),
             guid: Some(guid_string),
+            expression: None,
             index,
             is_input_fx,
             ..
         } => {
-            let guid = Guid::from_string_without_braces(guid_string)
-                .map_err(|_| DeserializationError::InvalidGuid(guid_string.clone()))?;
-            Some(VirtualFx::Particular {
+            let id = Guid::from_string_without_braces(guid_string).ok();
+            FxPropValues {
+                r#type: VirtualFxType::ById,
                 is_input_fx: *is_input_fx,
-                anchor: FxAnchor::Id(guid, *index),
-            })
+                id,
+                index: index.unwrap_or_default(),
+                ..Default::default()
+            }
         }
         // In ReaLearn 1.12.0-pre1 we started also saving the GUID, even for IdOrIndex anchor. We
         // still want to support that, even if no anchor is given.
         FxData {
             anchor: _,
             guid: Some(guid_string),
+            expression: None,
             index: Some(index),
             is_input_fx,
             ..
         } => {
-            let guid = Guid::from_string_without_braces(guid_string)
-                .map_err(|_| DeserializationError::InvalidGuid(guid_string.clone()))?;
-            Some(VirtualFx::Particular {
+            let id = Guid::from_string_without_braces(guid_string).ok();
+            FxPropValues {
+                r#type: VirtualFxType::ByIdOrIndex,
                 is_input_fx: *is_input_fx,
-                anchor: FxAnchor::IdOrIndex(Some(guid), *index),
-            })
+                id,
+                index: *index,
+                ..Default::default()
+            }
         }
         // Before ReaLearn 1.12.0 only the index was saved, even for IdOrIndex anchor. The GUID was
         // looked up at runtime whenever loading the project.
         FxData {
             anchor: None,
             guid: None,
+            expression: None,
             index: Some(i),
             is_input_fx,
             ..
         } => {
-            match get_guid_based_fx_at_index(
-                context.expect("trying to load pre-1.12.0 FX target without processor context"),
-                virtual_track,
-                *is_input_fx,
-                *i,
-            ) {
-                Ok(fx) => Some(VirtualFx::Particular {
-                    is_input_fx: *is_input_fx,
-                    anchor: FxAnchor::IdOrIndex(fx.guid(), *i),
-                }),
-                Err(e) => {
-                    // TODO-low We should rather return an error.
-                    notification::warn(e);
-                    None
-                }
+            FxPropValues {
+                r#type: VirtualFxType::ByIdOrIndex,
+                is_input_fx: *is_input_fx,
+                // TODO-high Before the ID was looked up ... make sure that other logic does this.
+                index: *i,
+                ..Default::default()
             }
         }
         // Since ReaLearn 1.12.0-pre8 we support Index anchor. We can't distinguish from pre-1.12.0
         // data without explicitly given anchor.
         FxData {
-            anchor: Some(FxAnchorType::Index),
+            anchor: Some(VirtualFxType::ByIndex),
             guid: None,
+            expression: None,
             index: Some(i),
             is_input_fx,
             ..
-        } => Some(VirtualFx::Particular {
+        } => FxPropValues {
+            r#type: VirtualFxType::ByIndex,
             is_input_fx: *is_input_fx,
-            anchor: FxAnchor::Index(*i),
-        }),
+            index: *i,
+            ..Default::default()
+        },
         // Since 1.12.0
         FxData {
             // Here we don't necessarily need the name anchor because there's no ambiguity.
@@ -559,13 +543,28 @@ fn deserialize_fx(
             guid: _,
             name: Some(name),
             is_input_fx,
-        } => Some(VirtualFx::Particular {
+            expression: None,
+        } => FxPropValues {
+            r#type: VirtualFxType::ByName,
             is_input_fx: *is_input_fx,
-            anchor: FxAnchor::Name(name.clone()),
-        }),
-        _ => return Err(DeserializationError::InvalidCombination),
-    };
-    Ok(virtual_fx)
+            name: name.clone(),
+            ..Default::default()
+        },
+        FxData {
+            // Here we don't necessarily need the name anchor because there's no ambiguity.
+            anchor: _,
+            index: _,
+            guid: _,
+            name: _,
+            is_input_fx: _,
+            expression: Some(e),
+        } => FxPropValues {
+            r#type: VirtualFxType::Dynamic,
+            expression: e.clone(),
+            ..Default::default()
+        },
+        _ => FxPropValues::default(),
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
