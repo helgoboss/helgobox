@@ -23,8 +23,7 @@ pub enum UnresolvedReaperTarget {
         invocation_type: ActionInvocationType,
     },
     FxParameter {
-        fx_descriptor: FxDescriptor,
-        fx_param_index: u32,
+        fx_parameter_descriptor: FxParameterDescriptor,
     },
     TrackVolume {
         track_descriptor: TrackDescriptor,
@@ -110,10 +109,9 @@ impl UnresolvedReaperTarget {
                 project: context.context.project_or_current_project(),
             },
             FxParameter {
-                fx_descriptor,
-                fx_param_index,
+                fx_parameter_descriptor,
             } => ReaperTarget::FxParameter {
-                param: get_fx_param(context, fx_descriptor, *fx_param_index)?,
+                param: get_fx_param(context, fx_parameter_descriptor)?,
             },
             TrackVolume { track_descriptor } => ReaperTarget::TrackVolume {
                 track: get_effective_track(context, &track_descriptor.track)?,
@@ -286,10 +284,15 @@ impl UnresolvedReaperTarget {
             | GoToBookmark { .. } => (None, None),
             FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
-            | FxParameter { fx_descriptor, .. }
             | LoadFxPreset { fx_descriptor, .. } => {
                 (Some(&fx_descriptor.track_descriptor), Some(fx_descriptor))
             }
+            FxParameter {
+                fx_parameter_descriptor,
+            } => (
+                Some(&fx_parameter_descriptor.fx_descriptor.track_descriptor),
+                Some(&fx_parameter_descriptor.fx_descriptor),
+            ),
             TrackVolume { track_descriptor }
             | TrackSendVolume {
                 track_descriptor, ..
@@ -362,6 +365,12 @@ pub struct FxDescriptor {
 }
 
 #[derive(Debug)]
+pub struct FxParameterDescriptor {
+    pub fx_descriptor: FxDescriptor,
+    pub fx_parameter: VirtualFxParameter,
+}
+
+#[derive(Debug)]
 pub enum VirtualTrack {
     /// Current track (the one which contains the ReaLearn instance).
     This,
@@ -380,6 +389,80 @@ pub enum VirtualTrack {
     /// This is the old default for targeting a particular track and it exists solely for backward
     /// compatibility.
     ByIdOrName(Guid, String),
+}
+
+#[derive(Debug)]
+pub enum VirtualFxParameter {
+    Dynamic(Box<ExpressionEvaluator>),
+    ByName(String),
+    ByIndex(u32),
+}
+
+impl VirtualFxParameter {
+    pub fn resolve(
+        &self,
+        fx: &Fx,
+        context: ExtendedProcessorContext,
+    ) -> Result<FxParameter, FxParameterResolveError> {
+        use VirtualFxParameter::*;
+        match self {
+            Dynamic(evaluator) => {
+                let i = Self::evaluate_to_fx_parameter_index(evaluator, context);
+                resolve_parameter_by_index(fx, i)
+            }
+            ByName(name) => fx
+                .parameters()
+                .find(|p| p.name().to_str() == name.as_str())
+                .ok_or_else(|| FxParameterResolveError::FxParameterNotFound {
+                    name: Some(name.clone()),
+                    index: None,
+                }),
+            ByIndex(i) => resolve_parameter_by_index(fx, *i),
+        }
+    }
+
+    pub fn calculated_fx_parameter_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+        if let VirtualFxParameter::Dynamic(evaluator) = self {
+            Some(Self::evaluate_to_fx_parameter_index(evaluator, context))
+        } else {
+            None
+        }
+    }
+
+    fn evaluate_to_fx_parameter_index(
+        evaluator: &ExpressionEvaluator,
+        context: ExtendedProcessorContext,
+    ) -> u32 {
+        let result = evaluator.evaluate(context.params);
+        result.max(0.0) as u32
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        use VirtualFxParameter::*;
+        match self {
+            ByIndex(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        use VirtualFxParameter::*;
+        match self {
+            ByName(name) => Some(name),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for VirtualFxParameter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use VirtualFxParameter::*;
+        match self {
+            Dynamic(_) => f.write_str("<Dynamic>"),
+            ByName(name) => write!(f, "\"{}\"", name),
+            ByIndex(i) => write!(f, "{}", i + 1),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -656,6 +739,15 @@ pub enum TrackResolveError {
     NoTrackSelected,
 }
 
+#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+pub enum FxParameterResolveError {
+    #[display(fmt = "FxParameterNotFound")]
+    FxParameterNotFound {
+        name: Option<String>,
+        index: Option<u32>,
+    },
+}
+
 impl VirtualChainFx {
     pub fn resolve(
         &self,
@@ -814,15 +906,13 @@ fn get_track_label(track: &Track) -> String {
 // Returns an error if that param (or FX) doesn't exist.
 pub fn get_fx_param(
     context: ExtendedProcessorContext,
-    descriptor: &FxDescriptor,
-    param_index: u32,
+    fx_parameter_descriptor: &FxParameterDescriptor,
 ) -> Result<FxParameter, &'static str> {
-    let fx = get_fx(context, descriptor)?;
-    let param = fx.parameter_by_index(param_index);
-    if !param.is_available() {
-        return Err("parameter doesn't exist");
-    }
-    Ok(param)
+    let fx = get_fx(context, &fx_parameter_descriptor.fx_descriptor)?;
+    fx_parameter_descriptor
+        .fx_parameter
+        .resolve(&fx, context)
+        .map_err(|_| "parameter doesn't exist")
 }
 
 // Returns an error if the FX doesn't exist.
@@ -880,6 +970,17 @@ fn get_index_based_fx_on_chain(fx_chain: &FxChain, fx_index: u32) -> Result<Fx, 
         return Err("no FX at that index");
     }
     Ok(fx)
+}
+
+fn resolve_parameter_by_index(fx: &Fx, index: u32) -> Result<FxParameter, FxParameterResolveError> {
+    let param = fx.parameter_by_index(index);
+    if !param.is_available() {
+        return Err(FxParameterResolveError::FxParameterNotFound {
+            name: None,
+            index: Some(index),
+        });
+    }
+    Ok(param)
 }
 
 pub fn get_fx_chain(

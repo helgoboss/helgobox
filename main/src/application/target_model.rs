@@ -13,9 +13,10 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
     CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FxDescriptor,
-    ProcessorContext, ReaperTarget, SoloBehavior, TouchedParameterType, TrackDescriptor,
-    TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget,
-    VirtualChainFx, VirtualControlElement, VirtualFx, VirtualTarget, VirtualTrack,
+    FxParameterDescriptor, ProcessorContext, ReaperTarget, SoloBehavior, TouchedParameterType,
+    TrackDescriptor, TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget,
+    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualFx, VirtualFxParameter,
+    VirtualTarget, VirtualTrack,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -56,7 +57,10 @@ pub struct TargetModel {
     pub fx_expression: Prop<String>,
     pub enable_only_if_fx_has_focus: Prop<bool>,
     // # For track FX parameter targets
+    pub param_type: Prop<VirtualFxParameterType>,
     pub param_index: Prop<u32>,
+    pub param_name: Prop<String>,
+    pub param_expression: Prop<String>,
     // # For track send targets
     pub send_index: Prop<Option<u32>>,
     // # For track solo targets
@@ -97,7 +101,10 @@ impl Default for TargetModel {
             fx_index: prop(0),
             fx_expression: prop("".to_owned()),
             enable_only_if_fx_has_focus: prop(false),
+            param_type: prop(Default::default()),
             param_index: prop(0),
+            param_name: prop("".to_owned()),
+            param_expression: prop("".to_owned()),
             send_index: prop(None),
             solo_behavior: prop(Default::default()),
             track_exclusivity: prop(Default::default()),
@@ -187,6 +194,10 @@ impl TargetModel {
         self.set_fx(FxPropValues::from_virtual_fx(fx));
     }
 
+    pub fn set_virtual_fx_parameter(&mut self, param: VirtualFxParameter) {
+        self.set_fx_parameter(FxParameterPropValues::from_virtual_fx_parameter(param));
+    }
+
     pub fn set_fx(&mut self, fx: FxPropValues) {
         self.fx_type.set(fx.r#type);
         self.fx_is_input_fx.set(fx.is_input_fx);
@@ -196,6 +207,13 @@ impl TargetModel {
         self.fx_expression.set(fx.expression);
     }
 
+    pub fn set_fx_parameter(&mut self, param: FxParameterPropValues) {
+        self.param_type.set(param.r#type);
+        self.param_name.set(param.name);
+        self.param_index.set(param.index);
+        self.param_expression.set(param.expression);
+    }
+
     pub fn set_fx_without_notification(&mut self, fx: FxPropValues) {
         self.fx_type.set_without_notification(fx.r#type);
         self.fx_is_input_fx.set_without_notification(fx.is_input_fx);
@@ -203,6 +221,14 @@ impl TargetModel {
         self.fx_name.set_without_notification(fx.name);
         self.fx_index.set_without_notification(fx.index);
         self.fx_expression.set_without_notification(fx.expression);
+    }
+
+    pub fn set_fx_parameter_without_notification(&mut self, param: FxParameterPropValues) {
+        self.param_type.set_without_notification(param.r#type);
+        self.param_name.set_without_notification(param.name);
+        self.param_index.set_without_notification(param.index);
+        self.param_expression
+            .set_without_notification(param.expression);
     }
 
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
@@ -296,7 +322,10 @@ impl TargetModel {
             .merge(self.fx_index.changed())
             .merge(self.fx_expression.changed())
             .merge(self.enable_only_if_fx_has_focus.changed())
+            .merge(self.param_type.changed())
             .merge(self.param_index.changed())
+            .merge(self.param_name.changed())
+            .merge(self.param_expression.changed())
             .merge(self.send_index.changed())
             .merge(self.solo_behavior.changed())
             .merge(self.track_exclusivity.changed())
@@ -380,6 +409,15 @@ impl TargetModel {
         }
     }
 
+    pub fn fx_parameter(&self) -> FxParameterPropValues {
+        FxParameterPropValues {
+            r#type: self.param_type.get(),
+            name: self.param_name.get_ref().clone(),
+            expression: self.param_expression.get_ref().clone(),
+            index: self.param_index.get(),
+        }
+    }
+
     fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
         let desc = TrackDescriptor {
             track: self.virtual_track().ok_or("virtual track not complete")?,
@@ -397,6 +435,28 @@ impl TargetModel {
         Ok(desc)
     }
 
+    pub fn virtual_fx_parameter(&self) -> Option<VirtualFxParameter> {
+        use VirtualFxParameterType::*;
+        let param = match self.param_type.get() {
+            ByName => VirtualFxParameter::ByName(self.param_name.get_ref().clone()),
+            ByIndex => VirtualFxParameter::ByIndex(self.param_index.get()),
+            Dynamic => {
+                let evaluator =
+                    ExpressionEvaluator::compile(self.param_expression.get_ref()).ok()?;
+                VirtualFxParameter::Dynamic(Box::new(evaluator))
+            }
+        };
+        Some(param)
+    }
+
+    fn fx_parameter_descriptor(&self) -> Result<FxParameterDescriptor, &'static str> {
+        let desc = FxParameterDescriptor {
+            fx_descriptor: self.fx_descriptor()?,
+            fx_parameter: self.virtual_fx_parameter().ok_or("FX parameter not set")?,
+        };
+        Ok(desc)
+    }
+
     pub fn create_target(&self) -> Result<UnresolvedCompoundMappingTarget, &'static str> {
         use TargetCategory::*;
         match self.category.get() {
@@ -408,8 +468,7 @@ impl TargetModel {
                         invocation_type: self.action_invocation_type.get(),
                     },
                     FxParameter => UnresolvedReaperTarget::FxParameter {
-                        fx_descriptor: self.fx_descriptor()?,
-                        fx_param_index: self.param_index.get(),
+                        fx_parameter_descriptor: self.fx_parameter_descriptor()?,
                     },
                     TrackVolume => UnresolvedReaperTarget::TrackVolume {
                         track_descriptor: self.track_descriptor()?,
@@ -596,16 +655,34 @@ pub fn get_virtual_fx_label(fx: Option<&Fx>, virtual_fx: Option<&VirtualFx>) -> 
     };
     match virtual_fx {
         VirtualFx::Focused => "<Focused>".into(),
-        VirtualFx::ChainFx {
-            chain_fx: anchor, ..
-        } => get_optional_fx_label(anchor, fx).into(),
+        VirtualFx::ChainFx { chain_fx, .. } => get_optional_fx_label(chain_fx, fx).into(),
+    }
+}
+
+pub fn get_virtual_fx_param_label(
+    fx_param: Option<&FxParameter>,
+    virtual_fx_param: Option<&VirtualFxParameter>,
+) -> Cow<'static, str> {
+    let virtual_fx_param = match virtual_fx_param {
+        None => return "<None>".into(),
+        Some(f) => f,
+    };
+    match virtual_fx_param {
+        VirtualFxParameter::Dynamic(_) => "<Dynamic>".into(),
+        _ => match fx_param {
+            None => format!("<Not present> ({})", virtual_fx_param).into(),
+            Some(p) => get_fx_param_label(Some(p), p.index()),
+        },
     }
 }
 
 pub fn get_optional_fx_label(virtual_chain_fx: &VirtualChainFx, fx: Option<&Fx>) -> String {
-    match fx {
-        None => format!("<Not present> ({})", virtual_chain_fx),
-        Some(fx) => get_fx_label(fx.index(), fx),
+    match virtual_chain_fx {
+        VirtualChainFx::Dynamic(_) => "<Dynamic>".to_string(),
+        _ => match fx {
+            None => format!("<Not present> ({})", virtual_chain_fx),
+            Some(fx) => get_fx_label(fx.index(), fx),
+        },
     }
 }
 
@@ -677,11 +754,7 @@ impl<'a> TargetModelWithContext<'a> {
 
     // Returns an error if that param (or FX) doesn't exist.
     fn fx_param(&self) -> Result<FxParameter, &'static str> {
-        get_fx_param(
-            self.context,
-            &self.target.fx_descriptor()?,
-            self.target.param_index.get(),
-        )
+        get_fx_param(self.context, &self.target.fx_parameter_descriptor()?)
     }
 
     fn track_send_label(&self) -> Cow<str> {
@@ -696,7 +769,10 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     fn fx_param_label(&self) -> Cow<str> {
-        get_fx_param_label(self.fx_param().ok().as_ref(), self.target.param_index.get())
+        get_virtual_fx_param_label(
+            self.fx_param().ok().as_ref(),
+            self.target.virtual_fx_parameter().as_ref(),
+        )
     }
 
     fn track_label(&self) -> String {
@@ -1195,6 +1271,49 @@ impl VirtualFxType {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    Serialize,
+    Deserialize,
+)]
+#[repr(usize)]
+pub enum VirtualFxParameterType {
+    #[display(fmt = "<Dynamic>")]
+    #[serde(rename = "dynamic")]
+    Dynamic,
+    #[display(fmt = "By name")]
+    #[serde(rename = "name")]
+    ByName,
+    #[display(fmt = "By position")]
+    #[serde(rename = "index")]
+    ByIndex,
+}
+
+impl Default for VirtualFxParameterType {
+    fn default() -> Self {
+        Self::ByIndex
+    }
+}
+
+impl VirtualFxParameterType {
+    pub fn from_virtual_fx_parameter(param: &VirtualFxParameter) -> Self {
+        use VirtualFxParameter::*;
+        match param {
+            Dynamic(_) => Self::Dynamic,
+            ByName(_) => Self::ByName,
+            ByIndex(_) => Self::ByIndex,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxSnapshot {
@@ -1272,6 +1391,25 @@ impl FxPropValues {
             id: fx.id(),
             name: fx.name().map(|s| s.to_owned()).unwrap_or_default(),
             index: fx.index().unwrap_or_default(),
+            expression: Default::default(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct FxParameterPropValues {
+    pub r#type: VirtualFxParameterType,
+    pub name: String,
+    pub expression: String,
+    pub index: u32,
+}
+
+impl FxParameterPropValues {
+    pub fn from_virtual_fx_parameter(param: VirtualFxParameter) -> Self {
+        Self {
+            r#type: VirtualFxParameterType::from_virtual_fx_parameter(&param),
+            name: param.name().map(|s| s.to_owned()).unwrap_or_default(),
+            index: param.index().unwrap_or_default(),
             expression: Default::default(),
         }
     }

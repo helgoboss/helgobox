@@ -3,8 +3,9 @@ use super::none_if_minus_one;
 use reaper_high::{BookmarkType, Guid, Reaper};
 
 use crate::application::{
-    BookmarkAnchorType, FxPropValues, FxSnapshot, ReaperTargetType, TargetCategory, TargetModel,
-    TrackPropValues, VirtualControlElementType, VirtualFxType, VirtualTrackType,
+    BookmarkAnchorType, FxParameterPropValues, FxPropValues, FxSnapshot, ReaperTargetType,
+    TargetCategory, TargetModel, TrackPropValues, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
@@ -51,12 +52,8 @@ pub struct TargetModelData {
     )]
     send_index: Option<u32>,
     // FX parameter target
-    #[serde(
-        deserialize_with = "f32_as_u32",
-        default,
-        skip_serializing_if = "is_default"
-    )]
-    param_index: u32,
+    #[serde(flatten)]
+    fx_parameter_data: FxParameterData,
     // Track selection target (replaced with `track_exclusivity` since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
     select_exclusively: Option<bool>,
@@ -106,7 +103,7 @@ impl TargetModelData {
             fx_data: serialize_fx(model.fx()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             send_index: model.send_index.get(),
-            param_index: model.param_index.get(),
+            fx_parameter_data: serialize_fx_parameter(model.fx_parameter()),
             select_exclusively: None,
             solo_behavior: Some(model.solo_behavior.get()),
             track_exclusivity: model.track_exclusivity.get(),
@@ -174,7 +171,8 @@ impl TargetModelData {
             .enable_only_if_fx_has_focus
             .set_without_notification(self.enable_only_if_fx_has_focus);
         model.send_index.set_without_notification(self.send_index);
-        model.param_index.set_without_notification(self.param_index);
+        let fx_param_prop_values = deserialize_fx_parameter(&self.fx_parameter_data);
+        model.set_fx_parameter_without_notification(fx_param_prop_values);
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
             // Should only be set in versions < 2.4.0.
             if select_exclusively {
@@ -335,6 +333,54 @@ fn serialize_fx(fx: FxPropValues) -> FxData {
             expression: None,
         },
     }
+}
+
+fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
+    use VirtualFxParameterType::*;
+    match param.r#type {
+        Dynamic => FxParameterData {
+            r#type: Some(param.r#type),
+            index: 0,
+            name: None,
+            expression: Some(param.expression),
+        },
+        ByName => FxParameterData {
+            r#type: Some(param.r#type),
+            index: 0,
+            name: Some(param.name),
+            expression: None,
+        },
+        ByIndex => FxParameterData {
+            // Before 2.8.0 we didn't have a type and this was the default ... let's leave it
+            // at that.
+            r#type: None,
+            index: param.index,
+            name: None,
+            expression: None,
+        },
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FxParameterData {
+    #[serde(rename = "paramType", default, skip_serializing_if = "is_default")]
+    r#type: Option<VirtualFxParameterType>,
+    #[serde(
+        rename = "paramIndex",
+        deserialize_with = "f32_as_u32",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    index: u32,
+    #[serde(rename = "paramName", default, skip_serializing_if = "is_default")]
+    name: Option<String>,
+    #[serde(
+        rename = "paramExpression",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    expression: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -563,6 +609,38 @@ fn deserialize_fx(fx_data: &FxData) -> FxPropValues {
             ..Default::default()
         },
         _ => FxPropValues::default(),
+    }
+}
+
+fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValues {
+    match param_data {
+        // This is the case for versions < 2.8.0.
+        FxParameterData {
+            // Important (because index is always given we need this as distinction).
+            r#type: None,
+            index: i,
+            ..
+        } => FxParameterPropValues {
+            r#type: VirtualFxParameterType::ByIndex,
+            index: *i,
+            ..Default::default()
+        },
+        FxParameterData {
+            name: Some(name), ..
+        } => FxParameterPropValues {
+            r#type: VirtualFxParameterType::ByName,
+            name: name.clone(),
+            ..Default::default()
+        },
+        FxParameterData {
+            expression: Some(e),
+            ..
+        } => FxParameterPropValues {
+            r#type: VirtualFxParameterType::Dynamic,
+            expression: e.clone(),
+            ..Default::default()
+        },
+        _ => FxParameterPropValues::default(),
     }
 }
 

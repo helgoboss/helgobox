@@ -26,8 +26,8 @@ use crate::application::{
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, BookmarkAnchorType,
     MappingModel, MidiSourceType, ModeModel, ReaperTargetType, Session, SharedMapping,
     SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, VirtualControlElementType, VirtualFxType, VirtualTrackType,
-    WeakSession,
+    TargetModelWithContext, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
 use crate::domain::{
@@ -229,6 +229,11 @@ impl MappingPanel {
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_3_LABEL_3),
+            );
+            invalidate_dynamic_fx_parameter_expression_result(
+                &mapping.target_model,
+                session.extended_context(),
+                self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
             );
         });
         Ok(())
@@ -1145,6 +1150,25 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    fn handle_target_line_4_combo_box_1_change(&mut self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_1);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameter => {
+                    let param_type = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.mapping.target_model.param_type.set(param_type);
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
     fn handle_target_line_2_combo_box_2_change(&mut self) {
         let combo = self
             .view
@@ -1292,12 +1316,7 @@ impl<'a> MutableMappingPanel<'a> {
                         self.mapping.target_model.track_name.set(name);
                     }
                     VirtualTrackType::ByIndex => {
-                        let position: i32 = control
-                            .text()
-                            .ok()
-                            .and_then(|text| text.parse().ok())
-                            .unwrap_or(1);
-                        let index = std::cmp::max(position - 1, 0) as u32;
+                        let index = parse_position_as_index(control);
                         self.mapping.target_model.track_index.set(index);
                     }
                     _ => {}
@@ -1324,15 +1343,36 @@ impl<'a> MutableMappingPanel<'a> {
                         self.mapping.target_model.fx_name.set(name);
                     }
                     VirtualFxType::ByIndex => {
-                        let position: i32 = control
-                            .text()
-                            .ok()
-                            .and_then(|text| text.parse().ok())
-                            .unwrap_or(1);
-                        let index = std::cmp::max(position - 1, 0) as u32;
+                        let index = parse_position_as_index(control);
                         self.mapping.target_model.fx_index.set(index);
                     }
                     _ => {}
+                },
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    fn handle_target_line_4_edit_control_change(&mut self) {
+        let control = self
+            .view
+            .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameter => match self.mapping.target_model.param_type.get() {
+                    VirtualFxParameterType::Dynamic => {
+                        let expression = control.text().unwrap_or_default();
+                        self.mapping.target_model.param_expression.set(expression);
+                    }
+                    VirtualFxParameterType::ByName => {
+                        let name = control.text().unwrap_or_default();
+                        self.mapping.target_model.param_name.set(name);
+                    }
+                    VirtualFxParameterType::ByIndex => {
+                        let index = parse_position_as_index(control);
+                        self.mapping.target_model.param_index.set(index);
+                    }
                 },
                 _ => {}
             },
@@ -1994,17 +2034,41 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_4_label_3(&self) {
-        let control = self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3);
-        control.hide();
-        // TODO-high As soon as we have FX param dynamic
+        invalidate_dynamic_fx_parameter_expression_result(
+            self.target,
+            self.session.extended_context(),
+            self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
+        );
     }
 
     fn invalidate_target_line_4_edit_control(&self) {
         let control = self
             .view
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
-        control.hide();
-        // TODO-high As soon as we have FX param dynamic/name
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameter => {
+                    let text = match self.target.param_type.get() {
+                        VirtualFxParameterType::Dynamic => {
+                            self.target.param_expression.get_ref().clone()
+                        }
+                        VirtualFxParameterType::ByName => self.target.param_name.get_ref().clone(),
+                        _ => {
+                            control.hide();
+                            return;
+                        }
+                    };
+                    control.set_text_if_not_focused(text);
+                    control.show();
+                }
+                _ => {
+                    control.hide();
+                }
+            },
+            TargetCategory::Virtual => {
+                control.hide();
+            }
+        }
     }
 
     fn invalidate_target_line_3_edit_control(&self) {
@@ -2116,8 +2180,21 @@ impl<'a> ImmutableMappingPanel<'a> {
         let combo = self
             .view
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_1);
-        combo.hide();
-        // TODO-high As soon as we support different parameter types
+        match self.target_category() {
+            TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::FxParameter => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.param_type.get().into())
+                        .unwrap();
+                }
+                _ => combo.hide(),
+            },
+            TargetCategory::Virtual => {
+                combo.hide();
+            }
+        }
     }
 
     fn invalidate_target_line_3_combo_box_2(&self) {
@@ -2226,7 +2303,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::FxParameter => {
+                ReaperTargetType::FxParameter
+                    if self.target.param_type.get() == VirtualFxParameterType::ByIndex =>
+                {
                     combo.show();
                     let context = self.session.extended_context();
                     if let Ok(fx) = self.target.with_context(context).fx() {
@@ -3009,12 +3088,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
-        self.panel
-            .when_do_sync(target.param_index.changed(), |view| {
-                view.invalidate_target_line_4();
-                view.invalidate_target_value_controls();
+        self.panel.when_do_sync(
+            target
+                .param_type
+                .changed()
+                .merge(target.param_index.changed())
+                .merge(target.param_name.changed())
+                .merge(target.param_expression.changed()),
+            |view| {
+                view.invalidate_target_controls();
                 view.invalidate_mode_controls();
-            });
+            },
+        );
         self.panel
             .when_do_sync(target.action_invocation_type.changed(), |view| {
                 view.invalidate_target_line_3();
@@ -3355,6 +3440,9 @@ impl View for MappingPanel {
             root::ID_TARGET_LINE_3_COMBO_BOX_2 => {
                 self.write(|p| p.handle_target_line_3_combo_box_2_change());
             }
+            root::ID_TARGET_LINE_4_COMBO_BOX_1 => {
+                self.write(|p| p.handle_target_line_4_combo_box_1_change())
+            }
             root::ID_TARGET_LINE_4_COMBO_BOX_2 => {
                 self.write(|p| p.handle_target_line_4_combo_box_2_change())
             }
@@ -3452,6 +3540,9 @@ impl View for MappingPanel {
             }
             root::ID_TARGET_LINE_3_EDIT_CONTROL => {
                 view.write(|p| p.handle_target_line_3_edit_control_change())
+            }
+            root::ID_TARGET_LINE_4_EDIT_CONTROL => {
+                view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
                 let (target, value) = view.write(|p| {
@@ -3703,4 +3794,35 @@ fn invalidate_dynamic_fx_expression_result(
         TargetCategory::Virtual => None,
     };
     label.set_text_or_hide(text);
+}
+
+fn invalidate_dynamic_fx_parameter_expression_result(
+    target: &TargetModel,
+    context: ExtendedProcessorContext,
+    label: Window,
+) {
+    let text = match target.category.get() {
+        TargetCategory::Reaper => match target.r#type.get() {
+            ReaperTargetType::FxParameter
+                if target.param_type.get() == VirtualFxParameterType::Dynamic =>
+            {
+                target
+                    .virtual_fx_parameter()
+                    .and_then(|p| p.calculated_fx_parameter_index(context))
+                    .map(|i| i.to_string())
+            }
+            _ => None,
+        },
+        TargetCategory::Virtual => None,
+    };
+    label.set_text_or_hide(text);
+}
+
+fn parse_position_as_index(edit_control: Window) -> u32 {
+    let position: i32 = edit_control
+        .text()
+        .ok()
+        .and_then(|text| text.parse().ok())
+        .unwrap_or(1);
+    std::cmp::max(position - 1, 0) as u32
 }
