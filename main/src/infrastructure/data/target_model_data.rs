@@ -4,14 +4,14 @@ use reaper_high::{BookmarkType, Guid, Reaper};
 
 use crate::application::{
     BookmarkAnchorType, FxParameterPropValues, FxPropValues, FxSnapshot, ReaperTargetType,
-    TargetCategory, TargetModel, TrackPropValues, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    TargetCategory, TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
     ActionInvocationType, ExtendedProcessorContext, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TransportAction, VirtualTrack,
+    TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -44,13 +44,9 @@ pub struct TargetModelData {
     fx_data: FxData,
     #[serde(default, skip_serializing_if = "is_default")]
     enable_only_if_fx_has_focus: bool,
-    // Track send target
-    #[serde(
-        deserialize_with = "none_if_minus_one",
-        default,
-        skip_serializing_if = "is_default"
-    )]
-    send_index: Option<u32>,
+    // Track route target
+    #[serde(flatten)]
+    track_route_data: TrackRouteData,
     // FX parameter target
     #[serde(flatten)]
     fx_parameter_data: FxParameterData,
@@ -102,7 +98,7 @@ impl TargetModelData {
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
             fx_data: serialize_fx(model.fx()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
-            send_index: model.send_index.get(),
+            track_route_data: serialize_track_route(model.track_route()),
             fx_parameter_data: serialize_fx_parameter(model.fx_parameter()),
             select_exclusively: None,
             solo_behavior: Some(model.solo_behavior.get()),
@@ -170,7 +166,8 @@ impl TargetModelData {
         model
             .enable_only_if_fx_has_focus
             .set_without_notification(self.enable_only_if_fx_has_focus);
-        model.send_index.set_without_notification(self.send_index);
+        let route_prop_values = deserialize_track_route(&self.track_route_data);
+        model.set_route_without_notification(route_prop_values);
         let fx_param_prop_values = deserialize_fx_parameter(&self.fx_parameter_data);
         model.set_fx_parameter_without_notification(fx_param_prop_values);
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
@@ -361,6 +358,46 @@ fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
     }
 }
 
+fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
+    use TrackRouteSelectorType::*;
+    match route.selector_type {
+        Dynamic => TrackRouteData {
+            selector_type: Some(route.selector_type),
+            r#type: Some(route.r#type),
+            index: None,
+            guid: None,
+            name: None,
+            expression: Some(route.expression),
+        },
+        ById => TrackRouteData {
+            selector_type: Some(route.selector_type),
+            r#type: Some(route.r#type),
+            index: None,
+            guid: route.id.map(|id| id.to_string_without_braces()),
+            name: None,
+            expression: None,
+        },
+        ByName => TrackRouteData {
+            selector_type: Some(route.selector_type),
+            r#type: Some(route.r#type),
+            index: None,
+            guid: None,
+            name: Some(route.name),
+            expression: None,
+        },
+        ByIndex => TrackRouteData {
+            // Before 2.8.0 we didn't have a selector type and this was the default ... let's leave
+            // it at that.
+            selector_type: None,
+            r#type: Some(route.r#type),
+            index: Some(route.index),
+            guid: None,
+            name: None,
+            expression: None,
+        },
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FxParameterData {
@@ -377,6 +414,36 @@ struct FxParameterData {
     name: Option<String>,
     #[serde(
         rename = "paramExpression",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    expression: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TrackRouteData {
+    #[serde(
+        rename = "routeSelectorType",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    selector_type: Option<TrackRouteSelectorType>,
+    #[serde(rename = "routeType", default, skip_serializing_if = "is_default")]
+    r#type: Option<TrackRouteType>,
+    #[serde(
+        rename = "sendIndex",
+        deserialize_with = "none_if_minus_one",
+        default,
+        skip_serializing_if = "is_default"
+    )]
+    index: Option<u32>,
+    #[serde(rename = "routeGuid", default, skip_serializing_if = "is_default")]
+    guid: Option<String>,
+    #[serde(rename = "routeName", default, skip_serializing_if = "is_default")]
+    name: Option<String>,
+    #[serde(
+        rename = "routeExpression",
         default,
         skip_serializing_if = "is_default"
     )]
@@ -641,6 +708,73 @@ fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValu
             ..Default::default()
         },
         _ => FxParameterPropValues::default(),
+    }
+}
+
+fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
+    match data {
+        // This is the case for versions < 2.8.0.
+        TrackRouteData {
+            // Important (because index is always given we need this as distinction).
+            selector_type: None,
+            r#type: None,
+            index: Some(i),
+            ..
+        } => TrackRoutePropValues {
+            selector_type: TrackRouteSelectorType::ByIndex,
+            r#type: TrackRouteType::Send,
+            index: *i,
+            ..Default::default()
+        },
+        // These are the new ones.
+        TrackRouteData {
+            selector_type: Some(TrackRouteSelectorType::ById),
+            r#type: Some(t),
+            guid: Some(g),
+            ..
+        } => {
+            let id = Guid::from_string_without_braces(g).ok();
+            TrackRoutePropValues {
+                selector_type: TrackRouteSelectorType::ById,
+                r#type: *t,
+                id,
+                ..Default::default()
+            }
+        }
+        TrackRouteData {
+            selector_type: Some(TrackRouteSelectorType::ByIndex),
+            r#type: Some(t),
+            index: Some(i),
+            ..
+        } => TrackRoutePropValues {
+            selector_type: TrackRouteSelectorType::ByIndex,
+            r#type: *t,
+            index: *i,
+            ..Default::default()
+        },
+        TrackRouteData {
+            selector_type: Some(TrackRouteSelectorType::ByName),
+            r#type: Some(t),
+            name: Some(name),
+            ..
+        } => TrackRoutePropValues {
+            selector_type: TrackRouteSelectorType::ByName,
+            r#type: *t,
+            name: name.clone(),
+            ..Default::default()
+        },
+        TrackRouteData {
+            selector_type: Some(TrackRouteSelectorType::Dynamic),
+            r#type: Some(t),
+            expression: Some(e),
+            ..
+        } => TrackRoutePropValues {
+            selector_type: TrackRouteSelectorType::Dynamic,
+            r#type: *t,
+            expression: e.clone(),
+            ..Default::default()
+        },
+        _ => TrackRoutePropValues::default(),
     }
 }
 

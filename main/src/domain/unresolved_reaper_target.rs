@@ -5,12 +5,15 @@ use crate::domain::{
     SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction, PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
+use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     Track, TrackSend,
 };
 use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackLocation};
+use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::num::NonZeroU32;
@@ -29,8 +32,7 @@ pub enum UnresolvedReaperTarget {
         track_descriptor: TrackDescriptor,
     },
     TrackSendVolume {
-        track_descriptor: TrackDescriptor,
-        send_index: u32,
+        descriptor: TrackRouteDescriptor,
     },
     TrackPan {
         track_descriptor: TrackDescriptor,
@@ -56,12 +58,10 @@ pub enum UnresolvedReaperTarget {
         exclusivity: TrackExclusivity,
     },
     TrackSendPan {
-        track_descriptor: TrackDescriptor,
-        send_index: u32,
+        descriptor: TrackRouteDescriptor,
     },
     TrackSendMute {
-        track_descriptor: TrackDescriptor,
-        send_index: u32,
+        descriptor: TrackRouteDescriptor,
     },
     Tempo,
     Playrate,
@@ -116,11 +116,8 @@ impl UnresolvedReaperTarget {
             TrackVolume { track_descriptor } => ReaperTarget::TrackVolume {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
-            TrackSendVolume {
-                track_descriptor,
-                send_index,
-            } => ReaperTarget::TrackSendVolume {
-                send: get_track_send(context, &track_descriptor.track, *send_index)?,
+            TrackSendVolume { descriptor } => ReaperTarget::TrackSendVolume {
+                send: get_track_send(context, descriptor)?,
             },
             TrackPan { track_descriptor } => ReaperTarget::TrackPan {
                 track: get_effective_track(context, &track_descriptor.track)?,
@@ -158,17 +155,11 @@ impl UnresolvedReaperTarget {
                 behavior: *behavior,
                 exclusivity: *exclusivity,
             },
-            TrackSendPan {
-                track_descriptor,
-                send_index,
-            } => ReaperTarget::TrackSendPan {
-                send: get_track_send(context, &track_descriptor.track, *send_index)?,
+            TrackSendPan { descriptor } => ReaperTarget::TrackSendPan {
+                send: get_track_send(context, descriptor)?,
             },
-            TrackSendMute {
-                track_descriptor,
-                send_index,
-            } => ReaperTarget::TrackSendMute {
-                send: get_track_send(context, &track_descriptor.track, *send_index)?,
+            TrackSendMute { descriptor } => ReaperTarget::TrackSendMute {
+                send: get_track_send(context, descriptor)?,
             },
             Tempo => ReaperTarget::Tempo {
                 project: context.context.project_or_current_project(),
@@ -294,9 +285,6 @@ impl UnresolvedReaperTarget {
                 Some(&fx_parameter_descriptor.fx_descriptor),
             ),
             TrackVolume { track_descriptor }
-            | TrackSendVolume {
-                track_descriptor, ..
-            }
             | TrackPan { track_descriptor }
             | TrackWidth { track_descriptor }
             | TrackArm {
@@ -311,18 +299,15 @@ impl UnresolvedReaperTarget {
             | TrackSolo {
                 track_descriptor, ..
             }
-            | TrackSendPan {
-                track_descriptor, ..
-            }
-            | TrackSendMute {
-                track_descriptor, ..
-            }
             | AllTrackFxEnable {
                 track_descriptor, ..
             }
             | AutomationTouchState {
                 track_descriptor, ..
             } => (Some(track_descriptor), None),
+            TrackSendVolume { descriptor }
+            | TrackSendPan { descriptor }
+            | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
             LastTouched => (None, None),
         }
     }
@@ -340,15 +325,13 @@ pub fn get_effective_track(
 // Returns an error if that send (or track) doesn't exist.
 pub fn get_track_send(
     context: ExtendedProcessorContext,
-    virtual_track: &VirtualTrack,
-    send_index: u32,
+    descriptor: &TrackRouteDescriptor,
 ) -> Result<TrackSend, &'static str> {
-    let track = get_effective_track(context, virtual_track)?;
-    let send = track.index_based_send_by_index(send_index);
-    if !send.is_available() {
-        return Err("send doesn't exist");
-    }
-    Ok(send)
+    let track = get_effective_track(context, &descriptor.track_descriptor.track)?;
+    descriptor
+        .route
+        .resolve(&track, context)
+        .map_err(|_| "send doesn't exist")
 }
 
 #[derive(Debug)]
@@ -368,6 +351,172 @@ pub struct FxDescriptor {
 pub struct FxParameterDescriptor {
     pub fx_descriptor: FxDescriptor,
     pub fx_parameter: VirtualFxParameter,
+}
+
+#[derive(Debug)]
+pub struct TrackRouteDescriptor {
+    pub track_descriptor: TrackDescriptor,
+    pub route: VirtualTrackRoute,
+}
+
+#[derive(Debug)]
+pub struct VirtualTrackRoute {
+    pub r#type: TrackRouteType,
+    pub selector: TrackRouteSelector,
+}
+
+// TODO-high Maybe rename to "selector" or similar
+#[derive(Debug)]
+pub enum TrackRouteSelector {
+    Dynamic(Box<ExpressionEvaluator>),
+    ById(Guid),
+    ByName(String),
+    ByIndex(u32),
+}
+
+impl TrackRouteSelector {
+    pub fn resolve(
+        &self,
+        track: &Track,
+        route_type: TrackRouteType,
+        context: ExtendedProcessorContext,
+    ) -> Result<TrackSend, TrackRouteResolveError> {
+        use TrackRouteSelector::*;
+        let route = match self {
+            Dynamic(evaluator) => {
+                let i = Self::evaluate_to_route_index(evaluator, context);
+                resolve_track_route_by_index(track, route_type, i)?
+            }
+            ById(guid) => {
+                // TODO-high Respect route type!!! #200!
+                let related_track = track.project().track_by_guid(guid);
+                let route = track.send_by_target_track(related_track);
+                if !route.is_available() {
+                    return Err(TrackRouteResolveError::TrackRouteNotFound {
+                        guid: Some(*guid),
+                        name: None,
+                        index: None,
+                    });
+                }
+                route
+            }
+            ByName(name) => {
+                // TODO-high Respect route type!!! #200!
+                let related_track = find_track_by_name(track.project(), name).ok_or(
+                    TrackRouteResolveError::TrackRouteNotFound {
+                        guid: None,
+                        name: Some(name.clone()),
+                        index: None,
+                    },
+                )?;
+                let route = track.send_by_target_track(related_track);
+                if !route.is_available() {
+                    return Err(TrackRouteResolveError::TrackRouteNotFound {
+                        guid: None,
+                        name: Some(name.clone()),
+                        index: None,
+                    });
+                }
+                route
+            }
+            ByIndex(i) => resolve_track_route_by_index(track, route_type, *i)?,
+        };
+        Ok(route)
+    }
+
+    pub fn calculated_route_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+        if let TrackRouteSelector::Dynamic(evaluator) = self {
+            Some(Self::evaluate_to_route_index(evaluator, context))
+        } else {
+            None
+        }
+    }
+
+    fn evaluate_to_route_index(
+        evaluator: &ExpressionEvaluator,
+        context: ExtendedProcessorContext,
+    ) -> u32 {
+        let result = evaluator.evaluate(context.params);
+        result.max(0.0) as u32
+    }
+
+    pub fn id(&self) -> Option<Guid> {
+        use TrackRouteSelector::*;
+        match self {
+            ById(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        use TrackRouteSelector::*;
+        match self {
+            ByIndex(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        use TrackRouteSelector::*;
+        match self {
+            ByName(name) => Some(name),
+            _ => None,
+        }
+    }
+}
+
+impl VirtualTrackRoute {
+    pub fn resolve(
+        &self,
+        track: &Track,
+        context: ExtendedProcessorContext,
+    ) -> Result<TrackSend, TrackRouteResolveError> {
+        self.selector.resolve(track, self.r#type, context)
+    }
+
+    pub fn id(&self) -> Option<Guid> {
+        self.selector.id()
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        self.selector.index()
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        self.selector.name()
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TrackRouteType {
+    #[serde(rename = "send")]
+    #[display(fmt = "Send")]
+    Send,
+    #[serde(rename = "receive")]
+    #[display(fmt = "Receive")]
+    Receive,
+    #[serde(rename = "output")]
+    #[display(fmt = "Hardware output")]
+    HardwareOutput,
+}
+
+impl Default for TrackRouteType {
+    fn default() -> Self {
+        Self::Send
+    }
 }
 
 #[derive(Debug)]
@@ -582,13 +731,7 @@ impl VirtualTrack {
                 .ok_or(TrackResolveError::NoTrackSelected)?,
             Dynamic(evaluator) => {
                 let index = Self::evaluate_to_track_index(evaluator, context);
-                project
-                    .track_by_index(index)
-                    .ok_or(TrackResolveError::TrackNotFound {
-                        guid: None,
-                        name: None,
-                        index: Some(index),
-                    })?
+                resolve_track_by_index(project, index)?
             }
             Master => project.master_track(),
             ByIdOrName(guid, name) => {
@@ -621,15 +764,7 @@ impl VirtualTrack {
                     index: None,
                 })?
             }
-            ByIndex(index) => {
-                project
-                    .track_by_index(*index)
-                    .ok_or(TrackResolveError::TrackNotFound {
-                        guid: None,
-                        name: None,
-                        index: Some(*index),
-                    })?
-            }
+            ByIndex(index) => resolve_track_by_index(project, *index)?,
         };
         Ok(track)
     }
@@ -743,6 +878,16 @@ pub enum TrackResolveError {
 pub enum FxParameterResolveError {
     #[display(fmt = "FxParameterNotFound")]
     FxParameterNotFound {
+        name: Option<String>,
+        index: Option<u32>,
+    },
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+pub enum TrackRouteResolveError {
+    #[display(fmt = "TrackRouteNotFound")]
+    TrackRouteNotFound {
+        guid: Option<Guid>,
         name: Option<String>,
         index: Option<u32>,
     },
@@ -981,6 +1126,34 @@ fn resolve_parameter_by_index(fx: &Fx, index: u32) -> Result<FxParameter, FxPara
         });
     }
     Ok(param)
+}
+
+fn resolve_track_by_index(project: Project, index: u32) -> Result<Track, TrackResolveError> {
+    project
+        .track_by_index(index)
+        .ok_or(TrackResolveError::TrackNotFound {
+            guid: None,
+            name: None,
+            index: Some(index),
+        })
+}
+
+fn resolve_track_route_by_index(
+    track: &Track,
+    route_type: TrackRouteType,
+    index: u32,
+) -> Result<TrackSend, TrackRouteResolveError> {
+    // TODO-high Respect route type!!! #200!
+    let send = track.index_based_send_by_index(index);
+    if send.is_available() {
+        Ok(send)
+    } else {
+        Err(TrackRouteResolveError::TrackRouteNotFound {
+            guid: None,
+            name: None,
+            index: Some(index),
+        })
+    }
 }
 
 pub fn get_fx_chain(

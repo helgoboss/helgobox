@@ -11,12 +11,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    find_bookmark, get_fx, get_fx_chain, get_fx_param, get_track_send, ActionInvocationType,
+    find_bookmark, get_fx, get_fx_param, get_track_send, ActionInvocationType,
     CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FxDescriptor,
     FxParameterDescriptor, ProcessorContext, ReaperTarget, SoloBehavior, TouchedParameterType,
-    TrackDescriptor, TrackExclusivity, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualFx, VirtualFxParameter,
-    VirtualTarget, VirtualTrack,
+    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
+    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
+    VirtualControlElement, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -61,8 +62,13 @@ pub struct TargetModel {
     pub param_index: Prop<u32>,
     pub param_name: Prop<String>,
     pub param_expression: Prop<String>,
-    // # For track send targets
-    pub send_index: Prop<Option<u32>>,
+    // # For track route targets
+    pub route_selector_type: Prop<TrackRouteSelectorType>,
+    pub route_type: Prop<TrackRouteType>,
+    pub route_id: Prop<Option<Guid>>,
+    pub route_index: Prop<u32>,
+    pub route_name: Prop<String>,
+    pub route_expression: Prop<String>,
     // # For track solo targets
     pub solo_behavior: Prop<SoloBehavior>,
     // # For toggleable track targets
@@ -105,7 +111,12 @@ impl Default for TargetModel {
             param_index: prop(0),
             param_name: prop("".to_owned()),
             param_expression: prop("".to_owned()),
-            send_index: prop(None),
+            route_selector_type: prop(Default::default()),
+            route_type: prop(Default::default()),
+            route_id: prop(None),
+            route_index: prop(0),
+            route_name: prop(Default::default()),
+            route_expression: prop(Default::default()),
             solo_behavior: prop(Default::default()),
             track_exclusivity: prop(Default::default()),
             transport_action: prop(TransportAction::default()),
@@ -190,6 +201,30 @@ impl TargetModel {
             .set_without_notification(track.expression);
     }
 
+    pub fn set_virtual_route(&mut self, route: VirtualTrackRoute) {
+        self.set_route(TrackRoutePropValues::from_virtual_route(route));
+    }
+
+    pub fn set_route(&mut self, route: TrackRoutePropValues) {
+        self.route_selector_type.set(route.selector_type);
+        self.route_type.set(route.r#type);
+        self.route_id.set(route.id);
+        self.route_name.set(route.name);
+        self.route_index.set(route.index);
+        self.route_expression.set(route.expression);
+    }
+
+    pub fn set_route_without_notification(&mut self, route: TrackRoutePropValues) {
+        self.route_selector_type
+            .set_without_notification(route.selector_type);
+        self.route_type.set_without_notification(route.r#type);
+        self.route_id.set_without_notification(route.id);
+        self.route_name.set_without_notification(route.name);
+        self.route_index.set_without_notification(route.index);
+        self.route_expression
+            .set_without_notification(route.expression);
+    }
+
     pub fn set_virtual_fx(&mut self, fx: VirtualFx) {
         self.set_fx(FxPropValues::from_virtual_fx(fx));
     }
@@ -250,7 +285,8 @@ impl TargetModel {
             self.set_virtual_track(virtualize_track(track.clone(), context));
         }
         if let Some(send) = target.send() {
-            self.send_index.set(Some(send.index()));
+            let virtual_route = virtualize_route(send, context);
+            self.set_virtual_route(virtual_route);
         }
         if let Some(track_exclusivity) = target.track_exclusivity() {
             self.track_exclusivity.set(track_exclusivity);
@@ -326,7 +362,12 @@ impl TargetModel {
             .merge(self.param_index.changed())
             .merge(self.param_name.changed())
             .merge(self.param_expression.changed())
-            .merge(self.send_index.changed())
+            .merge(self.route_selector_type.changed())
+            .merge(self.route_type.changed())
+            .merge(self.route_id.changed())
+            .merge(self.route_index.changed())
+            .merge(self.route_name.changed())
+            .merge(self.route_expression.changed())
             .merge(self.solo_behavior.changed())
             .merge(self.track_exclusivity.changed())
             .merge(self.transport_action.changed())
@@ -382,6 +423,21 @@ impl TargetModel {
         Some(fx)
     }
 
+    pub fn track_route_selector(&self) -> Option<TrackRouteSelector> {
+        use TrackRouteSelectorType::*;
+        let selector = match self.route_selector_type.get() {
+            Dynamic => {
+                let evaluator =
+                    ExpressionEvaluator::compile(self.route_expression.get_ref()).ok()?;
+                TrackRouteSelector::Dynamic(Box::new(evaluator))
+            }
+            ById => TrackRouteSelector::ById(self.route_id.get()?),
+            ByName => TrackRouteSelector::ByName(self.route_name.get_ref().clone()),
+            ByIndex => TrackRouteSelector::ByIndex(self.route_index.get()),
+        };
+        Some(selector)
+    }
+
     pub fn virtual_chain_fx(&self) -> Option<VirtualChainFx> {
         use VirtualFxType::*;
         let fx = match self.fx_type.get() {
@@ -409,6 +465,17 @@ impl TargetModel {
         }
     }
 
+    pub fn track_route(&self) -> TrackRoutePropValues {
+        TrackRoutePropValues {
+            selector_type: self.route_selector_type.get(),
+            r#type: self.route_type.get(),
+            id: self.route_id.get(),
+            name: self.route_name.get_ref().clone(),
+            expression: self.route_expression.get_ref().clone(),
+            index: self.route_index.get(),
+        }
+    }
+
     pub fn fx_parameter(&self) -> FxParameterPropValues {
         FxParameterPropValues {
             r#type: self.param_type.get(),
@@ -431,6 +498,17 @@ impl TargetModel {
             track_descriptor: self.track_descriptor()?,
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus.get(),
             fx: self.virtual_fx().ok_or("FX not set")?,
+        };
+        Ok(desc)
+    }
+
+    fn track_route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
+        let desc = TrackRouteDescriptor {
+            track_descriptor: self.track_descriptor()?,
+            route: VirtualTrackRoute {
+                r#type: self.route_type.get(),
+                selector: self.track_route_selector().ok_or("track route not set")?,
+            },
         };
         Ok(desc)
     }
@@ -474,8 +552,7 @@ impl TargetModel {
                         track_descriptor: self.track_descriptor()?,
                     },
                     TrackSendVolume => UnresolvedReaperTarget::TrackSendVolume {
-                        track_descriptor: self.track_descriptor()?,
-                        send_index: self.send_index.get().ok_or("send index not set")?,
+                        descriptor: self.track_route_descriptor()?,
                     },
                     TrackPan => UnresolvedReaperTarget::TrackPan {
                         track_descriptor: self.track_descriptor()?,
@@ -501,12 +578,10 @@ impl TargetModel {
                         exclusivity: self.track_exclusivity.get(),
                     },
                     TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
-                        track_descriptor: self.track_descriptor()?,
-                        send_index: self.send_index.get().ok_or("send index not set")?,
+                        descriptor: self.track_route_descriptor()?,
                     },
                     TrackSendMute => UnresolvedReaperTarget::TrackSendMute {
-                        track_descriptor: self.track_descriptor()?,
-                        send_index: self.send_index.get().ok_or("send index not set")?,
+                        descriptor: self.track_route_descriptor()?,
                     },
                     Tempo => UnresolvedReaperTarget::Tempo,
                     Playrate => UnresolvedReaperTarget::Playrate,
@@ -742,14 +817,7 @@ impl<'a> TargetModelWithContext<'a> {
 
     // Returns an error if that send (or track) doesn't exist.
     fn track_send(&self) -> Result<TrackSend, &'static str> {
-        get_track_send(
-            self.context,
-            &self
-                .target
-                .virtual_track()
-                .ok_or("virtual track not complete")?,
-            self.target.send_index.get().ok_or("send index not set")?,
-        )
+        get_track_send(self.context, &self.target.track_route_descriptor()?)
     }
 
     // Returns an error if that param (or FX) doesn't exist.
@@ -782,16 +850,6 @@ impl<'a> TargetModelWithContext<'a> {
             "<Undefined>".to_owned()
         }
     }
-}
-
-pub fn get_guid_based_fx_at_index(
-    context: ExtendedProcessorContext,
-    track: &VirtualTrack,
-    is_input_fx: bool,
-    fx_index: u32,
-) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
-    fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
 }
 
 impl<'a> Display for TargetModelWithContext<'a> {
@@ -1129,6 +1187,20 @@ fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
     }
 }
 
+fn virtualize_route(route: &TrackSend, context: &ProcessorContext) -> VirtualTrackRoute {
+    VirtualTrackRoute {
+        // TODO-high #200
+        r#type: TrackRouteType::Send,
+        selector: if context.is_on_monitoring_fx_chain() {
+            // Doesn't make sense to refer to route via related-track UUID if we are on monitoring
+            // FX chain.
+            TrackRouteSelector::ByIndex(route.index())
+        } else {
+            TrackRouteSelector::ById(*route.target_track().guid())
+        },
+    }
+}
+
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, IntoEnumIterator, TryFromPrimitive, IntoPrimitive, Display,
 )]
@@ -1314,6 +1386,53 @@ impl VirtualFxParameterType {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    Serialize,
+    Deserialize,
+)]
+#[repr(usize)]
+pub enum TrackRouteSelectorType {
+    #[display(fmt = "<Dynamic>")]
+    #[serde(rename = "dynamic")]
+    Dynamic,
+    #[display(fmt = "By ID")]
+    #[serde(rename = "id")]
+    ById,
+    #[display(fmt = "By name")]
+    #[serde(rename = "name")]
+    ByName,
+    #[display(fmt = "By position")]
+    #[serde(rename = "index")]
+    ByIndex,
+}
+
+impl Default for TrackRouteSelectorType {
+    fn default() -> Self {
+        Self::ByIndex
+    }
+}
+
+impl TrackRouteSelectorType {
+    pub fn from_route_selector(selector: &TrackRouteSelector) -> Self {
+        use TrackRouteSelector::*;
+        match selector {
+            Dynamic(_) => Self::Dynamic,
+            ById(_) => Self::ById,
+            ByName(_) => Self::ByName,
+            ByIndex(_) => Self::ByIndex,
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxSnapshot {
@@ -1368,6 +1487,29 @@ impl TrackPropValues {
             id: track.id(),
             name: track.name().cloned().unwrap_or_default(),
             index: track.index().unwrap_or_default(),
+            expression: Default::default(),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct TrackRoutePropValues {
+    pub selector_type: TrackRouteSelectorType,
+    pub r#type: TrackRouteType,
+    pub id: Option<Guid>,
+    pub name: String,
+    pub expression: String,
+    pub index: u32,
+}
+
+impl TrackRoutePropValues {
+    pub fn from_virtual_route(route: VirtualTrackRoute) -> Self {
+        Self {
+            selector_type: TrackRouteSelectorType::from_route_selector(&route.selector),
+            r#type: route.r#type,
+            id: route.id(),
+            name: route.name().cloned().unwrap_or_default(),
+            index: route.index().unwrap_or_default(),
             expression: Default::default(),
         }
     }

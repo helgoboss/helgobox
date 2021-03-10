@@ -33,8 +33,8 @@ use crate::core::Global;
 use crate::domain::{
     get_non_present_virtual_track_label, ActionInvocationType, CompoundMappingTarget,
     ExtendedProcessorContext, MappingCompartment, MappingId, RealearnTarget, ReaperTarget,
-    SoloBehavior, TargetCharacter, TouchedParameterType, TrackExclusivity, TransportAction,
-    VirtualControlElement, VirtualFx,
+    SoloBehavior, TargetCharacter, TouchedParameterType, TrackExclusivity, TrackRouteType,
+    TransportAction, VirtualControlElement, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -1248,7 +1248,10 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 t if t.supports_send() => {
                     let i = combo.selected_combo_box_item_index();
-                    self.mapping.target_model.send_index.set(Some(i as _));
+                    self.mapping
+                        .target_model
+                        .route_type
+                        .set(i.try_into().expect("invalid route type"));
                 }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
@@ -1293,6 +1296,10 @@ impl<'a> MutableMappingPanel<'a> {
                         .target_model
                         .track_exclusivity
                         .set(i.try_into().expect("invalid track exclusivity"));
+                }
+                t if t.supports_send() => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping.target_model.route_index.set(i as _);
                 }
                 _ => {}
             },
@@ -2110,7 +2117,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 t if t.supports_fx() => Some("FX"),
-                t if t.supports_send() => Some("Send"),
+                t if t.supports_send() => Some("Kind"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -2126,6 +2133,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
+                t if t.supports_send() => match self.target.route_type.get() {
+                    TrackRouteType::Send => Some("Send"),
+                    TrackRouteType::Receive => Some("Receive"),
+                    TrackRouteType::HardwareOutput => Some("Output"),
+                },
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -2243,24 +2255,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_send() => {
                     combo.show();
-                    let context = self.session.extended_context();
-                    if let Ok(track) = self.target.with_context(context).effective_track() {
-                        // Fill
-                        combo.fill_combo_box_indexed(send_combo_box_entries(&track));
-                        // Set
-                        if let Some(i) = self.target.send_index.get() {
-                            combo
-                                .select_combo_box_item_by_index(i as _)
-                                .unwrap_or_else(|_| {
-                                    let pity_label = format!("{}. <Not present>", i + 1);
-                                    combo.select_new_combo_box_item(pity_label);
-                                });
-                        } else {
-                            combo.select_new_combo_box_item("<None>");
-                        }
-                    } else {
-                        combo.select_only_combo_box_item("<Requires track>");
-                    }
+                    combo.fill_combo_box_indexed(TrackRouteType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.route_type.get().into())
+                        .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();
@@ -2327,6 +2325,24 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo
                         .select_combo_box_item_by_index(self.target.track_exclusivity.get().into())
                         .unwrap();
+                }
+                t if t.supports_send() => {
+                    combo.show();
+                    let context = self.session.extended_context();
+                    if let Ok(track) = self.target.with_context(context).effective_track() {
+                        // Fill
+                        combo.fill_combo_box_indexed(send_combo_box_entries(&track));
+                        // Set
+                        let i = self.target.route_index.get();
+                        combo
+                            .select_combo_box_item_by_index(i as _)
+                            .unwrap_or_else(|_| {
+                                let pity_label = format!("{}. <Not present>", i + 1);
+                                combo.select_new_combo_box_item(pity_label);
+                            });
+                    } else {
+                        combo.select_only_combo_box_item("<Requires track>");
+                    }
                 }
                 _ => {
                     combo.hide();
@@ -3083,6 +3099,20 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.fx_name.changed())
                 .merge(target.fx_expression.changed())
                 .merge(target.fx_is_input_fx.changed()),
+            |view| {
+                view.invalidate_target_controls();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.panel.when_do_sync(
+            target
+                .route_selector_type
+                .changed()
+                .merge(target.route_type.changed())
+                .merge(target.route_index.changed())
+                .merge(target.route_id.changed())
+                .merge(target.route_name.changed())
+                .merge(target.route_expression.changed()),
             |view| {
                 view.invalidate_target_controls();
                 view.invalidate_mode_controls();
