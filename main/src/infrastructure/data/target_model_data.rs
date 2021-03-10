@@ -295,7 +295,6 @@ fn serialize_fx(fx: FxPropValues) -> FxData {
             expression: None,
         },
         Dynamic => FxData {
-            // TODO-high Should this be a new "Dynamic" anchor or is expression enough?
             anchor: None,
             guid: None,
             index: None,

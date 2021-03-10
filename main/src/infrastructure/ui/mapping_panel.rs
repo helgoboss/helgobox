@@ -74,6 +74,7 @@ struct MutableMappingPanel<'a> {
     shared_session: &'a SharedSession,
     mapping: &'a mut MappingModel,
     shared_mapping: &'a SharedMapping,
+    panel: &'a SharedView<MappingPanel>,
     view: &'a ViewContext,
 }
 
@@ -136,38 +137,6 @@ impl MappingPanel {
                     .target_model
                     .fx_snapshot
                     .set(Some(fx_snapshot));
-            }
-            ReaperTargetType::GoToBookmark => {
-                let project = self
-                    .session()
-                    .borrow()
-                    .context()
-                    .project_or_current_project();
-                let current_bookmark_data = project.current_bookmark();
-                let (bookmark_type, bookmark_index) = match (
-                    current_bookmark_data.marker_index,
-                    current_bookmark_data.region_index,
-                ) {
-                    (None, None) => return Err("no bookmark at current position"),
-                    (Some(i), None) => (BookmarkType::Marker, i),
-                    (None, Some(i)) => (BookmarkType::Region, i),
-                    (Some(mi), Some(ri)) => {
-                        match mapping.borrow().target_model.bookmark_type.get() {
-                            BookmarkType::Marker => (BookmarkType::Marker, mi),
-                            BookmarkType::Region => (BookmarkType::Region, ri),
-                        }
-                    }
-                };
-                let bookmark_id = project
-                    .find_bookmark_by_index(bookmark_index)
-                    .unwrap()
-                    .basic_info()
-                    .id;
-                let mut mapping = mapping.borrow_mut();
-                let target = &mut mapping.target_model;
-                target.bookmark_anchor_type.set(BookmarkAnchorType::Id);
-                target.bookmark_type.set(bookmark_type);
-                target.bookmark_ref.set(bookmark_id.get());
             }
             _ => {}
         }
@@ -363,6 +332,7 @@ impl MappingPanel {
             shared_session: &shared_session,
             mapping: &mut mapping,
             shared_mapping: &shared_mapping,
+            panel: &self,
             view: &self.view,
         };
         op(&mut p)
@@ -478,6 +448,84 @@ impl<'a> MutableMappingPanel<'a> {
             Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
+        }
+    }
+
+    fn handle_target_line_2_button_press(&mut self) {
+        match self.reaper_target_type() {
+            ReaperTargetType::Action => {
+                let reaper = Reaper::get().medium_reaper();
+                use InitialAction::*;
+                let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
+                    None => NoneSelected,
+                    Some(a) => Selected(a.command_id()),
+                };
+                // TODO-low Add this to reaper-high with rxRust
+                if reaper.low().pointers().PromptForAction.is_none() {
+                    self.view.require_window().alert(
+                        "ReaLearn",
+                        "Please update to REAPER >= 6.12 in order to pick actions!",
+                    );
+                    return;
+                }
+                reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+                let shared_mapping = self.shared_mapping.clone();
+                Global::control_surface_rx()
+                    .main_thread_idle()
+                    .take_until(self.panel.party_is_over())
+                    .map(|_| {
+                        Reaper::get()
+                            .medium_reaper()
+                            .prompt_for_action_poll(SectionId::new(0))
+                    })
+                    .filter(|r| *r != PromptForActionResult::NoneSelected)
+                    .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
+                    .subscribe_complete(
+                        move |r| {
+                            if let PromptForActionResult::Selected(command_id) = r {
+                                let action = Reaper::get()
+                                    .main_section()
+                                    .action_by_command_id(command_id);
+                                shared_mapping
+                                    .borrow_mut()
+                                    .target_model
+                                    .action
+                                    .set(Some(action));
+                            }
+                        },
+                        || {
+                            Reaper::get()
+                                .medium_reaper()
+                                .prompt_for_action_finish(SectionId::new(0));
+                        },
+                    );
+            }
+            ReaperTargetType::GoToBookmark => {
+                let project = self.session.context().project_or_current_project();
+                let current_bookmark_data = project.current_bookmark();
+                let (bookmark_type, bookmark_index) = match (
+                    current_bookmark_data.marker_index,
+                    current_bookmark_data.region_index,
+                ) {
+                    (None, None) => return,
+                    (Some(i), None) => (BookmarkType::Marker, i),
+                    (None, Some(i)) => (BookmarkType::Region, i),
+                    (Some(mi), Some(ri)) => match self.mapping.target_model.bookmark_type.get() {
+                        BookmarkType::Marker => (BookmarkType::Marker, mi),
+                        BookmarkType::Region => (BookmarkType::Region, ri),
+                    },
+                };
+                let bookmark_id = project
+                    .find_bookmark_by_index(bookmark_index)
+                    .unwrap()
+                    .basic_info()
+                    .id;
+                let target = &mut self.mapping.target_model;
+                target.bookmark_anchor_type.set(BookmarkAnchorType::Id);
+                target.bookmark_type.set(bookmark_type);
+                target.bookmark_ref.set(bookmark_id.get());
+            }
+            _ => {}
         }
     }
 
@@ -1301,54 +1349,6 @@ impl<'a> MutableMappingPanel<'a> {
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
-    fn handle_target_line_2_button_press(&self) {
-        let reaper = Reaper::get().medium_reaper();
-        use InitialAction::*;
-        let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
-            None => NoneSelected,
-            Some(a) => Selected(a.command_id()),
-        };
-        // TODO-low Add this to reaper-high with rxRust
-        if reaper.low().pointers().PromptForAction.is_none() {
-            self.view.require_window().alert(
-                "ReaLearn",
-                "Please update to REAPER >= 6.12 in order to pick actions!",
-            );
-            return;
-        }
-        reaper.prompt_for_action_create(initial_action, SectionId::new(0));
-        let shared_mapping = self.shared_mapping.clone();
-        Global::control_surface_rx()
-            .main_thread_idle()
-            .take_until(self.panel.party_is_over())
-            .map(|_| {
-                Reaper::get()
-                    .medium_reaper()
-                    .prompt_for_action_poll(SectionId::new(0))
-            })
-            .filter(|r| *r != PromptForActionResult::NoneSelected)
-            .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
-            .subscribe_complete(
-                move |r| {
-                    if let PromptForActionResult::Selected(command_id) = r {
-                        let action = Reaper::get()
-                            .main_section()
-                            .action_by_command_id(command_id);
-                        shared_mapping
-                            .borrow_mut()
-                            .target_model
-                            .action
-                            .set(Some(action));
-                    }
-                },
-                || {
-                    Reaper::get()
-                        .medium_reaper()
-                        .prompt_for_action_finish(SectionId::new(0));
-                },
-            );
-    }
-
     fn fill_all_controls(&self) {
         self.fill_source_category_combo_box();
         self.fill_source_midi_message_number_combo_box();
@@ -1928,11 +1928,17 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_2_button(&self) {
-        let visible = self.target_category() == TargetCategory::Reaper
-            && self.reaper_target_type() == ReaperTargetType::Action;
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => Some("Pick!"),
+                ReaperTargetType::GoToBookmark => Some("Now!"),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
         self.view
             .require_control(root::ID_TARGET_LINE_2_BUTTON)
-            .set_visible(visible);
+            .set_text_or_hide(text);
     }
 
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
@@ -2273,13 +2279,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     };
                     value_text.set_text(snapshot_label);
                     value_text.show();
-                }
-                ReaperTargetType::GoToBookmark => {
-                    button.set_text("Set to now!");
-                    combo.hide();
-                    label.hide();
-                    button.show();
-                    value_text.hide();
                 }
                 _ if target.supports_track_exclusivity() => {
                     label.set_text("Exclusive");
@@ -3295,8 +3294,7 @@ impl View for MappingPanel {
             root::ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
             root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             root::ID_TARGET_LINE_2_BUTTON => {
-                self.read(|p| p.handle_target_line_2_button_press())
-                    .unwrap();
+                self.write(|p| p.handle_target_line_2_button_press());
             }
             root::ID_TARGET_TAKE_SNAPSHOT_BUTTON => {
                 let _ = self.take_snapshot();
