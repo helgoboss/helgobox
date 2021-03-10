@@ -8,7 +8,7 @@ use helgoboss_learn::{
     SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::{BookmarkType, FxChain, Project, Reaper, Track};
+use reaper_high::{BookmarkType, Fx, FxChain, Project, Reaper, Track};
 use reaper_low::raw;
 use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
 use rx_util::UnitEvent;
@@ -34,7 +34,7 @@ use crate::domain::{
     get_non_present_virtual_track_label, ActionInvocationType, CompoundMappingTarget,
     ExtendedProcessorContext, MappingCompartment, MappingId, RealearnTarget, ReaperTarget,
     SoloBehavior, TargetCharacter, TouchedParameterType, TrackExclusivity, TransportAction,
-    VirtualChainFx, VirtualControlElement, VirtualFx,
+    VirtualControlElement, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -120,7 +120,7 @@ impl MappingPanel {
             .toggle_learning_source(&session, &mapping);
     }
 
-    fn take_snapshot(&self) -> Result<(), &'static str> {
+    fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.r#type.get();
         match target_type {
@@ -1044,10 +1044,10 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn update_target_only_if_fx_has_focus(&mut self) {
+    fn handle_target_check_box_3_change(&mut self) {
         let is_checked = self
             .view
-            .require_control(root::ID_TARGET_FX_FOCUS_CHECK_BOX)
+            .require_control(root::ID_TARGET_CHECK_BOX_3)
             .is_checked();
         let target = &mut self.mapping.target_model;
         if target.supports_fx() {
@@ -1055,10 +1055,10 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn update_target_only_if_track_is_selected(&mut self) {
+    fn handle_target_check_box_2_change(&mut self) {
         self.mapping.target_model.enable_only_if_track_selected.set(
             self.view
-                .require_control(root::ID_TARGET_TRACK_SELECTED_CHECK_BOX)
+                .require_control(root::ID_TARGET_CHECK_BOX_2)
                 .is_checked(),
         );
     }
@@ -1253,6 +1253,29 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    fn handle_target_line_4_combo_box_2_change(&mut self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameter => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping.target_model.param_index.set(i as _);
+                }
+                t if t.supports_track_exclusivity() => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .track_exclusivity
+                        .set(i.try_into().expect("invalid track exclusivity"));
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
     fn handle_target_line_2_edit_control_change(&mut self) {
         let control = self
             .view
@@ -1329,22 +1352,6 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .target_model
             .with_context(self.session.extended_context())
-    }
-
-    fn update_target_from_combo_box_line_four(&mut self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX);
-        let target = &mut self.mapping.target_model;
-        if target.supports_track_exclusivity() {
-            let index = combo.selected_combo_box_item_index();
-            target
-                .track_exclusivity
-                .set(index.try_into().expect("invalid track exclusivity"));
-        } else {
-            let data = combo.selected_combo_box_item_data();
-            target.param_index.set(data as _);
-        }
     }
 }
 
@@ -1704,10 +1711,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_type_combo_box();
         self.invalidate_target_line_2();
         self.invalidate_target_line_3();
+        self.invalidate_target_line_4();
         self.invalidate_target_check_box_1();
-        self.invalidate_target_only_if_fx_has_focus_check_box();
-        self.invalidate_target_only_if_track_is_selected_check_box();
-        self.invalidate_target_line_four();
+        self.invalidate_target_check_box_2();
+        self.invalidate_target_check_box_3();
         self.invalidate_target_value_controls();
         self.invalidate_target_learn_button();
     }
@@ -1955,12 +1962,49 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_3_edit_control();
     }
 
+    fn invalidate_target_line_4(&self) {
+        self.invalidate_target_line_4_label_1();
+        self.invalidate_target_line_4_label_2();
+        self.invalidate_target_line_4_label_3();
+        self.invalidate_target_line_4_combo_box_1();
+        self.invalidate_target_line_4_combo_box_2();
+        self.invalidate_target_line_4_edit_control();
+        self.invalidate_target_line_4_button();
+    }
+
+    fn invalidate_target_line_4_button(&self) {
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::LoadFxSnapshot => Some("Take!"),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_4_BUTTON)
+            .set_text_or_hide(text);
+    }
+
     fn invalidate_target_line_3_label_3(&self) {
         invalidate_dynamic_fx_expression_result(
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_3_LABEL_3),
         );
+    }
+
+    fn invalidate_target_line_4_label_3(&self) {
+        let control = self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3);
+        control.hide();
+        // TODO-high As soon as we have FX param dynamic
+    }
+
+    fn invalidate_target_line_4_edit_control(&self) {
+        let control = self
+            .view
+            .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
+        control.hide();
+        // TODO-high As soon as we have FX param dynamic/name
     }
 
     fn invalidate_target_line_3_edit_control(&self) {
@@ -2012,6 +2056,41 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
+    fn invalidate_target_line_4_label_1(&self) {
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameter => Some("Parameter"),
+                ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
+                t if t.supports_track_exclusivity() => Some("Exclusive"),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_4_LABEL_1)
+            .set_text_or_hide(text);
+    }
+
+    fn invalidate_target_line_4_label_2(&self) {
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::LoadFxSnapshot => {
+                    let label = if let Some(snapshot) = self.target.fx_snapshot.get_ref() {
+                        snapshot.to_string()
+                    } else {
+                        "<Empty>".to_owned()
+                    };
+                    Some(label)
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_4_LABEL_2)
+            .set_text_or_hide(text);
+    }
+
     fn invalidate_target_line_3_combo_box_1(&self) {
         let combo = self
             .view
@@ -2031,6 +2110,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 combo.hide();
             }
         }
+    }
+
+    fn invalidate_target_line_4_combo_box_1(&self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_1);
+        combo.hide();
+        // TODO-high As soon as we support different parameter types
     }
 
     fn invalidate_target_line_3_combo_box_2(&self) {
@@ -2133,45 +2220,43 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn fill_target_fx_param_combo_box(&self, combo: Window) {
-        let fx = match self.target_with_context().fx().ok() {
-            None => {
-                combo.clear_combo_box();
-                return;
+    fn invalidate_target_line_4_combo_box_2(&self) {
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::FxParameter => {
+                    combo.show();
+                    let context = self.session.extended_context();
+                    if let Ok(fx) = self.target.with_context(context).fx() {
+                        combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
+                        let param_index = self.target.param_index.get();
+                        combo
+                            .select_combo_box_item_by_index(param_index as _)
+                            .unwrap_or_else(|_| {
+                                let label = get_fx_param_label(None, param_index);
+                                combo.select_new_combo_box_item(label.into_owned());
+                            });
+                    } else {
+                        combo.select_only_combo_box_item("<Requires FX>");
+                    }
+                }
+                t if t.supports_track_exclusivity() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TrackExclusivity::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.track_exclusivity.get().into())
+                        .unwrap();
+                }
+                _ => {
+                    combo.hide();
+                }
+            },
+            TargetCategory::Virtual => {
+                combo.hide();
             }
-            Some(fx) => fx,
-        };
-        let params: Vec<_> = fx
-            .parameters()
-            .map(|param| {
-                (
-                    param.index() as isize,
-                    get_fx_param_label(Some(&param), param.index()),
-                )
-            })
-            .collect();
-        // TODO-low Just the index would be enough, don't need data.
-        combo.fill_combo_box_with_data_vec(params);
-    }
-
-    fn set_target_fx_param_combo_box_value(&self, combo: Window) {
-        let target = self.target;
-        let param_index = target.param_index.get();
-        combo
-            .select_combo_box_item_by_data(param_index as isize)
-            .unwrap_or_else(|_| {
-                combo.select_new_combo_box_item(get_fx_param_label(None, param_index).as_ref());
-            });
-    }
-
-    fn fill_target_track_exclusivity_combo_box(&self, combo: Window) {
-        combo.fill_combo_box_indexed(TrackExclusivity::into_enum_iter());
-    }
-
-    fn set_target_track_exclusivity_combo_box_value(&self, combo: Window) {
-        combo
-            .select_combo_box_item_by_index(self.target.track_exclusivity.get().into())
-            .unwrap();
+        }
     }
 
     fn invalidate_target_check_box_1(&self) {
@@ -2208,7 +2293,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_target_only_if_fx_has_focus_check_box(&self) {
+    fn invalidate_target_check_box_3(&self) {
         let is_checked = if self.target.supports_fx() {
             if self.target.fx_type.get() == VirtualFxType::Focused {
                 None
@@ -2219,83 +2304,22 @@ impl<'a> ImmutableMappingPanel<'a> {
             None
         };
         self.view
-            .require_control(root::ID_TARGET_FX_FOCUS_CHECK_BOX)
+            .require_control(root::ID_TARGET_CHECK_BOX_3)
             .set_checked_or_hide(is_checked);
     }
 
-    fn invalidate_target_only_if_track_is_selected_check_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_TARGET_TRACK_SELECTED_CHECK_BOX);
+    fn invalidate_target_check_box_2(&self) {
         let target = self.target;
-        if target.supports_track() && !matches!(target.track_type.get(), VirtualTrackType::Selected)
+        let is_checked = if target.supports_track()
+            && !matches!(target.track_type.get(), VirtualTrackType::Selected)
         {
-            b.show();
-            b.set_checked(target.enable_only_if_track_selected.get());
+            Some(target.enable_only_if_track_selected.get())
         } else {
-            b.hide();
-        }
-    }
-
-    fn invalidate_target_line_four(&self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_FX_PARAMETER_COMBO_BOX);
-        let label = self
-            .view
-            .require_control(root::ID_TARGET_FX_PARAMETER_LABEL_TEXT);
-        let button = self
-            .view
-            .require_control(root::ID_TARGET_TAKE_SNAPSHOT_BUTTON);
-        let value_text = self.view.require_control(root::ID_TARGET_SNAPSHOT_NAME);
-        let target = self.target;
-        let hide_all = || {
-            combo.hide();
-            label.hide();
-            button.hide();
-            value_text.hide();
+            None
         };
-        if target.category.get() == TargetCategory::Reaper {
-            match target.r#type.get() {
-                ReaperTargetType::FxParameter => {
-                    label.set_text("Parameter");
-                    label.show();
-                    combo.show();
-                    button.hide();
-                    value_text.hide();
-                    self.fill_target_fx_param_combo_box(combo);
-                    self.set_target_fx_param_combo_box_value(combo);
-                }
-                ReaperTargetType::LoadFxSnapshot => {
-                    label.set_text("Snapshot");
-                    button.set_text("Take snapshot!");
-                    label.show();
-                    combo.hide();
-                    button.show();
-                    let snapshot_label = if let Some(snapshot) = self.target.fx_snapshot.get_ref() {
-                        snapshot.to_string()
-                    } else {
-                        "<Empty>".to_owned()
-                    };
-                    value_text.set_text(snapshot_label);
-                    value_text.show();
-                }
-                _ if target.supports_track_exclusivity() => {
-                    label.set_text("Exclusive");
-                    label.show();
-                    combo.show();
-                    button.hide();
-                    value_text.hide();
-                    self.fill_target_track_exclusivity_combo_box(combo);
-                    self.set_target_track_exclusivity_combo_box_value(combo);
-                }
-                _ => {
-                    hide_all();
-                }
-            }
-        } else {
-            hide_all();
-        }
+        self.view
+            .require_control(root::ID_TARGET_CHECK_BOX_2)
+            .set_checked_or_hide(is_checked);
     }
 
     fn invalidate_target_value_controls(&self) {
@@ -2981,16 +3005,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.fx_expression.changed())
                 .merge(target.fx_is_input_fx.changed()),
             |view| {
-                view.invalidate_target_line_3();
-                view.invalidate_target_line_four();
-                view.invalidate_target_value_controls();
-                view.invalidate_target_only_if_fx_has_focus_check_box();
+                view.invalidate_target_controls();
                 view.invalidate_mode_controls();
             },
         );
         self.panel
             .when_do_sync(target.param_index.changed(), |view| {
-                view.invalidate_target_line_four();
+                view.invalidate_target_line_4();
                 view.invalidate_target_value_controls();
                 view.invalidate_mode_controls();
             });
@@ -3010,11 +3031,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
         self.panel
             .when_do_sync(target.fx_snapshot.changed(), |view| {
-                view.invalidate_target_line_four();
+                view.invalidate_target_line_4();
             });
         self.panel
             .when_do_sync(target.track_exclusivity.changed(), |view| {
-                view.invalidate_target_line_four();
+                view.invalidate_target_line_4();
                 view.invalidate_mode_controls();
             });
         self.panel.when_do_sync(
@@ -3028,11 +3049,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
         self.panel
             .when_do_sync(target.enable_only_if_track_selected.changed(), |view| {
-                view.invalidate_target_only_if_track_is_selected_check_box();
+                view.invalidate_target_check_box_2();
             });
         self.panel
             .when_do_sync(target.enable_only_if_fx_has_focus.changed(), |view| {
-                view.invalidate_target_only_if_fx_has_focus_check_box();
+                view.invalidate_target_check_box_3();
             });
     }
 
@@ -3285,19 +3306,15 @@ impl View for MappingPanel {
             root::ID_SETTINGS_RESET_BUTTON => self.write(|p| p.reset_mode()),
             // Target
             root::ID_TARGET_CHECK_BOX_1 => self.write(|p| p.handle_target_check_box_1_change()),
-            root::ID_TARGET_FX_FOCUS_CHECK_BOX => {
-                self.write(|p| p.update_target_only_if_fx_has_focus())
-            }
-            root::ID_TARGET_TRACK_SELECTED_CHECK_BOX => {
-                self.write(|p| p.update_target_only_if_track_is_selected())
-            }
+            root::ID_TARGET_CHECK_BOX_2 => self.write(|p| p.handle_target_check_box_2_change()),
+            root::ID_TARGET_CHECK_BOX_3 => self.write(|p| p.handle_target_check_box_3_change()),
             root::ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
             root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             root::ID_TARGET_LINE_2_BUTTON => {
                 self.write(|p| p.handle_target_line_2_button_press());
             }
-            root::ID_TARGET_TAKE_SNAPSHOT_BUTTON => {
-                let _ = self.take_snapshot();
+            root::ID_TARGET_LINE_4_BUTTON => {
+                let _ = self.handle_target_line_4_button_press();
             }
             _ => unreachable!(),
         }
@@ -3338,8 +3355,8 @@ impl View for MappingPanel {
             root::ID_TARGET_LINE_3_COMBO_BOX_2 => {
                 self.write(|p| p.handle_target_line_3_combo_box_2_change());
             }
-            root::ID_TARGET_FX_PARAMETER_COMBO_BOX => {
-                self.write(|p| p.update_target_from_combo_box_line_four())
+            root::ID_TARGET_LINE_4_COMBO_BOX_2 => {
+                self.write(|p| p.handle_target_line_4_combo_box_2_change())
             }
             _ => unreachable!(),
         }
@@ -3603,6 +3620,13 @@ fn fx_combo_box_entries(chain: &FxChain) -> impl Iterator<Item = String> + Exact
 
 fn send_combo_box_entries(track: &Track) -> impl Iterator<Item = String> + ExactSizeIterator + '_ {
     track.sends().map(|send| send.to_string())
+}
+
+fn fx_parameter_combo_box_entries(
+    fx: &Fx,
+) -> impl Iterator<Item = String> + ExactSizeIterator + '_ {
+    fx.parameters()
+        .map(|param| get_fx_param_label(Some(&param), param.index()).to_string())
 }
 
 fn bookmark_combo_box_entries(

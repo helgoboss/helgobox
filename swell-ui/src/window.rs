@@ -300,7 +300,7 @@ impl Window {
         Ok(())
     }
 
-    pub fn select_combo_box_item_by_index_internal(self, index: usize) {
+    fn select_combo_box_item_by_index_internal(self, index: usize) {
         unsafe {
             Swell::get().SendMessage(self.raw, raw::CB_SETCURSEL, index, 0);
         }
