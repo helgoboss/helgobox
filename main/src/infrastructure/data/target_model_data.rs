@@ -363,7 +363,7 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
     match route.selector_type {
         Dynamic => TrackRouteData {
             selector_type: Some(route.selector_type),
-            r#type: Some(route.r#type),
+            r#type: route.r#type,
             index: None,
             guid: None,
             name: None,
@@ -371,7 +371,7 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
         },
         ById => TrackRouteData {
             selector_type: Some(route.selector_type),
-            r#type: Some(route.r#type),
+            r#type: route.r#type,
             index: None,
             guid: route.id.map(|id| id.to_string_without_braces()),
             name: None,
@@ -379,7 +379,7 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
         },
         ByName => TrackRouteData {
             selector_type: Some(route.selector_type),
-            r#type: Some(route.r#type),
+            r#type: route.r#type,
             index: None,
             guid: None,
             name: Some(route.name),
@@ -389,7 +389,7 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
             // Before 2.8.0 we didn't have a selector type and this was the default ... let's leave
             // it at that.
             selector_type: None,
-            r#type: Some(route.r#type),
+            r#type: route.r#type,
             index: Some(route.index),
             guid: None,
             name: None,
@@ -430,12 +430,15 @@ struct TrackRouteData {
     )]
     selector_type: Option<TrackRouteSelectorType>,
     #[serde(rename = "routeType", default, skip_serializing_if = "is_default")]
-    r#type: Option<TrackRouteType>,
+    r#type: TrackRouteType,
+    /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the send
+    /// index to be undefined (-1). However, going with a default of 0 is also okay so
+    /// `None` and `Some(0)` means essentially the same thing to us now.
     #[serde(
         rename = "sendIndex",
         deserialize_with = "none_if_minus_one",
         default,
-        skip_serializing_if = "is_default"
+        skip_serializing_if = "is_none_or_some_default"
     )]
     index: Option<u32>,
     #[serde(rename = "routeGuid", default, skip_serializing_if = "is_default")]
@@ -717,7 +720,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
         TrackRouteData {
             // Important (because index is always given we need this as distinction).
             selector_type: None,
-            r#type: None,
+            r#type: TrackRouteType::Send,
             index: Some(i),
             ..
         } => TrackRoutePropValues {
@@ -729,7 +732,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
         // These are the new ones.
         TrackRouteData {
             selector_type: Some(TrackRouteSelectorType::ById),
-            r#type: Some(t),
+            r#type: t,
             guid: Some(g),
             ..
         } => {
@@ -743,7 +746,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
         }
         TrackRouteData {
             selector_type: Some(TrackRouteSelectorType::ByIndex),
-            r#type: Some(t),
+            r#type: t,
             index: Some(i),
             ..
         } => TrackRoutePropValues {
@@ -754,7 +757,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
         },
         TrackRouteData {
             selector_type: Some(TrackRouteSelectorType::ByName),
-            r#type: Some(t),
+            r#type: t,
             name: Some(name),
             ..
         } => TrackRoutePropValues {
@@ -765,7 +768,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
         },
         TrackRouteData {
             selector_type: Some(TrackRouteSelectorType::Dynamic),
-            r#type: Some(t),
+            r#type: t,
             expression: Some(e),
             ..
         } => TrackRoutePropValues {
