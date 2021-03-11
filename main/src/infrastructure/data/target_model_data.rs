@@ -1,6 +1,6 @@
 use super::f32_as_u32;
 use super::none_if_minus_one;
-use reaper_high::{BookmarkType, Guid, Reaper};
+use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
     BookmarkAnchorType, FxParameterPropValues, FxPropValues, FxSnapshot, ReaperTargetType,
@@ -10,8 +10,8 @@ use crate::application::{
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    ActionInvocationType, ExtendedProcessorContext, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, SoloBehavior,
+    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use derive_more::{Display, Error};
 use semver::Version;
@@ -161,7 +161,8 @@ impl TargetModelData {
         model
             .enable_only_if_track_selected
             .set_without_notification(self.enable_only_if_track_is_selected);
-        let fx_prop_values = deserialize_fx(&self.fx_data);
+        let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
+        let fx_prop_values = deserialize_fx(&self.fx_data, context, &virtual_track);
         model.set_fx_without_notification(fx_prop_values);
         model
             .enable_only_if_fx_has_focus
@@ -576,7 +577,11 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
     }
 }
 
-fn deserialize_fx(fx_data: &FxData) -> FxPropValues {
+fn deserialize_fx(
+    fx_data: &FxData,
+    context: Option<ExtendedProcessorContext>,
+    virtual_track: &VirtualTrack,
+) -> FxPropValues {
     match fx_data {
         FxData { guid: Some(g), .. } if g == "focused" => FxPropValues {
             r#type: VirtualFxType::Focused,
@@ -627,7 +632,7 @@ fn deserialize_fx(fx_data: &FxData) -> FxPropValues {
             }
         }
         // Before ReaLearn 1.12.0 only the index was saved, even for IdOrIndex anchor. The GUID was
-        // looked up at runtime whenever loading the project.
+        // looked up at runtime whenever loading the project. Do it!
         FxData {
             anchor: None,
             guid: None,
@@ -636,10 +641,17 @@ fn deserialize_fx(fx_data: &FxData) -> FxPropValues {
             is_input_fx,
             ..
         } => {
+            let fx = get_guid_based_fx_at_index(
+                context.expect("trying to load pre-1.12.0 FX target without processor context"),
+                virtual_track,
+                *is_input_fx,
+                *i,
+            )
+            .ok();
             FxPropValues {
                 r#type: VirtualFxType::ByIdOrIndex,
                 is_input_fx: *is_input_fx,
-                // TODO-high Before the ID was looked up ... make sure that other logic does this.
+                id: fx.and_then(|f| f.guid()),
                 index: *i,
                 ..Default::default()
             }
@@ -803,4 +815,14 @@ struct BookmarkData {
         skip_serializing_if = "is_default"
     )]
     is_region: bool,
+}
+
+pub fn get_guid_based_fx_at_index(
+    context: ExtendedProcessorContext,
+    track: &VirtualTrack,
+    is_input_fx: bool,
+    fx_index: u32,
+) -> Result<Fx, &'static str> {
+    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
 }

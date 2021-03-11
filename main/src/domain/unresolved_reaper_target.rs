@@ -829,8 +829,7 @@ pub enum VirtualChainFx {
     ///
     /// The index comes into play as fallback whenever track is "<Selected>" or the GUID can't be
     /// determined (is `None`). I'm not sure how latter is possible but I keep it for backward
-    /// compatibility. // TODO-high This could actually be the case with pre 1.12.0 presets now
-    /// that we don't lookup the GUID on load anymore.
+    /// compatibility.
     ByIdOrIndex(Option<Guid>, u32),
 }
 
