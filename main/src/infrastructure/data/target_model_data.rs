@@ -456,14 +456,23 @@ struct TrackRouteData {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FxData {
-    /// Since 1.12.0-pre8
+    /// Since 1.12.0-pre8. This is an option because we changed the default and wanted an easy
+    /// way to detect when an old preset is loaded.
+    // TODO-low If we would have a look at the version number at deserialization time, we could
+    //  make it work without the option. Then we could also go without redundant "fxAnchor": "id" in
+    //  current JSON. However, we introduced version numbers in 1.12.0-pre18 so this could
+    //  negatively effect some prerelease testers. Another way to get rid of the redundant
+    //  "fxAnchor" property would be to set this to none if the target type doesn't support FX.
     #[serde(rename = "fxAnchor", default, skip_serializing_if = "is_default")]
     anchor: Option<VirtualFxType>,
+    /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the FX
+    /// index to be undefined (-1). However, going with a default of 0 is also okay so
+    /// `None` and `Some(0)` means essentially the same thing to us now.
     #[serde(
         rename = "fxIndex",
         deserialize_with = "none_if_minus_one",
         default,
-        skip_serializing_if = "is_default"
+        skip_serializing_if = "is_none_or_some_default"
     )]
     index: Option<u32>,
     /// Since 1.12.0-pre1
