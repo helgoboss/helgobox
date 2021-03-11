@@ -516,6 +516,9 @@ on macOS) with the following entries:
     - **&lt;New&gt;:** Opens a window for adding a new OSC devices.
         - **Name:** A descriptive name of the device, e.g. "TouchOSC on my Android phone".
         - **Local port:** Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
+            - **Important:** This port must be reserved exclusively for ReaLearn. If you already use this port
+              in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless
+              you with an "unable to connect" message in the "Control input" dropdown. 
         - **Device host:** Required for feedback only. The IP address of the OSC device to which ReaLearn
           should send feedback messages. When targeting an OSC software that runs on the same computer as REAPER and
           ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
