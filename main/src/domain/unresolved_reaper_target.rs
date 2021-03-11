@@ -195,9 +195,15 @@ impl UnresolvedReaperTarget {
                 chunk: chunk.clone(),
                 chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
             },
-            LastTouched => DomainGlobal::get()
-                .last_touched_target()
-                .ok_or("no last touched target")?,
+            LastTouched => {
+                let last_touched_target = DomainGlobal::get()
+                    .last_touched_target()
+                    .ok_or("no last touched target")?;
+                if !last_touched_target.is_available() {
+                    return Err("last touched target gone");
+                }
+                last_touched_target
+            }
             AutomationTouchState {
                 track_descriptor,
                 parameter_type,

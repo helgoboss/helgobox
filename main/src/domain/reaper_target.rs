@@ -691,6 +691,32 @@ impl RealearnTarget for ReaperTarget {
 }
 
 impl ReaperTarget {
+    pub fn is_available(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            Action { action, .. } => action.is_available(),
+            FxParameter { param } => param.is_available(),
+            TrackArm { track, .. }
+            | TrackSelection { track, .. }
+            | TrackMute { track, .. }
+            | TrackSolo { track, .. }
+            | AllTrackFxEnable { track, .. }
+            | AutomationTouchState { track, .. }
+            | TrackVolume { track }
+            | TrackPan { track }
+            | TrackWidth { track } => track.is_available(),
+            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
+                route.is_available()
+            }
+            Tempo { project }
+            | Playrate { project }
+            | Transport { project, .. }
+            | SelectedTrack { project }
+            | GoToBookmark { project, .. } => project.is_available(),
+            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.is_available(),
+        }
+    }
+
     fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
         use ReaperTarget::*;
         use TargetCharacter::*;
