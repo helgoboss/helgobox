@@ -8,7 +8,9 @@ use helgoboss_learn::{
     SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
-use reaper_high::{BookmarkType, Fx, FxChain, Project, Reaper, Track};
+use reaper_high::{
+    BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
+};
 use reaper_low::raw;
 use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
 use rx_util::UnitEvent;
@@ -31,7 +33,8 @@ use crate::application::{
 };
 use crate::core::Global;
 use crate::domain::{
-    get_non_present_virtual_track_label, ActionInvocationType, CompoundMappingTarget,
+    get_non_present_virtual_route_label, get_non_present_virtual_track_label,
+    resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
     ExtendedProcessorContext, MappingCompartment, MappingId, RealearnTarget, ReaperTarget,
     SoloBehavior, TargetCharacter, TouchedParameterType, TrackExclusivity, TrackRouteType,
     TransportAction, VirtualControlElement, VirtualFx,
@@ -1318,18 +1321,21 @@ impl<'a> MutableMappingPanel<'a> {
                 t if t.supports_send() => {
                     if let Ok(track) = self.target_with_context().effective_track() {
                         let i = combo.selected_combo_box_item_index();
-                        if let Some(send) = track.send_by_index(i as _) {
-                            let target_track = send.target_track();
-                            self.mapping.target_model.route_id.set(Some(*track.guid()));
-                            // We also set index and name so that we can easily switch between
-                            // types.
+                        let route_type = self.mapping.target_model.route_type.get();
+                        if let Ok(route) = resolve_track_route_by_index(&track, route_type, i as _)
+                        {
+                            if let Some(TrackRoutePartner::Track(t)) = route.partner() {
+                                // Track send/receive. We use the partner track ID as stable ID!
+                                self.mapping.target_model.route_id.set(Some(*t.guid()));
+                            }
+                            // We also set index and name. First because hardware output relies on
+                            // the index as "ID", but also so we can easily switch between
+                            // selector types.
                             self.mapping.target_model.route_index.set(i as _);
-                            self.mapping.target_model.route_name.set(
-                                target_track
-                                    .name()
-                                    .map(|s| s.into_string())
-                                    .unwrap_or_default(),
-                            );
+                            self.mapping
+                                .target_model
+                                .route_name
+                                .set(route.name().into_string());
                         }
                     }
                 }
@@ -1956,7 +1962,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.show();
                         let context = self.session.extended_context();
                         let project = context.context.project_or_current_project();
+                        // Fill
                         combo.fill_combo_box_indexed(track_combo_box_entries(project));
+                        // Set
                         if let Some(virtual_track) = self.target.virtual_track() {
                             if let Ok(track) = virtual_track.resolve(context) {
                                 let i = track.index().unwrap();
@@ -2405,17 +2413,38 @@ impl<'a> ImmutableMappingPanel<'a> {
                     if self.target.route_selector_type.get() == TrackRouteSelectorType::ById {
                         combo.show();
                         let context = self.session.extended_context();
-                        if let Ok(track) = self.target.with_context(context).effective_track() {
+                        let target_with_context = self.target.with_context(context);
+                        if let Ok(track) = target_with_context.effective_track() {
                             // Fill
-                            combo.fill_combo_box_indexed(send_combo_box_entries(&track));
+                            let route_type = self.target.route_type.get();
+                            combo.fill_combo_box_indexed_vec(send_combo_box_entries(
+                                &track, route_type,
+                            ));
                             // Set
-                            let i = self.target.route_index.get();
-                            combo
-                                .select_combo_box_item_by_index(i as _)
-                                .unwrap_or_else(|_| {
-                                    let pity_label = format!("{}. <Not present>", i + 1);
-                                    combo.select_new_combo_box_item(pity_label);
-                                });
+                            if route_type == TrackRouteType::HardwareOutput {
+                                // Hardware output uses indexes, not IDs.
+                                let i = self.target.route_index.get();
+                                combo
+                                    .select_combo_box_item_by_index(i as _)
+                                    .unwrap_or_else(|_| {
+                                        let pity_label = format!("{}. <Not present>", i + 1);
+                                        combo.select_new_combo_box_item(pity_label);
+                                    });
+                            } else {
+                                // This is the real case. We use IDs.
+                                if let Ok(virtual_route) = self.target.virtual_track_route() {
+                                    if let Ok(route) = virtual_route.resolve(&track, context) {
+                                        let i = route.track_route_index().unwrap();
+                                        combo.select_combo_box_item_by_index(i as _).unwrap();
+                                    } else {
+                                        combo.select_new_combo_box_item(
+                                            get_non_present_virtual_route_label(&virtual_route),
+                                        );
+                                    }
+                                } else {
+                                    combo.select_new_combo_box_item("<None>");
+                                }
+                            }
                         } else {
                             combo.select_only_combo_box_item("<Requires track>");
                         }
@@ -3818,8 +3847,18 @@ fn fx_combo_box_entries(chain: &FxChain) -> impl Iterator<Item = String> + Exact
         .map(|(i, fx)| get_fx_label(i as u32, &fx))
 }
 
-fn send_combo_box_entries(track: &Track) -> impl Iterator<Item = String> + ExactSizeIterator + '_ {
-    track.sends().map(|send| send.to_string())
+fn send_combo_box_entries(track: &Track, route_type: TrackRouteType) -> Vec<String> {
+    match route_type {
+        TrackRouteType::Send => track
+            .typed_sends(SendPartnerType::Track)
+            .map(|route| route.to_string())
+            .collect(),
+        TrackRouteType::Receive => track.receives().map(|route| route.to_string()).collect(),
+        TrackRouteType::HardwareOutput => track
+            .typed_sends(SendPartnerType::HardwareOutput)
+            .map(|route| route.to_string())
+            .collect(),
+    }
 }
 
 fn fx_parameter_combo_box_entries(

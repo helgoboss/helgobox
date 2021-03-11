@@ -4,7 +4,7 @@ use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxParameter,
-    FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackSend, Volume, Width,
+    FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Volume, Width,
 };
 use reaper_medium::{
     BookmarkRef, Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
@@ -69,8 +69,8 @@ pub enum ReaperTarget {
     TrackVolume {
         track: Track,
     },
-    TrackSendVolume {
-        send: TrackSend,
+    TrackRouteVolume {
+        route: TrackRoute,
     },
     TrackPan {
         track: Track,
@@ -95,11 +95,11 @@ pub enum ReaperTarget {
         behavior: SoloBehavior,
         exclusivity: TrackExclusivity,
     },
-    TrackSendPan {
-        send: TrackSend,
+    TrackRoutePan {
+        route: TrackRoute,
     },
-    TrackSendMute {
-        send: TrackSend,
+    TrackRouteMute {
+        route: TrackRoute,
     },
     Tempo {
         project: Project,
@@ -180,8 +180,8 @@ impl RealearnTarget for ReaperTarget {
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => parse_value_from_db(text),
-            TrackPan { .. } | TrackSendPan { .. } => parse_value_from_pan(text),
+            TrackVolume { .. } | TrackRouteVolume { .. } => parse_value_from_db(text),
+            TrackPan { .. } | TrackRoutePan { .. } => parse_value_from_pan(text),
             Playrate { .. } => parse_value_from_playback_speed_factor(text),
             Tempo { .. } => parse_value_from_bpm(text),
             FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
@@ -195,7 +195,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackSolo { .. }
-            | TrackSendMute { .. }
+            | TrackRouteMute { .. }
             | GoToBookmark { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
@@ -218,15 +218,15 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
@@ -260,7 +260,7 @@ impl RealearnTarget for ReaperTarget {
             }
             Action { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
@@ -268,8 +268,8 @@ impl RealearnTarget for ReaperTarget {
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | Tempo { .. }
             | Playrate { .. }
             | FxEnable { .. }
@@ -284,8 +284,8 @@ impl RealearnTarget for ReaperTarget {
     fn format_value_without_unit(&self, value: UnitValue) -> String {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db_without_unit(value),
-            TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
+            TrackVolume { .. } | TrackRouteVolume { .. } => format_value_as_db_without_unit(value),
+            TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
             Action { .. }
@@ -296,7 +296,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendMute { .. }
+            | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
@@ -316,15 +316,15 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
@@ -340,10 +340,10 @@ impl RealearnTarget for ReaperTarget {
         matches!(
             self,
             TrackVolume { .. }
-                | TrackSendVolume { .. }
+                | TrackRouteVolume { .. }
                 | TrackPan { .. }
                 | TrackWidth { .. }
-                | TrackSendPan { .. }
+                | TrackRoutePan { .. }
                 | Playrate { .. }
                 | Tempo { .. }
         )
@@ -354,10 +354,10 @@ impl RealearnTarget for ReaperTarget {
         matches!(
             self,
             TrackVolume { .. }
-                | TrackSendVolume { .. }
+                | TrackRouteVolume { .. }
                 | TrackPan { .. }
                 | TrackWidth { .. }
-                | TrackSendPan { .. }
+                | TrackRoutePan { .. }
                 | Playrate { .. }
                 | Tempo { .. }
         )
@@ -366,7 +366,7 @@ impl RealearnTarget for ReaperTarget {
     fn value_unit(&self) -> &'static str {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackSendVolume { .. } => "dB",
+            TrackVolume { .. } | TrackRouteVolume { .. } => "dB",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
             Action { .. }
@@ -378,14 +378,14 @@ impl RealearnTarget for ReaperTarget {
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendMute { .. }
+            | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Transport { .. } => "%",
-            TrackPan { .. } | TrackSendPan { .. } => "",
+            TrackPan { .. } | TrackRoutePan { .. } => "",
         }
     }
 
@@ -399,20 +399,20 @@ impl RealearnTarget for ReaperTarget {
             | FxParameter { .. }
             | TrackVolume { .. }
             | TrackWidth { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendMute { .. }
+            | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Transport { .. } => "%",
-            TrackPan { .. } | TrackSendPan { .. } => "",
+            TrackPan { .. } | TrackRoutePan { .. } => "",
         }
     }
 
@@ -425,13 +425,13 @@ impl RealearnTarget for ReaperTarget {
                 .format_reaper_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
                 .map(|s| s.into_string())
                 .unwrap_or_else(|_| self.format_value_generic(value)),
-            TrackVolume { .. } | TrackSendVolume { .. } => format_value_as_db(value),
-            TrackPan { .. } | TrackSendPan { .. } => format_value_as_pan(value),
+            TrackVolume { .. } | TrackRouteVolume { .. } => format_value_as_db(value),
+            TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             FxEnable { .. }
             | TrackArm { .. }
             | TrackMute { .. }
             | GoToBookmark { .. }
-            | TrackSendMute { .. }
+            | TrackRouteMute { .. }
             | TrackSelection { .. }
             | TrackSolo { .. } => format_value_as_on_off(value).to_string(),
             FxPreset { fx } => match convert_unit_value_to_preset_index(fx, value) {
@@ -490,9 +490,9 @@ impl RealearnTarget for ReaperTarget {
                 let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
                 track.set_volume(volume.unwrap_or(Volume::MIN));
             }
-            TrackSendVolume { send } => {
+            TrackRouteVolume { route } => {
                 let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
-                send.set_volume(volume.unwrap_or(Volume::MIN));
+                route.set_volume(volume.unwrap_or(Volume::MIN));
             }
             TrackPan { track } => {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
@@ -554,15 +554,15 @@ impl RealearnTarget for ReaperTarget {
                     solo_track(track);
                 }
             }
-            TrackSendPan { send } => {
+            TrackRoutePan { route } => {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
-                send.set_pan(pan);
+                route.set_pan(pan);
             }
-            TrackSendMute { send } => {
+            TrackRouteMute { route } => {
                 if value.as_absolute()?.is_zero() {
-                    send.unmute();
+                    route.unmute();
                 } else {
-                    send.mute();
+                    route.mute();
                 }
             }
             Tempo { project } => {
@@ -771,7 +771,7 @@ impl ReaperTarget {
                 },
                 Discrete,
             ),
-            TrackSendMute { .. } | FxEnable { .. } | Transport { .. } => {
+            TrackRouteMute { .. } | FxEnable { .. } | Transport { .. } => {
                 (ControlType::AbsoluteContinuous, Switch)
             }
             TrackSolo { exclusivity, .. }
@@ -787,10 +787,10 @@ impl ReaperTarget {
                 }
             }
             TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
-            | TrackSendPan { .. } => (ControlType::AbsoluteContinuous, Continuous),
+            | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
@@ -876,8 +876,8 @@ impl ReaperTarget {
                     return None;
                 }
             }
-            TrackSendVolumeChanged(e) if e.touched => TrackSendVolume { send: e.send },
-            TrackSendPanChanged(e) if e.touched => TrackSendPan { send: e.send },
+            TrackRouteVolumeChanged(e) if e.touched => TrackRouteVolume { route: e.route },
+            TrackRoutePanChanged(e) if e.touched => TrackRoutePan { route: e.route },
             TrackArmChanged(e) => TrackArm {
                 track: e.track,
                 exclusivity: Default::default(),
@@ -1007,13 +1007,13 @@ impl ReaperTarget {
             )
             .merge(
                 csurf_rx
-                    .track_send_volume_touched()
-                    .map(move |send| TrackSendVolume { send }.into()),
+                    .track_route_volume_touched()
+                    .map(move |route| TrackRouteVolume { route }.into()),
             )
             .merge(
                 csurf_rx
-                    .track_send_pan_touched()
-                    .map(move |send| TrackSendPan { send }.into()),
+                    .track_route_pan_touched()
+                    .map(move |route| TrackRoutePan { route }.into()),
             )
             .merge(
                 action_rx
@@ -1079,7 +1079,7 @@ impl ReaperTarget {
             }
             Action { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
@@ -1087,8 +1087,8 @@ impl ReaperTarget {
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | Tempo { .. }
             | Playrate { .. }
             | FxEnable { .. }
@@ -1118,8 +1118,8 @@ impl ReaperTarget {
             | TrackSolo { track, .. }
             | AutomationTouchState { track, .. }
             | AllTrackFxEnable { track, .. } => track.project(),
-            TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
-                send.source_track().project()
+            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
+                route.track().project()
             }
             GoToBookmark { project, .. }
             | Tempo { project }
@@ -1142,8 +1142,8 @@ impl ReaperTarget {
             | TrackMute { track, .. }
             | AutomationTouchState { track, .. }
             | TrackSolo { track, .. } => track,
-            TrackSendPan { send } | TrackSendMute { send } | TrackSendVolume { send } => {
-                send.source_track()
+            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
+                route.track()
             }
             FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.track()?,
             AllTrackFxEnable { track, .. } => track,
@@ -1164,7 +1164,7 @@ impl ReaperTarget {
             FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
             Action { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
@@ -1172,8 +1172,8 @@ impl ReaperTarget {
             | TrackMute { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | Tempo { .. }
             | Playrate { .. }
             | SelectedTrack { .. }
@@ -1184,10 +1184,12 @@ impl ReaperTarget {
         Some(fx)
     }
 
-    pub fn send(&self) -> Option<&TrackSend> {
+    pub fn route(&self) -> Option<&TrackRoute> {
         use ReaperTarget::*;
-        let send = match self {
-            TrackSendPan { send } | TrackSendVolume { send } | TrackSendMute { send } => send,
+        let route = match self {
+            TrackRoutePan { route } | TrackRouteVolume { route } | TrackRouteMute { route } => {
+                route
+            }
             FxParameter { .. }
             | FxEnable { .. }
             | FxPreset { .. }
@@ -1208,7 +1210,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | Transport { .. } => return None,
         };
-        Some(send)
+        Some(route)
     }
 
     pub fn track_exclusivity(&self) -> Option<TrackExclusivity> {
@@ -1218,14 +1220,14 @@ impl ReaperTarget {
             Action { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | Tempo { .. }
             | GoToBookmark { .. }
             | Playrate { .. }
@@ -1245,14 +1247,14 @@ impl ReaperTarget {
             Action { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackSolo { .. }
-            | TrackSendPan { .. }
+            | TrackRoutePan { .. }
             | Tempo { .. }
             | Playrate { .. }
             | FxEnable { .. }
@@ -1262,7 +1264,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             | Transport { .. } => true,
-            AllTrackFxEnable { .. } | TrackSendMute { .. } => false,
+            AllTrackFxEnable { .. } | TrackRouteMute { .. } => false,
         }
     }
 
@@ -1336,9 +1338,9 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            TrackSendVolume { send } => {
+            TrackRouteVolume { route } => {
                 match evt {
-                    TrackSendVolumeChanged(e) if &e.send == send => (
+                    TrackRouteVolumeChanged(e) if &e.route == route => (
                         true,
                         Some(volume_unit_value(Volume::from_reaper_value(e.new_value)))
                     ),
@@ -1412,9 +1414,9 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            TrackSendPan { send } => {
+            TrackRoutePan { route } => {
                 match evt {
-                    TrackSendPanChanged(e) if &e.send == send => (
+                    TrackRoutePanChanged(e) if &e.route == route => (
                         true,
                         Some(pan_unit_value(Pan::from_reaper_value(e.new_value)))
                     ),
@@ -1498,7 +1500,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             // No value change notification available.
-            | TrackSendMute { .. }
+            | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
              => (false, None),
         }
@@ -1527,15 +1529,15 @@ impl Target for ReaperTarget {
                 fx_parameter_unit_value(param, param.reaper_normalized_value())
             }
             TrackVolume { track } => volume_unit_value(track.volume()),
-            TrackSendVolume { send } => volume_unit_value(send.volume()),
+            TrackRouteVolume { route } => volume_unit_value(route.volume()),
             TrackPan { track } => pan_unit_value(track.pan()),
             TrackWidth { track } => width_unit_value(track.width()),
             TrackArm { track, .. } => track_arm_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => track_selected_unit_value(track.is_selected()),
             TrackMute { track, .. } => mute_unit_value(track.is_muted()),
             TrackSolo { track, .. } => track_solo_unit_value(track.is_solo()),
-            TrackSendPan { send } => pan_unit_value(send.pan()),
-            TrackSendMute { send } => mute_unit_value(send.is_muted()),
+            TrackRoutePan { route } => pan_unit_value(route.pan()),
+            TrackRouteMute { route } => mute_unit_value(route.is_muted()),
             Tempo { project } => tempo_unit_value(project.tempo()),
             Playrate { project } => playrate_unit_value(project.play_rate()),
             FxEnable { fx } => fx_enable_unit_value(fx.is_enabled()),

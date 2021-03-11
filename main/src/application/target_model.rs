@@ -4,25 +4,27 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use reaper_high::{Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackSend};
+use reaper_high::{
+    Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
+};
 
 use rx_util::{Event, UnitEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    find_bookmark, get_fx, get_fx_param, get_track_send, ActionInvocationType,
-    CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FxDescriptor,
-    FxParameterDescriptor, ProcessorContext, ReaperTarget, SoloBehavior, TouchedParameterType,
-    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
-    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
-    VirtualControlElement, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
+    ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
+    FxDescriptor, FxParameterDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
+    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
+    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
+    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualFx, VirtualFxParameter,
+    VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 
-use reaper_medium::BookmarkId;
+use reaper_medium::{BookmarkId, TrackSendDirection};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -284,7 +286,7 @@ impl TargetModel {
         } else if let Some(track) = target.track() {
             self.set_virtual_track(virtualize_track(track.clone(), context));
         }
-        if let Some(send) = target.send() {
+        if let Some(send) = target.route() {
             let virtual_route = virtualize_route(send, context);
             self.set_virtual_route(virtual_route);
         }
@@ -321,14 +323,14 @@ impl TargetModel {
                 self.bookmark_type.set(*bookmark_type);
             }
             TrackVolume { .. }
-            | TrackSendVolume { .. }
+            | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
             | Tempo { .. }
             | Playrate { .. }
             | FxEnable { .. }
@@ -431,7 +433,14 @@ impl TargetModel {
                     ExpressionEvaluator::compile(self.route_expression.get_ref()).ok()?;
                 TrackRouteSelector::Dynamic(Box::new(evaluator))
             }
-            ById => TrackRouteSelector::ById(self.route_id.get()?),
+            ById => {
+                if self.route_type.get() == TrackRouteType::HardwareOutput {
+                    // Hardware outputs don't offer stable IDs.
+                    TrackRouteSelector::ByIndex(self.route_index.get())
+                } else {
+                    TrackRouteSelector::ById(self.route_id.get()?)
+                }
+            }
             ByName => TrackRouteSelector::ByName(self.route_name.get_ref().clone()),
             ByIndex => TrackRouteSelector::ByIndex(self.route_index.get()),
         };
@@ -505,12 +514,17 @@ impl TargetModel {
     fn track_route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
         let desc = TrackRouteDescriptor {
             track_descriptor: self.track_descriptor()?,
-            route: VirtualTrackRoute {
-                r#type: self.route_type.get(),
-                selector: self.track_route_selector().ok_or("track route not set")?,
-            },
+            route: self.virtual_track_route()?,
         };
         Ok(desc)
+    }
+
+    pub fn virtual_track_route(&self) -> Result<VirtualTrackRoute, &'static str> {
+        let route = VirtualTrackRoute {
+            r#type: self.route_type.get(),
+            selector: self.track_route_selector().ok_or("track route not set")?,
+        };
+        Ok(route)
     }
 
     pub fn virtual_fx_parameter(&self) -> Option<VirtualFxParameter> {
@@ -723,6 +737,10 @@ pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'st
     }
 }
 
+pub fn get_route_label(route: &TrackRoute) -> Cow<'static, str> {
+    format!("{}. {}", route.index() + 1, route.name().to_str()).into()
+}
+
 pub fn get_virtual_fx_label(fx: Option<&Fx>, virtual_fx: Option<&VirtualFx>) -> Cow<'static, str> {
     let virtual_fx = match virtual_fx {
         None => return "<None>".into(),
@@ -747,6 +765,23 @@ pub fn get_virtual_fx_param_label(
         _ => match fx_param {
             None => format!("<Not present> ({})", virtual_fx_param).into(),
             Some(p) => get_fx_param_label(Some(p), p.index()),
+        },
+    }
+}
+
+pub fn get_virtual_route_label(
+    route: Option<&TrackRoute>,
+    virtual_route: Option<&VirtualTrackRoute>,
+) -> Cow<'static, str> {
+    let virtual_route = match virtual_route {
+        None => return "<None>".into(),
+        Some(r) => r,
+    };
+    match virtual_route.selector {
+        TrackRouteSelector::Dynamic(_) => "<Dynamic>".into(),
+        _ => match route {
+            None => get_non_present_virtual_route_label(virtual_route).into(),
+            Some(r) => get_route_label(r),
         },
     }
 }
@@ -816,8 +851,8 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     // Returns an error if that send (or track) doesn't exist.
-    fn track_send(&self) -> Result<TrackSend, &'static str> {
-        get_track_send(self.context, &self.target.track_route_descriptor()?)
+    pub fn track_route(&self) -> Result<TrackRoute, &'static str> {
+        get_track_route(self.context, &self.target.track_route_descriptor()?)
     }
 
     // Returns an error if that param (or FX) doesn't exist.
@@ -825,11 +860,19 @@ impl<'a> TargetModelWithContext<'a> {
         get_fx_param(self.context, &self.target.fx_parameter_descriptor()?)
     }
 
-    fn track_send_label(&self) -> Cow<str> {
-        match self.track_send().ok() {
-            None => "-".into(),
-            Some(s) => s.name().into_string().into(),
+    fn route_type_label(&self) -> &'static str {
+        match self.target.route_type.get() {
+            TrackRouteType::Send => "Send",
+            TrackRouteType::Receive => "Receive",
+            TrackRouteType::HardwareOutput => "Output",
         }
+    }
+
+    fn route_label(&self) -> Cow<str> {
+        get_virtual_route_label(
+            self.track_route().ok().as_ref(),
+            self.target.virtual_track_route().ok().as_ref(),
+        )
     }
 
     fn fx_label(&self) -> Cow<str> {
@@ -875,9 +918,10 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     TrackVolume => write!(f, "Track volume\nTrack {}", self.track_label()),
                     TrackSendVolume => write!(
                         f,
-                        "Track send volume\nTrack {}\nSend {}",
+                        "Track send volume\nTrack {}\n{} {}",
                         self.track_label(),
-                        self.track_send_label()
+                        self.route_type_label(),
+                        self.route_label()
                     ),
                     TrackPan => write!(f, "Track pan\nTrack {}", self.track_label()),
                     TrackWidth => write!(f, "Track width\nTrack {}", self.track_label()),
@@ -887,15 +931,17 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     TrackSolo => write!(f, "Track solo\nTrack {}", self.track_label()),
                     TrackSendPan => write!(
                         f,
-                        "Track send pan\nTrack {}\nSend {}",
+                        "Track send pan\nTrack {}\n{} {}",
                         self.track_label(),
-                        self.track_send_label()
+                        self.route_type_label(),
+                        self.route_label()
                     ),
                     TrackSendMute => write!(
                         f,
-                        "Track send mute\nTrack {}\nSend {}",
+                        "Track send mute\nTrack {}\n{} {}",
                         self.track_label(),
-                        self.track_send_label()
+                        self.route_type_label(),
+                        self.route_label()
                     ),
                     Tempo => write!(f, "Master tempo"),
                     Playrate => write!(f, "Master playrate"),
@@ -1058,15 +1104,15 @@ impl ReaperTargetType {
             Action { .. } => ReaperTargetType::Action,
             FxParameter { .. } => ReaperTargetType::FxParameter,
             TrackVolume { .. } => ReaperTargetType::TrackVolume,
-            TrackSendVolume { .. } => ReaperTargetType::TrackSendVolume,
+            TrackRouteVolume { .. } => ReaperTargetType::TrackSendVolume,
             TrackPan { .. } => ReaperTargetType::TrackPan,
             TrackWidth { .. } => ReaperTargetType::TrackWidth,
             TrackArm { .. } => ReaperTargetType::TrackArm,
             TrackSelection { .. } => ReaperTargetType::TrackSelection,
             TrackMute { .. } => ReaperTargetType::TrackMute,
             TrackSolo { .. } => ReaperTargetType::TrackSolo,
-            TrackSendPan { .. } => ReaperTargetType::TrackSendPan,
-            TrackSendMute { .. } => ReaperTargetType::TrackSendMute,
+            TrackRoutePan { .. } => ReaperTargetType::TrackSendPan,
+            TrackRouteMute { .. } => ReaperTargetType::TrackSendMute,
             Tempo { .. } => ReaperTargetType::Tempo,
             Playrate { .. } => ReaperTargetType::Playrate,
             FxEnable { .. } => ReaperTargetType::FxEnable,
@@ -1187,16 +1233,30 @@ fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
     }
 }
 
-fn virtualize_route(route: &TrackSend, context: &ProcessorContext) -> VirtualTrackRoute {
+fn virtualize_route(route: &TrackRoute, context: &ProcessorContext) -> VirtualTrackRoute {
+    let partner = route.partner();
     VirtualTrackRoute {
-        // TODO-high #200
-        r#type: TrackRouteType::Send,
+        r#type: match route.direction() {
+            TrackSendDirection::Receive => TrackRouteType::Receive,
+            TrackSendDirection::Send => {
+                if matches!(partner, Some(TrackRoutePartner::HardwareOutput(_))) {
+                    TrackRouteType::HardwareOutput
+                } else {
+                    TrackRouteType::Send
+                }
+            }
+        },
         selector: if context.is_on_monitoring_fx_chain() {
             // Doesn't make sense to refer to route via related-track UUID if we are on monitoring
             // FX chain.
             TrackRouteSelector::ByIndex(route.index())
         } else {
-            TrackRouteSelector::ById(*route.target_track().guid())
+            match partner {
+                None | Some(TrackRoutePartner::HardwareOutput(_)) => {
+                    TrackRouteSelector::ByIndex(route.index())
+                }
+                Some(TrackRoutePartner::Track(t)) => TrackRouteSelector::ById(*t.guid()),
+            }
         },
     }
 }

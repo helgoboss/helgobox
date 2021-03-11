@@ -10,7 +10,7 @@ use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
-    Track, TrackSend,
+    SendPartnerType, Track, TrackRoute,
 };
 use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackLocation};
 use serde::{Deserialize, Serialize};
@@ -116,8 +116,8 @@ impl UnresolvedReaperTarget {
             TrackVolume { track_descriptor } => ReaperTarget::TrackVolume {
                 track: get_effective_track(context, &track_descriptor.track)?,
             },
-            TrackSendVolume { descriptor } => ReaperTarget::TrackSendVolume {
-                send: get_track_send(context, descriptor)?,
+            TrackSendVolume { descriptor } => ReaperTarget::TrackRouteVolume {
+                route: get_track_route(context, descriptor)?,
             },
             TrackPan { track_descriptor } => ReaperTarget::TrackPan {
                 track: get_effective_track(context, &track_descriptor.track)?,
@@ -155,11 +155,11 @@ impl UnresolvedReaperTarget {
                 behavior: *behavior,
                 exclusivity: *exclusivity,
             },
-            TrackSendPan { descriptor } => ReaperTarget::TrackSendPan {
-                send: get_track_send(context, descriptor)?,
+            TrackSendPan { descriptor } => ReaperTarget::TrackRoutePan {
+                route: get_track_route(context, descriptor)?,
             },
-            TrackSendMute { descriptor } => ReaperTarget::TrackSendMute {
-                send: get_track_send(context, descriptor)?,
+            TrackSendMute { descriptor } => ReaperTarget::TrackRouteMute {
+                route: get_track_route(context, descriptor)?,
             },
             Tempo => ReaperTarget::Tempo {
                 project: context.context.project_or_current_project(),
@@ -323,15 +323,15 @@ pub fn get_effective_track(
 }
 
 // Returns an error if that send (or track) doesn't exist.
-pub fn get_track_send(
+pub fn get_track_route(
     context: ExtendedProcessorContext,
     descriptor: &TrackRouteDescriptor,
-) -> Result<TrackSend, &'static str> {
+) -> Result<TrackRoute, &'static str> {
     let track = get_effective_track(context, &descriptor.track_descriptor.track)?;
     descriptor
         .route
         .resolve(&track, context)
-        .map_err(|_| "send doesn't exist")
+        .map_err(|_| "route doesn't exist")
 }
 
 #[derive(Debug)]
@@ -365,7 +365,6 @@ pub struct VirtualTrackRoute {
     pub selector: TrackRouteSelector,
 }
 
-// TODO-high Maybe rename to "selector" or similar
 #[derive(Debug)]
 pub enum TrackRouteSelector {
     Dynamic(Box<ExpressionEvaluator>),
@@ -380,7 +379,7 @@ impl TrackRouteSelector {
         track: &Track,
         route_type: TrackRouteType,
         context: ExtendedProcessorContext,
-    ) -> Result<TrackSend, TrackRouteResolveError> {
+    ) -> Result<TrackRoute, TrackRouteResolveError> {
         use TrackRouteSelector::*;
         let route = match self {
             Dynamic(evaluator) => {
@@ -388,37 +387,21 @@ impl TrackRouteSelector {
                 resolve_track_route_by_index(track, route_type, i)?
             }
             ById(guid) => {
-                // TODO-high Respect route type!!! #200!
                 let related_track = track.project().track_by_guid(guid);
-                let route = track.send_by_target_track(related_track);
-                if !route.is_available() {
-                    return Err(TrackRouteResolveError::TrackRouteNotFound {
-                        guid: Some(*guid),
-                        name: None,
-                        index: None,
-                    });
-                }
-                route
+                let route = find_route_by_related_track(track, &related_track, route_type)?;
+                route.ok_or_else(|| TrackRouteResolveError::TrackRouteNotFound {
+                    guid: Some(*guid),
+                    name: None,
+                    index: None,
+                })?
             }
-            ByName(name) => {
-                // TODO-high Respect route type!!! #200!
-                let related_track = find_track_by_name(track.project(), name).ok_or(
-                    TrackRouteResolveError::TrackRouteNotFound {
-                        guid: None,
-                        name: Some(name.clone()),
-                        index: None,
-                    },
-                )?;
-                let route = track.send_by_target_track(related_track);
-                if !route.is_available() {
-                    return Err(TrackRouteResolveError::TrackRouteNotFound {
-                        guid: None,
-                        name: Some(name.clone()),
-                        index: None,
-                    });
+            ByName(name) => find_route_by_name(track, name, route_type).ok_or_else(|| {
+                TrackRouteResolveError::TrackRouteNotFound {
+                    guid: None,
+                    name: Some(name.clone()),
+                    index: None,
                 }
-                route
-            }
+            })?,
             ByIndex(i) => resolve_track_route_by_index(track, route_type, *i)?,
         };
         Ok(route)
@@ -465,12 +448,24 @@ impl TrackRouteSelector {
     }
 }
 
+impl fmt::Display for VirtualTrackRoute {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        use TrackRouteSelector::*;
+        match &self.selector {
+            Dynamic(_) => f.write_str("<Dynamic>"),
+            ById(id) => write!(f, "{}", id.to_string_without_braces()),
+            ByName(name) => write!(f, "\"{}\"", name),
+            ByIndex(i) => write!(f, "{}", i + 1),
+        }
+    }
+}
+
 impl VirtualTrackRoute {
     pub fn resolve(
         &self,
         track: &Track,
         context: ExtendedProcessorContext,
-    ) -> Result<TrackSend, TrackRouteResolveError> {
+    ) -> Result<TrackRoute, TrackRouteResolveError> {
         self.selector.resolve(track, self.r#type, context)
     }
 
@@ -509,7 +504,7 @@ pub enum TrackRouteType {
     #[display(fmt = "Receive")]
     Receive,
     #[serde(rename = "output")]
-    #[display(fmt = "Hardware output")]
+    #[display(fmt = "Output")]
     HardwareOutput,
 }
 
@@ -885,6 +880,8 @@ pub enum FxParameterResolveError {
 
 #[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
 pub enum TrackRouteResolveError {
+    #[display(fmt = "InvalidRoute")]
+    InvalidRoute,
     #[display(fmt = "TrackRouteNotFound")]
     TrackRouteNotFound {
         guid: Option<Guid>,
@@ -1032,6 +1029,10 @@ pub fn get_non_present_virtual_track_label(track: &VirtualTrack) -> String {
     format!("<Not present> ({})", track)
 }
 
+pub fn get_non_present_virtual_route_label(route: &VirtualTrackRoute) -> String {
+    format!("<Not present> ({})", route)
+}
+
 fn get_track_label(track: &Track) -> String {
     match track.location() {
         TrackLocation::MasterTrack => "<Master track>".into(),
@@ -1138,15 +1139,20 @@ fn resolve_track_by_index(project: Project, index: u32) -> Result<Track, TrackRe
         })
 }
 
-fn resolve_track_route_by_index(
+pub fn resolve_track_route_by_index(
     track: &Track,
     route_type: TrackRouteType,
     index: u32,
-) -> Result<TrackSend, TrackRouteResolveError> {
-    // TODO-high Respect route type!!! #200!
-    let send = track.index_based_send_by_index(index);
-    if send.is_available() {
-        Ok(send)
+) -> Result<TrackRoute, TrackRouteResolveError> {
+    let option = match route_type {
+        TrackRouteType::Send => track.typed_send_by_index(SendPartnerType::Track, index),
+        TrackRouteType::Receive => track.receive_by_index(index),
+        TrackRouteType::HardwareOutput => {
+            track.typed_send_by_index(SendPartnerType::HardwareOutput, index)
+        }
+    };
+    if let Some(route) = option {
+        Ok(route)
     } else {
         Err(TrackRouteResolveError::TrackRouteNotFound {
             guid: None,
@@ -1215,5 +1221,31 @@ pub fn find_bookmark(
         BookmarkAnchorType::Id => project
             .find_bookmark_by_type_and_id(bookmark_type, BookmarkId::new(bookmark_ref))
             .ok_or("bookmark with that type and ID not found"),
+    }
+}
+
+fn find_route_by_related_track(
+    main_track: &Track,
+    related_track: &Track,
+    route_type: TrackRouteType,
+) -> Result<Option<TrackRoute>, TrackRouteResolveError> {
+    let option = match route_type {
+        TrackRouteType::Send => main_track.find_send_by_destination_track(&related_track),
+        TrackRouteType::Receive => main_track.find_receive_by_source_track(&related_track),
+        TrackRouteType::HardwareOutput => {
+            return Err(TrackRouteResolveError::InvalidRoute);
+        }
+    };
+    Ok(option)
+}
+
+fn find_route_by_name(track: &Track, name: &str, route_type: TrackRouteType) -> Option<TrackRoute> {
+    let matcher = |r: &TrackRoute| r.name().to_str() == name;
+    match route_type {
+        TrackRouteType::Send => track.typed_sends(SendPartnerType::Track).find(matcher),
+        TrackRouteType::Receive => track.receives().find(matcher),
+        TrackRouteType::HardwareOutput => track
+            .typed_sends(SendPartnerType::HardwareOutput)
+            .find(matcher),
     }
 }
