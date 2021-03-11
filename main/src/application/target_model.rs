@@ -901,7 +901,8 @@ impl<'a> Display for TargetModelWithContext<'a> {
         match self.target.category.get() {
             Reaper => {
                 use ReaperTargetType::*;
-                match self.target.r#type.get() {
+                let tt = self.target.r#type.get();
+                match tt {
                     Action => write!(
                         f,
                         "Action {}\n{}",
@@ -910,41 +911,44 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     ),
                     FxParameter => write!(
                         f,
-                        "Track FX parameter\nTrack {}\nFX {}\nParam {}",
+                        "{}\nTrack {}\nFX {}\nParam {}",
+                        tt,
                         self.track_label(),
                         self.fx_label(),
                         self.fx_param_label()
                     ),
-                    TrackVolume => write!(f, "Track volume\nTrack {}", self.track_label()),
+                    TrackVolume => write!(f, "{}\nTrack {}", tt, self.track_label()),
                     TrackSendVolume => write!(
                         f,
-                        "Track send volume\nTrack {}\n{} {}",
+                        "{}\nTrack {}\n{} {}",
+                        tt,
                         self.track_label(),
                         self.route_type_label(),
                         self.route_label()
                     ),
-                    TrackPan => write!(f, "Track pan\nTrack {}", self.track_label()),
-                    TrackWidth => write!(f, "Track width\nTrack {}", self.track_label()),
-                    TrackArm => write!(f, "Track arm\nTrack {}", self.track_label()),
-                    TrackSelection => write!(f, "Track selection\nTrack {}", self.track_label()),
-                    TrackMute => write!(f, "Track mute\nTrack {}", self.track_label()),
-                    TrackSolo => write!(f, "Track solo\nTrack {}", self.track_label()),
+                    TrackPan => write!(f, "{}\nTrack {}", tt, self.track_label()),
+                    TrackWidth => write!(f, "{}\nTrack {}", tt, self.track_label()),
+                    TrackArm => write!(f, "{}\nTrack {}", tt, self.track_label()),
+                    TrackSelection => write!(f, "{}\nTrack {}", tt, self.track_label()),
+                    TrackMute => write!(f, "{}\nTrack {}", tt, self.track_label()),
+                    TrackSolo => write!(f, "{}\nTrack {}", tt, self.track_label()),
                     TrackSendPan => write!(
                         f,
-                        "Track send pan\nTrack {}\n{} {}",
+                        "{}\nTrack {}\n{} {}",
+                        tt,
                         self.track_label(),
                         self.route_type_label(),
                         self.route_label()
                     ),
                     TrackSendMute => write!(
                         f,
-                        "Track send mute\nTrack {}\n{} {}",
+                        "Track send/receive mute\nTrack {}\n{} {}",
                         self.track_label(),
                         self.route_type_label(),
                         self.route_label()
                     ),
-                    Tempo => write!(f, "Master tempo"),
-                    Playrate => write!(f, "Master playrate"),
+                    Tempo => write!(f, "{}", tt),
+                    Playrate => write!(f, "{}", tt),
                     FxEnable => write!(
                         f,
                         "Track FX enable\nTrack {}\nFX {}",
@@ -957,11 +961,11 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.track_label(),
                         self.fx_label(),
                     ),
-                    SelectedTrack => write!(f, "Selected track",),
+                    SelectedTrack => write!(f, "{}", tt),
                     AllTrackFxEnable => {
                         write!(f, "Track FX all enable\nTrack {}", self.track_label())
                     }
-                    Transport => write!(f, "Transport\n{}", self.target.transport_action.get()),
+                    Transport => write!(f, "{}\n{}", tt, self.target.transport_action.get()),
                     LoadFxSnapshot => write!(
                         f,
                         "Load FX snapshot\n{}",
@@ -1049,7 +1053,7 @@ pub enum ReaperTargetType {
     FxParameter = 1,
     #[display(fmt = "Track volume")]
     TrackVolume = 2,
-    #[display(fmt = "Track send volume")]
+    #[display(fmt = "Track send/receive volume")]
     TrackSendVolume = 3,
     #[display(fmt = "Track pan")]
     TrackPan = 4,
@@ -1061,7 +1065,7 @@ pub enum ReaperTargetType {
     TrackMute = 7,
     #[display(fmt = "Track solo")]
     TrackSolo = 8,
-    #[display(fmt = "Track send pan")]
+    #[display(fmt = "Track send/receive pan")]
     TrackSendPan = 9,
     #[display(fmt = "Master tempo")]
     Tempo = 10,
@@ -1079,7 +1083,7 @@ pub enum ReaperTargetType {
     Transport = 16,
     #[display(fmt = "Track width")]
     TrackWidth = 17,
-    #[display(fmt = "Track send mute (no feedback)")]
+    #[display(fmt = "Track send/receive mute (no feedback)")]
     TrackSendMute = 18,
     #[display(fmt = "Load FX snapshot (experimental)")]
     LoadFxSnapshot = 19,
