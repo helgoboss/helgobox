@@ -819,6 +819,9 @@ impl ReaperTarget {
             .merge(rx.fx_removed().map_to(()))
             .merge(rx.fx_reordered().map_to(()))
             .merge(rx.bookmarks_changed())
+            .merge(rx.receive_count_changed().map_to(()))
+            .merge(rx.track_send_count_changed().map_to(()))
+            .merge(rx.hardware_output_send_count_changed().map_to(()))
     }
 
     pub fn is_potential_static_change_event(evt: &ChangeEvent) -> bool {
@@ -835,6 +838,9 @@ impl ReaperTarget {
                 | FxRemoved(_)
                 | FxReordered(_)
                 | BookmarksChanged(_)
+                | ReceiveCountChanged(_)
+                | TrackSendCountChanged(_)
+                | HardwareOutputSendCountChanged(_)
         )
     }
 
