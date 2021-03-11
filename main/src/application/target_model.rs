@@ -28,6 +28,7 @@ use reaper_medium::{BookmarkId, TrackSendDirection};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+use wildmatch::WildMatch;
 
 /// A model for creating targets
 #[derive(Clone, Debug)]
@@ -378,11 +379,12 @@ impl TargetModel {
             Selected => VirtualTrack::Selected,
             Master => VirtualTrack::Master,
             ById => VirtualTrack::ById(self.track_id.get()?),
-            ByName => VirtualTrack::ByName(self.track_name.get_ref().clone()),
+            ByName => VirtualTrack::ByName(WildMatch::new(self.track_name.get_ref())),
             ByIndex => VirtualTrack::ByIndex(self.track_index.get()),
-            ByIdOrName => {
-                VirtualTrack::ByIdOrName(self.track_id.get()?, self.track_name.get_ref().clone())
-            }
+            ByIdOrName => VirtualTrack::ByIdOrName(
+                self.track_id.get()?,
+                WildMatch::new(self.track_name.get_ref()),
+            ),
             Dynamic => {
                 let evaluator =
                     ExpressionEvaluator::compile(self.track_expression.get_ref()).ok()?;
@@ -430,7 +432,7 @@ impl TargetModel {
                     TrackRouteSelector::ById(self.route_id.get()?)
                 }
             }
-            ByName => TrackRouteSelector::ByName(self.route_name.get_ref().clone()),
+            ByName => TrackRouteSelector::ByName(WildMatch::new(self.route_name.get_ref())),
             ByIndex => TrackRouteSelector::ByIndex(self.route_index.get()),
         };
         Some(selector)
@@ -441,7 +443,7 @@ impl TargetModel {
         let fx = match self.fx_type.get() {
             Focused => return None,
             ById => VirtualChainFx::ById(self.fx_id.get()?, Some(self.fx_index.get())),
-            ByName => VirtualChainFx::ByName(self.fx_name.get_ref().clone()),
+            ByName => VirtualChainFx::ByName(WildMatch::new(self.fx_name.get_ref())),
             ByIndex => VirtualChainFx::ByIndex(self.fx_index.get()),
             ByIdOrIndex => VirtualChainFx::ByIdOrIndex(self.fx_id.get(), self.fx_index.get()),
             Dynamic => {
@@ -519,7 +521,7 @@ impl TargetModel {
     pub fn virtual_fx_parameter(&self) -> Option<VirtualFxParameter> {
         use VirtualFxParameterType::*;
         let param = match self.param_type.get() {
-            ByName => VirtualFxParameter::ByName(self.param_name.get_ref().clone()),
+            ByName => VirtualFxParameter::ByName(WildMatch::new(self.param_name.get_ref())),
             ByIndex => VirtualFxParameter::ByIndex(self.param_index.get()),
             Dynamic => {
                 let evaluator =
@@ -1524,7 +1526,7 @@ impl TrackPropValues {
         Self {
             r#type: VirtualTrackType::from_virtual_track(&track),
             id: track.id(),
-            name: track.name().cloned().unwrap_or_default(),
+            name: track.name().unwrap_or_default(),
             index: track.index().unwrap_or_default(),
             expression: Default::default(),
         }
@@ -1547,7 +1549,7 @@ impl TrackRoutePropValues {
             selector_type: TrackRouteSelectorType::from_route_selector(&route.selector),
             r#type: route.r#type,
             id: route.id(),
-            name: route.name().cloned().unwrap_or_default(),
+            name: route.name().unwrap_or_default(),
             index: route.index().unwrap_or_default(),
             expression: Default::default(),
         }
@@ -1570,7 +1572,7 @@ impl FxPropValues {
             r#type: VirtualFxType::from_virtual_fx(&fx),
             is_input_fx: fx.is_input_fx(),
             id: fx.id(),
-            name: fx.name().map(|s| s.to_owned()).unwrap_or_default(),
+            name: fx.name().unwrap_or_default(),
             index: fx.index().unwrap_or_default(),
             expression: Default::default(),
         }

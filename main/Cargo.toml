@@ -117,6 +117,8 @@ serde_yaml = "0.8.17"
 hex = "0.4.2"
 # For evaluation of <Dynamic> formulas
 fasteval = { version = "0.2.4", default-features = false }
+# For wildcard support when using "By name" selector
+wildmatch = "1.1.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

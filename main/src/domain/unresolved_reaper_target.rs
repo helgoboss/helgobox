@@ -18,6 +18,7 @@ use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::num::NonZeroU32;
 use std::rc::Rc;
+use wildmatch::WildMatch;
 
 #[derive(Debug)]
 pub enum UnresolvedReaperTarget {
@@ -375,7 +376,7 @@ pub struct VirtualTrackRoute {
 pub enum TrackRouteSelector {
     Dynamic(Box<ExpressionEvaluator>),
     ById(Guid),
-    ByName(String),
+    ByName(WildMatch),
     ByIndex(u32),
 }
 
@@ -445,10 +446,10 @@ impl TrackRouteSelector {
         }
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<String> {
         use TrackRouteSelector::*;
         match self {
-            ByName(name) => Some(name),
+            ByName(name) => Some(name.to_string()),
             _ => None,
         }
     }
@@ -483,7 +484,7 @@ impl VirtualTrackRoute {
         self.selector.index()
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<String> {
         self.selector.name()
     }
 }
@@ -533,18 +534,18 @@ pub enum VirtualTrack {
     /// Particular.
     ById(Guid),
     /// Particular.
-    ByName(String),
+    ByName(WildMatch),
     /// Particular.
     ByIndex(u32),
     /// This is the old default for targeting a particular track and it exists solely for backward
     /// compatibility.
-    ByIdOrName(Guid, String),
+    ByIdOrName(Guid, WildMatch),
 }
 
 #[derive(Debug)]
 pub enum VirtualFxParameter {
     Dynamic(Box<ExpressionEvaluator>),
-    ByName(String),
+    ByName(WildMatch),
     ByIndex(u32),
 }
 
@@ -562,7 +563,7 @@ impl VirtualFxParameter {
             }
             ByName(name) => fx
                 .parameters()
-                .find(|p| p.name().to_str() == name.as_str())
+                .find(|p| name.is_match(p.name().to_str()))
                 .ok_or_else(|| FxParameterResolveError::FxParameterNotFound {
                     name: Some(name.clone()),
                     index: None,
@@ -595,10 +596,10 @@ impl VirtualFxParameter {
         }
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<String> {
         use VirtualFxParameter::*;
         match self {
-            ByName(name) => Some(name),
+            ByName(name) => Some(name.to_string()),
             _ => None,
         }
     }
@@ -705,7 +706,7 @@ impl VirtualFx {
         }
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<String> {
         match self {
             VirtualFx::Focused => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
@@ -812,10 +813,10 @@ impl VirtualTrack {
         }
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<String> {
         use VirtualTrack::*;
         match self {
-            ByName(name) | ByIdOrName(_, name) => Some(name),
+            ByName(name) | ByIdOrName(_, name) => Some(name.to_string()),
             _ => None,
         }
     }
@@ -829,7 +830,7 @@ pub enum VirtualChainFx {
     ///
     /// The index is just used as performance hint, not as fallback.
     ById(Guid, Option<u32>),
-    ByName(String),
+    ByName(WildMatch),
     ByIndex(u32),
     /// This is the old default.
     ///
@@ -856,41 +857,41 @@ impl fmt::Display for VirtualChainFx {
     }
 }
 
-fn find_track_by_name(project: Project, name: &str) -> Option<Track> {
+fn find_track_by_name(project: Project, name: &WildMatch) -> Option<Track> {
     project.tracks().find(|t| match t.name() {
         None => false,
-        Some(n) => n.to_str() == name,
+        Some(n) => name.is_match(n.to_str()),
     })
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+#[derive(Clone, Debug, Display, Error)]
 pub enum TrackResolveError {
     #[display(fmt = "TrackNotFound")]
     TrackNotFound {
         guid: Option<Guid>,
-        name: Option<String>,
+        name: Option<WildMatch>,
         index: Option<u32>,
     },
     NoTrackSelected,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+#[derive(Clone, Debug, Display, Error)]
 pub enum FxParameterResolveError {
     #[display(fmt = "FxParameterNotFound")]
     FxParameterNotFound {
-        name: Option<String>,
+        name: Option<WildMatch>,
         index: Option<u32>,
     },
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+#[derive(Clone, Debug, Display, Error)]
 pub enum TrackRouteResolveError {
     #[display(fmt = "InvalidRoute")]
     InvalidRoute,
     #[display(fmt = "TrackRouteNotFound")]
     TrackRouteNotFound {
         guid: Option<Guid>,
-        name: Option<String>,
+        name: Option<WildMatch>,
         index: Option<u32>,
     },
 }
@@ -986,25 +987,25 @@ impl VirtualChainFx {
         }
     }
 
-    pub fn name(&self) -> Option<&String> {
+    pub fn name(&self) -> Option<String> {
         use VirtualChainFx::*;
         match self {
-            ByName(name) => Some(name),
+            ByName(name) => Some(name.to_string()),
             _ => None,
         }
     }
 }
 
-fn find_fx_by_name(chain: &FxChain, name: &str) -> Option<Fx> {
-    chain.fxs().find(|fx| fx.name().to_str() == name)
+fn find_fx_by_name(chain: &FxChain, name: &WildMatch) -> Option<Fx> {
+    chain.fxs().find(|fx| name.is_match(fx.name().to_str()))
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
+#[derive(Clone, Debug, Display, Error)]
 pub enum FxResolveError {
     #[display(fmt = "FxNotFound")]
     FxNotFound {
         guid: Option<Guid>,
-        name: Option<String>,
+        name: Option<WildMatch>,
         index: Option<u32>,
     },
 }
@@ -1244,8 +1245,12 @@ fn find_route_by_related_track(
     Ok(option)
 }
 
-fn find_route_by_name(track: &Track, name: &str, route_type: TrackRouteType) -> Option<TrackRoute> {
-    let matcher = |r: &TrackRoute| r.name().to_str() == name;
+fn find_route_by_name(
+    track: &Track,
+    name: &WildMatch,
+    route_type: TrackRouteType,
+) -> Option<TrackRoute> {
+    let matcher = |r: &TrackRoute| name.is_match(r.name().to_str());
     match route_type {
         TrackRouteType::Send => track.typed_sends(SendPartnerType::Track).find(matcher),
         TrackRouteType::Receive => track.receives().find(matcher),
