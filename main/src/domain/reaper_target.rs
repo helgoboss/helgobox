@@ -484,7 +484,9 @@ impl RealearnTarget for ReaperTarget {
                 // It's okay to just convert this to a REAPER-normalized value. We don't support
                 // values above the maximum (or buggy plug-ins).
                 let v = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
-                param.set_reaper_normalized_value(v).unwrap();
+                param
+                    .set_reaper_normalized_value(v)
+                    .map_err(|_| "couldn't set FX parameter value")?;
             }
             TrackVolume { track } => {
                 let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
@@ -492,7 +494,9 @@ impl RealearnTarget for ReaperTarget {
             }
             TrackRouteVolume { route } => {
                 let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
-                route.set_volume(volume.unwrap_or(Volume::MIN));
+                route
+                    .set_volume(volume.unwrap_or(Volume::MIN))
+                    .map_err(|_| "couldn't set route volume")?;
             }
             TrackPan { track } => {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
@@ -556,7 +560,7 @@ impl RealearnTarget for ReaperTarget {
             }
             TrackRoutePan { route } => {
                 let pan = Pan::from_normalized_value(value.as_absolute()?.get());
-                route.set_pan(pan);
+                route.set_pan(pan).map_err(|_| "couldn't set route pan")?;
             }
             TrackRouteMute { route } => {
                 if value.as_absolute()?.is_zero() {

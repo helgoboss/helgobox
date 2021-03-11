@@ -13,7 +13,6 @@ use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, SoloBehavior,
     TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
-use derive_more::{Display, Error};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -504,11 +503,6 @@ struct TrackData {
         skip_serializing_if = "is_default"
     )]
     expression: Option<String>,
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Display, Error)]
-pub enum DeserializationError {
-    InvalidCombination,
 }
 
 fn deserialize_track(track_data: &TrackData) -> TrackPropValues {

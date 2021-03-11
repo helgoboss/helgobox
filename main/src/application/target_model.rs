@@ -231,10 +231,6 @@ impl TargetModel {
         self.set_fx(FxPropValues::from_virtual_fx(fx));
     }
 
-    pub fn set_virtual_fx_parameter(&mut self, param: VirtualFxParameter) {
-        self.set_fx_parameter(FxParameterPropValues::from_virtual_fx_parameter(param));
-    }
-
     pub fn set_fx(&mut self, fx: FxPropValues) {
         self.fx_type.set(fx.r#type);
         self.fx_is_input_fx.set(fx.is_input_fx);
@@ -242,13 +238,6 @@ impl TargetModel {
         self.fx_name.set(fx.name);
         self.fx_index.set(fx.index);
         self.fx_expression.set(fx.expression);
-    }
-
-    pub fn set_fx_parameter(&mut self, param: FxParameterPropValues) {
-        self.param_type.set(param.r#type);
-        self.param_name.set(param.name);
-        self.param_index.set(param.index);
-        self.param_expression.set(param.expression);
     }
 
     pub fn set_fx_without_notification(&mut self, fx: FxPropValues) {
@@ -661,25 +650,11 @@ impl TargetModel {
         self.r#type.get().supports_track()
     }
 
-    pub fn supports_send(&self) -> bool {
-        if !self.is_reaper() {
-            return false;
-        }
-        self.r#type.get().supports_send()
-    }
-
     pub fn supports_fx(&self) -> bool {
         if !self.is_reaper() {
             return false;
         }
         self.r#type.get().supports_fx()
-    }
-
-    pub fn supports_track_exclusivity(&self) -> bool {
-        if !self.is_reaper() {
-            return false;
-        }
-        self.r#type.get().supports_track_exclusivity()
     }
 
     pub fn create_control_element(&self) -> VirtualControlElement {
@@ -1608,15 +1583,4 @@ pub struct FxParameterPropValues {
     pub name: String,
     pub expression: String,
     pub index: u32,
-}
-
-impl FxParameterPropValues {
-    pub fn from_virtual_fx_parameter(param: VirtualFxParameter) -> Self {
-        Self {
-            r#type: VirtualFxParameterType::from_virtual_fx_parameter(&param),
-            name: param.name().map(|s| s.to_owned()).unwrap_or_default(),
-            index: param.index().unwrap_or_default(),
-            expression: Default::default(),
-        }
-    }
 }

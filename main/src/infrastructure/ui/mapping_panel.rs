@@ -69,7 +69,6 @@ struct ImmutableMappingPanel<'a> {
     target: &'a TargetModel,
     view: &'a ViewContext,
     panel: &'a SharedView<MappingPanel>,
-    shared_mapping: &'a SharedMapping,
 }
 
 struct MutableMappingPanel<'a> {
@@ -126,22 +125,19 @@ impl MappingPanel {
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.r#type.get();
-        match target_type {
-            ReaperTargetType::LoadFxSnapshot => {
-                // Important that neither session nor mapping is mutably borrowed while doing this
-                // because state of our ReaLearn instance is not unlikely to be
-                // queried as well!
-                let fx_snapshot = mapping
-                    .borrow()
-                    .target_model
-                    .take_fx_snapshot(self.session().borrow().extended_context())?;
-                mapping
-                    .borrow_mut()
-                    .target_model
-                    .fx_snapshot
-                    .set(Some(fx_snapshot));
-            }
-            _ => {}
+        if target_type == ReaperTargetType::LoadFxSnapshot {
+            // Important that neither session nor mapping is mutably borrowed while doing this
+            // because state of our ReaLearn instance is not unlikely to be
+            // queried as well!
+            let fx_snapshot = mapping
+                .borrow()
+                .target_model
+                .take_fx_snapshot(self.session().borrow().extended_context())?;
+            mapping
+                .borrow_mut()
+                .target_model
+                .fx_snapshot
+                .set(Some(fx_snapshot));
         }
         Ok(())
     }
@@ -324,7 +320,6 @@ impl MappingPanel {
             target: &mapping.target_model,
             view: &self.view,
             panel: &self,
-            shared_mapping: &shared_mapping,
         };
         Ok(op(&p))
     }
