@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-11 (v2.8.0-pre1)</code></td>
+  <td><code>2021-03-11 (v2.8.0-pre2)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1840,6 +1840,7 @@ direction.
     depending on how long it has been pressed. For this, use settings like the following:
     - Short press: 0 ms - 250 ms
     - Long press: 250 ms - 5000 ms
+- **Fire mode:** TODO-high
 
 ### REAPER actions
 

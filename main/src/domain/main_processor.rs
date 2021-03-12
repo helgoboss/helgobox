@@ -40,6 +40,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
     beat_based_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    /// Contains IDs of those mappings who need to be polled as frequently as possible.
+    polli_pokatzki_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -94,6 +96,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings_with_virtual_targets: Default::default(),
             target_touch_dependent_mappings: Default::default(),
             beat_based_feedback_mappings: Default::default(),
+            polli_pokatzki_mappings: Default::default(),
             feedback_is_globally_enabled: false,
             parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
@@ -141,16 +144,26 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Resolving mappings with virtual targets is not necessary anymore. It has
                     // been done in the real-time processor already.
                     if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                        control_and_optionally_feedback(
-                            &self.feedback_real_time_task_sender,
-                            &self.osc_feedback_task_sender,
-                            m,
-                            value,
-                            options,
-                            self.osc_output_device_id.as_ref(),
-                            &self.mappings_with_virtual_targets,
-                        );
+                        // Most of the time, the main processor won't even receive a MIDI-triggered
+                        // control instruction from the real-time processor
+                        // for a mapping for which control is disabled,
+                        // because the real-time processor doesn't process
+                        // disabled mappings. But if control is (temporarily) disabled because a
+                        // target condition is (temporarily) not met (e.g. "track must be
+                        // selected") and the real-time processor doesn't yet know about it, there
+                        // might be a short amount of time where we still receive control
+                        // statements. We filter them here.
+                        let feedback = m.control_if_enabled(value, options);
+                        self.send_feedback(feedback);
                     };
+                }
+            }
+        }
+        for compartment in MappingCompartment::enum_iter() {
+            for id in self.polli_pokatzki_mappings[compartment].iter() {
+                if let Some(m) = self.mappings[compartment].get_mut(id) {
+                    let feedback = m.poll_if_control_enabled();
+                    self.send_feedback(feedback);
                 }
             }
         }
@@ -189,6 +202,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.currently_feedback_enabled_sources(compartment, true);
                     self.target_touch_dependent_mappings[compartment].clear();
                     self.beat_based_feedback_mappings[compartment].clear();
+                    self.polli_pokatzki_mappings[compartment].clear();
                     // Refresh and splinter real-time mappings
                     let real_time_mappings = mappings
                         .iter_mut()
@@ -206,6 +220,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             }
                             if m.wants_to_be_informed_about_beat_changes() {
                                 self.beat_based_feedback_mappings[compartment].insert(m.id());
+                            }
+                            if m.wants_to_be_polled() {
+                                self.polli_pokatzki_mappings[compartment].insert(m.id());
                             }
                             m.splinter_real_time_mapping()
                         })
@@ -335,7 +352,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             self.send_feedback(mapping.feedback_if_enabled());
                         }
                     }
-                    // Update hash map entry
+                    // Update hash map entries
                     if mapping.needs_refresh_when_target_touched() {
                         self.target_touch_dependent_mappings[compartment].insert(mapping.id());
                     } else {
@@ -345,6 +362,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.beat_based_feedback_mappings[compartment].insert(mapping.id());
                     } else {
                         self.beat_based_feedback_mappings[compartment].remove(&mapping.id());
+                    }
+                    if mapping.wants_to_be_polled() {
+                        self.polli_pokatzki_mappings[compartment].insert(mapping.id());
+                    } else {
+                        self.polli_pokatzki_mappings[compartment].remove(&mapping.id());
                     }
                     let relevant_map = if mapping.has_virtual_target() {
                         self.mappings[compartment].remove(&mapping.id());
@@ -580,13 +602,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     && m.feedback_is_effectively_on()
                                 {
                                     if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
-                                        send_feedback_direct_virtual(
-                                            &self.feedback_real_time_task_sender,
-                                            &self.osc_feedback_task_sender,
-                                            m.feedback_if_enabled(),
-                                            self.osc_output_device_id.as_ref(),
-                                            &self.mappings_with_virtual_targets,
-                                        );
+                                        let feedback = m.feedback_if_enabled();
+                                        self.send_feedback(feedback);
                                     }
                                 }
                             }
@@ -779,20 +796,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn control_non_virtual_mappings_osc(&mut self, msg: &OscMessage) {
         for compartment in MappingCompartment::enum_iter() {
-            for mut m in self.mappings[compartment]
+            for m in self.mappings[compartment]
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
             {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
-                        control_and_optionally_feedback(
-                            &self.feedback_real_time_task_sender,
-                            &self.osc_feedback_task_sender,
-                            &mut m,
+                        let feedback = m.control_if_enabled(
                             control_value,
                             ControlOptions {
                                 enforce_send_feedback_after_control: false,
                             },
+                        );
+                        send_feedback_direct_virtual(
+                            &self.feedback_real_time_task_sender,
+                            &self.osc_feedback_task_sender,
+                            feedback,
                             self.osc_output_device_id.as_ref(),
                             &self.mappings_with_virtual_targets,
                         );
@@ -1117,33 +1136,7 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     }
 }
 
-fn control_and_optionally_feedback(
-    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
-    osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
-    mapping: &mut MainMapping,
-    value: ControlValue,
-    options: ControlOptions,
-    osc_device_id: Option<&OscDeviceId>,
-    mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
-) {
-    // Most of the time, the main processor won't even receive a MIDI-triggered control
-    // instruction from the real-time processor for a mapping for which
-    // control is disabled, because the real-time processor doesn't process
-    // disabled mappings. But if control is (temporarily) disabled because a
-    // target condition is (temporarily) not met (e.g. "track must be
-    // selected") and the real-time processor doesn't yet know about it, there
-    // might be a short amount of time where we still receive control
-    // statements. We filter them here.
-    let feedback = mapping.control_if_enabled(value, options);
-    send_feedback_direct_virtual(
-        rt_sender,
-        osc_feedback_task_sender,
-        feedback,
-        osc_device_id,
-        mappings_with_virtual_targets,
-    );
-}
-
+/// Sends both direct and virtual-source feedback.
 fn send_feedback_direct_virtual(
     rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,

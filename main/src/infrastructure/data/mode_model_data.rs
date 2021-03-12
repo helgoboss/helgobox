@@ -3,7 +3,7 @@ use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
-    AbsoluteMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, UnitValue,
+    AbsoluteMode, FireMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, UnitValue,
 };
 use serde::{Deserialize, Serialize};
 use slog::debug;
@@ -53,6 +53,8 @@ pub struct ModeModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     out_of_range_behavior: OutOfRangeBehavior,
     #[serde(default, skip_serializing_if = "is_default")]
+    fire_mode: FireMode,
+    #[serde(default, skip_serializing_if = "is_default")]
     round_target_value: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     scale_mode_enabled: bool,
@@ -98,6 +100,7 @@ impl ModeModelData {
             // Not used anymore since ReaLearn v1.11.0
             ignore_out_of_range_source_values_is_enabled: false,
             out_of_range_behavior: model.out_of_range_behavior.get(),
+            fire_mode: model.fire_mode.get(),
             round_target_value: model.round_target_value.get(),
             scale_mode_enabled: model.approach_target_value.get(),
             rotate_is_enabled: model.rotate.get(),
@@ -161,6 +164,7 @@ impl ModeModelData {
         } else {
             self.out_of_range_behavior
         };
+        model.fire_mode.set_without_notification(self.fire_mode);
         model
             .out_of_range_behavior
             .set_without_notification(actual_out_of_range_behavior);

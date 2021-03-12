@@ -2,7 +2,7 @@ use crate::core::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, DiscreteIncrement, Interval, OutOfRangeBehavior,
+    full_unit_interval, AbsoluteMode, DiscreteIncrement, FireMode, Interval, OutOfRangeBehavior,
     PressDurationProcessor, SoftSymmetricUnitValue, UnitValue,
 };
 
@@ -20,6 +20,7 @@ pub struct ModeModel {
     pub press_duration_interval: Prop<Interval<Duration>>,
     pub jump_interval: Prop<Interval<UnitValue>>,
     pub out_of_range_behavior: Prop<OutOfRangeBehavior>,
+    pub fire_mode: Prop<FireMode>,
     pub round_target_value: Prop<bool>,
     pub approach_target_value: Prop<bool>,
     pub eel_control_transformation: Prop<String>,
@@ -58,7 +59,8 @@ impl Default for ModeModel {
                 Duration::from_millis(0),
             )),
             jump_interval: prop(full_unit_interval()),
-            out_of_range_behavior: prop(OutOfRangeBehavior::MinOrMax),
+            out_of_range_behavior: prop(Default::default()),
+            fire_mode: prop(Default::default()),
             round_target_value: prop(false),
             approach_target_value: prop(false),
             eel_control_transformation: prop(String::new()),
@@ -92,6 +94,7 @@ impl ModeModel {
             .set(def.eel_feedback_transformation.get_ref().clone());
         self.out_of_range_behavior
             .set(def.out_of_range_behavior.get());
+        self.fire_mode.set(def.fire_mode.get());
         self.round_target_value.set(def.round_target_value.get());
         self.approach_target_value
             .set(def.approach_target_value.get());
@@ -112,6 +115,7 @@ impl ModeModel {
             .merge(self.reverse.changed())
             .merge(self.jump_interval.changed())
             .merge(self.out_of_range_behavior.changed())
+            .merge(self.fire_mode.changed())
             .merge(self.round_target_value.changed())
             .merge(self.approach_target_value.changed())
             .merge(self.eel_control_transformation.changed())
@@ -135,6 +139,7 @@ impl ModeModel {
             step_size_interval: self.positive_step_size_interval(),
             jump_interval: self.jump_interval.get(),
             press_duration_processor: PressDurationProcessor::new(
+                self.fire_mode.get(),
                 self.press_duration_interval.get(),
             ),
             approach_target_value: self.approach_target_value.get(),
@@ -178,6 +183,10 @@ impl ModeModel {
 
     pub fn supports_eel_feedback_transformation(&self) -> bool {
         true
+    }
+
+    pub fn supports_max_duration(&self) -> bool {
+        matches!(self.fire_mode.get(), FireMode::WhenButtonReleased)
     }
 
     pub fn supports_round_target_value(&self) -> bool {

@@ -225,6 +225,10 @@ impl MainMapping {
         )
     }
 
+    pub fn wants_to_be_polled(&self) -> bool {
+        self.core.mode.wants_to_be_polled()
+    }
+
     /// The boolean tells if the resolved target changed in some way, the activation change says if
     /// activation changed from off to on or on to off.
     pub fn refresh_target(
@@ -299,6 +303,24 @@ impl MainMapping {
         self.core.target.as_ref()
     }
 
+    /// This is for timer-triggered control and works like `control_if_enabled`.
+    pub fn poll_if_control_enabled(&mut self) -> Option<SourceValue> {
+        if !self.control_is_effectively_on() {
+            return None;
+        }
+        let target = match &self.core.target {
+            Some(CompoundMappingTarget::Reaper(t)) => t,
+            _ => return None,
+        };
+        let final_value = self.core.mode.poll(target)?;
+        // Echo feedback, send feedback after control ... all of that is not important when
+        // firing triggered by a timer.
+        // Be graceful here.
+        // TODO-medium In future we could display some kind of small unintrusive error message.
+        let _ = target.control(final_value);
+        self.feedback_after_control_if_unsupported_by_target(target)
+    }
+
     /// Controls mode => target.
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
@@ -315,30 +337,46 @@ impl MainMapping {
             Some(CompoundMappingTarget::Reaper(t)) => t,
             _ => return None,
         };
-        if let Some(final_value) = self.core.mode.control(value, target) {
+        let final_value = self.core.mode.control(value, target);
+        if let Some(v) = final_value {
             if self.core.options.prevent_echo_feedback {
                 self.core.time_of_last_control = Some(Instant::now());
             }
-            // Be graceful here. TODO-medium In future we could display some kind of small
-            // unintrusive error message somewhere.
-            let _ = target.control(final_value);
-            if target.supports_feedback() {
-                // The target value was changed and that triggered feedback. Therefore we don't
-                // need to send it here a second time (even if `send_feedback_after_control` is
-                // enabled). This happens in the majority of cases.
-                None
-            } else {
-                // The target value was changed but the target doesn't support feedback. If
-                // `send_feedback_after_control` is enabled, we at least send feedback after we
-                // know it has been changed.
-                self.feedback_after_control_if_enabled(options)
-            }
+            // Be graceful here.
+            // TODO-medium In future we could display some kind of small unintrusive error message.
+            let _ = target.control(v);
+            self.feedback_after_control_if_unsupported_by_target(target)
         } else {
             // The target value was not changed. If `send_feedback_after_control` is enabled, we
             // still send feedback - this can be useful with controllers which insist controlling
             // the LED on their own. The feedback sent by ReaLearn will fix this self-controlled
             // LED state.
             self.feedback_after_control_if_enabled(options)
+        }
+    }
+
+    fn feedback_after_control_if_unsupported_by_target(
+        &self,
+        target: &ReaperTarget,
+    ) -> Option<SourceValue> {
+        if target.supports_feedback() {
+            // The target value was changed and that triggered feedback. Therefore we don't
+            // need to send it here a second time (even if `send_feedback_after_control` is
+            // enabled). This happens in the majority of cases.
+            None
+        } else {
+            // The target value was changed but the target doesn't support feedback. If
+            // `send_feedback_after_control` is enabled, we at least send feedback after we
+            // know it has been changed. What a virtual control mapping says shouldn't be relevant
+            // here because this is about the target supporting feedback, not about the controller
+            // needing the "Send feedback after control" workaround. Therefore we don't forward
+            // any "enforce" options.
+            // TODO-low Wouldn't it be better to always send feedback in this situation? But that
+            //  could the user let believe that it actually works while in reality it's not "true"
+            //  feedback that is independent from control. So an opt-in is maybe the right thing.
+            self.feedback_after_control_if_enabled(ControlOptions {
+                enforce_send_feedback_after_control: false,
+            })
         }
     }
 

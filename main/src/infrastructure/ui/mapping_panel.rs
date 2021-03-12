@@ -4,8 +4,8 @@ use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel, YamlEdi
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    AbsoluteMode, ControlValue, MidiClockTransportMessage, OscTypeTag, OutOfRangeBehavior,
-    SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
+    AbsoluteMode, ControlValue, FireMode, MidiClockTransportMessage, OscTypeTag,
+    OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{
@@ -88,8 +88,8 @@ struct Sliders {
     mode_max_source_value: Window,
     mode_min_step_size: Window,
     mode_max_step_size: Window,
-    mode_min_length: Window,
-    mode_max_length: Window,
+    mode_fire_line_2: Window,
+    mode_fire_line_3: Window,
     mode_min_jump: Window,
     mode_max_jump: Window,
     target_value: Window,
@@ -360,8 +360,8 @@ impl MappingPanel {
                 .require_control(root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL),
             mode_max_step_size: view
                 .require_control(root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL),
-            mode_min_length: view.require_control(root::ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL),
-            mode_max_length: view.require_control(root::ID_SETTINGS_MAX_LENGTH_SLIDER_CONTROL),
+            mode_fire_line_2: view.require_control(root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL),
+            mode_fire_line_3: view.require_control(root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL),
             mode_min_jump: view.require_control(root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL),
             mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
@@ -390,37 +390,36 @@ impl MappingPanel {
         self: SharedView<Self>,
         resource_id: u32,
     ) -> Option<SharedView<Self>> {
-        use root::*;
         match resource_id {
-            ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
+            root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_min_target_value_from_edit_control());
             }
-            ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
+            root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_max_target_value_from_edit_control());
             }
-            ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
+            root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_min_jump_from_edit_control());
             }
-            ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
+            root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_max_jump_from_edit_control());
             }
-            ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
+            root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_min_source_value_from_edit_control());
             }
-            ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
+            root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_max_source_value_from_edit_control());
             }
-            ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
+            root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_min_step_from_edit_control());
             }
-            ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
+            root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL => {
                 self.write(|p| p.update_mode_max_step_from_edit_control());
             }
-            ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_min_length_from_edit_control());
+            root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL => {
+                self.write(|p| p.handle_mode_fire_line_2_edit_control_change());
             }
-            ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL => {
-                self.write(|p| p.update_mode_max_length_from_edit_control());
+            root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL => {
+                self.write(|p| p.handle_mode_fire_line_3_edit_control_change());
             }
             _ => return Some(self),
         };
@@ -740,6 +739,16 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping.mode_model.out_of_range_behavior.set(behavior);
     }
 
+    fn update_mode_fire_mode(&mut self) {
+        let mode = self
+            .view
+            .require_control(root::ID_MODE_FIRE_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid fire mode");
+        self.mapping.mode_model.fire_mode.set(mode);
+    }
+
     fn update_mode_round_target_value(&mut self) {
         self.mapping.mode_model.round_target_value.set(
             self.view
@@ -869,9 +878,9 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_min(value));
     }
 
-    fn update_mode_min_length_from_edit_control(&mut self) {
+    fn handle_mode_fire_line_2_edit_control_change(&mut self) {
         let value = self
-            .get_value_from_duration_edit_control(root::ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL)
+            .get_value_from_duration_edit_control(root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL)
             .unwrap_or_else(|| Duration::from_millis(0));
         self.mapping
             .mode_model
@@ -907,9 +916,9 @@ impl<'a> MutableMappingPanel<'a> {
             .set_with(|prev| prev.with_max(value));
     }
 
-    fn update_mode_max_length_from_edit_control(&mut self) {
+    fn handle_mode_fire_line_3_edit_control_change(&mut self) {
         let value = self
-            .get_value_from_duration_edit_control(root::ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL)
+            .get_value_from_duration_edit_control(root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL)
             .unwrap_or_else(|| Duration::from_millis(0));
         self.mapping
             .mode_model
@@ -989,14 +998,14 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn update_mode_min_length_from_slider(&mut self, slider: Window) {
+    fn handle_mode_fire_line_2_slider_change(&mut self, slider: Window) {
         self.mapping
             .mode_model
             .press_duration_interval
             .set_with(|prev| prev.with_min(slider.slider_duration()));
     }
 
-    fn update_mode_max_length_from_slider(&mut self, slider: Window) {
+    fn handle_mode_fire_line_3_slider_change(&mut self, slider: Window) {
         self.mapping
             .mode_model
             .press_duration_interval
@@ -1458,6 +1467,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_source_midi_clock_transport_message_type_combo_box();
         self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
+        self.fill_mode_fire_mode_combo_box();
         self.fill_target_category_combo_box();
     }
 
@@ -2747,7 +2757,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_source_value_controls();
         self.invalidate_mode_target_value_controls();
         self.invalidate_mode_step_controls();
-        self.invalidate_mode_length_controls();
+        self.invalidate_mode_fire_controls();
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
@@ -3000,9 +3010,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_max_step_controls();
     }
 
-    fn invalidate_mode_length_controls(&self) {
-        self.invalidate_mode_min_length_controls();
-        self.invalidate_mode_max_length_controls();
+    fn invalidate_mode_fire_controls(&self) {
+        self.invalidate_mode_fire_mode_combo_box();
+        self.invalidate_mode_fire_line_2_controls();
+        self.invalidate_mode_fire_line_3_controls();
     }
 
     fn invalidate_mode_min_step_controls(&self) {
@@ -3014,11 +3025,18 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_mode_min_length_controls(&self) {
-        self.invalidate_mode_press_duration_controls_internal(
-            root::ID_SETTINGS_MIN_LENGTH_SLIDER_CONTROL,
-            root::ID_SETTINGS_MIN_LENGTH_EDIT_CONTROL,
-            root::ID_SETTINGS_MIN_LENGTH_VALUE_TEXT,
+    fn invalidate_mode_fire_line_2_controls(&self) {
+        let label = match self.mode.fire_mode.get() {
+            FireMode::WhenButtonReleased => "Min duration",
+            FireMode::OnTimeout => "Timeout",
+        };
+        self.view
+            .require_control(root::ID_MODE_FIRE_LINE_2_LABEL_1)
+            .set_text(label);
+        self.invalidate_mode_fire_controls_internal(
+            root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
+            root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
+            root::ID_MODE_FIRE_LINE_2_LABEL_2,
             self.mode.press_duration_interval.get_ref().min_val(),
         );
     }
@@ -3032,13 +3050,25 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_mode_max_length_controls(&self) {
-        self.invalidate_mode_press_duration_controls_internal(
-            root::ID_SETTINGS_MAX_LENGTH_SLIDER_CONTROL,
-            root::ID_SETTINGS_MAX_LENGTH_EDIT_CONTROL,
-            root::ID_SETTINGS_MAX_LENGTH_VALUE_TEXT,
-            self.mode.press_duration_interval.get_ref().max_val(),
+    fn invalidate_mode_fire_line_3_controls(&self) {
+        let supported = self.mode.supports_max_duration();
+        self.show_if(
+            supported,
+            &[
+                root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_LABEL_1,
+                root::ID_MODE_FIRE_LINE_3_LABEL_2,
+            ],
         );
+        if supported {
+            self.invalidate_mode_fire_controls_internal(
+                root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_LABEL_2,
+                self.mode.press_duration_interval.get_ref().max_val(),
+            );
+        }
     }
 
     fn invalidate_mode_step_controls_internal(
@@ -3094,7 +3124,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(value_text)
     }
 
-    fn invalidate_mode_press_duration_controls_internal(
+    fn invalidate_mode_fire_controls_internal(
         &self,
         slider_control_id: u32,
         edit_control_id: u32,
@@ -3128,6 +3158,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
             .select_combo_box_item_by_index(self.mode.out_of_range_behavior.get().into())
+            .unwrap();
+    }
+
+    fn invalidate_mode_fire_mode_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_FIRE_COMBO_BOX)
+            .select_combo_box_item_by_index(self.mode.fire_mode.get().into())
             .unwrap();
     }
 
@@ -3298,10 +3335,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(mode.step_interval.changed(), |view| {
                 view.invalidate_mode_step_controls();
             });
-        self.panel
-            .when_do_sync(mode.press_duration_interval.changed(), |view| {
-                view.invalidate_mode_length_controls();
-            });
+        self.panel.when_do_sync(
+            mode.press_duration_interval
+                .changed()
+                .merge(mode.fire_mode.changed()),
+            |view| {
+                view.invalidate_mode_fire_controls();
+            },
+        );
         self.panel
             .when_do_sync(mode.out_of_range_behavior.changed(), |view| {
                 view.invalidate_mode_out_of_range_behavior_combo_box();
@@ -3448,6 +3489,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .fill_combo_box_indexed(OutOfRangeBehavior::into_enum_iter());
     }
 
+    fn fill_mode_fire_mode_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_FIRE_COMBO_BOX)
+            .fill_combo_box_indexed(FireMode::into_enum_iter());
+    }
+
     fn fill_target_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
@@ -3558,6 +3605,7 @@ impl View for MappingPanel {
             root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX => {
                 self.write(|p| p.update_mode_out_of_range_behavior())
             }
+            root::ID_MODE_FIRE_COMBO_BOX => self.write(|p| p.update_mode_fire_mode()),
             // Target
             root::ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
             root::ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
@@ -3607,11 +3655,11 @@ impl View for MappingPanel {
             s if s == sliders.mode_max_step_size => {
                 self.write(|p| p.update_mode_max_step_from_slider(s));
             }
-            s if s == sliders.mode_min_length => {
-                self.write(|p| p.update_mode_min_length_from_slider(s));
+            s if s == sliders.mode_fire_line_2 => {
+                self.write(|p| p.handle_mode_fire_line_2_slider_change(s));
             }
-            s if s == sliders.mode_max_length => {
-                self.write(|p| p.update_mode_max_length_from_slider(s));
+            s if s == sliders.mode_fire_line_3 => {
+                self.write(|p| p.handle_mode_fire_line_3_slider_change(s));
             }
             s if s == sliders.mode_min_jump => {
                 self.write(|p| p.update_mode_min_jump_from_slider(s));
