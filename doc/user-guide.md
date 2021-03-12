@@ -1831,10 +1831,10 @@ affect *feedback* as well (because they might change some target values).
     decide how exactly ReaLearn should cope with button presses. 
     - **When button released (if Min > 0 ms):** This mode is essential in order to be able to distinguish between
       different press durations.
-        - **Min length** and **Max length** decide how long a button needs to be pressed to have an effect.
+        - **Min** and **Max** decide how long a button needs to be pressed to have an effect.
         - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
-          both press (> 0%) and release (0%) will be instantly forwarded. If you change _Min length_ to
-          e.g. 1000 ms and _Max length_ to 5000 ms, it will behave as follows:
+          both press (> 0%) and release (0%) will be instantly forwarded. If you change _Min_ to
+          e.g. 1000 ms and _Max_ to 5000 ms, it will behave as follows:
         - If you press the control element and instantly release it, nothing will happen.
         - If you press the control element, wait for a maximum of 5 seconds and then release it, the
           control value of the press (> 0%) will be forwarded.
