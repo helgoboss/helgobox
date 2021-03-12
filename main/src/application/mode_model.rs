@@ -18,6 +18,7 @@ pub struct ModeModel {
     pub source_value_interval: Prop<Interval<UnitValue>>,
     pub reverse: Prop<bool>,
     pub press_duration_interval: Prop<Interval<Duration>>,
+    pub turbo_rate: Prop<Duration>,
     pub jump_interval: Prop<Interval<UnitValue>>,
     pub out_of_range_behavior: Prop<OutOfRangeBehavior>,
     pub fire_mode: Prop<FireMode>,
@@ -58,6 +59,7 @@ impl Default for ModeModel {
                 Duration::from_millis(0),
                 Duration::from_millis(0),
             )),
+            turbo_rate: prop(Duration::from_millis(100)),
             jump_interval: prop(full_unit_interval()),
             out_of_range_behavior: prop(Default::default()),
             fire_mode: prop(Default::default()),
@@ -104,6 +106,7 @@ impl ModeModel {
         self.step_interval.set(def.step_interval.get());
         self.press_duration_interval
             .set(def.press_duration_interval.get());
+        self.turbo_rate.set(def.turbo_rate.get());
     }
 
     /// Fires whenever one of the properties of this model has changed
@@ -123,6 +126,7 @@ impl ModeModel {
             .merge(self.step_interval.changed())
             .merge(self.rotate.changed())
             .merge(self.press_duration_interval.changed())
+            .merge(self.turbo_rate.changed())
             .merge(self.make_absolute.changed())
     }
 
@@ -141,6 +145,7 @@ impl ModeModel {
             press_duration_processor: PressDurationProcessor::new(
                 self.fire_mode.get(),
                 self.press_duration_interval.get(),
+                self.turbo_rate.get(),
             ),
             approach_target_value: self.approach_target_value.get(),
             reverse: self.reverse.get(),
@@ -183,10 +188,6 @@ impl ModeModel {
 
     pub fn supports_eel_feedback_transformation(&self) -> bool {
         true
-    }
-
-    pub fn supports_max_duration(&self) -> bool {
-        matches!(self.fire_mode.get(), FireMode::WhenButtonReleased)
     }
 
     pub fn supports_round_target_value(&self) -> bool {

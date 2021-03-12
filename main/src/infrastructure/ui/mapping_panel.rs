@@ -920,10 +920,7 @@ impl<'a> MutableMappingPanel<'a> {
         let value = self
             .get_value_from_duration_edit_control(root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL)
             .unwrap_or_else(|| Duration::from_millis(0));
-        self.mapping
-            .mode_model
-            .press_duration_interval
-            .set_with(|prev| prev.with_max(value));
+        self.handle_mode_fire_line_3_duration_change(value);
     }
 
     fn update_mode_eel_control_transformation(&mut self) {
@@ -1006,10 +1003,23 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_mode_fire_line_3_slider_change(&mut self, slider: Window) {
-        self.mapping
-            .mode_model
-            .press_duration_interval
-            .set_with(|prev| prev.with_max(slider.slider_duration()));
+        let value = slider.slider_duration();
+        self.handle_mode_fire_line_3_duration_change(value);
+    }
+
+    fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration) {
+        match self.mapping.mode_model.fire_mode.get() {
+            FireMode::WhenButtonReleased => {
+                self.mapping
+                    .mode_model
+                    .press_duration_interval
+                    .set_with(|prev| prev.with_max(value));
+            }
+            FireMode::AfterTimeout => {}
+            FireMode::AfterTimeoutKeepFiring => {
+                self.mapping.mode_model.turbo_rate.set(value);
+            }
+        }
     }
 
     fn mapping_uses_step_counts(&self) -> bool {
@@ -3028,7 +3038,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_fire_line_2_controls(&self) {
         let label = match self.mode.fire_mode.get() {
             FireMode::WhenButtonReleased => "Min duration",
-            FireMode::OnTimeout => "Timeout",
+            FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => "Timeout",
         };
         self.view
             .require_control(root::ID_MODE_FIRE_LINE_2_LABEL_1)
@@ -3051,9 +3061,27 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_line_3_controls(&self) {
-        let supported = self.mode.supports_max_duration();
+        let option = match self.mode.fire_mode.get() {
+            FireMode::WhenButtonReleased => Some((
+                "Max duration",
+                self.mode.press_duration_interval.get_ref().max_val(),
+            )),
+            FireMode::AfterTimeout => None,
+            FireMode::AfterTimeoutKeepFiring => Some(("Rate", self.mode.turbo_rate.get())),
+        };
+        if let Some((label, value)) = option {
+            self.view
+                .require_control(root::ID_MODE_FIRE_LINE_3_LABEL_1)
+                .set_text(label);
+            self.invalidate_mode_fire_controls_internal(
+                root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_LABEL_2,
+                value,
+            );
+        }
         self.show_if(
-            supported,
+            option.is_some(),
             &[
                 root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
                 root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
@@ -3061,14 +3089,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_MODE_FIRE_LINE_3_LABEL_2,
             ],
         );
-        if supported {
-            self.invalidate_mode_fire_controls_internal(
-                root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
-                root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
-                root::ID_MODE_FIRE_LINE_3_LABEL_2,
-                self.mode.press_duration_interval.get_ref().max_val(),
-            );
-        }
     }
 
     fn invalidate_mode_step_controls_internal(
@@ -3338,7 +3358,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when_do_sync(
             mode.press_duration_interval
                 .changed()
-                .merge(mode.fire_mode.changed()),
+                .merge(mode.fire_mode.changed())
+                .merge(mode.turbo_rate.changed()),
             |view| {
                 view.invalidate_mode_fire_controls();
             },
