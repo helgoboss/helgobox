@@ -679,10 +679,14 @@ impl RealearnTarget for ReaperTarget {
                 bookmark_type,
                 position,
                 ..
-            } => match *bookmark_type {
-                BookmarkType::Marker => project.go_to_marker(BookmarkRef::Position(*position)),
-                BookmarkType::Region => {
-                    project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position));
+            } => {
+                if !value.as_absolute()?.is_zero() {
+                    match *bookmark_type {
+                        BookmarkType::Marker => project.go_to_marker(BookmarkRef::Position(*position)),
+                        BookmarkType::Region => {
+                            project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position));
+                        }
+                    }
                 }
             },
         };
