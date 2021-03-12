@@ -59,7 +59,7 @@ impl Default for ModeModel {
                 Duration::from_millis(0),
                 Duration::from_millis(0),
             )),
-            turbo_rate: prop(Duration::from_millis(100)),
+            turbo_rate: prop(Duration::from_millis(0)),
             jump_interval: prop(full_unit_interval()),
             out_of_range_behavior: prop(Default::default()),
             fire_mode: prop(Default::default()),

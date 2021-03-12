@@ -1822,25 +1822,39 @@ can be converted to relative values - rotary encoders and buttons. They don't af
 
 ##### For buttons (control only)
 
-The following UI elements are relevant only for button-like sources. Also, they only affect *control*
-direction.
+The following UI elements make sense for button-like control elements only (keys, pads, buttons,
+...), not for knobs or faders. Also, they only affect *control* direction. However of course, in an indirect way they
+affect *feedback* as well (because they might change some target values).
 
-- **Length Min/Max:** This decides how long a button needs to be pressed to have an effect.
-  Obviously, this setting makes sense for button-like control elements only (keys, pads, buttons,
-  ...), not for knobs or faders.
-  - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
-    both press (> 0%) and release (0%) will be instantly forwarded. If you change _Length Min_ to
-    e.g. 1000 ms and _Length Max_ to 5000 ms, it will behave as follows:
-    - If you press the control element and instantly release it, nothing will happen.
-    - If you press the control element, wait for a maximum of 5 seconds and then release it, the
-      control value of the press (> 0%) will be forwarded.
-    - It will never forward the control value of a release (0%), so this is probably only useful for
-      targets with trigger character.
-  - The main use case of this setting is to assign multiple functions to one control element,
-    depending on how long it has been pressed. For this, use settings like the following:
-    - Short press: 0 ms - 250 ms
-    - Long press: 250 ms - 5000 ms
-- **Fire mode:** TODO-high
+- **Fire:** Normally, when a button gets pressed, it controls the target immediately. However, by using this dropdown
+    and by changing the values below it, you can change this behavior. This dropdown provides different fire modes that 
+    decide how exactly ReaLearn should cope with button presses. 
+    - **When button released (if Min > 0 ms):** This mode is essential in order to be able to distinguish between
+      different press durations.
+        - **Min length** and **Max length** decide how long a button needs to be pressed to have an effect.
+        - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
+          both press (> 0%) and release (0%) will be instantly forwarded. If you change _Min length_ to
+          e.g. 1000 ms and _Max length_ to 5000 ms, it will behave as follows:
+        - If you press the control element and instantly release it, nothing will happen.
+        - If you press the control element, wait for a maximum of 5 seconds and then release it, the
+          control value of the press (> 0%) will be forwarded.
+        - It will never forward the control value of a release (0%), so this is probably only useful for
+          targets with trigger character.
+        - The main use case of this setting is to assign multiple functions to one control element,
+          depending on how long it has been pressed. For this, use settings like the following:
+        - Short press: 0 ms - 250 ms
+        - Long press: 250 ms - 5000 ms
+    - **After timeout:** This mode is more "satisfying" because it will let ReaLearn "fire" immediately once a certain
+      time has passed since the press of the button. However, obviously it doesn't have the concept of a "Maximum"
+      press duration, so it can't be used to execute different things depending on different press durations (or only as
+      the last part in the press duration chain, so to say). 
+        - **Timeout:** Sets the timeout in milliseconds. If this is zero, everything will behave as usual.
+    - **After timeout, keep firing (turbo):** Welcome to turbo mode. It will keep hitting your target (always with
+      with the initial button press velocity) at a specific rate. Optionally with an initial delay. Epic!
+        - **Timeout:** This is the initial delay before anything happens. Can be zero, then turbo stage is entered
+          instantly on press.
+        - **Rate:** This is how frequently the target will be hit once the timeout has passed. In practice it won't
+          happen more frequently than about 30 ms (REAPER's main thread loop frequency).
 
 ### REAPER actions
 

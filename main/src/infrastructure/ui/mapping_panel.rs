@@ -3037,7 +3037,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_2_controls(&self) {
         let label = match self.mode.fire_mode.get() {
-            FireMode::WhenButtonReleased => "Min duration",
+            FireMode::WhenButtonReleased => "Min length",
             FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => "Timeout",
         };
         self.view
@@ -3063,7 +3063,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_fire_line_3_controls(&self) {
         let option = match self.mode.fire_mode.get() {
             FireMode::WhenButtonReleased => Some((
-                "Max duration",
+                "Max length",
                 self.mode.press_duration_interval.get_ref().max_val(),
             )),
             FireMode::AfterTimeout => None,

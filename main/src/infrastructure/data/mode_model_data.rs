@@ -41,6 +41,8 @@ pub struct ModeModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     max_press_millis: u64,
     #[serde(default, skip_serializing_if = "is_default")]
+    turbo_rate: u64,
+    #[serde(default, skip_serializing_if = "is_default")]
     eel_control_transformation: String,
     #[serde(default, skip_serializing_if = "is_default")]
     eel_feedback_transformation: String,
@@ -94,6 +96,7 @@ impl ModeModelData {
                 .get_ref()
                 .max_val()
                 .as_millis() as _,
+            turbo_rate: model.turbo_rate.get().as_millis() as _,
             eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
             eel_feedback_transformation: model.eel_feedback_transformation.get_ref().clone(),
             reverse_is_enabled: model.reverse.get(),
@@ -146,6 +149,9 @@ impl ModeModelData {
                 Duration::from_millis(self.min_press_millis),
                 Duration::from_millis(self.max_press_millis),
             ));
+        model
+            .turbo_rate
+            .set_without_notification(Duration::from_millis(self.turbo_rate));
         model
             .jump_interval
             .set_without_notification(Interval::new(self.min_target_jump, self.max_target_jump));
