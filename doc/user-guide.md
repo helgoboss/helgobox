@@ -1609,7 +1609,7 @@ touch state. For example, if you have a push encoder, you could map the "push" e
 to write automation only while you are touching the encoder. Or if you don't have a push encoder, you could just use
 some spare button.
 
-###### Go to marker/region
+###### Go to marker/region target
 
 Navigates to a specific marker or region. Here's the behavior in detail:
 
@@ -1636,6 +1636,31 @@ User interface elements specific to this target:
     - **Right dropdown:** This dropdown displays the markers or regions (depending on the *Regions* checkbox state).
 - **Now!:** This sets the target to the currently playing (or currently focused, if stopped) marker/region.
 - **Regions:** Switches between markers and regions.
+
+###### Seek target
+
+Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project ...
+with feedback that indicates the current position!
+
+- **Feedback:** Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
+    - **Beat:** Every beat.
+    - **Fast:** As fast as possible, thereby giving the satisfying feeling of continuity. This obviously uses some more
+      resources. No idea how far you can go with that. Try yourself.
+- **Seek play:** Doesn't just change the edit cursor but also changes the play position when the project is currently
+  being played.
+- **Move view:** Also scrolls to the seeked position (even when not playing).
+
+The following options determine which time ranges will be taken into consideration as reference for seeking (control) 
+and feedback.
+
+1. **Time selection:** Can use the currently set time selection as reference.
+2. **Use loop points:** Can use the currently set loop points as reference.
+3. **Use regions:** Can use the current region as reference.
+4. **Use project:** Can use the complete project as reference, from start to end.
+
+If you tick multiple options, this is the order of fallbacks: If there's no time selection, the loop points will
+be used. If there are no loop points, the current region is used. And if there's no current region, the project
+will be used.
 
 ##### Category "Virtual"
 
