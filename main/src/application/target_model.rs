@@ -15,11 +15,11 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxParameterDescriptor, ProcessorContext, ReaperTarget, SoloBehavior,
-    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
-    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualFx, VirtualFxParameter,
-    VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    FxDescriptor, FxParameterDescriptor, PlayPosFeedbackResolution, ProcessorContext, ReaperTarget,
+    SeekOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
+    VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -86,6 +86,14 @@ pub struct TargetModel {
     pub bookmark_ref: Prop<u32>,
     pub bookmark_type: Prop<BookmarkType>,
     pub bookmark_anchor_type: Prop<BookmarkAnchorType>,
+    // # For "Seek" target
+    pub use_time_selection: Prop<bool>,
+    pub use_loop_points: Prop<bool>,
+    pub use_regions: Prop<bool>,
+    pub use_project: Prop<bool>,
+    pub move_view: Prop<bool>,
+    pub seek_play: Prop<bool>,
+    pub feedback_resolution: Prop<PlayPosFeedbackResolution>,
 }
 
 impl Default for TargetModel {
@@ -128,6 +136,13 @@ impl Default for TargetModel {
             bookmark_ref: prop(0),
             bookmark_type: prop(BookmarkType::Marker),
             bookmark_anchor_type: prop(Default::default()),
+            use_time_selection: prop(false),
+            use_loop_points: prop(false),
+            use_regions: prop(false),
+            use_project: prop(true),
+            move_view: prop(true),
+            seek_play: prop(true),
+            feedback_resolution: prop(Default::default()),
         }
     }
 }
@@ -258,6 +273,33 @@ impl TargetModel {
             .set_without_notification(param.expression);
     }
 
+    pub fn set_seek_options_without_notification(&mut self, options: SeekOptions) {
+        self.use_time_selection
+            .set_without_notification(options.use_time_selection);
+        self.use_loop_points
+            .set_without_notification(options.use_loop_points);
+        self.use_regions
+            .set_without_notification(options.use_regions);
+        self.use_project
+            .set_without_notification(options.use_project);
+        self.move_view.set_without_notification(options.move_view);
+        self.seek_play.set_without_notification(options.seek_play);
+        self.feedback_resolution
+            .set_without_notification(options.feedback_resolution);
+    }
+
+    pub fn seek_options(&self) -> SeekOptions {
+        SeekOptions {
+            use_time_selection: self.use_time_selection.get(),
+            use_loop_points: self.use_loop_points.get(),
+            use_regions: self.use_regions.get(),
+            use_project: self.use_project.get(),
+            move_view: self.move_view.get(),
+            seek_play: self.seek_play.get(),
+            feedback_resolution: self.feedback_resolution.get(),
+        }
+    }
+
     pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
         use ReaperTarget::*;
         self.category.set(TargetCategory::Reaper);
@@ -327,7 +369,8 @@ impl TargetModel {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
-            | LoadFxSnapshot { .. } => {}
+            | LoadFxSnapshot { .. }
+            | Seek { .. } => {}
         };
     }
 
@@ -370,6 +413,13 @@ impl TargetModel {
             .merge(self.bookmark_ref.changed())
             .merge(self.bookmark_type.changed())
             .merge(self.bookmark_anchor_type.changed())
+            .merge(self.use_time_selection.changed())
+            .merge(self.use_loop_points.changed())
+            .merge(self.use_regions.changed())
+            .merge(self.use_project.changed())
+            .merge(self.move_view.changed())
+            .merge(self.seek_play.changed())
+            .merge(self.feedback_resolution.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -624,6 +674,9 @@ impl TargetModel {
                         bookmark_type: self.bookmark_type.get(),
                         bookmark_anchor_type: self.bookmark_anchor_type.get(),
                         bookmark_ref: self.bookmark_ref.get(),
+                    },
+                    Seek => UnresolvedReaperTarget::Seek {
+                        options: self.seek_options(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -960,6 +1013,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.track_label(),
                         self.target.touched_parameter_type.get()
                     ),
+                    Seek => write!(f, "Seek"),
                     GoToBookmark => {
                         let bookmark_type = self.target.bookmark_type.get();
                         let main_label = match bookmark_type {
@@ -1070,6 +1124,8 @@ pub enum ReaperTargetType {
     AutomationTouchState = 21,
     #[display(fmt = "Go to marker/region (experimental)")]
     GoToBookmark = 22,
+    #[display(fmt = "Seek (experimental)")]
+    Seek = 23,
 }
 
 impl Default for ReaperTargetType {
@@ -1104,6 +1160,7 @@ impl ReaperTargetType {
             LoadFxSnapshot { .. } => ReaperTargetType::LoadFxSnapshot,
             AutomationTouchState { .. } => ReaperTargetType::AutomationTouchState,
             GoToBookmark { .. } => ReaperTargetType::GoToBookmark,
+            Seek { .. } => ReaperTargetType::Seek,
         }
     }
 
@@ -1113,9 +1170,8 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
             | FxPreset | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
-            Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched | GoToBookmark => {
-                false
-            }
+            Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched | GoToBookmark
+            | Seek => false,
         }
     }
 
@@ -1126,7 +1182,7 @@ impl ReaperTargetType {
             TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
             | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
             | Playrate | SelectedTrack | AllTrackFxEnable | Transport | LastTouched
-            | AutomationTouchState | GoToBookmark => false,
+            | AutomationTouchState | GoToBookmark | Seek => false,
         }
     }
 
@@ -1137,7 +1193,7 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
             | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
             | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched
-            | AutomationTouchState | GoToBookmark => false,
+            | AutomationTouchState | GoToBookmark | Seek => false,
         }
     }
 
@@ -1148,7 +1204,9 @@ impl ReaperTargetType {
             | AutomationTouchState => true,
             TrackSendVolume | TrackSendPan | TrackSendMute | FxParameter | TrackVolume
             | TrackPan | TrackWidth | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | Transport | LoadFxSnapshot | LastTouched | GoToBookmark => false,
+            | SelectedTrack | Transport | LoadFxSnapshot | LastTouched | GoToBookmark | Seek => {
+                false
+            }
         }
     }
 }

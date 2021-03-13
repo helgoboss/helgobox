@@ -188,6 +188,7 @@ pub mod root {
     pub const ID_MODE_FIRE_LINE_3_EDIT_CONTROL: u32 = 40091;
     pub const ID_MODE_FIRE_LINE_2_LABEL_2: u32 = 40092;
     pub const ID_MODE_FIRE_LINE_3_LABEL_1: u32 = 40093;
+    pub const ID_TARGET_CHECK_BOX_4: u32 = 40094;
     pub const ID_MODE_FIRE_LINE_3_LABEL_2: u32 = 40095;
     pub const ID_SETTINGS_TARGET_JUMP_LABEL_TEXT: u32 = 40096;
     pub const ID_TARGET_VALUE_LABEL_TEXT: u32 = 40097;
@@ -200,4 +201,6 @@ pub mod root {
     pub const ID_MODE_FIRE_COMBO_BOX: u32 = 40103;
     pub const ID_MODE_FIRE_LINE_2_LABEL_1: u32 = 40104;
     pub const ID_MODE_FIRE_LINE_2_SLIDER_CONTROL: u32 = 40105;
+    pub const ID_TARGET_CHECK_BOX_5: u32 = 40106;
+    pub const ID_TARGET_CHECK_BOX_6: u32 = 40107;
 }

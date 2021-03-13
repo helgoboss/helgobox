@@ -186,6 +186,7 @@
 #define ID_MODE_FIRE_LINE_3_EDIT_CONTROL        40091
 #define ID_MODE_FIRE_LINE_2_LABEL_2             40092
 #define ID_MODE_FIRE_LINE_3_LABEL_1             40093
+#define ID_TARGET_CHECK_BOX_4                   40094
 #define ID_MODE_FIRE_LINE_3_LABEL_2             40095
 #define ID_SETTINGS_TARGET_JUMP_LABEL_TEXT      40096
 #define ID_TARGET_VALUE_LABEL_TEXT              40097
@@ -198,3 +199,5 @@
 #define ID_MODE_FIRE_COMBO_BOX                  40103
 #define ID_MODE_FIRE_LINE_2_LABEL_1             40104
 #define ID_MODE_FIRE_LINE_2_SLIDER_CONTROL      40105
+#define ID_TARGET_CHECK_BOX_5                   40106
+#define ID_TARGET_CHECK_BOX_6                   40107

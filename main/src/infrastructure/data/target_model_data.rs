@@ -10,7 +10,7 @@ use crate::application::{
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, SoloBehavior,
+    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, SeekOptions, SoloBehavior,
     TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use semver::Version;
@@ -72,6 +72,9 @@ pub struct TargetModelData {
     // Bookmark target
     #[serde(flatten)]
     bookmark_data: BookmarkData,
+    // Seek target
+    #[serde(flatten)]
+    seek_options: SeekOptions,
 }
 
 impl TargetModelData {
@@ -112,6 +115,7 @@ impl TargetModelData {
                 r#ref: model.bookmark_ref.get(),
                 is_region: model.bookmark_type.get() == BookmarkType::Region,
             },
+            seek_options: model.seek_options(),
         }
     }
 
@@ -221,6 +225,7 @@ impl TargetModelData {
         model
             .bookmark_ref
             .set_without_notification(self.bookmark_data.r#ref);
+        model.set_seek_options_without_notification(self.seek_options);
     }
 }
 

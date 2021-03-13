@@ -2,9 +2,9 @@ use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget,
     ControlMode, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackRealTimeTask,
     MainMapping, MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask,
-    OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext, RealSource,
-    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceValue,
-    TargetValueChangedEvent, VirtualSourceValue,
+    OscDeviceId, OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
+    RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
+    SourceValue, TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
@@ -39,9 +39,11 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// At the moment only "Last touched" targets.
     target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
-    beat_based_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    beat_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    /// Contains IDs of those mappings whose feedback might change depending on the current milli.
+    milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
-    polli_pokatzki_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -95,8 +97,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings: Default::default(),
             mappings_with_virtual_targets: Default::default(),
             target_touch_dependent_mappings: Default::default(),
-            beat_based_feedback_mappings: Default::default(),
-            polli_pokatzki_mappings: Default::default(),
+            beat_dependent_feedback_mappings: Default::default(),
+            milli_dependent_feedback_mappings: Default::default(),
+            poll_control_mappings: Default::default(),
             feedback_is_globally_enabled: false,
             parameters: ZEROED_PLUGIN_PARAMETERS,
             event_handler,
@@ -160,7 +163,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         }
         for compartment in MappingCompartment::enum_iter() {
-            for id in self.polli_pokatzki_mappings[compartment].iter() {
+            for id in self.poll_control_mappings[compartment].iter() {
                 if let Some(m) = self.mappings[compartment].get_mut(id) {
                     let feedback = m.poll_if_control_enabled();
                     self.send_feedback(feedback);
@@ -201,8 +204,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let mut unused_sources =
                         self.currently_feedback_enabled_sources(compartment, true);
                     self.target_touch_dependent_mappings[compartment].clear();
-                    self.beat_based_feedback_mappings[compartment].clear();
-                    self.polli_pokatzki_mappings[compartment].clear();
+                    self.beat_dependent_feedback_mappings[compartment].clear();
+                    self.milli_dependent_feedback_mappings[compartment].clear();
+                    self.poll_control_mappings[compartment].clear();
                     // Refresh and splinter real-time mappings
                     let real_time_mappings = mappings
                         .iter_mut()
@@ -218,11 +222,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.needs_refresh_when_target_touched() {
                                 self.target_touch_dependent_mappings[compartment].insert(m.id());
                             }
-                            if m.wants_to_be_informed_about_beat_changes() {
-                                self.beat_based_feedback_mappings[compartment].insert(m.id());
+                            let influence = m.play_pos_feedback_resolution();
+                            if influence == Some(PlayPosFeedbackResolution::Beat) {
+                                self.beat_dependent_feedback_mappings[compartment].insert(m.id());
                             }
-                            if m.wants_to_be_polled() {
-                                self.polli_pokatzki_mappings[compartment].insert(m.id());
+                            if influence == Some(PlayPosFeedbackResolution::High) {
+                                self.milli_dependent_feedback_mappings[compartment].insert(m.id());
+                            }
+                            if m.wants_to_be_polled_for_control() {
+                                self.poll_control_mappings[compartment].insert(m.id());
                             }
                             m.splinter_real_time_mapping()
                         })
@@ -358,15 +366,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
                     }
-                    if mapping.wants_to_be_informed_about_beat_changes() {
-                        self.beat_based_feedback_mappings[compartment].insert(mapping.id());
+                    let influence = mapping.play_pos_feedback_resolution();
+                    if influence == Some(PlayPosFeedbackResolution::Beat) {
+                        self.beat_dependent_feedback_mappings[compartment].insert(mapping.id());
                     } else {
-                        self.beat_based_feedback_mappings[compartment].remove(&mapping.id());
+                        self.beat_dependent_feedback_mappings[compartment].remove(&mapping.id());
                     }
-                    if mapping.wants_to_be_polled() {
-                        self.polli_pokatzki_mappings[compartment].insert(mapping.id());
+                    if influence == Some(PlayPosFeedbackResolution::High) {
+                        self.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
                     } else {
-                        self.polli_pokatzki_mappings[compartment].remove(&mapping.id());
+                        self.milli_dependent_feedback_mappings[compartment].remove(&mapping.id());
+                    }
+                    if mapping.wants_to_be_polled_for_control() {
+                        self.poll_control_mappings[compartment].insert(mapping.id());
+                    } else {
+                        self.poll_control_mappings[compartment].remove(&mapping.id());
                     }
                     let relevant_map = if mapping.has_virtual_target() {
                         self.mappings[compartment].remove(&mapping.id());
@@ -612,6 +626,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+        // Process high-resolution playback-position dependent feedback
+        for compartment in MappingCompartment::enum_iter() {
+            for mapping_id in self.milli_dependent_feedback_mappings[compartment].iter() {
+                if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                    self.process_feedback_related_reaper_event_for_mapping(compartment, m, &|_| {
+                        (true, None)
+                    });
+                }
+            }
+        }
     }
 
     fn get_normal_or_virtual_target_mapping(
@@ -633,7 +657,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
             for compartment in MappingCompartment::enum_iter() {
-                for mapping_id in self.beat_based_feedback_mappings[compartment].iter() {
+                for mapping_id in self.beat_dependent_feedback_mappings[compartment].iter() {
                     if let Some(m) = self.mappings[compartment].get(&mapping_id) {
                         self.process_feedback_related_reaper_event_for_mapping(
                             compartment,
@@ -643,12 +667,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 }
             }
-            return;
+        } else {
+            // Okay, not fired that frequently, we can iterate over all mappings.
+            self.process_feedback_related_reaper_event(|target| {
+                target.value_changed_from_additional_feedback_event(event)
+            });
         }
-        // Okay, not fired that frequently, we can iterate over all mappings.
-        self.process_feedback_related_reaper_event(|target| {
-            target.value_changed_from_additional_feedback_event(event)
-        });
     }
 
     pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {

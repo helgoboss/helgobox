@@ -1,3 +1,4 @@
+use crate::core::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
@@ -7,9 +8,10 @@ use reaper_high::{
     FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Volume, Width,
 };
 use reaper_medium::{
-    BookmarkRef, Bpm, CommandId, Db, FxPresetRef, GetParameterStepSizesResult, MasterTrackBehavior,
-    NormalizedPlayRate, PlaybackSpeedFactor, ReaperNormalizedFxParamValue, ReaperPanValue,
-    ReaperWidthValue, SoloMode, UndoBehavior,
+    BookmarkRef, Bpm, CommandId, Db, FxPresetRef, GetLoopTimeRange2Result,
+    GetParameterStepSizesResult, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
+    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue,
+    SetEditCurPosOptions, SoloMode, UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
@@ -144,6 +146,61 @@ pub enum ReaperTarget {
         // unnecessarily lack reliability to go to markers in a position-based way.
         position: NonZeroU32,
     },
+    Seek {
+        project: Project,
+        options: SeekOptions,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeekOptions {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub use_time_selection: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub use_loop_points: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub use_regions: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub use_project: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub move_view: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub seek_play: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub feedback_resolution: PlayPosFeedbackResolution,
+}
+
+/// Determines in which granularity the play position influences feedback of a target.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum PlayPosFeedbackResolution {
+    /// It's enough to ask every beat.
+    #[serde(rename = "beat")]
+    #[display(fmt = "Beat")]
+    Beat,
+    /// It should be asked as frequently as possible (main loop).
+    #[serde(rename = "high")]
+    #[display(fmt = "Fast")]
+    High,
+}
+
+impl Default for PlayPosFeedbackResolution {
+    fn default() -> Self {
+        Self::Beat
+    }
 }
 
 impl RealearnTarget for ReaperTarget {
@@ -175,6 +232,7 @@ impl RealearnTarget for ReaperTarget {
                 .action_by_command_id(CommandId::new(40913))
                 .invoke_as_trigger(Some(track.project()));
         }
+        // TODO-high Have a look which other targets could profit from this!
     }
 
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
@@ -200,7 +258,8 @@ impl RealearnTarget for ReaperTarget {
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
-            | Transport { .. } => parse_unit_value_from_percentage(text),
+            | Transport { .. }
+            | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
     }
@@ -230,7 +289,8 @@ impl RealearnTarget for ReaperTarget {
             | FxEnable { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
-            | Transport { .. } => parse_unit_value_from_percentage(text),
+            | Transport { .. }
+            | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
         }
     }
@@ -276,6 +336,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
+            | Seek { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -302,6 +363,7 @@ impl RealearnTarget for ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             | Transport { .. } => format_as_percentage_without_unit(value),
             TrackWidth { .. } => format_as_symmetric_percentage_without_unit(value),
         }
@@ -330,11 +392,14 @@ impl RealearnTarget for ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             | Transport { .. } => format_as_percentage_without_unit(step_size),
             TrackWidth { .. } => format_as_double_percentage_without_unit(step_size),
         }
     }
 
+    /// Usually `true` for targets that have special value parsing support, so the edit control can
+    /// contain the unit so an additional label is superfluous.
     fn hide_formatted_value(&self) -> bool {
         use ReaperTarget::*;
         matches!(
@@ -349,6 +414,8 @@ impl RealearnTarget for ReaperTarget {
         )
     }
 
+    /// Usually `true` for targets that have special step size parsing support, so the edit control
+    /// can contain the unit so an additional label is superfluous.
     fn hide_formatted_step_size(&self) -> bool {
         use ReaperTarget::*;
         matches!(
@@ -384,6 +451,7 @@ impl RealearnTarget for ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } => "",
         }
@@ -411,6 +479,7 @@ impl RealearnTarget for ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } => "",
         }
@@ -447,6 +516,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Transport { .. }
+            | Seek { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
         }
@@ -682,13 +752,28 @@ impl RealearnTarget for ReaperTarget {
             } => {
                 if !value.as_absolute()?.is_zero() {
                     match *bookmark_type {
-                        BookmarkType::Marker => project.go_to_marker(BookmarkRef::Position(*position)),
+                        BookmarkType::Marker => {
+                            project.go_to_marker(BookmarkRef::Position(*position))
+                        }
                         BookmarkType::Region => {
                             project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position));
                         }
                     }
                 }
-            },
+            }
+            Seek { project, options } => {
+                let value = value.as_absolute()?;
+                let info = get_seek_info(*project, *options).ok_or("nothing to seek")?;
+                let desired_pos_within_range = value.get() * info.length();
+                let desired_pos = info.start_pos.get() + desired_pos_within_range;
+                project.set_edit_cursor_position(
+                    PositionInSeconds::new(desired_pos),
+                    SetEditCurPosOptions {
+                        move_view: options.move_view,
+                        seek_play: options.seek_play,
+                    },
+                );
+            }
         };
         Ok(())
     }
@@ -696,6 +781,59 @@ impl RealearnTarget for ReaperTarget {
     fn can_report_current_value(&self) -> bool {
         true
     }
+}
+
+struct SeekInfo {
+    pub start_pos: PositionInSeconds,
+    pub end_pos: PositionInSeconds,
+}
+
+impl SeekInfo {
+    pub fn new(start_pos: PositionInSeconds, end_pos: PositionInSeconds) -> Self {
+        Self { start_pos, end_pos }
+    }
+
+    fn from_time_range(range: GetLoopTimeRange2Result) -> Self {
+        Self::new(range.start, range.end)
+    }
+
+    pub fn length(&self) -> f64 {
+        self.end_pos.get() - self.start_pos.get()
+    }
+}
+
+fn get_seek_info(project: Project, options: SeekOptions) -> Option<SeekInfo> {
+    if options.use_time_selection {
+        if let Some(r) = project.time_selection() {
+            return Some(SeekInfo::from_time_range(r));
+        }
+    }
+    if options.use_loop_points {
+        if let Some(r) = project.loop_points() {
+            return Some(SeekInfo::from_time_range(r));
+        }
+    }
+    if options.use_regions {
+        let bm = project.current_bookmark();
+        if let Some(i) = bm.region_index {
+            if let Some(bm) = project.find_bookmark_by_index(i) {
+                let info = bm.basic_info();
+                if let Some(end_pos) = info.region_end_position {
+                    return Some(SeekInfo::new(info.position, end_pos));
+                }
+            }
+        }
+    }
+    if options.use_project {
+        let length = project.length();
+        if length.get() > 0.0 {
+            return Some(SeekInfo::new(
+                PositionInSeconds::new(0.0),
+                PositionInSeconds::new(length.get()),
+            ));
+        }
+    }
+    None
 }
 
 impl ReaperTarget {
@@ -720,7 +858,8 @@ impl ReaperTarget {
             | Playrate { project }
             | Transport { project, .. }
             | SelectedTrack { project }
-            | GoToBookmark { project, .. } => project.is_available(),
+            | GoToBookmark { project, .. }
+            | Seek { project, .. } => project.is_available(),
             FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.is_available(),
         }
     }
@@ -824,6 +963,8 @@ impl ReaperTarget {
             | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
+            // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
+            | Seek { .. }
             | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
@@ -1135,6 +1276,7 @@ impl ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
+            | Seek { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -1164,7 +1306,8 @@ impl ReaperTarget {
             GoToBookmark { project, .. }
             | Tempo { project }
             | Playrate { project }
-            | SelectedTrack { project } => *project,
+            | SelectedTrack { project }
+            | Seek { project, .. } => *project,
             FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.project()?,
         };
         Some(project)
@@ -1192,6 +1335,7 @@ impl ReaperTarget {
             | Playrate { .. }
             | SelectedTrack { .. }
             | GoToBookmark { .. }
+            | Seek { .. }
             | Transport { .. } => return None,
         };
         Some(track)
@@ -1219,6 +1363,7 @@ impl ReaperTarget {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             | Transport { .. } => return None,
         };
         Some(fx)
@@ -1248,6 +1393,7 @@ impl ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
+            | Seek { .. }
             | Transport { .. } => return None,
         };
         Some(route)
@@ -1277,6 +1423,7 @@ impl ReaperTarget {
             | AllTrackFxEnable { .. }
             | Transport { .. }
             | LoadFxSnapshot { .. }
+            | Seek { .. }
             | AutomationTouchState { .. } => None,
         }
     }
@@ -1303,6 +1450,7 @@ impl ReaperTarget {
             | SelectedTrack { .. }
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             | Transport { .. } => true,
             AllTrackFxEnable { .. } | TrackRouteMute { .. } => false,
         }
@@ -1347,8 +1495,24 @@ impl ReaperTarget {
                 }
                 _ => (false, None),
             },
-            GoToBookmark { .. } => match evt {
-                PlayPositionChanged(_) => (true, None),
+            GoToBookmark {
+                project,
+                bookmark_type,
+                index,
+                ..
+            } => match evt {
+                PlayPositionChanged(e) => {
+                    let v =
+                        current_value_of_bookmark(*project, *bookmark_type, *index, e.new_value);
+                    (true, Some(v))
+                }
+                _ => (false, None),
+            },
+            Seek { project, options } => match evt {
+                PlayPositionChanged(e) => {
+                    let v = current_value_of_seek(*project, *options, e.new_value);
+                    (true, Some(v))
+                }
                 _ => (false, None),
             },
             _ => (false, None),
@@ -1526,6 +1690,7 @@ impl ReaperTarget {
                     }
                 }
             }
+            // Handled both from control-surface and non-control-surface callbacks.
             GoToBookmark { .. } => {
                 match evt {
                     BookmarksChanged(_) => (
@@ -1535,10 +1700,11 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            // Handled from non-control-surface callbacks.
+            // Handled from non-control-surface callbacks only.
             Action { .. }
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
+            | Seek { .. }
             // No value change notification available.
             | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
@@ -1619,14 +1785,14 @@ impl Target for ReaperTarget {
                 bookmark_type,
                 index,
                 ..
-            } => {
-                let current_bookmark = project.current_bookmark();
-                let relevant_index = match *bookmark_type {
-                    BookmarkType::Marker => current_bookmark.marker_index,
-                    BookmarkType::Region => current_bookmark.region_index,
-                };
-                let is_current = relevant_index == Some(*index);
-                convert_bool_to_unit_value(is_current)
+            } => current_value_of_bookmark(
+                *project,
+                *bookmark_type,
+                *index,
+                project.play_or_edit_cursor_position(),
+            ),
+            Seek { project, options } => {
+                current_value_of_seek(*project, *options, project.play_or_edit_cursor_position())
             }
         };
         Some(result)
@@ -1634,6 +1800,38 @@ impl Target for ReaperTarget {
 
     fn control_type(&self) -> ControlType {
         self.control_type_and_character().0
+    }
+}
+
+fn current_value_of_bookmark(
+    project: Project,
+    bookmark_type: BookmarkType,
+    index: u32,
+    pos: PositionInSeconds,
+) -> UnitValue {
+    let current_bookmark = project.current_bookmark_at(pos);
+    let relevant_index = match bookmark_type {
+        BookmarkType::Marker => current_bookmark.marker_index,
+        BookmarkType::Region => current_bookmark.region_index,
+    };
+    let is_current = relevant_index == Some(index);
+    convert_bool_to_unit_value(is_current)
+}
+
+fn current_value_of_seek(
+    project: Project,
+    options: SeekOptions,
+    pos: PositionInSeconds,
+) -> UnitValue {
+    let info = match get_seek_info(project, options) {
+        None => return UnitValue::MIN,
+        Some(i) => i,
+    };
+    if pos < info.start_pos {
+        UnitValue::MIN
+    } else {
+        let pos_within_range = pos.get() - info.start_pos.get();
+        UnitValue::new_clamped(pos_within_range / info.length())
     }
 }
 

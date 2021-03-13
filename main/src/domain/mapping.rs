@@ -1,7 +1,8 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
-    MappingActivationEffect, Mode, ParameterArray, RealearnTarget, ReaperTarget, TargetCharacter,
-    UnresolvedReaperTarget, VirtualSource, VirtualSourceValue, VirtualTarget,
+    MappingActivationEffect, Mode, ParameterArray, PlayPosFeedbackResolution, RealearnTarget,
+    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue,
+    VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -216,16 +217,12 @@ impl MainMapping {
         )
     }
 
-    pub fn wants_to_be_informed_about_beat_changes(&self) -> bool {
-        matches!(
-            self.unresolved_target,
-            Some(UnresolvedCompoundMappingTarget::Reaper(
-                UnresolvedReaperTarget::GoToBookmark { .. }
-            ))
-        )
+    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+        let t = self.unresolved_target.as_ref()?;
+        t.play_pos_feedback_resolution()
     }
 
-    pub fn wants_to_be_polled(&self) -> bool {
+    pub fn wants_to_be_polled_for_control(&self) -> bool {
         self.core.mode.wants_to_be_polled()
     }
 
@@ -671,6 +668,14 @@ impl UnresolvedCompoundMappingTarget {
             (Reaper(t), CompoundMappingTarget::Reaper(rt)) => t.conditions_are_met(rt),
             (Virtual(_), CompoundMappingTarget::Virtual(_)) => true,
             _ => unreachable!(),
+        }
+    }
+
+    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+        use UnresolvedCompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.play_pos_feedback_resolution(),
+            Virtual(_) => None,
         }
     }
 }

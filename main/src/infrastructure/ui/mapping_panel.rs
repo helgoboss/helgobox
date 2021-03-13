@@ -35,15 +35,17 @@ use crate::core::Global;
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
-    ExtendedProcessorContext, MappingCompartment, MappingId, RealearnTarget, ReaperTarget,
-    SoloBehavior, TargetCharacter, TouchedParameterType, TrackExclusivity, TrackRouteType,
-    TransportAction, VirtualControlElement, VirtualFx,
+    ExtendedProcessorContext, MappingCompartment, MappingId, PlayPosFeedbackResolution,
+    RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TouchedParameterType,
+    TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement, VirtualFx,
 };
 use itertools::Itertools;
 
 use std::collections::HashMap;
 use std::time::Duration;
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, WeakView, Window};
+use swell_ui::{
+    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+};
 
 #[derive(Debug)]
 pub struct MappingPanel {
@@ -1060,6 +1062,31 @@ impl<'a> MutableMappingPanel<'a> {
                 t if t.supports_fx() => {
                     self.mapping.target_model.fx_is_input_fx.set(is_checked);
                 }
+                ReaperTargetType::Seek => {
+                    self.mapping.target_model.seek_play.set(is_checked);
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    fn handle_target_check_box_2_change(&mut self) {
+        let is_checked = self
+            .view
+            .require_control(root::ID_TARGET_CHECK_BOX_2)
+            .is_checked();
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_track() => {
+                    self.mapping
+                        .target_model
+                        .enable_only_if_track_selected
+                        .set(is_checked);
+                }
+                ReaperTargetType::Seek => {
+                    self.mapping.target_model.move_view.set(is_checked);
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -1071,18 +1098,72 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_CHECK_BOX_3)
             .is_checked();
-        let target = &mut self.mapping.target_model;
-        if target.supports_fx() {
-            target.enable_only_if_fx_has_focus.set(is_checked);
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_fx() => {
+                    self.mapping
+                        .target_model
+                        .enable_only_if_fx_has_focus
+                        .set(is_checked);
+                }
+                ReaperTargetType::Seek => {
+                    self.mapping.target_model.use_project.set(is_checked);
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
         }
     }
 
-    fn handle_target_check_box_2_change(&mut self) {
-        self.mapping.target_model.enable_only_if_track_selected.set(
-            self.view
-                .require_control(root::ID_TARGET_CHECK_BOX_2)
-                .is_checked(),
-        );
+    #[allow(clippy::single_match)]
+    fn handle_target_check_box_4_change(&mut self) {
+        let is_checked = self
+            .view
+            .require_control(root::ID_TARGET_CHECK_BOX_4)
+            .is_checked();
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Seek => {
+                    self.mapping.target_model.use_regions.set(is_checked);
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    #[allow(clippy::single_match)]
+    fn handle_target_check_box_5_change(&mut self) {
+        let is_checked = self
+            .view
+            .require_control(root::ID_TARGET_CHECK_BOX_5)
+            .is_checked();
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Seek => {
+                    self.mapping.target_model.use_loop_points.set(is_checked);
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    #[allow(clippy::single_match)]
+    fn handle_target_check_box_6_change(&mut self) {
+        let is_checked = self
+            .view
+            .require_control(root::ID_TARGET_CHECK_BOX_6)
+            .is_checked();
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Seek => {
+                    self.mapping.target_model.use_time_selection.set(is_checked);
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
+        }
     }
 
     fn toggle_learn_target(&mut self) {
@@ -1134,6 +1215,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .target_model
                         .bookmark_anchor_type
                         .set(bookmark_anchor_type);
+                }
+                ReaperTargetType::Seek => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .feedback_resolution
+                        .set(i.try_into().expect("invalid feedback resolution"));
                 }
                 t if t.supports_track() => {
                     let track_type = combo
@@ -1831,6 +1919,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_check_box_1();
         self.invalidate_target_check_box_2();
         self.invalidate_target_check_box_3();
+        self.invalidate_target_check_box_4();
+        self.invalidate_target_check_box_5();
+        self.invalidate_target_check_box_6();
         self.invalidate_target_value_controls();
         self.invalidate_target_learn_button();
     }
@@ -1879,6 +1970,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     BookmarkType::Marker => Some("Marker"),
                     BookmarkType::Region => Some("Region"),
                 },
+                ReaperTargetType::Seek => Some("Feedback"),
                 t if t.supports_track() => Some("Track"),
                 _ => None,
             },
@@ -1929,6 +2021,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo
                         .select_combo_box_item_by_index(
                             self.target.bookmark_anchor_type.get().into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::Seek => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(PlayPosFeedbackResolution::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.feedback_resolution.get().into(),
                         )
                         .unwrap();
                 }
@@ -2497,47 +2598,106 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let is_regions = self.target.bookmark_type.get() == BookmarkType::Region;
                     Some(("Regions", is_regions))
                 }
+                ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play.get())),
                 _ => None,
             },
             TargetCategory::Virtual => None,
         };
-        let b = self.view.require_control(root::ID_TARGET_CHECK_BOX_1);
-        if let Some((label, is_checked)) = res {
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_1, res);
+    }
+
+    fn invalidate_target_check_box_2(&self) {
+        let res = match self.target.category.get() {
+            TargetCategory::Reaper => match self.target.r#type.get() {
+                t if t.supports_track() => {
+                    if self.target.track_type.get() == VirtualTrackType::Selected {
+                        None
+                    } else {
+                        Some((
+                            "Track must be selected",
+                            self.target.enable_only_if_track_selected.get(),
+                        ))
+                    }
+                }
+                ReaperTargetType::Seek => Some(("Move view", self.target.move_view.get())),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_2, res);
+    }
+
+    fn invalidate_target_check_box_3(&self) {
+        let res = match self.target.category.get() {
+            TargetCategory::Reaper => match self.target.r#type.get() {
+                t if t.supports_fx() => {
+                    if self.target.fx_type.get() == VirtualFxType::Focused {
+                        None
+                    } else {
+                        Some((
+                            "FX must have focus",
+                            self.target.enable_only_if_fx_has_focus.get(),
+                        ))
+                    }
+                }
+                ReaperTargetType::Seek => Some(("Use project", self.target.use_project.get())),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_3, res);
+    }
+
+    fn invalidate_target_check_box_4(&self) {
+        let res = match self.target.category.get() {
+            TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions.get())),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_4, res);
+    }
+
+    fn invalidate_target_check_box_5(&self) {
+        let res = match self.target.category.get() {
+            TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::Seek => {
+                    Some(("Use loop points", self.target.use_loop_points.get()))
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_5, res);
+    }
+
+    fn invalidate_target_check_box_6(&self) {
+        let res = match self.target.category.get() {
+            TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::Seek => {
+                    Some(("Use time selection", self.target.use_time_selection.get()))
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_6, res);
+    }
+
+    fn invalidate_check_box<'b>(
+        &self,
+        checkbox_id: u32,
+        state: Option<(impl Into<SwellStringArg<'b>>, bool)>,
+    ) {
+        let b = self.view.require_control(checkbox_id);
+        if let Some((label, is_checked)) = state {
             b.set_text(label);
             b.set_checked(is_checked);
             b.show();
         } else {
             b.hide();
         }
-    }
-
-    fn invalidate_target_check_box_3(&self) {
-        let is_checked = if self.target.supports_fx() {
-            if self.target.fx_type.get() == VirtualFxType::Focused {
-                None
-            } else {
-                Some(self.target.enable_only_if_fx_has_focus.get())
-            }
-        } else {
-            None
-        };
-        self.view
-            .require_control(root::ID_TARGET_CHECK_BOX_3)
-            .set_checked_or_hide(is_checked);
-    }
-
-    fn invalidate_target_check_box_2(&self) {
-        let target = self.target;
-        let is_checked = if target.supports_track()
-            && !matches!(target.track_type.get(), VirtualTrackType::Selected)
-        {
-            Some(target.enable_only_if_track_selected.get())
-        } else {
-            None
-        };
-        self.view
-            .require_control(root::ID_TARGET_CHECK_BOX_2)
-            .set_checked_or_hide(is_checked);
     }
 
     fn invalidate_target_value_controls(&self) {
@@ -3316,18 +3476,45 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .fx_is_input_fx
                 .changed()
-                .merge(target.bookmark_type.changed()),
+                .merge(target.bookmark_type.changed())
+                .merge(target.seek_play.changed()),
             |view| {
                 view.invalidate_target_check_box_1();
             },
         );
-        self.panel
-            .when_do_sync(target.enable_only_if_track_selected.changed(), |view| {
+        self.panel.when_do_sync(
+            target
+                .enable_only_if_track_selected
+                .changed()
+                .merge(target.move_view.changed()),
+            |view| {
                 view.invalidate_target_check_box_2();
+            },
+        );
+        self.panel.when_do_sync(
+            target
+                .enable_only_if_fx_has_focus
+                .changed()
+                .merge(target.use_project.changed()),
+            |view| {
+                view.invalidate_target_check_box_3();
+            },
+        );
+        self.panel
+            .when_do_sync(target.use_regions.changed(), |view| {
+                view.invalidate_target_check_box_4();
             });
         self.panel
-            .when_do_sync(target.enable_only_if_fx_has_focus.changed(), |view| {
-                view.invalidate_target_check_box_3();
+            .when_do_sync(target.use_loop_points.changed(), |view| {
+                view.invalidate_target_check_box_5();
+            });
+        self.panel
+            .when_do_sync(target.use_time_selection.changed(), |view| {
+                view.invalidate_target_check_box_6();
+            });
+        self.panel
+            .when_do_sync(target.feedback_resolution.changed(), |view| {
+                view.invalidate_target_line_2_combo_box_1();
             });
     }
 
@@ -3593,6 +3780,9 @@ impl View for MappingPanel {
             root::ID_TARGET_CHECK_BOX_1 => self.write(|p| p.handle_target_check_box_1_change()),
             root::ID_TARGET_CHECK_BOX_2 => self.write(|p| p.handle_target_check_box_2_change()),
             root::ID_TARGET_CHECK_BOX_3 => self.write(|p| p.handle_target_check_box_3_change()),
+            root::ID_TARGET_CHECK_BOX_4 => self.write(|p| p.handle_target_check_box_4_change()),
+            root::ID_TARGET_CHECK_BOX_5 => self.write(|p| p.handle_target_check_box_5_change()),
+            root::ID_TARGET_CHECK_BOX_6 => self.write(|p| p.handle_target_check_box_6_change()),
             root::ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
             root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             root::ID_TARGET_LINE_2_BUTTON => {

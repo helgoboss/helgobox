@@ -1,8 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ReaperTarget,
-    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction, PLUGIN_PARAMETER_COUNT,
+    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray,
+    PlayPosFeedbackResolution, ReaperTarget, SeekOptions, SoloBehavior, TouchedParameterType,
+    TrackExclusivity, TransportAction, PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -94,6 +95,9 @@ pub enum UnresolvedReaperTarget {
         bookmark_type: BookmarkType,
         bookmark_anchor_type: BookmarkAnchorType,
         bookmark_ref: u32,
+    },
+    Seek {
+        options: SeekOptions,
     },
 }
 
@@ -233,6 +237,13 @@ impl UnresolvedReaperTarget {
                     position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
                 }
             }
+            Seek { options } => {
+                let project = context.context.project_or_current_project();
+                ReaperTarget::Seek {
+                    project,
+                    options: *options,
+                }
+            }
         };
         Ok(resolved)
     }
@@ -279,6 +290,8 @@ impl UnresolvedReaperTarget {
             | Playrate
             | SelectedTrack
             | Transport { .. }
+            | LastTouched
+            | Seek { .. }
             | GoToBookmark { .. } => (None, None),
             FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
@@ -315,8 +328,38 @@ impl UnresolvedReaperTarget {
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
             | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
-            LastTouched => (None, None),
         }
+    }
+
+    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+        use UnresolvedReaperTarget::*;
+        let res = match self {
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackSendVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackSendPan { .. }
+            | TrackSendMute { .. }
+            | Tempo
+            | Playrate
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | SelectedTrack
+            | AllTrackFxEnable { .. }
+            | Transport { .. }
+            | LoadFxPreset { .. }
+            | LastTouched
+            | AutomationTouchState { .. } => return None,
+            GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
+            Seek { options, .. } => options.feedback_resolution,
+        };
+        Some(res)
     }
 }
 
