@@ -42,7 +42,9 @@ use url::Url;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
-const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 1000;
+// Probably can get quite much on action invocation.
+// https://github.com/helgoboss/realearn/issues/234
+const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 

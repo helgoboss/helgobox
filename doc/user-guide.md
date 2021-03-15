@@ -1282,8 +1282,8 @@ All REAPER targets additionally have this:
 
 - **Value:** Reflects the current value of this mapping target and lets you change it.
 
-Targets that need a track, FX, FX parameter or send/receive have dropdowns that let you choose in which way you
-want to refer to these objects. Let's call them *object selectors*. Here's an explanation of commonly available
+Targets that need a track, FX, FX parameter or send/receive have dropdowns that let you choose how you want to address 
+these objects. Let's call them *object selectors*. Here's an explanation of commonly available
 object selectors. We use the example of tracks but the same applies to all other objects that support it.
 
 - **By ID:** Lets you pick a specific track and refer to it by its unique ID. This is the default and
