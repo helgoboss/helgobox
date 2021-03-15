@@ -2591,7 +2591,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.8.0-pre2"
+version = "2.8.0-pre3"
 dependencies = [
  "askama",
  "async-channel",

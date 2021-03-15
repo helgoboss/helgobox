@@ -13,6 +13,7 @@ use core::mem;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use std::time::Duration;
 use uuid::Uuid;
 
 const MAX_INCOMING_PACKET_SIZE: usize = 10_000;
@@ -125,6 +126,7 @@ impl OscFeedbackHandler {
                 let _ = dev.send(group.map(|task| task.msg));
             }
         }
+        std::thread::sleep(Duration::from_millis(1));
     }
 
     pub fn return_task_receiver(self) -> Receiver<OscFeedbackTask> {
