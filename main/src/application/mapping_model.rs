@@ -227,6 +227,7 @@ impl MappingModel {
             send_feedback_after_control: self.send_feedback_after_control.get(),
         };
         MainMapping::new(
+            self.compartment,
             id,
             source,
             mode,

@@ -1029,7 +1029,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Indicate via zero feedback the sources which are not in use anymore.
     fn send_zero_feedback_for_unused_sources(&self, now_unused_sources: &HashSet<QualifiedSource>) {
         for s in now_unused_sources {
-            self.send_feedback(Some(s.zero_feedback()));
+            self.send_feedback(s.zero_feedback());
         }
     }
 
@@ -1231,7 +1231,6 @@ fn send_final_non_virtual_feedback<EH: DomainEventHandler>(
         }
     }
     if let Some(projection_feedback_value) = feedback_value.projection {
-        // TODO-high Make sure that only controller compartment stuff is sent.
         event_handler.handle_event(DomainEvent::ProjectionFeedback(projection_feedback_value));
     }
 }

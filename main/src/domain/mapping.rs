@@ -96,6 +96,7 @@ pub struct MainMapping {
 impl MainMapping {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
+        compartment: MappingCompartment,
         id: MappingId,
         source: CompoundMappingSource,
         mode: Mode,
@@ -107,6 +108,7 @@ impl MainMapping {
     ) -> MainMapping {
         MainMapping {
             core: MappingCore {
+                compartment,
                 id,
                 source,
                 mode,
@@ -125,6 +127,7 @@ impl MainMapping {
 
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
+            compartment: self.core.compartment,
             id: self.id(),
             source: self.source().clone(),
         }
@@ -437,14 +440,14 @@ impl MainMapping {
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
-        let fb_value = FeedbackValue::from_mode_value(
+        FeedbackValue::from_mode_value(
+            self.core.compartment,
             self.id(),
             &self.core.source,
             mode_value,
             with_projection_feedback,
             with_source_feedback,
-        );
-        Some(fb_value)
+        )
     }
 
     pub fn zero_feedback(&self) -> Option<FeedbackValue> {
@@ -604,6 +607,7 @@ pub enum PartialControlMatch {
 
 #[derive(Clone, Debug)]
 pub struct MappingCore {
+    compartment: MappingCompartment,
     id: MappingId,
     source: CompoundMappingSource,
     mode: Mode,
@@ -631,13 +635,21 @@ pub enum CompoundMappingSource {
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub struct QualifiedSource {
+    pub compartment: MappingCompartment,
     pub id: MappingId,
     pub source: CompoundMappingSource,
 }
 
 impl QualifiedSource {
-    pub fn zero_feedback(&self) -> FeedbackValue {
-        FeedbackValue::from_mode_value(self.id, &self.source, UnitValue::MIN, true, true)
+    pub fn zero_feedback(&self) -> Option<FeedbackValue> {
+        FeedbackValue::from_mode_value(
+            self.compartment,
+            self.id,
+            &self.source,
+            UnitValue::MIN,
+            true,
+            true,
+        )
     }
 }
 
@@ -696,28 +708,31 @@ pub enum FeedbackValue {
 
 impl FeedbackValue {
     pub fn from_mode_value(
+        compartment: MappingCompartment,
         id: MappingId,
         source: &CompoundMappingSource,
         mode_value: UnitValue,
         with_projection_feedback: bool,
         with_source_feedback: bool,
-    ) -> FeedbackValue {
-        if let CompoundMappingSource::Virtual(vs) = &source {
+    ) -> Option<FeedbackValue> {
+        let val = if let CompoundMappingSource::Virtual(vs) = &source {
             FeedbackValue::Virtual(vs.feedback(mode_value))
         } else {
-            FeedbackValue::Real(RealFeedbackValue {
-                projection: if with_projection_feedback {
-                    Some(ProjectionFeedbackValue::new(id, mode_value))
-                } else {
-                    None
-                },
-                source: if with_source_feedback {
-                    source.feedback(mode_value)
-                } else {
-                    None
-                },
-            })
-        }
+            let projection = if with_projection_feedback
+                && compartment == MappingCompartment::ControllerMappings
+            {
+                Some(ProjectionFeedbackValue::new(id, mode_value))
+            } else {
+                None
+            };
+            let source = if with_source_feedback {
+                source.feedback(mode_value)
+            } else {
+                None
+            };
+            FeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
+        };
+        Some(val)
     }
 }
 
@@ -733,6 +748,19 @@ pub struct RealFeedbackValue {
     /// This is an option because there are situations when we don't want source feedback but
     /// projection feedback (e.g. if "MIDI feedback output" is set to None).
     pub source: Option<SourceFeedbackValue>,
+}
+
+impl RealFeedbackValue {
+    pub fn new(
+        projection: Option<ProjectionFeedbackValue>,
+        source: Option<SourceFeedbackValue>,
+    ) -> Option<Self> {
+        if projection.is_none() && source.is_none() {
+            return None;
+        }
+        let val = Self { projection, source };
+        Some(val)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
