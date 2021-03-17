@@ -462,17 +462,15 @@ async fn start_server(
             .and(warp::ws())
             .and(warp::query::<WebSocketRequest>())
             .and(clients)
-            .map(
-                |ws: warp::ws::Ws, req: WebSocketRequest, clients| -> Box<dyn Reply> {
-                    let topics: Result<HashSet<_>, _> =
-                        req.topics.split(',').map(Topic::try_from).collect();
-                    if let Ok(topics) = topics {
-                        Box::new(ws.on_upgrade(move |ws| client_connected(ws, topics, clients)))
-                    } else {
-                        Box::new(bad_request("at least one of the given topics is invalid"))
-                    }
-                },
-            )
+            .map(|ws: warp::ws::Ws, req: WebSocketRequest, clients| {
+                let topics: HashSet<_> = req
+                    .topics
+                    .split(',')
+                    .map(Topic::try_from)
+                    .flatten()
+                    .collect();
+                ws.on_upgrade(move |ws| client_connected(ws, topics, clients))
+            })
     };
     let cert_clone = cert.clone();
     let cert_file_name = "realearn.cer";
@@ -771,10 +769,9 @@ pub fn send_projection_feedback_to_subscribed_clients(
     session_id: &str,
     value: ProjectionFeedbackValue,
 ) -> Result<(), &'static str> {
-    // TODO-high Send to correct clients only
-    for_each_client(
-        |client, cached| {
-            let _ = client.send(cached);
+    send_to_clients_subscribed_to(
+        &Topic::Feedback {
+            session_id: session_id.to_string(),
         },
         || get_projection_feedback_event(session_id, value),
     )
@@ -831,6 +828,8 @@ fn send_initial_events_for_topic(
         Session { session_id } => send_initial_session(client, session_id),
         ControllerRouting { session_id } => send_initial_controller_routing(client, session_id),
         ActiveController { session_id } => send_initial_controller(client, session_id),
+        // TODO-high Send initial feedback
+        Feedback { .. } => Ok(()),
     }
 }
 
@@ -839,6 +838,7 @@ enum Topic {
     Session { session_id: String },
     ActiveController { session_id: String },
     ControllerRouting { session_id: String },
+    Feedback { session_id: String },
 }
 
 impl TryFrom<&str> for Topic {
@@ -851,6 +851,9 @@ impl TryFrom<&str> for Topic {
                 session_id: id.to_string(),
             },
             ["realearn", "session", id, "controller"] => Topic::ActiveController {
+                session_id: id.to_string(),
+            },
+            ["realearn", "session", id, "feedback"] => Topic::Feedback {
                 session_id: id.to_string(),
             },
             ["realearn", "session", id] => Topic::Session {
@@ -877,7 +880,7 @@ fn get_projection_feedback_event(
     feedback_value: ProjectionFeedbackValue,
 ) -> Event<HashMap<MappingId, UnitValue>> {
     Event::patch(
-        format!("/realearn/session/{}/control-value", session_id),
+        format!("/realearn/session/{}/feedback", session_id),
         hashmap! {
             feedback_value.mapping_id => feedback_value.value
         },

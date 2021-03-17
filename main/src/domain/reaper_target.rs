@@ -232,7 +232,7 @@ impl RealearnTarget for ReaperTarget {
                 .action_by_command_id(CommandId::new(40913))
                 .invoke_as_trigger(Some(track.project()));
         }
-        // TODO-high Have a look which other targets could profit from this!
+        // TODO-medium Have a look which other targets could profit from this!
     }
 
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {

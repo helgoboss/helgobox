@@ -247,7 +247,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
         }
         // Emit beats as feedback events
-        // TODO-high Make multi-project compatible.
+        // TODO-medium Make multi-project compatible.
         let project = Reaper::get().current_project();
         let reference_pos = if project.is_playing() {
             project.play_position_latency_compensated()

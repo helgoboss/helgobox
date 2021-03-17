@@ -755,7 +755,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // Feedback
                 let feedback_value =
                     m.feedback_given_target_value(new_target_value, true, source_feedback_desired);
-                // TODO-high Send it
                 self.send_feedback(feedback_value);
                 // Inform session, e.g. for UI updates
                 self.event_handler
