@@ -11,8 +11,11 @@ use std::cell::{Cell, RefCell};
 
 use crate::application::{Session, SessionUi, WeakSession};
 use crate::core::when;
-use crate::domain::{MappingCompartment, MappingId, TargetValueChangedEvent};
+use crate::domain::{
+    MappingCompartment, MappingId, ProjectionFeedbackValue, TargetValueChangedEvent,
+};
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
+use crate::infrastructure::server::send_projection_feedback_to_subscribed_clients;
 use rx_util::UnitEvent;
 use std::rc::{Rc, Weak};
 use std::sync;
@@ -210,6 +213,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn parameters_changed(&self, session: &Session) {
         upgrade_panel(self).handle_changed_parameters(session);
+    }
+
+    fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {
+        let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
     }
 }
 

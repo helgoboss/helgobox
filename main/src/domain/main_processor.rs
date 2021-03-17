@@ -801,6 +801,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &mut self.mappings[MappingCompartment::MainMappings],
                         msg,
                         self.osc_output_device_id.as_ref(),
+                        &self.event_handler,
                     );
                     self.control_non_virtual_mappings_osc(msg);
                 }
@@ -839,6 +840,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             feedback,
                             self.osc_output_device_id.as_ref(),
                             &self.mappings_with_virtual_targets,
+                            &self.event_handler,
                         );
                     }
                 }
@@ -898,6 +900,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_values,
             self.osc_output_device_id.as_ref(),
             &self.mappings_with_virtual_targets,
+            &self.event_handler,
         );
     }
 
@@ -1159,12 +1162,13 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 }
 
 /// Sends both direct and virtual-source feedback.
-fn send_direct_and_virtual_feedback(
+fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
     rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     feedback_values: impl IntoIterator<Item = FeedbackValue>,
     osc_device_id: Option<&OscDeviceId>,
     mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
+    event_handler: &EH,
 ) {
     for feedback_value in feedback_values.into_iter() {
         match feedback_value {
@@ -1184,6 +1188,7 @@ fn send_direct_and_virtual_feedback(
                                         rt_sender,
                                         osc_feedback_task_sender,
                                         osc_device_id,
+                                        event_handler,
                                     );
                                 }
                             }
@@ -1197,17 +1202,19 @@ fn send_direct_and_virtual_feedback(
                     rt_sender,
                     osc_feedback_task_sender,
                     osc_device_id,
+                    event_handler,
                 );
             }
         }
     }
 }
 
-fn send_final_non_virtual_feedback(
+fn send_final_non_virtual_feedback<EH: DomainEventHandler>(
     feedback_value: RealFeedbackValue,
     rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     osc_device_id: Option<&OscDeviceId>,
+    event_handler: &EH,
 ) {
     if let Some(source_feedback_value) = feedback_value.source {
         match source_feedback_value {
@@ -1224,12 +1231,13 @@ fn send_final_non_virtual_feedback(
             }
         }
     }
-    // if let Some(projection_feedback_value) = feedback_value.projection {
-    //
-    // }
+    if let Some(projection_feedback_value) = feedback_value.projection {
+        // TODO-high Make sure that only controller compartment stuff is sent.
+        event_handler.handle_event(DomainEvent::ProjectionFeedback(projection_feedback_value));
+    }
 }
 
-fn control_virtual_mappings_osc(
+fn control_virtual_mappings_osc<EH: DomainEventHandler>(
     rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     mappings_with_virtual_targets: &mut HashMap<MappingId, MainMapping>,
@@ -1237,6 +1245,7 @@ fn control_virtual_mappings_osc(
     main_mappings: &mut HashMap<MappingId, MainMapping>,
     msg: &OscMessage,
     osc_device_id: Option<&OscDeviceId>,
+    event_handler: &EH,
 ) {
     // Control
     let source_values: Vec<_> = mappings_with_virtual_targets
@@ -1282,6 +1291,7 @@ fn control_virtual_mappings_osc(
         source_values,
         osc_device_id,
         mappings_with_virtual_targets,
+        event_handler,
     );
 }
 

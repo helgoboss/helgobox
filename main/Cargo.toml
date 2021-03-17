@@ -119,14 +119,12 @@ hex = "0.4.2"
 fasteval = { version = "0.2.4", default-features = false }
 # For wildcard support when using "By name" selector
 wildmatch = "1.1.0"
+# For creating HashSet literals for projection feedback and in unit tests
+maplit = "1.0.2"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
-
-[dev-dependencies]
-# For creating HashSet literals in unit tests
-maplit = "1.0.2"
 
 [build-dependencies]
 # For making Git commit hash available to code

@@ -5,6 +5,7 @@ use crate::core::when;
 use crate::domain::{
     MappingCompartment, MappingId, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
 };
+use maplit::hashmap;
 
 use crate::core::Global;
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
@@ -766,18 +767,17 @@ fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str
     )
 }
 
-pub fn send_feedback_to_subscribed_clients(
+pub fn send_projection_feedback_to_subscribed_clients(
     session_id: &str,
     value: ProjectionFeedbackValue,
 ) -> Result<(), &'static str> {
     // TODO-high Send to correct clients only
-    // for_each_client(
-    //     |client, cached| {
-    //         let _ = client.send(cached);
-    //     },
-    //     create_message,
-    // )
-    Ok(())
+    for_each_client(
+        |client, cached| {
+            let _ = client.send(cached);
+        },
+        || get_projection_feedback_event(session_id, value),
+    )
 }
 
 fn send_to_clients_subscribed_to<T: Serialize>(
@@ -869,6 +869,18 @@ fn get_active_controller_updated_event(
     Event::put(
         format!("/realearn/session/{}/controller", session_id),
         session.and_then(get_controller),
+    )
+}
+
+fn get_projection_feedback_event(
+    session_id: &str,
+    feedback_value: ProjectionFeedbackValue,
+) -> Event<HashMap<MappingId, UnitValue>> {
+    Event::patch(
+        format!("/realearn/session/{}/control-value", session_id),
+        hashmap! {
+            feedback_value.mapping_id => feedback_value.value
+        },
     )
 }
 

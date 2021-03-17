@@ -7,9 +7,9 @@ use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     CompoundMappingSource, DomainEvent, DomainEventHandler, ExtendedProcessorContext, MainMapping,
     MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
-    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, RealSource, RealTimeSender,
-    ReaperTarget, TargetValueChangedEvent, VirtualSource, PLUGIN_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
+    RealSource, RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualSource,
+    PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::EnumMap;
 
@@ -31,6 +31,7 @@ pub trait SessionUi {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
+    fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -1739,6 +1740,11 @@ impl DomainEventHandler for WeakSession {
             }
             FullResyncRequested => {
                 session.borrow_mut().initial_sync(self.clone());
+            }
+            ProjectionFeedback(value) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.send_projection_feedback(&s, value);
+                }
             }
         }
     }

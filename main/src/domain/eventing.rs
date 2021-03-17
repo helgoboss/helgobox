@@ -1,5 +1,6 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, ParameterArray,
+    ProjectionFeedbackValue,
 };
 use helgoboss_learn::{MidiSource, OscSource, UnitValue};
 use std::collections::HashSet;
@@ -19,6 +20,7 @@ pub enum DomainEvent<'a> {
     },
     UpdatedAllParameters(Box<ParameterArray>),
     TargetValueChanged(TargetValueChangedEvent<'a>),
+    ProjectionFeedback(ProjectionFeedbackValue),
     FullResyncRequested,
 }
 
