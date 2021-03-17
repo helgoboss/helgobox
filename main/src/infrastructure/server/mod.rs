@@ -2,7 +2,9 @@ use crate::application::{
     Preset, PresetManager, Session, SharedSession, SourceCategory, TargetCategory,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, RealearnControlSurfaceServerTask};
+use crate::domain::{
+    MappingCompartment, MappingId, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
+};
 
 use crate::core::Global;
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
@@ -30,6 +32,7 @@ use tokio::sync::{broadcast, mpsc};
 use url::Url;
 use warp::http::{Method, Response, StatusCode};
 
+use helgoboss_learn::UnitValue;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use warp::reply::Json;
@@ -595,6 +598,13 @@ enum PatchRequestOp {
     Replace,
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum EventType {
+    Put,
+    Patch,
+}
+
 type Topics = HashSet<Topic>;
 
 async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients) {
@@ -756,6 +766,20 @@ fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str
     )
 }
 
+pub fn send_feedback_to_subscribed_clients(
+    session_id: &str,
+    value: ProjectionFeedbackValue,
+) -> Result<(), &'static str> {
+    // TODO-high Send to correct clients only
+    // for_each_client(
+    //     |client, cached| {
+    //         let _ = client.send(cached);
+    //     },
+    //     create_message,
+    // )
+    Ok(())
+}
+
 fn send_to_clients_subscribed_to<T: Serialize>(
     topic: &Topic,
     create_message: impl FnOnce() -> T,
@@ -842,7 +866,7 @@ fn get_active_controller_updated_event(
     session_id: &str,
     session: Option<&Session>,
 ) -> Event<Option<ControllerPresetData>> {
-    Event::new(
+    Event::put(
         format!("/realearn/session/{}/controller", session_id),
         session.and_then(get_controller),
     )
@@ -852,14 +876,14 @@ fn get_session_updated_event(
     session_id: &str,
     session_data: Option<SessionResponseData>,
 ) -> Event<Option<SessionResponseData>> {
-    Event::new(format!("/realearn/session/{}", session_id), session_data)
+    Event::put(format!("/realearn/session/{}", session_id), session_data)
 }
 
 fn get_controller_routing_updated_event(
     session_id: &str,
     session: Option<&Session>,
 ) -> Event<Option<ControllerRouting>> {
-    Event::new(
+    Event::put(
         format!("/realearn/session/{}/controller-routing", session_id),
         session.map(get_controller_routing),
     )
@@ -950,6 +974,8 @@ struct TargetDescriptor {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Event<T> {
+    /// Roughly corresponds to the HTTP method of the resource.
+    r#type: EventType,
     /// Corresponds to the HTTP path of the resource.
     path: String,
     /// Corresponds to the HTTP body.
@@ -960,8 +986,20 @@ struct Event<T> {
 }
 
 impl<T> Event<T> {
-    pub fn new(path: String, body: T) -> Event<T> {
-        Event { path, body }
+    pub fn put(path: String, body: T) -> Event<T> {
+        Event {
+            r#type: EventType::Put,
+            path,
+            body,
+        }
+    }
+
+    pub fn patch(path: String, body: T) -> Event<T> {
+        Event {
+            r#type: EventType::Patch,
+            path,
+            body,
+        }
     }
 }
 

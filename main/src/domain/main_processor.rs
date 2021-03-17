@@ -1,10 +1,11 @@
 use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget,
     ControlMode, DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackRealTimeTask,
-    MainMapping, MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask,
-    OscDeviceId, OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
-    RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
-    SourceValue, TargetValueChangedEvent, VirtualSourceValue,
+    FeedbackValue, MainMapping, MappingActivationEffect, MappingCompartment, MappingId,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
+    PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
+    SourceFeedbackValue, TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
@@ -217,7 +218,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             );
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
-                                unused_sources.remove(m.source());
+                                unused_sources.remove(&m.qualified_source());
                             }
                             if m.needs_refresh_when_target_touched() {
                                 self.target_touch_dependent_mappings[compartment].insert(m.id());
@@ -280,7 +281,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             }
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
-                                unused_sources.remove(m.source());
+                                unused_sources.remove(&m.qualified_source());
                             }
                         }
                         if !activation_updates.is_empty() {
@@ -334,7 +335,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     // Source is the same.
                                     if mapping.feedback_is_effectively_on() {
                                         // Send new lights.
-                                        self.send_feedback(mapping.feedback());
+                                        self.send_feedback(mapping.feedback(true));
                                     } else {
                                         // Indicate via feedback that this source is not in use
                                         // anymore. But only
@@ -496,7 +497,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             }
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
-                                unused_sources.remove(m.source());
+                                unused_sources.remove(&m.qualified_source());
                             }
                         }
                         self.process_mapping_updates_due_to_parameter_changes(
@@ -576,7 +577,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             }
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
-                                unused_sources.remove(m.source());
+                                unused_sources.remove(&m.qualified_source());
                             }
                         }
                         self.process_mapping_updates_due_to_parameter_changes(
@@ -731,7 +732,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         m: &MainMapping,
         f: &impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
-        let feedback_desired =
+        let source_feedback_desired =
             self.feedback_is_globally_enabled && m.feedback_is_effectively_on() && !m.is_echo();
         let compound_target = m.target();
         if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
@@ -748,21 +749,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // changes for examples and especially in case of on/off targets this
                 // can lead to horribly wrong feedback. Previously we didn't have this
                 // issue because we always deferred to the next main loop cycle.
-                let new_value = m
+                let new_target_value = m
                     .given_or_current_value(new_value, target)
                     .unwrap_or(UnitValue::MIN);
                 // Feedback
-                if feedback_desired {
-                    let source_value = m.feedback_given_value(new_value);
-                    self.send_feedback(source_value);
-                }
+                let feedback_value =
+                    m.feedback_given_target_value(new_target_value, true, source_feedback_desired);
+                // TODO-high Send it
+                self.send_feedback(feedback_value);
                 // Inform session, e.g. for UI updates
                 self.event_handler
                     .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
                         compartment,
                         mapping_id: m.id(),
                         target: compound_target,
-                        new_value,
+                        new_value: new_target_value,
                     }));
             }
         }
@@ -832,7 +833,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 enforce_send_feedback_after_control: false,
                             },
                         );
-                        send_feedback_direct_virtual(
+                        send_direct_and_virtual_feedback(
                             &self.feedback_real_time_task_sender,
                             &self.osc_feedback_task_sender,
                             feedback,
@@ -850,7 +851,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         mapping_activation_updates: Vec<ActivationChange>,
         target_activation_updates: Vec<ActivationChange>,
-        unused_sources: &HashSet<CompoundMappingSource>,
+        unused_sources: &HashSet<QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
     ) {
         // Send feedback
@@ -890,11 +891,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .handle_event(DomainEvent::UpdatedOnMappings(on_mappings));
     }
 
-    fn send_feedback(&self, source_values: impl IntoIterator<Item = SourceValue>) {
-        send_feedback_direct_virtual(
+    fn send_feedback(&self, feedback_values: impl IntoIterator<Item = FeedbackValue>) {
+        send_direct_and_virtual_feedback(
             &self.feedback_real_time_task_sender,
             &self.osc_feedback_task_sender,
-            source_values,
+            feedback_values,
             self.osc_output_device_id.as_ref(),
             &self.mappings_with_virtual_targets,
         );
@@ -930,7 +931,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn feedback_all(&self) -> Vec<SourceValue> {
+    fn feedback_all(&self) -> Vec<FeedbackValue> {
         // Virtual targets don't cause feedback themselves
         self.all_mappings_without_virtual_targets()
             .filter_map(|m| m.feedback_if_enabled())
@@ -941,7 +942,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         mapping_ids: impl Iterator<Item = MappingId>,
-    ) -> Vec<SourceValue> {
+    ) -> Vec<FeedbackValue> {
         // Virtual targets don't deliver feedback, so no need to handle them.
         mapping_ids
             .filter_map(|id| {
@@ -951,7 +952,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
-    fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<SourceValue> {
+    fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<FeedbackValue> {
         // Virtual targets don't deliver feedback, so no need to handle them.
         self.mappings[compartment]
             .values()
@@ -969,13 +970,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn feedback_all_zero(&self) -> Vec<SourceValue> {
+    fn feedback_all_zero(&self) -> Vec<FeedbackValue> {
         // Mappings with virtual targets should not be included here because they might not be in
         // use and therefore should not *directly* send zeros. However, they will receive zeros
         // if one of the main mappings with virtual sources are connected to them.
         self.all_mappings_without_virtual_targets()
             .filter(|m| m.feedback_is_effectively_on())
-            .filter_map(|m| m.source().feedback(UnitValue::MIN))
+            .filter_map(|m| m.zero_feedback())
             .collect()
     }
 
@@ -983,17 +984,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         include_virtual: bool,
-    ) -> HashSet<CompoundMappingSource> {
+    ) -> HashSet<QualifiedSource> {
         if include_virtual {
             self.all_mappings_in_compartment(compartment)
                 .filter(|m| m.feedback_is_effectively_on())
-                .map(|m| m.source().clone())
+                .map(MainMapping::qualified_source)
                 .collect()
         } else {
             self.mappings[compartment]
                 .values()
                 .filter(|m| m.feedback_is_effectively_on())
-                .map(|m| m.source().clone())
+                .map(MainMapping::qualified_source)
                 .collect()
         }
     }
@@ -1001,7 +1002,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashSet<CompoundMappingSource>,
+        now_unused_sources: &HashSet<QualifiedSource>,
     ) {
         if !self.feedback_is_globally_enabled {
             return;
@@ -1013,7 +1014,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_particular_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashSet<CompoundMappingSource>,
+        now_unused_sources: &HashSet<QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         if !self.feedback_is_globally_enabled {
@@ -1024,12 +1025,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Indicate via zero feedback the sources which are not in use anymore.
-    fn send_zero_feedback_for_unused_sources(
-        &self,
-        now_unused_sources: &HashSet<CompoundMappingSource>,
-    ) {
+    fn send_zero_feedback_for_unused_sources(&self, now_unused_sources: &HashSet<QualifiedSource>) {
         for s in now_unused_sources {
-            self.send_feedback(s.feedback(UnitValue::MIN));
+            self.send_feedback(Some(s.zero_feedback()));
         }
     }
 
@@ -1161,27 +1159,16 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 }
 
 /// Sends both direct and virtual-source feedback.
-fn send_feedback_direct_virtual(
+fn send_direct_and_virtual_feedback(
     rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
-    source_values: impl IntoIterator<Item = SourceValue>,
+    feedback_values: impl IntoIterator<Item = FeedbackValue>,
     osc_device_id: Option<&OscDeviceId>,
     mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
 ) {
-    for source_value in source_values.into_iter() {
-        use SourceValue::*;
-        match source_value {
-            Osc(msg) => {
-                if let Some(id) = osc_device_id {
-                    osc_feedback_task_sender
-                        .try_send(OscFeedbackTask::new(*id, msg))
-                        .unwrap();
-                }
-            }
-            Midi(v) => {
-                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
-            }
-            Virtual(virtual_source_value) => {
+    for feedback_value in feedback_values.into_iter() {
+        match feedback_value {
+            FeedbackValue::Virtual(virtual_source_value) => {
                 if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
                     for m in mappings_with_virtual_targets
                         .values()
@@ -1189,34 +1176,57 @@ fn send_feedback_direct_virtual(
                     {
                         if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
                             if t.control_element() == virtual_source_value.control_element() {
-                                if let Some(source_value) = m.feedback_given_value(v) {
-                                    match source_value {
-                                        Midi(v) => {
-                                            // TODO-low Maybe we should use the SmallVec here, too?
-                                            rt_sender
-                                                .send(FeedbackRealTimeTask::Feedback(v))
-                                                .unwrap();
-                                        }
-                                        Osc(msg) => {
-                                            if let Some(osc_device_id) = osc_device_id {
-                                                osc_feedback_task_sender
-                                                    .try_send(OscFeedbackTask::new(
-                                                        *osc_device_id,
-                                                        msg,
-                                                    ))
-                                                    .unwrap();
-                                            }
-                                        }
-                                        Virtual(_) => {}
-                                    }
+                                if let Some(FeedbackValue::Real(final_feedback_value)) =
+                                    m.feedback_given_target_value(v, true, true)
+                                {
+                                    send_final_non_virtual_feedback(
+                                        final_feedback_value,
+                                        rt_sender,
+                                        osc_feedback_task_sender,
+                                        osc_device_id,
+                                    );
                                 }
                             }
                         }
                     }
                 }
             }
+            FeedbackValue::Real(final_feedback_value) => {
+                send_final_non_virtual_feedback(
+                    final_feedback_value,
+                    rt_sender,
+                    osc_feedback_task_sender,
+                    osc_device_id,
+                );
+            }
         }
     }
+}
+
+fn send_final_non_virtual_feedback(
+    feedback_value: RealFeedbackValue,
+    rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
+    osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
+    osc_device_id: Option<&OscDeviceId>,
+) {
+    if let Some(source_feedback_value) = feedback_value.source {
+        match source_feedback_value {
+            SourceFeedbackValue::Midi(v) => {
+                // TODO-low Maybe we should use the SmallVec here, too?
+                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
+            }
+            SourceFeedbackValue::Osc(msg) => {
+                if let Some(id) = osc_device_id {
+                    osc_feedback_task_sender
+                        .try_send(OscFeedbackTask::new(*id, msg))
+                        .unwrap();
+                }
+            }
+        }
+    }
+    // if let Some(projection_feedback_value) = feedback_value.projection {
+    //
+    // }
 }
 
 fn control_virtual_mappings_osc(
@@ -1266,7 +1276,7 @@ fn control_virtual_mappings_osc(
         })
         .collect();
     // Feedback
-    send_feedback_direct_virtual(
+    send_direct_and_virtual_feedback(
         rt_sender,
         osc_feedback_task_sender,
         source_values,
@@ -1279,7 +1289,7 @@ fn control_main_mappings_virtual(
     main_mappings: &mut HashMap<MappingId, MainMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
-) -> Vec<SourceValue> {
+) -> Vec<FeedbackValue> {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
     main_mappings

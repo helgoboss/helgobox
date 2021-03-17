@@ -123,6 +123,13 @@ impl MainMapping {
         }
     }
 
+    pub fn qualified_source(&self) -> QualifiedSource {
+        QualifiedSource {
+            id: self.id(),
+            source: self.source().clone(),
+        }
+    }
+
     pub fn id(&self) -> MappingId {
         self.core.id
     }
@@ -288,6 +295,9 @@ impl MainMapping {
         self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
+    // TODO-high Each usage needs to be checked if it should be replaced by is_effectively_active.
+    //  Because we want to send projection feedback even mapping feedback is not enabled!!!
+    //  Plus, we want virtual feedback to ALWAYS be resolved.
     pub fn feedback_is_effectively_on(&self) -> bool {
         self.is_effectively_active() && self.core.options.feedback_is_enabled
     }
@@ -301,7 +311,7 @@ impl MainMapping {
     }
 
     /// This is for timer-triggered control and works like `control_if_enabled`.
-    pub fn poll_if_control_enabled(&mut self) -> Option<SourceValue> {
+    pub fn poll_if_control_enabled(&mut self) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
@@ -326,7 +336,7 @@ impl MainMapping {
         &mut self,
         value: ControlValue,
         options: ControlOptions,
-    ) -> Option<SourceValue> {
+    ) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
@@ -355,7 +365,7 @@ impl MainMapping {
     fn feedback_after_control_if_unsupported_by_target(
         &self,
         target: &ReaperTarget,
-    ) -> Option<SourceValue> {
+    ) -> Option<FeedbackValue> {
         if target.supports_feedback() {
             // The target value was changed and that triggered feedback. Therefore we don't
             // need to send it here a second time (even if `send_feedback_after_control` is
@@ -371,29 +381,32 @@ impl MainMapping {
             // TODO-low Wouldn't it be better to always send feedback in this situation? But that
             //  could the user let believe that it actually works while in reality it's not "true"
             //  feedback that is independent from control. So an opt-in is maybe the right thing.
-            self.feedback_after_control_if_enabled(ControlOptions {
-                enforce_send_feedback_after_control: false,
-            })
+            if self.core.options.send_feedback_after_control {
+                self.feedback_if_enabled()
+            } else {
+                None
+            }
         }
     }
 
-    pub fn feedback_if_enabled(&self) -> Option<SourceValue> {
+    pub fn feedback_if_enabled(&self) -> Option<FeedbackValue> {
         if !self.feedback_is_effectively_on() {
             return None;
         }
-        self.feedback()
+        self.feedback(true)
     }
 
-    pub fn feedback(&self) -> Option<SourceValue> {
-        if self.core.is_echo() {
-            return None;
-        }
+    pub fn feedback(&self, with_projection_feedback: bool) -> Option<FeedbackValue> {
         let target = match &self.core.target {
             Some(CompoundMappingTarget::Reaper(t)) => t,
             _ => return None,
         };
         let target_value = target.current_value()?;
-        self.feedback_given_value(target_value)
+        self.feedback_given_target_value(
+            target_value,
+            with_projection_feedback,
+            !self.core.is_echo(),
+        )
     }
 
     pub fn is_echo(&self) -> bool {
@@ -408,20 +421,46 @@ impl MainMapping {
         target_value.or_else(|| target.current_value())
     }
 
-    pub fn feedback_given_value(&self, value: UnitValue) -> Option<SourceValue> {
-        let modified_value = self.core.mode.feedback(value)?;
-        self.core.source.feedback(modified_value)
+    pub fn feedback_given_target_value(
+        &self,
+        target_value: UnitValue,
+        with_projection_feedback: bool,
+        with_source_feedback: bool,
+    ) -> Option<FeedbackValue> {
+        let mode_value = self.core.mode.feedback(target_value)?;
+        self.feedback_given_mode_value(mode_value, with_projection_feedback, with_source_feedback)
     }
 
-    pub fn zero_feedback(&self) -> Option<SourceValue> {
-        self.source().feedback(UnitValue::MIN)
+    pub fn feedback_given_mode_value(
+        &self,
+        mode_value: UnitValue,
+        with_projection_feedback: bool,
+        with_source_feedback: bool,
+    ) -> Option<FeedbackValue> {
+        let fb_value = FeedbackValue::from_mode_value(
+            self.id(),
+            &self.core.source,
+            mode_value,
+            with_projection_feedback,
+            with_source_feedback,
+        );
+        Some(fb_value)
     }
 
-    fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<SourceValue> {
+    pub fn zero_feedback(&self) -> Option<FeedbackValue> {
+        self.feedback_given_mode_value(UnitValue::MIN, true, true)
+    }
+
+    fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<FeedbackValue> {
         if self.core.options.send_feedback_after_control
             || options.enforce_send_feedback_after_control
         {
-            self.feedback_if_enabled()
+            if self.feedback_is_effectively_on() {
+                // No projection feedback in this case! Just the source controller needs this hack.
+                self.feedback(false)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -590,6 +629,18 @@ pub enum CompoundMappingSource {
     Virtual(VirtualSource),
 }
 
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub struct QualifiedSource {
+    pub id: MappingId,
+    pub source: CompoundMappingSource,
+}
+
+impl QualifiedSource {
+    pub fn zero_feedback(&self) -> FeedbackValue {
+        FeedbackValue::from_mode_value(self.id, &self.source, UnitValue::MIN, true, true)
+    }
+}
+
 impl CompoundMappingSource {
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
@@ -618,12 +669,13 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<SourceValue> {
+    pub fn feedback(&self, feedback_value: UnitValue) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
-            Midi(s) => s.feedback(feedback_value).map(SourceValue::Midi),
-            Virtual(s) => Some(SourceValue::Virtual(s.feedback(feedback_value))),
-            Osc(s) => s.feedback(feedback_value).map(SourceValue::Osc),
+            Midi(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Midi),
+            Osc(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Osc),
+            // This is handled in a special way by consumers.
+            Virtual(_) => None,
         }
     }
 
@@ -634,6 +686,71 @@ impl CompoundMappingSource {
             Virtual(_) | Osc(_) => false,
         }
     }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum FeedbackValue {
+    Virtual(VirtualSourceValue),
+    Real(RealFeedbackValue),
+}
+
+impl FeedbackValue {
+    pub fn from_mode_value(
+        id: MappingId,
+        source: &CompoundMappingSource,
+        mode_value: UnitValue,
+        with_projection_feedback: bool,
+        with_source_feedback: bool,
+    ) -> FeedbackValue {
+        if let CompoundMappingSource::Virtual(vs) = &source {
+            FeedbackValue::Virtual(vs.feedback(mode_value))
+        } else {
+            FeedbackValue::Real(RealFeedbackValue {
+                projection: if with_projection_feedback {
+                    Some(ProjectionFeedbackValue::new(id, mode_value))
+                } else {
+                    None
+                },
+                source: if with_source_feedback {
+                    source.feedback(mode_value)
+                } else {
+                    None
+                },
+            })
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct RealFeedbackValue {
+    /// Feedback to be sent to projection.
+    ///
+    /// This is an option because there are situations when we don't want projection feedback but
+    /// source feedback (e.g. for "Feedback after control" because of too clever controllers).
+    pub projection: Option<ProjectionFeedbackValue>,
+    /// Feedback to be sent to the source.
+    ///
+    /// This is an option because there are situations when we don't want source feedback but
+    /// projection feedback (e.g. if "MIDI feedback output" is set to None).
+    pub source: Option<SourceFeedbackValue>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ProjectionFeedbackValue {
+    pub mapping_id: MappingId,
+    pub value: UnitValue,
+}
+
+impl ProjectionFeedbackValue {
+    pub fn new(mapping_id: MappingId, value: UnitValue) -> Self {
+        Self { mapping_id, value }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum SourceFeedbackValue {
+    Midi(MidiSourceValue<RawShortMessage>),
+    Osc(OscMessage),
 }
 
 #[derive(Clone, PartialEq, Debug)]
