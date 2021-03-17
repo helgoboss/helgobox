@@ -286,6 +286,7 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
 fn serialize_fx(fx: FxPropValues) -> FxData {
     use VirtualFxType::*;
     match fx.r#type {
+        // Special case: Focused
         Focused => FxData {
             anchor: None,
             guid: Some("focused".to_string()),
@@ -582,56 +583,13 @@ fn deserialize_fx(
     virtual_track: &VirtualTrack,
 ) -> FxPropValues {
     match fx_data {
+        // Special case: <Focused>
         FxData { guid: Some(g), .. } if g == "focused" => FxPropValues {
             r#type: VirtualFxType::Focused,
             ..Default::default()
         },
-        FxData {
-            index: None,
-            name: None,
-            guid: None,
-            expression: None,
-            ..
-        } => FxPropValues::default(),
-        // Since ReaLearn 1.12.0
-        FxData {
-            anchor: Some(VirtualFxType::ById),
-            guid: Some(guid_string),
-            expression: None,
-            index,
-            is_input_fx,
-            ..
-        } => {
-            let id = Guid::from_string_without_braces(guid_string).ok();
-            FxPropValues {
-                r#type: VirtualFxType::ById,
-                is_input_fx: *is_input_fx,
-                id,
-                index: index.unwrap_or_default(),
-                ..Default::default()
-            }
-        }
-        // In ReaLearn 1.12.0-pre1 we started also saving the GUID, even for IdOrIndex anchor. We
-        // still want to support that, even if no anchor is given.
-        FxData {
-            anchor: _,
-            guid: Some(guid_string),
-            expression: None,
-            index: Some(index),
-            is_input_fx,
-            ..
-        } => {
-            let id = Guid::from_string_without_braces(guid_string).ok();
-            FxPropValues {
-                r#type: VirtualFxType::ByIdOrIndex,
-                is_input_fx: *is_input_fx,
-                id,
-                index: *index,
-                ..Default::default()
-            }
-        }
-        // Before ReaLearn 1.12.0 only the index was saved, even for IdOrIndex anchor. The GUID was
-        // looked up at runtime whenever loading the project. Do it!
+        // Before ReaLearn 1.12.0 only the index was saved, even if it was (implicitly) always
+        // IdOrIndex anchor. The GUID was looked up at runtime whenever loading the project. Do it!
         FxData {
             anchor: None,
             guid: None,
@@ -655,7 +613,26 @@ fn deserialize_fx(
                 ..Default::default()
             }
         }
-        // Since ReaLearn 1.12.0-pre8 we support Index anchor. We can't distinguish from pre-1.12.0
+        // In ReaLearn 1.12.0-pre1 we started also saving the GUID, even for IdOrIndex anchor. We
+        // still want to support that, even if no anchor is given.
+        FxData {
+            anchor: None,
+            guid: Some(guid_string),
+            name: None,
+            expression: None,
+            index: Some(index),
+            is_input_fx,
+        } => {
+            let id = Guid::from_string_without_braces(guid_string).ok();
+            FxPropValues {
+                r#type: VirtualFxType::ByIdOrIndex,
+                is_input_fx: *is_input_fx,
+                id,
+                index: *index,
+                ..Default::default()
+            }
+        }
+        // Since ReaLearn 1.12.0-pre8 we support Index anchor. We can't distinguish from < 1.12.0
         // data without explicitly given anchor.
         FxData {
             anchor: Some(VirtualFxType::ByIndex),
@@ -670,10 +647,26 @@ fn deserialize_fx(
             index: *i,
             ..Default::default()
         },
-        // Since 1.12.0
+        // Since ReaLearn 1.12.0 to 2.8.0-pre2. We try to guess the anchor (what a mess).
         FxData {
-            // Here we don't necessarily need the name anchor because there's no ambiguity.
-            anchor: _,
+            anchor: None,
+            guid: Some(guid_string),
+            name,
+            expression,
+            index,
+            is_input_fx,
+        } => {
+            let id = Guid::from_string_without_braces(guid_string).ok();
+            FxPropValues {
+                r#type: VirtualFxType::ById,
+                is_input_fx: *is_input_fx,
+                id,
+                index: index.unwrap_or_default(),
+                ..Default::default()
+            }
+        }
+        FxData {
+            anchor: None,
             index: _,
             guid: _,
             name: Some(name),
@@ -687,7 +680,7 @@ fn deserialize_fx(
         },
         FxData {
             // Here we don't necessarily need the name anchor because there's no ambiguity.
-            anchor: _,
+            anchor: None,
             index: _,
             guid: _,
             name: _,
@@ -698,7 +691,32 @@ fn deserialize_fx(
             expression: e.clone(),
             ..Default::default()
         },
-        _ => FxPropValues::default(),
+        // >= 2.8.0-pre3. Take everything we can get but watch the anchor.
+        FxData {
+            anchor: Some(fx_type),
+            index,
+            guid,
+            name,
+            is_input_fx,
+            expression,
+        } => FxPropValues {
+            r#type: *fx_type,
+            is_input_fx: *is_input_fx,
+            id: guid
+                .as_ref()
+                .and_then(|g| Guid::from_string_with_braces(g).ok()),
+            name: name.clone().unwrap_or_default(),
+            expression: expression.clone().unwrap_or_default(),
+            index: index.unwrap_or_default(),
+        },
+        FxData {
+            anchor: None,
+            index: None,
+            guid: None,
+            name: None,
+            expression: None,
+            is_input_fx: _,
+        } => FxPropValues::default(),
     }
 }
 
