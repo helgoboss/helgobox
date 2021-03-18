@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-11 (v2.8.0-pre2)</code></td>
+  <td><code>2021-03-18 (v2.8.0-pre3)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1763,12 +1763,20 @@ They don't apply to rotary encoders for example. They don't affect *feedback*.
     Max_ too low, otherwise your target value might get stuck.
   - The _Jump Min_ setting is more unconventional. If you raise _Jump Min_, this effectively
     enforces parameter jumps. It's like adjusting target values to a relative grid.
-- **Slowly approach if jump too big:** If you combine _Jump Max_ with enabling _Slowly approach if
-  jump too big_, you gain a "Soft takeover" effect, as it is called in REAPER's built-in MIDI learn.
-  In some other DAWs this is called "Scale mode". This is similar to "pick up" with the difference
-  that the current target value will gradually "come your way". This results in pretty seemless
-  target value adjustments but can feel weird at times because the target value can temporarily move
-  in the opposite direction of the fader movement.
+- **Takeover mode:** ReaLearn provides multiple modes that decide how to proceed in situations when a target parameter
+    jump is not allowed. *Important:* These modes only have an effect if you set _Jump Max_ to a small value
+    (= forbid jumps).
+    - **Pick up:** Default mode as described above. This is the same as "Soft takeover" in REAPER's
+      built-in MIDI learn.
+    - **Long time no see:** This is similar to "Pick up" with the difference that the current target value
+      will gradually "come your way". This results in seamless and fast reunification of control and target
+      value but it can feel weird because the target value can temporarily move in the opposite
+      direction of the fader movement. In older ReaLearn versions this was called "Slowly approach if jump too big".
+    - **Parallel:** With this mode, the target will simply follow your fader moves, in exactly the same tempo -
+      without any scaling. Reunification only happens when both control and target value meet at the "borders".
+    - **Catch up:** This mode is sometimes called "Proportional" or "Value scaling" mode. It's like "Parallel" mode
+      but the target value is allowed to move slower than the control value - hence the control can catch up (converge)
+      faster.
 - **Control transformation (EEL):** This feature definitely belongs in the "expert" category. It
   allows you to write a formula that transforms incoming control values before they are passed on to
   the target. While very powerful because it allows for arbitrary transformations (velocity curves,

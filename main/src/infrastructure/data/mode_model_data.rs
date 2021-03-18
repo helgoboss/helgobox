@@ -3,7 +3,8 @@ use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
-    AbsoluteMode, FireMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, UnitValue,
+    AbsoluteMode, FireMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode,
+    UnitValue,
 };
 use serde::{Deserialize, Serialize};
 use slog::debug;
@@ -58,8 +59,12 @@ pub struct ModeModelData {
     fire_mode: FireMode,
     #[serde(default, skip_serializing_if = "is_default")]
     round_target_value: bool,
-    #[serde(default, skip_serializing_if = "is_default")]
+    // Serialization skipped because this is deprecated in favor of takeover_mode
+    // since ReaLearn v2.8.0-pre3.
+    #[serde(default, skip_serializing)]
     scale_mode_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    takeover_mode: TakeoverMode,
     #[serde(default, skip_serializing_if = "is_default")]
     rotate_is_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -105,7 +110,9 @@ impl ModeModelData {
             out_of_range_behavior: model.out_of_range_behavior.get(),
             fire_mode: model.fire_mode.get(),
             round_target_value: model.round_target_value.get(),
-            scale_mode_enabled: model.approach_target_value.get(),
+            // Not used anymore since ReaLearn v2.8.0-pre3
+            scale_mode_enabled: false,
+            takeover_mode: model.takeover_mode.get(),
             rotate_is_enabled: model.rotate.get(),
             make_absolute_enabled: model.make_absolute.get(),
         }
@@ -177,9 +184,13 @@ impl ModeModelData {
         model
             .round_target_value
             .set_without_notification(self.round_target_value);
-        model
-            .approach_target_value
-            .set_without_notification(self.scale_mode_enabled);
+        let takeover_mode = if self.scale_mode_enabled {
+            // ReaLearn < 2.8.0-pre3 used this flag instead of the enum.
+            TakeoverMode::LongTimeNoSee
+        } else {
+            self.takeover_mode
+        };
+        model.takeover_mode.set_without_notification(takeover_mode);
         model
             .rotate
             .set_without_notification(self.rotate_is_enabled);

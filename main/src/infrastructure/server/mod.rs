@@ -828,7 +828,8 @@ fn send_initial_events_for_topic(
         Session { session_id } => send_initial_session(client, session_id),
         ControllerRouting { session_id } => send_initial_controller_routing(client, session_id),
         ActiveController { session_id } => send_initial_controller(client, session_id),
-        // TODO-high Send initial feedback
+        // TODO-high Send initial feedback. Not *that* important in a 80% solution because we can
+        //  always press play button to sync.
         Feedback { .. } => Ok(()),
     }
 }

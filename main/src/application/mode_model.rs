@@ -3,7 +3,7 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
     full_unit_interval, AbsoluteMode, DiscreteIncrement, FireMode, Interval, OutOfRangeBehavior,
-    PressDurationProcessor, SoftSymmetricUnitValue, UnitValue,
+    PressDurationProcessor, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 
 use rx_util::UnitEvent;
@@ -23,7 +23,7 @@ pub struct ModeModel {
     pub out_of_range_behavior: Prop<OutOfRangeBehavior>,
     pub fire_mode: Prop<FireMode>,
     pub round_target_value: Prop<bool>,
-    pub approach_target_value: Prop<bool>,
+    pub takeover_mode: Prop<TakeoverMode>,
     pub eel_control_transformation: Prop<String>,
     pub eel_feedback_transformation: Prop<String>,
     // For relative control values.
@@ -64,7 +64,7 @@ impl Default for ModeModel {
             out_of_range_behavior: prop(Default::default()),
             fire_mode: prop(Default::default()),
             round_target_value: prop(false),
-            approach_target_value: prop(false),
+            takeover_mode: prop(Default::default()),
             eel_control_transformation: prop(String::new()),
             eel_feedback_transformation: prop(String::new()),
             step_interval: prop(Self::default_step_size_interval()),
@@ -98,8 +98,7 @@ impl ModeModel {
             .set(def.out_of_range_behavior.get());
         self.fire_mode.set(def.fire_mode.get());
         self.round_target_value.set(def.round_target_value.get());
-        self.approach_target_value
-            .set(def.approach_target_value.get());
+        self.takeover_mode.set(def.takeover_mode.get());
         self.rotate.set(def.rotate.get());
         self.make_absolute.set(def.make_absolute.get());
         self.reverse.set(def.reverse.get());
@@ -120,7 +119,7 @@ impl ModeModel {
             .merge(self.out_of_range_behavior.changed())
             .merge(self.fire_mode.changed())
             .merge(self.round_target_value.changed())
-            .merge(self.approach_target_value.changed())
+            .merge(self.takeover_mode.changed())
             .merge(self.eel_control_transformation.changed())
             .merge(self.eel_feedback_transformation.changed())
             .merge(self.step_interval.changed())
@@ -147,7 +146,7 @@ impl ModeModel {
                 self.press_duration_interval.get(),
                 self.turbo_rate.get(),
             ),
-            approach_target_value: self.approach_target_value.get(),
+            takeover_mode: self.takeover_mode.get(),
             reverse: self.reverse.get(),
             rotate: self.rotate.get(),
             increment_counter: 0,
@@ -165,6 +164,7 @@ impl ModeModel {
             .ok(),
             convert_relative_to_absolute: self.make_absolute.get(),
             current_absolute_value: UnitValue::MIN,
+            previous_absolute_control_value: None,
         }
     }
 
@@ -194,7 +194,7 @@ impl ModeModel {
         self.r#type.get() == AbsoluteMode::Normal
     }
 
-    pub fn supports_approach_target_value(&self) -> bool {
+    pub fn supports_takeover_mode(&self) -> bool {
         self.r#type.get() == AbsoluteMode::Normal
     }
 

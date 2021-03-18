@@ -298,9 +298,6 @@ impl MainMapping {
         self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
-    // TODO-high Each usage needs to be checked if it should be replaced by is_effectively_active.
-    //  Because we want to send projection feedback even mapping feedback is not enabled!!!
-    //  Plus, we want virtual feedback to ALWAYS be resolved.
     pub fn feedback_is_effectively_on(&self) -> bool {
         self.is_effectively_active() && self.core.options.feedback_is_enabled
     }
@@ -451,6 +448,8 @@ impl MainMapping {
     }
 
     pub fn zero_feedback(&self) -> Option<FeedbackValue> {
+        // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
+        //  have different values for that (at the moment it's not though).
         self.feedback_given_mode_value(UnitValue::MIN, true, true)
     }
 
@@ -702,7 +701,11 @@ impl CompoundMappingSource {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum FeedbackValue {
-    Virtual(VirtualSourceValue),
+    Virtual {
+        with_projection_feedback: bool,
+        with_source_feedback: bool,
+        value: VirtualSourceValue,
+    },
     Real(RealFeedbackValue),
 }
 
@@ -715,8 +718,15 @@ impl FeedbackValue {
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
+        if !with_projection_feedback && !with_source_feedback {
+            return None;
+        }
         let val = if let CompoundMappingSource::Virtual(vs) = &source {
-            FeedbackValue::Virtual(vs.feedback(mode_value))
+            FeedbackValue::Virtual {
+                with_projection_feedback,
+                with_source_feedback,
+                value: vs.feedback(mode_value),
+            }
         } else {
             let projection = if with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings

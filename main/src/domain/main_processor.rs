@@ -17,9 +17,10 @@ use slog::debug;
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
+// This can be come pretty big when multiple track volumes are adjusted at once.
+const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
 const NORMAL_TASK_BULK_SIZE: usize = 32;
 const FEEDBACK_TASK_BULK_SIZE: usize = 64;
-const FEEDBACK_TASK_QUEUE_SIZE: usize = 1000;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
 
@@ -732,8 +733,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         m: &MainMapping,
         f: &impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
+        let feedback_is_effectively_on = m.feedback_is_effectively_on();
+        let projection_feedback_desired = feedback_is_effectively_on;
         let source_feedback_desired =
-            self.feedback_is_globally_enabled && m.feedback_is_effectively_on() && !m.is_echo();
+            self.feedback_is_globally_enabled && feedback_is_effectively_on && !m.is_echo();
         let compound_target = m.target();
         if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
             let (value_changed, new_value) = f(target);
@@ -753,8 +756,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     .given_or_current_value(new_value, target)
                     .unwrap_or(UnitValue::MIN);
                 // Feedback
-                let feedback_value =
-                    m.feedback_given_target_value(new_target_value, true, source_feedback_desired);
+                let feedback_value = m.feedback_given_target_value(
+                    new_target_value,
+                    projection_feedback_desired,
+                    source_feedback_desired,
+                );
                 self.send_feedback(feedback_value);
                 // Inform session, e.g. for UI updates
                 self.event_handler
@@ -1171,16 +1177,24 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
 ) {
     for feedback_value in feedback_values.into_iter() {
         match feedback_value {
-            FeedbackValue::Virtual(virtual_source_value) => {
-                if let ControlValue::Absolute(v) = virtual_source_value.control_value() {
+            FeedbackValue::Virtual {
+                with_projection_feedback,
+                with_source_feedback,
+                value,
+            } => {
+                if let ControlValue::Absolute(v) = value.control_value() {
                     for m in mappings_with_virtual_targets
                         .values()
                         .filter(|m| m.feedback_is_effectively_on())
                     {
                         if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
-                            if t.control_element() == virtual_source_value.control_element() {
-                                if let Some(FeedbackValue::Real(final_feedback_value)) =
-                                    m.feedback_given_target_value(v, true, true)
+                            if t.control_element() == value.control_element() {
+                                if let Some(FeedbackValue::Real(final_feedback_value)) = m
+                                    .feedback_given_target_value(
+                                        v,
+                                        with_projection_feedback,
+                                        with_source_feedback,
+                                    )
                                 {
                                     send_final_non_virtual_feedback(
                                         final_feedback_value,

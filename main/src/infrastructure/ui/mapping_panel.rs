@@ -5,7 +5,7 @@ use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel, YamlEdi
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteMode, ControlValue, FireMode, MidiClockTransportMessage, OscTypeTag,
-    OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
+    OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{
@@ -759,12 +759,14 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_mode_approach(&mut self) {
-        self.mapping.mode_model.approach_target_value.set(
-            self.view
-                .require_control(root::ID_SETTINGS_SCALE_MODE_CHECK_BOX)
-                .is_checked(),
-        );
+    fn update_takeover_mode(&mut self) {
+        let mode = self
+            .view
+            .require_control(root::ID_MODE_TAKEOVER_MODE)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid takeover mode");
+        self.mapping.mode_model.takeover_mode.set(mode);
     }
 
     fn update_mode_reverse(&mut self) {
@@ -1565,6 +1567,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_source_midi_clock_transport_message_type_combo_box();
         self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
+        self.fill_mode_takeover_mode_combo_box();
         self.fill_mode_fire_mode_combo_box();
         self.fill_target_category_combo_box();
     }
@@ -2932,7 +2935,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_round_target_value_check_box();
-        self.invalidate_mode_approach_check_box();
+        self.invalidate_mode_takeover_mode_combo_box();
         self.invalidate_mode_reverse_check_box();
         self.invalidate_mode_eel_control_transformation_edit_control();
         self.invalidate_mode_eel_feedback_transformation_edit_control();
@@ -2999,8 +3002,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            show_jump_controls && mode.supports_approach_target_value(),
-            &[root::ID_SETTINGS_SCALE_MODE_CHECK_BOX],
+            show_jump_controls && mode.supports_takeover_mode(),
+            &[root::ID_MODE_TAKEOVER_LABEL, root::ID_MODE_TAKEOVER_MODE],
         );
         self.show_if(
             mode.supports_out_of_range_behavior(),
@@ -3353,10 +3356,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.round_target_value.get());
     }
 
-    fn invalidate_mode_approach_check_box(&self) {
+    fn invalidate_mode_takeover_mode_combo_box(&self) {
+        let mode = self.mode.takeover_mode.get();
         self.view
-            .require_control(root::ID_SETTINGS_SCALE_MODE_CHECK_BOX)
-            .set_checked(self.mode.approach_target_value.get());
+            .require_control(root::ID_MODE_TAKEOVER_MODE)
+            .select_combo_box_item_by_index(mode.into());
     }
 
     fn invalidate_mode_reverse_check_box(&self) {
@@ -3559,8 +3563,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_round_target_value_check_box();
             });
         self.panel
-            .when_do_sync(mode.approach_target_value.changed(), |view| {
-                view.invalidate_mode_approach_check_box();
+            .when_do_sync(mode.takeover_mode.changed(), |view| {
+                view.invalidate_mode_takeover_mode_combo_box();
             });
         self.panel.when_do_sync(mode.rotate.changed(), |view| {
             view.invalidate_mode_rotate_check_box();
@@ -3702,6 +3706,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .fill_combo_box_indexed(FireMode::into_enum_iter());
     }
 
+    fn fill_mode_takeover_mode_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_TAKEOVER_MODE)
+            .fill_combo_box_indexed(TakeoverMode::into_enum_iter());
+    }
+
     fn fill_target_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
@@ -3773,7 +3783,6 @@ impl View for MappingPanel {
             root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX => {
                 self.write(|p| p.update_mode_round_target_value())
             }
-            root::ID_SETTINGS_SCALE_MODE_CHECK_BOX => self.write(|p| p.update_mode_approach()),
             root::ID_SETTINGS_REVERSE_CHECK_BOX => self.write(|p| p.update_mode_reverse()),
             root::ID_SETTINGS_RESET_BUTTON => self.write(|p| p.reset_mode()),
             // Target
@@ -3815,6 +3824,7 @@ impl View for MappingPanel {
             root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX => {
                 self.write(|p| p.update_mode_out_of_range_behavior())
             }
+            root::ID_MODE_TAKEOVER_MODE => self.write(|p| p.update_takeover_mode()),
             root::ID_MODE_FIRE_COMBO_BOX => self.write(|p| p.update_mode_fire_mode()),
             // Target
             root::ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
