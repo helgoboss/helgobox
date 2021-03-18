@@ -651,8 +651,8 @@ fn deserialize_fx(
         FxData {
             anchor: None,
             guid: Some(guid_string),
-            name,
-            expression,
+            name: _,
+            expression: _,
             index,
             is_input_fx,
         } => {
@@ -704,7 +704,7 @@ fn deserialize_fx(
             is_input_fx: *is_input_fx,
             id: guid
                 .as_ref()
-                .and_then(|g| Guid::from_string_with_braces(g).ok()),
+                .and_then(|g| Guid::from_string_without_braces(g).ok()),
             name: name.clone().unwrap_or_default(),
             expression: expression.clone().unwrap_or_default(),
             index: index.unwrap_or_default(),
