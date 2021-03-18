@@ -791,13 +791,6 @@ pub enum SourceFeedbackValue {
     Osc(OscMessage),
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum SourceValue {
-    Midi(MidiSourceValue<RawShortMessage>),
-    Virtual(VirtualSourceValue),
-    Osc(OscMessage),
-}
-
 #[derive(Debug)]
 pub enum UnresolvedCompoundMappingTarget {
     Reaper(UnresolvedReaperTarget),

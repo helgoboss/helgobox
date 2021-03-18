@@ -3360,7 +3360,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         let mode = self.mode.takeover_mode.get();
         self.view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
-            .select_combo_box_item_by_index(mode.into());
+            .select_combo_box_item_by_index(mode.into())
+            .unwrap();
     }
 
     fn invalidate_mode_reverse_check_box(&self) {

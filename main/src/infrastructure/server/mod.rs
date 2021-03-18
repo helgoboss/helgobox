@@ -366,13 +366,6 @@ fn internal_server_error(msg: &'static str) -> Response<&'static str> {
         .unwrap()
 }
 
-fn bad_request(msg: &'static str) -> Response<&'static str> {
-    Response::builder()
-        .status(StatusCode::BAD_REQUEST)
-        .body(msg)
-        .unwrap()
-}
-
 fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static str>> {
     let session = App::get()
         .find_session_by_id(&session_id)
