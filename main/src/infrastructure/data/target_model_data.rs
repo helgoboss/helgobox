@@ -126,9 +126,14 @@ impl TargetModelData {
         model: &mut TargetModel,
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
+        with_notification: bool,
     ) {
-        model.category.set_without_notification(self.category);
-        model.r#type.set_without_notification(self.r#type);
+        model
+            .category
+            .set_with_optional_notification(self.category, with_notification);
+        model
+            .r#type
+            .set_with_optional_notification(self.r#type, with_notification);
         let reaper = Reaper::get();
         let action = match self.command_name.as_ref() {
             None => None,
@@ -145,7 +150,9 @@ impl TargetModelData {
                 Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
             },
         };
-        model.action.set_without_notification(action);
+        model
+            .action
+            .set_with_optional_notification(action, with_notification);
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version
             if invoke_relative {
@@ -158,22 +165,25 @@ impl TargetModelData {
         };
         model
             .action_invocation_type
-            .set_without_notification(invocation_type);
+            .set_with_optional_notification(invocation_type, with_notification);
         let track_prop_values = deserialize_track(&self.track_data);
-        model.set_track_without_notification(track_prop_values);
+        model.set_track(track_prop_values, with_notification);
         model
             .enable_only_if_track_selected
-            .set_without_notification(self.enable_only_if_track_is_selected);
+            .set_with_optional_notification(
+                self.enable_only_if_track_is_selected,
+                with_notification,
+            );
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(&self.fx_data, context, &virtual_track);
-        model.set_fx_without_notification(fx_prop_values);
+        model.set_fx(fx_prop_values, with_notification);
         model
             .enable_only_if_fx_has_focus
-            .set_without_notification(self.enable_only_if_fx_has_focus);
+            .set_with_optional_notification(self.enable_only_if_fx_has_focus, with_notification);
         let route_prop_values = deserialize_track_route(&self.track_route_data);
-        model.set_route_without_notification(route_prop_values);
+        model.set_route(route_prop_values, with_notification);
         let fx_param_prop_values = deserialize_fx_parameter(&self.fx_parameter_data);
-        model.set_fx_parameter_without_notification(fx_param_prop_values);
+        model.set_fx_parameter(fx_param_prop_values, with_notification);
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
             // Should only be set in versions < 2.4.0.
             if select_exclusively {
@@ -186,7 +196,7 @@ impl TargetModelData {
         };
         model
             .track_exclusivity
-            .set_without_notification(track_exclusivity);
+            .set_with_optional_notification(track_exclusivity, with_notification);
         let solo_behavior = self.solo_behavior.unwrap_or_else(|| {
             let is_old_preset = preset_version
                 .map(|v| v < &Version::new(2, 4, 0))
@@ -197,35 +207,39 @@ impl TargetModelData {
                 SoloBehavior::InPlace
             }
         });
-        model.solo_behavior.set_without_notification(solo_behavior);
+        model
+            .solo_behavior
+            .set_with_optional_notification(solo_behavior, with_notification);
         model
             .transport_action
-            .set_without_notification(self.transport_action);
+            .set_with_optional_notification(self.transport_action, with_notification);
         model
             .control_element_type
-            .set_without_notification(self.control_element_type);
+            .set_with_optional_notification(self.control_element_type, with_notification);
         model
             .control_element_index
-            .set_without_notification(self.control_element_index);
+            .set_with_optional_notification(self.control_element_index, with_notification);
         model
             .fx_snapshot
-            .set_without_notification(self.fx_snapshot.clone());
+            .set_with_optional_notification(self.fx_snapshot.clone(), with_notification);
         model
             .touched_parameter_type
-            .set_without_notification(self.touched_parameter_type);
+            .set_with_optional_notification(self.touched_parameter_type, with_notification);
         let bookmark_type = if self.bookmark_data.is_region {
             BookmarkType::Region
         } else {
             BookmarkType::Marker
         };
-        model.bookmark_type.set_without_notification(bookmark_type);
+        model
+            .bookmark_type
+            .set_with_optional_notification(bookmark_type, with_notification);
         model
             .bookmark_anchor_type
-            .set_without_notification(self.bookmark_data.anchor);
+            .set_with_optional_notification(self.bookmark_data.anchor, with_notification);
         model
             .bookmark_ref
-            .set_without_notification(self.bookmark_data.r#ref);
-        model.set_seek_options_without_notification(self.seek_options);
+            .set_with_optional_notification(self.bookmark_data.r#ref, with_notification);
+        model.set_seek_options(self.seek_options, with_notification);
     }
 }
 

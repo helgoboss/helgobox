@@ -180,7 +180,7 @@ impl MappingPanel {
                 None => return,
                 Some(m) => m,
             };
-            let result = { m.borrow_mut().set_advanced_settings(yaml_mapping) };
+            let result = { m.borrow_mut().set_advanced_settings(yaml_mapping, true) };
             if let Err(e) = result {
                 notification::alert(format!(
                     "Your advanced mapping settings have been applied and saved but they contain the following error and therefore won't have any effect:\n\n{}",

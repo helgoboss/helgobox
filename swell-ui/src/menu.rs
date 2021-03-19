@@ -9,6 +9,12 @@ pub struct MenuBar {
 }
 
 impl MenuBar {
+    pub fn new() -> MenuBar {
+        Self {
+            raw: Swell::get().CreatePopupMenu(),
+        }
+    }
+
     pub fn load(resource_id: u32) -> Result<MenuBar, &'static str> {
         let swell = Swell::get();
         let raw = unsafe {
@@ -23,7 +29,11 @@ impl MenuBar {
         Ok(MenuBar { raw })
     }
 
-    pub fn get_menu(&self, index: u32) -> Option<Menu> {
+    pub fn menu(&self) -> Menu {
+        Menu::new(self.raw)
+    }
+
+    pub fn get_sub_menu(&self, index: u32) -> Option<Menu> {
         get_sub_menu_at(self.raw, index)
     }
 }

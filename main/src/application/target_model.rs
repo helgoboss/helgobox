@@ -199,93 +199,86 @@ impl TargetModel {
     }
 
     pub fn set_virtual_track(&mut self, track: VirtualTrack) {
-        self.set_track(TrackPropValues::from_virtual_track(track));
+        self.set_track(TrackPropValues::from_virtual_track(track), true);
     }
 
-    pub fn set_track(&mut self, track: TrackPropValues) {
-        self.track_type.set(track.r#type);
-        self.track_id.set(track.id);
-        self.track_name.set(track.name);
-        self.track_index.set(track.index);
-        self.track_expression.set(track.expression);
-    }
-
-    pub fn set_track_without_notification(&mut self, track: TrackPropValues) {
-        self.track_type.set_without_notification(track.r#type);
-        self.track_id.set_without_notification(track.id);
-        self.track_name.set_without_notification(track.name);
-        self.track_index.set_without_notification(track.index);
+    pub fn set_track(&mut self, track: TrackPropValues, with_notification: bool) {
+        self.track_type
+            .set_with_optional_notification(track.r#type, with_notification);
+        self.track_id
+            .set_with_optional_notification(track.id, with_notification);
+        self.track_name
+            .set_with_optional_notification(track.name, with_notification);
+        self.track_index
+            .set_with_optional_notification(track.index, with_notification);
         self.track_expression
-            .set_without_notification(track.expression);
+            .set_with_optional_notification(track.expression, with_notification);
     }
 
     pub fn set_virtual_route(&mut self, route: VirtualTrackRoute) {
-        self.set_route(TrackRoutePropValues::from_virtual_route(route));
+        self.set_route(TrackRoutePropValues::from_virtual_route(route), true);
     }
 
-    pub fn set_route(&mut self, route: TrackRoutePropValues) {
-        self.route_selector_type.set(route.selector_type);
-        self.route_type.set(route.r#type);
-        self.route_id.set(route.id);
-        self.route_name.set(route.name);
-        self.route_index.set(route.index);
-        self.route_expression.set(route.expression);
-    }
-
-    pub fn set_route_without_notification(&mut self, route: TrackRoutePropValues) {
+    pub fn set_route(&mut self, route: TrackRoutePropValues, with_notification: bool) {
         self.route_selector_type
-            .set_without_notification(route.selector_type);
-        self.route_type.set_without_notification(route.r#type);
-        self.route_id.set_without_notification(route.id);
-        self.route_name.set_without_notification(route.name);
-        self.route_index.set_without_notification(route.index);
+            .set_with_optional_notification(route.selector_type, with_notification);
+        self.route_type
+            .set_with_optional_notification(route.r#type, with_notification);
+        self.route_id
+            .set_with_optional_notification(route.id, with_notification);
+        self.route_name
+            .set_with_optional_notification(route.name, with_notification);
+        self.route_index
+            .set_with_optional_notification(route.index, with_notification);
         self.route_expression
-            .set_without_notification(route.expression);
+            .set_with_optional_notification(route.expression, with_notification);
     }
 
     pub fn set_virtual_fx(&mut self, fx: VirtualFx) {
-        self.set_fx(FxPropValues::from_virtual_fx(fx));
+        self.set_fx(FxPropValues::from_virtual_fx(fx), true);
     }
 
-    pub fn set_fx(&mut self, fx: FxPropValues) {
-        self.fx_type.set(fx.r#type);
-        self.fx_is_input_fx.set(fx.is_input_fx);
-        self.fx_id.set(fx.id);
-        self.fx_name.set(fx.name);
-        self.fx_index.set(fx.index);
-        self.fx_expression.set(fx.expression);
+    pub fn set_fx(&mut self, fx: FxPropValues, with_notification: bool) {
+        self.fx_type
+            .set_with_optional_notification(fx.r#type, with_notification);
+        self.fx_is_input_fx
+            .set_with_optional_notification(fx.is_input_fx, with_notification);
+        self.fx_id
+            .set_with_optional_notification(fx.id, with_notification);
+        self.fx_name
+            .set_with_optional_notification(fx.name, with_notification);
+        self.fx_index
+            .set_with_optional_notification(fx.index, with_notification);
+        self.fx_expression
+            .set_with_optional_notification(fx.expression, with_notification);
     }
 
-    pub fn set_fx_without_notification(&mut self, fx: FxPropValues) {
-        self.fx_type.set_without_notification(fx.r#type);
-        self.fx_is_input_fx.set_without_notification(fx.is_input_fx);
-        self.fx_id.set_without_notification(fx.id);
-        self.fx_name.set_without_notification(fx.name);
-        self.fx_index.set_without_notification(fx.index);
-        self.fx_expression.set_without_notification(fx.expression);
-    }
-
-    pub fn set_fx_parameter_without_notification(&mut self, param: FxParameterPropValues) {
-        self.param_type.set_without_notification(param.r#type);
-        self.param_name.set_without_notification(param.name);
-        self.param_index.set_without_notification(param.index);
+    pub fn set_fx_parameter(&mut self, param: FxParameterPropValues, with_notification: bool) {
+        self.param_type
+            .set_with_optional_notification(param.r#type, with_notification);
+        self.param_name
+            .set_with_optional_notification(param.name, with_notification);
+        self.param_index
+            .set_with_optional_notification(param.index, with_notification);
         self.param_expression
-            .set_without_notification(param.expression);
+            .set_with_optional_notification(param.expression, with_notification);
     }
 
-    pub fn set_seek_options_without_notification(&mut self, options: SeekOptions) {
+    pub fn set_seek_options(&mut self, options: SeekOptions, with_notification: bool) {
         self.use_time_selection
-            .set_without_notification(options.use_time_selection);
+            .set_with_optional_notification(options.use_time_selection, with_notification);
         self.use_loop_points
-            .set_without_notification(options.use_loop_points);
+            .set_with_optional_notification(options.use_loop_points, with_notification);
         self.use_regions
-            .set_without_notification(options.use_regions);
+            .set_with_optional_notification(options.use_regions, with_notification);
         self.use_project
-            .set_without_notification(options.use_project);
-        self.move_view.set_without_notification(options.move_view);
-        self.seek_play.set_without_notification(options.seek_play);
+            .set_with_optional_notification(options.use_project, with_notification);
+        self.move_view
+            .set_with_optional_notification(options.move_view, with_notification);
+        self.seek_play
+            .set_with_optional_notification(options.seek_play, with_notification);
         self.feedback_resolution
-            .set_without_notification(options.feedback_resolution);
+            .set_with_optional_notification(options.feedback_resolution, with_notification);
     }
 
     pub fn seek_options(&self) -> SeekOptions {

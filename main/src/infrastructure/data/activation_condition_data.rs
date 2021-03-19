@@ -30,21 +30,21 @@ impl ActivationConditionData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut ActivationConditionModel) {
+    pub fn apply_to_model(&self, model: &mut ActivationConditionModel, with_notification: bool) {
         model
             .activation_type
-            .set_without_notification(self.activation_type);
+            .set_with_optional_notification(self.activation_type, with_notification);
         model
             .modifier_condition_1
-            .set_without_notification(self.modifier_condition_1);
+            .set_with_optional_notification(self.modifier_condition_1, with_notification);
         model
             .modifier_condition_2
-            .set_without_notification(self.modifier_condition_2);
+            .set_with_optional_notification(self.modifier_condition_2, with_notification);
         model
             .program_condition
-            .set_without_notification(self.program_condition);
+            .set_with_optional_notification(self.program_condition, with_notification);
         model
             .eel_condition
-            .set_without_notification(self.eel_condition.clone());
+            .set_with_optional_notification(self.eel_condition.clone(), with_notification);
     }
 }

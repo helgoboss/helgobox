@@ -696,11 +696,12 @@ impl Session {
 
     pub fn move_mapping_to_group(
         &mut self,
+        compartment: MappingCompartment,
         mapping_id: MappingId,
         group_id: GroupId,
     ) -> Result<(), &'static str> {
         let (_, mapping) = self
-            .find_mapping_and_index_by_id(MappingCompartment::MainMappings, mapping_id)
+            .find_mapping_and_index_by_id(compartment, mapping_id)
             .ok_or("no such mapping")?;
         mapping.borrow_mut().group_id.set(group_id);
         self.notify_group_list_changed();

@@ -3,16 +3,17 @@ use crate::application::{
     WeakSession,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, ReaperTarget};
+use crate::domain::{MappingCompartment, MappingId, ReaperTarget};
 
+use crate::infrastructure::data::MappingModelData;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
-use crate::infrastructure::ui::util::symbols;
+use crate::infrastructure::ui::util::{copy_to_clipboard, get_from_clipboard, symbols};
 use crate::infrastructure::ui::{util, IndependentPanelManager, SharedMainState};
 use reaper_high::Reaper;
-use reaper_low::raw;
+use reaper_low::{raw, Swell};
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -392,65 +393,99 @@ impl MappingRowPanel {
         );
     }
 
-    fn start_moving_mapping_to_other_group(
-        &self,
-        location: Point<Pixels>,
-    ) -> Result<(), &'static str> {
-        let (mapping_id, dest_group_id) = {
+    fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+        // let menu_bar =
+        //     MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be
+        // loaded"); let swell_menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st
+        // menu");
+        let menu_bar = MenuBar::new();
+        let pure_menu = {
+            use std::iter::once;
+            use swell_ui::menu_tree::*;
+            let shared_session = self.session();
+            let session = shared_session.borrow();
             let mapping = self.mapping.borrow();
             let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
             let mapping = mapping.borrow();
-            (
-                mapping.id(),
-                self.let_user_pick_destination_group(&mapping, location)?,
-            )
+            let compartment = mapping.compartment();
+            let mapping_id = mapping.id();
+            let mapping_in_clipboard = get_mapping_data_from_clipboard();
+            let clipboard_has_mapping = mapping_in_clipboard.is_some();
+            let group_id = mapping.group_id.get();
+            let session_1 = shared_session.clone();
+            let session_2 = shared_session.clone();
+            let session_3 = shared_session.clone();
+            let session_4 = shared_session.clone();
+            let entries = vec![
+                item("Copy", move || {
+                    let _ = copy_mapping(session_1, compartment, mapping_id);
+                }),
+                item_with_opts(
+                    format!(
+                        "Paste (in place){}",
+                        if let Some(m) = mapping_in_clipboard {
+                            format!(": {}", m.name)
+                        } else {
+                            "".to_owned()
+                        }
+                    ),
+                    ItemOpts {
+                        enabled: clipboard_has_mapping,
+                        checked: false,
+                    },
+                    move || {
+                        let _ =
+                            paste_mapping_in_place(session_2, compartment, mapping_id, group_id);
+                    },
+                ),
+                menu(
+                    "Move to group",
+                    once(item_with_opts(
+                        "<Default>",
+                        ItemOpts {
+                            enabled: !group_id.is_default(),
+                            checked: false,
+                        },
+                        move || {
+                            move_mapping_to_group(
+                                session_3,
+                                compartment,
+                                mapping_id,
+                                GroupId::default(),
+                            )
+                        },
+                    ))
+                    .chain(session.groups_sorted().map(move |g| {
+                        let session = session_4.clone();
+                        let g = g.borrow();
+                        let g_id = g.id();
+                        item_with_opts(
+                            g.name.get_ref().to_owned(),
+                            ItemOpts {
+                                enabled: group_id != g_id,
+                                checked: false,
+                            },
+                            move || move_mapping_to_group(session, compartment, mapping_id, g_id),
+                        )
+                    }))
+                    .collect(),
+                ),
+            ];
+            let mut root_menu = root_menu(entries);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
         };
-        self.session()
-            .borrow_mut()
-            .move_mapping_to_group(mapping_id, dest_group_id)
-            .unwrap();
+        let result = self
+            .view
+            .require_window()
+            .open_popup_menu(menu_bar.menu(), location)
+            .ok_or("no entry selected")?;
+        pure_menu
+            .find_item_by_id(result)
+            .expect("selected menu item not found")
+            .invoke_handler();
         Ok(())
-    }
-
-    fn let_user_pick_destination_group(
-        &self,
-        mapping: &MappingModel,
-        location: Point<Pixels>,
-    ) -> Result<GroupId, &'static str> {
-        let current_group_id = mapping.group_id.get();
-        let menu_bar =
-            MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be loaded");
-        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
-        let session = self.session();
-        let session = session.borrow();
-        for (i, group) in session.groups_sorted().enumerate() {
-            let group = group.borrow();
-            let item_id = i as u32 + 2;
-            menu.add_item(item_id, group.name.get_ref().to_string());
-            // Disable group if it's the current one.
-            if current_group_id == group.id() {
-                menu.set_item_enabled(item_id, false);
-            }
-        }
-        // Disable "<Default>" group if it's the current one.
-        if current_group_id.is_default() {
-            menu.set_item_enabled(1, false);
-        }
-        let picked_item_id = match self.view.require_window().open_popup_menu(menu, location) {
-            None => return Err("user didn't pick any group"),
-            Some(r) => r,
-        };
-        let desired_group_index = if picked_item_id == 1 {
-            None
-        } else {
-            Some(picked_item_id - 2)
-        };
-        let desired_group_id = desired_group_index.map(|i| {
-            session
-                .find_group_id_by_index_sorted(i as _)
-                .expect("no such group")
-        });
-        Ok(desired_group_id.unwrap_or_default())
     }
 
     fn when(
@@ -501,7 +536,7 @@ impl View for MappingRowPanel {
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
-        let _ = self.start_moving_mapping_to_other_group(location);
+        let _ = self.open_context_menu(location);
     }
 
     fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
@@ -517,4 +552,53 @@ impl Drop for MappingRowPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping mapping row panel...");
     }
+}
+
+fn copy_mapping(
+    session: SharedSession,
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+) -> Result<(), &'static str> {
+    let session = session.borrow();
+    let (_, mapping) = session
+        .find_mapping_and_index_by_id(compartment, mapping_id)
+        .ok_or("mapping not found")?;
+    let data = MappingModelData::from_model(&mapping.borrow());
+    let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize mapping")?;
+    copy_to_clipboard(json);
+    Ok(())
+}
+
+fn get_mapping_data_from_clipboard() -> Option<MappingModelData> {
+    let json = get_from_clipboard()?;
+    serde_json::from_str(&json).ok()?
+}
+
+fn paste_mapping_in_place(
+    session: SharedSession,
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+    group_id: GroupId,
+) -> Result<(), &'static str> {
+    let mut data = get_mapping_data_from_clipboard().ok_or("no mapping data in clipboard")?;
+    let session = session.borrow();
+    let (_, mapping) = session
+        .find_mapping_and_index_by_id(compartment, mapping_id)
+        .ok_or("mapping not found")?;
+    let mut mapping = mapping.borrow_mut();
+    data.group_id = group_id;
+    data.apply_to_model(&mut mapping);
+    Ok(())
+}
+
+fn move_mapping_to_group(
+    session: SharedSession,
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+    group_id: GroupId,
+) {
+    session
+        .borrow_mut()
+        .move_mapping_to_group(compartment, mapping_id, group_id)
+        .unwrap();
 }

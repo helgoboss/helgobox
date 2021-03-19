@@ -1,5 +1,6 @@
 use semver::Version;
 
+#[derive(Default)]
 pub struct MigrationDescriptor {
     /// https://github.com/helgoboss/realearn/issues/117
     pub target_interval_transformation_117: bool,

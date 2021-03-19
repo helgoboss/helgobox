@@ -123,11 +123,15 @@ impl ModeModelData {
         model: &mut ModeModel,
         migration_descriptor: &MigrationDescriptor,
         mapping_name: &str,
+        with_notification: bool,
     ) {
-        model.r#type.set_without_notification(self.r#type);
         model
-            .source_value_interval
-            .set_without_notification(Interval::new(self.min_source_value, self.max_source_value));
+            .r#type
+            .set_with_optional_notification(self.r#type, with_notification);
+        model.source_value_interval.set_with_optional_notification(
+            Interval::new(self.min_source_value, self.max_source_value),
+            with_notification,
+        );
         {
             let saved_target_interval = Interval::new(self.min_target_value, self.max_target_value);
             let actual_target_interval = if migration_descriptor.target_interval_transformation_117
@@ -145,57 +149,73 @@ impl ModeModelData {
             };
             model
                 .target_value_interval
-                .set_without_notification(actual_target_interval);
+                .set_with_optional_notification(actual_target_interval, with_notification);
         }
-        model
-            .step_interval
-            .set_without_notification(Interval::new(self.min_step_size, self.max_step_size));
+        model.step_interval.set_with_optional_notification(
+            Interval::new(self.min_step_size, self.max_step_size),
+            with_notification,
+        );
         model
             .press_duration_interval
-            .set_without_notification(Interval::new(
-                Duration::from_millis(self.min_press_millis),
-                Duration::from_millis(self.max_press_millis),
-            ));
-        model
-            .turbo_rate
-            .set_without_notification(Duration::from_millis(self.turbo_rate));
-        model
-            .jump_interval
-            .set_without_notification(Interval::new(self.min_target_jump, self.max_target_jump));
+            .set_with_optional_notification(
+                Interval::new(
+                    Duration::from_millis(self.min_press_millis),
+                    Duration::from_millis(self.max_press_millis),
+                ),
+                with_notification,
+            );
+        model.turbo_rate.set_with_optional_notification(
+            Duration::from_millis(self.turbo_rate),
+            with_notification,
+        );
+        model.jump_interval.set_with_optional_notification(
+            Interval::new(self.min_target_jump, self.max_target_jump),
+            with_notification,
+        );
         model
             .eel_control_transformation
-            .set_without_notification(self.eel_control_transformation.clone());
+            .set_with_optional_notification(
+                self.eel_control_transformation.clone(),
+                with_notification,
+            );
         model
             .eel_feedback_transformation
-            .set_without_notification(self.eel_feedback_transformation.clone());
+            .set_with_optional_notification(
+                self.eel_feedback_transformation.clone(),
+                with_notification,
+            );
         model
             .reverse
-            .set_without_notification(self.reverse_is_enabled);
+            .set_with_optional_notification(self.reverse_is_enabled, with_notification);
         let actual_out_of_range_behavior = if self.ignore_out_of_range_source_values_is_enabled {
             // Data saved with ReaLearn version < 1.11.0
             OutOfRangeBehavior::Ignore
         } else {
             self.out_of_range_behavior
         };
-        model.fire_mode.set_without_notification(self.fire_mode);
+        model
+            .fire_mode
+            .set_with_optional_notification(self.fire_mode, with_notification);
         model
             .out_of_range_behavior
-            .set_without_notification(actual_out_of_range_behavior);
+            .set_with_optional_notification(actual_out_of_range_behavior, with_notification);
         model
             .round_target_value
-            .set_without_notification(self.round_target_value);
+            .set_with_optional_notification(self.round_target_value, with_notification);
         let takeover_mode = if self.scale_mode_enabled {
             // ReaLearn < 2.8.0-pre3 used this flag instead of the enum.
             TakeoverMode::LongTimeNoSee
         } else {
             self.takeover_mode
         };
-        model.takeover_mode.set_without_notification(takeover_mode);
+        model
+            .takeover_mode
+            .set_with_optional_notification(takeover_mode, with_notification);
         model
             .rotate
-            .set_without_notification(self.rotate_is_enabled);
+            .set_with_optional_notification(self.rotate_is_enabled, with_notification);
         model
             .make_absolute
-            .set_without_notification(self.make_absolute_enabled);
+            .set_with_optional_notification(self.make_absolute_enabled, with_notification);
     }
 }

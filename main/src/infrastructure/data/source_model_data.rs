@@ -82,12 +82,14 @@ impl SourceModelData {
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
-    pub fn apply_to_model(&self, model: &mut SourceModel) {
-        model.category.set_without_notification(self.category);
+    pub fn apply_to_model(&self, model: &mut SourceModel, with_notification: bool) {
+        model
+            .category
+            .set_with_optional_notification(self.category, with_notification);
         if self.r#type == MidiSourceType::ParameterNumberValue {
             model
                 .parameter_number_message_number
-                .set_without_notification(self.number)
+                .set_with_optional_notification(self.number, with_notification)
         } else {
             let number: Option<U7> = match self.number {
                 None => None,
@@ -99,41 +101,49 @@ impl SourceModelData {
                     }
                 },
             };
-            model.midi_message_number.set_without_notification(number);
+            model
+                .midi_message_number
+                .set_with_optional_notification(number, with_notification);
         };
-        model.midi_source_type.set_without_notification(self.r#type);
-        model.channel.set_without_notification(self.channel);
+        model
+            .midi_source_type
+            .set_with_optional_notification(self.r#type, with_notification);
+        model
+            .channel
+            .set_with_optional_notification(self.channel, with_notification);
         model
             .custom_character
-            .set_without_notification(self.character);
+            .set_with_optional_notification(self.character, with_notification);
         model
             .is_registered
-            .set_without_notification(self.is_registered);
-        model.is_14_bit.set_without_notification(self.is_14_bit);
+            .set_with_optional_notification(self.is_registered, with_notification);
+        model
+            .is_14_bit
+            .set_with_optional_notification(self.is_14_bit, with_notification);
         model
             .midi_clock_transport_message
-            .set_without_notification(self.message);
+            .set_with_optional_notification(self.message, with_notification);
         model
             .raw_midi_pattern
-            .set_without_notification(self.raw_midi_pattern.clone());
+            .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
         model
             .osc_address_pattern
-            .set_without_notification(self.osc_address_pattern.clone());
+            .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
         model
             .osc_arg_index
-            .set_without_notification(self.osc_arg_index);
+            .set_with_optional_notification(self.osc_arg_index, with_notification);
         model
             .osc_arg_type_tag
-            .set_without_notification(self.osc_arg_type);
+            .set_with_optional_notification(self.osc_arg_type, with_notification);
         model
             .osc_arg_is_relative
-            .set_without_notification(self.osc_arg_is_relative);
+            .set_with_optional_notification(self.osc_arg_is_relative, with_notification);
         model
             .control_element_type
-            .set_without_notification(self.control_element_type);
+            .set_with_optional_notification(self.control_element_type, with_notification);
         model
             .control_element_index
-            .set_without_notification(self.control_element_index);
+            .set_with_optional_notification(self.control_element_index, with_notification);
     }
 }
 
@@ -239,7 +249,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model(&mut model);
+        data.apply_to_model(&mut model, false);
         // Then
         assert_eq!(
             model.midi_source_type.get(),
@@ -279,7 +289,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model(&mut model);
+        data.apply_to_model(&mut model, false);
         // Then
         assert_eq!(model.midi_source_type.get(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel.get(), None);

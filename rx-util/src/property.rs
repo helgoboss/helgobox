@@ -137,6 +137,14 @@ where
         self.value = transformed_value;
     }
 
+    pub fn set_with_optional_notification(&mut self, value: T, with_notification: bool) {
+        if with_notification {
+            self.set(value);
+        } else {
+            self.set_without_notification(value);
+        }
+    }
+
     /// Like `set` but returns old value.
     pub fn replace(&mut self, value: T) -> T {
         let old_value = self.value.clone();

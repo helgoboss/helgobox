@@ -49,6 +49,6 @@ impl GroupModelData {
             .feedback_is_enabled
             .set_without_notification(self.enabled_data.feedback_is_enabled);
         self.activation_condition_data
-            .apply_to_model(model.activation_condition_model.borrow_mut());
+            .apply_to_model(model.activation_condition_model.borrow_mut(), false);
     }
 }

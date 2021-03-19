@@ -1,3 +1,4 @@
+use clipboard::{ClipboardContext, ClipboardProvider};
 use reaper_high::Reaper;
 use swell_ui::{DialogUnits, Dimensions};
 
@@ -135,4 +136,17 @@ pub fn open_in_browser(url: &str) {
             format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
         );
     }
+}
+
+pub fn copy_to_clipboard(text: String) {
+    let mut clipboard: ClipboardContext =
+        ClipboardProvider::new().expect("couldn't create clipboard");
+    clipboard
+        .set_contents(text)
+        .expect("couldn't set clipboard contents");
+}
+
+pub fn get_from_clipboard() -> Option<String> {
+    let mut clipboard: ClipboardContext = ClipboardProvider::new().ok()?;
+    clipboard.get_contents().ok()
 }

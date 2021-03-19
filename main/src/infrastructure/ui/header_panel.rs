@@ -31,7 +31,7 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::infrastructure::ui::util::open_in_browser;
+use crate::infrastructure::ui::util::{copy_to_clipboard, get_from_clipboard, open_in_browser};
 use crate::infrastructure::ui::{
     add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
     SharedIndependentPanelManager, SharedMainState,
@@ -136,7 +136,9 @@ impl HeaderPanel {
     fn prompt_for_control_element_type(&self) -> Option<VirtualControlElementType> {
         let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
             .expect("menu bar couldn't be loaded");
-        let menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let menu = menu_bar
+            .get_sub_menu(0)
+            .expect("menu bar didn't have 1st menu");
         let location = Window::cursor_pos();
         let result = self.view.require_window().open_popup_menu(menu, location)?;
         let control_element_type = match result {
@@ -1011,11 +1013,7 @@ impl HeaderPanel {
     }
 
     pub fn import_from_clipboard(&self) -> Result<(), String> {
-        let mut clipboard: ClipboardContext =
-            ClipboardProvider::new().map_err(|_| "Couldn't obtain clipboard.".to_string())?;
-        let json = clipboard
-            .get_contents()
-            .map_err(|_| "Couldn't read from clipboard.".to_string())?;
+        let json = get_from_clipboard().ok_or("Couldn't read from clipboard.".to_string())?;
         let session_data: SessionData = serde_json::from_str(json.as_str()).map_err(|e| {
             format!(
                 "Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}",
@@ -1038,11 +1036,7 @@ impl HeaderPanel {
         let session_data = plugin_parameters.create_session_data();
         let json =
             serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
-        let mut clipboard: ClipboardContext =
-            ClipboardProvider::new().expect("couldn't create clipboard");
-        clipboard
-            .set_contents(json)
-            .expect("couldn't set clipboard contents");
+        copy_to_clipboard(json);
     }
 
     fn delete_active_preset(&self) -> Result<(), &'static str> {
@@ -1521,7 +1515,9 @@ impl View for HeaderPanel {
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
             .expect("menu bar couldn't be loaded");
-        let ctx_menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st menu");
+        let ctx_menu = menu_bar
+            .get_sub_menu(0)
+            .expect("menu bar didn't have 1st menu");
         let app = App::get();
         // Invalidate some menu items without result
         {

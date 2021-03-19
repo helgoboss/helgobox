@@ -59,17 +59,6 @@ END
 
 
 
-LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-IDR_ROW_PANEL_CONTEXT_MENU MENU
-BEGIN
-    POPUP "Row panel context menu"
-    BEGIN
-        MENUITEM "<Default>", 1
-    END
-END
-
-
-
 //
 // Dialog resources
 //

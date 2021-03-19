@@ -100,18 +100,12 @@ impl MappingModel {
     pub fn set_advanced_settings(
         &mut self,
         value: Option<serde_yaml::Mapping>,
+        with_notification: bool,
     ) -> Result<(), String> {
-        self.advanced_settings.set(value);
+        self.advanced_settings
+            .set_with_optional_notification(value, with_notification);
         self.update_extension_model_from_advanced_settings()?;
         Ok(())
-    }
-
-    pub fn set_advanced_settings_without_notification(
-        &mut self,
-        value: Option<serde_yaml::Mapping>,
-    ) {
-        self.advanced_settings.set_without_notification(value);
-        let _ = self.update_extension_model_from_advanced_settings();
     }
 
     fn update_extension_model_from_advanced_settings(&mut self) -> Result<(), String> {
