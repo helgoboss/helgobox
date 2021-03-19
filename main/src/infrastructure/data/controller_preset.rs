@@ -93,7 +93,7 @@ impl PresetData for ControllerPresetData {
             self.mappings
                 .iter()
                 .map(|m| {
-                    m.to_model(
+                    m.to_model_flexible(
                         MappingCompartment::ControllerMappings,
                         None,
                         &migration_descriptor,

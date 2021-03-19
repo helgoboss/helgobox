@@ -5,13 +5,18 @@ use crate::application::{
 use crate::core::when;
 use crate::domain::{MappingCompartment, MappingId, ReaperTarget};
 
-use crate::infrastructure::data::MappingModelData;
+use crate::infrastructure::data::{
+    MappingModelData, ModeModelData, SourceModelData, TargetModelData,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
     ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
-use crate::infrastructure::ui::util::{copy_to_clipboard, get_from_clipboard, symbols};
-use crate::infrastructure::ui::{util, IndependentPanelManager, SharedMainState};
+use crate::infrastructure::ui::util::symbols;
+use crate::infrastructure::ui::{
+    copy_object_to_clipboard, get_object_from_clipboard, util, ClipboardObject,
+    IndependentPanelManager, SharedMainState,
+};
 use reaper_high::Reaper;
 use reaper_low::{raw, Swell};
 use rx_util::UnitEvent;
@@ -409,34 +414,95 @@ impl MappingRowPanel {
             let mapping = mapping.borrow();
             let compartment = mapping.compartment();
             let mapping_id = mapping.id();
-            let mapping_in_clipboard = get_mapping_data_from_clipboard();
-            let clipboard_has_mapping = mapping_in_clipboard.is_some();
+            let clipboard_object = get_object_from_clipboard();
+            let clipboard_object_2 = clipboard_object.clone();
             let group_id = mapping.group_id.get();
             let session_1 = shared_session.clone();
             let session_2 = shared_session.clone();
             let session_3 = shared_session.clone();
             let session_4 = shared_session.clone();
+            let session_5 = shared_session.clone();
+            let session_6 = shared_session.clone();
+            let session_7 = shared_session.clone();
+            let session_8 = shared_session.clone();
             let entries = vec![
                 item("Copy", move || {
-                    let _ = copy_mapping(session_1, compartment, mapping_id);
+                    let _ = copy_mapping_object(
+                        session_1,
+                        compartment,
+                        mapping_id,
+                        ObjectType::Mapping,
+                    );
                 }),
-                item_with_opts(
-                    format!(
-                        "Paste (in place){}",
-                        if let Some(m) = mapping_in_clipboard {
-                            format!(": {}", m.name)
-                        } else {
-                            "".to_owned()
+                if let Some(obj) = clipboard_object {
+                    let label = match &obj {
+                        ClipboardObject::Mapping(m) => {
+                            format!("Paste mapping \"{}\" (replace)", m.name.clone())
                         }
-                    ),
-                    ItemOpts {
-                        enabled: clipboard_has_mapping,
-                        checked: false,
-                    },
-                    move || {
-                        let _ =
-                            paste_mapping_in_place(session_2, compartment, mapping_id, group_id);
-                    },
+                        ClipboardObject::Source(s) => {
+                            format!("Paste source ({})", s.category)
+                        }
+                        ClipboardObject::Mode(_) => "Paste mode".to_owned(),
+                        ClipboardObject::Target(t) => {
+                            format!("Paste target ({})", t.category)
+                        }
+                    };
+                    item(label, move || {
+                        let _ = paste_object_in_place(
+                            obj,
+                            session_2,
+                            compartment,
+                            mapping_id,
+                            group_id,
+                        );
+                    })
+                } else {
+                    disabled_item("Paste (replace)")
+                },
+                if let Some(ClipboardObject::Mapping(m)) = clipboard_object_2 {
+                    item(
+                        format!("Paste mapping \"{}\" (insert below)", m.name.clone()),
+                        move || {
+                            let _ = paste_mapping_below(
+                                m,
+                                session_8,
+                                compartment,
+                                mapping_id,
+                                group_id,
+                            );
+                        },
+                    )
+                } else {
+                    disabled_item("Paste (insert below)")
+                },
+                menu(
+                    "Copy part",
+                    vec![
+                        item("Copy source", move || {
+                            let _ = copy_mapping_object(
+                                session_5,
+                                compartment,
+                                mapping_id,
+                                ObjectType::Source,
+                            );
+                        }),
+                        item("Copy mode", move || {
+                            let _ = copy_mapping_object(
+                                session_6,
+                                compartment,
+                                mapping_id,
+                                ObjectType::Mode,
+                            );
+                        }),
+                        item("Copy target", move || {
+                            let _ = copy_mapping_object(
+                                session_7,
+                                compartment,
+                                mapping_id,
+                                ObjectType::Target,
+                            );
+                        }),
+                    ],
                 ),
                 menu(
                     "Move to group",
@@ -554,43 +620,6 @@ impl Drop for MappingRowPanel {
     }
 }
 
-fn copy_mapping(
-    session: SharedSession,
-    compartment: MappingCompartment,
-    mapping_id: MappingId,
-) -> Result<(), &'static str> {
-    let session = session.borrow();
-    let (_, mapping) = session
-        .find_mapping_and_index_by_id(compartment, mapping_id)
-        .ok_or("mapping not found")?;
-    let data = MappingModelData::from_model(&mapping.borrow());
-    let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize mapping")?;
-    copy_to_clipboard(json);
-    Ok(())
-}
-
-fn get_mapping_data_from_clipboard() -> Option<MappingModelData> {
-    let json = get_from_clipboard()?;
-    serde_json::from_str(&json).ok()?
-}
-
-fn paste_mapping_in_place(
-    session: SharedSession,
-    compartment: MappingCompartment,
-    mapping_id: MappingId,
-    group_id: GroupId,
-) -> Result<(), &'static str> {
-    let mut data = get_mapping_data_from_clipboard().ok_or("no mapping data in clipboard")?;
-    let session = session.borrow();
-    let (_, mapping) = session
-        .find_mapping_and_index_by_id(compartment, mapping_id)
-        .ok_or("mapping not found")?;
-    let mut mapping = mapping.borrow_mut();
-    data.group_id = group_id;
-    data.apply_to_model(&mut mapping);
-    Ok(())
-}
-
 fn move_mapping_to_group(
     session: SharedSession,
     compartment: MappingCompartment,
@@ -601,4 +630,79 @@ fn move_mapping_to_group(
         .borrow_mut()
         .move_mapping_to_group(compartment, mapping_id, group_id)
         .unwrap();
+}
+
+fn copy_mapping_object(
+    session: SharedSession,
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+    object_type: ObjectType,
+) -> Result<(), &'static str> {
+    let session = session.borrow();
+    let (_, mapping) = session
+        .find_mapping_and_index_by_id(compartment, mapping_id)
+        .ok_or("mapping not found")?;
+    use ObjectType::*;
+    let mapping = mapping.borrow();
+    let object = match object_type {
+        Mapping => ClipboardObject::Mapping(MappingModelData::from_model(&mapping)),
+        Source => ClipboardObject::Source(SourceModelData::from_model(&mapping.source_model)),
+        Mode => ClipboardObject::Mode(ModeModelData::from_model(&mapping.mode_model)),
+        Target => ClipboardObject::Target(TargetModelData::from_model(&mapping.target_model)),
+    };
+    copy_object_to_clipboard(object)
+}
+
+enum ObjectType {
+    Mapping,
+    Source,
+    Mode,
+    Target,
+}
+
+fn paste_object_in_place(
+    obj: ClipboardObject,
+    session: SharedSession,
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+    group_id: GroupId,
+) -> Result<(), &'static str> {
+    let session = session.borrow();
+    let (_, mapping) = session
+        .find_mapping_and_index_by_id(compartment, mapping_id)
+        .ok_or("mapping not found")?;
+    let mut mapping = mapping.borrow_mut();
+    match obj {
+        ClipboardObject::Mapping(mut m) => {
+            m.group_id = group_id;
+            m.apply_to_model(&mut mapping);
+        }
+        ClipboardObject::Source(s) => {
+            s.apply_to_model(&mut mapping.source_model);
+        }
+        ClipboardObject::Mode(m) => {
+            m.apply_to_model(&mut mapping.mode_model);
+        }
+        ClipboardObject::Target(t) => {
+            t.apply_to_model(&mut mapping.target_model);
+        }
+    };
+    Ok(())
+}
+
+fn paste_mapping_below(
+    mut m: MappingModelData,
+    session: SharedSession,
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+    group_id: GroupId,
+) -> Result<(), &'static str> {
+    let mut session = session.borrow_mut();
+    let (index, _) = session
+        .find_mapping_and_index_by_id(compartment, mapping_id)
+        .ok_or("mapping not found")?;
+    m.group_id = group_id;
+    let new_mapping = m.to_model(compartment);
+    session.insert_mapping_at(index + 1, new_mapping);
+    Ok(())
 }

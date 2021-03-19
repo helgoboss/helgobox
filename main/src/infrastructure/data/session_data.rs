@@ -275,7 +275,7 @@ impl SessionData {
             session.set_mappings_without_notification(
                 compartment,
                 mappings.iter().map(|m| {
-                    m.to_model(
+                    m.to_model_flexible(
                         compartment,
                         Some(extended_context),
                         &migration_descriptor,

@@ -81,8 +81,12 @@ impl SourceModelData {
         }
     }
 
+    pub fn apply_to_model(&self, model: &mut SourceModel) {
+        self.apply_to_model_flexible(model, true);
+    }
+
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
-    pub fn apply_to_model(&self, model: &mut SourceModel, with_notification: bool) {
+    pub fn apply_to_model_flexible(&self, model: &mut SourceModel, with_notification: bool) {
         model
             .category
             .set_with_optional_notification(self.category, with_notification);
@@ -249,7 +253,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model(&mut model, false);
+        data.apply_to_model_flexible(&mut model, false);
         // Then
         assert_eq!(
             model.midi_source_type.get(),
@@ -289,7 +293,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model(&mut model, false);
+        data.apply_to_model_flexible(&mut model, false);
         // Then
         assert_eq!(model.midi_source_type.get(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel.get(), None);

@@ -13,6 +13,7 @@ use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, SeekOptions, SoloBehavior,
     TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
+use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -21,10 +22,10 @@ use std::convert::TryInto;
 #[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
-    category: TargetCategory,
+    pub category: TargetCategory,
     // reaper_type would be a better name but we need backwards compatibility
     #[serde(default, skip_serializing_if = "is_default")]
-    r#type: ReaperTargetType,
+    pub r#type: ReaperTargetType,
     // Action target
     #[serde(default, skip_serializing_if = "is_default")]
     command_name: Option<String>,
@@ -119,9 +120,13 @@ impl TargetModelData {
         }
     }
 
+    pub fn apply_to_model(&self, model: &mut TargetModel) {
+        self.apply_to_model_flexible(model, None, Some(App::version()), true);
+    }
+
     /// The context is necessary only if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
-    pub fn apply_to_model(
+    pub fn apply_to_model_flexible(
         &self,
         model: &mut TargetModel,
         context: Option<ExtendedProcessorContext>,

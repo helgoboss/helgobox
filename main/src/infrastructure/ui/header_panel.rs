@@ -31,10 +31,10 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
-use crate::infrastructure::ui::util::{copy_to_clipboard, get_from_clipboard, open_in_browser};
+use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
-    add_firewall_rule, GroupFilter, GroupPanel, IndependentPanelManager,
-    SharedIndependentPanelManager, SharedMainState,
+    add_firewall_rule, copy_text_to_clipboard, get_text_from_clipboard, GroupFilter, GroupPanel,
+    IndependentPanelManager, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use std::cell::{Cell, RefCell};
@@ -1013,7 +1013,7 @@ impl HeaderPanel {
     }
 
     pub fn import_from_clipboard(&self) -> Result<(), String> {
-        let json = get_from_clipboard().ok_or("Couldn't read from clipboard.".to_string())?;
+        let json = get_text_from_clipboard().ok_or("Couldn't read from clipboard.".to_string())?;
         let session_data: SessionData = serde_json::from_str(json.as_str()).map_err(|e| {
             format!(
                 "Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}",
@@ -1036,7 +1036,7 @@ impl HeaderPanel {
         let session_data = plugin_parameters.create_session_data();
         let json =
             serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
-        copy_to_clipboard(json);
+        copy_text_to_clipboard(json);
     }
 
     fn delete_active_preset(&self) -> Result<(), &'static str> {

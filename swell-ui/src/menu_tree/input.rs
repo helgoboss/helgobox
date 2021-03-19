@@ -4,6 +4,7 @@ use std::fmt::Debug;
 pub enum Entry {
     Menu(Menu),
     Item(Item),
+    Nothing,
 }
 
 impl Entry {
@@ -18,6 +19,7 @@ impl Entry {
             Entry::Item(i) => {
                 i.id = counter.next_value();
             }
+            Entry::Nothing => {}
         }
     }
 
@@ -34,6 +36,7 @@ impl Entry {
                     None
                 }
             }
+            Entry::Nothing => None,
         }
     }
 }
@@ -120,6 +123,17 @@ pub fn item_with_opts(
         handler: Handler(Box::new(handler)),
         opts,
     })
+}
+
+pub fn disabled_item(text: impl Into<String>) -> Entry {
+    item_with_opts(
+        text,
+        ItemOpts {
+            enabled: false,
+            checked: false,
+        },
+        || {},
+    )
 }
 
 #[derive(Debug)]

@@ -25,5 +25,6 @@ fn fill_menu_recursive(swell_menu: SwellMenu, entry: &Entry) {
                 swell_menu.set_item_enabled(i.id, false);
             }
         }
+        Entry::Nothing => {}
     }
 }

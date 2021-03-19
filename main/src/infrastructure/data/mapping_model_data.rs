@@ -57,9 +57,18 @@ impl MappingModelData {
         }
     }
 
+    pub fn to_model(&self, compartment: MappingCompartment) -> MappingModel {
+        self.to_model_flexible(
+            compartment,
+            None,
+            &MigrationDescriptor::default(),
+            Some(App::version()),
+        )
+    }
+
     /// The context is necessary only if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
-    pub fn to_model(
+    pub fn to_model_flexible(
         &self,
         compartment: MappingCompartment,
         context: Option<ExtendedProcessorContext>,
@@ -119,14 +128,14 @@ impl MappingModelData {
             with_notification,
         );
         self.source
-            .apply_to_model(model.source_model.borrow_mut(), with_notification);
-        self.mode.apply_to_model(
+            .apply_to_model_flexible(model.source_model.borrow_mut(), with_notification);
+        self.mode.apply_to_model_flexible(
             model.mode_model.borrow_mut(),
             migration_descriptor,
             &self.name,
             with_notification,
         );
-        self.target.apply_to_model(
+        self.target.apply_to_model_flexible(
             model.target_model.borrow_mut(),
             context,
             preset_version,

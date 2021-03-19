@@ -118,7 +118,11 @@ impl ModeModelData {
         }
     }
 
-    pub fn apply_to_model(
+    pub fn apply_to_model(&self, model: &mut ModeModel) {
+        self.apply_to_model_flexible(model, &MigrationDescriptor::default(), "", true);
+    }
+
+    pub fn apply_to_model_flexible(
         &self,
         model: &mut ModeModel,
         migration_descriptor: &MigrationDescriptor,

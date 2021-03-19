@@ -750,6 +750,15 @@ impl Session {
         self.add_mapping(compartment, mapping)
     }
 
+    pub fn insert_mapping_at(&mut self, index: usize, mapping: MappingModel) {
+        let mapping_id = mapping.id();
+        let compartment = mapping.compartment();
+        let shared_mapping = share_mapping(mapping);
+        let index = index.min(self.mappings[compartment].len());
+        self.mappings[compartment].insert(index, shared_mapping.clone());
+        self.notify_mapping_list_changed(compartment, Some(mapping_id));
+    }
+
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
         let max_index_so_far = self
             .mappings(MappingCompartment::ControllerMappings)
