@@ -718,6 +718,8 @@ impl fmt::Display for VirtualTrack {
 
 #[derive(Debug)]
 pub enum VirtualFx {
+    /// This ReaLearn FX (nice for controlling conditional activation parameters).
+    This,
     /// Focused or last focused FX.
     Focused,
     /// Particular FX.
@@ -730,6 +732,7 @@ pub enum VirtualFx {
 impl VirtualFx {
     pub fn id(&self) -> Option<Guid> {
         match self {
+            VirtualFx::This => None,
             VirtualFx::Focused => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.id(),
         }
@@ -737,6 +740,8 @@ impl VirtualFx {
 
     pub fn is_input_fx(&self) -> bool {
         match self {
+            // In case of <This>, it doesn't matter.
+            VirtualFx::This => false,
             VirtualFx::Focused => false,
             VirtualFx::ChainFx { is_input_fx, .. } => *is_input_fx,
         }
@@ -744,6 +749,7 @@ impl VirtualFx {
 
     pub fn index(&self) -> Option<u32> {
         match self {
+            VirtualFx::This => None,
             VirtualFx::Focused => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.index(),
         }
@@ -751,6 +757,7 @@ impl VirtualFx {
 
     pub fn name(&self) -> Option<String> {
         match self {
+            VirtualFx::This => None,
             VirtualFx::Focused => None,
             VirtualFx::ChainFx { chain_fx, .. } => chain_fx.name(),
         }
@@ -1116,6 +1123,14 @@ pub fn get_fx(
     descriptor: &FxDescriptor,
 ) -> Result<Fx, &'static str> {
     match &descriptor.fx {
+        VirtualFx::This => {
+            let fx = context.context.containing_fx();
+            if fx.is_available() {
+                Ok(fx.clone())
+            } else {
+                Err("this FX not available anymore")
+            }
+        }
         VirtualFx::Focused => Reaper::get()
             .focused_fx()
             .ok_or("couldn't get (last) focused FX"),

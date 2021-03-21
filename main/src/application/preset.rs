@@ -59,6 +59,8 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
             let changed_to_focused_fx = if target.supports_fx() {
                 let refers_to_project = target.fx_type.get().refers_to_project();
                 if refers_to_project {
+                    // TODO-high Detect if it's ReaLearn
+                    // TODO-high Virtualize ReaLearn This
                     target.set_virtual_fx(VirtualFx::Focused);
                     true
                 } else {

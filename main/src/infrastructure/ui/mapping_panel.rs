@@ -2746,14 +2746,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             ReaperTarget::potential_static_change_events()
                 .merge(ReaperTarget::potential_dynamic_change_events()),
             |view| {
-                // TODO-medium The C++ code yields here (when FX changed):
-                //  Yield. Because the model might also listen to such events and we want the model
-                // to digest it *before* the  UI. It happened that this UI handler
-                // is called *before* the model handler in some cases. Then it is super
-                //  important - otherwise crash.
-                let project = view.target_with_context().project();
-                if !project.is_available() {
-                    // This can happen when reacting to track changes while closing a project.
+                // These changes can happen because of removals (e.g. project close, FX deletions,
+                // track deletions etc.). We want to update whatever is possible. But if the own
+                // project is missing, this was a project close and we don't need to do anything
+                // at all.
+                if !view.target_with_context().project().is_available() {
                     return;
                 }
                 view.invalidate_target_controls();

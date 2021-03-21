@@ -187,7 +187,7 @@ impl TargetModel {
                             _ => None,
                         },
                         // No update necessary
-                        VirtualFx::Focused => None,
+                        VirtualFx::Focused | VirtualFx::This => None,
                     }
                 }
                 // Shouldn't happen
@@ -452,6 +452,7 @@ impl TargetModel {
         use VirtualFxType::*;
         let fx = match self.fx_type.get() {
             Focused => VirtualFx::Focused,
+            This => VirtualFx::This,
             _ => VirtualFx::ChainFx {
                 is_input_fx: self.fx_is_input_fx.get(),
                 chain_fx: self.virtual_chain_fx()?,
@@ -485,7 +486,7 @@ impl TargetModel {
     pub fn virtual_chain_fx(&self) -> Option<VirtualChainFx> {
         use VirtualFxType::*;
         let fx = match self.fx_type.get() {
-            Focused => return None,
+            Focused | This => return None,
             ById => VirtualChainFx::ById(self.fx_id.get()?, Some(self.fx_index.get())),
             ByName => VirtualChainFx::ByName(WildMatch::new(self.fx_name.get_ref())),
             ByIndex => VirtualChainFx::ByIndex(self.fx_index.get()),
@@ -771,6 +772,7 @@ pub fn get_virtual_fx_label(fx: Option<&Fx>, virtual_fx: Option<&VirtualFx>) -> 
         Some(f) => f,
     };
     match virtual_fx {
+        VirtualFx::This => "<This>".into(),
         VirtualFx::Focused => "<Focused>".into(),
         VirtualFx::ChainFx { chain_fx, .. } => get_optional_fx_label(chain_fx, fx).into(),
     }
@@ -1406,6 +1408,9 @@ impl VirtualTrackType {
 )]
 #[repr(usize)]
 pub enum VirtualFxType {
+    #[display(fmt = "<This>")]
+    #[serde(rename = "this")]
+    This,
     #[display(fmt = "<Focused>")]
     #[serde(rename = "focused")]
     Focused,
@@ -1436,6 +1441,7 @@ impl VirtualFxType {
     pub fn from_virtual_fx(virtual_fx: &VirtualFx) -> Self {
         use VirtualFx::*;
         match virtual_fx {
+            This => VirtualFxType::This,
             Focused => VirtualFxType::Focused,
             ChainFx { chain_fx, .. } => {
                 use VirtualChainFx::*;

@@ -312,17 +312,24 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
 fn serialize_fx(fx: FxPropValues) -> FxData {
     use VirtualFxType::*;
     match fx.r#type {
-        // Special case: Focused
+        This => FxData {
+            anchor: Some(VirtualFxType::This),
+            guid: None,
+            index: None,
+            name: None,
+            is_input_fx: false,
+            expression: None,
+        },
         Focused => FxData {
-            anchor: None,
-            guid: Some("focused".to_string()),
+            anchor: Some(VirtualFxType::Focused),
+            guid: None,
             index: None,
             name: None,
             is_input_fx: false,
             expression: None,
         },
         Dynamic => FxData {
-            anchor: None,
+            anchor: Some(VirtualFxType::Dynamic),
             guid: None,
             index: None,
             name: None,
@@ -609,7 +616,7 @@ fn deserialize_fx(
     virtual_track: &VirtualTrack,
 ) -> FxPropValues {
     match fx_data {
-        // Special case: <Focused>
+        // Special case: <Focused> for ReaLearn < 2.8.0-pre4.
         FxData { guid: Some(g), .. } if g == "focused" => FxPropValues {
             r#type: VirtualFxType::Focused,
             ..Default::default()
