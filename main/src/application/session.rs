@@ -8,8 +8,8 @@ use crate::domain::{
     CompoundMappingSource, DomainEvent, DomainEventHandler, ExtendedProcessorContext, MainMapping,
     MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
     NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    RealSource, RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualSource,
-    PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    QualifiedMappingId, RealSource, RealTimeSender, ReaperTarget, TargetValueChangedEvent,
+    VirtualSource, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::EnumMap;
 
@@ -57,8 +57,8 @@ pub struct Session {
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
-    mapping_which_learns_source: Prop<Option<SharedMapping>>,
-    mapping_which_learns_target: Prop<Option<SharedMapping>>,
+    mapping_which_learns_source: Prop<Option<QualifiedMappingId>>,
+    mapping_which_learns_target: Prop<Option<QualifiedMappingId>>,
     active_controller_preset_id: Option<String>,
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
@@ -635,11 +635,13 @@ impl Session {
                 return;
             }
         }
-        if let Some(mapping) = self.mapping_which_learns_target.replace(None) {
-            mapping
-                .borrow_mut()
-                .target_model
-                .apply_from_target(target, &self.context);
+        if let Some(qualified_id) = self.mapping_which_learns_target.replace(None) {
+            if let Some((_, mapping)) = self.find_mapping_and_index_by_qualified_id(qualified_id) {
+                mapping
+                    .borrow_mut()
+                    .target_model
+                    .apply_from_target(target, &self.context);
+            }
         }
     }
 
@@ -851,16 +853,16 @@ impl Session {
             MappingCompartment::MainMappings => HashSet::new(),
         };
         let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
-        let mapping_id = mapping.borrow().id();
+        let qualified_mapping_id = mapping.borrow().qualified_id();
         self.learn_many_state
             .set(Some(LearnManyState::learning_source(
                 compartment,
-                mapping_id,
+                qualified_mapping_id.id,
                 control_element_type,
             )));
         self.start_learning_source(
             Rc::downgrade(session),
-            mapping.clone(),
+            mapping,
             false,
             ignore_sources,
             compartment != MappingCompartment::ControllerMappings,
@@ -883,11 +885,11 @@ impl Session {
                     .learn_many_state
                     .set(Some(LearnManyState::learning_target(
                         compartment,
-                        mapping_id,
+                        qualified_mapping_id.id,
                     )));
                 session.start_learning_target(
                     Rc::downgrade(&shared_session),
-                    mapping.clone(),
+                    qualified_mapping_id,
                     false,
                 );
             });
@@ -901,8 +903,8 @@ impl Session {
         self.stop_learning_target();
         self.enable_control();
         // Remove last added mapping if source not learned already
-        if let Some(mapping) = source_learning_mapping {
-            self.remove_mapping(mapping.borrow().compartment(), mapping.as_ptr());
+        if let Some(id) = source_learning_mapping {
+            self.remove_mapping(id);
         }
     }
 
@@ -920,6 +922,13 @@ impl Session {
 
     pub fn mapping_count(&self, compartment: MappingCompartment) -> usize {
         self.mappings[compartment].len()
+    }
+
+    pub fn find_mapping_and_index_by_qualified_id(
+        &self,
+        id: QualifiedMappingId,
+    ) -> Option<(usize, &SharedMapping)> {
+        self.find_mapping_and_index_by_id(id.compartment, id.id)
     }
 
     pub fn find_mapping_and_index_by_id(
@@ -957,17 +966,17 @@ impl Session {
             .flatten()
     }
 
-    pub fn mapping_is_learning_source(&self, mapping: *const MappingModel) -> bool {
+    pub fn mapping_is_learning_source(&self, id: QualifiedMappingId) -> bool {
         match self.mapping_which_learns_source.get_ref() {
             None => false,
-            Some(m) => m.as_ptr() == mapping as _,
+            Some(i) => *i == id,
         }
     }
 
-    pub fn mapping_is_learning_target(&self, mapping: *const MappingModel) -> bool {
+    pub fn mapping_is_learning_target(&self, id: QualifiedMappingId) -> bool {
         match self.mapping_which_learns_target.get_ref() {
             None => false,
-            Some(m) => m.as_ptr() == mapping as _,
+            Some(i) => *i == id,
         }
     }
 
@@ -1006,8 +1015,11 @@ impl Session {
         ignore_sources: HashSet<CompoundMappingSource>,
         allow_virtual_sources: bool,
     ) {
-        let osc_arg_index_hint = mapping.borrow().source_model.osc_arg_index.get();
-        self.mapping_which_learns_source.set(Some(mapping));
+        let (mapping_id, osc_arg_index_hint) = {
+            let m = mapping.borrow();
+            (m.qualified_id(), m.source_model.osc_arg_index.get())
+        };
+        self.mapping_which_learns_source.set(Some(mapping_id));
         when(
             self.source_touched(
                 reenable_control_after_touched,
@@ -1024,8 +1036,13 @@ impl Session {
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
         .do_async(|session, source| {
-            if let Some(m) = session.borrow().mapping_which_learns_source.get_ref() {
-                m.borrow_mut().source_model.apply_from_source(&source);
+            let session = session.borrow();
+            if let Some(qualified_id) = session.mapping_which_learns_source.get_ref() {
+                if let Some((_, m)) =
+                    session.find_mapping_and_index_by_id(qualified_id.compartment, qualified_id.id)
+                {
+                    m.borrow_mut().source_model.apply_from_source(&source);
+                }
             }
         });
     }
@@ -1034,9 +1051,13 @@ impl Session {
         self.mapping_which_learns_source.set(None);
     }
 
-    pub fn toggle_learning_target(&mut self, session: &SharedSession, mapping: &SharedMapping) {
+    pub fn toggle_learning_target(
+        &mut self,
+        session: &SharedSession,
+        mapping_id: QualifiedMappingId,
+    ) {
         if self.mapping_which_learns_target.get_ref().is_none() {
-            self.start_learning_target(Rc::downgrade(session), mapping.clone(), true);
+            self.start_learning_target(Rc::downgrade(session), mapping_id, true);
         } else {
             self.stop_learning_target();
         }
@@ -1045,10 +1066,10 @@ impl Session {
     fn start_learning_target(
         &mut self,
         session: WeakSession,
-        mapping: SharedMapping,
+        mapping_id: QualifiedMappingId,
         handle_control_disabling: bool,
     ) {
-        self.mapping_which_learns_target.set(Some(mapping));
+        self.mapping_which_learns_target.set(Some(mapping_id));
         if handle_control_disabling {
             self.disable_control();
         }
@@ -1150,24 +1171,16 @@ impl Session {
         Ok(())
     }
 
-    pub fn remove_mapping(
-        &mut self,
-        compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) {
-        self.mappings[compartment].retain(|m| m.as_ptr() != mapping as _);
-        self.notify_mapping_list_changed(compartment, None);
+    pub fn remove_mapping(&mut self, id: QualifiedMappingId) {
+        self.mappings[id.compartment].retain(|m| m.borrow().id() != id.id);
+        self.notify_mapping_list_changed(id.compartment, None);
     }
 
-    pub fn duplicate_mapping(
-        &mut self,
-        compartment: MappingCompartment,
-        mapping: *const MappingModel,
-    ) -> Result<(), &str> {
-        let (index, mapping) = self.mappings[compartment]
+    pub fn duplicate_mapping(&mut self, id: QualifiedMappingId) -> Result<(), &str> {
+        let (index, mapping) = self.mappings[id.compartment]
             .iter()
             .enumerate()
-            .find(|(_i, m)| m.as_ptr() == mapping as _)
+            .find(|(_i, m)| m.borrow().id() == id.id)
             .ok_or("mapping not found")?;
         let duplicate = {
             let mapping = mapping.borrow();
@@ -1178,8 +1191,8 @@ impl Session {
             duplicate
         };
         let duplicate_id = duplicate.id();
-        self.mappings[compartment].insert(index + 1, share_mapping(duplicate));
-        self.notify_mapping_list_changed(compartment, Some(duplicate_id));
+        self.mappings[id.compartment].insert(index + 1, share_mapping(duplicate));
+        self.notify_mapping_list_changed(id.compartment, Some(duplicate_id));
         Ok(())
     }
 

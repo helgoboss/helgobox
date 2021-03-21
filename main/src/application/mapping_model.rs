@@ -10,8 +10,8 @@ use crate::application::{
 use crate::core::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
-    MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, RealearnTarget,
-    ReaperTarget, TargetCharacter,
+    MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, QualifiedMappingId,
+    RealearnTarget, ReaperTarget, TargetCharacter,
 };
 
 use std::cell::RefCell;
@@ -91,6 +91,10 @@ impl MappingModel {
 
     pub fn id(&self) -> MappingId {
         self.id
+    }
+
+    pub fn qualified_id(&self) -> QualifiedMappingId {
+        QualifiedMappingId::new(self.compartment, self.id)
     }
 
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {

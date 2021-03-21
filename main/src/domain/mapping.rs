@@ -966,6 +966,18 @@ impl Target for CompoundMappingTarget {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct QualifiedMappingId {
+    pub compartment: MappingCompartment,
+    pub id: MappingId,
+}
+
+impl QualifiedMappingId {
+    pub fn new(compartment: MappingCompartment, id: MappingId) -> Self {
+        Self { compartment, id }
+    }
+}
+
 #[derive(
     Copy,
     Clone,

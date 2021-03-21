@@ -3,7 +3,7 @@ use crate::application::{
     WeakSession,
 };
 use crate::core::when;
-use crate::domain::{MappingCompartment, MappingId, ReaperTarget};
+use crate::domain::{MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
 
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,
@@ -166,7 +166,11 @@ impl MappingRowPanel {
     }
 
     fn invalidate_learn_source_button(&self, mapping: &MappingModel) {
-        let text = if self.session().borrow().mapping_is_learning_source(mapping) {
+        let text = if self
+            .session()
+            .borrow()
+            .mapping_is_learning_source(mapping.qualified_id())
+        {
             "Stop"
         } else {
             "Learn source"
@@ -177,7 +181,11 @@ impl MappingRowPanel {
     }
 
     fn invalidate_learn_target_button(&self, mapping: &MappingModel) {
-        let text = if self.session().borrow().mapping_is_learning_target(mapping) {
+        let text = if self
+            .session()
+            .borrow()
+            .mapping_is_learning_target(mapping.qualified_id())
+        {
             "Stop"
         } else {
             "Learn target"
@@ -315,8 +323,8 @@ impl MappingRowPanel {
         self.mapping.clone().into_inner()
     }
 
-    fn require_mapping_address(&self) -> *const MappingModel {
-        self.mapping.borrow().as_ref().unwrap().as_ptr()
+    fn require_qualified_mapping_id(&self) -> QualifiedMappingId {
+        self.require_mapping().borrow().qualified_id()
     }
 
     fn edit_mapping(&self) {
@@ -358,13 +366,13 @@ impl MappingRowPanel {
         }
         self.session()
             .borrow_mut()
-            .remove_mapping(self.active_compartment(), self.require_mapping_address());
+            .remove_mapping(self.require_qualified_mapping_id());
     }
 
     fn duplicate_mapping(&self) {
         self.session()
             .borrow_mut()
-            .duplicate_mapping(self.active_compartment(), self.require_mapping_address())
+            .duplicate_mapping(self.require_qualified_mapping_id())
             .unwrap();
     }
 
@@ -379,7 +387,7 @@ impl MappingRowPanel {
         let shared_session = self.session();
         shared_session
             .borrow_mut()
-            .toggle_learning_target(&shared_session, self.require_mapping().deref());
+            .toggle_learning_target(&shared_session, self.require_qualified_mapping_id());
     }
 
     fn update_control_is_enabled(&self) {

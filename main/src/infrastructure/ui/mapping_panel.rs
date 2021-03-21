@@ -35,7 +35,7 @@ use crate::core::Global;
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
-    ExtendedProcessorContext, MappingCompartment, MappingId, PlayPosFeedbackResolution,
+    ExtendedProcessorContext, MappingCompartment, PlayPosFeedbackResolution, QualifiedMappingId,
     RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TouchedParameterType,
     TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement, VirtualFx,
 };
@@ -61,10 +61,8 @@ pub struct MappingPanel {
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
 
-// TODO-low Is it enough to have a MutableMappingPanel?
 struct ImmutableMappingPanel<'a> {
     session: &'a Session,
-    mapping_ptr: *const MappingModel,
     mapping: &'a MappingModel,
     source: &'a SourceModel,
     mode: &'a ModeModel,
@@ -74,8 +72,7 @@ struct ImmutableMappingPanel<'a> {
 }
 
 struct MutableMappingPanel<'a> {
-    session: &'a mut Session,
-    shared_session: &'a SharedSession,
+    session: &'a Session,
     mapping: &'a mut MappingModel,
     shared_mapping: &'a SharedMapping,
     panel: &'a SharedView<MappingPanel>,
@@ -124,6 +121,13 @@ impl MappingPanel {
             .toggle_learning_source(&session, &mapping);
     }
 
+    fn toggle_learn_target(&self) {
+        let session = self.session();
+        session
+            .borrow_mut()
+            .toggle_learning_target(&session, self.qualified_mapping_id().expect("no mapping"));
+    }
+
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let target_type = mapping.borrow().target_model.r#type.get();
@@ -155,19 +159,19 @@ impl MappingPanel {
         }
     }
 
-    fn mapping_id(&self) -> Option<MappingId> {
+    fn qualified_mapping_id(&self) -> Option<QualifiedMappingId> {
         let mapping = self.mapping.borrow();
         let mapping = mapping.as_ref()?;
         let mapping = mapping.borrow();
-        Some(mapping.id())
+        Some(mapping.qualified_id())
     }
 
     pub fn force_scroll_to_mapping_in_main_panel(&self) {
-        if let Some(id) = self.mapping_id() {
+        if let Some(id) = self.qualified_mapping_id() {
             self.main_panel
                 .upgrade()
                 .expect("main view gone")
-                .force_scroll_to_mapping(id);
+                .force_scroll_to_mapping(id.id);
         }
     }
 
@@ -315,7 +319,6 @@ impl MappingPanel {
         let mapping = shared_mapping.borrow();
         let p = ImmutableMappingPanel {
             session: &session,
-            mapping_ptr: shared_mapping.as_ptr(),
             mapping: &mapping,
             source: &mapping.source_model,
             mode: &mapping.mode_model,
@@ -328,13 +331,12 @@ impl MappingPanel {
 
     fn write<R>(self: SharedView<Self>, op: impl Fn(&mut MutableMappingPanel) -> R) -> R {
         let shared_session = self.session();
-        let mut session = shared_session.borrow_mut();
+        let session = shared_session.borrow();
         let mut shared_mapping = self.mapping.borrow_mut();
         let shared_mapping = shared_mapping.as_mut().expect("mapping not filled");
         let mut mapping = shared_mapping.borrow_mut();
         let mut p = MutableMappingPanel {
-            session: &mut session,
-            shared_session: &shared_session,
+            session: &session,
             mapping: &mut mapping,
             shared_mapping: &shared_mapping,
             panel: &self,
@@ -1168,11 +1170,6 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn toggle_learn_target(&mut self) {
-        self.session
-            .toggle_learning_target(self.shared_session, self.shared_mapping);
-    }
-
     fn update_target_category(&mut self) {
         let b = self
             .view
@@ -1765,7 +1762,8 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_source_learn_button(&self) {
         self.invalidate_learn_button(
-            self.session.mapping_is_learning_source(self.mapping_ptr),
+            self.session
+                .mapping_is_learning_source(self.mapping.qualified_id()),
             root::ID_SOURCE_LEARN_BUTTON,
         );
     }
@@ -2721,7 +2719,8 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_learn_button(&self) {
         self.invalidate_learn_button(
-            self.session.mapping_is_learning_target(self.mapping_ptr),
+            self.session
+                .mapping_is_learning_target(self.mapping.qualified_id()),
             root::ID_TARGET_LEARN_BUTTON,
         );
     }
@@ -3793,7 +3792,7 @@ impl View for MappingPanel {
             root::ID_TARGET_CHECK_BOX_4 => self.write(|p| p.handle_target_check_box_4_change()),
             root::ID_TARGET_CHECK_BOX_5 => self.write(|p| p.handle_target_check_box_5_change()),
             root::ID_TARGET_CHECK_BOX_6 => self.write(|p| p.handle_target_check_box_6_change()),
-            root::ID_TARGET_LEARN_BUTTON => self.write(|p| p.toggle_learn_target()),
+            root::ID_TARGET_LEARN_BUTTON => self.toggle_learn_target(),
             root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             root::ID_TARGET_LINE_2_BUTTON => {
                 self.write(|p| p.handle_target_line_2_button_press());
