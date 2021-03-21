@@ -6,8 +6,9 @@ use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, get_object_from_clipboard, util, ClipboardObject, IndependentPanelManager,
-    MainState, MappingRowPanel, SharedIndependentPanelManager, SharedMainState,
+    bindings::root, get_object_from_clipboard, paste_mappings, util, ClipboardObject,
+    IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,
+    SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
@@ -287,7 +288,7 @@ impl MappingRowsPanel {
         Some(result as _)
     }
 
-    fn filtered_mappings<'a>(
+    pub fn filtered_mappings<'a>(
         session: &'a Session,
         main_state: &MainState,
         compartment: MappingCompartment,
@@ -431,18 +432,25 @@ impl MappingRowsPanel {
                 .map(|f| f.group_id())
                 .unwrap_or_default();
             let compartment = main_state.active_compartment.get();
-            let entries = vec![
-                if let Some(ClipboardObject::Mapping(m)) = clipboard_object {
-                    item(
-                        format!("Paste mapping \"{}\" (insert here)", m.name.clone()),
-                        move || {
-                            let _ = paste_mapping_at_end(m, shared_session, compartment, group_id);
-                        },
-                    )
+            let entries = vec![{
+                let desc = match clipboard_object {
+                    Some(ClipboardObject::Mapping(m)) => Some((
+                        format!("Paste mapping \"{}\" (insert here)", &m.name),
+                        vec![m],
+                    )),
+                    Some(ClipboardObject::Mappings(vec)) => {
+                        Some((format!("Paste {} mappings (insert here)", vec.len()), vec))
+                    }
+                    _ => None,
+                };
+                if let Some((label, datas)) = desc {
+                    item(label, move || {
+                        let _ = paste_mappings(datas, shared_session, compartment, None, group_id);
+                    })
                 } else {
                     disabled_item("Paste")
-                },
-            ];
+                }
+            }];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
             fill_menu(menu_bar.menu(), &root_menu);
@@ -545,15 +553,4 @@ impl Drop for MappingRowsPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping mapping rows panel...");
     }
-}
-
-pub fn paste_mapping_at_end(
-    mut m: MappingModelData,
-    session: SharedSession,
-    compartment: MappingCompartment,
-    group_id: GroupId,
-) {
-    m.group_id = group_id;
-    let new_mapping = m.to_model(compartment);
-    session.borrow_mut().add_mapping(compartment, new_mapping);
 }

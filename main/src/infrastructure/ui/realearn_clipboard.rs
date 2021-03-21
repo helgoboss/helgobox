@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ClipboardObject {
+    Mappings(Vec<MappingModelData>),
     Mapping(MappingModelData),
     Source(SourceModelData),
     Mode(ModeModelData),

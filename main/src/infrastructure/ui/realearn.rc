@@ -30,6 +30,7 @@ IDR_HEADER_PANEL_CONTEXT_MENU MENU
 BEGIN
     POPUP "Header panel context menu"
     BEGIN
+        MENUITEM "Copy listed mappings", IDM_COPY_LISTED_MAPPINGS
         POPUP "Options"
         BEGIN
             MENUITEM "Auto-correct settings", IDM_AUTO_CORRECT_SETTINGS

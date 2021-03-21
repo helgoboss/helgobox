@@ -14,7 +14,6 @@ pub mod root {
     pub const IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU: u32 = 129;
     pub const ID_SHARED_GROUP_MAPPING_PANEL: u32 = 132;
     pub const ID_GROUP_PANEL: u32 = 134;
-    pub const IDR_ROW_PANEL_CONTEXT_MENU: u32 = 136;
     pub const ID_YAML_EDITOR_PANEL: u32 = 139;
     pub const IDM_LOG_DEBUG_INFO: u32 = 40000;
     pub const IDM_MULTIS: u32 = 40000;
@@ -84,6 +83,7 @@ pub mod root {
     pub const IDM_OSC_DEVICES: u32 = 40014;
     pub const ID_HEADER_SEARCH_EDIT_CONTROL: u32 = 40014;
     pub const ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL: u32 = 40014;
+    pub const IDM_COPY_LISTED_MAPPINGS: u32 = 40015;
     pub const ID_COMPARTMENT_COMBO_BOX: u32 = 40015;
     pub const ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL: u32 = 40015;
     pub const ID_GROUP_ADD_BUTTON: u32 = 40016;

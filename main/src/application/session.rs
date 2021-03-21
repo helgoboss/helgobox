@@ -750,13 +750,22 @@ impl Session {
         self.add_mapping(compartment, mapping)
     }
 
-    pub fn insert_mapping_at(&mut self, index: usize, mapping: MappingModel) {
-        let mapping_id = mapping.id();
-        let compartment = mapping.compartment();
-        let shared_mapping = share_mapping(mapping);
+    pub fn insert_mappings_at(
+        &mut self,
+        compartment: MappingCompartment,
+        index: usize,
+        mappings: impl Iterator<Item = MappingModel>,
+    ) {
         let index = index.min(self.mappings[compartment].len());
-        self.mappings[compartment].insert(index, shared_mapping.clone());
-        self.notify_mapping_list_changed(compartment, Some(mapping_id));
+        let mut first_mapping_id = None;
+        for m in mappings {
+            if first_mapping_id.is_none() {
+                first_mapping_id = Some(m.id());
+            }
+            let shared_mapping = share_mapping(m);
+            self.mappings[compartment].insert(index, shared_mapping.clone());
+        }
+        self.notify_mapping_list_changed(compartment, first_mapping_id);
     }
 
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
@@ -1399,7 +1408,7 @@ impl Session {
         self.groups = groups.into_iter().map(share_group).collect();
     }
 
-    pub fn add_mapping(
+    fn add_mapping(
         &mut self,
         compartment: MappingCompartment,
         mapping: MappingModel,

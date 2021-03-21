@@ -434,46 +434,63 @@ impl MappingRowPanel {
                         ObjectType::Mapping,
                     );
                 }),
-                if let Some(obj) = clipboard_object {
-                    let label = match &obj {
-                        ClipboardObject::Mapping(m) => {
-                            format!("Paste mapping \"{}\" (replace)", m.name.clone())
+                {
+                    let desc = match clipboard_object {
+                        Some(ClipboardObject::Mapping(m)) => Some((
+                            format!("Paste mapping \"{}\" (replace)", &m.name),
+                            ClipboardObject::Mapping(m),
+                        )),
+                        Some(ClipboardObject::Source(s)) => Some((
+                            format!("Paste source ({})", s.category),
+                            ClipboardObject::Source(s),
+                        )),
+                        Some(ClipboardObject::Mode(m)) => {
+                            Some(("Paste mode".to_owned(), ClipboardObject::Mode(m)))
                         }
-                        ClipboardObject::Source(s) => {
-                            format!("Paste source ({})", s.category)
-                        }
-                        ClipboardObject::Mode(_) => "Paste mode".to_owned(),
-                        ClipboardObject::Target(t) => {
-                            format!("Paste target ({})", t.category)
-                        }
+                        Some(ClipboardObject::Target(t)) => Some((
+                            format!("Paste target ({})", t.category),
+                            ClipboardObject::Target(t),
+                        )),
+                        None | Some(ClipboardObject::Mappings(_)) => None,
                     };
-                    item(label, move || {
-                        let _ = paste_object_in_place(
-                            obj,
-                            session_2,
-                            compartment,
-                            mapping_id,
-                            group_id,
-                        );
-                    })
-                } else {
-                    disabled_item("Paste (replace)")
-                },
-                if let Some(ClipboardObject::Mapping(m)) = clipboard_object_2 {
-                    item(
-                        format!("Paste mapping \"{}\" (insert below)", m.name.clone()),
-                        move || {
-                            let _ = paste_mapping_below(
-                                m,
-                                session_8,
+                    if let Some((label, obj)) = desc {
+                        item(label, move || {
+                            let _ = paste_object_in_place(
+                                obj,
+                                session_2,
                                 compartment,
                                 mapping_id,
                                 group_id,
                             );
-                        },
-                    )
-                } else {
-                    disabled_item("Paste (insert below)")
+                        })
+                    } else {
+                        disabled_item("Paste (replace)")
+                    }
+                },
+                {
+                    let desc = match clipboard_object_2 {
+                        Some(ClipboardObject::Mapping(m)) => Some((
+                            format!("Paste mapping \"{}\" (insert below)", &m.name),
+                            vec![m],
+                        )),
+                        Some(ClipboardObject::Mappings(vec)) => {
+                            Some((format!("Paste {} mappings below", vec.len()), vec))
+                        }
+                        _ => None,
+                    };
+                    if let Some((label, datas)) = desc {
+                        item(label, move || {
+                            let _ = paste_mappings(
+                                datas,
+                                session_8,
+                                compartment,
+                                Some(mapping_id),
+                                group_id,
+                            );
+                        })
+                    } else {
+                        disabled_item("Paste (insert below)")
+                    }
                 },
                 menu(
                     "Copy part",
@@ -686,23 +703,32 @@ pub fn paste_object_in_place(
         ClipboardObject::Target(t) => {
             t.apply_to_model(&mut mapping.target_model);
         }
+        ClipboardObject::Mappings(_) => return Err("can't paste a list of mappings in place"),
     };
     Ok(())
 }
 
-pub fn paste_mapping_below(
-    mut m: MappingModelData,
+/// If `below_mapping_id` not given, it's added at the end.
+pub fn paste_mappings(
+    mut mapping_datas: Vec<MappingModelData>,
     session: SharedSession,
     compartment: MappingCompartment,
-    mapping_id: MappingId,
+    below_mapping_id: Option<MappingId>,
     group_id: GroupId,
 ) -> Result<(), &'static str> {
     let mut session = session.borrow_mut();
-    let (index, _) = session
-        .find_mapping_and_index_by_id(compartment, mapping_id)
-        .ok_or("mapping not found")?;
-    m.group_id = group_id;
-    let new_mapping = m.to_model(compartment);
-    session.insert_mapping_at(index + 1, new_mapping);
+    let index = if let Some(id) = below_mapping_id {
+        session
+            .find_mapping_and_index_by_id(compartment, id)
+            .ok_or("mapping not found")?
+            .0
+    } else {
+        session.mapping_count(compartment)
+    };
+    let new_mappings = mapping_datas.into_iter().map(|mut data| {
+        data.group_id = group_id;
+        data.to_model(compartment)
+    });
+    session.insert_mappings_at(compartment, index + 1, new_mappings);
     Ok(())
 }
