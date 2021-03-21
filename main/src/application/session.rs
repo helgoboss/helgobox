@@ -751,7 +751,7 @@ impl Session {
         index: usize,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
-        let index = index.min(self.mappings[compartment].len());
+        let mut index = index.min(self.mappings[compartment].len());
         let mut first_mapping_id = None;
         for mut m in mappings {
             m.set_id_without_notification(MappingId::random());
@@ -760,6 +760,7 @@ impl Session {
             }
             let shared_mapping = share_mapping(m);
             self.mappings[compartment].insert(index, shared_mapping.clone());
+            index += 1;
         }
         self.notify_mapping_list_changed(compartment, first_mapping_id);
     }
