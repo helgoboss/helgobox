@@ -56,12 +56,19 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
     let target = &mut mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {
-            let changed_to_focused_fx = if target.supports_fx() {
+            let changed_to_track_ignore_fx = if target.supports_fx() {
                 let refers_to_project = target.fx_type.get().refers_to_project();
                 if refers_to_project {
-                    // TODO-high Detect if it's ReaLearn
-                    // TODO-high Virtualize ReaLearn This
-                    target.set_virtual_fx(VirtualFx::Focused);
+                    let target_with_context = target.with_context(context);
+                    let virtual_fx = if target_with_context.fx().ok().as_ref()
+                        == Some(context.context.containing_fx())
+                    {
+                        // This is ourselves!
+                        VirtualFx::This
+                    } else {
+                        VirtualFx::Focused
+                    };
+                    target.set_virtual_fx(virtual_fx);
                     true
                 } else {
                     false
@@ -70,7 +77,7 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
                 false
             };
             if target.supports_track() && target.track_type.get().refers_to_project() {
-                let new_virtual_track = if changed_to_focused_fx {
+                let new_virtual_track = if changed_to_track_ignore_fx {
                     // Track doesn't matter at all. We change it to <This>. Looks nice.
                     Some(VirtualTrack::This)
                 } else if let Ok(t) = target.with_context(context).effective_track() {

@@ -329,6 +329,7 @@ impl TargetModel {
                 self.action_invocation_type.set(*invocation_type);
             }
             FxParameter { param } => {
+                self.param_type.set(VirtualFxParameterType::ByIndex);
                 self.param_index.set(param.index());
             }
             Transport { action, .. } => {
@@ -1274,17 +1275,21 @@ fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
 }
 
 fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
-    VirtualFx::ChainFx {
-        is_input_fx: fx.is_input_fx(),
-        chain_fx: if context.is_on_monitoring_fx_chain() {
-            // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
-            VirtualChainFx::ByIndex(fx.index())
-        } else if let Some(guid) = fx.guid() {
-            VirtualChainFx::ById(guid, Some(fx.index()))
-        } else {
-            // Don't know how that can happen but let's handle it gracefully.
-            VirtualChainFx::ByIdOrIndex(None, fx.index())
-        },
+    if context.containing_fx() == fx {
+        VirtualFx::This
+    } else {
+        VirtualFx::ChainFx {
+            is_input_fx: fx.is_input_fx(),
+            chain_fx: if context.is_on_monitoring_fx_chain() {
+                // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
+                VirtualChainFx::ByIndex(fx.index())
+            } else if let Some(guid) = fx.guid() {
+                VirtualChainFx::ById(guid, Some(fx.index()))
+            } else {
+                // Don't know how that can happen but let's handle it gracefully.
+                VirtualChainFx::ByIdOrIndex(None, fx.index())
+            },
+        }
     }
 }
 
