@@ -1,7 +1,7 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    CompoundMappingSource, ExtendedSourceCharacter, VirtualControlElement, VirtualSource,
-    VirtualTarget,
+    CompoundMappingSource, ExtendedSourceCharacter, MappingCompartment, VirtualControlElement,
+    VirtualSource, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -484,6 +484,26 @@ pub enum SourceCategory {
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
     Virtual,
+}
+
+impl SourceCategory {
+    pub fn default_for(compartment: MappingCompartment) -> Self {
+        use SourceCategory::*;
+        match compartment {
+            MappingCompartment::ControllerMappings => Midi,
+            MappingCompartment::MainMappings => Midi,
+        }
+    }
+
+    pub fn is_allowed_in(self, compartment: MappingCompartment) -> bool {
+        use SourceCategory::*;
+        match compartment {
+            MappingCompartment::ControllerMappings => {
+                matches!(self, Midi | Osc)
+            }
+            MappingCompartment::MainMappings => true,
+        }
+    }
 }
 
 impl Default for SourceCategory {

@@ -699,13 +699,13 @@ pub fn paste_object_in_place(
             m.apply_to_model(&mut mapping);
         }
         ClipboardObject::Source(s) => {
-            s.apply_to_model(&mut mapping.source_model);
+            s.apply_to_model(&mut mapping.source_model, compartment);
         }
         ClipboardObject::Mode(m) => {
             m.apply_to_model(&mut mapping.mode_model);
         }
         ClipboardObject::Target(t) => {
-            t.apply_to_model(&mut mapping.target_model);
+            t.apply_to_model(&mut mapping.target_model, compartment);
         }
         ClipboardObject::Mappings(_) => return Err("can't paste a list of mappings in place"),
     };

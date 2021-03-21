@@ -127,8 +127,12 @@ impl MappingModelData {
             model.activation_condition_model.borrow_mut(),
             with_notification,
         );
-        self.source
-            .apply_to_model_flexible(model.source_model.borrow_mut(), with_notification);
+        let compartment = model.compartment();
+        self.source.apply_to_model_flexible(
+            model.source_model.borrow_mut(),
+            with_notification,
+            compartment,
+        );
         self.mode.apply_to_model_flexible(
             model.mode_model.borrow_mut(),
             migration_descriptor,
@@ -140,6 +144,7 @@ impl MappingModelData {
             context,
             preset_version,
             with_notification,
+            compartment,
         );
         model.control_is_enabled.set_with_optional_notification(
             self.enabled_data.control_is_enabled,

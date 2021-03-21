@@ -10,8 +10,9 @@ use crate::application::{
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, SeekOptions, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, MappingCompartment, SeekOptions,
+    SoloBehavior, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    VirtualTrack,
 };
 use crate::infrastructure::plugin::App;
 use semver::Version;
@@ -120,8 +121,8 @@ impl TargetModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel) {
-        self.apply_to_model_flexible(model, None, Some(App::version()), true);
+    pub fn apply_to_model(&self, model: &mut TargetModel, compartment: MappingCompartment) {
+        self.apply_to_model_flexible(model, None, Some(App::version()), true, compartment);
     }
 
     /// The context is necessary only if there's the possibility of loading data saved with
@@ -132,10 +133,16 @@ impl TargetModelData {
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
         with_notification: bool,
+        compartment: MappingCompartment,
     ) {
+        let final_category = if self.category.is_allowed_in(compartment) {
+            self.category
+        } else {
+            TargetCategory::default_for(compartment)
+        };
         model
             .category
-            .set_with_optional_notification(self.category, with_notification);
+            .set_with_optional_notification(final_category, with_notification);
         model
             .r#type
             .set_with_optional_notification(self.r#type, with_notification);

@@ -2,6 +2,7 @@ use super::none_if_minus_one;
 use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
 use crate::core::default_util::is_default;
 use crate::core::notification;
+use crate::domain::MappingCompartment;
 use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};
@@ -81,15 +82,25 @@ impl SourceModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut SourceModel) {
-        self.apply_to_model_flexible(model, true);
+    pub fn apply_to_model(&self, model: &mut SourceModel, compartment: MappingCompartment) {
+        self.apply_to_model_flexible(model, true, compartment);
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
-    pub fn apply_to_model_flexible(&self, model: &mut SourceModel, with_notification: bool) {
+    pub fn apply_to_model_flexible(
+        &self,
+        model: &mut SourceModel,
+        with_notification: bool,
+        compartment: MappingCompartment,
+    ) {
+        let final_category = if self.category.is_allowed_in(compartment) {
+            self.category
+        } else {
+            SourceCategory::default_for(compartment)
+        };
         model
             .category
-            .set_with_optional_notification(self.category, with_notification);
+            .set_with_optional_notification(final_category, with_notification);
         if self.r#type == MidiSourceType::ParameterNumberValue {
             model
                 .parameter_number_message_number
@@ -253,7 +264,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false);
+        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings);
         // Then
         assert_eq!(
             model.midi_source_type.get(),
@@ -293,7 +304,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false);
+        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings);
         // Then
         assert_eq!(model.midi_source_type.get(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel.get(), None);

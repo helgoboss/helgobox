@@ -15,11 +15,12 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxParameterDescriptor, PlayPosFeedbackResolution, ProcessorContext, ReaperTarget,
-    SeekOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
-    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
-    VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    FxDescriptor, FxParameterDescriptor, MappingCompartment, PlayPosFeedbackResolution,
+    ProcessorContext, ReaperTarget, SeekOptions, SoloBehavior, TouchedParameterType,
+    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
+    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
+    VirtualControlElement, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -1225,6 +1226,26 @@ pub enum TargetCategory {
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
     Virtual,
+}
+
+impl TargetCategory {
+    pub fn default_for(compartment: MappingCompartment) -> Self {
+        use TargetCategory::*;
+        match compartment {
+            MappingCompartment::ControllerMappings => Virtual,
+            MappingCompartment::MainMappings => Reaper,
+        }
+    }
+
+    pub fn is_allowed_in(self, compartment: MappingCompartment) -> bool {
+        use TargetCategory::*;
+        match compartment {
+            MappingCompartment::ControllerMappings => true,
+            MappingCompartment::MainMappings => {
+                matches!(self, Reaper)
+            }
+        }
+    }
 }
 
 impl Default for TargetCategory {
