@@ -1399,7 +1399,7 @@ impl Session {
         self.groups = groups.into_iter().map(share_group).collect();
     }
 
-    fn add_mapping(
+    pub fn add_mapping(
         &mut self,
         compartment: MappingCompartment,
         mapping: MappingModel,

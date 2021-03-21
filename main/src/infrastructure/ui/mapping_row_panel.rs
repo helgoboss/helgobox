@@ -660,7 +660,7 @@ enum ObjectType {
     Target,
 }
 
-fn paste_object_in_place(
+pub fn paste_object_in_place(
     obj: ClipboardObject,
     session: SharedSession,
     compartment: MappingCompartment,
@@ -690,7 +690,7 @@ fn paste_object_in_place(
     Ok(())
 }
 
-fn paste_mapping_below(
+pub fn paste_mapping_below(
     mut m: MappingModelData,
     session: SharedSession,
     compartment: MappingCompartment,

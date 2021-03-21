@@ -6,16 +6,17 @@ use reaper_low::raw;
 
 use crate::core::when;
 use crate::infrastructure::ui::{
-    bindings::root, util, IndependentPanelManager, MainState, MappingRowPanel,
-    SharedIndependentPanelManager, SharedMainState,
+    bindings::root, get_object_from_clipboard, util, ClipboardObject, IndependentPanelManager,
+    MainState, MappingRowPanel, SharedIndependentPanelManager, SharedMainState,
 };
 use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
 use std::cmp;
 
-use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
+use crate::application::{GroupId, Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
-use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
+use crate::infrastructure::data::MappingModelData;
+use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
 pub struct MappingRowsPanel {
@@ -416,6 +417,49 @@ impl MappingRowsPanel {
         );
     }
 
+    fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+        let menu_bar = MenuBar::new();
+        let pure_menu = {
+            use std::iter::once;
+            use swell_ui::menu_tree::*;
+            let shared_session = self.session();
+            let clipboard_object = get_object_from_clipboard();
+            let main_state = self.main_state.borrow();
+            let group_id = main_state
+                .group_filter
+                .get()
+                .map(|f| f.group_id())
+                .unwrap_or_default();
+            let compartment = main_state.active_compartment.get();
+            let entries = vec![
+                if let Some(ClipboardObject::Mapping(m)) = clipboard_object {
+                    item(
+                        format!("Paste mapping \"{}\" (insert here)", m.name.clone()),
+                        move || {
+                            let _ = paste_mapping_at_end(m, shared_session, compartment, group_id);
+                        },
+                    )
+                } else {
+                    disabled_item("Paste")
+                },
+            ];
+            let mut root_menu = root_menu(entries);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
+        };
+        let result = self
+            .view
+            .require_window()
+            .open_popup_menu(menu_bar.menu(), location)
+            .ok_or("no entry selected")?;
+        pure_menu
+            .find_item_by_id(result)
+            .expect("selected menu item not found")
+            .invoke_handler();
+        Ok(())
+    }
+
     fn when<I: SharedPayload>(
         self: &SharedView<Self>,
         event: impl SharedItemEvent<I>,
@@ -491,10 +535,25 @@ impl View for MappingRowsPanel {
     fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
         util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
     }
+
+    fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
+        let _ = self.open_context_menu(location);
+    }
 }
 
 impl Drop for MappingRowsPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping mapping rows panel...");
     }
+}
+
+pub fn paste_mapping_at_end(
+    mut m: MappingModelData,
+    session: SharedSession,
+    compartment: MappingCompartment,
+    group_id: GroupId,
+) {
+    m.group_id = group_id;
+    let new_mapping = m.to_model(compartment);
+    session.borrow_mut().add_mapping(compartment, new_mapping);
 }
