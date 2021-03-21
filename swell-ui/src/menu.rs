@@ -9,7 +9,7 @@ pub struct MenuBar {
 }
 
 impl MenuBar {
-    pub fn new() -> MenuBar {
+    pub fn new_popup_menu() -> MenuBar {
         Self {
             raw: Swell::get().CreatePopupMenu(),
         }

@@ -18,7 +18,7 @@ use crate::infrastructure::ui::{
     IndependentPanelManager, SharedMainState,
 };
 use reaper_high::Reaper;
-use reaper_low::{raw, Swell};
+use reaper_low::raw;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
@@ -403,7 +403,7 @@ impl MappingRowPanel {
         //     MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be
         // loaded"); let swell_menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st
         // menu");
-        let menu_bar = MenuBar::new();
+        let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
             use std::iter::once;
             use swell_ui::menu_tree::*;
@@ -471,7 +471,7 @@ impl MappingRowPanel {
                     let desc = match clipboard_object_2 {
                         Some(ClipboardObject::Mapping(m)) => Some((
                             format!("Paste mapping \"{}\" (insert below)", &m.name),
-                            vec![m],
+                            vec![*m],
                         )),
                         Some(ClipboardObject::Mappings(vec)) => {
                             Some((format!("Paste {} mappings below", vec.len()), vec))
@@ -662,10 +662,14 @@ fn copy_mapping_object(
     use ObjectType::*;
     let mapping = mapping.borrow();
     let object = match object_type {
-        Mapping => ClipboardObject::Mapping(MappingModelData::from_model(&mapping)),
-        Source => ClipboardObject::Source(SourceModelData::from_model(&mapping.source_model)),
-        Mode => ClipboardObject::Mode(ModeModelData::from_model(&mapping.mode_model)),
-        Target => ClipboardObject::Target(TargetModelData::from_model(&mapping.target_model)),
+        Mapping => ClipboardObject::Mapping(Box::new(MappingModelData::from_model(&mapping))),
+        Source => {
+            ClipboardObject::Source(Box::new(SourceModelData::from_model(&mapping.source_model)))
+        }
+        Mode => ClipboardObject::Mode(Box::new(ModeModelData::from_model(&mapping.mode_model))),
+        Target => {
+            ClipboardObject::Target(Box::new(TargetModelData::from_model(&mapping.target_model)))
+        }
     };
     copy_object_to_clipboard(object)
 }
@@ -710,7 +714,7 @@ pub fn paste_object_in_place(
 
 /// If `below_mapping_id` not given, it's added at the end.
 pub fn paste_mappings(
-    mut mapping_datas: Vec<MappingModelData>,
+    mapping_datas: Vec<MappingModelData>,
     session: SharedSession,
     compartment: MappingCompartment,
     below_mapping_id: Option<MappingId>,

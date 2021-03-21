@@ -14,9 +14,8 @@ use rx_util::{SharedItemEvent, SharedPayload};
 use slog::debug;
 use std::cmp;
 
-use crate::application::{GroupId, Session, SharedMapping, SharedSession, WeakSession};
+use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
-use crate::infrastructure::data::MappingModelData;
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -419,9 +418,8 @@ impl MappingRowsPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
-        let menu_bar = MenuBar::new();
+        let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
-            use std::iter::once;
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
             let clipboard_object = get_object_from_clipboard();
@@ -436,7 +434,7 @@ impl MappingRowsPanel {
                 let desc = match clipboard_object {
                     Some(ClipboardObject::Mapping(m)) => Some((
                         format!("Paste mapping \"{}\" (insert here)", &m.name),
-                        vec![m],
+                        vec![*m],
                     )),
                     Some(ClipboardObject::Mappings(vec)) => {
                         Some((format!("Paste {} mappings (insert here)", vec.len()), vec))

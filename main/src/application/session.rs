@@ -689,11 +689,6 @@ impl Session {
             .sorted_by_key(|g| g.borrow().name.get_ref().clone())
     }
 
-    pub fn find_group_id_by_index_sorted(&self, index: usize) -> Option<GroupId> {
-        let group = self.find_group_by_index_sorted(index)?;
-        Some(group.borrow().id())
-    }
-
     pub fn move_mapping_to_group(
         &mut self,
         compartment: MappingCompartment,
@@ -758,7 +753,8 @@ impl Session {
     ) {
         let index = index.min(self.mappings[compartment].len());
         let mut first_mapping_id = None;
-        for m in mappings {
+        for mut m in mappings {
+            m.set_id_without_notification(MappingId::random());
             if first_mapping_id.is_none() {
                 first_mapping_id = Some(m.id());
             }

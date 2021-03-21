@@ -1,5 +1,3 @@
-use crate::application::{GroupId, SharedSession};
-use crate::domain::{MappingCompartment, MappingId};
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
@@ -10,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub enum ClipboardObject {
     Mappings(Vec<MappingModelData>),
-    Mapping(MappingModelData),
-    Source(SourceModelData),
-    Mode(ModeModelData),
-    Target(TargetModelData),
+    Mapping(Box<MappingModelData>),
+    Source(Box<SourceModelData>),
+    Mode(Box<ModeModelData>),
+    Target(Box<TargetModelData>),
 }
 
 pub fn copy_object_to_clipboard(object: ClipboardObject) -> Result<(), &'static str> {

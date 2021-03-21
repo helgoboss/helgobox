@@ -5,7 +5,6 @@ use std::rc::{Rc, Weak};
 
 use std::{iter, sync};
 
-use clipboard::{ClipboardContext, ClipboardProvider};
 use enum_iterator::IntoEnumIterator;
 
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
@@ -1249,7 +1248,8 @@ impl HeaderPanel {
     }
 
     pub fn import_from_clipboard(&self) -> Result<(), String> {
-        let json = get_text_from_clipboard().ok_or("Couldn't read from clipboard.".to_string())?;
+        let json =
+            get_text_from_clipboard().ok_or_else(|| "Couldn't read from clipboard.".to_string())?;
         let session_data: SessionData = serde_json::from_str(json.as_str()).map_err(|e| {
             format!(
                 "Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}",
