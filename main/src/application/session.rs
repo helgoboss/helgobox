@@ -898,12 +898,12 @@ impl Session {
 
     pub fn stop_learning_many_mappings(&mut self) {
         self.learn_many_state.set(None);
-        let source_learning_mapping = self.mapping_which_learns_source.get_ref().clone();
+        let source_learning_mapping_id = self.mapping_which_learns_source.get();
         self.stop_learning_source();
         self.stop_learning_target();
         self.enable_control();
         // Remove last added mapping if source not learned already
-        if let Some(id) = source_learning_mapping {
+        if let Some(id) = source_learning_mapping_id {
             self.remove_mapping(id);
         }
     }
