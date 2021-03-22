@@ -209,13 +209,9 @@ impl MappingModel {
         let source = self.source_model.create_source();
         let mode = self.mode_model.create_mode();
         let unresolved_target = self.target_model.create_target().ok();
-        let activation_condition = if self.compartment == MappingCompartment::ControllerMappings {
-            // Controller mappings are always active, no matter what weird stuff is in the model.
-            ActivationCondition::Always
-        } else {
-            self.activation_condition_model
-                .create_activation_condition()
-        };
+        let activation_condition = self
+            .activation_condition_model
+            .create_activation_condition();
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,

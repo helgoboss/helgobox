@@ -342,7 +342,11 @@ impl MappingRowPanel {
         // When we route keyboard input to ReaLearn and press space, it presses the "Up" button,
         // even if we don't display the rows. Don't know why, but suppress a panic here.
         let mapping = self.optional_mapping().ok_or("row has no mapping")?;
-        let within_same_group = self.main_state.borrow().group_filter.get().is_some();
+        let within_same_group = self
+            .main_state
+            .borrow()
+            .group_filter_for_active_compartment()
+            .is_some();
         let _ = self.session().borrow_mut().move_mapping_within_list(
             self.active_compartment(),
             mapping.borrow().id(),
@@ -546,7 +550,7 @@ impl MappingRowPanel {
                             )
                         },
                     ))
-                    .chain(session.groups_sorted().map(move |g| {
+                    .chain(session.groups_sorted(compartment).map(move |g| {
                         let session = session_4.clone();
                         let g = g.borrow();
                         let g_id = g.id();

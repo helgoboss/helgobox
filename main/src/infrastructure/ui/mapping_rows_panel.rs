@@ -335,7 +335,7 @@ impl MappingRowsPanel {
         mapping: &SharedMapping,
     ) -> bool {
         let mapping = mapping.borrow();
-        if let Some(group_filter) = main_state.group_filter.get() {
+        if let Some(group_filter) = main_state.group_filter_for_active_compartment() {
             if !group_filter.matches(&mapping) {
                 return false;
             }
@@ -404,8 +404,8 @@ impl MappingRowsPanel {
                 .merge(main_state.target_filter.changed())
                 .merge(main_state.search_expression.changed())
                 .merge(main_state.active_compartment.changed())
-                .merge(main_state.group_filter.changed())
-                .merge(session.group_list_changed()),
+                .merge(main_state.group_filter_for_any_compartment_changed())
+                .merge(session.group_list_changed().map_to(())),
             |view, _| {
                 if !view.scroll(0) {
                     // No scrolling was necessary. But that also means, the rows were not
@@ -425,8 +425,7 @@ impl MappingRowsPanel {
             let clipboard_object = get_object_from_clipboard();
             let main_state = self.main_state.borrow();
             let group_id = main_state
-                .group_filter
-                .get()
+                .group_filter_for_active_compartment()
                 .map(|f| f.group_id())
                 .unwrap_or_default();
             let compartment = main_state.active_compartment.get();

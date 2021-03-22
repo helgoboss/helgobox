@@ -2597,7 +2597,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.8.0-pre4"
+version = "2.8.0-pre5"
 dependencies = [
  "ascii",
  "askama",

@@ -11,7 +11,7 @@ use crate::application::{
     ActivationType, GroupModel, MappingModel, ModifierConditionModel, ProgramConditionModel,
     SharedSession, WeakSession,
 };
-use crate::domain::{MappingCompartment, PLUGIN_PARAMETER_COUNT};
+use crate::domain::PLUGIN_PARAMETER_COUNT;
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -603,7 +603,7 @@ impl Item for MappingModel {
     }
 
     fn supports_activation(&self) -> bool {
-        self.compartment() != MappingCompartment::ControllerMappings
+        true
     }
 
     fn name(&self) -> &str {

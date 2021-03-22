@@ -372,7 +372,7 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
         .ok_or_else(session_not_found)?;
     let session = session.borrow();
     let controller_id = session
-        .active_controller_id()
+        .active_controller_preset_id()
         .ok_or_else(session_has_no_active_controller)?;
     let controller = App::get()
         .controller_preset_manager()

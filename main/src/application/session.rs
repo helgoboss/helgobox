@@ -63,14 +63,15 @@ pub struct Session {
     active_main_preset_id: Option<String>,
     context: ProcessorContext,
     mappings: EnumMap<MappingCompartment, Vec<SharedMapping>>,
-    default_group: SharedGroup,
-    groups: Vec<SharedGroup>,
+    default_main_group: SharedGroup,
+    default_controller_group: SharedGroup,
+    groups: EnumMap<MappingCompartment, Vec<SharedGroup>>,
     everything_changed_subject: LocalSubject<'static, (), ()>,
     mapping_list_changed_subject:
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
-    group_list_changed_subject: LocalSubject<'static, (), ()>,
+    group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    group_changed_subject: LocalSubject<'static, (), ()>,
+    group_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
@@ -175,7 +176,8 @@ impl Session {
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
-            default_group: Default::default(),
+            default_main_group: Default::default(),
+            default_controller_group: Default::default(),
             groups: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
@@ -270,7 +272,9 @@ impl Session {
     }
 
     fn initial_sync(&mut self, weak_session: WeakSession) {
-        self.resubscribe_to_groups(weak_session.clone());
+        for compartment in MappingCompartment::enum_iter() {
+            self.resubscribe_to_groups(weak_session.clone(), compartment);
+        }
         // It's important to sync feedback device first, otherwise the initial feedback messages
         // won't arrive!
         self.sync_settings();
@@ -311,10 +315,10 @@ impl Session {
         // (because a mapping could have changed its group).
         when(self.group_list_changed())
             .with(weak_session.clone())
-            .do_async(|shared_session, _| {
+            .do_async(|shared_session, compartment| {
                 let mut session = shared_session.borrow_mut();
-                session.resubscribe_to_groups(Rc::downgrade(&shared_session));
-                session.sync_all_mappings_full(MappingCompartment::MainMappings);
+                session.resubscribe_to_groups(Rc::downgrade(&shared_session), compartment);
+                session.sync_all_mappings_full(compartment);
             });
         // Whenever anything in a mapping list changes and other things which affect all
         // processors (including the real-time processor which takes care of sources only), resync
@@ -590,9 +594,13 @@ impl Session {
             .collect();
     }
 
-    fn resubscribe_to_groups(&mut self, weak_session: WeakSession) {
+    fn resubscribe_to_groups(
+        &mut self,
+        weak_session: WeakSession,
+        compartment: MappingCompartment,
+    ) {
         self.group_subscriptions = self
-            .groups_including_default_group()
+            .groups_including_default_group(compartment)
             .map(|shared_group| {
                 // We don't need to take until "party is over" because if the session disappears,
                 // we know the groups disappear as well.
@@ -605,9 +613,9 @@ impl Session {
                         .do_sync(move |session, _| {
                             let mut session = session.borrow_mut();
                             // Change of a single group can affect many mappings
-                            session.sync_all_mappings_full(MappingCompartment::MainMappings);
+                            session.sync_all_mappings_full(compartment);
                             session.mark_project_as_dirty();
-                            session.notify_group_changed();
+                            session.notify_group_changed(compartment);
                         });
                     all_subscriptions.add(subscription);
                 }
@@ -618,7 +626,7 @@ impl Session {
                         .do_sync(move |session, _| {
                             let mut session = session.borrow_mut();
                             session.mark_project_as_dirty();
-                            session.notify_group_changed();
+                            session.notify_group_changed(compartment);
                         });
                     all_subscriptions.add(subscription);
                 }
@@ -653,40 +661,58 @@ impl Session {
         ExtendedProcessorContext::new(&self.context, &self.parameters)
     }
 
-    pub fn add_default_group(&mut self, name: String) -> GroupId {
+    pub fn add_default_group(&mut self, compartment: MappingCompartment, name: String) -> GroupId {
         let group = GroupModel::new_from_ui(name);
-        self.add_group(group)
+        self.add_group(compartment, group)
     }
 
-    fn add_group(&mut self, group: GroupModel) -> GroupId {
+    fn add_group(&mut self, compartment: MappingCompartment, group: GroupModel) -> GroupId {
         let id = group.id();
         let shared_group = Rc::new(RefCell::new(group));
-        self.groups.push(shared_group);
-        self.notify_group_list_changed();
+        self.groups[compartment].push(shared_group);
+        self.notify_group_list_changed(compartment);
         id
     }
 
-    pub fn find_group_index_by_id_sorted(&self, id: GroupId) -> Option<usize> {
-        self.groups_sorted().position(|g| g.borrow().id() == id)
+    pub fn find_group_index_by_id_sorted(
+        &self,
+        compartment: MappingCompartment,
+        id: GroupId,
+    ) -> Option<usize> {
+        self.groups_sorted(compartment)
+            .position(|g| g.borrow().id() == id)
     }
 
-    pub fn group_contains_mappings(&self, id: GroupId) -> bool {
-        self.mappings(MappingCompartment::MainMappings)
+    pub fn group_contains_mappings(&self, compartment: MappingCompartment, id: GroupId) -> bool {
+        self.mappings(compartment)
             .filter(|m| m.borrow().group_id.get() == id)
             .count()
             > 0
     }
 
-    pub fn find_group_by_id(&self, id: GroupId) -> Option<&SharedGroup> {
-        self.groups.iter().find(|g| g.borrow().id() == id)
+    pub fn find_group_by_id(
+        &self,
+        compartment: MappingCompartment,
+        id: GroupId,
+    ) -> Option<&SharedGroup> {
+        self.groups[compartment]
+            .iter()
+            .find(|g| g.borrow().id() == id)
     }
 
-    pub fn find_group_by_index_sorted(&self, index: usize) -> Option<&SharedGroup> {
-        self.groups_sorted().nth(index)
+    pub fn find_group_by_index_sorted(
+        &self,
+        compartment: MappingCompartment,
+        index: usize,
+    ) -> Option<&SharedGroup> {
+        self.groups_sorted(compartment).nth(index)
     }
 
-    pub fn groups_sorted(&self) -> impl Iterator<Item = &SharedGroup> {
-        self.groups
+    pub fn groups_sorted(
+        &self,
+        compartment: MappingCompartment,
+    ) -> impl Iterator<Item = &SharedGroup> {
+        self.groups[compartment]
             .iter()
             .sorted_by_key(|g| g.borrow().name.get_ref().clone())
     }
@@ -701,24 +727,28 @@ impl Session {
             .find_mapping_and_index_by_id(compartment, mapping_id)
             .ok_or("no such mapping")?;
         mapping.borrow_mut().group_id.set(group_id);
-        self.notify_group_list_changed();
+        self.notify_group_list_changed(compartment);
         Ok(())
     }
 
-    pub fn remove_group(&mut self, id: GroupId, delete_mappings: bool) {
-        self.groups.retain(|g| g.borrow().id() != id);
+    pub fn remove_group(
+        &mut self,
+        compartment: MappingCompartment,
+        id: GroupId,
+        delete_mappings: bool,
+    ) {
+        self.groups[compartment].retain(|g| g.borrow().id() != id);
         if delete_mappings {
-            self.mappings[MappingCompartment::MainMappings]
-                .retain(|m| m.borrow().group_id.get() != id);
+            self.mappings[compartment].retain(|m| m.borrow().group_id.get() != id);
         } else {
-            for m in self.mappings(MappingCompartment::MainMappings) {
+            for m in self.mappings(compartment) {
                 let mut m = m.borrow_mut();
                 if m.group_id.get() == id {
                     m.group_id.set_without_notification(GroupId::default());
                 }
             }
         }
-        self.notify_group_list_changed();
+        self.notify_group_list_changed(compartment);
     }
 
     pub fn add_default_mapping(
@@ -948,16 +978,22 @@ impl Session {
         self.mappings[compartment].iter()
     }
 
-    pub fn default_group(&self) -> &SharedGroup {
-        &self.default_group
+    pub fn default_group(&self, compartment: MappingCompartment) -> &SharedGroup {
+        match compartment {
+            MappingCompartment::ControllerMappings => &self.default_controller_group,
+            MappingCompartment::MainMappings => &self.default_main_group,
+        }
     }
 
-    pub fn groups(&self) -> impl Iterator<Item = &SharedGroup> {
-        self.groups.iter()
+    pub fn groups(&self, compartment: MappingCompartment) -> impl Iterator<Item = &SharedGroup> {
+        self.groups[compartment].iter()
     }
 
-    fn groups_including_default_group(&self) -> impl Iterator<Item = &SharedGroup> {
-        std::iter::once(&self.default_group).chain(self.groups.iter())
+    fn groups_including_default_group(
+        &self,
+        compartment: MappingCompartment,
+    ) -> impl Iterator<Item = &SharedGroup> {
+        std::iter::once(self.default_group(compartment)).chain(self.groups[compartment].iter())
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &SharedMapping> {
@@ -1242,7 +1278,7 @@ impl Session {
         self.active_main_preset_id = active_main_preset_id;
     }
 
-    pub fn active_controller_id(&self) -> Option<&str> {
+    pub fn active_controller_preset_id(&self) -> Option<&str> {
         self.active_controller_preset_id.as_deref()
     }
 
@@ -1251,7 +1287,7 @@ impl Session {
     }
 
     pub fn active_controller(&self) -> Option<ControllerPreset> {
-        let id = self.active_controller_id()?;
+        let id = self.active_controller_preset_id()?;
         self.controller_preset_manager.find_by_id(id)
     }
 
@@ -1267,6 +1303,11 @@ impl Session {
         };
         self.controller_preset_manager
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::ControllerMappings])
+            || self.controller_preset_manager.groups_are_dirty(
+                id,
+                &self.default_group(MappingCompartment::ControllerMappings),
+                &self.groups[MappingCompartment::ControllerMappings],
+            )
     }
 
     pub fn main_preset_is_out_of_date(&self) -> bool {
@@ -1279,12 +1320,14 @@ impl Session {
         };
         self.main_preset_manager
             .mappings_are_dirty(id, &self.mappings[MappingCompartment::MainMappings])
-            || self
-                .main_preset_manager
-                .groups_are_dirty(id, &self.default_group, &self.groups)
+            || self.main_preset_manager.groups_are_dirty(
+                id,
+                &self.default_main_group,
+                &self.groups[MappingCompartment::MainMappings],
+            )
     }
 
-    pub fn activate_controller(
+    pub fn activate_controller_preset(
         &mut self,
         id: Option<String>,
         weak_session: WeakSession,
@@ -1320,17 +1363,17 @@ impl Session {
                 .main_preset_manager
                 .find_by_id(id)
                 .ok_or("main preset not found")?;
-            self.default_group
+            self.default_main_group
                 .replace(main_preset.default_group().clone());
-            self.set_groups_without_notification(main_preset.groups().iter().cloned());
+            self.set_groups_without_notification(compartment, main_preset.groups().iter().cloned());
             self.set_mappings_without_notification(
                 compartment,
                 main_preset.mappings().iter().cloned(),
             );
         } else {
             // <None> preset
-            self.default_group.replace(Default::default());
-            self.set_groups_without_notification(std::iter::empty());
+            self.default_main_group.replace(Default::default());
+            self.set_groups_without_notification(compartment, std::iter::empty());
             self.set_mappings_without_notification(compartment, std::iter::empty());
         }
         self.notify_everything_has_changed(weak_session);
@@ -1376,15 +1419,22 @@ impl Session {
     /// Fires when a group has been added or removed.
     ///
     /// Doesn't fire if a group in the list or if the complete list has changed.
-    pub fn group_list_changed(&self) -> impl UnitEvent {
+    pub fn group_list_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
         self.group_list_changed_subject.clone()
     }
 
     /// Fires if a group itself has been changed.
-    pub fn group_changed(&self) -> impl UnitEvent {
-        self.default_group
+    pub fn group_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+        self.default_main_group
             .borrow()
             .changed_processing_relevant()
+            .map(|_| MappingCompartment::MainMappings)
+            .merge(
+                self.default_controller_group
+                    .borrow()
+                    .changed_processing_relevant()
+                    .map(|_| MappingCompartment::ControllerMappings),
+            )
             .merge(self.group_changed_subject.clone())
     }
 
@@ -1414,8 +1464,12 @@ impl Session {
         self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
     }
 
-    pub fn set_groups_without_notification(&mut self, groups: impl Iterator<Item = GroupModel>) {
-        self.groups = groups.into_iter().map(share_group).collect();
+    pub fn set_groups_without_notification(
+        &mut self,
+        compartment: MappingCompartment,
+        groups: impl Iterator<Item = GroupModel>,
+    ) {
+        self.groups[compartment] = groups.into_iter().map(share_group).collect();
     }
 
     fn add_mapping(
@@ -1547,13 +1601,13 @@ impl Session {
     /// Notifies listeners async that something in a group list has changed.
     ///
     /// Shouldn't be used if the complete list has changed.
-    fn notify_group_list_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.group_list_changed_subject, &());
+    fn notify_group_list_changed(&mut self, compartment: MappingCompartment) {
+        AsyncNotifier::notify(&mut self.group_list_changed_subject, &compartment);
     }
 
     /// Notifies listeners async a group in the group list has changed.
-    fn notify_group_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.group_changed_subject, &());
+    fn notify_group_changed(&mut self, compartment: MappingCompartment) {
+        AsyncNotifier::notify(&mut self.group_changed_subject, &compartment);
     }
 
     /// Notifies listeners async a mapping in a mapping list has changed.
@@ -1591,14 +1645,15 @@ impl Session {
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
-        if mapping.compartment() == MappingCompartment::ControllerMappings {
-            return None;
-        }
         let group_id = mapping.group_id.get();
         if group_id.is_default() {
-            Some(&self.default_group)
+            let group = match mapping.compartment() {
+                MappingCompartment::ControllerMappings => &self.default_controller_group,
+                MappingCompartment::MainMappings => &self.default_main_group,
+            };
+            Some(group)
         } else {
-            self.find_group_by_id(group_id)
+            self.find_group_by_id(mapping.compartment(), group_id)
         }
     }
 
@@ -1661,18 +1716,13 @@ impl Session {
 
     /// Creates mappings from mapping models so they can be distributed to different processors.
     fn create_main_mappings(&self, compartment: MappingCompartment) -> Vec<MainMapping> {
-        let group_map: HashMap<GroupId, Ref<GroupModel>> =
-            if compartment == MappingCompartment::ControllerMappings {
-                // We don't want controller mappings to use any groups!
-                Default::default()
-            } else {
-                self.groups_including_default_group()
-                    .map(|group| {
-                        let group = group.borrow();
-                        (group.id(), group)
-                    })
-                    .collect()
-            };
+        let group_map: HashMap<GroupId, Ref<GroupModel>> = self
+            .groups_including_default_group(compartment)
+            .map(|group| {
+                let group = group.borrow();
+                (group.id(), group)
+            })
+            .collect();
         // TODO-medium This is non-optimal if we have a group that uses an EEL activation condition
         //  and has many mappings. Because of our strategy of groups being an application-layer
         //  concept only, we equip *all* n mappings in that group with the group activation

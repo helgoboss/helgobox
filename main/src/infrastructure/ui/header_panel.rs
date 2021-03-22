@@ -12,7 +12,7 @@ use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
-use rx_util::UnitEvent;
+use rx_util::{SharedItemEvent, SharedPayload, UnitEvent};
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
@@ -95,7 +95,10 @@ impl HeaderPanel {
     }
 
     fn active_group_id(&self) -> Option<GroupId> {
-        let group_filter = self.main_state.borrow().group_filter.get()?;
+        let group_filter = self
+            .main_state
+            .borrow()
+            .group_filter_for_active_compartment()?;
         Some(group_filter.group_id())
     }
 
@@ -154,11 +157,13 @@ impl HeaderPanel {
             if name.is_empty() {
                 return;
             }
-            let id = self.session().borrow_mut().add_default_group(name);
+            let id = self
+                .session()
+                .borrow_mut()
+                .add_default_group(self.active_compartment(), name);
             self.main_state
                 .borrow_mut()
-                .group_filter
-                .set(Some(GroupFilter(id)));
+                .set_group_filter_for_active_compartment(Some(GroupFilter(id)));
         }
     }
 
@@ -580,16 +585,13 @@ impl HeaderPanel {
 
     fn invalidate_group_controls(&self) {
         self.invalidate_group_control_appearance();
-        if self.active_compartment() != MappingCompartment::MainMappings {
-            return;
-        }
         self.invalidate_group_combo_box();
         self.invalidate_group_buttons();
     }
 
     fn invalidate_group_control_appearance(&self) {
         self.show_if(
-            self.active_compartment() == MappingCompartment::MainMappings,
+            true,
             &[
                 root::ID_GROUP_LABEL_TEXT,
                 root::ID_GROUP_COMBO_BOX,
@@ -617,11 +619,12 @@ impl HeaderPanel {
             (-2isize, "<All>".to_string()),
             (-1isize, "<Default>".to_string()),
         ];
+        let compartment = self.active_compartment();
         combo.fill_combo_box_with_data_small(
             vec.into_iter().chain(
                 self.session()
                     .borrow()
-                    .groups_sorted()
+                    .groups_sorted(compartment)
                     .enumerate()
                     .map(|(i, g)| (i as isize, g.borrow().to_string())),
             ),
@@ -630,13 +633,22 @@ impl HeaderPanel {
 
     fn invalidate_group_combo_box_value(&self) {
         let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
-        let data = match self.main_state.borrow().group_filter.get() {
+        let compartment = self.active_compartment();
+        let data = match self
+            .main_state
+            .borrow()
+            .group_filter_for_active_compartment()
+        {
             None => -2isize,
             Some(GroupFilter(id)) => {
                 if id.is_default() {
                     -1isize
                 } else {
-                    match self.session().borrow().find_group_index_by_id_sorted(id) {
+                    match self
+                        .session()
+                        .borrow()
+                        .find_group_index_by_id_sorted(compartment, id)
+                    {
                         None => {
                             combo.select_new_combo_box_item(format!("<Not present> ({})", id));
                             return;
@@ -652,7 +664,11 @@ impl HeaderPanel {
     fn invalidate_group_buttons(&self) {
         let remove_button = self.view.require_control(root::ID_GROUP_DELETE_BUTTON);
         let edit_button = self.view.require_control(root::ID_GROUP_EDIT_BUTTON);
-        let (remove_enabled, edit_enabled) = match self.main_state.borrow().group_filter.get() {
+        let (remove_enabled, edit_enabled) = match self
+            .main_state
+            .borrow()
+            .group_filter_for_active_compartment()
+        {
             None => (false, false),
             Some(GroupFilter(id)) if id.is_default() => (false, true),
             _ => (true, true),
@@ -679,7 +695,7 @@ impl HeaderPanel {
         let session = session.borrow();
         let (preset_is_active, is_dirty) = match self.active_compartment() {
             MappingCompartment::ControllerMappings => (
-                session.active_controller_id().is_some(),
+                session.active_controller_preset_id().is_some(),
                 session.controller_preset_is_out_of_date(),
             ),
             MappingCompartment::MainMappings => (
@@ -727,7 +743,7 @@ impl HeaderPanel {
             match self.active_compartment() {
                 MappingCompartment::ControllerMappings => (
                     Box::new(App::get().controller_preset_manager()),
-                    session.active_controller_id(),
+                    session.active_controller_preset_id(),
                 ),
                 MappingCompartment::MainMappings => (
                     Box::new(App::get().main_preset_manager()),
@@ -1024,11 +1040,20 @@ impl HeaderPanel {
     }
 
     fn remove_group(&self) {
-        let id = match self.main_state.borrow().group_filter.get() {
+        let id = match self
+            .main_state
+            .borrow()
+            .group_filter_for_active_compartment()
+        {
             Some(GroupFilter(id)) if !id.is_default() => id,
             _ => return,
         };
-        let delete_mappings_result = if self.session().borrow().group_contains_mappings(id) {
+        let compartment = self.active_compartment();
+        let delete_mappings_result = if self
+            .session()
+            .borrow()
+            .group_contains_mappings(compartment, id)
+        {
             let msg = "Do you also want to delete all mappings in that group? If you choose no, they will be automatically moved to the default group.";
             self.view
                 .require_window()
@@ -1039,23 +1064,29 @@ impl HeaderPanel {
         if let Some(delete_mappings) = delete_mappings_result {
             self.main_state
                 .borrow_mut()
-                .group_filter
-                .set(Some(GroupFilter(GroupId::default())));
+                .set_group_filter_for_active_compartment(Some(GroupFilter(GroupId::default())));
             self.session()
                 .borrow_mut()
-                .remove_group(id, delete_mappings);
+                .remove_group(compartment, id, delete_mappings);
         }
     }
 
     fn edit_group(&self) {
-        let weak_group = match self.main_state.borrow().group_filter.get() {
+        let compartment = self.active_compartment();
+        let weak_group = match self
+            .main_state
+            .borrow()
+            .group_filter_for_active_compartment()
+        {
             Some(GroupFilter(id)) => {
                 if id.is_default() {
-                    Rc::downgrade(self.session().borrow().default_group())
+                    Rc::downgrade(self.session().borrow().default_group(compartment))
                 } else {
                     let session = self.session();
                     let session = session.borrow();
-                    let group = session.find_group_by_id(id).expect("group not existing");
+                    let group = session
+                        .find_group_by_id(compartment, id)
+                        .expect("group not existing");
                     Rc::downgrade(group)
                 }
             }
@@ -1072,6 +1103,7 @@ impl HeaderPanel {
     }
 
     fn update_group(&self) {
+        let compartment = self.active_compartment();
         let group_filter = match self
             .view
             .require_control(root::ID_GROUP_COMBO_BOX)
@@ -1083,14 +1115,16 @@ impl HeaderPanel {
                 let session = self.session();
                 let session = session.borrow();
                 let group = session
-                    .find_group_by_index_sorted(i as usize)
+                    .find_group_by_index_sorted(compartment, i as usize)
                     .expect("group not existing")
                     .borrow();
                 Some(GroupFilter(group.id()))
             }
             _ => unreachable!(),
         };
-        self.main_state.borrow_mut().group_filter.set(group_filter);
+        self.main_state
+            .borrow_mut()
+            .set_group_filter_for_active_compartment(group_filter);
     }
 
     fn update_preset_auto_load_mode(&self) {
@@ -1154,7 +1188,7 @@ impl HeaderPanel {
         match compartment {
             MappingCompartment::ControllerMappings => {
                 session
-                    .activate_controller(preset_id, self.session.clone())
+                    .activate_controller_preset(preset_id, self.session.clone())
                     .unwrap();
             }
             MappingCompartment::MainMappings => session
@@ -1290,7 +1324,7 @@ impl HeaderPanel {
             match compartment {
                 MappingCompartment::ControllerMappings => (
                     Box::new(App::get().controller_preset_manager()),
-                    session.active_controller_id(),
+                    session.active_controller_preset_id(),
                 ),
                 MappingCompartment::MainMappings => (
                     Box::new(App::get().main_preset_manager()),
@@ -1300,7 +1334,7 @@ impl HeaderPanel {
         let active_preset_id = active_preset_id.ok_or("no preset selected")?.to_string();
         match compartment {
             MappingCompartment::ControllerMappings => {
-                session.activate_controller(None, self.session.clone())?
+                session.activate_controller_preset(None, self.session.clone())?
             }
             MappingCompartment::MainMappings => {
                 session.activate_main_preset(None, self.session.clone())?
@@ -1324,7 +1358,7 @@ impl HeaderPanel {
             let session = session.borrow();
             let compartment = self.active_compartment();
             let preset_id = match compartment {
-                MappingCompartment::ControllerMappings => session.active_controller_id(),
+                MappingCompartment::ControllerMappings => session.active_controller_preset_id(),
                 MappingCompartment::MainMappings => session.active_main_preset_id(),
             };
             let preset_id = match preset_id {
@@ -1346,22 +1380,27 @@ impl HeaderPanel {
         let extended_context = ExtendedProcessorContext::new(&context, &params);
         self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let session = session.borrow();
+        let default_group = session.default_group(compartment).borrow().clone();
+        let groups = session
+            .groups(compartment)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
-                let mut controller = preset_manager
+                let mut controller_preset = preset_manager
                     .find_by_id(&preset_id)
-                    .ok_or("controller not found")?;
-                controller.update_realearn_data(mappings);
-                preset_manager.borrow_mut().update_preset(controller)?;
+                    .ok_or("controller preset not found")?;
+                controller_preset.update_realearn_data(default_group, groups, mappings);
+                preset_manager
+                    .borrow_mut()
+                    .update_preset(controller_preset)?;
             }
             MappingCompartment::MainMappings => {
                 let preset_manager = App::get().main_preset_manager();
                 let mut main_preset = preset_manager
                     .find_by_id(&preset_id)
                     .ok_or("main preset not found")?;
-                let default_group = session.default_group().borrow().clone();
-                let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
                 main_preset.update_data(default_group, groups, mappings);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
@@ -1432,23 +1471,32 @@ impl HeaderPanel {
         };
         let preset_id = slug::slugify(&preset_name);
         let mut session = session.borrow_mut();
+        let default_group = session.default_group(compartment).borrow().clone();
+        let groups = session
+            .groups(compartment)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
                     .active_controller()
                     .map(|c| c.custom_data().clone())
                     .unwrap_or_default();
-                let controller =
-                    ControllerPreset::new(preset_id.clone(), preset_name, mappings, custom_data);
+                let controller = ControllerPreset::new(
+                    preset_id.clone(),
+                    preset_name,
+                    default_group,
+                    groups,
+                    mappings,
+                    custom_data,
+                );
                 App::get()
                     .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
-                session.activate_controller(Some(preset_id), self.session.clone())?;
+                session.activate_controller_preset(Some(preset_id), self.session.clone())?;
             }
             MappingCompartment::MainMappings => {
-                let default_group = session.default_group().borrow().clone();
-                let groups = session.groups().map(|ptr| ptr.borrow().clone()).collect();
                 let main_preset = MainPreset::new(
                     preset_id.clone(),
                     preset_name,
@@ -1469,8 +1517,7 @@ impl HeaderPanel {
     fn reset(&self) {
         self.main_state
             .borrow_mut()
-            .group_filter
-            .set(Some(GroupFilter(GroupId::default())));
+            .set_group_filter_for_active_compartment(Some(GroupFilter(GroupId::default())));
         if let Some(already_open_panel) = self.group_panel.borrow().as_ref() {
             already_open_panel.close();
         }
@@ -1518,16 +1565,16 @@ impl HeaderPanel {
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
-        self.when(session.everything_changed(), |view| {
+        self.when(session.everything_changed(), |view, _| {
             view.reset();
         });
-        self.when(session.let_matched_events_through.changed(), |view| {
+        self.when(session.let_matched_events_through.changed(), |view, _| {
             view.invalidate_let_matched_events_through_check_box();
         });
-        self.when(session.let_unmatched_events_through.changed(), |view| {
+        self.when(session.let_unmatched_events_through.changed(), |view, _| {
             view.invalidate_let_unmatched_events_through_check_box();
         });
-        self.when(session.learn_many_state_changed(), |view| {
+        self.when(session.learn_many_state_changed(), |view, _| {
             view.invalidate_all_controls();
         });
         self.when(
@@ -1535,7 +1582,7 @@ impl HeaderPanel {
                 .midi_control_input
                 .changed()
                 .merge(session.osc_input_device_id.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_control_input_combo_box();
                 view.invalidate_let_matched_events_through_check_box();
                 view.invalidate_let_unmatched_events_through_check_box();
@@ -1556,16 +1603,19 @@ impl HeaderPanel {
                 .midi_feedback_output
                 .changed()
                 .merge(session.osc_output_device_id.changed()),
-            |view| view.invalidate_feedback_output_combo_box(),
+            |view, _| view.invalidate_feedback_output_combo_box(),
         );
-        self.when(session.group_changed(), |view| {
+        self.when(session.group_changed(), |view, _| {
             view.invalidate_group_controls();
         });
         let main_state = self.main_state.borrow();
-        self.when(main_state.group_filter.changed(), |view| {
-            view.invalidate_group_controls();
-        });
-        self.when(main_state.search_expression.changed(), |view| {
+        self.when(
+            main_state.group_filter_for_any_compartment_changed(),
+            |view, _| {
+                view.invalidate_group_controls();
+            },
+        );
+        self.when(main_state.search_expression.changed(), |view, _| {
             view.invoke_programmatically(|| {
                 view.invalidate_search_expression();
             });
@@ -1575,7 +1625,7 @@ impl HeaderPanel {
                 .is_learning_target_filter
                 .changed()
                 .merge(main_state.target_filter.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_target_filter_buttons();
             },
         );
@@ -1584,17 +1634,17 @@ impl HeaderPanel {
                 .is_learning_source_filter
                 .changed()
                 .merge(main_state.source_filter.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_source_filter_buttons();
             },
         );
-        self.when(main_state.active_compartment.changed(), |view| {
+        self.when(main_state.active_compartment.changed(), |view, _| {
             view.invalidate_all_controls();
         });
-        self.when(session.main_preset_auto_load_mode.changed(), |view| {
+        self.when(session.main_preset_auto_load_mode.changed(), |view, _| {
             view.invalidate_all_controls();
         });
-        self.when(session.group_list_changed(), |view| {
+        self.when(session.group_list_changed(), |view, _| {
             view.invalidate_group_controls();
         });
         when(
@@ -1630,8 +1680,8 @@ impl HeaderPanel {
                 .mapping_list_changed()
                 .map_to(())
                 .merge(session.mapping_changed().map_to(()))
-                .merge(session.group_list_changed())
-                .merge(session.group_changed())
+                .merge(session.group_list_changed().map_to(()))
+                .merge(session.group_changed().map_to(()))
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -1640,14 +1690,14 @@ impl HeaderPanel {
         });
     }
 
-    fn when(
+    fn when<I: SharedPayload>(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
-        reaction: impl Fn(SharedView<Self>) + 'static + Copy,
+        event: impl SharedItemEvent<I>,
+        reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
-            .do_sync(move |panel, _| reaction(panel));
+            .do_sync(move |panel, item| reaction(panel, item));
     }
 
     fn is_invoked_programmatically(&self) -> bool {

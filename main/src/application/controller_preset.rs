@@ -6,6 +6,8 @@ use std::fmt;
 pub struct ControllerPreset {
     id: String,
     name: String,
+    default_group: GroupModel,
+    groups: Vec<GroupModel>,
     mappings: Vec<MappingModel>,
     custom_data: HashMap<String, serde_json::Value>,
 }
@@ -14,12 +16,16 @@ impl ControllerPreset {
     pub fn new(
         id: String,
         name: String,
+        default_group: GroupModel,
+        groups: Vec<GroupModel>,
         mappings: Vec<MappingModel>,
         custom_data: HashMap<String, serde_json::Value>,
     ) -> ControllerPreset {
         ControllerPreset {
             id,
             name,
+            default_group,
+            groups,
             mappings,
             custom_data,
         }
@@ -36,7 +42,14 @@ impl ControllerPreset {
         self.custom_data.insert(key, value);
     }
 
-    pub fn update_realearn_data(&mut self, mappings: Vec<MappingModel>) {
+    pub fn update_realearn_data(
+        &mut self,
+        default_group: GroupModel,
+        groups: Vec<GroupModel>,
+        mappings: Vec<MappingModel>,
+    ) {
+        self.default_group = default_group;
+        self.groups = groups;
         self.mappings = mappings;
     }
 }
@@ -47,11 +60,11 @@ impl Preset for ControllerPreset {
     }
 
     fn default_group(&self) -> &GroupModel {
-        unimplemented!("controller presets don't support groups")
+        &self.default_group
     }
 
     fn groups(&self) -> &Vec<GroupModel> {
-        unimplemented!("controller presets don't support groups")
+        &self.groups
     }
 
     fn mappings(&self) -> &Vec<MappingModel> {

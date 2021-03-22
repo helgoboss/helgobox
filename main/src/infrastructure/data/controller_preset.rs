@@ -2,8 +2,8 @@ use crate::application::{ControllerPreset, Preset, PresetManager, SharedGroup, S
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedPresetManager, MappingModelData, MigrationDescriptor,
-    PresetData,
+    ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,
+    MigrationDescriptor, PresetData,
 };
 
 use crate::infrastructure::plugin::App;
@@ -63,6 +63,10 @@ pub struct ControllerPresetData {
     id: Option<String>,
     name: String,
     #[serde(default, skip_serializing_if = "is_default")]
+    default_group: Option<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    groups: Vec<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
     custom_data: HashMap<String, serde_json::Value>,
@@ -71,25 +75,38 @@ pub struct ControllerPresetData {
 impl PresetData for ControllerPresetData {
     type P = ControllerPreset;
 
-    fn from_model(controller: &ControllerPreset) -> ControllerPresetData {
+    fn from_model(preset: &ControllerPreset) -> ControllerPresetData {
         ControllerPresetData {
             version: Some(App::version().clone()),
-            id: Some(controller.id().to_string()),
-            mappings: controller
+            id: Some(preset.id().to_string()),
+            default_group: Some(GroupModelData::from_model(preset.default_group())),
+            groups: preset
+                .groups()
+                .iter()
+                .map(|g| GroupModelData::from_model(g))
+                .collect(),
+            mappings: preset
                 .mappings()
                 .iter()
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
-            name: controller.name().to_string(),
-            custom_data: controller.custom_data().clone(),
+            name: preset.name().to_string(),
+            custom_data: preset.custom_data().clone(),
         }
     }
 
     fn to_model(&self, id: String) -> ControllerPreset {
         let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
+        let final_default_group = self
+            .default_group
+            .as_ref()
+            .map(|g| g.to_model())
+            .unwrap_or_default();
         ControllerPreset::new(
             id,
             self.name.clone(),
+            final_default_group,
+            self.groups.iter().map(|g| g.to_model()).collect(),
             self.mappings
                 .iter()
                 .map(|m| {

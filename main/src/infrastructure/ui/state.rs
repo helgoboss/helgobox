@@ -2,6 +2,8 @@ use crate::core::{prop, Prop};
 use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
 
 use crate::application::{GroupId, MappingModel};
+use enum_map::{enum_map, EnumMap};
+use rx_util::UnitEvent;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -14,12 +16,12 @@ pub struct MainState {
     pub source_filter: Prop<Option<CompoundMappingSource>>,
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
-    pub group_filter: Prop<Option<GroupFilter>>,
+    pub group_filter: EnumMap<MappingCompartment, Prop<Option<GroupFilter>>>,
     pub search_expression: Prop<String>,
     pub status_msg: Prop<String>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct GroupFilter(pub GroupId);
 
 impl GroupFilter {
@@ -40,7 +42,10 @@ impl Default for MainState {
             source_filter: prop(None),
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::MainMappings),
-            group_filter: prop(Some(GroupFilter(GroupId::default()))),
+            group_filter: enum_map! {
+                ControllerMappings => prop(Some(GroupFilter::default())),
+                MainMappings => prop(Some(GroupFilter::default())),
+            },
             search_expression: Default::default(),
             status_msg: Default::default(),
         }
@@ -50,7 +55,23 @@ impl Default for MainState {
 impl MainState {
     pub fn clear_all_filters(&mut self) {
         self.clear_all_filters_except_group();
-        self.clear_group_filter();
+        for c in MappingCompartment::enum_iter() {
+            self.clear_group_filter(c);
+        }
+    }
+
+    pub fn group_filter_for_any_compartment_changed(&self) -> impl UnitEvent {
+        self.group_filter[MappingCompartment::ControllerMappings]
+            .changed()
+            .merge(self.group_filter[MappingCompartment::MainMappings].changed())
+    }
+
+    pub fn group_filter_for_active_compartment(&self) -> Option<GroupFilter> {
+        self.group_filter[self.active_compartment.get()].get()
+    }
+
+    pub fn set_group_filter_for_active_compartment(&mut self, filter: Option<GroupFilter>) {
+        self.group_filter[self.active_compartment.get()].set(filter);
     }
 
     pub fn clear_all_filters_except_group(&mut self) {
@@ -60,8 +81,8 @@ impl MainState {
         self.stop_filter_learning();
     }
 
-    pub fn clear_group_filter(&mut self) {
-        self.group_filter.set(None);
+    pub fn clear_group_filter(&mut self, compartment: MappingCompartment) {
+        self.group_filter[compartment].set(None);
     }
 
     pub fn clear_search_expression_filter(&mut self) {
@@ -77,7 +98,9 @@ impl MainState {
     }
 
     pub fn filter_is_active(&self) -> bool {
-        self.group_filter.get_ref().is_some()
+        self.group_filter[self.active_compartment.get()]
+            .get_ref()
+            .is_some()
             || self.source_filter.get_ref().is_some()
             || self.target_filter.get_ref().is_some()
             || !self.search_expression.get_ref().trim().is_empty()

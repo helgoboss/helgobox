@@ -1,4 +1,4 @@
-use crate::application::{MainPresetAutoLoadMode, ParameterSetting, Session};
+use crate::application::{GroupModel, MainPresetAutoLoadMode, ParameterSetting, Session};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
@@ -56,6 +56,10 @@ pub struct SessionData {
     #[serde(default, skip_serializing_if = "is_default")]
     groups: Vec<GroupModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
+    default_controller_group: Option<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    controller_groups: Vec<GroupModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
     controller_mappings: Vec<MappingModelData>,
@@ -96,7 +100,9 @@ impl Default for SessionData {
             control_device_id: None,
             feedback_device_id: None,
             default_group: None,
+            default_controller_group: None,
             groups: vec![],
+            controller_groups: vec![],
             mappings: vec![],
             controller_mappings: vec![],
             active_controller_id: None,
@@ -118,6 +124,17 @@ impl SessionData {
                 .mappings(compartment)
                 .map(|m| MappingModelData::from_model(m.borrow().deref()))
                 .collect()
+        };
+        let from_groups = |compartment| {
+            session
+                .groups(compartment)
+                .map(|m| GroupModelData::from_model(m.borrow().deref()))
+                .collect()
+        };
+        let from_group = |compartment| {
+            Some(GroupModelData::from_model(
+                session.default_group(compartment).borrow().deref(),
+            ))
         };
         SessionData {
             version: Some(App::version().clone()),
@@ -144,16 +161,15 @@ impl SessionData {
                     FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
                 })
             },
-            default_group: Some(GroupModelData::from_model(
-                session.default_group().borrow().deref(),
-            )),
-            groups: session
-                .groups()
-                .map(|m| GroupModelData::from_model(m.borrow().deref()))
-                .collect(),
+            default_group: from_group(MappingCompartment::MainMappings),
+            default_controller_group: from_group(MappingCompartment::ControllerMappings),
+            groups: from_groups(MappingCompartment::MainMappings),
+            controller_groups: from_groups(MappingCompartment::ControllerMappings),
             mappings: from_mappings(MappingCompartment::MainMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
-            active_controller_id: session.active_controller_id().map(|id| id.to_string()),
+            active_controller_id: session
+                .active_controller_preset_id()
+                .map(|id| id.to_string()),
             active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: (0..PLUGIN_PARAMETER_COUNT)
@@ -261,13 +277,25 @@ impl SessionData {
             .osc_output_device_id
             .set_without_notification(osc_feedback_output);
         // Groups
-        let final_default_group = self
-            .default_group
-            .as_ref()
-            .map(|g| g.to_model())
-            .unwrap_or_default();
-        session.default_group().replace(final_default_group);
-        session.set_groups_without_notification(self.groups.iter().map(|g| g.to_model()));
+        let get_final_default_group = |def_group: Option<&GroupModelData>| {
+            def_group.map(|g| g.to_model()).unwrap_or_default()
+        };
+        session
+            .default_group(MappingCompartment::MainMappings)
+            .replace(get_final_default_group(self.default_group.as_ref()));
+        session.set_groups_without_notification(
+            MappingCompartment::MainMappings,
+            self.groups.iter().map(|g| g.to_model()),
+        );
+        session
+            .default_group(MappingCompartment::ControllerMappings)
+            .replace(get_final_default_group(
+                self.default_controller_group.as_ref(),
+            ));
+        session.set_groups_without_notification(
+            MappingCompartment::ControllerMappings,
+            self.controller_groups.iter().map(|g| g.to_model()),
+        );
         // Mappings
         let context = session.context().clone();
         let extended_context = ExtendedProcessorContext::new(&context, &params);
