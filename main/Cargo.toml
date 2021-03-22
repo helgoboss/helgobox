@@ -121,6 +121,8 @@ fasteval = { version = "0.2.4", default-features = false }
 wildmatch = "1.1.0"
 # For creating HashSet literals for projection feedback and in unit tests
 maplit = "1.0.2"
+# For easier support of named virtual control elements
+ascii = "1.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

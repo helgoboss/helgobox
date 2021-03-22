@@ -14,12 +14,13 @@ use crate::domain::{
     SoloBehavior, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
     VirtualTrack,
 };
+use crate::infrastructure::data::ControlElementId;
 use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -66,7 +67,7 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_index: u32,
+    control_element_index: ControlElementId,
     #[serde(default, skip_serializing_if = "is_default")]
     fx_snapshot: Option<FxSnapshot>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -109,7 +110,10 @@ impl TargetModelData {
             track_exclusivity: model.track_exclusivity.get(),
             transport_action: model.transport_action.get(),
             control_element_type: model.control_element_type.get(),
-            control_element_index: model.control_element_index.get(),
+            control_element_index: ControlElementId::from_index_and_name(
+                model.control_element_index.get(),
+                model.control_element_name.get_ref(),
+            ),
             fx_snapshot: model.fx_snapshot.get_ref().clone(),
             touched_parameter_type: model.touched_parameter_type.get(),
             bookmark_data: BookmarkData {
@@ -230,7 +234,10 @@ impl TargetModelData {
             .set_with_optional_notification(self.control_element_type, with_notification);
         model
             .control_element_index
-            .set_with_optional_notification(self.control_element_index, with_notification);
+            .set_with_optional_notification(self.control_element_index.index(), with_notification);
+        model
+            .control_element_name
+            .set_with_optional_notification(self.control_element_index.name(), with_notification);
         model
             .fx_snapshot
             .set_with_optional_notification(self.fx_snapshot.clone(), with_notification);

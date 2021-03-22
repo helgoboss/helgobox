@@ -45,3 +45,6 @@ pub use migration::*;
 
 mod osc_device_management;
 pub use osc_device_management::*;
+
+mod virtual_control;
+pub use virtual_control::*;

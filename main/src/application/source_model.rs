@@ -1,8 +1,9 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    CompoundMappingSource, ExtendedSourceCharacter, MappingCompartment, VirtualControlElement,
-    VirtualSource, VirtualTarget,
+    CompoundMappingSource, ExtendedSourceCharacter, MappingCompartment, SmallAsciiString,
+    VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
 };
+use ascii::AsciiString;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -39,7 +40,8 @@ pub struct SourceModel {
     pub osc_arg_is_relative: Prop<bool>,
     // Virtual
     pub control_element_type: Prop<VirtualControlElementType>,
-    pub control_element_index: Prop<u32>,
+    pub control_element_index: Prop<Option<u32>>,
+    pub control_element_name: Prop<AsciiString>,
 }
 
 impl Default for SourceModel {
@@ -48,7 +50,8 @@ impl Default for SourceModel {
             category: prop(SourceCategory::Midi),
             midi_source_type: prop(MidiSourceType::ControlChangeValue),
             control_element_type: prop(VirtualControlElementType::Multi),
-            control_element_index: prop(0),
+            control_element_index: prop(Some(0)),
+            control_element_name: prop(AsciiString::new()),
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
@@ -81,6 +84,7 @@ impl SourceModel {
             .merge(self.raw_midi_pattern.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
+            .merge(self.control_element_name.changed())
             .merge(self.osc_address_pattern.changed())
             .merge(self.osc_arg_index.changed())
             .merge(self.osc_arg_type_tag.changed())
@@ -145,7 +149,12 @@ impl SourceModel {
                 self.category.set(SourceCategory::Virtual);
                 self.control_element_type
                     .set(VirtualControlElementType::from_source(s));
-                self.control_element_index.set(s.control_element().index())
+                let (index, name) = match s.control_element().id() {
+                    VirtualControlElementId::Indexed(i) => (Some(i), AsciiString::new()),
+                    VirtualControlElementId::Named(name) => (None, name.as_ascii_str().to_owned()),
+                };
+                self.control_element_index.set(index);
+                self.control_element_name.set(name);
             }
             Osc(s) => {
                 self.category.set(SourceCategory::Osc);
@@ -345,6 +354,10 @@ impl SourceModel {
         self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
     }
 
+    pub fn supports_control_element_name(&self) -> bool {
+        self.category.get() == SourceCategory::Virtual && self.control_element_index.get().is_none()
+    }
+
     pub fn is_osc(&self) -> bool {
         self.category.get() == SourceCategory::Osc
     }
@@ -375,7 +388,16 @@ impl SourceModel {
     pub fn create_control_element(&self) -> VirtualControlElement {
         self.control_element_type
             .get()
-            .create_control_element(self.control_element_index.get())
+            .create_control_element(self.control_element_id())
+    }
+
+    fn control_element_id(&self) -> VirtualControlElementId {
+        match self.control_element_index.get() {
+            None => VirtualControlElementId::Named(
+                SmallAsciiString::from_ascii_str(self.control_element_name.get_ref()).unwrap(),
+            ),
+            Some(i) => VirtualControlElementId::Indexed(i),
+        }
     }
 }
 
@@ -635,11 +657,11 @@ impl VirtualControlElementType {
         }
     }
 
-    pub fn create_control_element(self, index: u32) -> VirtualControlElement {
+    pub fn create_control_element(self, id: VirtualControlElementId) -> VirtualControlElement {
         use VirtualControlElementType::*;
         match self {
-            Multi => VirtualControlElement::Multi(index),
-            Button => VirtualControlElement::Button(index),
+            Multi => VirtualControlElement::Multi(id),
+            Button => VirtualControlElement::Button(id),
         }
     }
 }

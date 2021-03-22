@@ -3,6 +3,7 @@ use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualCon
 use crate::core::default_util::is_default;
 use crate::core::notification;
 use crate::domain::MappingCompartment;
+use crate::infrastructure::data::ControlElementId;
 use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,7 @@ use std::convert::TryInto;
 
 /// This is the structure in which source settings are loaded and saved. It's optimized for being
 /// represented as JSON. The JSON representation must be 100% backward-compatible.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -54,7 +55,7 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub control_element_index: u32,
+    control_element_index: ControlElementId,
 }
 
 impl SourceModelData {
@@ -78,7 +79,10 @@ impl SourceModelData {
             osc_arg_type: model.osc_arg_type_tag.get(),
             osc_arg_is_relative: model.osc_arg_is_relative.get(),
             control_element_type: model.control_element_type.get(),
-            control_element_index: model.control_element_index.get(),
+            control_element_index: ControlElementId::from_index_and_name(
+                model.control_element_index.get(),
+                model.control_element_name.get_ref(),
+            ),
         }
     }
 
@@ -158,7 +162,10 @@ impl SourceModelData {
             .set_with_optional_notification(self.control_element_type, with_notification);
         model
             .control_element_index
-            .set_with_optional_notification(self.control_element_index, with_notification);
+            .set_with_optional_notification(self.control_element_index.index(), with_notification);
+        model
+            .control_element_name
+            .set_with_optional_notification(self.control_element_index.name(), with_notification);
     }
 }
 
@@ -200,7 +207,7 @@ mod tests {
                 osc_arg_type: Default::default(),
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: 0
+                control_element_index: Default::default()
             }
         );
     }
@@ -237,7 +244,7 @@ mod tests {
                 osc_arg_type: Default::default(),
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: 0
+                control_element_index: Default::default()
             }
         );
     }
@@ -260,7 +267,7 @@ mod tests {
             osc_arg_type: Default::default(),
             osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
-            control_element_index: 0,
+            control_element_index: Default::default(),
         };
         let mut model = SourceModel::default();
         // When
@@ -300,7 +307,7 @@ mod tests {
             osc_arg_type: Default::default(),
             osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
-            control_element_index: 0,
+            control_element_index: Default::default(),
         };
         let mut model = SourceModel::default();
         // When
@@ -350,7 +357,7 @@ mod tests {
                 osc_arg_type: Default::default(),
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: 0
+                control_element_index: Default::default(),
             }
         );
     }
@@ -391,7 +398,7 @@ mod tests {
                 osc_arg_type: Default::default(),
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: 0
+                control_element_index: Default::default(),
             }
         );
     }

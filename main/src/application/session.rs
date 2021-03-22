@@ -739,7 +739,7 @@ impl Session {
             let target_model = TargetModel {
                 category: prop(TargetCategory::Virtual),
                 control_element_type: prop(control_element_type),
-                control_element_index: prop(next_control_element_index),
+                control_element_index: prop(Some(next_control_element_index)),
                 ..Default::default()
             };
             mapping.target_model = target_model;
@@ -778,7 +778,7 @@ impl Session {
                 {
                     return None;
                 }
-                Some(target.control_element_index.get())
+                target.control_element_index.get()
             })
             .max();
         if let Some(i) = max_index_so_far {

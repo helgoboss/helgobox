@@ -1,8 +1,11 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
+use ascii::{AsciiStr, AsciiString, ToAsciiChar};
 use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, Target, UnitValue};
 use smallvec::alloc::fmt::Formatter;
+use std::fmt;
 use std::fmt::Display;
+use std::iter::FromIterator;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct VirtualTarget {
@@ -116,26 +119,88 @@ impl VirtualSourceValue {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum VirtualControlElement {
-    Multi(u32),
-    Button(u32),
+    Multi(VirtualControlElementId),
+    Button(VirtualControlElementId),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+pub enum VirtualControlElementId {
+    Indexed(u32),
+    // No full String because we don't want heap allocations due to clones in real-time thread.
+    Named(SmallAsciiString),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+pub struct SmallAsciiString {
+    content: [u8; SmallAsciiString::MAX_LENGTH],
+    length: u8,
+}
+
+impl SmallAsciiString {
+    pub const MAX_LENGTH: usize = 16;
+
+    pub fn create_compatible_ascii_string(text: &str) -> AsciiString {
+        let fixed_text = text
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
+            .map(|c| c.to_ascii_char().unwrap());
+        let ascii_string = AsciiString::from_iter(fixed_text);
+        AsciiString::from(&ascii_string.as_slice()[..Self::MAX_LENGTH.min(ascii_string.len())])
+    }
+
+    pub fn from_ascii_str(ascii_str: &AsciiStr) -> Result<Self, &'static str> {
+        if ascii_str.len() > SmallAsciiString::MAX_LENGTH {
+            return Err("too large to be a small ASCII string");
+        }
+        let mut content = [0u8; SmallAsciiString::MAX_LENGTH];
+        content[..ascii_str.len()].copy_from_slice(ascii_str.as_bytes());
+        let res = Self {
+            content,
+            length: ascii_str.len() as u8,
+        };
+        Ok(res)
+    }
+
+    pub fn as_ascii_str(&self) -> &AsciiStr {
+        AsciiStr::from_ascii(self.as_slice()).unwrap()
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.content[..(self.length as usize)]
+    }
+}
+
+impl Display for SmallAsciiString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.as_ascii_str().fmt(f)
+    }
 }
 
 impl Display for VirtualControlElement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         use VirtualControlElement::*;
         match self {
-            Multi(i) => write!(f, "Multi {}", i + 1),
-            Button(i) => write!(f, "Button {}", i + 1),
+            Multi(id) => write!(f, "Multi {}", id),
+            Button(id) => write!(f, "Button {}", id),
+        }
+    }
+}
+
+impl Display for VirtualControlElementId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use VirtualControlElementId::*;
+        match self {
+            Indexed(index) => write!(f, "{}", index + 1),
+            Named(name) => name.fmt(f),
         }
     }
 }
 
 impl VirtualControlElement {
-    pub fn index(&self) -> u32 {
+    pub fn id(&self) -> VirtualControlElementId {
         use VirtualControlElement::*;
         match self {
-            Multi(i) => *i,
-            Button(i) => *i,
+            Multi(i) | Button(i) => *i,
         }
     }
 }

@@ -36,8 +36,9 @@ use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
     ExtendedProcessorContext, MappingCompartment, PlayPosFeedbackResolution, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter, TouchedParameterType,
-    TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement, VirtualFx,
+    RealearnTarget, ReaperTarget, SmallAsciiString, SoloBehavior, TargetCharacter,
+    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
+    VirtualControlElementId, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -588,11 +589,11 @@ impl<'a> MutableMappingPanel<'a> {
                 self.mapping.source_model.channel.set(value);
             }
             Virtual => {
-                let index = b.selected_combo_box_item_index();
-                self.mapping
-                    .source_model
-                    .control_element_index
-                    .set(index as u32)
+                let index = match b.selected_combo_box_item_data() {
+                    -1 => None,
+                    d => Some(d as u32),
+                };
+                self.mapping.source_model.control_element_index.set(index);
             }
             _ => {}
         };
@@ -695,7 +696,11 @@ impl<'a> MutableMappingPanel<'a> {
                     .unwrap_or(0);
                 self.mapping.source_model.osc_arg_index.set(Some(value));
             }
-            Virtual => {}
+            Virtual => {
+                let text = text.unwrap_or_default();
+                let value = SmallAsciiString::create_compatible_ascii_string(&text);
+                self.mapping.source_model.control_element_name.set(value);
+            }
         };
     }
 
@@ -1329,11 +1334,11 @@ impl<'a> MutableMappingPanel<'a> {
                 _ => {}
             },
             TargetCategory::Virtual => {
-                let i = combo.selected_combo_box_item_index();
-                self.mapping
-                    .target_model
-                    .control_element_index
-                    .set(i as u32)
+                let index = match combo.selected_combo_box_item_data() {
+                    -1 => None,
+                    d => Some(d as u32),
+                };
+                self.mapping.target_model.control_element_index.set(index);
             }
         }
     }
@@ -1496,7 +1501,11 @@ impl<'a> MutableMappingPanel<'a> {
                 },
                 _ => {}
             },
-            TargetCategory::Virtual => {}
+            TargetCategory::Virtual => {
+                let text = control.text().unwrap_or_default();
+                let value = SmallAsciiString::create_compatible_ascii_string(&text);
+                self.mapping.target_model.control_element_name.set(value);
+            }
         }
     }
 
@@ -1641,7 +1650,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 "Character",
                 "Pattern",
             ),
-            Virtual => ("Number", "", "", ""),
+            Virtual => ("ID", "Name", "", ""),
             Osc => ("", "Argument", "Type", "Address"),
         };
         self.view
@@ -1678,7 +1687,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.show_if(
             source.supports_midi_message_number()
                 || source.supports_parameter_number_message_number()
-                || source.is_osc(),
+                || source.is_osc()
+                || source.supports_control_element_name(),
             &[root::ID_SOURCE_NOTE_OR_CC_NUMBER_LABEL_TEXT],
         );
         self.show_if(
@@ -1704,7 +1714,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            source.supports_parameter_number_message_number() || source.is_osc(),
+            source.supports_parameter_number_message_number()
+                || source.is_osc()
+                || source.supports_control_element_name(),
             &[root::ID_SOURCE_NUMBER_EDIT_CONTROL],
         );
         self.show_if(
@@ -1794,8 +1806,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 };
             }
             Virtual => {
-                b.select_combo_box_item_by_index(self.source.control_element_index.get() as _)
-                    .unwrap();
+                let data = self
+                    .source
+                    .control_element_index
+                    .get()
+                    .map(|i| i as isize)
+                    .unwrap_or(-1);
+                b.select_combo_box_item_by_data(data).unwrap();
             }
             _ => {}
         };
@@ -1861,7 +1878,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     "".to_owned()
                 }
             }
-            Virtual => return,
+            Virtual => self.source.control_element_name.get_ref().to_string(),
         };
         c.set_text_if_not_focused(text)
     }
@@ -1975,7 +1992,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_track() => Some("Track"),
                 _ => None,
             },
-            TargetCategory::Virtual => Some("Number"),
+            TargetCategory::Virtual => Some("ID"),
         };
         self.view
             .require_control(root::ID_TARGET_LINE_2_LABEL_1)
@@ -2104,10 +2121,18 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => {
                 combo.show();
-                combo.fill_combo_box_small(1..=100);
-                combo
-                    .select_combo_box_item_by_index(self.target.control_element_index.get() as _)
-                    .unwrap();
+                let options = control_element_combo_box_entries(
+                    self.source.control_element_type.get(),
+                    &HashMap::new(),
+                );
+                combo.fill_combo_box_with_data_vec(options);
+                let data = self
+                    .target
+                    .control_element_index
+                    .get()
+                    .map(|i| i as isize)
+                    .unwrap_or(-1);
+                combo.select_combo_box_item_by_data(data).unwrap();
             }
         }
     }
@@ -2296,7 +2321,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             },
             TargetCategory::Virtual => {
-                control.hide();
+                if self.target.control_element_index.get().is_some() {
+                    control.hide();
+                } else {
+                    let text = self.target.control_element_name.get_ref().to_string();
+                    control.set_text_if_not_focused(text);
+                    control.show();
+                }
             }
         }
     }
@@ -2311,7 +2342,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
             },
-            TargetCategory::Virtual => None,
+            TargetCategory::Virtual => {
+                if self.target.control_element_index.get().is_some() {
+                    None
+                } else {
+                    Some("Name")
+                }
+            }
         };
         self.view
             .require_control(root::ID_TARGET_LINE_3_LABEL_1)
@@ -2867,6 +2904,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .changed()
                 .merge(source.control_element_index.changed()),
             |view| {
+                view.invalidate_source_control_visibilities();
                 view.invalidate_source_channel_or_control_element_combo_box();
             },
         );
@@ -2882,7 +2920,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             source
                 .parameter_number_message_number
                 .changed()
-                .merge(source.osc_arg_index.changed()),
+                .merge(source.osc_arg_index.changed())
+                .merge(source.control_element_name.changed()),
             |view| {
                 view.invalidate_source_parameter_number_message_number_controls();
             },
@@ -3403,6 +3442,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.bookmark_anchor_type.changed())
                 .merge(target.bookmark_ref.changed())
                 .merge(target.control_element_index.changed())
+                .merge(target.control_element_name.changed())
                 .merge(target.transport_action.changed())
                 .merge(target.action.changed()),
             |view| {
@@ -3627,27 +3667,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     .mappings(MappingCompartment::ControllerMappings);
                 let grouped_mappings =
                     group_mappings_by_virtual_control_element(controller_mappings);
-                let options = (0..100).map(|i| {
-                    let element = self
-                        .source
-                        .control_element_type
-                        .get()
-                        .create_control_element(i);
-                    let pos = i + 1;
-                    match grouped_mappings.get(&element) {
-                        None => pos.to_string(),
-                        Some(mappings) => {
-                            let first_mapping = mappings[0].borrow();
-                            let first_mapping_name = first_mapping.name.get_ref().clone();
-                            if mappings.len() == 1 {
-                                format!("{} ({})", pos, first_mapping_name)
-                            } else {
-                                format!("{} ({} + {})", pos, first_mapping_name, mappings.len() - 1)
-                            }
-                        }
-                    }
-                });
-                b.fill_combo_box_small(options);
+                let options = control_element_combo_box_entries(
+                    self.source.control_element_type.get(),
+                    &grouped_mappings,
+                );
+                b.fill_combo_box_with_data_vec(options);
             }
             _ => {}
         };
@@ -4241,4 +4265,30 @@ fn parse_position_as_index(edit_control: Window) -> u32 {
         .and_then(|text| text.parse().ok())
         .unwrap_or(1);
     std::cmp::max(position - 1, 0) as u32
+}
+
+fn control_element_combo_box_entries(
+    control_element_type: VirtualControlElementType,
+    grouped_mappings: &HashMap<VirtualControlElement, Vec<&SharedMapping>>,
+) -> Vec<(isize, String)> {
+    iter::once((-1isize, "<Named>".to_owned()))
+        .chain((0..100).map(|i| {
+            let element =
+                control_element_type.create_control_element(VirtualControlElementId::Indexed(i));
+            let pos = i + 1;
+            let label = match grouped_mappings.get(&element) {
+                None => pos.to_string(),
+                Some(mappings) => {
+                    let first_mapping = mappings[0].borrow();
+                    let first_mapping_name = first_mapping.name.get_ref().clone();
+                    if mappings.len() == 1 {
+                        format!("{} ({})", pos, first_mapping_name)
+                    } else {
+                        format!("{} ({} + {})", pos, first_mapping_name, mappings.len() - 1)
+                    }
+                }
+            };
+            (i as isize, label)
+        }))
+        .collect()
 }
