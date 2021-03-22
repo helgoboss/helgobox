@@ -172,6 +172,7 @@ impl SessionData {
                 .map(|id| id.to_string()),
             active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
+            // TODO-high This should probably be divided
             parameters: (0..PLUGIN_PARAMETER_COUNT)
                 .filter_map(|i| {
                     let value = parameters[i as usize];

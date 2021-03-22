@@ -25,9 +25,10 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
 
-// TODO-low Making this a usize might save quite some code
 pub const PLUGIN_PARAMETER_COUNT: u32 = 100;
+pub const COMPARTMENT_PARAMETER_COUNT: u32 = 100;
 pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
+pub type ParameterSlice = [f32];
 pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_COUNT as usize];
 
 #[derive(Debug)]

@@ -11,7 +11,7 @@ use crate::application::{
     ActivationType, GroupModel, MappingModel, ModifierConditionModel, ProgramConditionModel,
     SharedSession, WeakSession,
 };
-use crate::domain::PLUGIN_PARAMETER_COUNT;
+use crate::domain::{COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -491,14 +491,14 @@ impl MappingHeaderPanel {
         };
         let session = self.session();
         let session = session.borrow();
-        b.fill_combo_box_with_data_small(start.into_iter().chain((0..PLUGIN_PARAMETER_COUNT).map(
-            |i| {
+        b.fill_combo_box_with_data_small(start.into_iter().chain(
+            (0..COMPARTMENT_PARAMETER_COUNT).map(|i| {
                 (
                     i as isize,
                     format!("{}. {}", i + 1, session.get_parameter_name(i)),
                 )
-            },
-        )));
+            }),
+        ));
     }
 
     fn session(&self) -> SharedSession {

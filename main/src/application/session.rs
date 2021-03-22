@@ -192,6 +192,7 @@ impl Session {
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
             parameters: ZEROED_PLUGIN_PARAMETERS,
+            // TODO-high This should be probably divided per compartment!
             parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),

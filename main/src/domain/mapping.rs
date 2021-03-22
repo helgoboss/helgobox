@@ -1,8 +1,8 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
-    MappingActivationEffect, Mode, ParameterArray, PlayPosFeedbackResolution, RealearnTarget,
-    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
-    VirtualSourceValue, VirtualTarget,
+    MappingActivationEffect, Mode, ParameterArray, ParameterSlice, PlayPosFeedbackResolution,
+    RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualSource, VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -164,7 +164,7 @@ impl MainMapping {
     /// Returns `Some` if this affects the mapping's activation state in any way.
     pub fn check_activation_effect(
         &self,
-        params: &ParameterArray,
+        params: &ParameterSlice,
         index: u32,
         previous_value: f32,
     ) -> Option<MappingActivationEffect> {
@@ -213,7 +213,7 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn refresh_all(&mut self, context: ExtendedProcessorContext, params: &ParameterArray) {
+    pub fn refresh_all(&mut self, context: ExtendedProcessorContext, params: &ParameterSlice) {
         self.refresh_target(context);
         self.update_activation(params);
     }
@@ -266,7 +266,7 @@ impl MainMapping {
         (target_changed, Some(update))
     }
 
-    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
+    pub fn update_activation(&mut self, params: &ParameterSlice) -> Option<ActivationChange> {
         let was_active_before = self.is_active();
         self.is_active_1 = self.activation_condition_1.is_fulfilled(params);
         self.is_active_2 = self.activation_condition_2.is_fulfilled(params);

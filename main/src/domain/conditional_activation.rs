@@ -1,5 +1,7 @@
 use crate::core::eel;
-use crate::domain::{ParameterArray, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{
+    ParameterArray, ParameterSlice, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
+};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -22,7 +24,7 @@ impl ActivationCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &ParameterArray) -> bool {
+    pub fn is_fulfilled(&self, params: &ParameterSlice) -> bool {
         use ActivationCondition::*;
         match self {
             Always => true,
@@ -51,7 +53,7 @@ impl ActivationCondition {
     /// TODO-low This is not visible because it's &self.
     pub fn is_fulfilled_single(
         &self,
-        params: &ParameterArray,
+        params: &ParameterSlice,
         // Changed index
         index: u32,
         // Previous value at changed index
@@ -92,7 +94,7 @@ impl ActivationCondition {
 
 fn modifier_conditions_are_fulfilled(
     conditions: &[ModifierCondition],
-    params: &ParameterArray,
+    params: &ParameterSlice,
 ) -> bool {
     conditions
         .iter()
@@ -102,7 +104,7 @@ fn modifier_conditions_are_fulfilled(
 fn program_condition_is_fulfilled(
     param_index: u32,
     program_index: u32,
-    params: &ParameterArray,
+    params: &ParameterSlice,
 ) -> bool {
     let param_value = params[param_index as usize];
     let current_program_index = (param_value * 99.0).round() as u32;
@@ -130,7 +132,7 @@ impl ModifierCondition {
 
     /// Returns if this activation condition is fulfilled in presence of the given set of
     /// parameters.
-    pub fn is_fulfilled(&self, params: &ParameterArray) -> bool {
+    pub fn is_fulfilled(&self, params: &ParameterSlice) -> bool {
         let param_value = match params.get(self.param_index as usize) {
             // Parameter doesn't exist. Shouldn't happen but handle gracefully.
             None => return false,
@@ -146,7 +148,7 @@ pub struct EelCondition {
     // Declared above VM in order to be dropped before VM is dropped.
     program: eel::Program,
     vm: eel::Vm,
-    params: [Option<eel::Variable>; PLUGIN_PARAMETER_COUNT as usize],
+    params: [Option<eel::Variable>; COMPARTMENT_PARAMETER_COUNT as usize],
     y: eel::Variable,
 }
 
@@ -160,7 +162,7 @@ impl EelCondition {
         let program = vm.compile(eel_script)?;
         let y = vm.register_variable("y");
         let params = {
-            let mut array = [None; PLUGIN_PARAMETER_COUNT as usize];
+            let mut array = [None; COMPARTMENT_PARAMETER_COUNT as usize];
             for i in extract_used_param_indexes(eel_script).into_iter() {
                 let variable_name = format!("p{}", i + 1);
                 let variable = vm.register_variable(&variable_name);
@@ -184,7 +186,7 @@ impl EelCondition {
         })
     }
 
-    pub fn notify_params_changed(&self, params: &ParameterArray) {
+    pub fn notify_params_changed(&self, params: &ParameterSlice) {
         for (i, p) in self.params.iter().enumerate() {
             if let Some(v) = p {
                 unsafe {
@@ -221,7 +223,7 @@ fn extract_used_param_indexes(eel_script: &str) -> HashSet<u32> {
         .captures_iter(eel_script)
         .map(|m| m[1].parse())
         .flatten()
-        .filter(|i| *i >= 1 && *i <= PLUGIN_PARAMETER_COUNT)
+        .filter(|i| *i >= 1 && *i <= COMPARTMENT_PARAMETER_COUNT)
         .map(|i: u32| i - 1)
         .collect()
 }

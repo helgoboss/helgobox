@@ -1,9 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray,
+    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ParameterSlice,
     PlayPosFeedbackResolution, ReaperTarget, SeekOptions, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TransportAction, PLUGIN_PARAMETER_COUNT,
+    TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -677,18 +677,18 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, params: &ParameterArray) -> f64 {
+    pub fn evaluate(&self, params: &ParameterSlice) -> f64 {
         self.evaluate_internal(params).unwrap_or_default()
     }
 
-    fn evaluate_internal(&self, params: &ParameterArray) -> Result<f64, fasteval::Error> {
+    fn evaluate_internal(&self, params: &ParameterSlice) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
             if !name.starts_with('p') {
                 return None;
             }
             let value: u32 = name[1..].parse().ok()?;
-            if !(1..=PLUGIN_PARAMETER_COUNT).contains(&value) {
+            if !(1..=COMPARTMENT_PARAMETER_COUNT).contains(&value) {
                 return None;
             }
             let index = (value - 1) as usize;
