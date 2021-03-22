@@ -604,10 +604,10 @@ impl View for MappingRowPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
+        window.hide();
         window.move_to(Point::new(DialogUnits(0), DialogUnits(self.row_index * 48)));
         self.use_arrow_characters();
         self.invalidate_divider();
-        window.hide();
         false
     }
 
