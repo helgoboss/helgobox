@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-18 (v2.8.0-pre3)</code></td>
+  <td><code>2021-03-22 (v2.8.0-pre4)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -11,12 +11,47 @@
 
 ## Table of Contents
 
+1. [Quick start](#quick-start)
 1. [Introduction](#introduction)
 1. [Basics](#basics)
 1. [Reference](#reference)
 1. [Companion app](#companion-app)
 1. [Tutorials](#tutorials)
 1. [Tested controllers](#tested-controllers)
+
+## Quick start
+
+Here's a step-by-step guide to help you get started with ReaLearn and a MIDI controller:
+
+1. If you haven't already done it, install 
+1. Start REAPER.
+1. If you haven't already done it, [install ReaLearn via ReaPack](https://github.com/helgoboss/realearn#installation).
+1. Make sure your MIDI controller is enabled in Options → Preferences... → Audio → MIDI Devices
+    - For the MIDI input device (control), tick "Enable input from this device" and untick 
+      "Enable input for control messages".
+    - For the MIDI output device (feedback), tick "Enabled output to this device".
+1. Check if there's an existing controller preset for your MIDI controller (this is optional but can make things 
+   easier).
+    - Extensions → ReaPack → Browse packages...
+    - Type "realearn controller" in the *Filter* field.
+    - You should see a list of ReaLearn controller presets.
+    - If you find your controller in the list, right-click it, choose install and press OK.
+1. Create a new REAPER project or open an existing one.
+1. Right-click the track control panel and choose "Insert virtual instrument on new track...".
+1. Choose "VSTi: ReaLearn (Helgoboss)"
+1. Select your controller's MIDI device as *Control input* and *Feedback output* (if you have a controller
+   that supports MIDI feedback).
+1. If you have downloaded a controller preset:
+    - Change the *Compartment* dropdown menu to "Controller mappings" and select the desired preset right next to it.
+    - This should fill the list below with so-called *controller mappings*.
+    - When you are done, switch back to the "Main mappings" compartment.
+1. Add a first mapping by pressing the *Add one* button.
+    - A mapping appears that's still inactive (indicated by the grey text color).
+1. Press *Learn source* and move a control element on your MIDI controller.
+1. Press *Learn target* and move e.g. the volume fader of a track.
+1. Now your control element should control the track volume.
+
+If you want to get the most out of your controller and learn about all of ReaLearn's cool features, please read on.   
 
 ## Introduction
 
@@ -470,6 +505,8 @@ The header panel provides the following user interface elements, no matter if th
 Additionally, the header panel provides a context menu (accessible via right-click on Windows and Linux, control-click
 on macOS) with the following entries:
 
+- **Copy listed mappings**: Copies all mappings that are visible in the current mapping list to the clipboard 
+  (respecting group, search field and filters). You can insert them by opening the context menu in the row panel.  
 - **Options**
     - **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
       figure out if your combination of settings makes sense. If not, it makes an adjustment.
@@ -580,7 +617,7 @@ Let's first look at the "slow" way to do this - adding and editing each controll
     - In the *Category* dropdown, choose *Virtual*.
     - As *Type*, choose *Button* if your control element is a sort of button (something which you can press)
       and *Multi* in all other cases.
-    - Use for each control element a unique combination of *Type* and *Number*, starting with number *1* and counting.
+    - Use for each control element a unique combination of *Type* and *ID*, starting with number *1* and counting.
         - Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
     - Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
       You can easily model that by assigning 8 multis and 8 buttons.
@@ -630,7 +667,7 @@ helpful:
           end up if you don't care about grouping. This is a special group that can't be removed.
         - ***Custom group*:** Displays all mappings in your custom group.
     - You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows
-      and Linux, control-click on macOS) of the corresponding mapping row.
+      and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
     - Groups are saved as part of the project, VST plug-in preset and compartment preset.
 - **Add:** Allows you to add a group and give it a specific name.
 - **Remove:** Removes the currently displayed group. It will ask you if you want to remove all the mappings in that
@@ -680,7 +717,15 @@ If a mapping is *off*, it doesn't have any effect.
       interaction. 
 
 Each mapping row provides a context menu (accessible via right-click on Windows and Linux, control-click on macOS),
-which lets you move this mapping to another mapping group.
+which allows you access to the following functionality:
+
+- **Copy:** Copies this mapping to the clipboard.
+- **Paste mapping (replace):** Replaces this mapping with the mapping in the clipboard. If the clipboard contains just
+  a part of a mapping (source, mode or target), then just this part gets replaced.
+- **Paste mapping (insert below):** Creates a new mapping that's like the mapping in the clipboard and places it below
+  this mapping.
+- **Copy part:** Copies just a part of the mapping (source, mode or target).
+- **Move to group:** lets you move this mapping to another mapping group.
 
 ### Mapping panel
 
@@ -1231,8 +1276,11 @@ or "something which you can press".
 
 Both types have:
 
-- **Number:** The logical number of the control element. In a row of 8 knobs one would typically assign number 1 to the
+- **ID:** The logical number of the control element. In a row of 8 knobs one would typically assign number 1 to the
   leftmost one and number 8 to the rightmost one. It's your choice.
+- **Name:** For more advanced virtual control scenarios it can be useful to think in names instead of numbers. If you
+  select ID `<Named>`, you can give your virtual control element a name. It can take up to 16 alphanumeric and 
+  punctuation characters (no exotic characters, e.g. no umlauts).
 
 ###### Multi
 
@@ -1375,6 +1423,9 @@ Only available for targets associated with a particular FX instance:
 
 - **FX:** The FX instance associated with this target. ReaLearn will search for the FX in the output or input FX chain
   of the above selected track. In addition to the common selectors, the following ones are available:
+    - **&lt;This&gt;**: Always points to the own ReaLearn instance. Perfect for changing own parameters, e.g. for
+      usage of the conditional activation or `<Dynamic>` features (especially important if you want to create reusable
+      presets that make use of these features).
     - **&lt;Focused&gt;**: Currently or last focused FX. *Track* and *Input FX* settings are ignored.
     - **By ID or position:** This refers to the FX by its unique ID with its position as fallback. This was the default
       behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
