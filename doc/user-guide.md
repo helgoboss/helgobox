@@ -17,6 +17,7 @@
 1. [Reference](#reference)
 1. [Companion app](#companion-app)
 1. [Tutorials](#tutorials)
+1. [Frequently asked questions (FAQ)](#faq)
 1. [Tested controllers](#tested-controllers)
 
 ## Quick start
@@ -2381,6 +2382,32 @@ Now let's save your newly created set of mappings as preset and link the preset 
 Now you just have to set *Auto-load preset* to *Depending on focused FX* and ReaLearn will activate your "Vital" preset
 whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
 project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
+
+## FAQ
+
+### How many instances and where to put them?
+
+Since ReaLearn is a VST instrument, you can have many instances of it, not just one. A question that comes up pretty
+often is how many is right and where to put them?
+
+There's no definitive answer to that, it all depends on what you want. Here are some basic rules of thumb:
+
+1. You need at least one ReaLearn instance per controller.
+2. For mappings that shall be available in any existing or new project automatically, create a ReaLearn instance on the
+   monitoring FX chain
+    - If you want to use multiple controllers, simply add multiple instances to the monitoring FX chain.
+3. For in-project mappings which control arbitrary parameters on arbitrary tracks, you are totally free to choose where
+   to put ReaLearn, there shouldn't be any differences in behavior.
+    - Putting it on the master FX chain is a good choice if you want it out of your way and usually not be visible.
+    - However, in order to be reminded that I use ReaLearn, I usually add some track at the very top and put all
+      ReaLearn instances on its FX chain.
+4. Let's say you have a VST instrument that you want to activate/deactivate for live playing by arming/disarming the
+   corresponding track. And now you want to use ReaLearn as a kind of "Insert" effect for controlling parameters of that
+   VST instrument (or other track-local parameters such as the track volume), only when it's active. Then put ReaLearn
+   exactly on that track, somewhere *above* your VST instrument and select MIDI control input `<FX input>`.
+    - That way your VST instrument won't receive MIDI that's already processed by ReaLearn, which is cool.
+    - If you want ReaLearn to only receive MIDI messages that originate from live playing and ignore MIDI that
+      originates from track MIDI items, put it on the input FX chain of that track.
 
 ## Tested controllers
 
