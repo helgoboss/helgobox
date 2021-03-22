@@ -468,18 +468,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.parameters = *parameters;
                     self.event_handler
                         .handle_event(DomainEvent::UpdatedAllParameters(parameters));
-                    // Activation is only supported for main mappings
-                    // Mappings with virtual targets can only exist in the controller compartment
-                    // and the mappings in there don't support conditional activation. However,
-                    // REAPER targets in the controller compartment can use <Dynamic> and therefore
-                    // might need a refresh in response to parameter changes.
                     for compartment in MappingCompartment::enum_iter() {
                         let mut mapping_activation_changes: Vec<ActivationChange> = vec![];
                         let mut target_activation_changes: Vec<ActivationChange> = vec![];
                         let mut changed_mappings = vec![];
                         let mut unused_sources =
-                            self.currently_feedback_enabled_sources(compartment, false);
-                        for m in &mut self.mappings[compartment].values_mut() {
+                            self.currently_feedback_enabled_sources(compartment, true);
+                        for m in all_mappings_in_compartment_mut(
+                            &mut self.mappings,
+                            &mut self.mappings_with_virtual_targets,
+                            compartment,
+                        ) {
                             if m.activation_can_be_affected_by_parameters() {
                                 if let Some(update) = m.update_activation(&self.parameters) {
                                     mapping_activation_changes.push(update);
@@ -535,19 +534,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.parameters[index as usize] = value;
                     self.event_handler
                         .handle_event(DomainEvent::UpdatedParameter { index, value });
-                    // Mapping activation is only supported for main mappings but target activation
+                    // Mapping activation is supported for both compartments and target activation
                     // might change also in non-virtual controller mappings due to dynamic targets.
                     for compartment in MappingCompartment::enum_iter() {
                         let mut changed_mappings = HashSet::new();
                         let mut unused_sources =
-                            self.currently_feedback_enabled_sources(compartment, false);
+                            self.currently_feedback_enabled_sources(compartment, true);
                         // In order to avoid a mutable borrow of mappings and an immutable borrow of
                         // parameters at the same time, we need to separate into READ activation
                         // affects and WRITE activation updates.
                         // 1. Mapping activation: Read
-                        let activation_effects: Vec<MappingActivationEffect> = self.mappings
-                            [compartment]
-                            .values()
+                        let activation_effects: Vec<MappingActivationEffect> = self
+                            .all_mappings_in_compartment(compartment)
                             .filter_map(|m| {
                                 m.check_activation_effect(&self.parameters, index, previous_value)
                             })
@@ -557,13 +555,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             .into_iter()
                             .filter_map(|eff| {
                                 changed_mappings.insert(eff.id);
-                                let m = self.mappings[compartment].get_mut(&eff.id)?;
+                                let m = get_normal_or_virtual_target_mapping_mut(
+                                    &mut self.mappings,
+                                    &mut self.mappings_with_virtual_targets,
+                                    compartment,
+                                    eff.id,
+                                )?;
                                 m.update_activation_from_effect(eff)
                             })
                             .collect();
                         // 3. Target refreshment and determine unused sources
                         let mut target_activation_changes: Vec<ActivationChange> = vec![];
-                        for m in &mut self.mappings[compartment].values_mut() {
+                        for m in all_mappings_in_compartment_mut(
+                            &mut self.mappings,
+                            &mut self.mappings_with_virtual_targets,
+                            compartment,
+                        ) {
                             if m.target_can_be_affected_by_parameters() {
                                 let context =
                                     ExtendedProcessorContext::new(&self.context, &self.parameters);
@@ -988,6 +995,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
+    // TODO-high Check if we need to call this with include_virtual == true sometimes
     fn currently_feedback_enabled_sources(
         &self,
         compartment: MappingCompartment,
@@ -1326,4 +1334,33 @@ fn control_main_mappings_virtual(
             }
         })
         .collect()
+}
+
+/// Includes virtual mappings if the controller mapping compartment is queried.
+fn all_mappings_in_compartment_mut<'a>(
+    mappings: &'a mut EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
+    mappings_with_virtual_targets: &'a mut HashMap<MappingId, MainMapping>,
+    compartment: MappingCompartment,
+) -> impl Iterator<Item = &'a mut MainMapping> {
+    mappings[compartment].values_mut().chain(
+        mappings_with_virtual_targets
+            .values_mut()
+            // Include virtual target mappings if we are talking about controller compartment.
+            .filter(move |_| compartment == MappingCompartment::ControllerMappings),
+    )
+}
+
+fn get_normal_or_virtual_target_mapping_mut<'a>(
+    mappings: &'a mut EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
+    mappings_with_virtual_targets: &'a mut HashMap<MappingId, MainMapping>,
+    compartment: MappingCompartment,
+    id: MappingId,
+) -> Option<&'a mut MainMapping> {
+    mappings[compartment].get_mut(&id).or(
+        if compartment == MappingCompartment::ControllerMappings {
+            mappings_with_virtual_targets.get_mut(&id)
+        } else {
+            None
+        },
+    )
 }

@@ -282,11 +282,11 @@ impl MainMapping {
     }
 
     pub fn is_active(&self) -> bool {
-        self.has_virtual_target() || (self.is_active_1 && self.is_active_2)
+        self.is_active_1 && self.is_active_2
     }
 
     fn is_effectively_active(&self) -> bool {
-        self.has_virtual_target() || (self.is_active() && self.core.options.target_is_active)
+        self.is_active() && self.core.options.target_is_active
     }
 
     pub fn is_effectively_on(&self) -> bool {
@@ -538,15 +538,15 @@ impl RealTimeMapping {
     }
 
     fn is_effectively_active(&self) -> bool {
-        self.has_virtual_target() || (self.is_active && self.core.options.target_is_active)
+        self.is_active && self.core.options.target_is_active
     }
 
     fn is_effectively_active_ignoring_target_activation(&self) -> bool {
-        self.has_virtual_target() || self.is_active
+        self.is_active
     }
 
     fn is_effectively_active_ignoring_mapping_activation(&self) -> bool {
-        self.has_virtual_target() || self.core.options.target_is_active
+        self.core.options.target_is_active
     }
 
     pub fn update_target_activation(&mut self, is_active: bool) {

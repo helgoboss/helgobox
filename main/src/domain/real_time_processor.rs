@@ -321,7 +321,7 @@ impl RealTimeProcessor {
                     self.log_debug_info(normal_task_count);
                 }
                 UpdateMappingActivations(compartment, activation_updates) => {
-                    debug!(self.logger, "Update mapping activations...");
+                    debug!(self.logger, "Updating mapping activations...");
                     // Apply updates
                     for update in activation_updates.iter() {
                         if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
@@ -968,7 +968,7 @@ pub enum NormalRealTimeTask {
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
-    /// Updates the activation state of multiple mappings (for non-virtual mappings).
+    /// Updates the activation state of multiple mappings.
     ///
     /// The given vector contains updates just for affected mappings. This is because when a
     /// parameter update occurs we can determine in a very granular way which targets are affected.
