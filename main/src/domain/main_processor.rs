@@ -5,7 +5,8 @@ use crate::domain::{
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
     RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
-    SourceFeedbackValue, TargetValueChangedEvent, VirtualSourceValue,
+    SourceFeedbackValue, TargetValueChangedEvent, UnresolvedCompoundMappingTarget,
+    VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
@@ -542,7 +543,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             self.currently_feedback_enabled_sources(compartment, true);
                         // In order to avoid a mutable borrow of mappings and an immutable borrow of
                         // parameters at the same time, we need to separate into READ activation
-                        // affects and WRITE activation updates.
+                        // effects and WRITE activation updates.
                         // 1. Mapping activation: Read
                         let activation_effects: Vec<MappingActivationEffect> = self
                             .all_mappings_in_compartment(compartment)
@@ -958,21 +959,37 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) -> Vec<FeedbackValue> {
-        // Virtual targets don't deliver feedback, so no need to handle them.
         mapping_ids
             .filter_map(|id| {
-                let m = self.mappings[compartment].get(&id)?;
-                m.feedback_if_enabled()
+                let m = self.get_normal_or_virtual_target_mapping(compartment, id)?;
+                self.get_mapping_feedback_follow_virtual(m)
             })
             .collect()
     }
 
     fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<FeedbackValue> {
-        // Virtual targets don't deliver feedback, so no need to handle them.
-        self.mappings[compartment]
-            .values()
-            .filter_map(|m| m.feedback_if_enabled())
+        self.all_mappings_in_compartment(compartment)
+            .filter_map(|m| self.get_mapping_feedback_follow_virtual(m))
             .collect()
+    }
+
+    fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
+        if m.feedback_is_effectively_on() {
+            let resolved_mapping = if let Some(control_element) = m.virtual_target_control_element()
+            {
+                self.mappings[MappingCompartment::MainMappings]
+                    .values()
+                    .find(|m| {
+                        m.virtual_source_control_element() == Some(control_element)
+                            && m.feedback_is_effectively_on()
+                    })?
+            } else {
+                m
+            };
+            resolved_mapping.feedback(true)
+        } else {
+            None
+        }
     }
 
     fn clear_feedback(&self) {
@@ -995,7 +1012,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
-    // TODO-high Check if we need to call this with include_virtual == true sometimes
     fn currently_feedback_enabled_sources(
         &self,
         compartment: MappingCompartment,

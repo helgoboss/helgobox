@@ -1,8 +1,8 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
     MappingActivationEffect, Mode, ParameterArray, PlayPosFeedbackResolution, RealearnTarget,
-    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualSource, VirtualSourceValue,
-    VirtualTarget,
+    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
+    VirtualSourceValue, VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -362,6 +362,7 @@ impl MainMapping {
         }
     }
 
+    /// Not usable for mappings with virtual targets.
     fn feedback_after_control_if_unsupported_by_target(
         &self,
         target: &ReaperTarget,
@@ -389,6 +390,21 @@ impl MainMapping {
         }
     }
 
+    pub fn virtual_source_control_element(&self) -> Option<VirtualControlElement> {
+        match &self.core.source {
+            CompoundMappingSource::Virtual(s) => Some(s.control_element()),
+            _ => None,
+        }
+    }
+
+    pub fn virtual_target_control_element(&self) -> Option<VirtualControlElement> {
+        match self.unresolved_target.as_ref()? {
+            UnresolvedCompoundMappingTarget::Virtual(t) => Some(t.control_element()),
+            _ => None,
+        }
+    }
+
+    /// Returns `None` when used on mappings with virtual targets.
     pub fn feedback_if_enabled(&self) -> Option<FeedbackValue> {
         if !self.feedback_is_effectively_on() {
             return None;
@@ -396,6 +412,7 @@ impl MainMapping {
         self.feedback(true)
     }
 
+    /// Returns `None` when used on mappings with virtual targets.
     pub fn feedback(&self, with_projection_feedback: bool) -> Option<FeedbackValue> {
         let target = match &self.core.target {
             Some(CompoundMappingTarget::Reaper(t)) => t,
