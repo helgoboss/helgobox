@@ -382,8 +382,8 @@ impl MainMapping {
             // TODO-low Wouldn't it be better to always send feedback in this situation? But that
             //  could the user let believe that it actually works while in reality it's not "true"
             //  feedback that is independent from control. So an opt-in is maybe the right thing.
-            if self.core.options.send_feedback_after_control {
-                self.feedback_if_enabled()
+            if self.core.options.send_feedback_after_control && self.feedback_is_effectively_on() {
+                self.feedback(true)
             } else {
                 None
             }
@@ -402,14 +402,6 @@ impl MainMapping {
             UnresolvedCompoundMappingTarget::Virtual(t) => Some(t.control_element()),
             _ => None,
         }
-    }
-
-    /// Returns `None` when used on mappings with virtual targets.
-    pub fn feedback_if_enabled(&self) -> Option<FeedbackValue> {
-        if !self.feedback_is_effectively_on() {
-            return None;
-        }
-        self.feedback(true)
     }
 
     /// Returns `None` when used on mappings with virtual targets.

@@ -324,43 +324,55 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             Box::new(mapping.splinter_real_time_mapping()),
                         ))
                         .unwrap();
-                    // Send feedback
-                    // Mappings with virtual targets can also get feedback-disabled.
-                    if let Some(previous_mapping) =
+                    // Collect feedback (important to send later as soon as mappings updated)
+                    let (fb1, fb2) = if let Some(previous_mapping) =
                         self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
                     {
                         // An existing mapping is being overwritten.
                         if previous_mapping.feedback_is_effectively_on() {
-                            // And its light is on.
+                            // And its light is currently on.
                             if mapping.source() == previous_mapping.source() {
                                 // Source is the same.
                                 if mapping.feedback_is_effectively_on() {
+                                    // Lights should still be on.
                                     // Send new lights.
-                                    self.send_feedback(mapping.feedback(true));
+                                    (None, self.get_mapping_feedback_follow_virtual(&*mapping))
                                 } else {
-                                    // Indicate via feedback that this source is not in use
-                                    // anymore. But only
-                                    // if feedback was on before (otherwise this could
-                                    // overwrite the feedback value of another enabled mapping
-                                    // which has
-                                    // the same source).
-                                    self.send_feedback(mapping.zero_feedback());
+                                    // Lights should now be off.
+                                    (mapping.zero_feedback(), None)
                                 }
                             } else {
                                 // Source has changed.
                                 // Switch previous source light off.
-                                self.send_feedback(previous_mapping.zero_feedback());
-                                // Send new lights if on.
-                                self.send_feedback(mapping.feedback_if_enabled());
+                                let fb1 = previous_mapping.zero_feedback();
+                                let fb2 = if mapping.feedback_is_effectively_on() {
+                                    // Lights should be on. Send new lights.
+                                    self.get_mapping_feedback_follow_virtual(&*mapping)
+                                } else {
+                                    None
+                                };
+                                (fb1, fb2)
                             }
                         } else {
                             // Previous lights were off.
-                            self.send_feedback(mapping.feedback_if_enabled());
+                            if mapping.feedback_is_effectively_on() {
+                                // Now should be on.
+                                (None, self.get_mapping_feedback_follow_virtual(&*mapping))
+                            } else {
+                                // Still off.
+                                (None, None)
+                            }
                         }
                     } else {
-                        // This mapping is new. Send feedback.
-                        self.send_feedback(mapping.feedback_if_enabled());
-                    }
+                        // This mapping is new.
+                        if mapping.feedback_is_effectively_on() {
+                            // Lights on.
+                            (None, self.get_mapping_feedback_follow_virtual(&*mapping))
+                        } else {
+                            // Lights off.
+                            (None, None)
+                        }
+                    };
                     // Update hash map entries
                     if mapping.needs_refresh_when_target_touched() {
                         self.target_touch_dependent_mappings[compartment].insert(mapping.id());
@@ -391,6 +403,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &mut self.mappings[compartment]
                     };
                     relevant_map.insert(mapping.id(), *mapping);
+                    // Send feedback
+                    self.send_feedback(fb1);
+                    self.send_feedback(fb2);
                     // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
                     self.update_on_mappings();
                 }
@@ -612,19 +627,28 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
                             // Virtual targets are not candidates for "Last touched" so we don't
                             // need to consider them here.
-                            if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                                // We don't need to track activation updates because this target
-                                // is always on. Switching off is not necessary since the last
-                                // touched target can never be "unset".
-                                m.refresh_target(ExtendedProcessorContext::new(
-                                    &self.context,
-                                    &self.parameters,
-                                ));
-                                if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
-                                    let feedback = m.feedback_if_enabled();
-                                    self.send_feedback(feedback);
-                                }
-                            }
+                            let fb =
+                                if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
+                                    // We don't need to track activation updates because this target
+                                    // is always on. Switching off is not necessary since the last
+                                    // touched target can never be "unset".
+                                    m.refresh_target(ExtendedProcessorContext::new(
+                                        &self.context,
+                                        &self.parameters,
+                                    ));
+                                    if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
+                                        if m.feedback_is_effectively_on() {
+                                            m.feedback(true)
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+                            self.send_feedback(fb);
                         }
                     }
                 }
@@ -945,7 +969,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn feedback_all(&self) -> Vec<FeedbackValue> {
         // Virtual targets don't cause feedback themselves
         self.all_mappings_without_virtual_targets()
-            .filter_map(|m| m.feedback_if_enabled())
+            .filter_map(|m| {
+                if m.feedback_is_effectively_on() {
+                    m.feedback(true)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -957,34 +987,39 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         mapping_ids
             .filter_map(|id| {
                 let m = self.get_normal_or_virtual_target_mapping(compartment, id)?;
-                self.get_mapping_feedback_follow_virtual(m)
+                if m.feedback_is_effectively_on() {
+                    self.get_mapping_feedback_follow_virtual(m)
+                } else {
+                    None
+                }
             })
             .collect()
     }
 
     fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<FeedbackValue> {
         self.all_mappings_in_compartment(compartment)
-            .filter_map(|m| self.get_mapping_feedback_follow_virtual(m))
+            .filter_map(|m| {
+                if m.feedback_is_effectively_on() {
+                    self.get_mapping_feedback_follow_virtual(m)
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
     fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
-        if m.feedback_is_effectively_on() {
-            let resolved_mapping = if let Some(control_element) = m.virtual_target_control_element()
-            {
-                self.mappings[MappingCompartment::MainMappings]
-                    .values()
-                    .find(|m| {
-                        m.virtual_source_control_element() == Some(control_element)
-                            && m.feedback_is_effectively_on()
-                    })?
-            } else {
-                m
-            };
-            resolved_mapping.feedback(true)
+        let resolved_mapping = if let Some(control_element) = m.virtual_target_control_element() {
+            self.mappings[MappingCompartment::MainMappings]
+                .values()
+                .find(|m| {
+                    m.virtual_source_control_element() == Some(control_element)
+                        && m.feedback_is_effectively_on()
+                })?
         } else {
-            None
-        }
+            m
+        };
+        resolved_mapping.feedback(true)
     }
 
     fn clear_feedback(&self) {
