@@ -325,43 +325,41 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ))
                         .unwrap();
                     // Send feedback
-                    if self.feedback_is_globally_enabled {
-                        // Mappings with virtual targets can also get feedback-disabled.
-                        if let Some(previous_mapping) =
-                            self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
-                        {
-                            // An existing mapping is being overwritten.
-                            if previous_mapping.feedback_is_effectively_on() {
-                                // And its light is on.
-                                if mapping.source() == previous_mapping.source() {
-                                    // Source is the same.
-                                    if mapping.feedback_is_effectively_on() {
-                                        // Send new lights.
-                                        self.send_feedback(mapping.feedback(true));
-                                    } else {
-                                        // Indicate via feedback that this source is not in use
-                                        // anymore. But only
-                                        // if feedback was on before (otherwise this could
-                                        // overwrite the feedback value of another enabled mapping
-                                        // which has
-                                        // the same source).
-                                        self.send_feedback(mapping.zero_feedback());
-                                    }
+                    // Mappings with virtual targets can also get feedback-disabled.
+                    if let Some(previous_mapping) =
+                        self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
+                    {
+                        // An existing mapping is being overwritten.
+                        if previous_mapping.feedback_is_effectively_on() {
+                            // And its light is on.
+                            if mapping.source() == previous_mapping.source() {
+                                // Source is the same.
+                                if mapping.feedback_is_effectively_on() {
+                                    // Send new lights.
+                                    self.send_feedback(mapping.feedback(true));
                                 } else {
-                                    // Source has changed.
-                                    // Switch previous source light off.
-                                    self.send_feedback(previous_mapping.zero_feedback());
-                                    // Send new lights if on.
-                                    self.send_feedback(mapping.feedback_if_enabled());
+                                    // Indicate via feedback that this source is not in use
+                                    // anymore. But only
+                                    // if feedback was on before (otherwise this could
+                                    // overwrite the feedback value of another enabled mapping
+                                    // which has
+                                    // the same source).
+                                    self.send_feedback(mapping.zero_feedback());
                                 }
                             } else {
-                                // Previous lights were off.
+                                // Source has changed.
+                                // Switch previous source light off.
+                                self.send_feedback(previous_mapping.zero_feedback());
+                                // Send new lights if on.
                                 self.send_feedback(mapping.feedback_if_enabled());
                             }
                         } else {
-                            // This mapping is new. Send feedback.
+                            // Previous lights were off.
                             self.send_feedback(mapping.feedback_if_enabled());
                         }
+                    } else {
+                        // This mapping is new. Send feedback.
+                        self.send_feedback(mapping.feedback_if_enabled());
                     }
                     // Update hash map entries
                     if mapping.needs_refresh_when_target_touched() {
@@ -622,13 +620,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     &self.context,
                                     &self.parameters,
                                 ));
-                                if self.feedback_is_globally_enabled
-                                    && m.feedback_is_effectively_on()
-                                {
-                                    if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
-                                        let feedback = m.feedback_if_enabled();
-                                        self.send_feedback(feedback);
-                                    }
+                                if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
+                                    let feedback = m.feedback_if_enabled();
+                                    self.send_feedback(feedback);
                                 }
                             }
                         }
@@ -815,6 +809,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         msg,
                         self.osc_output_device_id.as_ref(),
                         &self.event_handler,
+                        self.feedback_is_globally_enabled,
                     );
                     self.control_non_virtual_mappings_osc(msg);
                 }
@@ -854,6 +849,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             self.osc_output_device_id.as_ref(),
                             &self.mappings_with_virtual_targets,
                             &self.event_handler,
+                            self.feedback_is_globally_enabled,
                         );
                     }
                 }
@@ -914,6 +910,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.osc_output_device_id.as_ref(),
             &self.mappings_with_virtual_targets,
             &self.event_handler,
+            self.feedback_is_globally_enabled,
         );
     }
 
@@ -942,9 +939,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn send_bulk_feedback(&self) {
-        if self.feedback_is_globally_enabled {
-            self.send_feedback(self.feedback_all());
-        }
+        self.send_feedback(self.feedback_all());
     }
 
     fn feedback_all(&self) -> Vec<FeedbackValue> {
@@ -993,6 +988,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn clear_feedback(&self) {
+        // TODO-high Also clear projection feedback.
         if self.osc_output_device_id.is_some() {
             self.send_feedback(self.feedback_all_zero());
         } else {
@@ -1036,9 +1032,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         now_unused_sources: &HashSet<QualifiedSource>,
     ) {
-        if !self.feedback_is_globally_enabled {
-            return;
-        }
         self.send_zero_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(self.feedback_all_in_compartment(compartment));
     }
@@ -1049,9 +1042,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         now_unused_sources: &HashSet<QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
-        if !self.feedback_is_globally_enabled {
-            return;
-        }
         self.send_zero_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(self.feedback_particular_mappings(compartment, mapping_ids));
     }
@@ -1198,6 +1188,7 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
     osc_device_id: Option<&OscDeviceId>,
     mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
     event_handler: &EH,
+    feedback_is_globally_enabled: bool,
 ) {
     for feedback_value in feedback_values.into_iter() {
         match feedback_value {
@@ -1226,6 +1217,7 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
                                         osc_feedback_task_sender,
                                         osc_device_id,
                                         event_handler,
+                                        feedback_is_globally_enabled,
                                     );
                                 }
                             }
@@ -1240,6 +1232,7 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
                     osc_feedback_task_sender,
                     osc_device_id,
                     event_handler,
+                    feedback_is_globally_enabled,
                 );
             }
         }
@@ -1252,18 +1245,21 @@ fn send_final_non_virtual_feedback<EH: DomainEventHandler>(
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,
     osc_device_id: Option<&OscDeviceId>,
     event_handler: &EH,
+    feedback_is_globally_enabled: bool,
 ) {
-    if let Some(source_feedback_value) = feedback_value.source {
-        match source_feedback_value {
-            SourceFeedbackValue::Midi(v) => {
-                // TODO-low Maybe we should use the SmallVec here, too?
-                rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
-            }
-            SourceFeedbackValue::Osc(msg) => {
-                if let Some(id) = osc_device_id {
-                    osc_feedback_task_sender
-                        .try_send(OscFeedbackTask::new(*id, msg))
-                        .unwrap();
+    if feedback_is_globally_enabled {
+        if let Some(source_feedback_value) = feedback_value.source {
+            match source_feedback_value {
+                SourceFeedbackValue::Midi(v) => {
+                    // TODO-low Maybe we should use the SmallVec here, too?
+                    rt_sender.send(FeedbackRealTimeTask::Feedback(v)).unwrap();
+                }
+                SourceFeedbackValue::Osc(msg) => {
+                    if let Some(id) = osc_device_id {
+                        osc_feedback_task_sender
+                            .try_send(OscFeedbackTask::new(*id, msg))
+                            .unwrap();
+                    }
                 }
             }
         }
@@ -1282,6 +1278,7 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
     msg: &OscMessage,
     osc_device_id: Option<&OscDeviceId>,
     event_handler: &EH,
+    feedback_is_globally_enabled: bool,
 ) {
     // Control
     let source_values: Vec<_> = mappings_with_virtual_targets
@@ -1328,6 +1325,7 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
         osc_device_id,
         mappings_with_virtual_targets,
         event_handler,
+        feedback_is_globally_enabled,
     );
 }
 
