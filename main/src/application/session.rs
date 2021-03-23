@@ -77,7 +77,7 @@ pub struct Session {
     group_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
-    group_subscriptions: Vec<SubscriptionGuard<LocalSubscription>>,
+    group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
@@ -665,7 +665,7 @@ impl Session {
         weak_session: WeakSession,
         compartment: MappingCompartment,
     ) {
-        self.group_subscriptions = self
+        self.group_subscriptions[compartment] = self
             .groups_including_default_group(compartment)
             .map(|shared_group| {
                 // We don't need to take until "party is over" because if the session disappears,
@@ -1510,17 +1510,7 @@ impl Session {
 
     /// Fires if a group itself has been changed.
     pub fn group_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
-        self.default_main_group
-            .borrow()
-            .changed_processing_relevant()
-            .map(|_| MappingCompartment::MainMappings)
-            .merge(
-                self.default_controller_group
-                    .borrow()
-                    .changed_processing_relevant()
-                    .map(|_| MappingCompartment::ControllerMappings),
-            )
-            .merge(self.group_changed_subject.clone())
+        self.group_changed_subject.clone()
     }
 
     /// Fires if a mapping itself has been changed.
