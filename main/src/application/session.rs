@@ -267,12 +267,17 @@ impl Session {
         &self.parameter_settings[compartment][index as usize]
     }
 
-    pub fn get_parameter_name(&self, compartment: MappingCompartment, index: u32) -> String {
-        let setting = &self.parameter_settings[compartment][index as usize];
-        match &setting.custom_name {
-            None => format!("Parameter {}", index + 1),
+    pub fn get_parameter_name(&self, compartment: MappingCompartment, rel_index: u32) -> String {
+        let setting = &self.parameter_settings[compartment][rel_index as usize];
+        let suffix = match &setting.custom_name {
+            None => format!("Param {}", rel_index + 1),
             Some(n) => n.clone(),
-        }
+        };
+        let compartment_label = match compartment {
+            MappingCompartment::ControllerMappings => "Ctrl",
+            MappingCompartment::MainMappings => "Main",
+        };
+        format!("{} p{} ({})", compartment_label, rel_index + 1, suffix)
     }
 
     pub fn set_parameter_settings_without_notification(
