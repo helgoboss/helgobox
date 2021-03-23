@@ -1,5 +1,5 @@
 use crate::application::{
-    GroupModel, MainPreset, Preset, PresetManager, SharedGroup, SharedMapping,
+    GroupModel, MainPreset, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
 };
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
@@ -12,6 +12,7 @@ use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub type FileBasedMainPresetManager = FileBasedPresetManager<MainPreset, MainPresetData>;
@@ -27,6 +28,15 @@ impl PresetManager for SharedMainPresetManager {
 
     fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
         self.borrow().mappings_are_dirty(id, mappings)
+    }
+
+    fn parameter_settings_are_dirty(
+        &self,
+        id: &str,
+        parameter_settings: &HashMap<u32, ParameterSetting>,
+    ) -> bool {
+        self.borrow()
+            .parameter_settings_are_dirty(id, parameter_settings)
     }
 
     fn groups_are_dirty(
@@ -68,6 +78,8 @@ pub struct MainPresetData {
     groups: Vec<GroupModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    parameters: HashMap<u32, ParameterSetting>,
 }
 
 impl PresetData for MainPresetData {
@@ -88,6 +100,7 @@ impl PresetData for MainPresetData {
                 .iter()
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
+            parameters: preset.parameters().clone(),
             name: preset.name().to_string(),
         }
     }
@@ -119,6 +132,7 @@ impl PresetData for MainPresetData {
                     )
                 })
                 .collect(),
+            self.parameters.clone(),
         )
     }
 

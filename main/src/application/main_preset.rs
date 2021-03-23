@@ -1,4 +1,5 @@
-use crate::application::{GroupModel, MappingModel, Preset, SharedMapping};
+use crate::application::{GroupModel, MappingModel, ParameterSetting, Preset, SharedMapping};
+use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Clone, Debug)]
@@ -8,6 +9,7 @@ pub struct MainPreset {
     default_group: GroupModel,
     groups: Vec<GroupModel>,
     mappings: Vec<MappingModel>,
+    parameters: HashMap<u32, ParameterSetting>,
 }
 
 impl MainPreset {
@@ -17,6 +19,7 @@ impl MainPreset {
         default_group: GroupModel,
         groups: Vec<GroupModel>,
         mappings: Vec<MappingModel>,
+        parameters: HashMap<u32, ParameterSetting>,
     ) -> MainPreset {
         MainPreset {
             id,
@@ -24,6 +27,7 @@ impl MainPreset {
             default_group,
             groups,
             mappings,
+            parameters,
         }
     }
 
@@ -36,10 +40,12 @@ impl MainPreset {
         default_group: GroupModel,
         groups: Vec<GroupModel>,
         mappings: Vec<MappingModel>,
+        parameters: HashMap<u32, ParameterSetting>,
     ) {
         self.default_group = default_group;
         self.groups = groups;
         self.mappings = mappings;
+        self.parameters = parameters;
     }
 }
 
@@ -58,6 +64,10 @@ impl Preset for MainPreset {
 
     fn mappings(&self) -> &Vec<MappingModel> {
         &self.mappings
+    }
+
+    fn parameters(&self) -> &HashMap<u32, ParameterSetting> {
+        &self.parameters
     }
 }
 

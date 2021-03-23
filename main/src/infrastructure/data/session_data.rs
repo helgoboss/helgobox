@@ -1,4 +1,6 @@
-use crate::application::{GroupModel, MainPresetAutoLoadMode, ParameterSetting, Session};
+use crate::application::{
+    empty_parameter_settings, GroupModel, MainPresetAutoLoadMode, ParameterSetting, Session,
+};
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
@@ -364,12 +366,12 @@ fn get_parameter_data_map(
             let parameter_slice = compartment.slice_params(parameters);
             let value = parameter_slice[i as usize];
             let settings = session.get_parameter_settings(compartment, i);
-            if value == 0.0 && settings.custom_name.is_none() {
+            if value == 0.0 && settings.name.is_empty() {
                 return None;
             }
             let data = ParameterData {
                 value,
-                name: settings.custom_name.clone(),
+                name: settings.name.clone(),
             };
             Some((i, data))
         })
@@ -377,10 +379,10 @@ fn get_parameter_data_map(
 }
 
 fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<ParameterSetting> {
-    let mut settings = vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize];
+    let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
         settings[*i as usize] = ParameterSetting {
-            custom_name: p.name.clone(),
+            name: p.name.clone(),
         };
     }
     settings

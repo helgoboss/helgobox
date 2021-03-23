@@ -1482,6 +1482,7 @@ impl HeaderPanel {
         self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let session = session.borrow();
         let default_group = session.default_group(compartment).borrow().clone();
+        let parameter_settings = session.non_default_parameter_settings_by_compartment(compartment);
         let groups = session
             .groups(compartment)
             .map(|ptr| ptr.borrow().clone())
@@ -1492,7 +1493,12 @@ impl HeaderPanel {
                 let mut controller_preset = preset_manager
                     .find_by_id(&preset_id)
                     .ok_or("controller preset not found")?;
-                controller_preset.update_realearn_data(default_group, groups, mappings);
+                controller_preset.update_realearn_data(
+                    default_group,
+                    groups,
+                    mappings,
+                    parameter_settings,
+                );
                 preset_manager
                     .borrow_mut()
                     .update_preset(controller_preset)?;
@@ -1502,7 +1508,7 @@ impl HeaderPanel {
                 let mut main_preset = preset_manager
                     .find_by_id(&preset_id)
                     .ok_or("main preset not found")?;
-                main_preset.update_data(default_group, groups, mappings);
+                main_preset.update_data(default_group, groups, mappings, parameter_settings);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -1550,7 +1556,7 @@ impl HeaderPanel {
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
-        let (context, params, mut mappings, compartment) = {
+        let (context, params, mut mappings, compartment, param_settings) = {
             let session = session.borrow_mut();
             let compartment = self.active_compartment();
             let mappings: Vec<_> = session
@@ -1562,6 +1568,7 @@ impl HeaderPanel {
                 *session.parameters(),
                 mappings,
                 compartment,
+                session.non_default_parameter_settings_by_compartment(compartment),
             )
         };
         let extended_context = ExtendedProcessorContext::new(&context, &params);
@@ -1589,6 +1596,7 @@ impl HeaderPanel {
                     default_group,
                     groups,
                     mappings,
+                    param_settings,
                     custom_data,
                 );
                 App::get()
@@ -1604,6 +1612,7 @@ impl HeaderPanel {
                     default_group,
                     groups,
                     mappings,
+                    param_settings,
                 );
                 App::get()
                     .main_preset_manager()
@@ -1783,6 +1792,7 @@ impl HeaderPanel {
                 .merge(session.mapping_changed().map_to(()))
                 .merge(session.group_list_changed().map_to(()))
                 .merge(session.group_changed().map_to(()))
+                .merge(session.parameter_settings_changed().map_to(()))
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))
@@ -2087,11 +2097,9 @@ fn edit_compartment_parameter(
             .collect();
         edit_compartment_parameter_internal(offset, &settings)?
     };
-    for (i, s) in range.zip(modified_settings) {
-        session
-            .borrow_mut()
-            .set_parameter_setting_without_notification(compartment, i, s);
-    }
+    session
+        .borrow_mut()
+        .set_parameter_settings(compartment, range.zip(modified_settings));
     Ok(())
 }
 
@@ -2111,10 +2119,7 @@ fn edit_compartment_parameter_internal(
         .map(|(i, s)| format!("Param {} name", i + 1))
         .join(",");
     captions_csv.push_str(",separator=;,extrawidth=80");
-    let initial_csv = settings
-        .iter()
-        .map(|s| s.custom_name.clone().unwrap_or_default())
-        .join(";");
+    let initial_csv = settings.iter().map(|s| s.name.clone()).join(";");
     let csv = Reaper::get()
         .medium_reaper()
         .get_user_inputs(
@@ -2128,14 +2133,8 @@ fn edit_compartment_parameter_internal(
     let out_settings: Vec<_> = csv
         .to_str()
         .split(';')
-        .map(|name| {
-            let custom_name = name.trim().to_owned();
-            let custom_name = if custom_name.is_empty() {
-                None
-            } else {
-                Some(custom_name)
-            };
-            ParameterSetting { custom_name }
+        .map(|name| ParameterSetting {
+            name: name.trim().to_owned(),
         })
         .collect();
     if out_settings.len() != settings.len() {

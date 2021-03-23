@@ -1,5 +1,5 @@
 use crate::application::{
-    GroupModel, MappingModel, Preset, PresetManager, SharedGroup, SharedMapping,
+    GroupModel, MappingModel, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
 };
 use crate::infrastructure::data::{GroupModelData, MappingModelData};
 
@@ -10,6 +10,7 @@ use rxrust::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::export::PhantomData;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -184,6 +185,18 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
             .any(|(actual_mapping, preset_mapping)| {
                 !mappings_are_equal(&actual_mapping.borrow(), preset_mapping)
             })
+    }
+
+    fn parameter_settings_are_dirty(
+        &self,
+        id: &str,
+        parameter_settings: &HashMap<u32, ParameterSetting>,
+    ) -> bool {
+        let preset = match self.find_preset_ref_by_id(id) {
+            None => return false,
+            Some(c) => c,
+        };
+        parameter_settings != preset.parameters()
     }
 
     fn groups_are_dirty(

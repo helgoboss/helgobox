@@ -1,4 +1,4 @@
-use crate::application::{GroupModel, MappingModel, Preset};
+use crate::application::{GroupModel, MappingModel, ParameterSetting, Preset};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -9,6 +9,7 @@ pub struct ControllerPreset {
     default_group: GroupModel,
     groups: Vec<GroupModel>,
     mappings: Vec<MappingModel>,
+    parameters: HashMap<u32, ParameterSetting>,
     custom_data: HashMap<String, serde_json::Value>,
 }
 
@@ -19,6 +20,7 @@ impl ControllerPreset {
         default_group: GroupModel,
         groups: Vec<GroupModel>,
         mappings: Vec<MappingModel>,
+        parameters: HashMap<u32, ParameterSetting>,
         custom_data: HashMap<String, serde_json::Value>,
     ) -> ControllerPreset {
         ControllerPreset {
@@ -27,6 +29,7 @@ impl ControllerPreset {
             default_group,
             groups,
             mappings,
+            parameters,
             custom_data,
         }
     }
@@ -47,10 +50,12 @@ impl ControllerPreset {
         default_group: GroupModel,
         groups: Vec<GroupModel>,
         mappings: Vec<MappingModel>,
+        parameters: HashMap<u32, ParameterSetting>,
     ) {
         self.default_group = default_group;
         self.groups = groups;
         self.mappings = mappings;
+        self.parameters = parameters;
     }
 }
 
@@ -69,6 +74,10 @@ impl Preset for ControllerPreset {
 
     fn mappings(&self) -> &Vec<MappingModel> {
         &self.mappings
+    }
+
+    fn parameters(&self) -> &HashMap<u32, ParameterSetting> {
+        &self.parameters
     }
 }
 

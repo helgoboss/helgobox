@@ -1,11 +1,12 @@
 use crate::application::{
-    ControllerPreset, GroupModel, Preset, PresetManager, SharedGroup, SharedMapping,
+    ControllerPreset, GroupModel, ParameterSetting, Preset, PresetManager, SharedGroup,
+    SharedMapping,
 };
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,
-    MigrationDescriptor, PresetData,
+    MigrationDescriptor, ParameterData, PresetData,
 };
 
 use crate::infrastructure::plugin::App;
@@ -29,6 +30,15 @@ impl PresetManager for SharedControllerPresetManager {
 
     fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
         self.borrow().mappings_are_dirty(id, mappings)
+    }
+
+    fn parameter_settings_are_dirty(
+        &self,
+        id: &str,
+        parameter_settings: &HashMap<u32, ParameterSetting>,
+    ) -> bool {
+        self.borrow()
+            .parameter_settings_are_dirty(id, parameter_settings)
     }
 
     fn groups_are_dirty(
@@ -71,6 +81,8 @@ pub struct ControllerPresetData {
     #[serde(default, skip_serializing_if = "is_default")]
     mappings: Vec<MappingModelData>,
     #[serde(default, skip_serializing_if = "is_default")]
+    parameters: HashMap<u32, ParameterSetting>,
+    #[serde(default, skip_serializing_if = "is_default")]
     custom_data: HashMap<String, serde_json::Value>,
 }
 
@@ -92,6 +104,7 @@ impl PresetData for ControllerPresetData {
                 .iter()
                 .map(|m| MappingModelData::from_model(&m))
                 .collect(),
+            parameters: preset.parameters().clone(),
             name: preset.name().to_string(),
             custom_data: preset.custom_data().clone(),
         }
@@ -124,6 +137,7 @@ impl PresetData for ControllerPresetData {
                     )
                 })
                 .collect(),
+            self.parameters.clone(),
             self.custom_data.clone(),
         )
     }

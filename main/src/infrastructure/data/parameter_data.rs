@@ -7,5 +7,5 @@ pub struct ParameterData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub value: f32,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub name: Option<String>,
+    pub name: String,
 }
