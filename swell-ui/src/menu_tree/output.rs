@@ -1,13 +1,13 @@
 use crate::menu_tree::{Entry, Menu};
 use crate::Menu as SwellMenu;
 
-pub fn fill_menu(swell_menu: SwellMenu, menu: &Menu) {
+pub fn fill_menu<R>(swell_menu: SwellMenu, menu: &Menu<R>) {
     for e in &menu.entries {
         fill_menu_recursive(swell_menu, e);
     }
 }
 
-fn fill_menu_recursive(swell_menu: SwellMenu, entry: &Entry) {
+fn fill_menu_recursive<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
     match entry {
         Entry::Menu(m) => {
             swell_menu.add_item(m.id, m.text.as_str());

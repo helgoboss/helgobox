@@ -414,10 +414,6 @@ impl MappingRowPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
-        // let menu_bar =
-        //     MenuBar::load(root::IDR_ROW_PANEL_CONTEXT_MENU).expect("menu bar couldn't be
-        // loaded"); let swell_menu = menu_bar.get_menu(0).expect("menu bar didn't have 1st
-        // menu");
         let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
             use std::iter::once;
@@ -431,6 +427,8 @@ impl MappingRowPanel {
             let mapping_id = mapping.id();
             let clipboard_object = get_object_from_clipboard();
             let clipboard_object_2 = clipboard_object.clone();
+            // TODO-medium Since ReaLearn 2.8.0-pre5, menu items can return values, so we could
+            //  easily refactor this clone hell if we return e.g. MenuAction enum values.
             let group_id = mapping.group_id.get();
             let session_1 = shared_session.clone();
             let session_2 = shared_session.clone();
@@ -574,13 +572,13 @@ impl MappingRowPanel {
             fill_menu(menu_bar.menu(), &root_menu);
             root_menu
         };
-        let result = self
+        let result_index = self
             .view
             .require_window()
             .open_popup_menu(menu_bar.menu(), location)
             .ok_or("no entry selected")?;
         pure_menu
-            .find_item_by_id(result)
+            .find_item_by_id(result_index)
             .expect("selected menu item not found")
             .invoke_handler();
         Ok(())

@@ -178,179 +178,229 @@ impl HeaderPanel {
         );
     }
 
-    fn open_context_menu(&self, location: Point<Pixels>) {
-        let menu_bar = MenuBar::load(root::IDR_HEADER_PANEL_CONTEXT_MENU)
-            .expect("menu bar couldn't be loaded");
-        let ctx_menu = menu_bar
-            .get_sub_menu(0)
-            .expect("menu bar didn't have 1st menu");
+    fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
         let app = App::get();
-        // Invalidate some menu items without result
-        {
-            let session = self.session();
-            let session = session.borrow();
-            // Invalidate "Send feedback only if track armed"
-            {
-                let item_id = root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED;
-                let (enabled, checked) = if session.containing_fx_is_in_input_fx_chain() {
-                    (false, true)
-                } else {
-                    (true, session.send_feedback_only_if_armed.get())
-                };
-                ctx_menu.set_item_enabled(item_id, enabled);
-                ctx_menu.set_item_checked(item_id, checked);
-            }
-            // Invalidate "Auto-correct settings"
-            {
-                ctx_menu.set_item_checked(
-                    root::IDM_AUTO_CORRECT_SETTINGS,
-                    session.auto_correct_settings.get(),
-                );
+        let menu_bar = MenuBar::new_popup_menu();
+        enum MenuAction {
+            None,
+            CopyListedMappings,
+            ToggleAutoCorrectSettings,
+            ToggleSendFeedbackOnlyIfTrackArmed,
+            ToggleServer,
+            AddFirewallRule,
+            ChangeSessionId,
+            OpenOfflineUserGuide,
+            OpenOnlineUserGuide,
+            OpenForum,
+            ContactDeveloper,
+            OpenWebsite,
+            Donate,
+            EditNewOscDevice,
+            EditExistingOscDevice(OscDeviceId),
+            RemoveOscDevice(OscDeviceId),
+            ToggleOscDeviceControl(OscDeviceId),
+            ToggleOscDeviceFeedback(OscDeviceId),
+            ToggleOscDeviceBundles(OscDeviceId),
+            SendFeedbackNow,
+            LogDebugInfo,
+            LinkFxPreset(PresetFxLinkAction),
+        }
+        impl Default for MenuAction {
+            fn default() -> Self {
+                Self::None
             }
         }
-        // Invalidate "Link current preset to FX"
-        let next_preset_fx_link_action = {
-            let item_id = root::IDM_LINK_TO_FX;
-            let action = determine_next_preset_fx_link_action(
-                app,
-                &self.session().borrow(),
-                self.active_compartment(),
-            );
-            ctx_menu.set_item_enabled(item_id, action.is_some());
-            ctx_menu.set_item_checked(
-                item_id,
-                matches!(action, Some(PresetFxLinkAction::UnlinkFrom { .. })),
-            );
-            let label = match &action {
-                None => "Link current preset fo FX...".to_string(),
-                Some(PresetFxLinkAction::LinkTo { fx_id: fx_name, .. }) => {
-                    format!("Link current preset to FX \"{}\"", fx_name)
-                }
-                Some(PresetFxLinkAction::UnlinkFrom { fx_id: fx_name, .. }) => {
-                    format!("Unlink current preset from FX \"{}\"", fx_name)
-                }
-            };
-            ctx_menu.set_item_text(item_id, label);
-            action
-        };
-        // Invalidate "Server enabled"
-        enum ServerAction {
-            Start,
-            Disable,
-            Enable,
-        }
-        let (next_server_action, http_port, https_port) = {
-            let server = app.server().borrow();
-            let server_is_enabled = app.config().server_is_enabled();
-            let next_server_action = {
-                use ServerAction::*;
-                if server.is_running() {
-                    if server_is_enabled { Disable } else { Enable }
-                } else {
-                    Start
-                }
-            };
-            ctx_menu.set_item_checked(root::IDM_SERVER_START, server_is_enabled);
-            (next_server_action, server.http_port(), server.https_port())
-        };
-        // Invalidate "OSC devices"
-        let devs_menu = {
+        let pure_menu = {
             use std::iter::once;
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
-            let parent_window = self.view.require_window();
-            let entries =
-                once(item("<New>", edit_new_osc_device)).chain(dev_manager.devices().map(|dev| {
-                    let dev_id = *dev.id();
-                    menu(
-                        dev.name(),
-                        vec![
-                            item("Edit...", move || edit_existing_osc_device(dev_id)),
-                            item("Remove", move || remove_osc_device(parent_window, dev_id)),
-                            item_with_opts(
-                                "Enabled for control",
+            let session = self.session();
+            let session = session.borrow();
+            let entries = vec![
+                item("Copy listed mappings", || MenuAction::CopyListedMappings),
+                menu(
+                    "Options",
+                    vec![
+                        item_with_opts(
+                            "Auto-correct settings",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.auto_correct_settings.get(),
+                            },
+                            || MenuAction::ToggleAutoCorrectSettings,
+                        ),
+                        item_with_opts(
+                            "Send feedback only if track armed",
+                            if session.containing_fx_is_in_input_fx_chain() {
+                                ItemOpts {
+                                    enabled: false,
+                                    checked: true,
+                                }
+                            } else {
                                 ItemOpts {
                                     enabled: true,
-                                    checked: dev.is_enabled_for_control(),
-                                },
-                                move || {
-                                    App::get().do_with_osc_device(dev_id, |d| d.toggle_control())
-                                },
-                            ),
-                            item_with_opts(
-                                "Enabled for feedback",
-                                ItemOpts {
-                                    enabled: true,
-                                    checked: dev.is_enabled_for_feedback(),
-                                },
-                                move || {
-                                    App::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
-                                },
-                            ),
-                            item_with_opts(
-                                "Can deal with OSC bundles",
-                                ItemOpts {
-                                    enabled: true,
-                                    checked: dev.can_deal_with_bundles(),
-                                },
-                                move || {
-                                    App::get().do_with_osc_device(dev_id, |d| {
-                                        d.toggle_can_deal_with_bundles()
-                                    })
-                                },
-                            ),
-                        ],
-                    )
-                }));
-            let mut m = root_menu(entries.collect());
-            let swell_menu = ctx_menu.turn_into_submenu(root::IDM_OSC_DEVICES);
-            m.index(50_000);
-            fill_menu(swell_menu, &m);
-            m
+                                    checked: session.send_feedback_only_if_armed.get(),
+                                }
+                            },
+                            || MenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
+                        ),
+                    ],
+                ),
+                menu(
+                    "Server",
+                    vec![
+                        item_with_opts(
+                            "Enabled",
+                            ItemOpts {
+                                enabled: true,
+                                checked: App::get().config().server_is_enabled(),
+                            },
+                            || MenuAction::ToggleServer,
+                        ),
+                        item("Add firewall rule", || MenuAction::AddFirewallRule),
+                        item("Change session ID...", || MenuAction::ChangeSessionId),
+                    ],
+                ),
+                menu(
+                    "Help",
+                    vec![
+                        item("User guide for this version (PDF, offline)", || {
+                            MenuAction::OpenOfflineUserGuide
+                        }),
+                        item("User guide for latest version (HTML, online)", || {
+                            MenuAction::OpenOnlineUserGuide
+                        }),
+                        item("Forum", || MenuAction::OpenForum),
+                        item("Contact developer", || MenuAction::ContactDeveloper),
+                        item("Website", || MenuAction::OpenWebsite),
+                        item("Donate", || MenuAction::Donate),
+                    ],
+                ),
+                menu(
+                    "OSC devices",
+                    once(item("<New>", || MenuAction::EditNewOscDevice))
+                        .chain(dev_manager.devices().map(|dev| {
+                            let dev_id = *dev.id();
+                            menu(
+                                dev.name(),
+                                vec![
+                                    item("Edit...", move || {
+                                        MenuAction::EditExistingOscDevice(dev_id)
+                                    }),
+                                    item("Remove", move || MenuAction::RemoveOscDevice(dev_id)),
+                                    item_with_opts(
+                                        "Enabled for control",
+                                        ItemOpts {
+                                            enabled: true,
+                                            checked: dev.is_enabled_for_control(),
+                                        },
+                                        move || MenuAction::ToggleOscDeviceControl(dev_id),
+                                    ),
+                                    item_with_opts(
+                                        "Enabled for feedback",
+                                        ItemOpts {
+                                            enabled: true,
+                                            checked: dev.is_enabled_for_feedback(),
+                                        },
+                                        move || MenuAction::ToggleOscDeviceFeedback(dev_id),
+                                    ),
+                                    item_with_opts(
+                                        "Can deal with OSC bundles",
+                                        ItemOpts {
+                                            enabled: true,
+                                            checked: dev.can_deal_with_bundles(),
+                                        },
+                                        move || MenuAction::ToggleOscDeviceBundles(dev_id),
+                                    ),
+                                ],
+                            )
+                        }))
+                        .collect(),
+                ),
+                item("Send feedback now", || MenuAction::SendFeedbackNow),
+                item("Log debug info", || MenuAction::LogDebugInfo),
+                match determine_next_preset_fx_link_action(app, &session, self.active_compartment())
+                {
+                    None => disabled_item("Link current preset fo FX..."),
+                    Some(action) => item_with_opts(
+                        match &action {
+                            PresetFxLinkAction::LinkTo { fx_id, .. } => {
+                                format!("Link current preset to FX \"{}\"", fx_id)
+                            }
+                            PresetFxLinkAction::UnlinkFrom { fx_id, .. } => {
+                                format!("Unlink current preset from FX \"{}\"", fx_id)
+                            }
+                        },
+                        ItemOpts {
+                            enabled: true,
+                            checked: matches!(&action, PresetFxLinkAction::UnlinkFrom { .. }),
+                        },
+                        || MenuAction::LinkFxPreset(action),
+                    ),
+                },
+            ];
+            let mut root_menu = root_menu(entries);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
         };
         // Open menu
-        let result = match self
+        let result_index = self
             .view
             .require_window()
-            .open_popup_menu(ctx_menu, location)
-        {
-            None => return,
-            Some(r) => r,
-        };
+            .open_popup_menu(menu_bar.menu(), location)
+            .ok_or("no entry selected")?;
+        let result = pure_menu
+            .find_item_by_id(result_index)
+            .expect("selected menu item not found")
+            .invoke_handler();
         // Execute action
         match result {
-            root::IDM_DONATE => self.donate(),
-            root::IDM_USER_GUIDE_OFFLINE => self.open_user_guide_offline(),
-            root::IDM_USER_GUIDE_ONLINE => self.open_user_guide_online(),
-            root::IDM_FORUM => self.open_forum(),
-            root::IDM_CONTACT_DEVELOPER => self.contact_developer(),
-            root::IDM_WEBSITE => self.open_website(),
-            root::IDM_LOG_DEBUG_INFO => self.log_debug_info(),
-            root::IDM_SEND_FEEDBACK_NOW => self.session().borrow().send_all_feedback(),
-            root::IDM_AUTO_CORRECT_SETTINGS => self.toggle_always_auto_detect(),
-            root::IDM_LINK_TO_FX => {
-                use PresetFxLinkAction::*;
-                let manager = app.preset_link_manager();
-                match next_preset_fx_link_action.expect("impossible") {
-                    LinkTo { preset_id, fx_id } => {
-                        manager.borrow_mut().link_preset_to_fx(preset_id, fx_id)
-                    }
-                    UnlinkFrom { preset_id, .. } => {
-                        manager.borrow_mut().unlink_preset_from_fx(&preset_id)
-                    }
-                }
+            MenuAction::None => {}
+            MenuAction::CopyListedMappings => self.copy_listed_mappings(),
+            MenuAction::EditNewOscDevice => edit_new_osc_device(),
+            MenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
+            MenuAction::RemoveOscDevice(dev_id) => {
+                remove_osc_device(self.view.require_window(), dev_id)
             }
-            root::IDM_SEND_FEEDBACK_ONLY_IF_TRACK_ARMED => {
+            MenuAction::ToggleOscDeviceControl(dev_id) => {
+                App::get().do_with_osc_device(dev_id, |d| d.toggle_control())
+            }
+            MenuAction::ToggleOscDeviceFeedback(dev_id) => {
+                App::get().do_with_osc_device(dev_id, |d| d.toggle_feedback())
+            }
+            MenuAction::ToggleOscDeviceBundles(dev_id) => {
+                App::get().do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles())
+            }
+            MenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
+            MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
-            root::IDM_CHANGE_SESSION_ID => {
-                self.change_session_id();
-            }
-            root::IDM_SERVER_START => {
-                use ServerAction::*;
+            MenuAction::ToggleServer => {
+                enum ServerAction {
+                    Start,
+                    Disable,
+                    Enable,
+                }
+                let next_server_action = {
+                    let server = app.server().borrow();
+                    let next_server_action = {
+                        use ServerAction::*;
+                        if server.is_running() {
+                            if app.config().server_is_enabled() {
+                                Disable
+                            } else {
+                                Enable
+                            }
+                        } else {
+                            Start
+                        }
+                    };
+                    next_server_action
+                };
                 match next_server_action {
-                    Start => {
+                    ServerAction::Start => {
                         match App::start_server_persistently(app) {
                             Ok(_) => {
                                 self.view
@@ -362,14 +412,14 @@ impl HeaderPanel {
                             }
                         };
                     }
-                    Disable => {
+                    ServerAction::Disable => {
                         app.disable_server_persistently();
                         self.view.require_window().alert(
-                            "ReaLearn",
-                            "Disabled projection server. This will take effect on the next start of REAPER.",
-                        );
+                                    "ReaLearn",
+                                    "Disabled projection server. This will take effect on the next start of REAPER.",
+                                );
                     }
-                    Enable => {
+                    ServerAction::Enable => {
                         app.enable_server_persistently();
                         self.view
                             .require_window()
@@ -377,7 +427,11 @@ impl HeaderPanel {
                     }
                 }
             }
-            root::IDM_SERVER_ADD_FIREWALL_RULE => {
+            MenuAction::AddFirewallRule => {
+                let (http_port, https_port) = {
+                    let server = app.server().borrow();
+                    (server.http_port(), server.https_port())
+                };
                 let msg = match add_firewall_rule(http_port, https_port) {
                     Ok(_) => "Successfully added firewall rule.".to_string(),
                     Err(reason) => format!(
@@ -387,16 +441,29 @@ impl HeaderPanel {
                 };
                 self.view.require_window().alert("ReaLearn", msg);
             }
-            root::IDM_COPY_LISTED_MAPPINGS => {
-                self.copy_listed_mappings();
-            }
-            _ => {
-                devs_menu
-                    .find_item_by_id(result)
-                    .expect("selected menu item not found")
-                    .invoke_handler();
+            MenuAction::ChangeSessionId => self.change_session_id(),
+            MenuAction::OpenOfflineUserGuide => self.open_user_guide_offline(),
+            MenuAction::OpenOnlineUserGuide => self.open_user_guide_online(),
+            MenuAction::OpenForum => self.open_forum(),
+            MenuAction::ContactDeveloper => self.contact_developer(),
+            MenuAction::OpenWebsite => self.open_website(),
+            MenuAction::Donate => self.donate(),
+            MenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
+            MenuAction::LogDebugInfo => self.log_debug_info(),
+            MenuAction::LinkFxPreset(action) => {
+                use PresetFxLinkAction::*;
+                let manager = App::get().preset_link_manager();
+                match action {
+                    LinkTo { preset_id, fx_id } => {
+                        manager.borrow_mut().link_preset_to_fx(preset_id, fx_id)
+                    }
+                    UnlinkFrom { preset_id, .. } => {
+                        manager.borrow_mut().unlink_preset_from_fx(&preset_id)
+                    }
+                }
             }
         };
+        Ok(())
     }
 
     fn copy_listed_mappings(&self) {
@@ -1799,7 +1866,7 @@ impl View for HeaderPanel {
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
-        self.open_context_menu(location);
+        let _ = self.open_context_menu(location);
     }
 }
 

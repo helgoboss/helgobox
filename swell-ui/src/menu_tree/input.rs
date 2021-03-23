@@ -1,13 +1,13 @@
 use std::fmt::Debug;
 
 #[derive(Debug)]
-pub enum Entry {
-    Menu(Menu),
-    Item(Item),
+pub enum Entry<R> {
+    Menu(Menu<R>),
+    Item(Item<R>),
     Nothing,
 }
 
-impl Entry {
+impl<R> Entry<R> {
     fn index_recursive(&mut self, counter: &mut Counter) {
         match self {
             Entry::Menu(m) => {
@@ -23,7 +23,7 @@ impl Entry {
         }
     }
 
-    fn find_item_by_id_recursive(self, id: u32) -> Option<Item> {
+    fn find_item_by_id_recursive(self, id: u32) -> Option<Item<R>> {
         match self {
             Entry::Menu(m) => m
                 .entries
@@ -42,13 +42,13 @@ impl Entry {
 }
 
 #[derive(Debug)]
-pub struct Menu {
+pub struct Menu<R> {
     pub id: u32,
     pub text: String,
-    pub entries: Vec<Entry>,
+    pub entries: Vec<Entry<R>>,
 }
 
-impl Menu {
+impl<R> Menu<R> {
     /// Returns next possible value.
     pub fn index(&mut self, first_id: u32) -> u32 {
         let mut counter = Counter::starting_from(first_id);
@@ -58,7 +58,7 @@ impl Menu {
         counter.next_value()
     }
 
-    pub fn find_item_by_id(self, id: u32) -> Option<Item> {
+    pub fn find_item_by_id(self, id: u32) -> Option<Item<R>> {
         self.entries
             .into_iter()
             .find_map(|e| e.find_item_by_id_recursive(id))
@@ -66,28 +66,28 @@ impl Menu {
 }
 
 #[derive(Debug)]
-pub struct Item {
+pub struct Item<R> {
     pub id: u32,
     pub text: String,
-    handler: Handler,
+    handler: Handler<R>,
     pub opts: ItemOpts,
 }
 
-impl Item {
-    pub fn invoke_handler(self) {
-        (self.handler.0)();
+impl<R> Item<R> {
+    pub fn invoke_handler(self) -> R {
+        (self.handler.0)()
     }
 }
 
-struct Handler(Box<dyn FnOnce()>);
+struct Handler<R>(Box<dyn FnOnce() -> R>);
 
-impl Debug for Handler {
+impl<R> Debug for Handler<R> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Handler")
     }
 }
 
-pub fn root_menu(entries: Vec<Entry>) -> Menu {
+pub fn root_menu<R>(entries: Vec<Entry<R>>) -> Menu<R> {
     Menu {
         id: 0,
         text: "".to_owned(),
@@ -95,7 +95,7 @@ pub fn root_menu(entries: Vec<Entry>) -> Menu {
     }
 }
 
-pub fn menu(text: impl Into<String>, entries: Vec<Entry>) -> Entry {
+pub fn menu<R>(text: impl Into<String>, entries: Vec<Entry<R>>) -> Entry<R> {
     Entry::Menu(Menu {
         id: 0,
         text: text.into(),
@@ -103,7 +103,7 @@ pub fn menu(text: impl Into<String>, entries: Vec<Entry>) -> Entry {
     })
 }
 
-pub fn item(text: impl Into<String>, handler: impl FnOnce() + 'static) -> Entry {
+pub fn item<R>(text: impl Into<String>, handler: impl FnOnce() -> R + 'static) -> Entry<R> {
     Entry::Item(Item {
         id: 0,
         text: text.into(),
@@ -112,11 +112,11 @@ pub fn item(text: impl Into<String>, handler: impl FnOnce() + 'static) -> Entry 
     })
 }
 
-pub fn item_with_opts(
+pub fn item_with_opts<R>(
     text: impl Into<String>,
     opts: ItemOpts,
-    handler: impl FnOnce() + 'static,
-) -> Entry {
+    handler: impl FnOnce() -> R + 'static,
+) -> Entry<R> {
     Entry::Item(Item {
         id: 0,
         text: text.into(),
@@ -125,14 +125,14 @@ pub fn item_with_opts(
     })
 }
 
-pub fn disabled_item(text: impl Into<String>) -> Entry {
+pub fn disabled_item<R: Default>(text: impl Into<String>) -> Entry<R> {
     item_with_opts(
         text,
         ItemOpts {
             enabled: false,
             checked: false,
         },
-        || {},
+        || R::default(),
     )
 }
 
