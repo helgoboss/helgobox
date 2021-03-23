@@ -43,8 +43,8 @@ impl Default for MainState {
             is_learning_source_filter: prop(false),
             active_compartment: prop(MappingCompartment::MainMappings),
             group_filter: enum_map! {
-                ControllerMappings => prop(Some(GroupFilter::default())),
-                MainMappings => prop(Some(GroupFilter::default())),
+                MappingCompartment::ControllerMappings => prop(Some(GroupFilter::default())),
+                MappingCompartment::MainMappings => prop(Some(GroupFilter::default())),
             },
             search_expression: Default::default(),
             status_msg: Default::default(),

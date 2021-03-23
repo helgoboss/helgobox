@@ -2,9 +2,8 @@ use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, DomainGlobal, ExtendedProcessorContext, MappingCompartment,
-    ParameterArray, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions,
-    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
-    COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
+    ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions, SoloBehavior,
+    TouchedParameterType, TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;

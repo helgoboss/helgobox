@@ -6,7 +6,7 @@ use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,
-    MigrationDescriptor, ParameterData, PresetData,
+    MigrationDescriptor, PresetData,
 };
 
 use crate::infrastructure::plugin::App;

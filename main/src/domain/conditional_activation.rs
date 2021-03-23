@@ -1,5 +1,5 @@
 use crate::core::eel;
-use crate::domain::{ParameterArray, ParameterSlice, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{ParameterSlice, COMPARTMENT_PARAMETER_COUNT};
 use std::collections::HashSet;
 
 #[derive(Debug)]

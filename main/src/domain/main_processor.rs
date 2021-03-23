@@ -5,8 +5,7 @@ use crate::domain::{
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
     RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
-    SourceFeedbackValue, TargetValueChangedEvent, UnresolvedCompoundMappingTarget,
-    VirtualSourceValue,
+    SourceFeedbackValue, TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
@@ -1305,6 +1304,7 @@ fn send_final_non_virtual_feedback<EH: DomainEventHandler>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn control_virtual_mappings_osc<EH: DomainEventHandler>(
     rt_sender: &RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &crossbeam_channel::Sender<OscFeedbackTask>,

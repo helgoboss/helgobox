@@ -11,7 +11,7 @@ use crate::application::{
     ActivationType, GroupModel, MappingModel, ModifierConditionModel, ProgramConditionModel,
     SharedSession, WeakSession,
 };
-use crate::domain::{MappingCompartment, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{MappingCompartment, COMPARTMENT_PARAMETER_COUNT};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 

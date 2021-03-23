@@ -12,7 +12,7 @@ use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
-use rx_util::{SharedItemEvent, SharedPayload, UnitEvent};
+use rx_util::{SharedItemEvent, SharedPayload};
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
@@ -2116,7 +2116,7 @@ fn edit_compartment_parameter_internal(
 ) -> Result<Vec<ParameterSetting>, &'static str> {
     let mut captions_csv = (offset..)
         .zip(settings)
-        .map(|(i, s)| format!("Param {} name", i + 1))
+        .map(|(i, _)| format!("Param {} name", i + 1))
         .join(",");
     captions_csv.push_str(",separator=;,extrawidth=80");
     let initial_csv = settings.iter().map(|s| s.name.clone()).join(";");

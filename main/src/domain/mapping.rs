@@ -589,10 +589,6 @@ impl RealTimeMapping {
         }
     }
 
-    pub fn has_virtual_target(&self) -> bool {
-        matches!(self.target_type, Some(UnresolvedTargetType::Virtual))
-    }
-
     pub fn has_reaper_target(&self) -> bool {
         matches!(self.target_type, Some(UnresolvedTargetType::Reaper))
     }
@@ -1051,7 +1047,7 @@ impl MappingCompartment {
 
     const fn param_range(self) -> Range<u32> {
         let offset = self.param_offset();
-        (offset..(offset + COMPARTMENT_PARAMETER_COUNT))
+        offset..(offset + COMPARTMENT_PARAMETER_COUNT)
     }
 }
 

@@ -10,7 +10,7 @@ use crate::domain::{
     MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
     NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
     QualifiedMappingId, RealSource, RealTimeSender, ReaperTarget, TargetValueChangedEvent,
-    VirtualSource, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
@@ -201,8 +201,8 @@ impl Session {
             ui: WrapDebug(Box::new(ui)),
             parameters: ZEROED_PLUGIN_PARAMETERS,
             parameter_settings: enum_map! {
-                ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-                MainMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
+                MappingCompartment::ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
+                MappingCompartment::MainMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
             },
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),

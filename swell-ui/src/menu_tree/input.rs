@@ -125,6 +125,7 @@ pub fn item_with_opts<R>(
     })
 }
 
+#[allow(clippy::redundant_closure)]
 pub fn disabled_item<R: Default>(text: impl Into<String>) -> Entry<R> {
     item_with_opts(
         text,
