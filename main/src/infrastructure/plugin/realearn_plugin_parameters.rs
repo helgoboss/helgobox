@@ -169,7 +169,10 @@ impl PluginParameters for RealearnPluginParameters {
                 let index = index as u32;
                 if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
                     let rel_index = compartment.relativize_absolute_index(index);
-                    Some(s.borrow().get_parameter_name(compartment, rel_index))
+                    Some(
+                        s.borrow()
+                            .get_qualified_parameter_name(compartment, rel_index),
+                    )
                 } else {
                     None
                 }

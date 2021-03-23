@@ -17,11 +17,14 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
-    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, PresetManager, Session,
-    SharedSession, VirtualControlElementType, WeakSession,
+    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, PresetManager,
+    Session, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
-use crate::domain::{ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget};
+use crate::domain::{
+    ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget,
+    COMPARTMENT_PARAMETER_COUNT,
+};
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
 use crate::infrastructure::data::{
     ExtendedPresetManager, MappingModelData, OscDevice, SessionData,
@@ -39,10 +42,12 @@ use crate::infrastructure::ui::{
     SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
+use itertools::Itertools;
 use std::cell::{Cell, RefCell};
 use std::net::Ipv4Addr;
 
 const OSC_INDEX_OFFSET: isize = 1000;
+const PARAM_BATCH_SIZE: u32 = 5;
 
 /// The upper part of the main panel, containing buttons such as "Add mapping".
 #[derive(Debug)]
@@ -201,6 +206,7 @@ impl HeaderPanel {
             ToggleOscDeviceControl(OscDeviceId),
             ToggleOscDeviceFeedback(OscDeviceId),
             ToggleOscDeviceBundles(OscDeviceId),
+            EditCompartmentParameter(MappingCompartment, u32),
             SendFeedbackNow,
             LogDebugInfo,
             LinkFxPreset(PresetFxLinkAction),
@@ -217,6 +223,7 @@ impl HeaderPanel {
             let dev_manager = dev_manager.borrow();
             let session = self.session();
             let session = session.borrow();
+            let compartment = self.active_compartment();
             let entries = vec![
                 item("Copy listed mappings", || MenuAction::CopyListedMappings),
                 menu(
@@ -318,10 +325,34 @@ impl HeaderPanel {
                         }))
                         .collect(),
                 ),
+                menu(
+                    "Compartment parameters",
+                    (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
+                        .map(|batch_index| {
+                            let offset = batch_index * PARAM_BATCH_SIZE;
+                            let range = offset..(offset + PARAM_BATCH_SIZE);
+                            menu(
+                                format!("Parameters {} - {}", range.start + 1, range.end),
+                                range
+                                    .map(|i| {
+                                        item(
+                                            format!(
+                                                "{}...",
+                                                session.get_parameter_name(compartment, i)
+                                            ),
+                                            move || {
+                                                MenuAction::EditCompartmentParameter(compartment, i)
+                                            },
+                                        )
+                                    })
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                ),
                 item("Send feedback now", || MenuAction::SendFeedbackNow),
                 item("Log debug info", || MenuAction::LogDebugInfo),
-                match determine_next_preset_fx_link_action(app, &session, self.active_compartment())
-                {
+                match determine_next_preset_fx_link_action(app, &session, compartment) {
                     None => disabled_item("Link current preset fo FX..."),
                     Some(action) => item_with_opts(
                         match &action {
@@ -372,6 +403,9 @@ impl HeaderPanel {
             }
             MenuAction::ToggleOscDeviceBundles(dev_id) => {
                 App::get().do_with_osc_device(dev_id, |d| d.toggle_can_deal_with_bundles())
+            }
+            MenuAction::EditCompartmentParameter(compartment, rel_index) => {
+                let _ = edit_compartment_parameter(self.session(), compartment, rel_index);
             }
             MenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
             MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
@@ -2037,10 +2071,77 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
         .unwrap();
 }
 
+fn edit_compartment_parameter(
+    session: SharedSession,
+    compartment: MappingCompartment,
+    rel_index: u32,
+) -> Result<(), &'static str> {
+    let batch_index = rel_index / PARAM_BATCH_SIZE;
+    let offset = batch_index * PARAM_BATCH_SIZE;
+    let range = offset..(offset + PARAM_BATCH_SIZE);
+    let modified_settings = {
+        let session = session.borrow();
+        let settings: Vec<_> = range
+            .clone()
+            .map(|i| session.get_parameter_settings(compartment, i))
+            .collect();
+        edit_compartment_parameter_internal(offset, &settings)?
+    };
+    for (i, s) in range.zip(modified_settings) {
+        session
+            .borrow_mut()
+            .set_parameter_setting_without_notification(compartment, i, s);
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 enum EditOscDevError {
     Cancelled,
     Unexpected(&'static str),
+}
+
+/// Max 5 settings.
+fn edit_compartment_parameter_internal(
+    offset: u32,
+    settings: &[&ParameterSetting],
+) -> Result<Vec<ParameterSetting>, &'static str> {
+    let mut captions_csv = (offset..)
+        .zip(settings)
+        .map(|(i, s)| format!("Param {} name", i + 1))
+        .join(",");
+    captions_csv.push_str(",separator=;,extrawidth=80");
+    let initial_csv = settings
+        .iter()
+        .map(|s| s.custom_name.clone().unwrap_or_default())
+        .join(";");
+    let csv = Reaper::get()
+        .medium_reaper()
+        .get_user_inputs(
+            "ReaLearn",
+            settings.len() as _,
+            captions_csv,
+            initial_csv,
+            512,
+        )
+        .ok_or("cancelled")?;
+    let out_settings: Vec<_> = csv
+        .to_str()
+        .split(';')
+        .map(|name| {
+            let custom_name = name.trim().to_owned();
+            let custom_name = if custom_name.is_empty() {
+                None
+            } else {
+                Some(custom_name)
+            };
+            ParameterSetting { custom_name }
+        })
+        .collect();
+    if out_settings.len() != settings.len() {
+        return Err("unexpected length difference");
+    }
+    Ok(out_settings)
 }
 
 fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
