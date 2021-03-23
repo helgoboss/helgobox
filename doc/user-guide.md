@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-22 (v2.8.0-pre4)</code></td>
+  <td><code>2021-03-23 (v2.8.0-pre5)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -576,11 +576,45 @@ on macOS) with the following entries:
         - **Can deal with bundles:** By default, ReaLearn aggregates multiple OSC messages into so-called OSC bundles.
           Some devices (e.g. from Behringer) can't deal with OSC bundles. Untick the checkbox in this case and ReaLearn
           will send single OSC messages.
+- **Compartment parameters:** This shows all parameters of the current compartment (you know, the ones that can be used
+  for conditional activation and `<Dynamic>` selector expressions) and makes it possible to customize their names.
+  This is practical because it's completely up to you how to put these parameters to use. Perfect for preset authors:
+  The parameters are saved together with the compartment preset.
 - **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
   investigating bugs or understanding how this plug-in works.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
   or motorized faders of your controller in sync with REAPER at all times. There might be situations
   where it doesn't work though. In this case you can send feedback manually using this button. 
+
+#### Mapping lists in general
+
+The header panel shows the following user interface elements, no matter if you are in the controller or main
+compartment: 
+
+- **Mapping group:** Mapping groups are part of the currently shown compartment and enable you to divide the list of
+    mappings into multiple groups.
+    - Groups can be useful ...
+        - To apply an activation condition to multiple mappings at once.
+        - To enable/disable control/feedback for multiple mappings at once.
+        - To keep track of mappings if there are many of them.
+    - This dropdown contains the following options:
+        - **&lt;All&gt;:** Displays all mappings in the compartment, no matter to which group they belong.
+        - **&lt;Default&gt;:** Displays mappings that belong to the *default* group. This is where mappings
+          end up if you don't care about grouping. This is a special group that can't be removed.
+        - ***Custom group*:** Displays all mappings in your custom group.
+    - You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows
+      and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
+    - Groups are saved as part of the project, VST plug-in preset and compartment preset.
+- **Add:** Allows you to add a group and give it a specific name.
+- **Remove:** Removes the currently displayed group. It will ask you if you want to remove all the mappings in that
+  group as well. Alternatively they will automatically be moved to the default group.
+- **Edit:** Opens the group panel. This allows you to change the group name, enable/disable control and/or
+  feedback and set an activation condition for all mappings in this group. The activation condition that you provide
+  here is combined with the one that you provide in the mapping. Only if both, the group activation conditions and
+  the mapping activation condition are satisfied, the corresponding mapping will be active. Read more about
+  [conditional activation](#conditional-activation) below in the section about the [Mapping panel](#mapping-panel).
+
+![Group panel](images/screenshot-group-panel.png)
 
 #### Controller mappings
 
@@ -654,32 +688,7 @@ list](https://github.com/helgoboss/realearn/tree/master/resources/controllers).
 
 #### Main mappings
 
-The header panel for main mappings consists of a few more user interface elements that you might find immensely
-helpful:
-
-- **Mapping group:** Mapping groups allow you to divide your list of main mappings into multiple groups.
-    - Groups can be useful ... 
-        - To apply an activation condition to multiple mappings at once. 
-        - To enable/disable control/feedback for multiple mappings at once.
-        - To keep track of mappings if there are many of them.
-    - This dropdown contains the following options:
-        - **&lt;All&gt;:** Displays all mappings in the compartment, no matter to which group they belong. 
-        - **&lt;Default&gt;:** Displays mappings that belong to the *default* group. This is where mappings
-          end up if you don't care about grouping. This is a special group that can't be removed.
-        - ***Custom group*:** Displays all mappings in your custom group.
-    - You can move existing mappings between groups by opening the context menu (accessible via right-click on Windows
-      and Linux, control-click on macOS) of the corresponding mapping row and choosing "Move to group".
-    - Groups are saved as part of the project, VST plug-in preset and compartment preset.
-- **Add:** Allows you to add a group and give it a specific name.
-- **Remove:** Removes the currently displayed group. It will ask you if you want to remove all the mappings in that
-  group as well. Alternatively they will automatically be moved to the default group.
-- **Edit:** Opens the group panel. This allows you to change the group name, enable/disable control and/or
-  feedback and set an activation condition for all mappings in this group. The activation condition that you provide
-  here is combined with the one that you provide in the mapping. Only if both, the group activation conditions and
-  the mapping activation condition are satisfied, the corresponding mapping will be active. Read more about
-  [conditional activation](#conditional-activation) below in the section about the [Mapping panel](#mapping-panel).
-
-![Group panel](images/screenshot-group-panel.png)
+The header panel for main mappings consists of a few more user interface elements:
 
 - **Auto-load preset:** If you switch this to *Depending on focused FX*, ReaLearn will start to observe which
   FX window is currently focused. Whenever the focus changes, it will check if you have linked a compartment preset
@@ -824,12 +833,12 @@ There are 4 different activation modes:
 
 For details, see below.
 
-At this occasion some words about ReaLearn's plug-in parameters. ReaLearn itself isn't just able to
-control parameters of other FX, it also offers FX parameters itself. At the moment these are
-"Parameter 1" to "Parameter 100". You can control them just like parameters in other FX: Via automation
-envelopes, via track controls, via REAPER's own MIDI/OSC learn ... and of course via ReaLearn itself.
+At this occasion some words about ReaLearn's own freely assignable FX parameters. ReaLearn itself isn't just able to
+control parameters of other FX, it also offers FX parameters itself. At the moment it offers 200 FX parameters,
+100 for the main compartment and 100 for the controller compartment. You can control them just like parameters in other
+FX: Via automation envelopes, via track controls, via REAPER's own MIDI/OSC learn ... and of course via ReaLearn itself.
 Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
-in conditional activation. In future, ReaLearn will provide additional ways to make use of parameters.
+in activation conditions or `<Dynamic>` selector expressions.
 
 ##### When modifiers on/off
 
@@ -921,36 +930,17 @@ one particular use case. If you feel limited by the other activation modes, just
 
 ##### Custom parameter names
 
-There's a somewhat hidden possibility to give ReaLearn parameters more descriptive names (yes, not
-very convenient, hopefully future versions will improve on that):
+Because ReaLearn's parameters are freely assignable, they have very generic names by default. However, as soon as you
+give them meaning by using them in a specific way, it can be helpful to give them a meaningful name. You can do that:
 
-1. Press *Export to clipboard* in the main panel.
-2. Paste the result into a text editor of your choice.
-3. You will see a property "parameters", e.g.
-   ```json
-   "parameters": {
-     "0": {
-       "value": 0.084
-     }
-   }
-   ```
-4. Adjust it as you like, e.g.
-   ```json
-   "parameters": {
-     "0": {
-       "value": 0.084,
-       "name": "Pedal"
-     },
-     "1": {
-       "name": "Shift"
-     }
-   }
-   ```
-5. Copy the complete text to the clipboard.
-6. Press *Import from clipboard*  in the main panel.
+1. Switch to the compartment whose parameter names you want to change.
+2. Open the header panel context menu (accessible via right-click on Windows and Linux, control-click on macOS)
+   and open the *Compartment parameters* submenu.
+3. Here you will find each of the 100 compartment parameters with their current names. Simply click the name to change
+   it.
    
-Parameter names are not global, they are always saved together with the REAPER project / FX preset /
-track template etc.
+Parameter names are not global, they are always saved together with the REAPER project / FX preset / track template etc.
+They will also be saved/restored as part of the compartment preset.
 
 ##### Use case: Control A when a button is not pressed, control B when it is
 
