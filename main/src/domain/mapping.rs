@@ -1075,7 +1075,9 @@ fn match_partially(
             // It's important to do that here. We need to know the result in order to
             // return if there was actually a match of *real* non-virtual mappings.
             // Unlike with REAPER targets, we also don't have threading issues here :)
-            // TODO-high Mode polling in real-time processor, too!
+            // TODO-medium If we want to support fire after timeout and turbo for mappings with
+            //  virtual targets one day, we need to poll this in real-time processor and OSC
+            //  processing, too!
             let transformed_control_value = core.mode.control(control_value, t)?;
             if core.options.prevent_echo_feedback {
                 core.time_of_last_control = Some(Instant::now());

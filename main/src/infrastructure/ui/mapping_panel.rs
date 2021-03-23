@@ -1023,7 +1023,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration) {
-        match self.mapping.mode_model.fire_mode.get() {
+        match self.mapping.effective_fire_mode() {
             FireMode::WhenButtonReleased => {
                 self.mapping
                     .mode_model
@@ -3259,7 +3259,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_line_2_controls(&self) {
-        let label = match self.mode.fire_mode.get() {
+        let label = match self.mapping.effective_fire_mode() {
             FireMode::WhenButtonReleased => "Min",
             FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => "Timeout",
         };
@@ -3284,7 +3284,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_line_3_controls(&self) {
-        let option = match self.mode.fire_mode.get() {
+        let option = match self.mapping.effective_fire_mode() {
             FireMode::WhenButtonReleased => {
                 Some(("Max", self.mode.press_duration_interval.get_ref().max_val()))
             }
@@ -3404,9 +3404,10 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_mode_combo_box(&self) {
-        self.view
-            .require_control(root::ID_MODE_FIRE_COMBO_BOX)
-            .select_combo_box_item_by_index(self.mode.fire_mode.get().into())
+        let combo = self.view.require_control(root::ID_MODE_FIRE_COMBO_BOX);
+        combo.set_enabled(self.target_category() != TargetCategory::Virtual);
+        combo
+            .select_combo_box_item_by_index(self.mapping.effective_fire_mode().into())
             .unwrap();
     }
 

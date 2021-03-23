@@ -1,5 +1,6 @@
 use helgoboss_learn::{
-    AbsoluteMode, ControlType, Interval, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
+    AbsoluteMode, ControlType, FireMode, Interval, SoftSymmetricUnitValue, SourceCharacter, Target,
+    UnitValue,
 };
 use rx_util::UnitEvent;
 
@@ -99,6 +100,20 @@ impl MappingModel {
 
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
         self.advanced_settings.get_ref().as_ref()
+    }
+
+    pub fn effective_fire_mode(&self) -> FireMode {
+        self.enforced_fire_mode()
+            .unwrap_or_else(|| self.mode_model.fire_mode.get())
+    }
+
+    fn enforced_fire_mode(&self) -> Option<FireMode> {
+        if self.target_model.category.get() == TargetCategory::Virtual {
+            // We don't support advanced fire modes in mappings with virtual targets.
+            Some(FireMode::WhenButtonReleased)
+        } else {
+            None
+        }
     }
 
     pub fn set_advanced_settings(
@@ -207,7 +222,7 @@ impl MappingModel {
     ) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
-        let mode = self.mode_model.create_mode();
+        let mode = self.mode_model.create_mode(self.enforced_fire_mode());
         let unresolved_target = self.target_model.create_target().ok();
         let activation_condition = self
             .activation_condition_model

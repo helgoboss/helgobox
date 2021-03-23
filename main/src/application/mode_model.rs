@@ -130,7 +130,7 @@ impl ModeModel {
     }
 
     /// Creates a mode reflecting this model's current values
-    pub fn create_mode(&self) -> Mode {
+    pub fn create_mode(&self, enforced_fire_mode: Option<FireMode>) -> Mode {
         Mode {
             absolute_mode: self.r#type.get(),
             source_value_interval: self.source_value_interval.get(),
@@ -142,7 +142,7 @@ impl ModeModel {
             step_size_interval: self.positive_step_size_interval(),
             jump_interval: self.jump_interval.get(),
             press_duration_processor: PressDurationProcessor::new(
-                self.fire_mode.get(),
+                enforced_fire_mode.unwrap_or_else(|| self.fire_mode.get()),
                 self.press_duration_interval.get(),
                 self.turbo_rate.get(),
             ),
