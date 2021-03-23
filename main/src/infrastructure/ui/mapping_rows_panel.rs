@@ -349,7 +349,7 @@ impl MappingRowsPanel {
         if let Some(filter_target) = main_state.target_filter.get_ref() {
             let mapping_target = match mapping
                 .target_model
-                .with_context(session.extended_context())
+                .with_context(session.extended_context(), mapping.compartment())
                 .create_target()
             {
                 Ok(CompoundMappingTarget::Reaper(t)) => t,

@@ -1,5 +1,6 @@
 use crate::application::{ActivationConditionModel, GroupData};
 use crate::core::{prop, Prop};
+use crate::domain::MappingCompartment;
 use core::fmt;
 use rx_util::UnitEvent;
 use serde::{Deserialize, Serialize};
@@ -10,23 +11,12 @@ use uuid::Uuid;
 /// A mapping group.
 #[derive(Clone, Debug)]
 pub struct GroupModel {
+    compartment: MappingCompartment,
     id: GroupId,
     pub name: Prop<String>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub activation_condition_model: ActivationConditionModel,
-}
-
-impl Default for GroupModel {
-    fn default() -> Self {
-        Self {
-            id: Default::default(),
-            name: Default::default(),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
-            activation_condition_model: ActivationConditionModel::default(),
-        }
-    }
 }
 
 impl fmt::Display for GroupModel {
@@ -76,20 +66,35 @@ impl fmt::Display for GroupId {
 }
 
 impl GroupModel {
-    pub fn new_from_ui(name: String) -> Self {
-        Self::new_internal(GroupId::random(), name)
+    pub fn new_from_ui(compartment: MappingCompartment, name: String) -> Self {
+        Self::new_internal(compartment, GroupId::random(), name)
     }
 
-    pub fn new_from_data(id: GroupId) -> Self {
-        Self::new_internal(id, "".to_string())
+    pub fn new_from_data(compartment: MappingCompartment, id: GroupId) -> Self {
+        Self::new_internal(compartment, id, "".to_string())
     }
 
-    fn new_internal(id: GroupId, name: String) -> Self {
+    pub fn default_for_compartment(compartment: MappingCompartment) -> Self {
+        Self {
+            compartment,
+            id: Default::default(),
+            name: Default::default(),
+            control_is_enabled: prop(true),
+            feedback_is_enabled: prop(true),
+            activation_condition_model: ActivationConditionModel::default(),
+        }
+    }
+
+    fn new_internal(compartment: MappingCompartment, id: GroupId, name: String) -> Self {
         Self {
             id,
             name: prop(name),
-            ..Default::default()
+            ..Self::default_for_compartment(compartment)
         }
+    }
+
+    pub fn compartment(&self) -> MappingCompartment {
+        self.compartment
     }
 
     pub fn id(&self) -> GroupId {

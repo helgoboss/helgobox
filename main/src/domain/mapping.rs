@@ -2,7 +2,7 @@ use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
     MappingActivationEffect, Mode, ParameterArray, ParameterSlice, PlayPosFeedbackResolution,
     RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget,
+    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::fmt::Display;
+use std::ops::Range;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -164,16 +165,25 @@ impl MainMapping {
     /// Returns `Some` if this affects the mapping's activation state in any way.
     pub fn check_activation_effect(
         &self,
-        params: &ParameterSlice,
-        index: u32,
+        params: &ParameterArray,
+        absolute_param_index: u32,
         previous_value: f32,
     ) -> Option<MappingActivationEffect> {
-        let effect_1 =
-            self.activation_condition_1
-                .is_fulfilled_single(params, index, previous_value);
-        let effect_2 =
-            self.activation_condition_2
-                .is_fulfilled_single(params, index, previous_value);
+        let sliced_params = self.core.compartment.slice_params(params);
+        let rel_param_index = self
+            .core
+            .compartment
+            .relativize_absolute_index(absolute_param_index);
+        let effect_1 = self.activation_condition_1.is_fulfilled_single(
+            sliced_params,
+            rel_param_index,
+            previous_value,
+        );
+        let effect_2 = self.activation_condition_2.is_fulfilled_single(
+            sliced_params,
+            rel_param_index,
+            previous_value,
+        );
         MappingActivationEffect::new(self.id(), effect_1, effect_2)
     }
 
@@ -213,9 +223,9 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn refresh_all(&mut self, context: ExtendedProcessorContext, params: &ParameterSlice) {
+    pub fn refresh_all(&mut self, context: ExtendedProcessorContext) {
         self.refresh_target(context);
-        self.update_activation(params);
+        self.update_activation(&context.params);
     }
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
@@ -245,7 +255,7 @@ impl MainMapping {
         let was_active_before = self.core.options.target_is_active;
         let (target, is_active) = match self.unresolved_target.as_ref() {
             None => (None, false),
-            Some(t) => match t.resolve(context).ok() {
+            Some(t) => match t.resolve(context, self.core.compartment).ok() {
                 None => (None, false),
                 Some(rt) => {
                     let met = t.conditions_are_met(&rt);
@@ -266,10 +276,11 @@ impl MainMapping {
         (target_changed, Some(update))
     }
 
-    pub fn update_activation(&mut self, params: &ParameterSlice) -> Option<ActivationChange> {
+    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
+        let sliced_params = self.core.compartment.slice_params(params);
         let was_active_before = self.is_active();
-        self.is_active_1 = self.activation_condition_1.is_fulfilled(params);
-        self.is_active_2 = self.activation_condition_2.is_fulfilled(params);
+        self.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
+        self.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
         let now_is_active = self.is_active();
         if now_is_active == was_active_before {
             return None;
@@ -810,10 +821,11 @@ impl UnresolvedCompoundMappingTarget {
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<CompoundMappingTarget, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved = match self {
-            Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context)?),
+            Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context, compartment)?),
             Virtual(t) => CompoundMappingTarget::Virtual(*t),
         };
         Ok(resolved)
@@ -1015,6 +1027,31 @@ impl MappingCompartment {
     /// in IntelliJ Rust doesn't work for that at the time of this writing.
     pub fn enum_iter() -> impl Iterator<Item = MappingCompartment> + ExactSizeIterator {
         MappingCompartment::into_enum_iter()
+    }
+
+    pub fn by_absolute_param_index(absolute_index: u32) -> Option<MappingCompartment> {
+        Self::enum_iter().find(|c| c.param_range().contains(&(absolute_index)))
+    }
+
+    pub fn relativize_absolute_index(self, absolute_index: u32) -> u32 {
+        absolute_index - self.param_offset()
+    }
+
+    pub fn slice_params(self, params: &ParameterArray) -> &ParameterSlice {
+        let range = self.param_range();
+        &params[range.start as usize..range.end as usize]
+    }
+
+    const fn param_offset(self) -> u32 {
+        match self {
+            MappingCompartment::ControllerMappings => 100u32,
+            MappingCompartment::MainMappings => 0u32,
+        }
+    }
+
+    const fn param_range(self) -> Range<u32> {
+        let offset = self.param_offset();
+        (offset..(offset + COMPARTMENT_PARAMETER_COUNT))
     }
 }
 

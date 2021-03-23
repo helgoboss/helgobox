@@ -155,8 +155,9 @@ impl TargetModel {
     pub fn take_fx_snapshot(
         &self,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<FxSnapshot, &'static str> {
-        let fx = self.with_context(context).fx()?;
+        let fx = self.with_context(context, compartment).fx()?;
         let fx_info = fx.info();
         let fx_snapshot = FxSnapshot {
             fx_type: if fx_info.sub_type_expression.is_empty() {
@@ -171,11 +172,15 @@ impl TargetModel {
         Ok(fx_snapshot)
     }
 
-    pub fn invalidate_fx_index(&mut self, context: ExtendedProcessorContext) {
+    pub fn invalidate_fx_index(
+        &mut self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) {
         if !self.supports_fx() {
             return;
         }
-        if let Ok(actual_fx) = self.with_context(context).fx() {
+        if let Ok(actual_fx) = self.with_context(context, compartment).fx() {
             let new_virtual_fx = match self.virtual_fx() {
                 Some(virtual_fx) => {
                     match virtual_fx {
@@ -691,10 +696,12 @@ impl TargetModel {
     pub fn with_context<'a>(
         &'a self,
         context: ExtendedProcessorContext<'a>,
+        compartment: MappingCompartment,
     ) -> TargetModelWithContext<'a> {
         TargetModelWithContext {
             target: self,
             context,
+            compartment,
         }
     }
 
@@ -843,6 +850,7 @@ pub fn get_fx_label(index: u32, fx: &Fx) -> String {
 pub struct TargetModelWithContext<'a> {
     target: &'a TargetModel,
     context: ExtendedProcessorContext<'a>,
+    compartment: MappingCompartment,
 }
 
 impl<'a> TargetModelWithContext<'a> {
@@ -858,7 +866,7 @@ impl<'a> TargetModelWithContext<'a> {
     /// track/FX/parameter) is not available.
     pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
         let unresolved = self.target.create_target()?;
-        unresolved.resolve(self.context)
+        unresolved.resolve(self.context, self.compartment)
     }
 
     pub fn is_known_to_be_roundable(&self) -> bool {
@@ -874,7 +882,11 @@ impl<'a> TargetModelWithContext<'a> {
     }
     // Returns an error if the FX doesn't exist.
     pub fn fx(&self) -> Result<Fx, &'static str> {
-        get_fx(self.context, &self.target.fx_descriptor()?)
+        get_fx(
+            self.context,
+            &self.target.fx_descriptor()?,
+            self.compartment,
+        )
     }
 
     pub fn project(&self) -> Project {
@@ -886,18 +898,26 @@ impl<'a> TargetModelWithContext<'a> {
         self.target
             .virtual_track()
             .ok_or("virtual track not complete")?
-            .resolve(self.context)
+            .resolve(self.context, self.compartment)
             .map_err(|_| "particular track couldn't be resolved")
     }
 
     // Returns an error if that send (or track) doesn't exist.
     pub fn track_route(&self) -> Result<TrackRoute, &'static str> {
-        get_track_route(self.context, &self.target.track_route_descriptor()?)
+        get_track_route(
+            self.context,
+            &self.target.track_route_descriptor()?,
+            self.compartment,
+        )
     }
 
     // Returns an error if that param (or FX) doesn't exist.
     fn fx_param(&self) -> Result<FxParameter, &'static str> {
-        get_fx_param(self.context, &self.target.fx_parameter_descriptor()?)
+        get_fx_param(
+            self.context,
+            &self.target.fx_parameter_descriptor()?,
+            self.compartment,
+        )
     }
 
     fn route_type_label(&self) -> &'static str {
@@ -928,7 +948,7 @@ impl<'a> TargetModelWithContext<'a> {
 
     fn track_label(&self) -> String {
         if let Some(t) = self.target.virtual_track() {
-            t.with_context(self.context).to_string()
+            t.with_context(self.context, self.compartment).to_string()
         } else {
             "<Undefined>".to_owned()
         }

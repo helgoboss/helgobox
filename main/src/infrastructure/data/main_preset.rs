@@ -1,4 +1,6 @@
-use crate::application::{MainPreset, Preset, PresetManager, SharedGroup, SharedMapping};
+use crate::application::{
+    GroupModel, MainPreset, Preset, PresetManager, SharedGroup, SharedMapping,
+};
 use crate::core::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
@@ -91,22 +93,26 @@ impl PresetData for MainPresetData {
     }
 
     fn to_model(&self, id: String) -> MainPreset {
+        let compartment = MappingCompartment::MainMappings;
         let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
         let final_default_group = self
             .default_group
             .as_ref()
-            .map(|g| g.to_model())
-            .unwrap_or_default();
+            .map(|g| g.to_model(compartment))
+            .unwrap_or_else(|| GroupModel::default_for_compartment(compartment));
         MainPreset::new(
             id,
             self.name.clone(),
             final_default_group,
-            self.groups.iter().map(|g| g.to_model()).collect(),
+            self.groups
+                .iter()
+                .map(|g| g.to_model(compartment))
+                .collect(),
             self.mappings
                 .iter()
                 .map(|m| {
                     m.to_model_flexible(
-                        MappingCompartment::MainMappings,
+                        compartment,
                         None,
                         &migration_descriptor,
                         self.version.as_ref(),

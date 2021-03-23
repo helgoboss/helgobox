@@ -191,7 +191,11 @@ impl TargetModelData {
                 with_notification,
             );
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
-        let fx_prop_values = deserialize_fx(&self.fx_data, context, &virtual_track);
+        let fx_prop_values = deserialize_fx(
+            &self.fx_data,
+            context.map(|c| (c, compartment)),
+            &virtual_track,
+        );
         model.set_fx(fx_prop_values, with_notification);
         model
             .enable_only_if_fx_has_focus
@@ -619,7 +623,7 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
 
 fn deserialize_fx(
     fx_data: &FxData,
-    context: Option<ExtendedProcessorContext>,
+    ctx: Option<(ExtendedProcessorContext, MappingCompartment)>,
     virtual_track: &VirtualTrack,
 ) -> FxPropValues {
     match fx_data {
@@ -638,13 +642,11 @@ fn deserialize_fx(
             is_input_fx,
             ..
         } => {
-            let fx = get_guid_based_fx_at_index(
-                context.expect("trying to load pre-1.12.0 FX target without processor context"),
-                virtual_track,
-                *is_input_fx,
-                *i,
-            )
-            .ok();
+            let (context, compartment) =
+                ctx.expect("trying to load pre-1.12.0 FX target without processor context");
+            let fx =
+                get_guid_based_fx_at_index(context, virtual_track, *is_input_fx, *i, compartment)
+                    .ok();
             FxPropValues {
                 r#type: VirtualFxType::ByIdOrIndex,
                 is_input_fx: *is_input_fx,
@@ -879,7 +881,8 @@ pub fn get_guid_based_fx_at_index(
     track: &VirtualTrack,
     is_input_fx: bool,
     fx_index: u32,
+    compartment: MappingCompartment,
 ) -> Result<Fx, &'static str> {
-    let fx_chain = get_fx_chain(context, track, is_input_fx)?;
+    let fx_chain = get_fx_chain(context, track, is_input_fx, compartment)?;
     fx_chain.fx_by_index(fx_index).ok_or("no FX at that index")
 }

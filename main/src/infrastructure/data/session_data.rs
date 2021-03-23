@@ -2,7 +2,8 @@ use crate::application::{GroupModel, MainPresetAutoLoadMode, ParameterSetting, S
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
-    OscDeviceId, ParameterArray, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    OscDeviceId, ParameterArray, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -71,6 +72,8 @@ pub struct SessionData {
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
     #[serde(default, skip_serializing_if = "is_default")]
     parameters: HashMap<u32, ParameterData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    controller_parameters: HashMap<u32, ParameterData>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -109,6 +112,7 @@ impl Default for SessionData {
             active_main_preset_id: None,
             main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
             parameters: Default::default(),
+            controller_parameters: Default::default(),
         }
     }
 }
@@ -172,21 +176,16 @@ impl SessionData {
                 .map(|id| id.to_string()),
             active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
-            // TODO-high This should probably be divided
-            parameters: (0..PLUGIN_PARAMETER_COUNT)
-                .filter_map(|i| {
-                    let value = parameters[i as usize];
-                    let settings = session.get_parameter_settings(i);
-                    if value == 0.0 && settings.custom_name.is_none() {
-                        return None;
-                    }
-                    let data = ParameterData {
-                        value,
-                        name: settings.custom_name.clone(),
-                    };
-                    Some((i, data))
-                })
-                .collect(),
+            parameters: get_parameter_data_map(
+                session,
+                parameters,
+                MappingCompartment::MainMappings,
+            ),
+            controller_parameters: get_parameter_data_map(
+                session,
+                parameters,
+                MappingCompartment::ControllerMappings,
+            ),
         }
     }
 
@@ -278,24 +277,35 @@ impl SessionData {
             .osc_output_device_id
             .set_without_notification(osc_feedback_output);
         // Groups
-        let get_final_default_group = |def_group: Option<&GroupModelData>| {
-            def_group.map(|g| g.to_model()).unwrap_or_default()
-        };
+        let get_final_default_group =
+            |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
+                def_group
+                    .map(|g| g.to_model(compartment))
+                    .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
+            };
         session
             .default_group(MappingCompartment::MainMappings)
-            .replace(get_final_default_group(self.default_group.as_ref()));
+            .replace(get_final_default_group(
+                self.default_group.as_ref(),
+                MappingCompartment::MainMappings,
+            ));
         session.set_groups_without_notification(
             MappingCompartment::MainMappings,
-            self.groups.iter().map(|g| g.to_model()),
+            self.groups
+                .iter()
+                .map(|g| g.to_model(MappingCompartment::MainMappings)),
         );
         session
             .default_group(MappingCompartment::ControllerMappings)
             .replace(get_final_default_group(
                 self.default_controller_group.as_ref(),
+                MappingCompartment::ControllerMappings,
             ));
         session.set_groups_without_notification(
             MappingCompartment::ControllerMappings,
-            self.controller_groups.iter().map(|g| g.to_model()),
+            self.controller_groups
+                .iter()
+                .map(|g| g.to_model(MappingCompartment::ControllerMappings)),
         );
         // Mappings
         let context = session.context().clone();
@@ -324,13 +334,14 @@ impl SessionData {
             .main_preset_auto_load_mode
             .set_without_notification(self.main_preset_auto_load_mode);
         // Parameters
-        let mut parameter_settings = vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize];
-        for (i, p) in self.parameters.iter() {
-            parameter_settings[*i as usize] = ParameterSetting {
-                custom_name: p.name.clone(),
-            };
-        }
-        session.set_parameter_settings_without_notification(parameter_settings);
+        session.set_parameter_settings_without_notification(
+            MappingCompartment::MainMappings,
+            get_parameter_settings(&self.parameters),
+        );
+        session.set_parameter_settings_without_notification(
+            MappingCompartment::ControllerMappings,
+            get_parameter_settings(&self.controller_parameters),
+        );
         Ok(())
     }
 
@@ -341,4 +352,36 @@ impl SessionData {
         }
         parameters
     }
+}
+
+fn get_parameter_data_map(
+    session: &Session,
+    parameters: &ParameterArray,
+    compartment: MappingCompartment,
+) -> HashMap<u32, ParameterData> {
+    (0..COMPARTMENT_PARAMETER_COUNT)
+        .filter_map(|i| {
+            let parameter_slice = compartment.slice_params(parameters);
+            let value = parameter_slice[i as usize];
+            let settings = session.get_parameter_settings(compartment, i);
+            if value == 0.0 && settings.custom_name.is_none() {
+                return None;
+            }
+            let data = ParameterData {
+                value,
+                name: settings.custom_name.clone(),
+            };
+            Some((i, data))
+        })
+        .collect()
+}
+
+fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<ParameterSetting> {
+    let mut settings = vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize];
+    for (i, p) in data_map.iter() {
+        settings[*i as usize] = ParameterSetting {
+            custom_name: p.name.clone(),
+        };
+    }
+    settings
 }

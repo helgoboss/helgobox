@@ -25,7 +25,7 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 64;
 const CONTROL_TASK_BULK_SIZE: usize = 32;
 const PARAMETER_TASK_BULK_SIZE: usize = 32;
 
-pub const PLUGIN_PARAMETER_COUNT: u32 = 100;
+pub const PLUGIN_PARAMETER_COUNT: u32 = 200;
 pub const COMPARTMENT_PARAMETER_COUNT: u32 = 100;
 pub type ParameterArray = [f32; PLUGIN_PARAMETER_COUNT as usize];
 pub type ParameterSlice = [f32];
@@ -215,10 +215,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let real_time_mappings = mappings
                         .iter_mut()
                         .map(|m| {
-                            m.refresh_all(
-                                ExtendedProcessorContext::new(&self.context, &self.parameters),
+                            m.refresh_all(ExtendedProcessorContext::new(
+                                &self.context,
                                 &self.parameters,
-                            );
+                            ));
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
                                 unused_sources.remove(&m.qualified_source());
@@ -314,10 +314,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         mapping.id()
                     );
                     // Refresh
-                    mapping.refresh_all(
-                        ExtendedProcessorContext::new(&self.context, &self.parameters),
+                    mapping.refresh_all(ExtendedProcessorContext::new(
+                        &self.context,
                         &self.parameters,
-                    );
+                    ));
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateSingleMapping(
@@ -551,7 +551,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         .handle_event(DomainEvent::UpdatedParameter { index, value });
                     // Mapping activation is supported for both compartments and target activation
                     // might change also in non-virtual controller mappings due to dynamic targets.
-                    for compartment in MappingCompartment::enum_iter() {
+                    if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
                         let mut changed_mappings = HashSet::new();
                         let mut unused_sources =
                             self.currently_feedback_enabled_sources(compartment, true);

@@ -53,13 +53,14 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
 }
 
 fn make_mapping_project_independent(mapping: &mut MappingModel, context: ExtendedProcessorContext) {
+    let compartment = mapping.compartment();
     let target = &mut mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {
             let changed_to_track_ignore_fx = if target.supports_fx() {
                 let refers_to_project = target.fx_type.get().refers_to_project();
                 if refers_to_project {
-                    let target_with_context = target.with_context(context);
+                    let target_with_context = target.with_context(context, compartment);
                     let virtual_fx = if target_with_context.fx().ok().as_ref()
                         == Some(context.context.containing_fx())
                     {
@@ -80,7 +81,7 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
                 let new_virtual_track = if changed_to_track_ignore_fx {
                     // Track doesn't matter at all. We change it to <This>. Looks nice.
                     Some(VirtualTrack::This)
-                } else if let Ok(t) = target.with_context(context).effective_track() {
+                } else if let Ok(t) = target.with_context(context, compartment).effective_track() {
                     if let Some(i) = t.index() {
                         Some(VirtualTrack::ByIndex(i))
                     } else {

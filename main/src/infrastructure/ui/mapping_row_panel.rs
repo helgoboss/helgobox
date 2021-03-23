@@ -158,7 +158,10 @@ impl MappingRowPanel {
             // Prevent error on project close
             return;
         }
-        let target_model_string = mapping.target_model.with_context(context).to_string();
+        let target_model_string = mapping
+            .target_model
+            .with_context(context, mapping.compartment())
+            .to_string();
         self.view
             .require_window()
             .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)

@@ -6,7 +6,9 @@ use reaper_low::firewall;
 use slog::debug;
 
 use crate::application::{SharedSession, WeakSession};
-use crate::domain::{ParameterArray, ParameterMainTask, ZEROED_PLUGIN_PARAMETERS};
+use crate::domain::{
+    MappingCompartment, ParameterArray, ParameterMainTask, ZEROED_PLUGIN_PARAMETERS,
+};
 use crate::infrastructure::data::SessionData;
 use std::rc::Rc;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -163,11 +165,18 @@ impl PluginParameters for RealearnPluginParameters {
 
     fn get_parameter_name(&self, index: i32) -> String {
         firewall(|| {
-            if let Some(s) = self.session() {
-                s.borrow().get_parameter_name(index as u32)
+            let name = if let Some(s) = self.session() {
+                let index = index as u32;
+                if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
+                    let rel_index = compartment.relativize_absolute_index(index);
+                    Some(s.borrow().get_parameter_name(compartment, rel_index))
+                } else {
+                    None
+                }
             } else {
-                format!("Parameter {}", index + 1)
-            }
+                None
+            };
+            name.unwrap_or_else(|| format!("Parameter {}", index + 1))
         })
         .unwrap_or_default()
     }

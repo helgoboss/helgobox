@@ -11,7 +11,7 @@ use crate::application::{
     ActivationType, GroupModel, MappingModel, ModifierConditionModel, ProgramConditionModel,
     SharedSession, WeakSession,
 };
-use crate::domain::{COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT};
+use crate::domain::{MappingCompartment, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT};
 use std::fmt::Debug;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -28,6 +28,7 @@ pub struct MappingHeaderPanel {
 }
 
 pub trait Item: Debug {
+    fn compartment(&self) -> MappingCompartment;
     fn supports_name_change(&self) -> bool;
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
@@ -178,21 +179,25 @@ impl MappingHeaderPanel {
 
     fn fill_activation_combo_boxes(&self, item: &dyn Item) {
         use ActivationType::*;
+        let compartment = item.compartment();
         match item.activation_type() {
             Modifiers => {
                 self.fill_combo_box_with_realearn_params(
                     root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
                     true,
+                    compartment,
                 );
                 self.fill_combo_box_with_realearn_params(
                     root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
                     true,
+                    compartment,
                 );
             }
             Program => {
                 self.fill_combo_box_with_realearn_params(
                     root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
                     false,
+                    compartment,
                 );
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
@@ -482,7 +487,12 @@ impl MappingHeaderPanel {
         });
     }
 
-    fn fill_combo_box_with_realearn_params(&self, control_id: u32, with_none: bool) {
+    fn fill_combo_box_with_realearn_params(
+        &self,
+        control_id: u32,
+        with_none: bool,
+        compartment: MappingCompartment,
+    ) {
         let b = self.view.require_control(control_id);
         let start = if with_none {
             vec![(-1isize, "<None>".to_string())]
@@ -495,7 +505,7 @@ impl MappingHeaderPanel {
             (0..COMPARTMENT_PARAMETER_COUNT).map(|i| {
                 (
                     i as isize,
-                    format!("{}. {}", i + 1, session.get_parameter_name(i)),
+                    format!("{}. {}", i + 1, session.get_parameter_name(compartment, i)),
                 )
             }),
         ));
@@ -598,6 +608,10 @@ impl View for MappingHeaderPanel {
 }
 
 impl Item for MappingModel {
+    fn compartment(&self) -> MappingCompartment {
+        self.compartment()
+    }
+
     fn supports_name_change(&self) -> bool {
         true
     }
@@ -676,6 +690,10 @@ impl Item for MappingModel {
 }
 
 impl Item for GroupModel {
+    fn compartment(&self) -> MappingCompartment {
+        self.compartment()
+    }
+
     fn supports_name_change(&self) -> bool {
         !self.is_default_group()
     }

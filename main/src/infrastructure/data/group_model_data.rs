@@ -1,5 +1,6 @@
 use crate::application::{GroupId, GroupModel};
 use crate::core::default_util::is_default;
+use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -34,8 +35,8 @@ impl GroupModelData {
         }
     }
 
-    pub fn to_model(&self) -> GroupModel {
-        let mut model = GroupModel::new_from_data(self.id);
+    pub fn to_model(&self, compartment: MappingCompartment) -> GroupModel {
+        let mut model = GroupModel::new_from_data(compartment, self.id);
         self.apply_to_model(&mut model);
         model
     }

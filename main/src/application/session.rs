@@ -9,9 +9,9 @@ use crate::domain::{
     MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
     NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
     QualifiedMappingId, RealSource, RealTimeSender, ReaperTarget, TargetValueChangedEvent,
-    VirtualSource, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    VirtualSource, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
-use enum_map::EnumMap;
+use enum_map::{enum_map, EnumMap};
 
 use reaper_high::Reaper;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
@@ -80,7 +80,7 @@ pub struct Session {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     ui: WrapDebug<Box<dyn SessionUi>>,
     parameters: ParameterArray,
-    parameter_settings: Vec<ParameterSetting>,
+    parameter_settings: EnumMap<MappingCompartment, Vec<ParameterSetting>>,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
@@ -176,8 +176,12 @@ impl Session {
             active_main_preset_id: None,
             context,
             mappings: Default::default(),
-            default_main_group: Default::default(),
-            default_controller_group: Default::default(),
+            default_main_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
+                MappingCompartment::MainMappings,
+            ))),
+            default_controller_group: Rc::new(RefCell::new(GroupModel::default_for_compartment(
+                MappingCompartment::ControllerMappings,
+            ))),
             groups: Default::default(),
             everything_changed_subject: Default::default(),
             mapping_list_changed_subject: Default::default(),
@@ -192,8 +196,10 @@ impl Session {
             party_is_over_subject: Default::default(),
             ui: WrapDebug(Box::new(ui)),
             parameters: ZEROED_PLUGIN_PARAMETERS,
-            // TODO-high This should be probably divided per compartment!
-            parameter_settings: vec![Default::default(); PLUGIN_PARAMETER_COUNT as usize],
+            parameter_settings: enum_map! {
+                ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
+                MainMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
+            },
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
@@ -253,12 +259,16 @@ impl Session {
         })
     }
 
-    pub fn get_parameter_settings(&self, index: u32) -> &ParameterSetting {
-        &self.parameter_settings[index as usize]
+    pub fn get_parameter_settings(
+        &self,
+        compartment: MappingCompartment,
+        index: u32,
+    ) -> &ParameterSetting {
+        &self.parameter_settings[compartment][index as usize]
     }
 
-    pub fn get_parameter_name(&self, index: u32) -> String {
-        let setting = &self.parameter_settings[index as usize];
+    pub fn get_parameter_name(&self, compartment: MappingCompartment, index: u32) -> String {
+        let setting = &self.parameter_settings[compartment][index as usize];
         match &setting.custom_name {
             None => format!("Parameter {}", index + 1),
             Some(n) => n.clone(),
@@ -267,9 +277,10 @@ impl Session {
 
     pub fn set_parameter_settings_without_notification(
         &mut self,
+        compartment: MappingCompartment,
         parameter_settings: Vec<ParameterSetting>,
     ) {
-        self.parameter_settings = parameter_settings;
+        self.parameter_settings[compartment] = parameter_settings;
     }
 
     fn initial_sync(&mut self, weak_session: WeakSession) {
@@ -431,9 +442,10 @@ impl Session {
 
     fn invalidate_fx_indexes_of_mapping_targets(&self) {
         for m in self.all_mappings() {
-            m.borrow_mut()
-                .target_model
-                .invalidate_fx_index(self.extended_context());
+            let mut m = m.borrow_mut();
+            let compartment = m.compartment();
+            m.target_model
+                .invalidate_fx_index(self.extended_context(), compartment);
         }
     }
 
@@ -663,7 +675,7 @@ impl Session {
     }
 
     pub fn add_default_group(&mut self, compartment: MappingCompartment, name: String) -> GroupId {
-        let group = GroupModel::new_from_ui(name);
+        let group = GroupModel::new_from_ui(compartment, name);
         self.add_group(compartment, group)
     }
 
@@ -1373,7 +1385,8 @@ impl Session {
             );
         } else {
             // <None> preset
-            self.default_main_group.replace(Default::default());
+            self.default_main_group
+                .replace(GroupModel::default_for_compartment(compartment));
             self.set_groups_without_notification(compartment, std::iter::empty());
             self.set_mappings_without_notification(compartment, std::iter::empty());
         }

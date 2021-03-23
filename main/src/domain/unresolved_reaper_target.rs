@@ -1,9 +1,10 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, ParameterArray, ParameterSlice,
-    PlayPosFeedbackResolution, ReaperTarget, SeekOptions, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
+    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, MappingCompartment,
+    ParameterArray, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions,
+    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
+    COMPARTMENT_PARAMETER_COUNT, PLUGIN_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -102,7 +103,11 @@ pub enum UnresolvedReaperTarget {
 }
 
 impl UnresolvedReaperTarget {
-    pub fn resolve(&self, context: ExtendedProcessorContext) -> Result<ReaperTarget, &'static str> {
+    pub fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<ReaperTarget, &'static str> {
         use UnresolvedReaperTarget::*;
         let resolved = match self {
             Action {
@@ -116,39 +121,39 @@ impl UnresolvedReaperTarget {
             FxParameter {
                 fx_parameter_descriptor,
             } => ReaperTarget::FxParameter {
-                param: get_fx_param(context, fx_parameter_descriptor)?,
+                param: get_fx_param(context, fx_parameter_descriptor, compartment)?,
             },
             TrackVolume { track_descriptor } => ReaperTarget::TrackVolume {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
             },
             TrackSendVolume { descriptor } => ReaperTarget::TrackRouteVolume {
-                route: get_track_route(context, descriptor)?,
+                route: get_track_route(context, descriptor, compartment)?,
             },
             TrackPan { track_descriptor } => ReaperTarget::TrackPan {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
             },
             TrackWidth { track_descriptor } => ReaperTarget::TrackWidth {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
             },
             TrackArm {
                 track_descriptor,
                 exclusivity,
             } => ReaperTarget::TrackArm {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 exclusivity: *exclusivity,
             },
             TrackSelection {
                 track_descriptor,
                 exclusivity,
             } => ReaperTarget::TrackSelection {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 exclusivity: *exclusivity,
             },
             TrackMute {
                 track_descriptor,
                 exclusivity,
             } => ReaperTarget::TrackMute {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 exclusivity: *exclusivity,
             },
             TrackSolo {
@@ -156,15 +161,15 @@ impl UnresolvedReaperTarget {
                 behavior,
                 exclusivity,
             } => ReaperTarget::TrackSolo {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 behavior: *behavior,
                 exclusivity: *exclusivity,
             },
             TrackSendPan { descriptor } => ReaperTarget::TrackRoutePan {
-                route: get_track_route(context, descriptor)?,
+                route: get_track_route(context, descriptor, compartment)?,
             },
             TrackSendMute { descriptor } => ReaperTarget::TrackRouteMute {
-                route: get_track_route(context, descriptor)?,
+                route: get_track_route(context, descriptor, compartment)?,
             },
             Tempo => ReaperTarget::Tempo {
                 project: context.context.project_or_current_project(),
@@ -173,10 +178,10 @@ impl UnresolvedReaperTarget {
                 project: context.context.project_or_current_project(),
             },
             FxEnable { fx_descriptor } => ReaperTarget::FxEnable {
-                fx: get_fx(context, fx_descriptor)?,
+                fx: get_fx(context, fx_descriptor, compartment)?,
             },
             FxPreset { fx_descriptor } => ReaperTarget::FxPreset {
-                fx: get_fx(context, fx_descriptor)?,
+                fx: get_fx(context, fx_descriptor, compartment)?,
             },
             SelectedTrack => ReaperTarget::SelectedTrack {
                 project: context.context.project_or_current_project(),
@@ -185,7 +190,7 @@ impl UnresolvedReaperTarget {
                 track_descriptor,
                 exclusivity,
             } => ReaperTarget::AllTrackFxEnable {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 exclusivity: *exclusivity,
             },
             Transport { action } => ReaperTarget::Transport {
@@ -196,7 +201,7 @@ impl UnresolvedReaperTarget {
                 fx_descriptor,
                 chunk,
             } => ReaperTarget::LoadFxSnapshot {
-                fx: get_fx(context, fx_descriptor)?,
+                fx: get_fx(context, fx_descriptor, compartment)?,
                 chunk: chunk.clone(),
                 chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
             },
@@ -214,7 +219,7 @@ impl UnresolvedReaperTarget {
                 parameter_type,
                 exclusivity,
             } => ReaperTarget::AutomationTouchState {
-                track: get_effective_track(context, &track_descriptor.track)?,
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 parameter_type: *parameter_type,
                 exclusivity: *exclusivity,
             },
@@ -366,9 +371,10 @@ impl UnresolvedReaperTarget {
 pub fn get_effective_track(
     context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
+    compartment: MappingCompartment,
 ) -> Result<Track, &'static str> {
     virtual_track
-        .resolve(context)
+        .resolve(context, compartment)
         .map_err(|_| "track couldn't be resolved")
 }
 
@@ -376,11 +382,12 @@ pub fn get_effective_track(
 pub fn get_track_route(
     context: ExtendedProcessorContext,
     descriptor: &TrackRouteDescriptor,
+    compartment: MappingCompartment,
 ) -> Result<TrackRoute, &'static str> {
-    let track = get_effective_track(context, &descriptor.track_descriptor.track)?;
+    let track = get_effective_track(context, &descriptor.track_descriptor.track, compartment)?;
     descriptor
         .route
-        .resolve(&track, context)
+        .resolve(&track, context, compartment)
         .map_err(|_| "route doesn't exist")
 }
 
@@ -429,11 +436,12 @@ impl TrackRouteSelector {
         track: &Track,
         route_type: TrackRouteType,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<TrackRoute, TrackRouteResolveError> {
         use TrackRouteSelector::*;
         let route = match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_route_index(evaluator, context);
+                let i = Self::evaluate_to_route_index(evaluator, context, compartment);
                 resolve_track_route_by_index(track, route_type, i)?
             }
             ById(guid) => {
@@ -457,9 +465,17 @@ impl TrackRouteSelector {
         Ok(route)
     }
 
-    pub fn calculated_route_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+    pub fn calculated_route_index(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Option<u32> {
         if let TrackRouteSelector::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_route_index(evaluator, context))
+            Some(Self::evaluate_to_route_index(
+                evaluator,
+                context,
+                compartment,
+            ))
         } else {
             None
         }
@@ -468,8 +484,10 @@ impl TrackRouteSelector {
     fn evaluate_to_route_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> u32 {
-        let result = evaluator.evaluate(context.params);
+        let sliced_params = compartment.slice_params(context.params);
+        let result = evaluator.evaluate(sliced_params);
         result.max(0.0) as u32
     }
 
@@ -515,8 +533,10 @@ impl VirtualTrackRoute {
         &self,
         track: &Track,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<TrackRoute, TrackRouteResolveError> {
-        self.selector.resolve(track, self.r#type, context)
+        self.selector
+            .resolve(track, self.r#type, context, compartment)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -597,11 +617,12 @@ impl VirtualFxParameter {
         &self,
         fx: &Fx,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<FxParameter, FxParameterResolveError> {
         use VirtualFxParameter::*;
         match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_fx_parameter_index(evaluator, context);
+                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment);
                 resolve_parameter_by_index(fx, i)
             }
             ByName(name) => fx
@@ -615,9 +636,17 @@ impl VirtualFxParameter {
         }
     }
 
-    pub fn calculated_fx_parameter_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+    pub fn calculated_fx_parameter_index(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Option<u32> {
         if let VirtualFxParameter::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_parameter_index(evaluator, context))
+            Some(Self::evaluate_to_fx_parameter_index(
+                evaluator,
+                context,
+                compartment,
+            ))
         } else {
             None
         }
@@ -626,8 +655,10 @@ impl VirtualFxParameter {
     fn evaluate_to_fx_parameter_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> u32 {
-        let result = evaluator.evaluate(context.params);
+        let sliced_params = compartment.slice_params(context.params);
+        let result = evaluator.evaluate(sliced_params);
         result.max(0.0) as u32
     }
 
@@ -765,7 +796,11 @@ impl VirtualFx {
 }
 
 impl VirtualTrack {
-    pub fn resolve(&self, context: ExtendedProcessorContext) -> Result<Track, TrackResolveError> {
+    pub fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Track, TrackResolveError> {
         use VirtualTrack::*;
         let project = context.context.project_or_current_project();
         let track = match self {
@@ -782,7 +817,7 @@ impl VirtualTrack {
                 .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
                 .ok_or(TrackResolveError::NoTrackSelected)?,
             Dynamic(evaluator) => {
-                let index = Self::evaluate_to_track_index(evaluator, context);
+                let index = Self::evaluate_to_track_index(evaluator, context, compartment);
                 resolve_track_by_index(project, index)?
             }
             Master => project.master_track(),
@@ -821,9 +856,17 @@ impl VirtualTrack {
         Ok(track)
     }
 
-    pub fn calculated_track_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+    pub fn calculated_track_index(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Option<u32> {
         if let VirtualTrack::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_track_index(evaluator, context))
+            Some(Self::evaluate_to_track_index(
+                evaluator,
+                context,
+                compartment,
+            ))
         } else {
             None
         }
@@ -832,18 +875,22 @@ impl VirtualTrack {
     fn evaluate_to_track_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> u32 {
-        let result = evaluator.evaluate(context.params);
+        let sliced_params = compartment.slice_params(context.params);
+        let result = evaluator.evaluate(sliced_params);
         result.max(0.0) as u32
     }
 
     pub fn with_context<'a>(
         &'a self,
         context: ExtendedProcessorContext<'a>,
+        compartment: MappingCompartment,
     ) -> VirtualTrackWithContext<'a> {
         VirtualTrackWithContext {
             virtual_track: self,
             context,
+            compartment,
         }
     }
 
@@ -951,11 +998,12 @@ impl VirtualChainFx {
         &self,
         fx_chain: &FxChain,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<Fx, FxResolveError> {
         use VirtualChainFx::*;
         let fx = match self {
             Dynamic(evaluator) => {
-                let index = Self::evaluate_to_fx_index(evaluator, context);
+                let index = Self::evaluate_to_fx_index(evaluator, context, compartment);
                 get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
                     FxResolveError::FxNotFound {
                         guid: None,
@@ -1003,9 +1051,13 @@ impl VirtualChainFx {
         Ok(fx)
     }
 
-    pub fn calculated_fx_index(&self, context: ExtendedProcessorContext) -> Option<u32> {
+    pub fn calculated_fx_index(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Option<u32> {
         if let VirtualChainFx::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_index(evaluator, context))
+            Some(Self::evaluate_to_fx_index(evaluator, context, compartment))
         } else {
             None
         }
@@ -1014,8 +1066,10 @@ impl VirtualChainFx {
     fn evaluate_to_fx_index(
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> u32 {
-        let result = evaluator.evaluate(context.params);
+        let sliced_params = compartment.slice_params(context.params);
+        let result = evaluator.evaluate(sliced_params);
         result.max(0.0) as u32
     }
 
@@ -1063,6 +1117,7 @@ pub enum FxResolveError {
 pub struct VirtualTrackWithContext<'a> {
     virtual_track: &'a VirtualTrack,
     context: ExtendedProcessorContext<'a>,
+    compartment: MappingCompartment,
 }
 
 impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
@@ -1071,7 +1126,7 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
         match self.virtual_track {
             This | Selected | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
             _ => {
-                if let Ok(t) = self.virtual_track.resolve(self.context) {
+                if let Ok(t) = self.virtual_track.resolve(self.context, self.compartment) {
                     f.write_str(&get_track_label(&t))
                 } else {
                     f.write_str(&get_non_present_virtual_track_label(&self.virtual_track))
@@ -1109,11 +1164,12 @@ fn get_track_label(track: &Track) -> String {
 pub fn get_fx_param(
     context: ExtendedProcessorContext,
     fx_parameter_descriptor: &FxParameterDescriptor,
+    compartment: MappingCompartment,
 ) -> Result<FxParameter, &'static str> {
-    let fx = get_fx(context, &fx_parameter_descriptor.fx_descriptor)?;
+    let fx = get_fx(context, &fx_parameter_descriptor.fx_descriptor, compartment)?;
     fx_parameter_descriptor
         .fx_parameter
-        .resolve(&fx, context)
+        .resolve(&fx, context, compartment)
         .map_err(|_| "parameter doesn't exist")
 }
 
@@ -1121,6 +1177,7 @@ pub fn get_fx_param(
 pub fn get_fx(
     context: ExtendedProcessorContext,
     descriptor: &FxDescriptor,
+    compartment: MappingCompartment,
 ) -> Result<Fx, &'static str> {
     match &descriptor.fx {
         VirtualFx::This => {
@@ -1165,10 +1222,15 @@ pub fn get_fx(
                 }
                 _ => MaybeOwned::Borrowed(chain_fx),
             };
-            let fx_chain = get_fx_chain(context, &descriptor.track_descriptor.track, *is_input_fx)?;
+            let fx_chain = get_fx_chain(
+                context,
+                &descriptor.track_descriptor.track,
+                *is_input_fx,
+                compartment,
+            )?;
             chain_fx
                 .get()
-                .resolve(&fx_chain, context)
+                .resolve(&fx_chain, context, compartment)
                 .map_err(|_| "couldn't resolve particular FX")
         }
     }
@@ -1230,8 +1292,9 @@ pub fn get_fx_chain(
     context: ExtendedProcessorContext,
     track: &VirtualTrack,
     is_input_fx: bool,
+    compartment: MappingCompartment,
 ) -> Result<FxChain, &'static str> {
-    let track = get_effective_track(context, track)?;
+    let track = get_effective_track(context, track, compartment)?;
     let result = if is_input_fx {
         if track.is_master_track() {
             // The combination "Master track + input FX chain" by convention represents the

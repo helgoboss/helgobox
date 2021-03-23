@@ -363,6 +363,8 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     fn target_with_context(&self) -> TargetModelWithContext<'_> {
-        self.mapping.target_model.with_context(self.context)
+        self.mapping
+            .target_model
+            .with_context(self.context, self.mapping.compartment)
     }
 }

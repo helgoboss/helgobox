@@ -136,10 +136,11 @@ impl MappingPanel {
             // Important that neither session nor mapping is mutably borrowed while doing this
             // because state of our ReaLearn instance is not unlikely to be
             // queried as well!
+            let compartment = mapping.borrow().compartment();
             let fx_snapshot = mapping
                 .borrow()
                 .target_model
-                .take_fx_snapshot(self.session().borrow().extended_context())?;
+                .take_fx_snapshot(self.session().borrow().extended_context(), compartment)?;
             mapping
                 .borrow_mut()
                 .target_model
@@ -230,16 +231,19 @@ impl MappingPanel {
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_2_LABEL_3),
+                mapping.compartment(),
             );
             invalidat_target_line_3_expression_result(
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_3_LABEL_3),
+                mapping.compartment(),
             );
             invalidate_target_line_4_expression_result(
                 &mapping.target_model,
                 session.extended_context(),
                 self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
+                mapping.compartment(),
             );
         });
         Ok(())
@@ -1562,7 +1566,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
         self.mapping
             .target_model
-            .with_context(self.session.extended_context())
+            .with_context(self.session.extended_context(), self.mapping.compartment())
     }
 }
 
@@ -2017,6 +2021,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_2_LABEL_3),
+            self.mapping.compartment(),
         );
     }
 
@@ -2100,7 +2105,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.fill_combo_box_indexed(track_combo_box_entries(project));
                         // Set
                         if let Some(virtual_track) = self.target.virtual_track() {
-                            if let Ok(track) = virtual_track.resolve(context) {
+                            if let Ok(track) =
+                                virtual_track.resolve(context, self.mapping.compartment())
+                            {
                                 let i = track.index().unwrap();
                                 combo.select_combo_box_item_by_index(i as _).unwrap();
                             } else {
@@ -2196,7 +2203,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
         self.mapping
             .target_model
-            .with_context(self.session.extended_context())
+            .with_context(self.session.extended_context(), self.mapping.compartment())
     }
 
     fn invalidate_target_line_3(&self) {
@@ -2235,6 +2242,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_3_LABEL_3),
+            self.mapping.compartment(),
         );
     }
 
@@ -2243,6 +2251,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.target,
             self.session.extended_context(),
             self.view.require_control(root::ID_TARGET_LINE_4_LABEL_3),
+            self.mapping.compartment(),
         );
     }
 
@@ -2466,7 +2475,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     ) {
                         combo.show();
                         let context = self.session.extended_context();
-                        if let Ok(track) = self.target.with_context(context).effective_track() {
+                        if let Ok(track) = self
+                            .target
+                            .with_context(context, self.mapping.compartment())
+                            .effective_track()
+                        {
                             // Fill
                             let chain = if self.target.fx_is_input_fx.get() {
                                 track.input_fx_chain()
@@ -2478,7 +2491,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                             if let Some(VirtualFx::ChainFx { chain_fx, .. }) =
                                 self.target.virtual_fx()
                             {
-                                if let Ok(fx) = chain_fx.resolve(&chain, context) {
+                                if let Ok(fx) =
+                                    chain_fx.resolve(&chain, context, self.mapping.compartment())
+                                {
                                     combo
                                         .select_combo_box_item_by_index(fx.index() as _)
                                         .unwrap();
@@ -2543,7 +2558,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 {
                     combo.show();
                     let context = self.session.extended_context();
-                    if let Ok(fx) = self.target.with_context(context).fx() {
+                    if let Ok(fx) = self
+                        .target
+                        .with_context(context, self.mapping.compartment())
+                        .fx()
+                    {
                         combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
                         let param_index = self.target.param_index.get();
                         combo
@@ -2567,7 +2586,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     if self.target.route_selector_type.get() == TrackRouteSelectorType::ById {
                         combo.show();
                         let context = self.session.extended_context();
-                        let target_with_context = self.target.with_context(context);
+                        let target_with_context = self
+                            .target
+                            .with_context(context, self.mapping.compartment());
                         if let Ok(track) = target_with_context.effective_track() {
                             // Fill
                             let route_type = self.target.route_type.get();
@@ -2587,7 +2608,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                             } else {
                                 // This is the real case. We use IDs.
                                 if let Ok(virtual_route) = self.target.virtual_track_route() {
-                                    if let Ok(route) = virtual_route.resolve(&track, context) {
+                                    if let Ok(route) = virtual_route.resolve(
+                                        &track,
+                                        context,
+                                        self.mapping.compartment(),
+                                    ) {
                                         let i = route.track_route_index().unwrap();
                                         combo.select_combo_box_item_by_index(i as _).unwrap();
                                     } else {
@@ -4188,6 +4213,7 @@ fn invalidate_target_line_2_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
+    compartment: MappingCompartment,
 ) {
     let text = match target.category.get() {
         TargetCategory::Reaper => {
@@ -4196,7 +4222,7 @@ fn invalidate_target_line_2_expression_result(
             {
                 target
                     .virtual_track()
-                    .and_then(|t| t.calculated_track_index(context))
+                    .and_then(|t| t.calculated_track_index(context, compartment))
                     .map(|i| i.to_string())
             } else {
                 None
@@ -4211,13 +4237,14 @@ fn invalidat_target_line_3_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
+    compartment: MappingCompartment,
 ) {
     let text = match target.category.get() {
         TargetCategory::Reaper => {
             if target.r#type.get().supports_fx() && target.fx_type.get() == VirtualFxType::Dynamic {
                 target
                     .virtual_chain_fx()
-                    .and_then(|fx| fx.calculated_fx_index(context))
+                    .and_then(|fx| fx.calculated_fx_index(context, compartment))
                     .map(|i| i.to_string())
             } else {
                 None
@@ -4232,6 +4259,7 @@ fn invalidate_target_line_4_expression_result(
     target: &TargetModel,
     context: ExtendedProcessorContext,
     label: Window,
+    compartment: MappingCompartment,
 ) {
     let text = match target.category.get() {
         TargetCategory::Reaper => match target.r#type.get() {
@@ -4240,7 +4268,7 @@ fn invalidate_target_line_4_expression_result(
             {
                 target
                     .virtual_fx_parameter()
-                    .and_then(|p| p.calculated_fx_parameter_index(context))
+                    .and_then(|p| p.calculated_fx_parameter_index(context, compartment))
                     .map(|i| i.to_string())
             }
             t if t.supports_send()
@@ -4248,7 +4276,7 @@ fn invalidate_target_line_4_expression_result(
             {
                 target
                     .track_route_selector()
-                    .and_then(|p| p.calculated_route_index(context))
+                    .and_then(|p| p.calculated_route_index(context, compartment))
                     .map(|i| i.to_string())
             }
             _ => None,
