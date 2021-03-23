@@ -2645,7 +2645,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         let res = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 t if t.supports_fx() => {
-                    if self.target.fx_type.get() == VirtualFxType::Focused {
+                    if matches!(
+                        self.target.fx_type.get(),
+                        VirtualFxType::Focused | VirtualFxType::This
+                    ) {
                         None
                     } else {
                         let is_input_fx = self.target.fx_is_input_fx.get();
