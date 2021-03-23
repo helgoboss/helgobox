@@ -24,7 +24,6 @@
 
 Here's a step-by-step guide to help you get started with ReaLearn and a MIDI controller:
 
-1. If you haven't already done it, install 
 1. Start REAPER.
 1. If you haven't already done it, [install ReaLearn via ReaPack](https://github.com/helgoboss/realearn#installation).
 1. Make sure your MIDI controller is enabled in Options → Preferences... → Audio → MIDI Devices

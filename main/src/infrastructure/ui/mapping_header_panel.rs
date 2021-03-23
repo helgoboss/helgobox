@@ -505,11 +505,7 @@ impl MappingHeaderPanel {
             (0..COMPARTMENT_PARAMETER_COUNT).map(|i| {
                 (
                     i as isize,
-                    format!(
-                        "{}. {}",
-                        i + 1,
-                        session.get_qualified_parameter_name(compartment, i)
-                    ),
+                    format!("{}. {}", i + 1, session.get_parameter_name(compartment, i)),
                 )
             }),
         ));
