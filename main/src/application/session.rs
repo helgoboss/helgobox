@@ -6,11 +6,12 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, DomainEvent, DomainEventHandler, ExtendedProcessorContext, MainMapping,
-    MappingCompartment, MappingId, MidiControlInput, MidiFeedbackOutput, NormalMainTask,
-    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealSource, RealTimeSender, ReaperTarget, TargetValueChangedEvent,
-    VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackOutput, MainMapping, MappingCompartment, MappingId, MidiControlInput,
+    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, OscDeviceId, ParameterArray,
+    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource, RealTimeSender,
+    ReaperTarget, TargetValueChangedEvent, VirtualSource, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
@@ -237,7 +238,7 @@ impl Session {
                         false
                     }
                 }
-                MidiControlInput::Device(dev) => dev.id() == *device_id,
+                MidiControlInput::Device(dev_id) => dev_id == *device_id,
             },
             InputDescriptor::Osc { device_id } => {
                 self.osc_input_device_id.get_ref().contains(device_id)
@@ -1700,8 +1701,16 @@ impl Session {
 
     fn sync_settings(&self) {
         let task = NormalMainTask::UpdateSettings {
-            osc_input_device_id: self.osc_input_device_id.get(),
-            osc_output_device_id: self.osc_output_device_id.get(),
+            control_input: if let Some(osc_dev_id) = self.osc_input_device_id.get() {
+                ControlInput::Osc(osc_dev_id)
+            } else {
+                ControlInput::Midi(self.midi_control_input.get())
+            },
+            feedback_output: if let Some(osc_dev_id) = self.osc_output_device_id.get() {
+                Some(FeedbackOutput::Osc(osc_dev_id))
+            } else {
+                self.midi_feedback_output.get().map(FeedbackOutput::Midi)
+            },
         };
         self.normal_main_task_sender.try_send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {

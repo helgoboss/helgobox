@@ -934,10 +934,10 @@ impl HeaderPanel {
             FxInput => {
                 b.select_combo_box_item_by_data(-1).unwrap();
             }
-            Device(dev) => b
-                .select_combo_box_item_by_data(dev.id().get() as _)
+            Device(dev_id) => b
+                .select_combo_box_item_by_data(dev_id.get() as _)
                 .unwrap_or_else(|_| {
-                    b.select_new_combo_box_item(format!("{}. <Unknown>", dev.id().get()));
+                    b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
                 }),
         };
     }
@@ -1010,10 +1010,10 @@ impl HeaderPanel {
                 FxOutput => {
                     b.select_combo_box_item_by_data(-2).unwrap();
                 }
-                Device(dev) => b
-                    .select_combo_box_item_by_data(dev.id().get() as _)
+                Device(dev_id) => b
+                    .select_combo_box_item_by_data(dev_id.get() as _)
                     .unwrap_or_else(|_| {
-                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev.id().get()));
+                        b.select_new_combo_box_item(format!("{}. <Unknown>", dev_id.get()));
                     }),
             },
         };
@@ -1060,12 +1060,11 @@ impl HeaderPanel {
                     }
                 }
                 midi_dev_id if midi_dev_id >= 0 => {
-                    let dev = Reaper::get()
-                        .midi_input_device_by_id(MidiInputDeviceId::new(midi_dev_id as _));
+                    let dev_id = MidiInputDeviceId::new(midi_dev_id as _);
                     session.osc_input_device_id.set(None);
                     session
                         .midi_control_input
-                        .set(MidiControlInput::Device(dev));
+                        .set(MidiControlInput::Device(dev_id));
                     true
                 }
                 _ => false,
@@ -1111,12 +1110,11 @@ impl HeaderPanel {
                     }
                 }
                 midi_dev_id if midi_dev_id >= 0 => {
-                    let dev = Reaper::get()
-                        .midi_output_device_by_id(MidiOutputDeviceId::new(midi_dev_id as _));
+                    let dev_id = MidiOutputDeviceId::new(midi_dev_id as _);
                     session.osc_output_device_id.set(None);
                     session
                         .midi_feedback_output
-                        .set(Some(MidiFeedbackOutput::Device(dev)));
+                        .set(Some(MidiFeedbackOutput::Device(dev_id)));
                     true
                 }
                 _ => false,

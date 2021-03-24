@@ -203,7 +203,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 SendAllFeedback => {
                     for m in &self.main_processors {
-                        m.send_bulk_feedback();
+                        m.send_all_feedback();
                     }
                 }
             }

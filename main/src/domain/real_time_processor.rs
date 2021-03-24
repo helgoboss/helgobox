@@ -10,7 +10,7 @@ use helgoboss_midi::{
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-use reaper_medium::{Hz, MidiFrameOffset, SendMidiTime};
+use reaper_medium::{Hz, MidiFrameOffset, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
 use slog::debug;
 use std::collections::HashMap;
 
@@ -378,8 +378,8 @@ impl RealTimeProcessor {
     /// because we want to pause controlling in that case!
     fn run_from_audio_hook_control_and_learn(&mut self) {
         // Read MIDI events if MIDI control input set to device
-        if let MidiControlInput::Device(dev) = self.midi_control_input {
-            dev.with_midi_input(|mi| {
+        if let MidiControlInput::Device(dev_id) = self.midi_control_input {
+            MidiInputDevice::new(dev_id).with_midi_input(|mi| {
                 if let Some(mi) = mi {
                     for evt in mi.get_read_buf().enum_items(0) {
                         // Current control mode is checked further down the callstack. No need to
@@ -747,8 +747,8 @@ impl RealTimeProcessor {
                     MidiFeedbackOutput::FxOutput => {
                         self.send_raw_midi_to_fx_output(msg, caller);
                     }
-                    MidiFeedbackOutput::Device(dev) => {
-                        dev.with_midi_output(|mo| {
+                    MidiFeedbackOutput::Device(dev_id) => {
+                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                             if let Some(mo) = mo {
                                 mo.send_msg(&**msg, SendMidiTime::Instantly);
                             }
@@ -766,8 +766,8 @@ impl RealTimeProcessor {
                             self.send_short_midi_to_fx_output(*short, caller);
                         }
                     }
-                    MidiFeedbackOutput::Device(dev) => {
-                        dev.with_midi_output(|mo| {
+                    MidiFeedbackOutput::Device(dev_id) => {
+                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                             if let Some(mo) = mo {
                                 for short in shorts.iter().flatten() {
                                     mo.send(*short, SendMidiTime::Instantly);
@@ -795,8 +795,8 @@ impl RealTimeProcessor {
                         FeedbackRealTimeTask::SendLifecycleMidi(compartment, m.id(), phase),
                     );
                 }
-                MidiFeedbackOutput::Device(dev) => {
-                    dev.with_midi_output(|mo| {
+                MidiFeedbackOutput::Device(dev_id) => {
+                    MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                         if let Some(mo) = mo {
                             for m in m.lifecycle_midi_messages(phase) {
                                 match m {
@@ -1041,21 +1041,21 @@ impl Drop for RealTimeProcessor {
 }
 
 /// MIDI source which provides ReaLearn control data.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum MidiControlInput {
     /// Processes MIDI messages which are fed into ReaLearn FX.
     FxInput,
     /// Processes MIDI messages coming directly from a MIDI input device.
-    Device(MidiInputDevice),
+    Device(MidiInputDeviceId),
 }
 
 /// MIDI destination to which ReaLearn's feedback data is sent.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum MidiFeedbackOutput {
     /// Routes feedback messages to the ReaLearn FX output.
     FxOutput,
     /// Routes feedback messages directly to a MIDI output device.
-    Device(MidiOutputDevice),
+    Device(MidiOutputDeviceId),
 }
 
 fn control_controller_mappings_midi(

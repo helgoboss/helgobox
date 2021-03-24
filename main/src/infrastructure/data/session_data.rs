@@ -10,7 +10,6 @@ use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
 };
 use crate::infrastructure::plugin::App;
-use reaper_high::{MidiInputDevice, MidiOutputDevice};
 
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
@@ -154,7 +153,7 @@ impl SessionData {
                 use MidiControlInput::*;
                 match session.midi_control_input.get() {
                     FxInput => None,
-                    Device(dev) => Some(ControlDeviceId::Midi(dev.id().to_string())),
+                    Device(dev_id) => Some(ControlDeviceId::Midi(dev_id.to_string())),
                 }
             },
             feedback_device_id: if let Some(osc_dev_id) = session.osc_output_device_id.get() {
@@ -162,7 +161,7 @@ impl SessionData {
             } else {
                 use MidiFeedbackOutput::*;
                 session.midi_feedback_output.get().map(|o| match o {
-                    Device(dev) => FeedbackDeviceId::MidiOrFxOutput(dev.id().to_string()),
+                    Device(dev_id) => FeedbackDeviceId::MidiOrFxOutput(dev_id.to_string()),
                     FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
                 })
             },
@@ -215,10 +214,7 @@ impl SessionData {
                         let midi_dev_id: MidiInputDeviceId = raw_midi_dev_id
                             .try_into()
                             .map_err(|_| "MIDI input device ID out of range")?;
-                        (
-                            MidiControlInput::Device(MidiInputDevice::new(midi_dev_id)),
-                            None,
-                        )
+                        (MidiControlInput::Device(midi_dev_id), None)
                     }
                     Osc(osc_dev_id) => (MidiControlInput::FxInput, Some(*osc_dev_id)),
                 }
@@ -237,12 +233,7 @@ impl SessionData {
                             .parse::<u8>()
                             .map(MidiOutputDeviceId::new)
                             .map_err(|_| "invalid MIDI output device ID")?;
-                        (
-                            Some(MidiFeedbackOutput::Device(MidiOutputDevice::new(
-                                midi_dev_id,
-                            ))),
-                            None,
-                        )
+                        (Some(MidiFeedbackOutput::Device(midi_dev_id)), None)
                     }
                     Osc(osc_dev_id) => (None, Some(*osc_dev_id)),
                 }

@@ -669,6 +669,10 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, CompoundMappingSource::Virtual(_))
+    }
+
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
         match self {
