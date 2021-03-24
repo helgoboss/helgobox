@@ -1,12 +1,13 @@
 use crate::domain::{
-    ActivationChange, AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget,
-    ControlInput, ControlMode, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
-    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceFeedbackValue,
-    SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
+    ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
+    CompoundMappingTarget, ControlInput, ControlMode, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackOutput, FeedbackRealTimeTask, FeedbackValue,
+    InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MappingActivationEffect,
+    MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
+    PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext, QualifiedSource,
+    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
+    ReaperTarget, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
+    VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
@@ -225,8 +226,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     control_input,
                     feedback_output,
                 } => {
+                    let released_event = self.io_released_event();
                     self.control_input = control_input;
                     self.feedback_output = feedback_output;
+                    let changed_event = self.all_io_might_have_changed_event();
+                    self.send_io_update(released_event).unwrap();
+                    self.send_io_update(changed_event).unwrap();
                 }
                 UpdateAllMappings(compartment, mut mappings) => {
                     debug!(
@@ -291,6 +296,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &unused_sources,
                     );
                     self.update_on_mappings();
+                    let event = self.all_io_might_have_changed_event();
+                    self.send_io_update(event).unwrap();
                 }
                 // This is sent on events such as track list change, FX focus etc.
                 RefreshAllTargets => {
@@ -484,6 +491,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
+                        // TODO-high It might be necessary to wait until other instances have
+                        //  released the feedback device!
                         for compartment in MappingCompartment::enum_iter() {
                             self.handle_feedback_after_having_updated_all_mappings(
                                 compartment,
@@ -491,8 +500,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             );
                         }
                     } else {
+                        // Clear it completely. Other instances that might take over maybe don't use
+                        // all control elements and we don't want to leave traces.
                         self.clear_feedback();
-                    }
+                    };
+                    let event = IoUpdatedEvent {
+                        feedback_output_might_have_changed: true,
+                        ..self.basic_io_changed_event()
+                    };
+                    self.send_io_update(event).unwrap();
                 }
                 StartLearnSource {
                     allow_virtual_sources,
@@ -514,6 +530,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 UpdateControlIsGloballyEnabled(is_enabled) => {
                     self.control_is_globally_enabled = is_enabled;
+                    let event = IoUpdatedEvent {
+                        control_input_might_have_changed: true,
+                        ..self.basic_io_changed_event()
+                    };
+                    self.send_io_update(event).unwrap();
                 }
                 FullResyncToRealTimeProcessorPlease => {
                     // We cannot provide everything that the real-time processor needs so we need
@@ -721,6 +742,43 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+    }
+
+    fn basic_io_changed_event(&self) -> IoUpdatedEvent {
+        let active = !self.mappings[MappingCompartment::MainMappings].is_empty();
+        IoUpdatedEvent {
+            instance_id: self.instance_id.clone(),
+            control_input: self.control_input.device_input(),
+            control_input_used: self.control_is_globally_enabled && active,
+            control_input_might_have_changed: false,
+            feedback_output: self.feedback_output.and_then(|o| o.device_output()),
+            feedback_output_used: self.feedback_is_globally_enabled && active,
+            feedback_output_might_have_changed: false,
+        }
+    }
+
+    fn io_released_event(&self) -> IoUpdatedEvent {
+        IoUpdatedEvent {
+            control_input_used: false,
+            feedback_output_used: false,
+            ..self.all_io_might_have_changed_event()
+        }
+    }
+
+    fn all_io_might_have_changed_event(&self) -> IoUpdatedEvent {
+        IoUpdatedEvent {
+            control_input_might_have_changed: true,
+            feedback_output_might_have_changed: true,
+            ..self.basic_io_changed_event()
+        }
+    }
+
+    fn send_io_update(
+        &self,
+        event: IoUpdatedEvent,
+    ) -> Result<(), crossbeam_channel::SendError<InstanceOrchestrationEvent>> {
+        self.instance_orchestration_event_sender
+            .send(InstanceOrchestrationEvent::IoUpdated(event))
     }
 
     fn get_normal_or_virtual_target_mapping(
@@ -1107,13 +1165,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    /// When feedback gets globally disabled and when main processor goes away for good.
     fn clear_feedback(&self) {
         // TODO-medium Also clear projection feedback.
         if matches!(self.feedback_output, Some(FeedbackOutput::Osc(_))) {
             self.send_feedback(FeedbackReason::Clear, self.feedback_all_zero());
         } else {
-            // TODO-high This is a problem when other ReaLearn instances also want to control!
-            //  I guess we should check if other ReaLearn instances have the same feedback output.
             self.feedback_real_time_task_sender
                 .send(FeedbackRealTimeTask::ClearFeedback)
                 .unwrap();
@@ -1303,8 +1360,11 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping main processor...");
         if self.feedback_is_globally_enabled {
+            // We clear feedback right here and now because that's the last chance.
+            // Other instances can take over the feedback output afterwards.
             self.clear_feedback();
         }
+        let _ = self.send_io_update(self.io_released_event());
     }
 }
 

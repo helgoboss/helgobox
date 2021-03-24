@@ -1,7 +1,7 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, DomainGlobal, ExtendedProcessorContext, MappingCompartment,
+    ActionInvocationType, BackboneState, ExtendedProcessorContext, MappingCompartment,
     ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions, SoloBehavior,
     TouchedParameterType, TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
@@ -205,7 +205,7 @@ impl UnresolvedReaperTarget {
                 chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
             },
             LastTouched => {
-                let last_touched_target = DomainGlobal::get()
+                let last_touched_target = BackboneState::get()
                     .last_touched_target()
                     .ok_or("no last touched target")?;
                 if !last_touched_target.is_available() {

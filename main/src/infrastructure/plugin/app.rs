@@ -5,7 +5,7 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, DomainGlobal, InstanceOrchestrationEvent,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, InstanceOrchestrationEvent,
     MainProcessor, MappingCompartment, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
     RealSource, RealearnAudioHook, RealearnAudioHookTask, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTargetContext,
@@ -262,7 +262,7 @@ impl App {
         } else {
             panic!("App was not uninitialized anymore");
         };
-        DomainGlobal::make_available_globally(DomainGlobal::new(RealearnTargetContext::new(
+        BackboneState::make_available_globally(BackboneState::new(RealearnTargetContext::new(
             self.additional_feedback_event_sender.clone(),
         )));
         App::get().register_actions();
@@ -772,7 +772,7 @@ impl App {
             "realearnLearnSourceForLastTouchedTarget",
             "ReaLearn: Learn source for last touched target (reassigning target)",
             move || {
-                let target = DomainGlobal::get().last_touched_target();
+                let target = BackboneState::get().last_touched_target();
                 let target = match target.as_ref() {
                     None => return,
                     Some(t) => t,

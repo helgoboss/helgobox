@@ -1,7 +1,8 @@
 use crate::core::Global;
 use crate::domain::{
-    DomainEventHandler, DomainGlobal, FeedbackOutput, MainProcessor, OscDeviceId, OscInputDevice,
-    RealSource, ReaperTarget, SourceFeedbackValue, TouchedParameterType,
+    BackboneState, ControlInput, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
+    FeedbackOutput, MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget,
+    SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -85,9 +86,24 @@ pub enum AdditionalFeedbackEvent {
 pub enum InstanceOrchestrationEvent {
     /// Sent by a ReaLearn instance X if it releases control over a source.
     ///
-    /// This enables other instances to take control of that source before X finally "switches off
-    /// lights".
+    /// This enables other instances to take over control of that source before X finally "switches
+    /// off lights".
     SourceReleased(SourceReleasedEvent),
+    /// Whenever something about instance's device usage changes (either input or output or both
+    /// potentially change).
+    IoUpdated(IoUpdatedEvent),
+}
+
+/// Communicates changes in which input and output device a ReaLearn instance uses or used.
+#[derive(Debug)]
+pub struct IoUpdatedEvent {
+    pub instance_id: String,
+    pub control_input: Option<DeviceControlInput>,
+    pub control_input_used: bool,
+    pub control_input_might_have_changed: bool,
+    pub feedback_output: Option<DeviceFeedbackOutput>,
+    pub feedback_output_used: bool,
+    pub feedback_output_might_have_changed: bool,
 }
 
 #[derive(Debug)]
@@ -294,6 +310,29 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         }
                     }
                 }
+                IoUpdated(e) => {
+                    BackboneState::get().update_io_usage(
+                        e.instance_id.clone(),
+                        if e.control_input_used {
+                            e.control_input
+                        } else {
+                            None
+                        },
+                        if e.feedback_output_used {
+                            e.feedback_output
+                        } else {
+                            None
+                        },
+                    );
+                    // TODO-high
+                    // if e.feedback_output_used == Some(false) {
+                    //     if let Some(feedback_output) = e.feedback_output {
+                    //         // The feedback output has been released (zero feedback has already
+                    // been sent).         // Now give another instance the
+                    // chance to take over.         todo!();
+                    //     }
+                    // }
+                }
             }
         }
         // Emit beats as feedback events
@@ -389,7 +428,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         //  to also support action, FX snapshot and ReaLearn monitoring FX parameter
                         //  touching for "Last touched" target and global learning (see
                         //  LearningTarget state)! Connect the dots!
-                        DomainGlobal::get().set_last_touched_target(target);
+                        BackboneState::get().set_last_touched_target(target);
                         for p in &self.main_processors {
                             p.notify_target_touched();
                         }
@@ -441,7 +480,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
         if let Ok(domain_type) = TouchedParameterType::try_from_reaper(args.parameter_type) {
-            DomainGlobal::target_context()
+            BackboneState::target_context()
                 .borrow()
                 .automation_parameter_is_touched(args.track, domain_type)
         } else {

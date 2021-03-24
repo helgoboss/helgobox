@@ -27,7 +27,7 @@ use crate::domain::ui_util::{
     parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    handle_exclusivity, AdditionalFeedbackEvent, DomainGlobal, HierarchyEntry,
+    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, HierarchyEntry,
     HierarchyEntryProvider, RealearnTarget,
 };
 use std::convert::TryInto;
@@ -721,7 +721,7 @@ impl RealearnTarget for ReaperTarget {
                 chunk_hash,
             } => {
                 if !value.as_absolute()?.is_zero() {
-                    DomainGlobal::target_context()
+                    BackboneState::target_context()
                         .borrow_mut()
                         .load_fx_snapshot(fx.clone(), chunk, *chunk_hash)
                 }
@@ -731,7 +731,7 @@ impl RealearnTarget for ReaperTarget {
                 parameter_type,
                 exclusivity,
             } => {
-                let mut ctx = DomainGlobal::target_context().borrow_mut();
+                let mut ctx = BackboneState::target_context().borrow_mut();
                 if value.as_absolute()?.is_zero() {
                     handle_track_exclusivity(track, *exclusivity, |t| {
                         ctx.touch_automation_parameter(t.raw(), *parameter_type)
@@ -1764,7 +1764,7 @@ impl Target for ReaperTarget {
                 }
             }
             LoadFxSnapshot { fx, chunk_hash, .. } => {
-                let is_loaded = DomainGlobal::target_context()
+                let is_loaded = BackboneState::target_context()
                     .borrow()
                     .current_fx_snapshot_chunk_hash(fx)
                     == Some(*chunk_hash);
@@ -1775,7 +1775,7 @@ impl Target for ReaperTarget {
                 parameter_type,
                 ..
             } => {
-                let is_touched = DomainGlobal::target_context()
+                let is_touched = BackboneState::target_context()
                     .borrow()
                     .automation_parameter_is_touched(track.raw(), *parameter_type);
                 touched_unit_value(is_touched)
