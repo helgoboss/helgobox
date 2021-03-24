@@ -546,6 +546,10 @@ impl Session {
             if m.target_model.category.get() != TargetCategory::Virtual {
                 continue;
             }
+            if !self.on_mappings.get_ref().contains(&m.id()) {
+                // Since virtual mappings support conditional activation, too!
+                continue;
+            }
             if let Some(s) = RealSource::from_compound_source(m.source_model.create_source()) {
                 if s == *source {
                     let virtual_source =
