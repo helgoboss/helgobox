@@ -389,6 +389,7 @@ impl RealearnPlugin {
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     App::get().additional_feedback_event_sender(),
+                    App::get().instance_orchestration_event_sender(),
                     App::get().osc_feedback_task_sender(),
                     weak_session.clone(),
                     processor_context,

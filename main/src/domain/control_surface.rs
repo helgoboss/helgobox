@@ -1,7 +1,7 @@
 use crate::core::Global;
 use crate::domain::{
-    DomainEventHandler, DomainGlobal, MainProcessor, OscDeviceId, OscInputDevice, ReaperTarget,
-    TouchedParameterType,
+    DomainEventHandler, DomainGlobal, FeedbackOutput, MainProcessor, OscDeviceId, OscInputDevice,
+    RealSource, ReaperTarget, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -25,6 +25,7 @@ type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
+const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
 
 #[derive(Debug)]
@@ -36,6 +37,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
+    instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
     meter_middleware: MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
@@ -80,6 +82,22 @@ pub enum AdditionalFeedbackEvent {
 }
 
 #[derive(Debug)]
+pub enum InstanceOrchestrationEvent {
+    /// Sent by a ReaLearn instance X if it releases control over a source.
+    ///
+    /// This enables other instances to take control of that source before X finally "switches off
+    /// lights".
+    SourceReleased(SourceReleasedEvent),
+}
+
+#[derive(Debug)]
+pub struct SourceReleasedEvent {
+    pub instance_id: String,
+    pub feedback_output: FeedbackOutput,
+    pub feedback_value: SourceFeedbackValue,
+}
+
+#[derive(Debug)]
 pub struct PlayPositionChangedEvent {
     pub new_value: PositionInSeconds,
 }
@@ -117,6 +135,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
+        instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -128,6 +147,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             main_task_receiver,
             server_task_receiver,
             additional_feedback_event_receiver,
+            instance_orchestration_event_receiver,
             meter_middleware: MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
@@ -244,6 +264,36 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
             for p in &mut self.main_processors {
                 p.process_additional_feedback_event(&event)
+            }
+        }
+        // Process instance orchestration events
+        for event in self
+            .instance_orchestration_event_receiver
+            .try_iter()
+            .take(INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE)
+        {
+            use InstanceOrchestrationEvent::*;
+            match event {
+                SourceReleased(e) => {
+                    let other_instance_took_over =
+                        if let Some(source) = RealSource::from_feedback_value(&e.feedback_value) {
+                            self.main_processors
+                                .iter()
+                                .filter(|p| p.instance_id() != &e.instance_id)
+                                .any(|p| p.maybe_takeover_source(&source))
+                        } else {
+                            false
+                        };
+                    if !other_instance_took_over {
+                        if let Some(p) = self
+                            .main_processors
+                            .iter()
+                            .find(|p| p.instance_id() == &e.instance_id)
+                        {
+                            p.finally_switch_off_source(e.feedback_output, e.feedback_value);
+                        }
+                    }
+                }
             }
         }
         // Emit beats as feedback events

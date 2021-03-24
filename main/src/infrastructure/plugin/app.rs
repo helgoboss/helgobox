@@ -5,10 +5,11 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, DomainGlobal, MainProcessor, MappingCompartment,
-    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource, RealearnAudioHook,
-    RealearnAudioHookTask, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
+    ActionInvokedEvent, AdditionalFeedbackEvent, DomainGlobal, InstanceOrchestrationEvent,
+    MainProcessor, MappingCompartment, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
+    RealSource, RealearnAudioHook, RealearnAudioHookTask, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTargetContext,
+    ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
@@ -45,6 +46,7 @@ const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
 // Probably can get quite much on action invocation.
 // https://github.com/helgoboss/realearn/issues/234
 const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
+const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
 const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
@@ -73,6 +75,7 @@ pub struct App {
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
+    instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
     audio_hook_task_sender: crossbeam_channel::Sender<RealearnAudioHookTask>,
     sessions: RefCell<Vec<WeakSession>>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
@@ -113,6 +116,7 @@ struct UninitializedState {
     control_surface_server_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
+    instance_orchestration_event_receiver: crossbeam_channel::Receiver<InstanceOrchestrationEvent>,
     audio_hook_task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
 }
 
@@ -183,13 +187,16 @@ impl App {
             crossbeam_channel::bounded(CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE);
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
             crossbeam_channel::bounded(OSC_OUTGOING_QUEUE_SIZE);
-        let (additional_reaper_event_sender, additional_reaper_event_receiver) =
+        let (additional_feedback_event_sender, additional_feedback_event_receiver) =
             crossbeam_channel::bounded(ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE);
+        let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
+            crossbeam_channel::bounded(INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE);
         let (audio_sender, audio_receiver) = crossbeam_channel::bounded(AUDIO_HOOK_TASK_QUEUE_SIZE);
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             control_surface_server_task_receiver: server_receiver,
-            additional_feedback_event_receiver: additional_reaper_event_receiver,
+            additional_feedback_event_receiver,
+            instance_orchestration_event_receiver,
             audio_hook_task_receiver: audio_receiver,
         };
         App {
@@ -220,7 +227,8 @@ impl App {
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
             osc_feedback_task_sender,
-            additional_feedback_event_sender: additional_reaper_event_sender,
+            additional_feedback_event_sender,
+            instance_orchestration_event_sender,
             audio_hook_task_sender: audio_sender,
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
@@ -277,6 +285,7 @@ impl App {
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
+            uninit_state.instance_orchestration_event_receiver,
             std::env::var("REALEARN_METER").is_ok(),
         ));
         let audio_hook = RealearnAudioHook::new(uninit_state.audio_hook_task_receiver);
@@ -515,6 +524,12 @@ impl App {
         &self,
     ) -> crossbeam_channel::Sender<AdditionalFeedbackEvent> {
         self.additional_feedback_event_sender.clone()
+    }
+
+    pub fn instance_orchestration_event_sender(
+        &self,
+    ) -> crossbeam_channel::Sender<InstanceOrchestrationEvent> {
+        self.instance_orchestration_event_sender.clone()
     }
 
     pub fn osc_feedback_task_sender(&self) -> crossbeam_channel::Sender<OscFeedbackTask> {

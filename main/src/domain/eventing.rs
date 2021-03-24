@@ -1,6 +1,6 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, ParameterArray,
-    ProjectionFeedbackValue,
+    ProjectionFeedbackValue, SourceFeedbackValue,
 };
 use helgoboss_learn::{MidiSource, OscSource, UnitValue};
 use std::collections::HashSet;
@@ -57,6 +57,14 @@ impl RealSource {
             Midi(s) => Some(Self::Midi(s)),
             Osc(s) => Some(Self::Osc(s)),
             Virtual(_) => None,
+        }
+    }
+
+    pub fn from_feedback_value(value: &SourceFeedbackValue) -> Option<Self> {
+        use SourceFeedbackValue::*;
+        match value {
+            Midi(v) => MidiSource::from_source_value(v.clone()).map(Self::Midi),
+            Osc(v) => Some(Self::Osc(OscSource::from_source_value(v.clone(), None))),
         }
     }
 }

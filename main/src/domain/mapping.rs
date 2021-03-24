@@ -1,8 +1,9 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
     MappingActivationEffect, Mode, ParameterArray, ParameterSlice, PlayPosFeedbackResolution,
-    RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    RealSource, RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -315,6 +316,18 @@ impl MainMapping {
 
     pub fn source(&self) -> &CompoundMappingSource {
         &self.core.source
+    }
+
+    pub fn has_this_real_source(&self, source: &RealSource) -> bool {
+        match &self.core.source {
+            CompoundMappingSource::Midi(self_source) => {
+                matches!(source, RealSource::Midi(s) if s == self_source)
+            }
+            CompoundMappingSource::Osc(self_source) => {
+                matches!(source, RealSource::Osc(s) if s == self_source)
+            }
+            CompoundMappingSource::Virtual(_) => false,
+        }
     }
 
     pub fn target(&self) -> Option<&CompoundMappingTarget> {
@@ -669,10 +682,6 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
-    pub fn is_virtual(&self) -> bool {
-        matches!(self, CompoundMappingSource::Virtual(_))
-    }
-
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
         match self {

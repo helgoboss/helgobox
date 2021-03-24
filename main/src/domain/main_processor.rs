@@ -1,12 +1,12 @@
 use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, CompoundMappingSource, CompoundMappingTarget,
-    ControlInput, ControlMode, DomainEvent, DomainEventHandler, DomainGlobal,
-    ExtendedProcessorContext, FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, MainMapping,
+    ControlInput, ControlMode, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
     OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
     QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceFeedbackValue,
-    TargetValueChangedEvent, VirtualSourceValue,
+    SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
@@ -48,6 +48,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
     poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    // TODO-medium Now that we communicate the feedback output separately, we could limit the scope
+    //  of its meaning to "instance enabled etc."
     feedback_is_globally_enabled: bool,
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -59,6 +61,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
+    instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
     parameters: ParameterArray,
     event_handler: EH,
     context: ProcessorContext,
@@ -80,6 +83,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
+        instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
@@ -114,11 +118,37 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_output: Default::default(),
             osc_feedback_task_sender,
             additional_feedback_event_sender,
+            instance_orchestration_event_sender,
         }
     }
 
     pub fn instance_id(&self) -> &str {
         &self.instance_id
+    }
+
+    pub fn maybe_takeover_source(&self, source: &RealSource) -> bool {
+        if let Some(mapping_with_source) = self
+            .all_mappings()
+            .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
+        {
+            if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
+                let feedback = followed_mapping.feedback(true);
+                self.send_feedback(FeedbackReason::SourceTakeover, feedback);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn finally_switch_off_source(
+        &self,
+        feedback_output: FeedbackOutput,
+        feedback_value: SourceFeedbackValue,
+    ) {
+        send_direct_source_feedback(&self.instance_props(), feedback_output, feedback_value);
     }
 
     /// This should be regularly called by the control surface in normal mode.
@@ -856,6 +886,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &InstanceProps {
                             rt_sender: &self.feedback_real_time_task_sender,
                             osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                            instance_orchestration_sender: &self
+                                .instance_orchestration_event_sender,
                             instance_id: &self.instance_id,
                             feedback_is_globally_enabled: self.feedback_is_globally_enabled,
                             event_handler: &self.event_handler,
@@ -900,6 +932,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &InstanceProps {
                                 rt_sender: &self.feedback_real_time_task_sender,
                                 osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                                instance_orchestration_sender: &self
+                                    .instance_orchestration_event_sender,
                                 instance_id: &self.instance_id,
                                 feedback_is_globally_enabled: self.feedback_is_globally_enabled,
                                 event_handler: &self.event_handler,
@@ -977,6 +1011,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         InstanceProps {
             rt_sender: &self.feedback_real_time_task_sender,
             osc_feedback_task_sender: &self.osc_feedback_task_sender,
+            instance_orchestration_sender: &self.instance_orchestration_event_sender,
             instance_id: &self.instance_id,
             feedback_is_globally_enabled: self.feedback_is_globally_enabled,
             event_handler: &self.event_handler,
@@ -1055,21 +1090,25 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
-        let resolved_mapping = if let Some(control_element) = m.virtual_target_control_element() {
+        let followed_mapping = self.follow_maybe_virtual_mapping(m)?;
+        followed_mapping.feedback(true)
+    }
+
+    fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
+        if let Some(control_element) = m.virtual_target_control_element() {
             self.mappings[MappingCompartment::MainMappings]
                 .values()
                 .find(|m| {
                     m.virtual_source_control_element() == Some(control_element)
                         && m.feedback_is_effectively_on()
-                })?
+                })
         } else {
-            m
-        };
-        resolved_mapping.feedback(true)
+            Some(m)
+        }
     }
 
     fn clear_feedback(&self) {
-        // TODO-high Also clear projection feedback.
+        // TODO-medium Also clear projection feedback.
         if matches!(self.feedback_output, Some(FeedbackOutput::Osc(_))) {
             self.send_feedback(FeedbackReason::Clear, self.feedback_all_zero());
         } else {
@@ -1271,9 +1310,14 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum FeedbackReason {
+    /// When ReaLearn detects a source as unused.
     UnusedSource,
+    /// When feedback gets globally disabled and when main processor goes away for good.
     Clear,
+    /// Normal feedback scenarios.
     Normal,
+    /// When a ReaLearn instance X takes control of a source after Y has released the source.
+    SourceTakeover,
 }
 
 impl FeedbackReason {
@@ -1286,6 +1330,7 @@ impl FeedbackReason {
 struct InstanceProps<'a, EH: DomainEventHandler> {
     rt_sender: &'a RealTimeSender<FeedbackRealTimeTask>,
     osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
+    instance_orchestration_sender: &'a crossbeam_channel::Sender<InstanceOrchestrationEvent>,
     instance_id: &'a str,
     feedback_is_globally_enabled: bool,
     event_handler: &'a EH,
@@ -1299,7 +1344,6 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
     feedback_reason: FeedbackReason,
     feedback_values: impl IntoIterator<Item = FeedbackValue>,
 ) {
-    let global = DomainGlobal::get();
     for feedback_value in feedback_values.into_iter() {
         match feedback_value {
             FeedbackValue::Virtual {
@@ -1314,22 +1358,6 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
                     {
                         if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
                             if t.control_element() == value.control_element() {
-                                // At this point we can be sure that this mapping can't have a
-                                // virtual source.
-                                if let Some(feedback_output) = instance.feedback_output {
-                                    if feedback_reason.can_interfere_with_other_instances()
-                                        && global.source_receives_feedback_from_other_instance(
-                                            instance.instance_id,
-                                            feedback_output,
-                                            m.source(),
-                                        )
-                                    {
-                                        // TODO-high This treats virtual sources but we need the
-                                        // same  filtering
-                                        // for direct feedback (at an earlier stage).
-                                        continue;
-                                    }
-                                }
                                 if let Some(FeedbackValue::Real(final_feedback_value)) = m
                                     .feedback_given_target_value(
                                         v,
@@ -1337,7 +1365,11 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
                                         with_source_feedback,
                                     )
                                 {
-                                    send_direct_feedback(final_feedback_value, instance);
+                                    send_direct_feedback(
+                                        instance,
+                                        feedback_reason,
+                                        final_feedback_value,
+                                    );
                                 }
                             }
                         }
@@ -1345,33 +1377,32 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
                 }
             }
             FeedbackValue::Real(final_feedback_value) => {
-                send_direct_feedback(final_feedback_value, instance);
+                send_direct_feedback(instance, feedback_reason, final_feedback_value);
             }
         }
     }
 }
 
 fn send_direct_feedback<EH: DomainEventHandler>(
-    feedback_value: RealFeedbackValue,
     instance: &InstanceProps<EH>,
+    feedback_reason: FeedbackReason,
+    feedback_value: RealFeedbackValue,
 ) {
     if instance.feedback_is_globally_enabled {
-        if let Some(source_feedback_value) = feedback_value.source {
-            match source_feedback_value {
-                SourceFeedbackValue::Midi(v) => {
-                    // TODO-low Maybe we should use the SmallVec here, too?
-                    instance
-                        .rt_sender
-                        .send(FeedbackRealTimeTask::Feedback(v))
-                        .unwrap();
-                }
-                SourceFeedbackValue::Osc(msg) => {
-                    if let Some(FeedbackOutput::Osc(dev_id)) = instance.feedback_output {
-                        instance
-                            .osc_feedback_task_sender
-                            .try_send(OscFeedbackTask::new(dev_id, msg))
-                            .unwrap();
-                    }
+        if let Some(feedback_output) = instance.feedback_output {
+            if let Some(source_feedback_value) = feedback_value.source {
+                // At this point we can be sure that this mapping can't have a
+                // virtual source.
+                if feedback_reason.can_interfere_with_other_instances() {
+                    // Possible interference with other instances.
+                    let event = InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
+                        instance_id: instance.instance_id.to_owned(),
+                        feedback_output,
+                        feedback_value: source_feedback_value,
+                    });
+                    instance.instance_orchestration_sender.send(event).unwrap();
+                } else {
+                    send_direct_source_feedback(instance, feedback_output, source_feedback_value);
                 }
             }
         }
@@ -1380,6 +1411,33 @@ fn send_direct_feedback<EH: DomainEventHandler>(
         instance
             .event_handler
             .handle_event(DomainEvent::ProjectionFeedback(projection_feedback_value));
+    }
+}
+
+fn send_direct_source_feedback<EH: DomainEventHandler>(
+    instance: &InstanceProps<EH>,
+    feedback_output: FeedbackOutput,
+    source_feedback_value: SourceFeedbackValue,
+) {
+    // No interference with other instances.
+    match source_feedback_value {
+        SourceFeedbackValue::Midi(v) => {
+            if let FeedbackOutput::Midi(_) = feedback_output {
+                // TODO-low Maybe we should use the SmallVec here, too?
+                instance
+                    .rt_sender
+                    .send(FeedbackRealTimeTask::Feedback(v))
+                    .unwrap();
+            }
+        }
+        SourceFeedbackValue::Osc(msg) => {
+            if let FeedbackOutput::Osc(dev_id) = feedback_output {
+                instance
+                    .osc_feedback_task_sender
+                    .try_send(OscFeedbackTask::new(dev_id, msg))
+                    .unwrap();
+            }
+        }
     }
 }
 
