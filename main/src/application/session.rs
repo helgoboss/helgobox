@@ -16,7 +16,7 @@ use crate::domain::{
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
 
-use reaper_high::Reaper;
+use reaper_high::{Fx, Reaper};
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use slog::debug;
@@ -469,21 +469,33 @@ impl Session {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
         // When FX focus changes, maybe trigger main preset change
+        let previous_fx: RefCell<Option<Fx>> = RefCell::new(None);
         when(
             Global::control_surface_rx()
+                // We need this event primarily to get informed of focus changes (because a
+                // change in focus can happen without an FX to be opened or closed).
                 .fx_focused()
                 .map_to(())
+                // For unloading preset when FX closed (we want that for now, it's clean!)
                 .merge(Global::control_surface_rx().fx_closed().map_to(()))
+                // For loading preset when FX opened (even if last focused FX is the same).
                 .merge(Global::control_surface_rx().fx_opened().map_to(()))
                 .take_until(self.party_is_over()),
         )
         .with(weak_session)
-        .do_sync(|s, _| {
+        .do_sync(move |s, _| {
             if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
                 let fx = Reaper::get().focused_fx();
-                let fx_id = fx.as_ref().map(FxId::from_fx);
-                s.borrow_mut()
-                    .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+                let mut previously_focused_fx = previous_fx.borrow_mut();
+                // Don't do anything if focused FX not changed. We do this in order to not
+                // unnecessarily load presets. E.g. fx_focused() and fx_opened() are fired
+                // in sequence if it's both an "open" and a "change".
+                if *previously_focused_fx != fx {
+                    let fx_id = fx.as_ref().map(FxId::from_fx);
+                    s.borrow_mut()
+                        .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+                    *previously_focused_fx = fx;
+                }
             }
         });
     }
