@@ -521,7 +521,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         // Clear it completely. Other instances that might take over maybe don't use
                         // all control elements and we don't want to leave traces.
-                        self.clear_all_feedback();
+                        self.clear_all_feedback_allowing_source_takeover();
                     };
                     let event = IoUpdatedEvent {
                         feedback_output_usage_might_have_changed: true,
@@ -1220,19 +1220,34 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     .unwrap();
             } else {
                 debug!(self.logger, "Cancelling instance...");
-                self.send_feedback(FeedbackReason::Cancel, self.feedback_all_zero());
+                self.send_feedback(FeedbackReason::CancelInstance, self.feedback_all_zero());
             }
         }
         self.update_on_mappings();
     }
 
-    /// When feedback gets globally disabled and when main processor goes away for good.
-    fn clear_all_feedback(&self) {
+    /// When feedback gets globally disabled.
+    fn clear_all_feedback_allowing_source_takeover(&self) {
         debug!(
             self.logger,
             "Clearing all feedback allowing source takeover..."
         );
-        self.send_feedback(FeedbackReason::ClearAll, self.feedback_all_zero());
+        self.send_feedback(
+            FeedbackReason::ClearAllAllowingSourceTakeover,
+            self.feedback_all_zero(),
+        );
+    }
+
+    /// When main processor goes away for good.
+    fn clear_all_feedback_preventing_source_takeover(&self) {
+        debug!(
+            self.logger,
+            "Clearing all feedback preventing source takeover..."
+        );
+        self.send_feedback(
+            FeedbackReason::ClearAllPreventingSourceTakeover,
+            self.feedback_all_zero(),
+        );
     }
 
     fn feedback_all_zero(&self) -> Vec<FeedbackValue> {
@@ -1420,11 +1435,7 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
         if self.feedback_is_effectively_enabled() {
             // We clear feedback right here and now because that's the last chance.
             // Other instances can take over the feedback output afterwards.
-            // TODO-high If this is a project close, granting takeover to other instances
-            //  (async) lets the chance to clear feedback go by!!! Check if we still
-            //  get at least the source release events in control surface. If yes, we
-            //  can simply mak
-            self.clear_all_feedback();
+            self.clear_all_feedback_preventing_source_takeover();
         }
         let _ = self.send_io_update(self.io_released_event());
     }
@@ -1434,11 +1445,14 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 enum FeedbackReason {
     /// When ReaLearn detects a single source as unused.
     ClearUnusedSource,
-    /// When all feedback for that instance gets disabled (e.g. if instance disabled or main
-    /// processor goes away for good).
-    ClearAll,
+    /// When all feedback for that instance gets disabled but other instances should get a chance
+    /// to grab some sources.
+    ClearAllAllowingSourceTakeover,
+    /// When all feedback for that instance gets disabled and switching off is more important than
+    /// letting other instances take over (e.g. when removing instance completely).
+    ClearAllPreventingSourceTakeover,
     /// When a lower-floor ReaLearn instance is cancelled by an upper-floor one.
-    Cancel,
+    CancelInstance,
     /// Normal feedback scenarios.
     Normal,
     /// When a ReaLearn instance X takes control of a source after Y has released the source.
@@ -1448,11 +1462,14 @@ enum FeedbackReason {
 impl FeedbackReason {
     pub fn is_source_release(self) -> bool {
         use FeedbackReason::*;
-        matches!(self, ClearUnusedSource | ClearAll | Cancel)
+        matches!(
+            self,
+            ClearUnusedSource | ClearAllAllowingSourceTakeover | CancelInstance
+        )
     }
 
     pub fn always_allow(self) -> bool {
-        matches!(self, FeedbackReason::Cancel)
+        matches!(self, FeedbackReason::CancelInstance)
     }
 }
 
