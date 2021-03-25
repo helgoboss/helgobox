@@ -152,6 +152,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 false
             }
         } else {
+            debug!(
+                self.logger,
+                "No source takeover of {:?} because feedback effectively disabled", source
+            );
             false
         }
     }

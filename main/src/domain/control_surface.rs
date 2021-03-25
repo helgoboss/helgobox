@@ -317,8 +317,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 IoUpdated(e) => {
                     let backbone_state = BackboneState::get();
-                    backbone_state.update_io_usage(
-                        e.instance_id.clone(),
+                    let feedback_dev_usage_changed = backbone_state.update_io_usage(
+                        &e.instance_id,
                         if e.control_input_used {
                             e.control_input
                         } else {
@@ -330,9 +330,19 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             None
                         },
                     );
-                    if e.feedback_output_usage_might_have_changed
+                    if feedback_dev_usage_changed
                         && backbone_state.lives_on_upper_floor(&e.instance_id)
                     {
+                        debug!(
+                            self.logger,
+                            "Upper-floor instance {} {} feedback output",
+                            e.instance_id,
+                            if e.feedback_output_used {
+                                "claimed"
+                            } else {
+                                "released"
+                            }
+                        );
                         if let Some(feedback_output) = e.feedback_output {
                             // Give lower-floor instances the chance to cancel or reactivate.
                             self.main_processors

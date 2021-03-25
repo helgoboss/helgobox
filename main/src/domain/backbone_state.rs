@@ -14,9 +14,9 @@ pub struct BackboneState {
     target_context: RefCell<RealearnTargetContext>,
     last_touched_target: RefCell<Option<ReaperTarget>>,
     /// Value: Instance ID of the ReaLearn instance that owns the control input.
-    control_input_usage: RefCell<HashMap<DeviceControlInput, HashSet<String>>>,
+    control_input_usages: RefCell<HashMap<DeviceControlInput, HashSet<String>>>,
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
-    feedback_output_usage: RefCell<HashMap<DeviceFeedbackOutput, HashSet<String>>>,
+    feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<String>>>,
     upper_floor_instances: RefCell<HashSet<String>>,
 }
 
@@ -25,8 +25,8 @@ impl BackboneState {
         Self {
             target_context: RefCell::new(target_context),
             last_touched_target: Default::default(),
-            control_input_usage: Default::default(),
-            feedback_output_usage: Default::default(),
+            control_input_usages: Default::default(),
+            feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
         }
     }
@@ -53,7 +53,7 @@ impl BackboneState {
 
     pub fn control_is_allowed(&self, instance_id: &str, control_input: ControlInput) -> bool {
         if let Some(dev_input) = control_input.device_input() {
-            self.interaction_is_allowed(instance_id, dev_input, &self.control_input_usage)
+            self.interaction_is_allowed(instance_id, dev_input, &self.control_input_usages)
         } else {
             true
         }
@@ -61,42 +61,28 @@ impl BackboneState {
 
     pub fn feedback_is_allowed(&self, instance_id: &str, feedback_output: FeedbackOutput) -> bool {
         if let Some(dev_output) = feedback_output.device_output() {
-            self.interaction_is_allowed(instance_id, dev_output, &self.feedback_output_usage)
+            self.interaction_is_allowed(instance_id, dev_output, &self.feedback_output_usages)
         } else {
             true
         }
     }
 
     /// Also drops all previous usage  of that instance.
+    ///
+    /// Returns true if this actually caused a change in *feedback output* usage.
     pub fn update_io_usage(
         &self,
-        instance_id: String,
+        instance_id: &str,
         control_input: Option<DeviceControlInput>,
         feedback_output: Option<DeviceFeedbackOutput>,
-    ) {
-        self.release_exclusive_access(&instance_id);
-        if let Some(i) = control_input {
-            self.control_input_usage
-                .borrow_mut()
-                .entry(i)
-                .or_default()
-                .insert(instance_id.clone());
+    ) -> bool {
+        {
+            let mut usages = self.control_input_usages.borrow_mut();
+            update_io_usage(&mut usages, instance_id, control_input);
         }
-        if let Some(o) = feedback_output {
-            self.feedback_output_usage
-                .borrow_mut()
-                .entry(o)
-                .or_default()
-                .insert(instance_id.clone());
-        }
-    }
-
-    fn release_exclusive_access(&self, instance_id: &str) {
-        for ids in self.control_input_usage.borrow_mut().values_mut() {
-            ids.remove(instance_id);
-        }
-        for ids in self.feedback_output_usage.borrow_mut().values_mut() {
-            ids.remove(instance_id);
+        {
+            let mut usages = self.feedback_output_usages.borrow_mut();
+            update_io_usage(&mut usages, instance_id, feedback_output)
         }
     }
 
@@ -134,4 +120,26 @@ impl BackboneState {
             }
         }
     }
+}
+
+/// Returns `true` if there was an actual change.
+fn update_io_usage<D: Eq + Hash + Copy>(
+    usages: &mut HashMap<D, HashSet<String>>,
+    instance_id: &str,
+    device: Option<D>,
+) -> bool {
+    let mut previously_used_device: Option<D> = None;
+    for (dev, ids) in usages.iter_mut() {
+        let was_removed = ids.remove(instance_id);
+        if was_removed {
+            previously_used_device = Some(*dev);
+        }
+    }
+    if let Some(dev) = device {
+        usages
+            .entry(dev)
+            .or_default()
+            .insert(instance_id.to_owned());
+    }
+    device != previously_used_device
 }
