@@ -13,7 +13,6 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
-const MIDI_DEVICE_FEEDBACK_TASK_BULK_SIZE: usize = 1;
 const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 
 /// This needs to be thread-safe because if "Allow live FX multiprocessing" is active in the REAPER

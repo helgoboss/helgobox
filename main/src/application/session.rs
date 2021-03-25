@@ -447,7 +447,7 @@ impl Session {
         // Keep adding/removing instance to/from upper floor.
         when(self.lives_on_upper_floor.changed())
             .with(weak_session.clone())
-            .do_sync(move |s, value| {
+            .do_sync(move |s, _| {
                 s.borrow().sync_upper_floor_membership();
             });
         // Keep syncing some general settings to real-time processor.

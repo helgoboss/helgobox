@@ -52,7 +52,7 @@ const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 // and yet it's only around 1 MB memory usage (globally). We are on the safe side!
 const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
 const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
-const AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
+const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
@@ -197,10 +197,11 @@ impl App {
         let (additional_feedback_event_sender, additional_feedback_event_receiver) =
             crossbeam_channel::bounded(ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE);
         let (instance_orchestration_event_sender, instance_orchestration_event_receiver) =
-            crossbeam_channel::bounded(ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE);
+            crossbeam_channel::bounded(INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE);
         let (feedback_audio_hook_task_sender, feedback_audio_hook_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE);
-        let (audio_sender, audio_receiver) = crossbeam_channel::bounded(AUDIO_HOOK_TASK_QUEUE_SIZE);
+        let (audio_sender, audio_receiver) =
+            crossbeam_channel::bounded(NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE);
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
             control_surface_server_task_receiver: server_receiver,

@@ -64,7 +64,7 @@ LTEXT           "Search", 0, 139, 89, 25, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
 LTEXT           "Auto-load preset", ID_AUTO_LOAD_LABEL_TEXT, 285, 69, 55, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
 LTEXT           "Let through:", 0, 270, 26, 39, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
 LTEXT           "Mappings", 0, 7, 89, 33, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
-LTEXT           "Mapping group", ID_GROUP_LABEL_TEXT, 7, 69, 50, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
+LTEXT           "Mapping group", 0, 7, 69, 50, 9, NOT WS_GROUP | SS_LEFT, WS_EX_LEFT
 CONTROL         "", 0, WC_STATIC, SS_ETCHEDHORZ, 0, 41, 470, 1, WS_EX_LEFT
 CONTROL         "", 0, WC_STATIC, SS_ETCHEDHORZ, 0, 103, 470, 1, WS_EX_LEFT
 END

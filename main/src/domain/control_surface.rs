@@ -1,8 +1,8 @@
 use crate::core::Global;
 use crate::domain::{
-    BackboneState, ControlInput, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
-    FeedbackOutput, MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget,
-    SourceFeedbackValue, TouchedParameterType,
+    BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput,
+    MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget, SourceFeedbackValue,
+    TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -308,7 +308,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         if let Some(p) = self
                             .main_processors
                             .iter()
-                            .find(|p| p.instance_id() == &e.instance_id)
+                            .find(|p| p.instance_id() == e.instance_id)
                         {
                             // Finally safe to switch off lights!
                             p.finally_switch_off_source(e.feedback_output, e.feedback_value);
@@ -347,7 +347,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             // Give lower-floor instances the chance to cancel or reactivate.
                             self.main_processors
                                 .iter()
-                                .filter(|p| p.instance_id() != &e.instance_id)
+                                .filter(|p| p.instance_id() != e.instance_id)
                                 .for_each(|p| {
                                     p.handle_change_of_some_upper_floor_instance(feedback_output)
                                 });
