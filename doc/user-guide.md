@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-23 (v2.8.0-pre5)</code></td>
+  <td><code>2021-03-25 (v2.8.0-pre6)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -520,6 +520,21 @@ on macOS) with the following entries:
       it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
       naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
       track is unarmed (*this is subject to change in future!*).
+    - **Move to upper floor:** If ticked, this instance is allowed to cancel other instances which share the same input
+      and/or output device (hardware devices only, not FX input or output!). With this you can easily let your 
+      controller control the currently focused FX but fall back to your usual controls when it's closed. It's intended
+      to be used primarily on instances that use \"Auto-load preset: Depending on focused FX\". 
+        - By default, each ReaLearn instance "lives" on the lower floor. This is often okay because ReaLearn instances
+          are friendly fellows and like sharing controllers with each other.
+        - For example, if 2 instances use the same input or output device and they use different control elements, they
+          can peacefully coexist. And even if they share a control element for the *control direction*, they are still
+          fine with it. The same control element will control 2 mappings, why not!
+        - Things start to get hairy as soon as 2 instances want to send *feedback* to the same control elements at the
+          same time. You should avoid this. You should not even do this within one ReaLearn instance. This can't work.
+        - Sometimes you want one instance to cover/cancel/mute another one! You can do this by moving this instance to
+          the upper floor. Then, whenever this instance has at least one active mapping, all lower-floor instances with
+          the same control and/or feedback device will be disabled for control and/or feedback.
+        - You can have multiple instances on the upper floor. Make sure they get along with each other :)
 - **Server**
     - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn Companion app to
       connect to ReaLearn.
