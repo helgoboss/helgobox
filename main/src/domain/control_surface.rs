@@ -294,9 +294,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     println!("SOURCE RELEASED {}", e.instance_id);
                     let other_instance_took_over =
                         if let Some(source) = RealSource::from_feedback_value(&e.feedback_value) {
+                            // We also allow the instance to take over which released the source in
+                            // the first place! Simply because in the meanwhile, this instance
+                            // could have found a new usage for it! E.g. likely to happen with
+                            // preset changes.
                             self.main_processors
                                 .iter()
-                                .filter(|p| p.instance_id() != &e.instance_id)
                                 .any(|p| p.maybe_takeover_source(&source))
                         } else {
                             false
@@ -307,6 +310,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             .iter()
                             .find(|p| p.instance_id() == &e.instance_id)
                         {
+                            // Finally safe to switch off lights!
                             p.finally_switch_off_source(e.feedback_output, e.feedback_value);
                         }
                     }

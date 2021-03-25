@@ -127,6 +127,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self.instance_id
     }
 
+    /// This is the chance to take over a source from another instance (send our feedback).
     pub fn maybe_takeover_source(&self, source: &RealSource) -> bool {
         println!("TODO-high MAYBE TAKEOVER SOURCE {}", &self.instance_id);
         if let Some(mapping_with_source) = self
@@ -146,6 +147,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    /// We previously wanted to switch off lights for a source but gave other instances the chance
+    /// to take over. This is called if no takeover happened and it's safe to really turn the lights
+    /// off.
     pub fn finally_switch_off_source(
         &self,
         feedback_output: FeedbackOutput,
