@@ -18,6 +18,7 @@ use reaper_medium::{
     ReaperNormalizedFxParamValue,
 };
 use rxrust::prelude::*;
+use slog::debug;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
@@ -290,7 +291,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use InstanceOrchestrationEvent::*;
             match event {
                 SourceReleased(e) => {
-                    println!("SOURCE RELEASED {}", e.instance_id);
+                    debug!(self.logger, "Source of instance {} released", e.instance_id);
                     let other_instance_took_over =
                         if let Some(source) = RealSource::from_feedback_value(&e.feedback_value) {
                             // We also allow the instance to take over which released the source in

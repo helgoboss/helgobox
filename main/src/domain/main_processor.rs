@@ -128,6 +128,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// This is the chance to take over a source from another instance (send our feedback).
+    ///
+    /// This is a very important principle when using multiple instances. It allows feedback to
+    /// not be accidentally cleared while still guaranteeing that feedback for non-used control
+    /// elements are cleared eventually - independently from the order of instance processing.
     pub fn maybe_takeover_source(&self, source: &RealSource) -> bool {
         if self.feedback_is_effectively_enabled() {
             if let Some(mapping_with_source) = self
@@ -139,7 +143,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 {
                     debug!(self.logger, "Taking over source {:?}...", source);
                     let feedback = followed_mapping.feedback(true);
-                    self.send_feedback(FeedbackReason::SourceTakeover, feedback);
+                    self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
                     false
@@ -164,7 +168,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.logger,
             "Finally switching off source with {:?}...", feedback_value
         );
-        send_direct_source_feedback(&self.instance_props(), feedback_output, feedback_value);
+        send_direct_source_feedback(
+            &self.instance_props(),
+            feedback_output,
+            FeedbackReason::FinallySwitchOffSource,
+            feedback_value,
+        );
     }
 
     /// This should be regularly called by the control surface in normal mode.
@@ -797,7 +806,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn all_io_might_have_changed_event(&self) -> IoUpdatedEvent {
         IoUpdatedEvent {
-            /// TODO-high This works but leads to quite many reactions. The best thing would be
+            /// TODO-medium This works but leads to quite many reactions. The best thing would be
             ///  to always save the previous usage state and determine if there really was a
             ///  difference. However, this could also be done in the backbone (when treating the
             ///  hash maps).
@@ -983,6 +992,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             feedback_is_globally_enabled: self.feedback_is_globally_enabled,
                             event_handler: &self.event_handler,
                             feedback_output: self.feedback_output,
+                            logger: &self.logger,
                         },
                         &mut self.mappings_with_virtual_targets,
                         &mut self.mappings[MappingCompartment::MainMappings],
@@ -1029,6 +1039,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 feedback_is_globally_enabled: self.feedback_is_globally_enabled,
                                 event_handler: &self.event_handler,
                                 feedback_output: self.feedback_output,
+                                logger: &self.logger,
                             },
                             &self.mappings_with_virtual_targets,
                             FeedbackReason::Normal,
@@ -1112,6 +1123,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_is_globally_enabled: self.feedback_is_globally_enabled,
             event_handler: &self.event_handler,
             feedback_output: self.feedback_output,
+            logger: &self.logger,
         }
     }
 
@@ -1210,14 +1222,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.feedback_output.and_then(FeedbackOutput::device_output) == Some(feedback_output) {
             if self.feedback_is_effectively_enabled() {
                 debug!(self.logger, "Reactivating instance...");
-                // Problem: If we send feedback now synchronously, a shortly before cancellation
+                // If we send feedback now synchronously, a shortly before cancellation
                 // event (which might happen in practice because of event cascades) could annul
-                // it later because cancellation leads to *async* source takeover! That's why
-                // we do this async here, too!
-                // TODO-high This sometimes doesn't work!!!
-                self.self_normal_sender
-                    .send(NormalMainTask::SendAllFeedback)
-                    .unwrap();
+                // it later because cancellation leads to *async* source takeover! However,
+                // cancellation will also allow the cancelled instance itself to take over, so
+                // it things should not result in a "light switch off" but into the correct value
+                // to be resent. That's okay.
+                // TODO-high Doesn't work sometimes yet for some reason.
+                self.send_all_feedback();
             } else {
                 debug!(self.logger, "Cancelling instance...");
                 self.send_feedback(FeedbackReason::CancelInstance, self.feedback_all_zero());
@@ -1441,6 +1453,9 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     }
 }
 
+/// Different feedback reasons can but don't have to result in slightly different behavior.
+///
+/// In any case, they are nice for tracing when debugging feedback issues.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 enum FeedbackReason {
     /// When ReaLearn detects a single source as unused.
@@ -1456,7 +1471,9 @@ enum FeedbackReason {
     /// Normal feedback scenarios.
     Normal,
     /// When a ReaLearn instance X takes control of a source after Y has released the source.
-    SourceTakeover,
+    TakeOverSource,
+    /// When no ReaLearn instance has taken over a source and now it's finally being switched off.
+    FinallySwitchOffSource,
 }
 
 impl FeedbackReason {
@@ -1481,6 +1498,7 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     feedback_is_globally_enabled: bool,
     event_handler: &'a EH,
     feedback_output: Option<FeedbackOutput>,
+    logger: &'a slog::Logger,
 }
 
 impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {
@@ -1550,7 +1568,8 @@ fn send_direct_feedback<EH: DomainEventHandler>(
                 // At this point we can be sure that this mapping can't have a
                 // virtual source.
                 if feedback_reason.is_source_release() {
-                    // Possible interference with other instances.
+                    // Possible interference with other instances. Don't switch off yet!
+                    // Give other instances the chance to take over.
                     let event = InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
                         instance_id: instance.instance_id.to_owned(),
                         feedback_output,
@@ -1558,7 +1577,13 @@ fn send_direct_feedback<EH: DomainEventHandler>(
                     });
                     instance.instance_orchestration_sender.send(event).unwrap();
                 } else {
-                    send_direct_source_feedback(instance, feedback_output, source_feedback_value);
+                    // Send feedback right now.
+                    send_direct_source_feedback(
+                        instance,
+                        feedback_output,
+                        feedback_reason,
+                        source_feedback_value,
+                    );
                 }
             }
         }
@@ -1573,9 +1598,14 @@ fn send_direct_feedback<EH: DomainEventHandler>(
 fn send_direct_source_feedback<EH: DomainEventHandler>(
     instance: &InstanceProps<EH>,
     feedback_output: FeedbackOutput,
+    feedback_reason: FeedbackReason,
     source_feedback_value: SourceFeedbackValue,
 ) {
     // No interference with other instances.
+    debug!(
+        instance.logger,
+        "Schedule sending feedback because {:?}: {:?}", feedback_reason, source_feedback_value
+    );
     match source_feedback_value {
         SourceFeedbackValue::Midi(v) => {
             if let FeedbackOutput::Midi(_) = feedback_output {

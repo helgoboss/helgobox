@@ -456,9 +456,6 @@ impl RealTimeProcessor {
                 Feedback(v) => {
                     self.send_midi_feedback(&v, caller);
                 }
-                ClearFeedback => {
-                    self.clear_feedback(caller);
-                }
                 SendLifecycleMidi(compartment, mapping_id, phase) => {
                     if let Some(m) = self.mappings[compartment].get(&mapping_id) {
                         self.send_lifecycle_midi_to_fx_output(
@@ -467,18 +464,6 @@ impl RealTimeProcessor {
                         );
                     }
                 }
-            }
-        }
-    }
-
-    fn clear_feedback(&self, caller: Caller) {
-        // TODO-medium Maybe also send some "All CCs/notes off message" or even device specific
-        //  "All lights off" messages in future ... although this is something which might
-        //  not be that good if there are still other ReaLearn instances having feedback control
-        //  over this MIDI output.
-        for m in self.all_mappings() {
-            if let Some(source_value) = m.zero_feedback_midi_source_value() {
-                self.send_midi_feedback(&source_value, caller);
             }
         }
     }
@@ -770,6 +755,7 @@ impl RealTimeProcessor {
                         MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                             if let Some(mo) = mo {
                                 for short in shorts.iter().flatten() {
+                                    debug!(self.logger, "Send short feedback {:?}", short);
                                     mo.send(*short, SendMidiTime::Instantly);
                                 }
                             }
@@ -1024,12 +1010,6 @@ pub struct ActivationChange {
 pub enum FeedbackRealTimeTask {
     // TODO-low Is it better for performance to push a vector (smallvec) here?
     Feedback(MidiSourceValue<RawShortMessage>),
-    /// If this is sent when the main processor is dropped it should be still processed by the
-    /// real-time processor before it's gone. Because the real-time processor will be removed
-    /// asynchronously after the main processor has been removed synchronously and before actual
-    /// removal its `run*` function will still be called. See `RealearnAudioHook` comments for
-    /// details.
-    ClearFeedback,
     // Used only if feedback output is <FX output>, otherwise done synchronously.
     SendLifecycleMidi(MappingCompartment, MappingId, LifecyclePhase),
 }
