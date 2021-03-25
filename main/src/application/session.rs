@@ -142,6 +142,7 @@ pub mod session_defaults {
     pub const LET_MATCHED_EVENTS_THROUGH: bool = false;
     pub const LET_UNMATCHED_EVENTS_THROUGH: bool = true;
     pub const AUTO_CORRECT_SETTINGS: bool = true;
+    pub const LIVES_ON_UPPER_FLOOR: bool = false;
     pub const SEND_FEEDBACK_ONLY_IF_ARMED: bool = true;
     pub const MAIN_PRESET_AUTO_LOAD_MODE: MainPresetAutoLoadMode = MainPresetAutoLoadMode::Off;
 }
@@ -297,6 +298,12 @@ impl Session {
             MappingCompartment::MainMappings => "Main",
         };
         format!("{} p{}: {}", compartment_label, rel_index + 1, name)
+    }
+
+    pub fn mappings_are_read_only(&self, compartment: MappingCompartment) -> bool {
+        self.is_learning_many_mappings()
+            || (compartment == MappingCompartment::MainMappings
+                && self.main_preset_auto_load_is_active())
     }
 
     pub fn get_parameter_name(&self, compartment: MappingCompartment, rel_index: u32) -> String {
@@ -465,11 +472,15 @@ impl Session {
         when(
             Global::control_surface_rx()
                 .fx_focused()
+                .map_to(())
+                .merge(Global::control_surface_rx().fx_closed().map_to(()))
+                .merge(Global::control_surface_rx().fx_opened().map_to(()))
                 .take_until(self.party_is_over()),
         )
         .with(weak_session)
-        .do_sync(|s, fx| {
+        .do_sync(|s, _| {
             if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
+                let fx = Reaper::get().focused_fx();
                 let fx_id = fx.as_ref().map(FxId::from_fx);
                 s.borrow_mut()
                     .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));

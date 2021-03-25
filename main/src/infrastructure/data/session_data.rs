@@ -40,6 +40,8 @@ pub struct SessionData {
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     always_auto_detect_mode: bool,
     #[serde(default, skip_serializing_if = "is_default")]
+    lives_on_upper_floor: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
     // false by default because in older versions, feedback was always sent no matter if armed or
     // not
     send_feedback_only_if_armed: bool,
@@ -99,6 +101,7 @@ impl Default for SessionData {
             let_matched_events_through: session_defaults::LET_MATCHED_EVENTS_THROUGH,
             let_unmatched_events_through: session_defaults::LET_UNMATCHED_EVENTS_THROUGH,
             always_auto_detect_mode: session_defaults::AUTO_CORRECT_SETTINGS,
+            lives_on_upper_floor: session_defaults::LIVES_ON_UPPER_FLOOR,
             send_feedback_only_if_armed: session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED,
             control_device_id: None,
             feedback_device_id: None,
@@ -146,6 +149,7 @@ impl SessionData {
             let_matched_events_through: session.let_matched_events_through.get(),
             let_unmatched_events_through: session.let_unmatched_events_through.get(),
             always_auto_detect_mode: session.auto_correct_settings.get(),
+            lives_on_upper_floor: session.lives_on_upper_floor.get(),
             send_feedback_only_if_armed: session.send_feedback_only_if_armed.get(),
             control_device_id: if let Some(osc_dev_id) = session.osc_input_device_id.get() {
                 Some(ControlDeviceId::Osc(osc_dev_id))
@@ -253,6 +257,7 @@ impl SessionData {
         session
             .auto_correct_settings
             .set(self.always_auto_detect_mode);
+        session.lives_on_upper_floor.set(self.lives_on_upper_floor);
         session
             .send_feedback_only_if_armed
             .set_without_notification(self.send_feedback_only_if_armed);

@@ -100,10 +100,10 @@ pub struct IoUpdatedEvent {
     pub instance_id: String,
     pub control_input: Option<DeviceControlInput>,
     pub control_input_used: bool,
-    pub control_input_might_have_changed: bool,
+    pub control_input_usage_might_have_changed: bool,
     pub feedback_output: Option<DeviceFeedbackOutput>,
     pub feedback_output_used: bool,
-    pub feedback_output_might_have_changed: bool,
+    pub feedback_output_usage_might_have_changed: bool,
 }
 
 #[derive(Debug)]
@@ -291,6 +291,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use InstanceOrchestrationEvent::*;
             match event {
                 SourceReleased(e) => {
+                    println!("SOURCE RELEASED {}", e.instance_id);
                     let other_instance_took_over =
                         if let Some(source) = RealSource::from_feedback_value(&e.feedback_value) {
                             self.main_processors
@@ -311,7 +312,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     }
                 }
                 IoUpdated(e) => {
-                    BackboneState::get().update_io_usage(
+                    let backbone_state = BackboneState::get();
+                    backbone_state.update_io_usage(
                         e.instance_id.clone(),
                         if e.control_input_used {
                             e.control_input
@@ -324,14 +326,19 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             None
                         },
                     );
-                    // TODO-high
-                    // if e.feedback_output_used == Some(false) {
-                    //     if let Some(feedback_output) = e.feedback_output {
-                    //         // The feedback output has been released (zero feedback has already
-                    // been sent).         // Now give another instance the
-                    // chance to take over.         todo!();
-                    //     }
-                    // }
+                    if e.feedback_output_usage_might_have_changed
+                        && backbone_state.lives_on_upper_floor(&e.instance_id)
+                    {
+                        if let Some(feedback_output) = e.feedback_output {
+                            // Give lower-floor instances the chance to cancel or reactivate.
+                            self.main_processors
+                                .iter()
+                                .filter(|p| p.instance_id() != &e.instance_id)
+                                .for_each(|p| {
+                                    p.handle_change_of_some_upper_floor_instance(feedback_output)
+                                });
+                        }
+                    }
                 }
             }
         }

@@ -236,11 +236,9 @@ impl MappingRowPanel {
     }
 
     fn mappings_are_read_only(&self) -> bool {
-        let session = self.session();
-        let session = session.borrow();
-        session.is_learning_many_mappings()
-            || (self.active_compartment() == MappingCompartment::MainMappings
-                && session.main_preset_auto_load_is_active())
+        self.session()
+            .borrow()
+            .mappings_are_read_only(self.active_compartment())
     }
 
     fn invalidate_button_enabled_states(&self) {

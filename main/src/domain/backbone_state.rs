@@ -39,6 +39,10 @@ impl BackboneState {
         self.last_touched_target.borrow().clone()
     }
 
+    pub fn lives_on_upper_floor(&self, instance_id: &str) -> bool {
+        self.upper_floor_instances.borrow().contains(instance_id)
+    }
+
     pub fn add_to_upper_floor(&self, instance_id: String) {
         self.upper_floor_instances.borrow_mut().insert(instance_id);
     }

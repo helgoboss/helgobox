@@ -254,7 +254,7 @@ impl HeaderPanel {
                             || MenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
-                            "Cover other instances with same device",
+                            "Move to upper floor (cancels other instances with same device)",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
@@ -702,22 +702,8 @@ impl HeaderPanel {
     }
 
     fn invalidate_group_controls(&self) {
-        self.invalidate_group_control_appearance();
         self.invalidate_group_combo_box();
         self.invalidate_group_buttons();
-    }
-
-    fn invalidate_group_control_appearance(&self) {
-        self.show_if(
-            true,
-            &[
-                root::ID_GROUP_LABEL_TEXT,
-                root::ID_GROUP_COMBO_BOX,
-                root::ID_GROUP_ADD_BUTTON,
-                root::ID_GROUP_DELETE_BUTTON,
-                root::ID_GROUP_EDIT_BUTTON,
-            ],
-        );
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
@@ -751,6 +737,7 @@ impl HeaderPanel {
 
     fn invalidate_group_combo_box_value(&self) {
         let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
+        let enabled = !self.mappings_are_read_only();
         let compartment = self.active_compartment();
         let data = match self
             .main_state
@@ -777,20 +764,27 @@ impl HeaderPanel {
             }
         };
         combo.select_combo_box_item_by_data(data).unwrap();
+        combo.set_enabled(enabled);
     }
 
     fn invalidate_group_buttons(&self) {
+        let add_button = self.view.require_control(root::ID_GROUP_ADD_BUTTON);
         let remove_button = self.view.require_control(root::ID_GROUP_DELETE_BUTTON);
         let edit_button = self.view.require_control(root::ID_GROUP_EDIT_BUTTON);
-        let (remove_enabled, edit_enabled) = match self
-            .main_state
-            .borrow()
-            .group_filter_for_active_compartment()
-        {
-            None => (false, false),
-            Some(GroupFilter(id)) if id.is_default() => (false, true),
-            _ => (true, true),
+        let (add_enabled, remove_enabled, edit_enabled) = if self.mappings_are_read_only() {
+            (false, false, false)
+        } else {
+            match self
+                .main_state
+                .borrow()
+                .group_filter_for_active_compartment()
+            {
+                None => (true, false, false),
+                Some(GroupFilter(id)) if id.is_default() => (true, false, true),
+                _ => (true, true, true),
+            }
         };
+        add_button.set_enabled(add_enabled);
         remove_button.set_enabled(remove_enabled);
         edit_button.set_enabled(edit_enabled);
     }
@@ -807,22 +801,31 @@ impl HeaderPanel {
     }
 
     fn invalidate_preset_buttons(&self) {
-        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
         let save_button = self.view.require_control(root::ID_PRESET_SAVE_BUTTON);
-        let session = self.session();
-        let session = session.borrow();
-        let (preset_is_active, is_dirty) = match self.active_compartment() {
-            MappingCompartment::ControllerMappings => (
-                session.active_controller_preset_id().is_some(),
-                session.controller_preset_is_out_of_date(),
-            ),
-            MappingCompartment::MainMappings => (
-                session.active_main_preset().is_some(),
-                session.main_preset_is_out_of_date(),
-            ),
+        let save_as_button = self.view.require_control(root::ID_PRESET_SAVE_AS_BUTTON);
+        let delete_button = self.view.require_control(root::ID_PRESET_DELETE_BUTTON);
+        let (save_button_enabled, save_as_button_enabled, delete_button_enabled) = {
+            if self.mappings_are_read_only() {
+                (false, false, false)
+            } else {
+                let session = self.session();
+                let session = session.borrow();
+                let (preset_is_active, is_dirty) = match self.active_compartment() {
+                    MappingCompartment::ControllerMappings => (
+                        session.active_controller_preset_id().is_some(),
+                        session.controller_preset_is_out_of_date(),
+                    ),
+                    MappingCompartment::MainMappings => (
+                        session.active_main_preset().is_some(),
+                        session.main_preset_is_out_of_date(),
+                    ),
+                };
+                (preset_is_active && is_dirty, true, preset_is_active)
+            }
         };
-        delete_button.set_enabled(preset_is_active);
-        save_button.set_enabled(preset_is_active && is_dirty);
+        save_button.set_enabled(save_button_enabled);
+        save_as_button.set_enabled(save_as_button_enabled);
+        delete_button.set_enabled(delete_button_enabled);
     }
 
     fn fill_preset_combo_box(&self) {
@@ -1333,11 +1336,9 @@ impl HeaderPanel {
     }
 
     fn mappings_are_read_only(&self) -> bool {
-        let session = self.session();
-        let session = session.borrow();
-        session.is_learning_many_mappings()
-            || (self.active_compartment() == MappingCompartment::MainMappings
-                && session.main_preset_auto_load_is_active())
+        self.session()
+            .borrow()
+            .mappings_are_read_only(self.active_compartment())
     }
 
     fn invalidate_learn_many_button(&self) {
