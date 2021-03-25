@@ -788,7 +788,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn basic_io_changed_event(&self) -> IoUpdatedEvent {
-        let active = !self.mappings[MappingCompartment::MainMappings].is_empty();
+        let active = self.mappings[MappingCompartment::MainMappings]
+            .values()
+            .any(|m| m.is_effectively_on());
         IoUpdatedEvent {
             instance_id: self.instance_id.clone(),
             control_input: self.control_input.device_input(),
