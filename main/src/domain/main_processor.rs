@@ -133,29 +133,27 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
     pub fn maybe_takeover_source(&self, source: &RealSource) -> bool {
-        if self.feedback_is_effectively_enabled() {
-            if let Some(mapping_with_source) = self
-                .all_mappings()
-                .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
-            {
-                if let Some(followed_mapping) =
-                    self.follow_maybe_virtual_mapping(mapping_with_source)
-                {
+        if let Some(mapping_with_source) = self
+            .all_mappings()
+            .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
+        {
+            if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
+                if self.feedback_is_effectively_enabled() {
                     debug!(self.logger, "Taking over source {:?}...", source);
                     let feedback = followed_mapping.feedback(true);
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
+                    debug!(
+                        self.logger,
+                        "No source takeover of {:?} because feedback effectively disabled", source
+                    );
                     false
                 }
             } else {
                 false
             }
         } else {
-            debug!(
-                self.logger,
-                "No source takeover of {:?} because feedback effectively disabled", source
-            );
             false
         }
     }
@@ -326,8 +324,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ))
                         .unwrap();
                     // Important to send IO event first ...
-                    let event = self.feedback_output_usage_might_have_changed_event();
-                    self.send_io_update(event).unwrap();
+                    if compartment == MappingCompartment::MainMappings {
+                        // A device is only considered to be "in use" if there's at least one *main*
+                        // mapping. It doesn't depend on controller mappings.
+                        let event = self.feedback_output_usage_might_have_changed_event();
+                        debug!(
+                            self.logger,
+                            "IO event after update of all mappings. Feedback output used: {:?}",
+                            event.feedback_output_used
+                        );
+                        self.send_io_update(event).unwrap();
+                    }
                     // ... and then mapping update. Otherwise, if this is an upper-floor instance
                     // clearing all mappings, other instances won't see yet that they are actually
                     // allowed to take over sources! Which might delay the reactivation of
