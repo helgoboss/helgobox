@@ -254,7 +254,7 @@ impl HeaderPanel {
                             || MenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
-                            "Move to upper floor (cancels other instances with same device)",
+                            "Move instance to upper floor",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
