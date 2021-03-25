@@ -129,16 +129,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// This is the chance to take over a source from another instance (send our feedback).
     pub fn maybe_takeover_source(&self, source: &RealSource) -> bool {
-        println!("TODO-high MAYBE TAKEOVER SOURCE {}", &self.instance_id);
-        if let Some(mapping_with_source) = self
-            .all_mappings()
-            .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
-        {
-            if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
-                let feedback = followed_mapping.feedback(true);
-                println!("TODO-high SOURCE TAKEOVER {}", &self.instance_id);
-                self.send_feedback(FeedbackReason::SourceTakeover, feedback);
-                true
+        if self.feedback_is_effectively_enabled() {
+            if let Some(mapping_with_source) = self
+                .all_mappings()
+                .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
+            {
+                if let Some(followed_mapping) =
+                    self.follow_maybe_virtual_mapping(mapping_with_source)
+                {
+                    let feedback = followed_mapping.feedback(true);
+                    self.send_feedback(FeedbackReason::SourceTakeover, feedback);
+                    true
+                } else {
+                    false
+                }
             } else {
                 false
             }
