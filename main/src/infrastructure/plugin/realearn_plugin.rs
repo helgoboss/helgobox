@@ -287,7 +287,7 @@ impl Plugin for RealearnPlugin {
             let _ = self
                 .normal_main_task_channel
                 .0
-                .try_send(NormalMainTask::FeedbackAll);
+                .try_send(NormalMainTask::SendAllFeedback);
         });
     }
 }

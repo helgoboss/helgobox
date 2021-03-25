@@ -100,7 +100,6 @@ pub struct IoUpdatedEvent {
     pub instance_id: String,
     pub control_input: Option<DeviceControlInput>,
     pub control_input_used: bool,
-    pub control_input_usage_might_have_changed: bool,
     pub feedback_output: Option<DeviceFeedbackOutput>,
     pub feedback_output_used: bool,
     pub feedback_output_usage_might_have_changed: bool,

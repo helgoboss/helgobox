@@ -137,6 +137,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 if let Some(followed_mapping) =
                     self.follow_maybe_virtual_mapping(mapping_with_source)
                 {
+                    debug!(self.logger, "Taking over source {:?}...", source);
                     let feedback = followed_mapping.feedback(true);
                     self.send_feedback(FeedbackReason::SourceTakeover, feedback);
                     true
@@ -159,7 +160,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         feedback_output: FeedbackOutput,
         feedback_value: SourceFeedbackValue,
     ) {
-        println!("TODO-high FINALLY_SWITCH_OFF_SOURCE {}", &self.instance_id);
+        debug!(
+            self.logger,
+            "Finally switching off source with {:?}...", feedback_value
+        );
         send_direct_source_feedback(&self.instance_props(), feedback_output, feedback_value);
     }
 
@@ -490,7 +494,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
                     self.update_on_mappings();
                 }
-                FeedbackAll => {
+                SendAllFeedback => {
                     self.send_all_feedback();
                 }
                 LogDebugInfo => {
@@ -546,7 +550,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateControlIsGloballyEnabled(is_enabled) => {
                     self.control_is_globally_enabled = is_enabled;
                     let event = IoUpdatedEvent {
-                        control_input_usage_might_have_changed: true,
                         ..self.basic_io_changed_event()
                     };
                     self.send_io_update(event).unwrap();
@@ -765,7 +768,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             instance_id: self.instance_id.clone(),
             control_input: self.control_input.device_input(),
             control_input_used: self.control_is_globally_enabled && active,
-            control_input_usage_might_have_changed: false,
             feedback_output: self.feedback_output.and_then(|o| o.device_output()),
             feedback_output_used: self.feedback_is_globally_enabled && active,
             feedback_output_usage_might_have_changed: false,
@@ -795,7 +797,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn all_io_might_have_changed_event(&self) -> IoUpdatedEvent {
         IoUpdatedEvent {
-            control_input_usage_might_have_changed: true,
             /// TODO-high This works but leads to quite many reactions. The best thing would be
             ///  to always save the previous usage state and determine if there really was a
             ///  difference. However, this could also be done in the backbone (when treating the
@@ -1208,18 +1209,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) {
         if self.feedback_output.and_then(FeedbackOutput::device_output) == Some(feedback_output) {
             if self.feedback_is_effectively_enabled() {
-                // Reactivate!
-                println!("TODO-high REACTIVATE {}", &self.instance_id);
+                debug!(self.logger, "Reactivating instance...");
                 // Problem: If we send feedback now synchronously, a shortly before cancellation
                 // event (which might happen in practice because of event cascades) could annul
-                // this later because cancellation leads to *async* source takeover! That's why
+                // it later because cancellation leads to *async* source takeover! That's why
                 // we do this async here, too!
+                // TODO-high This sometimes doesn't work!!!
                 self.self_normal_sender
-                    .send(NormalMainTask::FeedbackAll)
+                    .send(NormalMainTask::SendAllFeedback)
                     .unwrap();
             } else {
-                // Cancel!
-                println!("TODO-high CANCEL {}", &self.instance_id);
+                debug!(self.logger, "Cancelling instance...");
                 self.send_feedback(FeedbackReason::Cancel, self.feedback_all_zero());
             }
         }
@@ -1228,6 +1228,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// When feedback gets globally disabled and when main processor goes away for good.
     fn clear_all_feedback(&self) {
+        debug!(
+            self.logger,
+            "Clearing all feedback allowing source takeover..."
+        );
         self.send_feedback(FeedbackReason::ClearAll, self.feedback_all_zero());
     }
 
@@ -1359,7 +1363,7 @@ pub enum NormalMainTask {
     },
     UpdateControlIsGloballyEnabled(bool),
     UpdateFeedbackIsGloballyEnabled(bool),
-    FeedbackAll,
+    SendAllFeedback,
     LogDebugInfo,
     LearnMidiSource {
         source: MidiSource,
@@ -1416,6 +1420,10 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
         if self.feedback_is_effectively_enabled() {
             // We clear feedback right here and now because that's the last chance.
             // Other instances can take over the feedback output afterwards.
+            // TODO-high If this is a project close, granting takeover to other instances
+            //  (async) lets the chance to clear feedback go by!!! Check if we still
+            //  get at least the source release events in control surface. If yes, we
+            //  can simply mak
             self.clear_all_feedback();
         }
         let _ = self.send_io_update(self.io_released_event());

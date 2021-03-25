@@ -1586,7 +1586,7 @@ impl Session {
 
     pub fn send_all_feedback(&self) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::FeedbackAll)
+            .try_send(NormalMainTask::SendAllFeedback)
             .unwrap();
     }
 
