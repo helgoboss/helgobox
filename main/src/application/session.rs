@@ -6,12 +6,12 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackOutput, MainMapping, MappingCompartment, MappingId, MidiControlInput,
-    MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, OscDeviceId, ParameterArray,
-    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource, RealTimeSender,
-    ReaperTarget, TargetValueChangedEvent, VirtualSource, COMPARTMENT_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackOutput, MainMapping, MappingCompartment, MappingId,
+    MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
+    RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualSource,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
@@ -57,6 +57,7 @@ pub struct Session {
     pub osc_input_device_id: Prop<Option<OscDeviceId>>,
     pub osc_output_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
+    pub lives_on_upper_floor: Prop<bool>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
@@ -173,6 +174,7 @@ impl Session {
             osc_input_device_id: prop(None),
             osc_output_device_id: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
+            lives_on_upper_floor: prop(false),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
@@ -337,13 +339,14 @@ impl Session {
         self.parameter_settings[compartment] = settings;
     }
 
-    fn initial_sync(&mut self, weak_session: WeakSession) {
+    fn full_sync(&mut self, weak_session: WeakSession) {
         for compartment in MappingCompartment::enum_iter() {
             self.resubscribe_to_groups(weak_session.clone(), compartment);
         }
         // It's important to sync feedback device first, otherwise the initial feedback messages
         // won't arrive!
         self.sync_settings();
+        self.sync_upper_floor_membership();
         self.sync_control_is_globally_enabled();
         self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
@@ -357,7 +360,7 @@ impl Session {
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
         // Initial sync
-        self.initial_sync(weak_session.clone());
+        self.full_sync(weak_session.clone());
         // Whenever auto-correct setting changes, resubscribe to all mappings because
         // that saves us some mapping subscriptions.
         when(self.auto_correct_settings.changed())
@@ -434,6 +437,12 @@ impl Session {
         .do_sync(move |s, _| {
             s.borrow().mark_project_as_dirty();
         });
+        // Keep adding/removing instance to/from upper floor.
+        when(self.lives_on_upper_floor.changed())
+            .with(weak_session.clone())
+            .do_sync(move |s, value| {
+                s.borrow().sync_upper_floor_membership();
+            });
         // Keep syncing some general settings to real-time processor.
         when(self.settings_changed())
             .with(weak_session.clone())
@@ -1699,6 +1708,15 @@ impl Session {
         AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
     }
 
+    fn sync_upper_floor_membership(&self) {
+        let backbone_state = BackboneState::get();
+        if self.lives_on_upper_floor.get() {
+            backbone_state.add_to_upper_floor(self.instance_id.clone());
+        } else {
+            backbone_state.remove_from_upper_floor(&self.instance_id);
+        }
+    }
+
     fn sync_settings(&self) {
         let task = NormalMainTask::UpdateSettings {
             control_input: if let Some(osc_dev_id) = self.osc_input_device_id.get() {
@@ -1856,7 +1874,7 @@ impl Session {
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
     pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
-        self.initial_sync(weak_session);
+        self.full_sync(weak_session);
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
@@ -1918,7 +1936,7 @@ impl DomainEventHandler for WeakSession {
                 session.ui.parameters_changed(&session);
             }
             FullResyncRequested => {
-                session.borrow_mut().initial_sync(self.clone());
+                session.borrow_mut().full_sync(self.clone());
             }
             ProjectionFeedback(value) => {
                 if let Ok(s) = session.try_borrow() {

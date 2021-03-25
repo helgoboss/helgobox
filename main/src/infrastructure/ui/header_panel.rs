@@ -191,6 +191,7 @@ impl HeaderPanel {
             CopyListedMappings,
             ToggleAutoCorrectSettings,
             ToggleSendFeedbackOnlyIfTrackArmed,
+            ToggleUpperFloorMembership,
             ToggleServer,
             AddFirewallRule,
             ChangeSessionId,
@@ -251,6 +252,14 @@ impl HeaderPanel {
                                 }
                             },
                             || MenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
+                        ),
+                        item_with_opts(
+                            "Cover other instances with same device",
+                            ItemOpts {
+                                enabled: true,
+                                checked: session.lives_on_upper_floor.get(),
+                            },
+                            || MenuAction::ToggleUpperFloorMembership,
                         ),
                     ],
                 ),
@@ -411,6 +420,7 @@ impl HeaderPanel {
             MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
+            MenuAction::ToggleUpperFloorMembership => self.toggle_upper_floor_membership(),
             MenuAction::ToggleServer => {
                 enum ServerAction {
                     Start,
@@ -629,6 +639,13 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .auto_correct_settings
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_upper_floor_membership(&self) {
+        self.session()
+            .borrow_mut()
+            .lives_on_upper_floor
             .set_with(|prev| !*prev);
     }
 

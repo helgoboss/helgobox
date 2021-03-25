@@ -164,44 +164,50 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
     fn run_control(&mut self) {
-        // Process control tasks
+        // Collect control tasks (we do that in any case to not let get channels full).
         let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
             .control_task_receiver
             .try_iter()
             .take(CONTROL_TASK_BULK_SIZE)
             .collect();
-        for task in control_tasks {
-            use ControlMainTask::*;
-            match task {
-                Control {
-                    compartment,
-                    mapping_id,
-                    value,
-                    options,
-                } => {
-                    // Resolving mappings with virtual targets is not necessary anymore. It has
-                    // been done in the real-time processor already.
-                    if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                        // Most of the time, the main processor won't even receive a MIDI-triggered
-                        // control instruction from the real-time processor
-                        // for a mapping for which control is disabled,
-                        // because the real-time processor doesn't process
-                        // disabled mappings. But if control is (temporarily) disabled because a
-                        // target condition is (temporarily) not met (e.g. "track must be
-                        // selected") and the real-time processor doesn't yet know about it, there
-                        // might be a short amount of time where we still receive control
-                        // statements. We filter them here.
-                        let feedback = m.control_if_enabled(value, options);
-                        self.send_feedback(FeedbackReason::Normal, feedback);
-                    };
+        // It's possible that control is disabled because another instance cancels us. In that case
+        // the RealTimeProcessor won't know about it and keeps sending MIDI. Stop it here!
+        if self.control_is_effectively_enabled() {
+            for task in control_tasks {
+                use ControlMainTask::*;
+                match task {
+                    Control {
+                        compartment,
+                        mapping_id,
+                        value,
+                        options,
+                    } => {
+                        // Resolving mappings with virtual targets is not necessary anymore. It has
+                        // been done in the real-time processor already.
+                        if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
+                            // Most of the time, the main processor won't even receive a
+                            // MIDI-triggered control instruction from
+                            // the real-time processor for a mapping for
+                            // which control is disabled, because the
+                            // real-time processor doesn't process
+                            // disabled mappings. But if control is (temporarily) disabled because a
+                            // target condition is (temporarily) not met (e.g. "track must be
+                            // selected") and the real-time processor doesn't yet know about it,
+                            // there might be a short amount of time
+                            // where we still receive control
+                            // statements. We filter them here.
+                            let feedback = m.control_if_enabled(value, options);
+                            self.send_feedback(FeedbackReason::Normal, feedback);
+                        };
+                    }
                 }
             }
-        }
-        for compartment in MappingCompartment::enum_iter() {
-            for id in self.poll_control_mappings[compartment].iter() {
-                if let Some(m) = self.mappings[compartment].get_mut(id) {
-                    let feedback = m.poll_if_control_enabled();
-                    self.send_feedback(FeedbackReason::Normal, feedback);
+            for compartment in MappingCompartment::enum_iter() {
+                for id in self.poll_control_mappings[compartment].iter() {
+                    if let Some(m) = self.mappings[compartment].get_mut(id) {
+                        let feedback = m.poll_if_control_enabled();
+                        self.send_feedback(FeedbackReason::Normal, feedback);
+                    }
                 }
             }
         }
@@ -757,6 +763,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    fn control_is_effectively_enabled(&self) -> bool {
+        self.control_is_globally_enabled
+            && BackboneState::get().control_is_allowed(self.instance_id(), self.control_input)
+    }
+
+    fn feedback_is_effectively_enabled(&self) -> bool {
+        feedback_is_effectively_enabled(
+            self.feedback_is_globally_enabled,
+            self.instance_id(),
+            self.feedback_output,
+        )
+    }
+
     fn io_released_event(&self) -> IoUpdatedEvent {
         IoUpdatedEvent {
             control_input_used: false,
@@ -877,7 +896,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let feedback_is_effectively_on = m.feedback_is_effectively_on();
         let projection_feedback_desired = feedback_is_effectively_on;
         let source_feedback_desired =
-            self.feedback_is_globally_enabled && feedback_is_effectively_on && !m.is_echo();
+            self.feedback_is_effectively_enabled() && feedback_is_effectively_on && !m.is_echo();
         let compound_target = m.target();
         if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
             let (value_changed, new_value) = f(target);
@@ -939,7 +958,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_incoming_osc_message(&mut self, msg: &OscMessage) {
         match self.control_mode {
             ControlMode::Controlling => {
-                if self.control_is_globally_enabled {
+                if self.control_is_effectively_enabled() {
                     control_virtual_mappings_osc(
                         &InstanceProps {
                             rt_sender: &self.feedback_real_time_task_sender,
@@ -1359,7 +1378,7 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.logger, "Dropping main processor...");
-        if self.feedback_is_globally_enabled {
+        if self.feedback_is_effectively_enabled() {
             // We clear feedback right here and now because that's the last chance.
             // Other instances can take over the feedback output afterwards.
             self.clear_feedback();
@@ -1395,6 +1414,16 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     feedback_is_globally_enabled: bool,
     event_handler: &'a EH,
     feedback_output: Option<FeedbackOutput>,
+}
+
+impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {
+    pub fn feedback_is_effectively_enabled(&self) -> bool {
+        feedback_is_effectively_enabled(
+            self.feedback_is_globally_enabled,
+            self.instance_id,
+            self.feedback_output,
+        )
+    }
 }
 
 /// Sends both direct and virtual-source feedback.
@@ -1448,7 +1477,7 @@ fn send_direct_feedback<EH: DomainEventHandler>(
     feedback_reason: FeedbackReason,
     feedback_value: RealFeedbackValue,
 ) {
-    if instance.feedback_is_globally_enabled {
+    if instance.feedback_is_effectively_enabled() {
         if let Some(feedback_output) = instance.feedback_output {
             if let Some(source_feedback_value) = feedback_value.source {
                 // At this point we can be sure that this mapping can't have a
@@ -1603,4 +1632,17 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
             None
         },
     )
+}
+
+fn feedback_is_effectively_enabled(
+    feedback_is_globally_enabled: bool,
+    instance_id: &str,
+    feedback_output: Option<FeedbackOutput>,
+) -> bool {
+    if let Some(fo) = feedback_output {
+        feedback_is_globally_enabled && BackboneState::get().feedback_is_allowed(instance_id, fo)
+    } else {
+        // Pointless but allowed
+        true
+    }
 }
