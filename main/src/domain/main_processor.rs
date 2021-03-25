@@ -1,10 +1,10 @@
 use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
     CompoundMappingTarget, ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackOutput, FeedbackRealTimeTask,
-    FeedbackValue, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
+    FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
+    MappingActivationEffect, MappingCompartment, MappingId, MidiFeedbackOutput, NormalRealTimeTask,
+    OscDeviceId, OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
     QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceFeedbackValue,
     SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
@@ -60,6 +60,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
+    feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
@@ -83,6 +84,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
+        feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
         additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
         instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
@@ -120,6 +122,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             osc_feedback_task_sender,
             additional_feedback_event_sender,
             instance_orchestration_event_sender,
+            feedback_audio_hook_task_sender,
         }
     }
 
@@ -1003,6 +1006,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     control_virtual_mappings_osc(
                         &InstanceProps {
                             rt_sender: &self.feedback_real_time_task_sender,
+                            fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
                             osc_feedback_task_sender: &self.osc_feedback_task_sender,
                             instance_orchestration_sender: &self
                                 .instance_orchestration_event_sender,
@@ -1050,6 +1054,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         send_direct_and_virtual_feedback(
                             &InstanceProps {
                                 rt_sender: &self.feedback_real_time_task_sender,
+                                fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
                                 osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                 instance_orchestration_sender: &self
                                     .instance_orchestration_event_sender,
@@ -1135,6 +1140,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn instance_props(&self) -> InstanceProps<EH> {
         InstanceProps {
             rt_sender: &self.feedback_real_time_task_sender,
+            fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
             osc_feedback_task_sender: &self.osc_feedback_task_sender,
             instance_orchestration_sender: &self.instance_orchestration_event_sender,
             instance_id: &self.instance_id,
@@ -1240,13 +1246,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.feedback_output.and_then(FeedbackOutput::device_output) == Some(feedback_output) {
             if self.feedback_is_effectively_enabled() {
                 debug!(self.logger, "Reactivating instance...");
-                // If we send feedback now synchronously, a shortly before cancellation
-                // event (which might happen in practice because of event cascades) could annul
-                // it later because cancellation leads to *async* source takeover! However,
-                // cancellation will also allow the cancelled instance itself to take over, so
-                // it things should not result in a "light switch off" but into the correct value
-                // to be resent. That's okay.
-                // TODO-high Doesn't work sometimes yet for some reason.
+                // For this to really work reliably (eventual feedback consistency), it was
+                // necessary to let the direct MIDI device feedback process in the global
+                // *audio hook*, not in the real-time processor. Because there's only one audio
+                // hook can guarantee a deterministic feedback send order.
                 self.send_all_feedback();
             } else {
                 debug!(self.logger, "Cancelling instance...");
@@ -1510,6 +1513,7 @@ impl FeedbackReason {
 
 struct InstanceProps<'a, EH: DomainEventHandler> {
     rt_sender: &'a RealTimeSender<FeedbackRealTimeTask>,
+    fb_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
     osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
     instance_orchestration_sender: &'a crossbeam_channel::Sender<InstanceOrchestrationEvent>,
     instance_id: &'a str,
@@ -1626,12 +1630,31 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
     );
     match source_feedback_value {
         SourceFeedbackValue::Midi(v) => {
-            if let FeedbackOutput::Midi(_) = feedback_output {
-                // TODO-low Maybe we should use the SmallVec here, too?
-                instance
-                    .rt_sender
-                    .send(FeedbackRealTimeTask::Feedback(v))
-                    .unwrap();
+            if let FeedbackOutput::Midi(midi_output) = feedback_output {
+                match midi_output {
+                    MidiFeedbackOutput::FxOutput => {
+                        instance
+                            .rt_sender
+                            .send(FeedbackRealTimeTask::FxOutputFeedback(v))
+                            .unwrap();
+                    }
+                    MidiFeedbackOutput::Device(dev_id) => {
+                        // We send to the audio hook in this case (the default case) because there's
+                        // only one audio hook (not one per instance as with real-time processors),
+                        // so it can guarantee us a globally deterministic order. This is necessary
+                        // to achieve "eventual feedback consistency" by using instance
+                        // orchestration techniques in the main thread. If
+                        // we don't do that, we can prepare the most perfect
+                        // feedback ordering in the backbone control surface (main
+                        // thread, in order to support multiple instances with the same device) ...
+                        // it won't be useful at all if the real-time processors send the feedback
+                        // in the order of instance instantiation.
+                        instance
+                            .fb_audio_hook_task_sender
+                            .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
+                            .unwrap();
+                    }
+                }
             }
         }
         SourceFeedbackValue::Osc(msg) => {

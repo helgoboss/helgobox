@@ -453,7 +453,7 @@ impl RealTimeProcessor {
         {
             use FeedbackRealTimeTask::*;
             match task {
-                Feedback(v) => {
+                FxOutputFeedback(v) => {
                     self.send_midi_feedback(&v, caller);
                 }
                 SendLifecycleMidi(compartment, mapping_id, phase) => {
@@ -726,42 +726,15 @@ impl RealTimeProcessor {
     }
 
     fn send_midi_feedback(&self, value: &MidiSourceValue<RawShortMessage>, caller: Caller) {
-        if let Some(output) = self.midi_feedback_output {
-            if let MidiSourceValue::Raw(msg) = value {
-                match output {
-                    MidiFeedbackOutput::FxOutput => {
-                        self.send_raw_midi_to_fx_output(msg, caller);
-                    }
-                    MidiFeedbackOutput::Device(dev_id) => {
-                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
-                            if let Some(mo) = mo {
-                                mo.send_msg(&**msg, SendMidiTime::Instantly);
-                            }
-                        });
-                    }
-                };
-            } else {
-                let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
-                if shorts[0].is_none() {
-                    return;
-                }
-                match output {
-                    MidiFeedbackOutput::FxOutput => {
-                        for short in shorts.iter().flatten() {
-                            self.send_short_midi_to_fx_output(*short, caller);
-                        }
-                    }
-                    MidiFeedbackOutput::Device(dev_id) => {
-                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
-                            if let Some(mo) = mo {
-                                for short in shorts.iter().flatten() {
-                                    debug!(self.logger, "Send short feedback {:?}", short);
-                                    mo.send(*short, SendMidiTime::Instantly);
-                                }
-                            }
-                        });
-                    }
-                };
+        if let MidiSourceValue::Raw(msg) = value {
+            self.send_raw_midi_to_fx_output(msg, caller);
+        } else {
+            let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
+            if shorts[0].is_none() {
+                return;
+            }
+            for short in shorts.iter().flatten() {
+                self.send_short_midi_to_fx_output(*short, caller);
             }
         }
     }
@@ -1008,8 +981,7 @@ pub struct ActivationChange {
 /// A feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
-    // TODO-low Is it better for performance to push a vector (smallvec) here?
-    Feedback(MidiSourceValue<RawShortMessage>),
+    FxOutputFeedback(MidiSourceValue<RawShortMessage>),
     // Used only if feedback output is <FX output>, otherwise done synchronously.
     SendLifecycleMidi(MappingCompartment, MappingId, LifecyclePhase),
 }

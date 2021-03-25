@@ -388,6 +388,7 @@ impl RealearnPlugin {
                     control_main_task_receiver,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
+                    App::get().feedback_audio_hook_task_sender(),
                     App::get().additional_feedback_event_sender(),
                     App::get().instance_orchestration_event_sender(),
                     App::get().osc_feedback_task_sender(),

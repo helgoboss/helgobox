@@ -1,15 +1,20 @@
 use crate::domain::{
     classify_midi_message, MidiMessageClassification, MidiSourceScanner, RealTimeProcessor,
 };
-use helgoboss_learn::MidiSource;
-use helgoboss_midi::ShortMessage;
-use reaper_high::Reaper;
-use reaper_medium::{MidiEvent, MidiInputDeviceId, OnAudioBuffer, OnAudioBufferArgs};
+use helgoboss_learn::{MidiSource, MidiSourceValue};
+use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
+use reaper_high::{MidiOutputDevice, Reaper};
+use reaper_medium::{
+    MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
+    SendMidiTime,
+};
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
+const MIDI_DEVICE_FEEDBACK_TASK_BULK_SIZE: usize = 1;
+const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 
 /// This needs to be thread-safe because if "Allow live FX multiprocessing" is active in the REAPER
 /// preferences, the VST processing is executed in another thread than the audio hook!
@@ -22,7 +27,7 @@ type LearnSourceSender = async_channel::Sender<(MidiInputDeviceId, MidiSource)>;
 // real-time processors from the control surface. In practice there's no danger that too many of
 // those infrequent tasks accumulate so it's not an issue. Therefore the convention for now is to
 // also send them when audio is not running.
-pub enum RealearnAudioHookTask {
+pub enum NormalAudioHookTask {
     /// First parameter is the ID.
     //
     // Having the ID saves us from unnecessarily blocking the audio thread by looking into the
@@ -33,11 +38,18 @@ pub enum RealearnAudioHookTask {
     StopLearningSources,
 }
 
+/// A global feedback task (which is potentially sent very frequently).
+#[derive(Debug)]
+pub enum FeedbackAudioHookTask {
+    MidiDeviceFeedback(MidiOutputDeviceId, MidiSourceValue<RawShortMessage>),
+}
+
 #[derive(Debug)]
 pub struct RealearnAudioHook {
     state: AudioHookState,
     real_time_processors: SmallVec<[(String, SharedRealTimeProcessor); 256]>,
-    task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
+    normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
+    feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
 }
 
@@ -54,12 +66,14 @@ enum AudioHookState {
 
 impl RealearnAudioHook {
     pub fn new(
-        task_receiver: crossbeam_channel::Receiver<RealearnAudioHookTask>,
+        normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
+        feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
             real_time_processors: Default::default(),
-            task_receiver,
+            normal_task_receiver,
+            feedback_task_receiver,
             time_of_last_run: None,
         }
     }
@@ -77,6 +91,40 @@ impl OnAudioBuffer for RealearnAudioHook {
         } else {
             false
         };
+        // Process global direct device feedback (since v2.8.0-pre6) - in order to
+        // have deterministic feedback ordering, which is important for multi-instance
+        // orchestration.
+        for task in self
+            .feedback_task_receiver
+            .try_iter()
+            .take(FEEDBACK_TASK_BULK_SIZE)
+        {
+            use FeedbackAudioHookTask::*;
+            match task {
+                MidiDeviceFeedback(dev_id, value) => {
+                    if let MidiSourceValue::Raw(msg) = value {
+                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                            if let Some(mo) = mo {
+                                mo.send_msg(&*msg, SendMidiTime::Instantly);
+                            }
+                        });
+                    } else {
+                        let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
+                        if shorts[0].is_none() {
+                            return;
+                        }
+                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                            if let Some(mo) = mo {
+                                for short in shorts.iter().flatten() {
+                                    mo.send(*short, SendMidiTime::Instantly);
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        // Process depending on state
         match &mut self.state {
             AudioHookState::Normal => {
                 // 1. Call real-time processors.
@@ -126,11 +174,11 @@ impl OnAudioBuffer for RealearnAudioHook {
         };
         // 2. Process add/remove tasks.
         for task in self
-            .task_receiver
+            .normal_task_receiver
             .try_iter()
             .take(AUDIO_HOOK_TASK_BULK_SIZE)
         {
-            use RealearnAudioHookTask::*;
+            use NormalAudioHookTask::*;
             match task {
                 AddRealTimeProcessor(id, p) => {
                     self.real_time_processors.push((id, p));
