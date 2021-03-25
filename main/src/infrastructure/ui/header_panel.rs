@@ -706,12 +706,6 @@ impl HeaderPanel {
         self.invalidate_group_buttons();
     }
 
-    fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
-        for id in control_resource_ids {
-            self.view.require_control(*id).set_visible(condition);
-        }
-    }
-
     fn invalidate_group_combo_box(&self) {
         self.fill_group_combo_box();
         self.invalidate_group_combo_box_value();

@@ -259,7 +259,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let released_event = self.io_released_event();
                     self.control_input = control_input;
                     self.feedback_output = feedback_output;
-                    let changed_event = self.all_io_might_have_changed_event();
+                    let changed_event = self.feedback_output_usage_might_have_changed_event();
                     self.send_io_update(released_event).unwrap();
                     self.send_io_update(changed_event).unwrap();
                 }
@@ -321,13 +321,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             real_time_mappings,
                         ))
                         .unwrap();
+                    // Important to send IO event first ...
+                    let event = self.feedback_output_usage_might_have_changed_event();
+                    self.send_io_update(event).unwrap();
+                    // ... and then mapping update. Otherwise, if this is an upper-floor instance
+                    // clearing all mappings, other instances won't see yet that they are actually
+                    // allowed to take over sources! Which might delay the reactivation of
+                    // lower-floor instances.
                     self.handle_feedback_after_having_updated_all_mappings(
                         compartment,
                         &unused_sources,
                     );
                     self.update_on_mappings();
-                    let event = self.all_io_might_have_changed_event();
-                    self.send_io_update(event).unwrap();
                 }
                 // This is sent on events such as track list change, FX focus etc.
                 RefreshAllTargets => {
@@ -800,11 +805,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         IoUpdatedEvent {
             control_input_used: false,
             feedback_output_used: false,
-            ..self.all_io_might_have_changed_event()
+            ..self.feedback_output_usage_might_have_changed_event()
         }
     }
 
-    fn all_io_might_have_changed_event(&self) -> IoUpdatedEvent {
+    fn feedback_output_usage_might_have_changed_event(&self) -> IoUpdatedEvent {
         IoUpdatedEvent {
             /// TODO-medium This works but leads to quite many reactions. The best thing would be
             ///  to always save the previous usage state and determine if there really was a
