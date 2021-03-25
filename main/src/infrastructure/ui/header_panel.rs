@@ -1049,9 +1049,13 @@ impl HeaderPanel {
 
     fn invalidate_search_expression(&self) {
         let main_state = self.main_state.borrow();
+        let search_expression = main_state.search_expression.get_ref().as_str();
         self.view
             .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
-            .set_text_if_not_focused(main_state.search_expression.get_ref().as_str())
+            .set_text_if_not_focused(search_expression);
+        self.view
+            .require_control(root::ID_CLEAR_SEARCH_BUTTON)
+            .set_enabled(!search_expression.is_empty());
     }
 
     fn update_control_input(&self) {
