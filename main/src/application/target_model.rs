@@ -844,7 +844,17 @@ pub fn get_optional_fx_label(virtual_chain_fx: &VirtualChainFx, fx: Option<&Fx>)
 }
 
 pub fn get_fx_label(index: u32, fx: &Fx) -> String {
-    format!("{}. {}", index + 1, fx.name().to_str())
+    format!(
+        "{}. {}",
+        index + 1,
+        // When closing project, this is sometimes not available anymore although the FX is still
+        // picked up when querying the list of FXs! Prevent a panic.
+        if fx.is_available() {
+            fx.name().into_string()
+        } else {
+            "".to_owned()
+        }
+    )
 }
 
 pub struct TargetModelWithContext<'a> {
