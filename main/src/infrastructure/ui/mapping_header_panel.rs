@@ -8,7 +8,7 @@ use std::convert::TryInto;
 use std::rc::{Rc, Weak};
 
 use crate::application::{
-    ActivationType, GroupModel, MappingModel, ModifierConditionModel, ProgramConditionModel,
+    ActivationType, BankConditionModel, GroupModel, MappingModel, ModifierConditionModel,
     SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, COMPARTMENT_PARAMETER_COUNT};
@@ -43,8 +43,8 @@ pub trait Item: Debug {
     fn set_modifier_condition_1(&mut self, value: ModifierConditionModel);
     fn modifier_condition_2(&self) -> ModifierConditionModel;
     fn set_modifier_condition_2(&mut self, value: ModifierConditionModel);
-    fn program_condition(&self) -> ProgramConditionModel;
-    fn set_program_condition(&mut self, value: ProgramConditionModel);
+    fn bank_condition(&self) -> BankConditionModel;
+    fn set_bank_condition(&mut self, value: BankConditionModel);
     fn eel_condition(&self) -> &str;
     fn set_eel_condition(&mut self, value: String);
 }
@@ -56,7 +56,7 @@ pub enum ItemProp {
     ActivationType,
     ModifierCondition1,
     ModifierCondition2,
-    ProgramCondition,
+    BankCondition,
     EelCondition,
 }
 
@@ -164,7 +164,7 @@ impl MappingHeaderPanel {
         let label = match item.activation_type() {
             Always => None,
             Modifiers => Some(("Modifier A", "Modifier B")),
-            Program => Some(("Bank", "Program")),
+            Bank => Some(("Parameter", "Bank")),
             Eel => None,
         };
         if let Some((first, second)) = label {
@@ -193,7 +193,7 @@ impl MappingHeaderPanel {
                     compartment,
                 );
             }
-            Program => {
+            Bank => {
                 self.fill_combo_box_with_realearn_params(
                     root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
                     false,
@@ -221,7 +221,7 @@ impl MappingHeaderPanel {
         );
         self.show_if(
             show && (activation_type == ActivationType::Modifiers
-                || activation_type == ActivationType::Program),
+                || activation_type == ActivationType::Bank),
             &[
                 root::ID_MAPPING_ACTIVATION_SETTING_1_LABEL_TEXT,
                 root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
@@ -262,8 +262,8 @@ impl MappingHeaderPanel {
                     item.modifier_condition_1(),
                 );
             }
-            Program => {
-                let param_index = item.program_condition().param_index();
+            Bank => {
+                let param_index = item.bank_condition().param_index();
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX)
                     .select_combo_box_item_by_index(param_index as _)
@@ -283,11 +283,11 @@ impl MappingHeaderPanel {
                     item.modifier_condition_2(),
                 );
             }
-            Program => {
-                let program_index = item.program_condition().program_index();
+            Bank => {
+                let bank_index = item.bank_condition().bank_index();
                 self.view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX)
-                    .select_combo_box_item_by_index(program_index as _)
+                    .select_combo_box_item_by_index(bank_index as _)
                     .unwrap();
             }
             _ => {}
@@ -390,12 +390,12 @@ impl MappingHeaderPanel {
                     |it, c| it.set_modifier_condition_1(c),
                 );
             }
-            Program => {
+            Bank => {
                 let b = self
                     .view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX);
                 let value = b.selected_combo_box_item_index() as u32;
-                item.set_program_condition(item.program_condition().with_param_index(value));
+                item.set_bank_condition(item.bank_condition().with_param_index(value));
             }
             _ => {}
         };
@@ -412,12 +412,12 @@ impl MappingHeaderPanel {
                     |it, c| it.set_modifier_condition_2(c),
                 );
             }
-            Program => {
+            Bank => {
                 let b = self
                     .view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX);
                 let value = b.selected_combo_box_item_index() as u32;
-                item.set_program_condition(item.program_condition().with_program_index(value));
+                item.set_bank_condition(item.bank_condition().with_bank_index(value));
             }
             _ => {}
         };
@@ -477,7 +477,7 @@ impl MappingHeaderPanel {
                     ActivationType => self.invalidate_activation_controls(item),
                     ModifierCondition1 => self.invalidate_activation_setting_1_controls(item),
                     ModifierCondition2 => self.invalidate_activation_setting_2_controls(item),
-                    ProgramCondition => {
+                    BankCondition => {
                         self.invalidate_activation_setting_1_controls(item);
                         self.invalidate_activation_setting_2_controls(item);
                     }
@@ -672,12 +672,12 @@ impl Item for MappingModel {
             .set(value);
     }
 
-    fn program_condition(&self) -> ProgramConditionModel {
-        self.activation_condition_model.program_condition.get()
+    fn bank_condition(&self) -> BankConditionModel {
+        self.activation_condition_model.bank_condition.get()
     }
 
-    fn set_program_condition(&mut self, value: ProgramConditionModel) {
-        self.activation_condition_model.program_condition.set(value);
+    fn set_bank_condition(&mut self, value: BankConditionModel) {
+        self.activation_condition_model.bank_condition.set(value);
     }
 
     fn eel_condition(&self) -> &str {
@@ -758,12 +758,12 @@ impl Item for GroupModel {
             .set(value);
     }
 
-    fn program_condition(&self) -> ProgramConditionModel {
-        self.activation_condition_model.program_condition.get()
+    fn bank_condition(&self) -> BankConditionModel {
+        self.activation_condition_model.bank_condition.get()
     }
 
-    fn set_program_condition(&mut self, value: ProgramConditionModel) {
-        self.activation_condition_model.program_condition.set(value);
+    fn set_bank_condition(&mut self, value: BankConditionModel) {
+        self.activation_condition_model.bank_condition.set(value);
     }
 
     fn eel_condition(&self) -> &str {

@@ -1,6 +1,6 @@
 use rx_util::UnitEvent;
 
-use crate::application::{ActivationType, ModifierConditionModel, ProgramConditionModel};
+use crate::application::{ActivationType, BankConditionModel, ModifierConditionModel};
 use crate::core::Prop;
 use crate::domain::{ActivationCondition, EelCondition};
 
@@ -9,7 +9,7 @@ pub struct ActivationConditionModel {
     pub activation_type: Prop<ActivationType>,
     pub modifier_condition_1: Prop<ModifierConditionModel>,
     pub modifier_condition_2: Prop<ModifierConditionModel>,
-    pub program_condition: Prop<ProgramConditionModel>,
+    pub bank_condition: Prop<BankConditionModel>,
     pub eel_condition: Prop<String>,
 }
 
@@ -21,7 +21,7 @@ impl ActivationConditionModel {
             .merge(self.modifier_condition_1.changed())
             .merge(self.modifier_condition_2.changed())
             .merge(self.eel_condition.changed())
-            .merge(self.program_condition.changed())
+            .merge(self.bank_condition.changed())
     }
 
     pub fn create_activation_condition(&self) -> ActivationCondition {
@@ -35,9 +35,9 @@ impl ActivationConditionModel {
                     .collect();
                 ActivationCondition::Modifiers(conditions)
             }
-            Program => ActivationCondition::Program {
-                param_index: self.program_condition.get().param_index(),
-                program_index: self.program_condition.get().program_index(),
+            Bank => ActivationCondition::Program {
+                param_index: self.bank_condition.get().param_index(),
+                program_index: self.bank_condition.get().bank_index(),
             },
             Eel => match EelCondition::compile(self.eel_condition.get_ref()) {
                 Ok(c) => ActivationCondition::Eel(Box::new(c)),

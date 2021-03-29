@@ -2892,12 +2892,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when_do_sync(
             self.mapping
                 .activation_condition_model
-                .program_condition
+                .bank_condition
                 .changed(),
             |view| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ProgramCondition);
+                    .invalidate_due_to_changed_prop(ItemProp::BankCondition);
             },
         );
         self.panel.when_do_sync(

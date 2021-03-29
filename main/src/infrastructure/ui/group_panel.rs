@@ -72,10 +72,10 @@ impl GroupPanel {
             },
         );
         self.when(
-            group.activation_condition_model.program_condition.changed(),
+            group.activation_condition_model.bank_condition.changed(),
             |view| {
                 view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ProgramCondition);
+                    .invalidate_due_to_changed_prop(ItemProp::BankCondition);
             },
         );
         self.when(
