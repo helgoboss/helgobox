@@ -361,11 +361,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         for m in self.mappings[compartment].values_mut() {
                             let context =
                                 ExtendedProcessorContext::new(&self.context, &self.parameters);
-                            let (target_changed, activation_udpate) = m.refresh_target(context);
-                            if target_changed {
-                                changed_mappings.push(m.id())
+                            let (target_changed, activation_update) = m.refresh_target(context);
+                            if target_changed || activation_update.is_some() {
+                                changed_mappings.push(m.id());
                             }
-                            if let Some(u) = activation_udpate {
+                            if let Some(u) = activation_update {
                                 activation_updates.push(u);
                             }
                             if m.feedback_is_effectively_on() {
@@ -626,7 +626,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 let context =
                                     ExtendedProcessorContext::new(&self.context, &self.parameters);
                                 let (has_changed, activation_change) = m.refresh_target(context);
-                                if has_changed {
+                                if has_changed || activation_change.is_some() {
                                     changed_mappings.push(m.id())
                                 }
                                 if let Some(u) = activation_change {
@@ -714,7 +714,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     ExtendedProcessorContext::new(&self.context, &self.parameters);
                                 let (target_has_changed, activation_change) =
                                     m.refresh_target(context);
-                                if target_has_changed {
+                                if target_has_changed || activation_change.is_some() {
                                     changed_mappings.insert(m.id());
                                 }
                                 if let Some(c) = activation_change {
