@@ -244,11 +244,11 @@ fn guess_custom_character(values: &[U7]) -> SourceCharacter {
     #[allow(clippy::if_same_then_else)]
     if values.len() == 1 {
         // Only one message received. Looks like a button has been pressed and not released.
-        Button
+        MomentaryButton
     } else if values.len() == 2 && values[1] == U7::MIN {
         // Two messages received and second message has value 0. Looks like a button has been
         // pressed and released.
-        Button
+        MomentaryButton
     } else {
         // Multiple messages received. Button character is ruled out already. Check continuity.
         if contains_direction_change(values) {
@@ -260,7 +260,7 @@ fn guess_custom_character(values: &[U7]) -> SourceCharacter {
                 // to send. So it's probably an encoder which is
                 // configured to transmit absolute values hitting
                 // the lower boundary.
-                Range
+                RangeElement
             } else if values.contains(&U7::MAX) {
                 // Here we rely on the fact that the user should turn clock-wise. So it
                 // can't be relative type 1 because 127 means
@@ -268,13 +268,13 @@ fn guess_custom_character(values: &[U7]) -> SourceCharacter {
                 // other relative types because this would happen with extreme acceleration
                 // only. So it's probably an encoder which is configured to transmit
                 // absolute values hitting the upper boundary.
-                Range
+                RangeElement
             } else {
                 guess_encoder_type(values)
             }
         } else {
             // Was continuous without duplicates until now so it's probably a knob/fader.
-            SourceCharacter::Range
+            SourceCharacter::RangeElement
         }
     }
 }
@@ -288,7 +288,7 @@ fn guess_encoder_type(values: &[U7]) -> SourceCharacter {
         57..=71 => Encoder2,
         // The remaining values are supported but not so typical for encoders because they only
         // happen at high accelerations.
-        _ => Range,
+        _ => RangeElement,
     }
 }
 
@@ -349,6 +349,7 @@ mod tests {
                     number: Some(u14(99)),
                     is_14_bit: Some(true),
                     is_registered: Some(false),
+                    custom_character: SourceCharacter::RangeElement
                 }
             );
             assert_eq!(source_4_short, None);
@@ -362,24 +363,24 @@ mod tests {
 
         #[test]
         fn typical_range() {
-            assert_eq!(guess(&[40, 41, 42, 43, 44]), Range);
+            assert_eq!(guess(&[40, 41, 42, 43, 44]), RangeElement);
         }
 
         #[test]
         fn typical_range_counter_clockwise() {
-            assert_eq!(guess(&[44, 43, 42, 41, 40]), Range);
+            assert_eq!(guess(&[44, 43, 42, 41, 40]), RangeElement);
         }
 
         #[test]
         fn typical_trigger_button() {
-            assert_eq!(guess(&[100]), Button);
-            assert_eq!(guess(&[127]), Button);
+            assert_eq!(guess(&[100]), MomentaryButton);
+            assert_eq!(guess(&[127]), MomentaryButton);
         }
 
         #[test]
         fn typical_switch_button() {
-            assert_eq!(guess(&[100, 0]), Button);
-            assert_eq!(guess(&[127, 0]), Button);
+            assert_eq!(guess(&[100, 0]), MomentaryButton);
+            assert_eq!(guess(&[127, 0]), MomentaryButton);
         }
 
         #[test]
@@ -399,44 +400,44 @@ mod tests {
 
         #[test]
         fn velocity_sensitive_trigger_button() {
-            assert_eq!(guess(&[79]), Button);
-            assert_eq!(guess(&[10]), Button);
+            assert_eq!(guess(&[79]), MomentaryButton);
+            assert_eq!(guess(&[10]), MomentaryButton);
         }
 
         #[test]
         fn velocity_sensitive_switch_button() {
-            assert_eq!(guess(&[79, 0]), Button);
-            assert_eq!(guess(&[10, 0]), Button);
+            assert_eq!(guess(&[79, 0]), MomentaryButton);
+            assert_eq!(guess(&[10, 0]), MomentaryButton);
         }
 
         #[test]
         fn range_with_gaps() {
-            assert_eq!(guess(&[40, 42, 43, 46]), Range);
+            assert_eq!(guess(&[40, 42, 43, 46]), RangeElement);
         }
 
         #[test]
         fn range_with_gaps_counter_clockwise() {
-            assert_eq!(guess(&[44, 41, 40, 37, 35]), Range);
+            assert_eq!(guess(&[44, 41, 40, 37, 35]), RangeElement);
         }
 
         #[test]
         fn very_lower_range() {
-            assert_eq!(guess(&[0, 1, 2, 3]), Range);
+            assert_eq!(guess(&[0, 1, 2, 3]), RangeElement);
         }
 
         #[test]
         fn lower_range() {
-            assert_eq!(guess(&[1, 2, 3, 4]), Range);
+            assert_eq!(guess(&[1, 2, 3, 4]), RangeElement);
         }
 
         #[test]
         fn very_upper_range_counter_clockwise() {
-            assert_eq!(guess(&[127, 126, 125, 124]), Range);
+            assert_eq!(guess(&[127, 126, 125, 124]), RangeElement);
         }
 
         #[test]
         fn upper_range_counter_clockwise() {
-            assert_eq!(guess(&[126, 125, 124, 123]), Range);
+            assert_eq!(guess(&[126, 125, 124, 123]), RangeElement);
         }
 
         #[test]
@@ -481,34 +482,34 @@ mod tests {
 
         #[test]
         fn absolute_encoder_hitting_upper_boundary() {
-            assert_eq!(guess(&[127, 127, 127, 127, 127]), Range);
-            assert_eq!(guess(&[125, 126, 127, 127, 127]), Range);
+            assert_eq!(guess(&[127, 127, 127, 127, 127]), RangeElement);
+            assert_eq!(guess(&[125, 126, 127, 127, 127]), RangeElement);
         }
 
         #[test]
         fn absolute_encoder_hitting_lower_boundary_counter_clockwise() {
-            assert_eq!(guess(&[0, 0, 0, 0, 0]), Range);
-            assert_eq!(guess(&[2, 1, 0, 0, 0]), Range);
+            assert_eq!(guess(&[0, 0, 0, 0, 0]), RangeElement);
+            assert_eq!(guess(&[2, 1, 0, 0, 0]), RangeElement);
         }
 
         #[test]
         fn lower_range_with_duplicate_elements() {
-            assert_eq!(guess(&[0, 0, 1, 1, 2, 2]), Range);
+            assert_eq!(guess(&[0, 0, 1, 1, 2, 2]), RangeElement);
         }
 
         #[test]
         fn lower_range_with_duplicate_elements_counter_clockwise() {
-            assert_eq!(guess(&[2, 2, 1, 1, 0, 0]), Range);
+            assert_eq!(guess(&[2, 2, 1, 1, 0, 0]), RangeElement);
         }
 
         #[test]
         fn neutral_zone_range_with_duplicate_elements() {
-            assert_eq!(guess(&[37, 37, 37, 38, 38, 38, 39, 39]), Range);
+            assert_eq!(guess(&[37, 37, 37, 38, 38, 38, 39, 39]), RangeElement);
         }
 
         #[test]
         fn neutral_zone_range_with_duplicate_elements_counter_clockwise() {
-            assert_eq!(guess(&[100, 100, 100, 99, 99, 99, 98, 98]), Range);
+            assert_eq!(guess(&[100, 100, 100, 99, 99, 99, 98, 98]), RangeElement);
         }
 
         fn guess(values: &[u8]) -> SourceCharacter {

@@ -276,8 +276,8 @@ impl<'a> MappingModelWithContext<'a> {
         use SourceCharacter::*;
         let mode_type = self.mapping.mode_model.r#type.get();
         let result = match self.mapping.source_model.character() {
-            Normal(Range) => mode_type == AbsoluteMode::Normal,
-            Normal(Button) => {
+            Normal(RangeElement) => mode_type == AbsoluteMode::Normal,
+            Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().create_target()?;
                 match mode_type {
                     AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
@@ -316,8 +316,8 @@ impl<'a> MappingModelWithContext<'a> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
         let result = match self.mapping.source_model.character() {
-            Normal(Range) | VirtualContinuous => AbsoluteMode::Normal,
-            Normal(Button) => {
+            Normal(RangeElement) | VirtualContinuous => AbsoluteMode::Normal,
+            Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().create_target()?;
                 if target.control_type().is_relative() {
                     AbsoluteMode::IncrementalButtons

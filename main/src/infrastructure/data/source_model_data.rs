@@ -197,7 +197,7 @@ mod tests {
                 r#type: MidiSourceType::ControlChangeValue,
                 channel: Some(Channel::new(0)),
                 number: Some(U14::new(0)),
-                character: SourceCharacter::Range,
+                character: SourceCharacter::RangeElement,
                 is_registered: None,
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
@@ -234,7 +234,7 @@ mod tests {
                 r#type: MidiSourceType::ParameterNumberValue,
                 channel: None,
                 number: Some(U14::new(12542)),
-                character: SourceCharacter::Range,
+                character: SourceCharacter::RangeElement,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
@@ -257,7 +257,7 @@ mod tests {
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(Channel::new(8)),
             number: None,
-            character: SourceCharacter::Range,
+            character: SourceCharacter::RangeElement,
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
@@ -280,7 +280,7 @@ mod tests {
         assert_eq!(model.channel.get(), Some(channel(8)));
         assert_eq!(model.midi_message_number.get(), None);
         assert_eq!(model.parameter_number_message_number.get(), None);
-        assert_eq!(model.custom_character.get(), SourceCharacter::Range);
+        assert_eq!(model.custom_character.get(), SourceCharacter::RangeElement);
         assert_eq!(
             model.midi_clock_transport_message.get(),
             MidiClockTransportMessage::Start
@@ -297,7 +297,7 @@ mod tests {
             r#type: MidiSourceType::ClockTransport,
             channel: None,
             number: Some(U14::new(112)),
-            character: SourceCharacter::Range,
+            character: SourceCharacter::RangeElement,
             is_registered: None,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
@@ -317,7 +317,7 @@ mod tests {
         assert_eq!(model.channel.get(), None);
         assert_eq!(model.midi_message_number.get(), Some(u7(112)));
         assert_eq!(model.parameter_number_message_number.get(), None);
-        assert_eq!(model.custom_character.get(), SourceCharacter::Range);
+        assert_eq!(model.custom_character.get(), SourceCharacter::RangeElement);
         assert_eq!(
             model.midi_clock_transport_message.get(),
             MidiClockTransportMessage::Stop

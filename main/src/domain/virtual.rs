@@ -85,7 +85,7 @@ impl VirtualSource {
     pub fn character(&self) -> ExtendedSourceCharacter {
         use VirtualControlElement::*;
         match self.control_element {
-            Button(_) => ExtendedSourceCharacter::Normal(SourceCharacter::Button),
+            Button(_) => ExtendedSourceCharacter::Normal(SourceCharacter::MomentaryButton),
             Multi(_) => ExtendedSourceCharacter::VirtualContinuous,
         }
     }

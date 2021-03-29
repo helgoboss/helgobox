@@ -55,7 +55,7 @@ impl Default for SourceModel {
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
-            custom_character: prop(SourceCharacter::Range),
+            custom_character: prop(SourceCharacter::RangeElement),
             midi_clock_transport_message: prop(MidiClockTransportMessage::Start),
             is_registered: prop(Some(false)),
             is_14_bit: prop(Some(false)),
@@ -126,11 +126,13 @@ impl SourceModel {
                         number,
                         is_14_bit,
                         is_registered,
+                        custom_character,
                         ..
                     } => {
                         self.parameter_number_message_number.set(*number);
                         self.is_14_bit.set(*is_14_bit);
                         self.is_registered.set(*is_registered);
+                        self.custom_character.set(*custom_character);
                     }
                     ClockTransport { message } => {
                         self.midi_clock_transport_message.set(*message);
@@ -229,6 +231,7 @@ impl SourceModel {
                         number: self.parameter_number_message_number.get(),
                         is_14_bit: self.is_14_bit.get(),
                         is_registered: self.is_registered.get(),
+                        custom_character: self.custom_character.get(),
                     },
                     ClockTempo => MidiSource::ClockTempo,
                     ClockTransport => MidiSource::ClockTransport {
@@ -333,7 +336,9 @@ impl SourceModel {
         }
         use MidiSourceType::*;
         match self.midi_source_type.get() {
-            ControlChangeValue if self.is_14_bit.get().contains(&false) => true,
+            ControlChangeValue | ParameterNumberValue if self.is_14_bit.get().contains(&false) => {
+                true
+            }
             Raw => true,
             _ => false,
         }
@@ -456,11 +461,12 @@ impl Display for SourceModel {
                             ControlChangeValue if self.is_14_bit.get() == Some(false) => {
                                 use SourceCharacter::*;
                                 let label = match self.custom_character.get() {
-                                    Range => "Range element",
-                                    Button => "Button",
+                                    RangeElement => "Range element",
+                                    MomentaryButton => "Momentary button",
                                     Encoder1 => "Encoder 1",
                                     Encoder2 => "Encoder 2",
                                     Encoder3 => "Encoder 3",
+                                    ToggleButton => "Toggle button :-(",
                                 };
                                 label.into()
                             }
@@ -700,7 +706,7 @@ mod tests {
             CompoundMappingSource::Midi(MidiSource::ControlChangeValue {
                 channel: None,
                 controller_number: None,
-                custom_character: SourceCharacter::Range,
+                custom_character: SourceCharacter::RangeElement,
             })
         );
     }
