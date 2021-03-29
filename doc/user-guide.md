@@ -708,8 +708,9 @@ The header panel for main mappings consists of a few more user interface element
 
 - **Auto-load preset:** If you switch this to *Depending on focused FX*, ReaLearn will start to observe which
   FX window is currently focused. Whenever the focus changes, it will check if you have linked a compartment preset
-  to it and will automatically load it. Whenever a non-linked FX gets focus, the mapping list is cleared so that
-  no mapping is active anymore. Of course this makes sense only if you actually have linked some presets. Read on!
+  to it and will automatically load it. Whenever a non-linked FX gets focus or the linked FX is closed, the mapping
+  list is cleared so that no mapping is active anymore. Of course this makes sense only if you actually have linked some
+  presets. Read on!
 
 The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main mapping
 compartment contains the missing piece of the puzzle:
@@ -719,6 +720,8 @@ compartment contains the missing piece of the puzzle:
   FX has been focused before. If the active preset is already linked to an FX, you can unlink it.
     - All links will be saved in the REAPER resource directory (REAPER → Actions → Show action list... → Show REAPER
       resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+
+**Attention:** This currently doesn't work with FX that's on the monitoring FX chain!
 
 #### Mapping row
 
@@ -2344,6 +2347,8 @@ The "Previous group" mapping then looks like this:
 This one seems to be a very popular use case: To create a dedicated set of mappings for a specific FX plug-in and load
 these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load preset"
 feature.
+
+**Attention:** This currently doesn't work with FX that's on the monitoring FX chain!
 
 To have a nice example, let's assume you want to build a first set of mappings for the VSTi plug-in
 [Vital](https://vital.audio/). The procedure for other plug-ins is the same.
