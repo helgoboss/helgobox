@@ -2029,7 +2029,7 @@ fn determine_next_preset_fx_link_action(
         }
         Some(PresetFxLinkAction::LinkTo {
             preset_id: preset_id.to_string(),
-            fx_id: FxId::from_fx(&last_fx),
+            fx_id: FxId::from_fx(&last_fx).ok()?,
         })
     }
 }

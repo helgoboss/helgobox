@@ -46,8 +46,13 @@ impl RealearnTargetContext {
         self.fx_snapshot_chunk_hash_by_fx.get(fx).copied()
     }
 
-    pub fn load_fx_snapshot(&mut self, fx: Fx, chunk: &str, chunk_hash: u64) {
-        fx.set_tag_chunk(chunk);
+    pub fn load_fx_snapshot(
+        &mut self,
+        fx: Fx,
+        chunk: &str,
+        chunk_hash: u64,
+    ) -> Result<(), &'static str> {
+        fx.set_tag_chunk(chunk)?;
         self.fx_snapshot_chunk_hash_by_fx
             .insert(fx.clone(), chunk_hash);
         self.additional_feedback_event_sender
@@ -55,6 +60,7 @@ impl RealearnTargetContext {
                 FxSnapshotLoadedEvent { fx },
             ))
             .unwrap();
+        Ok(())
     }
 
     pub fn touch_automation_parameter(

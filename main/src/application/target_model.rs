@@ -158,7 +158,7 @@ impl TargetModel {
         compartment: MappingCompartment,
     ) -> Result<FxSnapshot, &'static str> {
         let fx = self.with_context(context, compartment).fx()?;
-        let fx_info = fx.info();
+        let fx_info = fx.info()?;
         let fx_snapshot = FxSnapshot {
             fx_type: if fx_info.sub_type_expression.is_empty() {
                 fx_info.type_expression
@@ -167,7 +167,7 @@ impl TargetModel {
             },
             fx_name: fx_info.effect_name,
             preset_name: fx.preset_name().map(|n| n.into_string()),
-            chunk: Rc::new(fx.tag_chunk().content().to_owned()),
+            chunk: Rc::new(fx.tag_chunk()?.content().to_owned()),
         };
         Ok(fx_snapshot)
     }

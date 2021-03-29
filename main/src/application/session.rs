@@ -491,7 +491,7 @@ impl Session {
                 // unnecessarily load presets. E.g. fx_focused() and fx_opened() are fired
                 // in sequence if it's both an "open" and a "change".
                 if *previously_focused_fx != fx {
-                    let fx_id = fx.as_ref().map(FxId::from_fx);
+                    let fx_id = fx.as_ref().and_then(|f| FxId::from_fx(f).ok());
                     s.borrow_mut()
                         .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
                     *previously_focused_fx = fx;

@@ -723,7 +723,7 @@ impl RealearnTarget for ReaperTarget {
                 if !value.as_absolute()?.is_zero() {
                     BackboneState::target_context()
                         .borrow_mut()
-                        .load_fx_snapshot(fx.clone(), chunk, *chunk_hash)
+                        .load_fx_snapshot(fx.clone(), chunk, *chunk_hash)?
                 }
             }
             AutomationTouchState {

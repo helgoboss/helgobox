@@ -205,14 +205,14 @@ async fn fx_by_position() {
     }
     {
         // When
-        chain.remove_fx(&eq);
+        chain.remove_fx(&eq).unwrap();
         send_midi(note_on(0, 0, 100)).await;
         // Then
         assert!(is_zero(synth.parameter_by_index(1)));
     }
     {
         // When
-        chain.move_fx(&delay, 1);
+        chain.move_fx(&delay, 1).unwrap();
         send_midi(note_on(0, 0, 100)).await;
         // Then
         assert!(is_zero(delay.parameter_by_index(1)));
@@ -242,14 +242,14 @@ async fn fx_by_name() {
     }
     {
         // When
-        chain.remove_fx(&eq);
+        chain.remove_fx(&eq).unwrap();
         send_midi(note_on(0, 0, 100)).await;
         // Then
         assert!(!is_zero(synth.parameter_by_index(1)));
     }
     {
         // When
-        chain.move_fx(&delay, 1);
+        chain.move_fx(&delay, 1).unwrap();
         send_midi(note_on(0, 0, 100)).await;
         // Then
         assert!(!is_zero(delay.parameter_by_index(1)));
@@ -283,14 +283,14 @@ async fn fx_by_id() {
     }
     {
         // When
-        chain.remove_fx(&eq);
+        chain.remove_fx(&eq).unwrap();
         send_midi(note_on(0, 0, 100)).await;
         // Then
         assert!(!is_zero(synth.parameter_by_index(1)));
     }
     {
         // When
-        chain.move_fx(&delay, 1);
+        chain.move_fx(&delay, 1).unwrap();
         send_midi(note_on(0, 0, 100)).await;
         // Then
         assert!(!is_zero(delay.parameter_by_index(1)));

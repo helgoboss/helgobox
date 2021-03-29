@@ -27,12 +27,13 @@ impl FxId {
         FxId { file_name }
     }
 
-    pub fn from_fx(fx: &Fx) -> FxId {
-        let fx_info = fx.info();
-        let file_name = fx_info.file_name.to_str().expect("invalid FX file name");
-        FxId {
+    pub fn from_fx(fx: &Fx) -> Result<FxId, &'static str> {
+        let fx_info = fx.info()?;
+        let file_name = fx_info.file_name.to_str().ok_or("invalid FX file name")?;
+        let id = FxId {
             file_name: file_name.to_string(),
-        }
+        };
+        Ok(id)
     }
 
     pub fn file_name(&self) -> &str {
