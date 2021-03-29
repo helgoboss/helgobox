@@ -415,7 +415,9 @@ The header panel provides the following user interface elements, no matter if th
   feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
   Tip: Latter option is great for checking which MIDI messages ReaLearn would send to your device. Just add
   a "ReaControlMIDI" FX right below ReaLearn and press "Show Log". Please note that sending MIDI feedback
-  to the FX output doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
+  to the FX output has some drawbacks. First, it doesn't participate in ReaLearn's multi-instance feedback 
+  orchestration. That means you might experience LEDs/faders misbehaving when using multiple instances. Second, it
+  doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
     - ReaLearn FX is disabled.
     - Project is paused and ReaLearn track is not armed.
     - ReaLearn FX is on input FX chain and track is not armed.
@@ -834,15 +836,14 @@ responsibilities. It let's you easily implement use cases such as:
 
 - "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it 
   should control track volume!"
-- "I want to have two buttons for switching between different programs where each program represents
+- "I want to have two buttons for switching between different banks where each bank represents
   a group of mappings."
 
 There are 4 different activation modes:
 
 - **Always:** Mapping is always active (the default)
 - **When modifiers on/off:** Mapping becomes active only if something is pressed / not pressed
-- **When program selected:** Allows you to step through different groups of mappings (banks/pages/programs
-  ... however you want to call it)
+- **When bank selected:** Allows you to step through different groups of mappings (sometimes also called "pages")
 - **When EEL result > 0:** Let a formula decide (total freedom)
 
 For details, see below.
@@ -884,29 +885,29 @@ parameter decides if the modifier button is momentary (has to be pressed all the
 or toggled (switches between on and off everytime you press it). You can also be more adventurous
 and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
-##### When program selected
+##### When bank selected
 
 *Hint:* This is the correct activation mode if you want control surface "bank-style" mapping. An in-depth tutorial how
 to implement this can be found in the [Tutorials](#tutorials) section, tutorial number 1. 
 
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
-The certain parameter is called "Bank" and the particular value is called "Program". Why? Let's
-assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the "Bank" parameter 
+The particular value is called "Bank". Why? Let's
+assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the parameter 
 (by using "Incremental buttons" mode, you will learn how to do that further below). And you have multiple
-mappings where each one uses "When program selected" with the same "Bank" parameter but a different "Program".
+mappings where each one uses "When bank selected" with the same parameter but a different "Bank".
 Then the result is that you can press "Previous" and "Next" and it will switch between different 
-mappings (programs) within that bank. If you assign the same "Program" to multiple mappings, it's like putting
-those mapping into one group which can be activated/deactivated as a whole.
+mappings within that parameter. If you assign the same "Bank" to multiple mappings, it's like putting
+those mappings into one group which can be activated/deactivated as a whole.
 
 Switching between different programs via "Previous" and "Next" buttons is just one possibility.
 Here are some other ones:
 
-- **Navigate between programs using a rotary encoder:** Just map the rotary encoder
+- **Navigate between banks using a rotary encoder:** Just map the rotary encoder
   to the "Bank" parameter and restrict the target range as desired.
-- **Activate each program with a separate button:** Map each button to the "Bank"
+- **Activate each bank with a separate button:** Map each button to the "Bank"
   parameter (with absolute mode "Normal") and set "Target Min/Max" to a distinct value. E.g. set button
   1 min/max both to 0% and button 2 min/max both to 1%. Then pressing button 1
-  will activate program 0 and pressing button 2 will activate program 1.
+  will activate bank 0 and pressing button 2 will activate bank 1.
 
 In previous versions of ReaLearn you could use other methods to achieve a similar behavior, but it always
 involved using multiple ReaLearn instances:
@@ -921,7 +922,7 @@ involved using multiple ReaLearn instances:
   (not saved together with your REAPER project).
 
 With *Conditional activation* you can do the same (and more) within just one ReaLearn instance. A fixed
-assumption here is that each bank (parameter) consists of 100 programs. If this is too limiting for you,
+assumption here is that each bank (parameter) consists of 100 banks. If this is too limiting for you,
 please use the EEL activation mode instead.    
 
 ##### When EEL result > 0
@@ -1781,7 +1782,7 @@ The following elements are relevant for all kinds of sources. For rotary encoder
   |                | Control direction (absolute mode only)                                                                                                                                                                                                       | Feedback direction                                                                                                                                                                                                                 |
   |----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
   | **Min or max** | If the source value is < "Source Min", ReaLearn will behave as if "Source Min" was received (or 0% if min = max).<br><br>If the source value is > "Source Max", ReaLearn will behave as if "Source Max" was received (or 100% if min = max). | If the target value is < "Target Min", ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).<br><br>If the target value is > "Target Max", ReaLearn will behave as if "Target Max" was detected (or 100% if min = max). |
-  | **Min**        | ReaLearn will behave as if "Source Min" was received (or 0% if min = max).                                                                                                                                                                   | ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).                                                                                                                                                                   |
+  | **Min**        | ReaLearn will behave as if "Source Min" was received (or 0% if min = max).                                                                                                                                                                   | ReaLearn will behave as if "Target Min" was detected (or 0% if min = max). Useful for getting radio-button-like feedback.                                                                                                                    |
   | **Ignore**     | Target value won't be touched.                                                                                                                                                                                                               | No feedback will be sent.                                                                                                                                                                                                                    |
 
 ##### For knobs/faders and buttons (control only)
@@ -2209,13 +2210,11 @@ top-left control element to the bottom-right control element!
 
 ## Tutorials
 
-### 1. Using conditional activation to implement banks/pages/programs
+### 1. Using conditional activation to implement banks/pages
 
 Users often ask if it's possible to do control surface bank-style mapping in order to switch to a completely
 different set of mappings with the press of a button. Yes, it is! It's done using the *conditional activation* feature
-with the activation mode "When program selected". The wording in ReaLearn is like this: You would say
-"previous/next program" instead of "previous/next bank". "Bank" has another meaning and is essentially a set of
-"programs". This is analog to the MIDI standard.
+with the activation mode "When bank selected".
 
 I'll show you a minimal example but in great detail. Once you understand this example, you should be able to progress to
 bigger things. So let's assume you have 2 knobs and 2 buttons on your controller and you want to map some controls
@@ -2235,7 +2234,7 @@ should do is adding all the knob mappings (for example by using "Learn many"). H
 ![Step 1](images/tutorial-1-step-1.jpg)
 
 Note: As you can see, I gave the mappings friendly names, which is nice in general but really pays off once you use the
-projection feature. Also note that I used my MIDI Fighter Twister preset and renamed the relevant encoders to K1 and K2.
+projection feature. Also note that I used my Midi Fighter Twister preset and renamed the relevant encoders to K1 and K2.
 
 At this point, all those mappings are always active, so moving K1 will affect both ENV 1 and ENV 2 decay whereas moving
 K2 will affect both LFO 1 and LFO 2 frequency! We need activation conditions to make sure that not all mappings are
@@ -2268,10 +2267,10 @@ Now let's set the activation conditions. First for "Group 1":
 
 1. Select mapping group "Group 1".
 2. Press "Edit".
-3. In the "Active" dropdown, choose "When program selected". Make sure that "Bank" is set to "1. Parameter 1" and 
-   "Program" to 0.
+3. In the "Active" dropdown, choose "When bank selected". Make sure that "Parameter" is set to "1. Parameter 1" and 
+   "Bank" to 0.
 
-Repeat the same for "Group 2", but set "Program" to 1. Should look like this:
+Repeat the same for "Group 2", but set "Bank" to 1. Should look like this:
 
 ![Step 3](images/tutorial-1-step-3.jpg)
 
@@ -2279,9 +2278,9 @@ Did you see how the mappings in "Group 2" turned grey? That means they became in
 should affect ENV 1 and LFO 1 only.
 
 
-#### Step 4: Understand "Bank" and "Program"
+#### Step 4: Understand "Parameter" and "Bank"
 
-In the previous step, we have set "Bank" to "Parameter 1". It's important to understand that we are talking about
+In the previous step, we have set "Parameter" to "Parameter 1". It's important to understand that we are talking about
 ReaLearn's own VST parameters. Each ReaLearn instance has 100 free parameters, which don't do anything by default.
 One easy way to make them visible is by pressing the "UI" button at the top right of the FX window to switch to the
 parameter view:
@@ -2300,7 +2299,7 @@ the next step should be obvious: We need to map our buttons to it!
 #### Step 5: Map buttons to bank parameter
 
 We are going to map the buttons to "Parameter 1". Button B1 will set its value to 0 and button B2 will set its value 
-to 1. Remember how we defined these two numbers in the activation conditions ... they are the "Program" numbers!
+to 1. Remember how we defined these two numbers in the activation conditions ... they are the "Bank" numbers!
 
 1. Select mapping group `<Default>`.
 2. Map the two buttons. The easiest way is to use "Learn many", switch to the parameter view once again and move the
@@ -2309,8 +2308,11 @@ to 1. Remember how we defined these two numbers in the activation conditions ...
       names again): ![Step 5a](images/tutorial-1-step-5a.jpg)
 3. Edit the mapping for button B1 and set both Target Min/Max to 0 (this causes the button to always set the fixed
    value 0).
+    - If you have a controller that is capable of feedback (button has LED), also set "Out-of-range behavior" to "Min".
+      This makes sure that the LED lights up whenever this bank is selected but switches off otherwise.   
 4. Edit the mapping for button B2 and set both Target Min/Max to 1.
     - Here's how the mapping panel for button B2 looks afterwards: ![Step 5b](images/tutorial-1-step-5b.jpg)
+    - If feedback is desired, set "Out-of-range behavior" as described in the previous step.
 
 That's it, the goal is achieved! Press the buttons and move the knobs to test it.
 
@@ -2322,8 +2324,8 @@ tutorial to understand why.
 
 ### 2. Like tutorial 1, but with previous/next buttons
 
-Now let's assume you don't want 2 buttons where each button should activate one particular program but you want
-previous/next buttons to switch between the programs. Do everything as in tutorial 1 with the exception of step 5.
+Now let's assume you don't want 2 buttons where each button should activate one particular bank but you want
+previous/next buttons to switch between the banks. Do everything as in tutorial 1 with the exception of step 5.
 
 #### Step 5: Map buttons to bank parameter
 
