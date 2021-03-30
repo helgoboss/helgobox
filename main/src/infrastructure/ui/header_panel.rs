@@ -37,9 +37,9 @@ use crate::infrastructure::ui::bindings::root;
 
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
-    add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_text_from_clipboard,
-    ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel,
-    SharedIndependentPanelManager, SharedMainState,
+    add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
+    get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
+    MappingRowsPanel, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -189,6 +189,7 @@ impl HeaderPanel {
         enum MenuAction {
             None,
             CopyListedMappings,
+            PasteReplaceAllInGroup(Vec<MappingModelData>),
             ToggleAutoCorrectSettings,
             ToggleSendFeedbackOnlyIfTrackArmed,
             ToggleUpperFloorMembership,
@@ -222,11 +223,22 @@ impl HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
+            let clipboard_object = get_object_from_clipboard();
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
             let entries = vec![
                 item("Copy listed mappings", || MenuAction::CopyListedMappings),
+                {
+                    if let Some(ClipboardObject::Mappings(vec)) = clipboard_object {
+                        item(
+                            format!("Paste {} mappings (replace all in group)", vec.len()),
+                            move || MenuAction::PasteReplaceAllInGroup(vec),
+                        )
+                    } else {
+                        disabled_item("Paste mappings (replace all in group)")
+                    }
+                },
                 menu(
                     "Options",
                     vec![
@@ -399,6 +411,9 @@ impl HeaderPanel {
         match result {
             MenuAction::None => {}
             MenuAction::CopyListedMappings => self.copy_listed_mappings(),
+            MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
+                self.paste_replace_all_in_group(mapping_datas)
+            }
             MenuAction::EditNewOscDevice => edit_new_osc_device(),
             MenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
             MenuAction::RemoveOscDevice(dev_id) => {
@@ -522,6 +537,22 @@ impl HeaderPanel {
             .collect();
         let obj = ClipboardObject::Mappings(mapping_datas);
         let _ = copy_object_to_clipboard(obj);
+    }
+
+    fn paste_replace_all_in_group(&self, mapping_datas: Vec<MappingModelData>) {
+        let main_state = self.main_state.borrow();
+        let group_id = main_state
+            .group_filter_for_active_compartment()
+            .map(|f| f.group_id())
+            .unwrap_or_default();
+        let compartment = main_state.active_compartment.get();
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let new_mappings = mapping_datas.into_iter().map(|mut data| {
+            data.group_id = group_id;
+            data.to_model(compartment)
+        });
+        session.replace_mappings_of_group(compartment, group_id, new_mappings);
     }
 
     fn toggle_learn_source_filter(&self) {

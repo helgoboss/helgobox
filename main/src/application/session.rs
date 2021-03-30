@@ -894,10 +894,25 @@ impl Session {
                 first_mapping_id = Some(m.id());
             }
             let shared_mapping = share_mapping(m);
-            self.mappings[compartment].insert(index, shared_mapping.clone());
+            self.mappings[compartment].insert(index, shared_mapping);
             index += 1;
         }
         self.notify_mapping_list_changed(compartment, first_mapping_id);
+    }
+
+    pub fn replace_mappings_of_group(
+        &mut self,
+        compartment: MappingCompartment,
+        group_id: GroupId,
+        mappings: impl Iterator<Item = MappingModel>,
+    ) {
+        self.mappings[compartment].retain(|m| m.borrow().group_id.get() != group_id);
+        for mut m in mappings {
+            m.set_id_without_notification(MappingId::random());
+            let shared_mapping = share_mapping(m);
+            self.mappings[compartment].push(shared_mapping);
+        }
+        self.notify_mapping_list_changed(compartment, None);
     }
 
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
