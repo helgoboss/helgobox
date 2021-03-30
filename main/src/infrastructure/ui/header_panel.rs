@@ -369,15 +369,15 @@ impl HeaderPanel {
                     "FX-to-preset links",
                     once(
                         match determine_next_preset_fx_link_action(app, &session, compartment) {
-                            None => disabled_item("Add link from FX to current preset..."),
+                            None => disabled_item("<Add link from FX to current preset...>"),
                             Some(action) => item_with_opts(
                                 match &action {
                                     PresetFxLinkAction::LinkTo { fx_id, .. } => {
-                                        format!("Add link from FX \"{}\" to current preset", fx_id)
+                                        format!("<Add link from FX \"{}\" to current preset">, fx_id)
                                     }
                                     PresetFxLinkAction::UnlinkFrom { fx_id, .. } => {
                                         format!(
-                                            "Remove link from FX \"{}\" to current preset",
+                                            "<Remove link from FX \"{}\" to current preset>",
                                             fx_id
                                         )
                                     }

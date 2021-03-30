@@ -39,6 +39,12 @@ impl FxId {
     pub fn file_name(&self) -> &str {
         &self.file_name
     }
+
+    /// The pattern FX ID can contain wildcards.
+    pub fn matches(&self, fx_id_pattern: &FxId) -> bool {
+        let wild_match = wildmatch::WildMatch::new(&fx_id_pattern.file_name);
+        wild_match.is_match(self.file_name())
+    }
 }
 
 #[derive(

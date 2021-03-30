@@ -88,7 +88,15 @@ impl FileBasedPresetLinkManager {
     }
 
     pub fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
-        self.preset_by_fx.get(fx_id).cloned()
+        self.preset_by_fx
+            .iter()
+            .find_map(|(fx_id_pattern, preset_id)| {
+                if fx_id.matches(fx_id_pattern) {
+                    Some(preset_id.clone())
+                } else {
+                    None
+                }
+            })
     }
 
     pub fn links(&self) -> impl Iterator<Item = PresetLink> + ExactSizeIterator + '_ {
