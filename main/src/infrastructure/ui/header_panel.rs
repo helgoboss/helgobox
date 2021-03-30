@@ -17,8 +17,8 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
-    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, PresetManager,
-    Session, SharedSession, VirtualControlElementType, WeakSession,
+    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset,
+    PresetManager, Session, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
 use crate::domain::{
@@ -196,6 +196,11 @@ impl HeaderPanel {
             ToggleServer,
             AddFirewallRule,
             ChangeSessionId,
+            LinkFxPreset(PresetFxLinkAction),
+            EditNewFxId(String),
+            EditExistingFxId(FxId),
+            RemovePresetLink(FxId),
+            LinkToPreset(FxId, String),
             OpenOfflineUserGuide,
             OpenOnlineUserGuide,
             OpenForum,
@@ -211,7 +216,6 @@ impl HeaderPanel {
             EditCompartmentParameter(MappingCompartment, u32),
             SendFeedbackNow,
             LogDebugInfo,
-            LinkFxPreset(PresetFxLinkAction),
         }
         impl Default for MenuAction {
             fn default() -> Self {
@@ -223,6 +227,10 @@ impl HeaderPanel {
             use swell_ui::menu_tree::*;
             let dev_manager = App::get().osc_device_manager();
             let dev_manager = dev_manager.borrow();
+            let preset_link_manager = App::get().preset_link_manager();
+            let preset_link_manager = preset_link_manager.borrow();
+            let main_preset_manager = App::get().main_preset_manager();
+            let main_preset_manager = main_preset_manager.borrow();
             let clipboard_object = get_object_from_clipboard();
             let session = self.session();
             let session = session.borrow();
@@ -276,6 +284,32 @@ impl HeaderPanel {
                     ],
                 ),
                 menu(
+                    "Compartment parameters",
+                    (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
+                        .map(|batch_index| {
+                            let offset = batch_index * PARAM_BATCH_SIZE;
+                            let range = offset..(offset + PARAM_BATCH_SIZE);
+                            menu(
+                                format!("Parameters {} - {}", range.start + 1, range.end),
+                                range
+                                    .map(|i| {
+                                        item(
+                                            format!(
+                                                "{}...",
+                                                session.get_parameter_name(compartment, i)
+                                            ),
+                                            move || {
+                                                MenuAction::EditCompartmentParameter(compartment, i)
+                                            },
+                                        )
+                                    })
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                ),
+                separator(),
+                menu(
                     "Server",
                     vec![
                         item_with_opts(
@@ -288,21 +322,6 @@ impl HeaderPanel {
                         ),
                         item("Add firewall rule", || MenuAction::AddFirewallRule),
                         item("Change session ID...", || MenuAction::ChangeSessionId),
-                    ],
-                ),
-                menu(
-                    "Help",
-                    vec![
-                        item("User guide for this version (PDF, offline)", || {
-                            MenuAction::OpenOfflineUserGuide
-                        }),
-                        item("User guide for latest version (HTML, online)", || {
-                            MenuAction::OpenOnlineUserGuide
-                        }),
-                        item("Forum", || MenuAction::OpenForum),
-                        item("Contact developer", || MenuAction::ContactDeveloper),
-                        item("Website", || MenuAction::OpenWebsite),
-                        item("Donate", || MenuAction::Donate),
                     ],
                 ),
                 menu(
@@ -347,50 +366,101 @@ impl HeaderPanel {
                         .collect(),
                 ),
                 menu(
-                    "Compartment parameters",
-                    (0..COMPARTMENT_PARAMETER_COUNT / PARAM_BATCH_SIZE)
-                        .map(|batch_index| {
-                            let offset = batch_index * PARAM_BATCH_SIZE;
-                            let range = offset..(offset + PARAM_BATCH_SIZE);
-                            menu(
-                                format!("Parameters {} - {}", range.start + 1, range.end),
-                                range
-                                    .map(|i| {
-                                        item(
-                                            format!(
-                                                "{}...",
-                                                session.get_parameter_name(compartment, i)
-                                            ),
-                                            move || {
-                                                MenuAction::EditCompartmentParameter(compartment, i)
-                                            },
+                    "FX-to-preset links",
+                    once(
+                        match determine_next_preset_fx_link_action(app, &session, compartment) {
+                            None => disabled_item("Add link from FX to current preset..."),
+                            Some(action) => item_with_opts(
+                                match &action {
+                                    PresetFxLinkAction::LinkTo { fx_id, .. } => {
+                                        format!("Add link from FX \"{}\" to current preset", fx_id)
+                                    }
+                                    PresetFxLinkAction::UnlinkFrom { fx_id, .. } => {
+                                        format!(
+                                            "Remove link from FX \"{}\" to current preset",
+                                            fx_id
                                         )
-                                    })
-                                    .collect(),
-                            )
-                        })
-                        .collect(),
+                                    }
+                                },
+                                ItemOpts {
+                                    enabled: true,
+                                    checked: matches!(
+                                        &action,
+                                        PresetFxLinkAction::UnlinkFrom { .. }
+                                    ),
+                                },
+                                || MenuAction::LinkFxPreset(action),
+                            ),
+                        },
+                    )
+                    .chain(once(menu(
+                        "<New link to>",
+                        main_preset_manager
+                            .presets()
+                            .map(|p| {
+                                let preset_id = p.id().to_owned();
+                                item(p.name(), move || MenuAction::EditNewFxId(preset_id))
+                            })
+                            .collect(),
+                    )))
+                    .chain(preset_link_manager.links().map(|link| {
+                        let fx_id_0 = link.fx_id.clone();
+                        let fx_id_1 = link.fx_id.clone();
+                        let fx_id_2 = link.fx_id.clone();
+                        let preset_id_0 = link.preset_id.clone();
+                        menu(
+                            link.fx_id.to_string(),
+                            once(item("<Edit FX ID...>", move || {
+                                MenuAction::EditExistingFxId(fx_id_0)
+                            }))
+                            .chain(once(item("<Remove link>", move || {
+                                MenuAction::RemovePresetLink(fx_id_1)
+                            })))
+                            .chain(main_preset_manager.presets().map(move |p| {
+                                let fx_id = fx_id_2.clone();
+                                let preset_id = p.id().to_owned();
+                                item_with_opts(
+                                    p.name(),
+                                    ItemOpts {
+                                        enabled: true,
+                                        checked: p.id() == preset_id_0,
+                                    },
+                                    move || MenuAction::LinkToPreset(fx_id, preset_id),
+                                )
+                            }))
+                            .chain(once(
+                                if main_preset_manager
+                                    .find_index_by_id(&link.preset_id)
+                                    .is_some()
+                                {
+                                    Entry::Nothing
+                                } else {
+                                    disabled_item(format!("<Not present> ({})", link.preset_id))
+                                },
+                            ))
+                            .collect(),
+                        )
+                    }))
+                    .collect(),
                 ),
+                menu(
+                    "Help",
+                    vec![
+                        item("User guide for this version (PDF, offline)", || {
+                            MenuAction::OpenOfflineUserGuide
+                        }),
+                        item("User guide for latest version (HTML, online)", || {
+                            MenuAction::OpenOnlineUserGuide
+                        }),
+                        item("Forum", || MenuAction::OpenForum),
+                        item("Contact developer", || MenuAction::ContactDeveloper),
+                        item("Website", || MenuAction::OpenWebsite),
+                        item("Donate", || MenuAction::Donate),
+                    ],
+                ),
+                separator(),
                 item("Send feedback now", || MenuAction::SendFeedbackNow),
                 item("Log debug info", || MenuAction::LogDebugInfo),
-                match determine_next_preset_fx_link_action(app, &session, compartment) {
-                    None => disabled_item("Link current preset fo FX..."),
-                    Some(action) => item_with_opts(
-                        match &action {
-                            PresetFxLinkAction::LinkTo { fx_id, .. } => {
-                                format!("Link current preset to FX \"{}\"", fx_id)
-                            }
-                            PresetFxLinkAction::UnlinkFrom { fx_id, .. } => {
-                                format!("Unlink current preset from FX \"{}\"", fx_id)
-                            }
-                        },
-                        ItemOpts {
-                            enabled: true,
-                            checked: matches!(&action, PresetFxLinkAction::UnlinkFrom { .. }),
-                        },
-                        || MenuAction::LinkFxPreset(action),
-                    ),
-                },
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -521,6 +591,10 @@ impl HeaderPanel {
                     }
                 }
             }
+            MenuAction::EditNewFxId(preset_id) => edit_new_fx_id(preset_id),
+            MenuAction::EditExistingFxId(fx_id) => edit_existing_fx_id(fx_id),
+            MenuAction::RemovePresetLink(fx_id) => remove_preset_link(fx_id),
+            MenuAction::LinkToPreset(fx_id, preset_id) => link_to_preset(fx_id, preset_id),
         };
         Ok(())
     }
@@ -2078,6 +2152,70 @@ fn generate_osc_device_heading(device_count: usize) -> String {
             ""
         }
     )
+}
+
+fn edit_new_fx_id(preset_id: String) {
+    let new_fx_id = match edit_fx_id(&FxId::default()) {
+        Ok(d) => d,
+        Err(EditFxIdError::Cancelled) => return,
+        res => res.unwrap(),
+    };
+    App::get()
+        .preset_link_manager()
+        .borrow_mut()
+        .link_preset_to_fx(preset_id, new_fx_id);
+}
+
+fn edit_existing_fx_id(old_fx_id: FxId) {
+    let new_fx_id = match edit_fx_id(&old_fx_id) {
+        Ok(d) => d,
+        Err(EditFxIdError::Cancelled) => return,
+        res => res.unwrap(),
+    };
+    App::get()
+        .preset_link_manager()
+        .borrow_mut()
+        .update_fx_id(old_fx_id, new_fx_id);
+}
+
+fn remove_preset_link(fx_id: FxId) {
+    App::get()
+        .preset_link_manager()
+        .borrow_mut()
+        .remove_link(&fx_id);
+}
+
+fn link_to_preset(fx_id: FxId, preset_id: String) {
+    App::get()
+        .preset_link_manager()
+        .borrow_mut()
+        .link_preset_to_fx(preset_id, fx_id);
+}
+
+fn edit_fx_id(fx_id: &FxId) -> Result<FxId, EditFxIdError> {
+    let csv = Reaper::get()
+        .medium_reaper()
+        .get_user_inputs(
+            "ReaLearn",
+            1,
+            "FX file name,separator=;,extrawidth=80",
+            format!("{}", fx_id.file_name(),),
+            512,
+        )
+        .ok_or(EditFxIdError::Cancelled)?;
+    let splitted: Vec<_> = csv.to_str().split(';').collect();
+    if let [file_name] = splitted.as_slice() {
+        let new_fx_id = FxId::new(file_name.to_string());
+        Ok(new_fx_id)
+    } else {
+        Err(EditFxIdError::Unexpected("couldn't split"))
+    }
+}
+
+#[derive(Debug)]
+enum EditFxIdError {
+    Cancelled,
+    Unexpected(&'static str),
 }
 
 fn edit_new_osc_device() {

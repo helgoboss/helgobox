@@ -96,6 +96,18 @@ impl<'a> Menu<'a> {
         }
     }
 
+    pub fn add_separator(self) {
+        unsafe {
+            let swell = Swell::get();
+            let mut mi = raw::MENUITEMINFO {
+                fMask: raw::MIIM_TYPE,
+                fType: raw::MF_SEPARATOR,
+                ..Default::default()
+            };
+            swell.InsertMenuItem(self.raw, -1, 1, &mut mi as _);
+        }
+    }
+
     pub fn get_sub_menu_at(&self, index: u32) -> Option<Menu> {
         get_sub_menu_at(self.raw, index)
     }

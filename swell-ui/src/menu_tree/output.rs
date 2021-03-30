@@ -25,6 +25,9 @@ fn fill_menu_recursive<R>(swell_menu: SwellMenu, entry: &Entry<R>) {
                 swell_menu.set_item_enabled(i.id, false);
             }
         }
+        Entry::Separator => {
+            swell_menu.add_separator();
+        }
         Entry::Nothing => {}
     }
 }

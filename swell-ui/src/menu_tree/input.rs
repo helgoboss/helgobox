@@ -4,6 +4,7 @@ use std::fmt::Debug;
 pub enum Entry<R> {
     Menu(Menu<R>),
     Item(Item<R>),
+    Separator,
     Nothing,
 }
 
@@ -19,7 +20,7 @@ impl<R> Entry<R> {
             Entry::Item(i) => {
                 i.id = counter.next_value();
             }
-            Entry::Nothing => {}
+            _ => {}
         }
     }
 
@@ -36,7 +37,7 @@ impl<R> Entry<R> {
                     None
                 }
             }
-            Entry::Nothing => None,
+            _ => None,
         }
     }
 }
@@ -110,6 +111,10 @@ pub fn item<R>(text: impl Into<String>, handler: impl FnOnce() -> R + 'static) -
         handler: Handler(Box::new(handler)),
         opts: Default::default(),
     })
+}
+
+pub fn separator<R>() -> Entry<R> {
+    Entry::Separator
 }
 
 pub fn item_with_opts<R>(

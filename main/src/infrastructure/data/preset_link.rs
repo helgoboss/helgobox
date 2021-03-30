@@ -33,6 +33,11 @@ pub struct FileBasedPresetLinkManager {
     preset_by_fx: HashMap<FxId, String>,
 }
 
+pub struct PresetLink {
+    pub fx_id: FxId,
+    pub preset_id: String,
+}
+
 impl FileBasedPresetLinkManager {
     pub fn new(auto_load_configs_dir_path: PathBuf) -> FileBasedPresetLinkManager {
         let mut manager = FileBasedPresetLinkManager {
@@ -86,11 +91,33 @@ impl FileBasedPresetLinkManager {
         self.preset_by_fx.get(fx_id).cloned()
     }
 
+    pub fn links(&self) -> impl Iterator<Item = PresetLink> + ExactSizeIterator + '_ {
+        self.preset_by_fx
+            .iter()
+            .map(|(fx_id, preset_id)| PresetLink {
+                fx_id: fx_id.clone(),
+                preset_id: preset_id.clone(),
+            })
+    }
+
     pub fn find_fx_that_preset_is_linked_to(&self, preset_id: &str) -> Option<FxId> {
         self.preset_by_fx
             .iter()
             .find_map(|(fx_id, p_id)| if p_id == preset_id { Some(fx_id) } else { None })
             .cloned()
+    }
+
+    pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
+        if let Some(preset_id) = self.preset_by_fx.remove(&old_fx_id) {
+            self.preset_by_fx.insert(new_fx_id, preset_id);
+        }
+        self.save_fx_config().unwrap();
+    }
+
+    pub fn remove_link(&mut self, fx_id: &FxId) {
+        if self.preset_by_fx.remove(fx_id).is_some() {
+            self.save_fx_config().unwrap();
+        }
     }
 
     pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
