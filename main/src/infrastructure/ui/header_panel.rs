@@ -18,7 +18,7 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 use crate::application::{
     make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
     GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset,
-    PresetManager, Session, SharedSession, VirtualControlElementType, WeakSession,
+    PresetManager, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
 use crate::domain::{
@@ -196,9 +196,7 @@ impl HeaderPanel {
             ToggleServer,
             AddFirewallRule,
             ChangeSessionId,
-            LinkFxPreset(PresetFxLinkAction),
-            EditNewFxId(String),
-            EditExistingFxId(FxId),
+            EditPresetLinkFxId(FxId),
             RemovePresetLink(FxId),
             LinkToPreset(FxId, String),
             OpenOfflineUserGuide,
@@ -235,6 +233,13 @@ impl HeaderPanel {
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
+            let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
+                if fx.is_available() {
+                    FxId::from_fx(&fx).ok()
+                } else {
+                    None
+                }
+            });
             let entries = vec![
                 item("Copy listed mappings", || MenuAction::CopyListedMappings),
                 {
@@ -367,42 +372,23 @@ impl HeaderPanel {
                 ),
                 menu(
                     "FX-to-preset links",
-                    once(
-                        match determine_next_preset_fx_link_action(app, &session, compartment) {
-                            None => disabled_item("<Add link from FX to current preset...>"),
-                            Some(action) => item_with_opts(
-                                match &action {
-                                    PresetFxLinkAction::LinkTo { fx_id, .. } => {
-                                        format!("<Add link from FX \"{}\" to current preset">, fx_id)
-                                    }
-                                    PresetFxLinkAction::UnlinkFrom { fx_id, .. } => {
-                                        format!(
-                                            "<Remove link from FX \"{}\" to current preset>",
-                                            fx_id
-                                        )
-                                    }
-                                },
-                                ItemOpts {
-                                    enabled: true,
-                                    checked: matches!(
-                                        &action,
-                                        PresetFxLinkAction::UnlinkFrom { .. }
-                                    ),
-                                },
-                                || MenuAction::LinkFxPreset(action),
-                            ),
-                        },
-                    )
-                    .chain(once(menu(
-                        "<New link to>",
-                        main_preset_manager
-                            .presets()
-                            .map(|p| {
-                                let preset_id = p.id().to_owned();
-                                item(p.name(), move || MenuAction::EditNewFxId(preset_id))
-                            })
-                            .collect(),
-                    )))
+                    once(if let Some(fx_id) = last_focused_fx_id {
+                        menu(
+                            format!("<Add link from FX \"{}\" to ...>", fx_id),
+                            main_preset_manager
+                                .presets()
+                                .map(move |p| {
+                                    let fx_id = fx_id.clone();
+                                    let preset_id = p.id().to_owned();
+                                    item(p.name(), move || {
+                                        MenuAction::LinkToPreset(fx_id, preset_id)
+                                    })
+                                })
+                                .collect(),
+                        )
+                    } else {
+                        disabled_item("<Add link from last focused FX to preset>")
+                    })
                     .chain(preset_link_manager.links().map(|link| {
                         let fx_id_0 = link.fx_id.clone();
                         let fx_id_1 = link.fx_id.clone();
@@ -411,7 +397,7 @@ impl HeaderPanel {
                         menu(
                             link.fx_id.to_string(),
                             once(item("<Edit FX ID...>", move || {
-                                MenuAction::EditExistingFxId(fx_id_0)
+                                MenuAction::EditPresetLinkFxId(fx_id_0)
                             }))
                             .chain(once(item("<Remove link>", move || {
                                 MenuAction::RemovePresetLink(fx_id_1)
@@ -579,20 +565,7 @@ impl HeaderPanel {
             MenuAction::Donate => self.donate(),
             MenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
             MenuAction::LogDebugInfo => self.log_debug_info(),
-            MenuAction::LinkFxPreset(action) => {
-                use PresetFxLinkAction::*;
-                let manager = App::get().preset_link_manager();
-                match action {
-                    LinkTo { preset_id, fx_id } => {
-                        manager.borrow_mut().link_preset_to_fx(preset_id, fx_id)
-                    }
-                    UnlinkFrom { preset_id, .. } => {
-                        manager.borrow_mut().unlink_preset_from_fx(&preset_id)
-                    }
-                }
-            }
-            MenuAction::EditNewFxId(preset_id) => edit_new_fx_id(preset_id),
-            MenuAction::EditExistingFxId(fx_id) => edit_existing_fx_id(fx_id),
+            MenuAction::EditPresetLinkFxId(fx_id) => edit_preset_link_fx_id(fx_id),
             MenuAction::RemovePresetLink(fx_id) => remove_preset_link(fx_id),
             MenuAction::LinkToPreset(fx_id, preset_id) => link_to_preset(fx_id, preset_id),
         };
@@ -2102,43 +2075,6 @@ impl Drop for HeaderPanel {
     }
 }
 
-enum PresetFxLinkAction {
-    LinkTo { preset_id: String, fx_id: FxId },
-    UnlinkFrom { preset_id: String, fx_id: FxId },
-}
-
-fn determine_next_preset_fx_link_action(
-    app: &App,
-    session: &Session,
-    compartment: MappingCompartment,
-) -> Option<PresetFxLinkAction> {
-    if compartment != MappingCompartment::MainMappings {
-        // Not relevant for controller mappings.
-        return None;
-    }
-    // No preset means nothing can be linked.
-    let preset_id = session.active_main_preset_id()?;
-    if let Some(fx_id) = app
-        .preset_link_manager()
-        .borrow()
-        .find_fx_that_preset_is_linked_to(preset_id)
-    {
-        Some(PresetFxLinkAction::UnlinkFrom {
-            preset_id: preset_id.to_string(),
-            fx_id,
-        })
-    } else {
-        let last_fx = app.previously_focused_fx()?;
-        if !last_fx.is_available() {
-            return None;
-        }
-        Some(PresetFxLinkAction::LinkTo {
-            preset_id: preset_id.to_string(),
-            fx_id: FxId::from_fx(&last_fx).ok()?,
-        })
-    }
-}
-
 fn generate_midi_device_heading() -> String {
     "----  MIDI  ----".to_owned()
 }
@@ -2154,19 +2090,7 @@ fn generate_osc_device_heading(device_count: usize) -> String {
     )
 }
 
-fn edit_new_fx_id(preset_id: String) {
-    let new_fx_id = match edit_fx_id(&FxId::default()) {
-        Ok(d) => d,
-        Err(EditFxIdError::Cancelled) => return,
-        res => res.unwrap(),
-    };
-    App::get()
-        .preset_link_manager()
-        .borrow_mut()
-        .link_preset_to_fx(preset_id, new_fx_id);
-}
-
-fn edit_existing_fx_id(old_fx_id: FxId) {
+fn edit_preset_link_fx_id(old_fx_id: FxId) {
     let new_fx_id = match edit_fx_id(&old_fx_id) {
         Ok(d) => d,
         Err(EditFxIdError::Cancelled) => return,

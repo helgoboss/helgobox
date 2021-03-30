@@ -108,13 +108,6 @@ impl FileBasedPresetLinkManager {
             })
     }
 
-    pub fn find_fx_that_preset_is_linked_to(&self, preset_id: &str) -> Option<FxId> {
-        self.preset_by_fx
-            .iter()
-            .find_map(|(fx_id, p_id)| if p_id == preset_id { Some(fx_id) } else { None })
-            .cloned()
-    }
-
     pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
         if let Some(preset_id) = self.preset_by_fx.remove(&old_fx_id) {
             self.preset_by_fx.insert(new_fx_id, preset_id);
@@ -130,11 +123,6 @@ impl FileBasedPresetLinkManager {
 
     pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
         self.preset_by_fx.insert(fx_id, preset_id);
-        self.save_fx_config().unwrap();
-    }
-
-    pub fn unlink_preset_from_fx(&mut self, preset_id: &str) {
-        self.preset_by_fx.retain(|_, p_id| p_id != preset_id);
         self.save_fx_config().unwrap();
     }
 }
