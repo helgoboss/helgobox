@@ -91,9 +91,10 @@ pub struct TargetModel {
     pub bookmark_ref: Prop<u32>,
     pub bookmark_type: Prop<BookmarkType>,
     pub bookmark_anchor_type: Prop<BookmarkAnchorType>,
-    // # For "Seek" target
+    // # For "Go to marker/region" target and "Seek" target
     pub use_time_selection: Prop<bool>,
     pub use_loop_points: Prop<bool>,
+    // # For "Seek" target
     pub use_regions: Prop<bool>,
     pub use_project: Prop<bool>,
     pub move_view: Prop<bool>,
@@ -763,6 +764,8 @@ impl TargetModel {
                         bookmark_type: self.bookmark_type.get(),
                         bookmark_anchor_type: self.bookmark_anchor_type.get(),
                         bookmark_ref: self.bookmark_ref.get(),
+                        set_time_selection: self.use_time_selection.get(),
+                        set_loop_points: self.use_loop_points.get(),
                     },
                     Seek => UnresolvedReaperTarget::Seek {
                         options: self.seek_options(),

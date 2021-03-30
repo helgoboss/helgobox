@@ -126,6 +126,8 @@ pub enum UnresolvedReaperTarget {
         bookmark_type: BookmarkType,
         bookmark_anchor_type: BookmarkAnchorType,
         bookmark_ref: u32,
+        set_time_selection: bool,
+        set_loop_points: bool,
     },
     Seek {
         options: SeekOptions,
@@ -307,6 +309,8 @@ impl UnresolvedReaperTarget {
                 bookmark_type,
                 bookmark_anchor_type,
                 bookmark_ref,
+                set_time_selection,
+                set_loop_points,
             } => {
                 let project = context.context.project_or_current_project();
                 let res = find_bookmark(
@@ -320,6 +324,8 @@ impl UnresolvedReaperTarget {
                     bookmark_type: *bookmark_type,
                     index: res.index,
                     position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
+                    set_time_selection: *set_time_selection,
+                    set_loop_points: *set_loop_points,
                 }
             }
             Seek { options } => {

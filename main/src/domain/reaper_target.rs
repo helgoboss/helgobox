@@ -9,11 +9,11 @@ use reaper_high::{
     Volume, Width,
 };
 use reaper_medium::{
-    AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility, FxPresetRef,
-    GetLoopTimeRange2Result, GetParameterStepSizesResult, GlobalAutomationModeOverride,
-    MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor, PositionInSeconds,
-    ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue, SetEditCurPosOptions, SoloMode,
-    TrackArea, UndoBehavior,
+    AutoSeekBehavior, AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility,
+    FxPresetRef, GetLoopTimeRange2Result, GetParameterStepSizesResult,
+    GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
+    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue,
+    SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
@@ -172,6 +172,8 @@ pub enum ReaperTarget {
         // would be an ID but unfortunately, marker IDs are not unique which means we would
         // unnecessarily lack reliability to go to markers in a position-based way.
         position: NonZeroU32,
+        set_time_selection: bool,
+        set_loop_points: bool,
     },
     Seek {
         project: Project,
@@ -980,6 +982,8 @@ impl RealearnTarget for ReaperTarget {
                 project,
                 bookmark_type,
                 position,
+                set_loop_points,
+                set_time_selection,
                 ..
             } => {
                 if !value.as_absolute()?.is_zero() {
@@ -989,6 +993,28 @@ impl RealearnTarget for ReaperTarget {
                         }
                         BookmarkType::Region => {
                             project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position));
+                            if *set_loop_points || *set_time_selection {
+                                if let Some(bookmark) = project.find_bookmark_by_type_and_index(
+                                    BookmarkType::Region,
+                                    position.get() - 1,
+                                ) {
+                                    if let Some(end_pos) = bookmark.basic_info.region_end_position {
+                                        if *set_loop_points {
+                                            project.set_loop_points(
+                                                bookmark.basic_info.position,
+                                                end_pos,
+                                                AutoSeekBehavior::DenyAutoSeek,
+                                            );
+                                        }
+                                        if *set_time_selection {
+                                            project.set_time_selection(
+                                                bookmark.basic_info.position,
+                                                end_pos,
+                                            );
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

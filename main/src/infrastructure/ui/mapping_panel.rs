@@ -1163,7 +1163,7 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Seek => {
+                ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.mapping.target_model.use_loop_points.set(is_checked);
                 }
                 _ => {}
@@ -1180,7 +1180,7 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Seek => {
+                ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.mapping.target_model.use_time_selection.set(is_checked);
                 }
                 _ => {}
@@ -2834,6 +2834,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Seek => {
                     Some(("Use loop points", self.target.use_loop_points.get()))
                 }
+                ReaperTargetType::GoToBookmark => {
+                    Some(("Set loop points", self.target.use_loop_points.get()))
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -2846,6 +2849,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 ReaperTargetType::Seek => {
                     Some(("Use time selection", self.target.use_time_selection.get()))
+                }
+                ReaperTargetType::GoToBookmark => {
+                    Some(("Set time selection", self.target.use_time_selection.get()))
                 }
                 _ => None,
             },
