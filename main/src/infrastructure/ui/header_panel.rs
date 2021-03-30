@@ -2123,7 +2123,7 @@ fn edit_fx_id(fx_id: &FxId) -> Result<FxId, EditFxIdError> {
             "ReaLearn",
             1,
             "FX file name,separator=;,extrawidth=80",
-            format!("{}", fx_id.file_name(),),
+            fx_id.file_name(),
             512,
         )
         .ok_or(EditFxIdError::Cancelled)?;
