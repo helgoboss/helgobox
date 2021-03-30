@@ -873,34 +873,44 @@ impl RealearnTarget for ReaperTarget {
             }
             Transport { project, action } => {
                 use TransportAction::*;
-                let off = value.as_absolute()?.is_zero();
+                let on = !value.as_absolute()?.is_zero();
                 match action {
                     PlayStop => {
-                        if off {
-                            project.stop();
-                        } else {
+                        if on {
                             project.play();
+                        } else {
+                            project.stop();
                         }
                     }
                     PlayPause => {
-                        if off {
-                            project.pause();
-                        } else {
+                        if on {
                             project.play();
+                        } else {
+                            project.pause();
+                        }
+                    }
+                    Stop => {
+                        if on {
+                            project.stop();
+                        }
+                    }
+                    Pause => {
+                        if on {
+                            project.pause();
                         }
                     }
                     Record => {
-                        if off {
-                            Reaper::get().disable_record_in_current_project();
-                        } else {
+                        if on {
                             Reaper::get().enable_record_in_current_project();
+                        } else {
+                            Reaper::get().disable_record_in_current_project();
                         }
                     }
                     Repeat => {
-                        if off {
-                            project.disable_repeat();
-                        } else {
+                        if on {
                             project.enable_repeat();
+                        } else {
+                            project.disable_repeat();
                         }
                     }
                 };
@@ -1978,6 +1988,20 @@ impl ReaperTarget {
                         ),
                         _ => (false, None)
                     }
+                    TransportAction::Stop => match evt {
+                        PlayStateChanged(e) => (
+                            true,
+                            Some(transport_is_enabled_unit_value(!e.new_value.is_playing && !e.new_value.is_paused))
+                        ),
+                        _ => (false, None)
+                    }
+                    TransportAction::Pause => match evt {
+                        PlayStateChanged(e) => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value.is_paused))
+                        ),
+                        _ => (false, None)
+                    }
                     TransportAction::Record => match evt {
                         PlayStateChanged(e) => (
                             true,
@@ -2118,9 +2142,14 @@ impl Target for ReaperTarget {
             AllTrackFxEnable { track, .. } => all_track_fx_enable_unit_value(track.fx_is_enabled()),
             Transport { project, action } => {
                 use TransportAction::*;
+                let play_state = project.play_state();
                 match action {
-                    PlayStop | PlayPause => transport_is_enabled_unit_value(project.is_playing()),
-                    Record => transport_is_enabled_unit_value(project.is_recording()),
+                    PlayStop | PlayPause => transport_is_enabled_unit_value(play_state.is_playing),
+                    Stop => transport_is_enabled_unit_value(
+                        !play_state.is_playing && !play_state.is_paused,
+                    ),
+                    Pause => transport_is_enabled_unit_value(play_state.is_paused),
+                    Record => transport_is_enabled_unit_value(play_state.is_recording),
                     Repeat => transport_is_enabled_unit_value(project.repeat_is_enabled()),
                 }
             }
@@ -2441,6 +2470,12 @@ pub enum TransportAction {
     #[serde(rename = "playPause")]
     #[display(fmt = "Play/pause")]
     PlayPause,
+    #[serde(rename = "stop")]
+    #[display(fmt = "Stop")]
+    Stop,
+    #[serde(rename = "pause")]
+    #[display(fmt = "Pause")]
+    Pause,
     #[serde(rename = "record")]
     #[display(fmt = "Record")]
     Record,
