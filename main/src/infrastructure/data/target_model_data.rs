@@ -3,16 +3,17 @@ use super::none_if_minus_one;
 use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
-    BookmarkAnchorType, FxParameterPropValues, FxPropValues, FxSnapshot, ReaperTargetType,
-    TargetCategory, TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
+    AutomationModeOverrideType, BookmarkAnchorType, FxParameterPropValues, FxPropValues,
+    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, ReaperTargetType, TargetCategory,
+    TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, MappingCompartment, SeekOptions,
-    SoloBehavior, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
-    VirtualTrack,
+    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
+    MappingCompartment, SeekOptions, SoloBehavior, TouchedParameterType, TrackExclusivity,
+    TrackRouteType, TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::ControlElementId;
 use crate::infrastructure::plugin::App;
@@ -78,6 +79,18 @@ pub struct TargetModelData {
     // Seek target
     #[serde(flatten)]
     seek_options: SeekOptions,
+    // Track show target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub track_area: RealearnTrackArea,
+    // Track automation mode target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub track_automation_mode: RealearnAutomationMode,
+    // Automation mode override target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub automation_mode_override_type: AutomationModeOverrideType,
+    // FX Open and FX Navigate target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fx_display_type: FxDisplayType,
 }
 
 impl TargetModelData {
@@ -122,6 +135,10 @@ impl TargetModelData {
                 is_region: model.bookmark_type.get() == BookmarkType::Region,
             },
             seek_options: model.seek_options(),
+            track_area: model.track_area.get(),
+            track_automation_mode: model.track_automation_mode.get(),
+            automation_mode_override_type: model.automation_mode_override_type.get(),
+            fx_display_type: model.fx_display_type.get(),
         }
     }
 
@@ -263,6 +280,18 @@ impl TargetModelData {
             .bookmark_ref
             .set_with_optional_notification(self.bookmark_data.r#ref, with_notification);
         model.set_seek_options(self.seek_options, with_notification);
+        model
+            .track_area
+            .set_with_optional_notification(self.track_area, with_notification);
+        model
+            .track_automation_mode
+            .set_with_optional_notification(self.track_automation_mode, with_notification);
+        model
+            .automation_mode_override_type
+            .set_with_optional_notification(self.automation_mode_override_type, with_notification);
+        model
+            .fx_display_type
+            .set_with_optional_notification(self.fx_display_type, with_notification);
     }
 }
 

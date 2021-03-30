@@ -1,9 +1,10 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, BackboneState, ExtendedProcessorContext, MappingCompartment,
-    ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
+    MappingCompartment, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions,
+    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -11,9 +12,11 @@ use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
-    SendPartnerType, Track, TrackRoute,
+    SendPartnerType, Track, TrackArea, TrackRoute,
 };
-use reaper_medium::{BookmarkId, MasterTrackBehavior, TrackLocation};
+use reaper_medium::{
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, MasterTrackBehavior, TrackLocation,
+};
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
@@ -54,10 +57,20 @@ pub enum UnresolvedReaperTarget {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
     },
+    TrackShow {
+        track_descriptor: TrackDescriptor,
+        exclusivity: TrackExclusivity,
+        area: TrackArea,
+    },
     TrackSolo {
         track_descriptor: TrackDescriptor,
-        behavior: SoloBehavior,
         exclusivity: TrackExclusivity,
+        behavior: SoloBehavior,
+    },
+    TrackAutomationMode {
+        track_descriptor: TrackDescriptor,
+        exclusivity: TrackExclusivity,
+        mode: AutomationMode,
     },
     TrackSendPan {
         descriptor: TrackRouteDescriptor,
@@ -67,13 +80,25 @@ pub enum UnresolvedReaperTarget {
     },
     Tempo,
     Playrate,
+    AutomationModeOverride {
+        mode_override: GlobalAutomationModeOverride,
+    },
     FxEnable {
         fx_descriptor: FxDescriptor,
+    },
+    FxOpen {
+        fx_descriptor: FxDescriptor,
+        display_type: FxDisplayType,
     },
     FxPreset {
         fx_descriptor: FxDescriptor,
     },
     SelectedTrack,
+    FxNavigate {
+        track_descriptor: TrackDescriptor,
+        is_input_fx: bool,
+        display_type: FxDisplayType,
+    },
     AllTrackFxEnable {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
@@ -155,14 +180,32 @@ impl UnresolvedReaperTarget {
                 track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 exclusivity: *exclusivity,
             },
+            TrackShow {
+                track_descriptor,
+                exclusivity,
+                area,
+            } => ReaperTarget::TrackShow {
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
+                exclusivity: *exclusivity,
+                area: *area,
+            },
             TrackSolo {
                 track_descriptor,
-                behavior,
                 exclusivity,
+                behavior,
             } => ReaperTarget::TrackSolo {
                 track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                behavior: *behavior,
                 exclusivity: *exclusivity,
+                behavior: *behavior,
+            },
+            TrackAutomationMode {
+                track_descriptor,
+                exclusivity,
+                mode,
+            } => ReaperTarget::TrackAutomationMode {
+                track: get_effective_track(context, &track_descriptor.track, compartment)?,
+                exclusivity: *exclusivity,
+                mode: *mode,
             },
             TrackSendPan { descriptor } => ReaperTarget::TrackRoutePan {
                 route: get_track_route(context, descriptor, compartment)?,
@@ -176,14 +219,37 @@ impl UnresolvedReaperTarget {
             Playrate => ReaperTarget::Playrate {
                 project: context.context.project_or_current_project(),
             },
+            AutomationModeOverride { mode_override } => ReaperTarget::AutomationModeOverride {
+                mode_override: *mode_override,
+            },
             FxEnable { fx_descriptor } => ReaperTarget::FxEnable {
                 fx: get_fx(context, fx_descriptor, compartment)?,
+            },
+            FxOpen {
+                fx_descriptor,
+                display_type,
+            } => ReaperTarget::FxOpen {
+                fx: get_fx(context, fx_descriptor, compartment)?,
+                display_type: *display_type,
             },
             FxPreset { fx_descriptor } => ReaperTarget::FxPreset {
                 fx: get_fx(context, fx_descriptor, compartment)?,
             },
             SelectedTrack => ReaperTarget::SelectedTrack {
                 project: context.context.project_or_current_project(),
+            },
+            FxNavigate {
+                track_descriptor,
+                is_input_fx,
+                display_type,
+            } => ReaperTarget::FxNavigate {
+                fx_chain: get_fx_chain(
+                    context,
+                    &track_descriptor.track,
+                    *is_input_fx,
+                    compartment,
+                )?,
+                display_type: *display_type,
             },
             AllTrackFxEnable {
                 track_descriptor,
@@ -296,8 +362,10 @@ impl UnresolvedReaperTarget {
             | Transport { .. }
             | LastTouched
             | Seek { .. }
+            | AutomationModeOverride { .. }
             | GoToBookmark { .. } => (None, None),
-            FxEnable { fx_descriptor }
+            FxOpen { fx_descriptor, .. }
+            | FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
             | LoadFxPreset { fx_descriptor, .. } => {
                 (Some(&fx_descriptor.track_descriptor), Some(fx_descriptor))
@@ -320,7 +388,16 @@ impl UnresolvedReaperTarget {
             | TrackMute {
                 track_descriptor, ..
             }
+            | TrackShow {
+                track_descriptor, ..
+            }
+            | TrackAutomationMode {
+                track_descriptor, ..
+            }
             | TrackSolo {
+                track_descriptor, ..
+            }
+            | FxNavigate {
                 track_descriptor, ..
             }
             | AllTrackFxEnable {
@@ -347,6 +424,11 @@ impl UnresolvedReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | FxOpen { .. }
+            | AutomationModeOverride { .. }
+            | FxNavigate { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
             | TrackSendMute { .. }

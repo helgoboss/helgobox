@@ -4,14 +4,16 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxParameter,
-    FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute, Volume, Width,
+    Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain,
+    FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackArea,
+    TrackRoute, Volume, Width,
 };
 use reaper_medium::{
-    BookmarkRef, Bpm, CommandId, Db, FxPresetRef, GetLoopTimeRange2Result,
-    GetParameterStepSizesResult, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
-    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue,
-    SetEditCurPosOptions, SoloMode, UndoBehavior,
+    AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility, FxPresetRef,
+    GetLoopTimeRange2Result, GetParameterStepSizesResult, GlobalAutomationModeOverride,
+    MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor, PositionInSeconds,
+    ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue, SetEditCurPosOptions, SoloMode,
+    UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
@@ -92,10 +94,20 @@ pub enum ReaperTarget {
         track: Track,
         exclusivity: TrackExclusivity,
     },
+    TrackShow {
+        track: Track,
+        exclusivity: TrackExclusivity,
+        area: TrackArea,
+    },
     TrackSolo {
         track: Track,
         behavior: SoloBehavior,
         exclusivity: TrackExclusivity,
+    },
+    TrackAutomationMode {
+        track: Track,
+        exclusivity: TrackExclusivity,
+        mode: AutomationMode,
     },
     TrackRoutePan {
         route: TrackRoute,
@@ -109,14 +121,25 @@ pub enum ReaperTarget {
     Playrate {
         project: Project,
     },
+    AutomationModeOverride {
+        mode_override: GlobalAutomationModeOverride,
+    },
     FxEnable {
         fx: Fx,
+    },
+    FxOpen {
+        fx: Fx,
+        display_type: FxDisplayType,
     },
     FxPreset {
         fx: Fx,
     },
     SelectedTrack {
         project: Project,
+    },
+    FxNavigate {
+        fx_chain: FxChain,
+        display_type: FxDisplayType,
     },
     AllTrackFxEnable {
         track: Track,
@@ -203,6 +226,35 @@ impl Default for PlayPosFeedbackResolution {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum FxDisplayType {
+    #[serde(rename = "floating")]
+    #[display(fmt = "Floating window")]
+    FloatingWindow,
+    #[serde(rename = "chain")]
+    #[display(fmt = "FX chain (limited feedback)")]
+    Chain,
+}
+
+impl Default for FxDisplayType {
+    fn default() -> Self {
+        Self::FloatingWindow
+    }
+}
+
 impl RealearnTarget for ReaperTarget {
     fn character(&self) -> TargetCharacter {
         self.control_type_and_character().1
@@ -242,7 +294,9 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => parse_value_from_pan(text),
             Playrate { .. } => parse_value_from_playback_speed_factor(text),
             Tempo { .. } => parse_value_from_bpm(text),
-            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
+            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
+                self.parse_value_from_discrete_value(text)
+            }
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
@@ -252,6 +306,10 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | TrackSolo { .. }
             | TrackRouteMute { .. }
             | GoToBookmark { .. }
@@ -269,7 +327,9 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
             Tempo { .. } => parse_step_size_from_bpm(text),
-            FxPreset { .. } | SelectedTrack { .. } => self.parse_value_from_discrete_value(text),
+            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
+                self.parse_value_from_discrete_value(text)
+            }
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
@@ -282,6 +342,10 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRoutePan { .. }
@@ -308,6 +372,9 @@ impl RealearnTarget for ReaperTarget {
             SelectedTrack { project } => convert_unit_value_to_track_index(*project, input)
                 .map(|i| i + 1)
                 .unwrap_or(0),
+            FxNavigate { fx_chain, .. } => convert_unit_value_to_fx_index(fx_chain, input)
+                .map(|i| i + 1)
+                .unwrap_or(0),
             FxParameter { param } => {
                 // Example (target step size = 0.10):
                 // - 0    => 0
@@ -326,6 +393,10 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRoutePan { .. }
@@ -355,12 +426,17 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
+            | FxNavigate { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
@@ -383,6 +459,10 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRoutePan { .. }
@@ -390,6 +470,7 @@ impl RealearnTarget for ReaperTarget {
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
+            | FxNavigate { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
@@ -443,12 +524,17 @@ impl RealearnTarget for ReaperTarget {
             | TrackWidth { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
+            | FxNavigate { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
@@ -471,12 +557,17 @@ impl RealearnTarget for ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRouteMute { .. }
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
+            | FxNavigate { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
@@ -499,6 +590,10 @@ impl RealearnTarget for ReaperTarget {
             FxEnable { .. }
             | TrackArm { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackRouteMute { .. }
             | TrackSelection { .. }
@@ -509,6 +604,10 @@ impl RealearnTarget for ReaperTarget {
             },
             SelectedTrack { project } => match convert_unit_value_to_track_index(*project, value) {
                 None => "<Master track>".to_string(),
+                Some(i) => (i + 1).to_string(),
+            },
+            FxNavigate { fx_chain, .. } => match convert_unit_value_to_fx_index(fx_chain, value) {
+                None => "<No FX>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
             Tempo { .. }
@@ -607,6 +706,34 @@ impl RealearnTarget for ReaperTarget {
                     track.mute();
                 }
             }
+            TrackShow {
+                track,
+                exclusivity,
+                area,
+            } => {
+                if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.set_shown(*area, true));
+                    track.set_shown(*area, false);
+                } else {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.set_shown(*area, false));
+                    track.set_shown(*area, true);
+                }
+            }
+            TrackAutomationMode {
+                track,
+                mode,
+                exclusivity,
+            } => {
+                if value.as_absolute()?.is_zero() {
+                    handle_track_exclusivity(track, *exclusivity, |t| t.set_automation_mode(*mode));
+                    track.set_automation_mode(AutomationMode::TrimRead);
+                } else {
+                    handle_track_exclusivity(track, *exclusivity, |t| {
+                        t.set_automation_mode(AutomationMode::TrimRead)
+                    });
+                    track.set_automation_mode(*mode);
+                }
+            }
             TrackSolo {
                 track,
                 behavior,
@@ -649,11 +776,40 @@ impl RealearnTarget for ReaperTarget {
                 ));
                 project.set_play_rate(play_rate);
             }
+            AutomationModeOverride { mode_override } => {
+                if value.as_absolute()?.is_zero() {
+                    Reaper::get().set_global_automation_override(None);
+                } else {
+                    Reaper::get().set_global_automation_override(Some(*mode_override));
+                }
+            }
             FxEnable { fx } => {
                 if value.as_absolute()?.is_zero() {
                     fx.disable();
                 } else {
                     fx.enable();
+                }
+            }
+            FxOpen { fx, display_type } => {
+                use FxDisplayType::*;
+                if value.as_absolute()?.is_zero() {
+                    match *display_type {
+                        FloatingWindow => {
+                            fx.hide_floating_window();
+                        }
+                        Chain => {
+                            fx.chain().hide();
+                        }
+                    }
+                } else {
+                    match display_type {
+                        FloatingWindow => {
+                            fx.show_in_floating_window();
+                        }
+                        Chain => {
+                            fx.show_in_chain();
+                        }
+                    }
                 }
             }
             FxPreset { fx } => {
@@ -671,6 +827,40 @@ impl RealearnTarget for ReaperTarget {
                     Some(i) => project.track_by_index(i).ok_or("track not available")?,
                 };
                 track.select_exclusively();
+            }
+            FxNavigate {
+                fx_chain,
+                display_type,
+            } => {
+                let fx_index = convert_unit_value_to_fx_index(fx_chain, value.as_absolute()?);
+                use FxDisplayType::*;
+                match fx_index {
+                    None => match *display_type {
+                        FloatingWindow => {
+                            fx_chain.hide_all_floating_windows();
+                        }
+                        Chain => {
+                            fx_chain.hide();
+                        }
+                    },
+                    Some(fx_index) => match *display_type {
+                        FloatingWindow => {
+                            for (i, fx) in fx_chain.index_based_fxs().enumerate() {
+                                if i == fx_index as usize {
+                                    fx.show_in_floating_window();
+                                } else {
+                                    fx.hide_floating_window();
+                                }
+                            }
+                        }
+                        Chain => {
+                            let fx = fx_chain
+                                .index_based_fx_by_index(fx_index)
+                                .ok_or("FX not available")?;
+                            fx.show_in_chain();
+                        }
+                    },
+                }
             }
             AllTrackFxEnable { track, exclusivity } => {
                 if value.as_absolute()?.is_zero() {
@@ -845,6 +1035,8 @@ impl ReaperTarget {
             TrackArm { track, .. }
             | TrackSelection { track, .. }
             | TrackMute { track, .. }
+            | TrackShow { track, .. }
+            | TrackAutomationMode { track, .. }
             | TrackSolo { track, .. }
             | AllTrackFxEnable { track, .. }
             | AutomationTouchState { track, .. }
@@ -860,7 +1052,11 @@ impl ReaperTarget {
             | SelectedTrack { project }
             | GoToBookmark { project, .. }
             | Seek { project, .. } => project.is_available(),
-            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.is_available(),
+            FxNavigate { fx_chain, .. } => fx_chain.is_available(),
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
+                fx.is_available()
+            }
+            AutomationModeOverride { .. } => true,
         }
     }
 
@@ -944,7 +1140,16 @@ impl ReaperTarget {
                 },
                 Discrete,
             ),
-            TrackRouteMute { .. } | FxEnable { .. } | Transport { .. } => {
+            // `+ 1` because "<No FX>" is also a possible value.
+            FxNavigate { fx_chain, .. } => (
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(fx_chain.fx_count() + 1),
+                },
+                Discrete,
+            ),
+            TrackRouteMute { .. } | FxEnable { .. } | Transport { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. } => {
                 (ControlType::AbsoluteContinuous, Switch)
             }
             TrackSolo { exclusivity, .. }
@@ -952,6 +1157,8 @@ impl ReaperTarget {
             | AutomationTouchState { exclusivity, .. }
             | TrackArm { exclusivity, .. }
             | TrackSelection { exclusivity, .. }
+            | TrackShow { exclusivity, .. }
+            | TrackAutomationMode { exclusivity, ..}
             | TrackMute { exclusivity, .. } => {
                 if *exclusivity == TrackExclusivity::NonExclusive {
                     (ControlType::AbsoluteContinuous, Switch)
@@ -1254,6 +1461,10 @@ impl ReaperTarget {
                 let index = if value == 0 { None } else { Some(value - 1) };
                 selected_track_unit_value(*project, index)
             }
+            FxNavigate { fx_chain, .. } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                shown_fx_unit_value(fx_chain, index)
+            }
             FxParameter { param } => {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (value as f64 * step_size).try_into()?
@@ -1266,6 +1477,10 @@ impl ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRoutePan { .. }
@@ -1289,7 +1504,7 @@ impl ReaperTarget {
     pub fn project(&self) -> Option<Project> {
         use ReaperTarget::*;
         let project = match self {
-            Action { .. } | Transport { .. } => return None,
+            Action { .. } | Transport { .. } | AutomationModeOverride { .. } => return None,
             FxParameter { param } => param.fx().project()?,
             TrackVolume { track }
             | TrackPan { track }
@@ -1297,6 +1512,8 @@ impl ReaperTarget {
             | TrackArm { track, .. }
             | TrackSelection { track, .. }
             | TrackMute { track, .. }
+            | TrackShow { track, .. }
+            | TrackAutomationMode { track, .. }
             | TrackSolo { track, .. }
             | AutomationTouchState { track, .. }
             | AllTrackFxEnable { track, .. } => track.project(),
@@ -1308,7 +1525,10 @@ impl ReaperTarget {
             | Playrate { project }
             | SelectedTrack { project }
             | Seek { project, .. } => *project,
-            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.project()?,
+            FxNavigate { fx_chain, .. } => fx_chain.project()?,
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
+                fx.project()?
+            }
         };
         Some(project)
     }
@@ -1323,12 +1543,17 @@ impl ReaperTarget {
             | TrackArm { track, .. }
             | TrackSelection { track, .. }
             | TrackMute { track, .. }
+            | TrackShow { track, .. }
+            | TrackAutomationMode { track, .. }
             | AutomationTouchState { track, .. }
             | TrackSolo { track, .. } => track,
             TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
                 route.track()
             }
-            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx.track()?,
+            FxNavigate { fx_chain, .. } => fx_chain.track()?,
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
+                fx.track()?
+            }
             AllTrackFxEnable { track, .. } => track,
             Action { .. }
             | Tempo { .. }
@@ -1336,6 +1561,7 @@ impl ReaperTarget {
             | SelectedTrack { .. }
             | GoToBookmark { .. }
             | Seek { .. }
+            | AutomationModeOverride { .. }
             | Transport { .. } => return None,
         };
         Some(track)
@@ -1345,7 +1571,7 @@ impl ReaperTarget {
         use ReaperTarget::*;
         let fx = match self {
             FxParameter { param } => param.fx(),
-            FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
@@ -1354,16 +1580,20 @@ impl ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | TrackRoutePan { .. }
             | TrackRouteMute { .. }
             | Tempo { .. }
+            | AutomationModeOverride { .. }
             | Playrate { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | FxNavigate { .. }
             | Transport { .. } => return None,
         };
         Some(fx)
@@ -1385,6 +1615,11 @@ impl ReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
+            | FxNavigate { .. }
             | GoToBookmark { .. }
             | TrackSolo { .. }
             | Tempo { .. }
@@ -1402,29 +1637,34 @@ impl ReaperTarget {
     pub fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         use ReaperTarget::*;
         match self {
-            TrackSolo { exclusivity, .. } => Some(*exclusivity),
+            TrackSolo { exclusivity, .. }
+            | TrackArm { exclusivity, .. }
+            | TrackSelection { exclusivity, .. }
+            | TrackMute { exclusivity, .. }
+            | TrackShow { exclusivity, .. }
+            | TrackAutomationMode { exclusivity, .. }
+            | AllTrackFxEnable { exclusivity, .. }
+            | AutomationTouchState { exclusivity, .. } => Some(*exclusivity),
             Action { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
             | TrackRoutePan { .. }
             | TrackRouteMute { .. }
             | Tempo { .. }
             | GoToBookmark { .. }
             | Playrate { .. }
             | FxEnable { .. }
+            | FxOpen { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
+            | FxNavigate { .. }
             | Transport { .. }
             | LoadFxSnapshot { .. }
-            | Seek { .. }
-            | AutomationTouchState { .. } => None,
+            | AutomationModeOverride { .. }
+            | Seek { .. } => None,
         }
     }
 
@@ -1445,14 +1685,22 @@ impl ReaperTarget {
             | Tempo { .. }
             | Playrate { .. }
             | FxEnable { .. }
+            | FxOpen { .. }
             | FxPreset { .. }
             | GoToBookmark { .. }
             | SelectedTrack { .. }
+            | FxNavigate { .. }
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
             | Transport { .. } => true,
-            AllTrackFxEnable { .. } | TrackRouteMute { .. } => false,
+            // TODO-high Check if there's really no callback.
+            AutomationModeOverride { .. }
+            // TODO-medium Feedback for selected track would be possible.
+            | TrackAutomationMode { .. }
+            | TrackShow { .. }
+            | AllTrackFxEnable { .. }
+            | TrackRouteMute { .. } => false,
         }
     }
 
@@ -1650,6 +1898,32 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
+            FxOpen { fx, .. } => {
+                match evt {
+                    FxOpened(e) if &e.fx == fx => (
+                        true,
+                        None
+                    ),
+                    FxClosed(e) if &e.fx == fx => (
+                        true,
+                        None
+                    ),
+                    _ => (false, None)
+                }
+            }
+            FxNavigate { fx_chain, .. } => {
+                match evt {
+                    FxOpened(e) if e.fx.chain() == fx_chain => (
+                        true,
+                        None
+                    ),
+                    FxClosed(e) if e.fx.chain() == fx_chain => (
+                        true,
+                        None
+                    ),
+                    _ => (false, None)
+                }
+            }
             FxPreset { fx } => {
                 match evt {
                     FxPresetChanged(e) if &e.fx == fx => (true, None),
@@ -1706,6 +1980,9 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             // No value change notification available.
+            | AutomationModeOverride { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
             | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
              => (false, None),
@@ -1741,19 +2018,66 @@ impl Target for ReaperTarget {
             TrackArm { track, .. } => track_arm_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => track_selected_unit_value(track.is_selected()),
             TrackMute { track, .. } => mute_unit_value(track.is_muted()),
+            TrackShow { track, area, .. } => {
+                let is_shown = track.is_shown(*area);
+                convert_bool_to_unit_value(is_shown)
+            }
             TrackSolo { track, .. } => track_solo_unit_value(track.is_solo()),
+            TrackAutomationMode { track, mode, .. } => {
+                track_automation_mode_unit_value(*mode, track.automation_mode())
+            }
+            AutomationModeOverride { mode_override, .. } => {
+                global_automation_mode_override_unit_value(
+                    *mode_override,
+                    Reaper::get().global_automation_override(),
+                )
+            }
             TrackRoutePan { route } => pan_unit_value(route.pan()),
             TrackRouteMute { route } => mute_unit_value(route.is_muted()),
             Tempo { project } => tempo_unit_value(project.tempo()),
             Playrate { project } => playrate_unit_value(project.play_rate()),
             FxEnable { fx } => fx_enable_unit_value(fx.is_enabled()),
+            FxOpen { fx, display_type } => {
+                use FxDisplayType::*;
+                let is_open = match display_type {
+                    FloatingWindow => fx.floating_window().is_some(),
+                    Chain => {
+                        use FxChainVisibility::*;
+                        match fx.chain().visibility() {
+                            Hidden | Visible(None) | Unknown(_) => false,
+                            Visible(Some(i)) => fx.index() == i,
+                        }
+                    }
+                };
+                convert_bool_to_unit_value(is_open)
+            }
             FxPreset { fx } => fx_preset_unit_value(fx, fx.preset_index().ok()?),
-            SelectedTrack { project } => selected_track_unit_value(
-                *project,
-                project
+            SelectedTrack { project } => {
+                let track_index = project
                     .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
-                    .and_then(|t| t.index()),
-            ),
+                    .and_then(|t| t.index());
+                selected_track_unit_value(*project, track_index)
+            }
+            FxNavigate {
+                fx_chain,
+                display_type,
+            } => {
+                use FxDisplayType::*;
+                let fx_index = match display_type {
+                    FloatingWindow => fx_chain
+                        .index_based_fxs()
+                        .position(|fx| fx.floating_window().is_some())
+                        .map(|i| i as u32),
+                    Chain => {
+                        use FxChainVisibility::*;
+                        match fx_chain.visibility() {
+                            Hidden | Visible(None) | Unknown(_) => None,
+                            Visible(Some(i)) => Some(i),
+                        }
+                    }
+                };
+                shown_fx_unit_value(fx_chain, fx_index)
+            }
             AllTrackFxEnable { track, .. } => all_track_fx_enable_unit_value(track.fx_is_enabled()),
             Transport { project, action } => {
                 use TransportAction::*;
@@ -1920,6 +2244,10 @@ fn convert_unit_value_to_track_index(project: Project, value: UnitValue) -> Opti
     convert_unit_to_discrete_value_with_none(value, project.track_count())
 }
 
+fn convert_unit_value_to_fx_index(fx_chain: &FxChain, value: UnitValue) -> Option<u32> {
+    convert_unit_to_discrete_value_with_none(value, fx_chain.fx_count())
+}
+
 fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Option<u32> {
     // Example: <no preset> + 4 presets
     if value.is_zero() {
@@ -1940,6 +2268,10 @@ fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Opt
 
 fn selected_track_unit_value(project: Project, index: Option<u32>) -> UnitValue {
     convert_discrete_to_unit_value_with_none(index, project.track_count())
+}
+
+fn shown_fx_unit_value(fx_chain: &FxChain, index: Option<u32>) -> UnitValue {
+    convert_discrete_to_unit_value_with_none(index, fx_chain.fx_count())
 }
 
 fn fx_preset_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
@@ -2208,6 +2540,26 @@ fn touched_unit_value(is_touched: bool) -> UnitValue {
 
 fn track_solo_unit_value(is_solo: bool) -> UnitValue {
     convert_bool_to_unit_value(is_solo)
+}
+
+fn track_automation_mode_unit_value(
+    desired_automation_mode: AutomationMode,
+    actual_automation_mode: AutomationMode,
+) -> UnitValue {
+    let is_on = desired_automation_mode == actual_automation_mode;
+    convert_bool_to_unit_value(is_on)
+}
+
+fn global_automation_mode_override_unit_value(
+    desired_mode_override: GlobalAutomationModeOverride,
+    actual_mode_override: Option<GlobalAutomationModeOverride>,
+) -> UnitValue {
+    let is_on = if let Some(o) = actual_mode_override {
+        o == desired_mode_override
+    } else {
+        false
+    };
+    convert_bool_to_unit_value(is_on)
 }
 
 fn tempo_unit_value(tempo: Tempo) -> UnitValue {

@@ -25,8 +25,9 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
-    get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, BookmarkAnchorType,
-    MappingModel, MidiSourceType, ModeModel, ReaperTargetType, Session, SharedMapping,
+    get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
+    AutomationModeOverrideType, BookmarkAnchorType, MappingModel, MidiSourceType, ModeModel,
+    RealearnAutomationMode, RealearnTrackArea, ReaperTargetType, Session, SharedMapping,
     SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
     TargetModelWithContext, TrackRouteSelectorType, VirtualControlElementType,
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
@@ -35,10 +36,10 @@ use crate::core::Global;
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
-    ExtendedProcessorContext, MappingCompartment, PlayPosFeedbackResolution, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, SmallAsciiString, SoloBehavior, TargetCharacter,
-    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
-    VirtualControlElementId, VirtualFx,
+    ExtendedProcessorContext, FxDisplayType, MappingCompartment, PlayPosFeedbackResolution,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, SmallAsciiString, SoloBehavior,
+    TargetCharacter, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    VirtualControlElement, VirtualControlElementId, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -1072,7 +1073,7 @@ impl<'a> MutableMappingPanel<'a> {
                     };
                     self.mapping.target_model.bookmark_type.set(bookmark_type);
                 }
-                t if t.supports_fx() => {
+                t if t.supports_fx_chain() => {
                     self.mapping.target_model.fx_is_input_fx.set(is_checked);
                 }
                 ReaperTargetType::Seek => {
@@ -1312,6 +1313,13 @@ impl<'a> MutableMappingPanel<'a> {
                     };
                     self.mapping.target_model.bookmark_ref.set(value);
                 }
+                ReaperTargetType::AutomationModeOverride => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .automation_mode_override_type
+                        .set(i.try_into().expect("invalid automation mode override type"));
+                }
                 ReaperTargetType::Transport => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
@@ -1390,6 +1398,21 @@ impl<'a> MutableMappingPanel<'a> {
                         .solo_behavior
                         .set(i.try_into().expect("invalid solo behavior"));
                 }
+                ReaperTargetType::TrackShow => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .track_area
+                        .set(i.try_into().expect("invalid track area"));
+                }
+                ReaperTargetType::TrackAutomationMode
+                | ReaperTargetType::AutomationModeOverride => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .track_automation_mode
+                        .set(i.try_into().expect("invalid automation mode"));
+                }
                 ReaperTargetType::AutomationTouchState => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
@@ -1427,6 +1450,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .target_model
                         .track_exclusivity
                         .set(i.try_into().expect("invalid track exclusivity"));
+                }
+                t if t.supports_fx_display_type() => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .fx_display_type
+                        .set(i.try_into().expect("invalid FX display type"));
                 }
                 t if t.supports_send() => {
                     if let Ok(track) = self.target_with_context().effective_track() {
@@ -1988,6 +2018,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
+                ReaperTargetType::AutomationModeOverride => Some("Behavior"),
                 ReaperTargetType::GoToBookmark => match self.target.bookmark_type.get() {
                     BookmarkType::Marker => Some("Marker"),
                     BookmarkType::Region => Some("Region"),
@@ -2078,6 +2109,19 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.transport_action.get().into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::AutomationModeOverride => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(AutomationModeOverrideType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping
+                                .target_model
+                                .automation_mode_override_type
+                                .get()
+                                .into(),
                         )
                         .unwrap();
                 }
@@ -2346,6 +2390,18 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Action => Some("Invoke"),
                 ReaperTargetType::TrackSolo => Some("Behavior"),
+                ReaperTargetType::TrackShow => Some("Area"),
+                t @ ReaperTargetType::TrackAutomationMode
+                | t @ ReaperTargetType::AutomationModeOverride => {
+                    if t == ReaperTargetType::AutomationModeOverride
+                        && self.target.automation_mode_override_type.get()
+                            == AutomationModeOverrideType::Bypass
+                    {
+                        None
+                    } else {
+                        Some("Mode")
+                    }
+                }
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
@@ -2370,6 +2426,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
+                t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_send() => match self.target.route_type.get() {
                     TrackRouteType::Send => Some("Send"),
                     TrackRouteType::Receive => Some("Receive"),
@@ -2528,6 +2585,30 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.solo_behavior.get().into())
                         .unwrap();
                 }
+                ReaperTargetType::TrackShow => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(RealearnTrackArea::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.track_area.get().into())
+                        .unwrap();
+                }
+                t @ ReaperTargetType::TrackAutomationMode
+                | t @ ReaperTargetType::AutomationModeOverride => {
+                    if t == ReaperTargetType::AutomationModeOverride
+                        && self.target.automation_mode_override_type.get()
+                            == AutomationModeOverrideType::Bypass
+                    {
+                        combo.hide();
+                    } else {
+                        combo.show();
+                        combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
+                        combo
+                            .select_combo_box_item_by_index(
+                                self.target.track_automation_mode.get().into(),
+                            )
+                            .unwrap();
+                    }
+                }
                 ReaperTargetType::AutomationTouchState => {
                     combo.show();
                     combo.fill_combo_box_indexed(TouchedParameterType::into_enum_iter());
@@ -2580,6 +2661,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(TrackExclusivity::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(self.target.track_exclusivity.get().into())
+                        .unwrap();
+                }
+                t if t.supports_fx_display_type() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(FxDisplayType::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.fx_display_type.get().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
@@ -2644,7 +2732,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_check_box_1(&self) {
         let res = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                t if t.supports_fx() => {
+                t if t.supports_fx_chain() => {
                     if matches!(
                         self.target.fx_type.get(),
                         VirtualFxType::Focused | VirtualFxType::This
@@ -3528,15 +3616,23 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .solo_behavior
                 .changed()
-                .merge(target.touched_parameter_type.changed()),
+                .merge(target.touched_parameter_type.changed())
+                .merge(target.track_automation_mode.changed())
+                .merge(target.automation_mode_override_type.changed())
+                .merge(target.track_area.changed()),
             |view| {
                 view.invalidate_target_line_3();
             },
         );
-        self.panel
-            .when_do_sync(target.fx_snapshot.changed(), |view| {
+        self.panel.when_do_sync(
+            target
+                .fx_snapshot
+                .changed()
+                .merge(target.fx_display_type.changed()),
+            |view| {
                 view.invalidate_target_line_4();
-            });
+            },
+        );
         self.panel
             .when_do_sync(target.track_exclusivity.changed(), |view| {
                 view.invalidate_target_line_4();
@@ -3585,6 +3681,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when_do_sync(target.feedback_resolution.changed(), |view| {
                 view.invalidate_target_line_2_combo_box_1();
+            });
+        self.panel
+            .when_do_sync(target.automation_mode_override_type.changed(), |view| {
+                view.invalidate_target_line_2_combo_box_2();
             });
     }
 

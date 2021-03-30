@@ -5,7 +5,8 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
+    Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackArea, TrackRoute,
+    TrackRoutePartner,
 };
 
 use rx_util::{Event, UnitEvent};
@@ -15,9 +16,9 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxParameterDescriptor, MappingCompartment, PlayPosFeedbackResolution,
-    ProcessorContext, ReaperTarget, SeekOptions, SmallAsciiString, SoloBehavior,
-    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
+    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
+    PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SmallAsciiString,
+    SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
     UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
     VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
@@ -26,7 +27,7 @@ use serde_repr::*;
 use std::borrow::Cow;
 
 use ascii::AsciiString;
-use reaper_medium::{BookmarkId, TrackSendDirection};
+use reaper_medium::{AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackSendDirection};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -97,6 +98,14 @@ pub struct TargetModel {
     pub move_view: Prop<bool>,
     pub seek_play: Prop<bool>,
     pub feedback_resolution: Prop<PlayPosFeedbackResolution>,
+    // # For track show target
+    pub track_area: Prop<RealearnTrackArea>,
+    // # For track automation mode target
+    pub track_automation_mode: Prop<RealearnAutomationMode>,
+    // # For automation mode override target
+    pub automation_mode_override_type: Prop<AutomationModeOverrideType>,
+    // # For FX Open and FX Navigate target
+    pub fx_display_type: Prop<FxDisplayType>,
 }
 
 impl Default for TargetModel {
@@ -147,6 +156,10 @@ impl Default for TargetModel {
             move_view: prop(true),
             seek_play: prop(true),
             feedback_resolution: prop(Default::default()),
+            track_area: prop(Default::default()),
+            track_automation_mode: prop(Default::default()),
+            automation_mode_override_type: prop(Default::default()),
+            fx_display_type: prop(Default::default()),
         }
     }
 }
@@ -364,11 +377,16 @@ impl TargetModel {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
             | TrackRoutePan { .. }
             | TrackRouteMute { .. }
             | Tempo { .. }
             | Playrate { .. }
+            | AutomationModeOverride { .. }
             | FxEnable { .. }
+            | FxOpen { .. }
+            | FxNavigate { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
@@ -395,6 +413,7 @@ impl TargetModel {
             .merge(self.fx_name.changed())
             .merge(self.fx_index.changed())
             .merge(self.fx_expression.changed())
+            .merge(self.fx_is_input_fx.changed())
             .merge(self.enable_only_if_fx_has_focus.changed())
             .merge(self.param_type.changed())
             .merge(self.param_index.changed())
@@ -424,6 +443,10 @@ impl TargetModel {
             .merge(self.move_view.changed())
             .merge(self.seek_play.changed())
             .merge(self.feedback_resolution.changed())
+            .merge(self.track_area.changed())
+            .merge(self.track_automation_mode.changed())
+            .merge(self.automation_mode_override_type.changed())
+            .merge(self.fx_display_type.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -632,6 +655,19 @@ impl TargetModel {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                     },
+                    TrackShow => UnresolvedReaperTarget::TrackShow {
+                        track_descriptor: self.track_descriptor()?,
+                        exclusivity: self.track_exclusivity.get(),
+                        area: match self.track_area.get() {
+                            RealearnTrackArea::ArrangeView => TrackArea::ArrangeView,
+                            RealearnTrackArea::Mixer => TrackArea::Mixer,
+                        },
+                    },
+                    TrackAutomationMode => UnresolvedReaperTarget::TrackAutomationMode {
+                        track_descriptor: self.track_descriptor()?,
+                        exclusivity: self.track_exclusivity.get(),
+                        mode: self.track_automation_mode.get().to_reaper(),
+                    },
                     TrackSolo => UnresolvedReaperTarget::TrackSolo {
                         track_descriptor: self.track_descriptor()?,
                         behavior: self.solo_behavior.get(),
@@ -645,13 +681,34 @@ impl TargetModel {
                     },
                     Tempo => UnresolvedReaperTarget::Tempo,
                     Playrate => UnresolvedReaperTarget::Playrate,
+                    AutomationModeOverride => UnresolvedReaperTarget::AutomationModeOverride {
+                        mode_override: match self.automation_mode_override_type.get() {
+                            AutomationModeOverrideType::Bypass => {
+                                GlobalAutomationModeOverride::Bypass
+                            }
+                            AutomationModeOverrideType::Override => {
+                                GlobalAutomationModeOverride::Mode(
+                                    self.track_automation_mode.get().to_reaper(),
+                                )
+                            }
+                        },
+                    },
                     FxEnable => UnresolvedReaperTarget::FxEnable {
                         fx_descriptor: self.fx_descriptor()?,
+                    },
+                    FxOpen => UnresolvedReaperTarget::FxOpen {
+                        fx_descriptor: self.fx_descriptor()?,
+                        display_type: self.fx_display_type.get(),
                     },
                     FxPreset => UnresolvedReaperTarget::FxPreset {
                         fx_descriptor: self.fx_descriptor()?,
                     },
                     SelectedTrack => UnresolvedReaperTarget::SelectedTrack,
+                    FxNavigate => UnresolvedReaperTarget::FxNavigate {
+                        track_descriptor: self.track_descriptor()?,
+                        is_input_fx: self.fx_is_input_fx.get(),
+                        display_type: self.fx_display_type.get(),
+                    },
                     AllTrackFxEnable => UnresolvedReaperTarget::AllTrackFxEnable {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
@@ -987,22 +1044,22 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.fx_label(),
                         self.fx_param_label()
                     ),
-                    TrackVolume => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackSendVolume => write!(
-                        f,
-                        "{}\nTrack {}\n{} {}",
-                        tt,
-                        self.track_label(),
-                        self.route_type_label(),
-                        self.route_label()
-                    ),
-                    TrackPan => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackWidth => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackArm => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackSelection => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackMute => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackSolo => write!(f, "{}\nTrack {}", tt, self.track_label()),
-                    TrackSendPan => write!(
+                    TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection | TrackMute
+                    | TrackSolo => {
+                        write!(f, "{}\nTrack {}", tt, self.track_label())
+                    }
+                    TrackShow => {
+                        write!(f, "Track show/hide\nTrack {}", self.track_label())
+                    }
+                    TrackAutomationMode => {
+                        write!(
+                            f,
+                            "Automation mode\nTrack {}\n{}",
+                            self.track_label(),
+                            self.target.track_automation_mode.get()
+                        )
+                    }
+                    TrackSendVolume | TrackSendPan => write!(
                         f,
                         "{}\nTrack {}\n{} {}",
                         tt,
@@ -1017,14 +1074,21 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.route_type_label(),
                         self.route_label()
                     ),
-                    Tempo => write!(f, "{}", tt),
-                    Playrate => write!(f, "{}", tt),
+                    Tempo | Playrate => write!(f, "{}", tt),
                     FxEnable => write!(
                         f,
                         "Track FX enable\nTrack {}\nFX {}",
                         self.track_label(),
                         self.fx_label(),
                     ),
+                    FxOpen => write!(
+                        f,
+                        "{}\nTrack {}\nFX {}",
+                        tt,
+                        self.track_label(),
+                        self.fx_label(),
+                    ),
+                    FxNavigate => write!(f, "{}\nTrack {}\n", tt, self.track_label(),),
                     FxPreset => write!(
                         f,
                         "Track FX preset\nTrack {}\nFX {}",
@@ -1036,6 +1100,11 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         write!(f, "Track FX all enable\nTrack {}", self.track_label())
                     }
                     Transport => write!(f, "{}\n{}", tt, self.target.transport_action.get()),
+                    AutomationModeOverride => write!(
+                        f,
+                        "Automation mode override\n{}",
+                        self.target.automation_mode_override_type.get()
+                    ),
                     LoadFxSnapshot => write!(
                         f,
                         "Load FX snapshot\n{}",
@@ -1166,6 +1235,16 @@ pub enum ReaperTargetType {
     GoToBookmark = 22,
     #[display(fmt = "Seek (experimental)")]
     Seek = 23,
+    #[display(fmt = "Track show/hide (no feedback)")]
+    TrackShow = 24,
+    #[display(fmt = "Track automation mode (no feedback)")]
+    TrackAutomationMode = 25,
+    #[display(fmt = "Global automation mode override (no feedback)")]
+    AutomationModeOverride = 26,
+    #[display(fmt = "Open/close specific FX")]
+    FxOpen = 27,
+    #[display(fmt = "Navigate within FX chain")]
+    FxNavigate = 28,
 }
 
 impl Default for ReaperTargetType {
@@ -1201,6 +1280,11 @@ impl ReaperTargetType {
             AutomationTouchState { .. } => ReaperTargetType::AutomationTouchState,
             GoToBookmark { .. } => ReaperTargetType::GoToBookmark,
             Seek { .. } => ReaperTargetType::Seek,
+            TrackShow { .. } => ReaperTargetType::TrackShow,
+            TrackAutomationMode { .. } => ReaperTargetType::TrackAutomationMode,
+            AutomationModeOverride { .. } => ReaperTargetType::AutomationModeOverride,
+            FxOpen { .. } => ReaperTargetType::FxOpen,
+            FxNavigate { .. } => ReaperTargetType::FxNavigate,
         }
     }
 
@@ -1208,32 +1292,92 @@ impl ReaperTargetType {
         use ReaperTargetType::*;
         match self {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
-            | TrackSelection | TrackMute | TrackSolo | TrackSendPan | TrackSendMute | FxEnable
-            | FxPreset | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
-            Action | Tempo | Playrate | SelectedTrack | Transport | LastTouched | GoToBookmark
-            | Seek => false,
+            | TrackSelection | TrackMute | TrackShow | TrackAutomationMode | TrackSolo
+            | TrackSendPan | TrackSendMute | FxEnable | FxOpen | FxNavigate | FxPreset
+            | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
+            Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport
+            | LastTouched
+            | GoToBookmark
+            | Seek
+            | AutomationModeOverride => false,
         }
     }
 
     pub fn supports_fx(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            FxParameter | FxEnable | FxPreset | LoadFxSnapshot => true,
-            TrackSendVolume | TrackSendPan | TrackSendMute | TrackVolume | TrackPan
-            | TrackWidth | TrackArm | TrackSelection | TrackMute | TrackSolo | Action | Tempo
-            | Playrate | SelectedTrack | AllTrackFxEnable | Transport | LastTouched
-            | AutomationTouchState | GoToBookmark | Seek => false,
+            FxParameter | FxOpen | FxEnable | FxPreset | LoadFxSnapshot => true,
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackVolume
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackSolo
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | AllTrackFxEnable
+            | Transport
+            | LastTouched
+            | AutomationTouchState
+            | GoToBookmark
+            | Seek
+            | TrackShow
+            | TrackAutomationMode
+            | AutomationModeOverride
+            | FxNavigate => false,
         }
+    }
+
+    pub fn supports_fx_chain(self) -> bool {
+        use ReaperTargetType::*;
+        self.supports_fx() || matches!(self, FxNavigate)
+    }
+
+    pub fn supports_fx_display_type(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, FxOpen | FxNavigate)
     }
 
     pub fn supports_send(self) -> bool {
         use ReaperTargetType::*;
         match self {
             TrackSendVolume | TrackSendPan | TrackSendMute => true,
-            FxParameter | TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection
-            | TrackMute | TrackSolo | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | AllTrackFxEnable | Transport | LoadFxSnapshot | LastTouched
-            | AutomationTouchState | GoToBookmark | Seek => false,
+            FxParameter
+            | TrackVolume
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackSolo
+            | FxEnable
+            | FxPreset
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | AllTrackFxEnable
+            | Transport
+            | LoadFxSnapshot
+            | LastTouched
+            | AutomationTouchState
+            | GoToBookmark
+            | Seek
+            | TrackShow
+            | TrackAutomationMode
+            | AutomationModeOverride
+            | FxOpen
+            | FxNavigate => false,
         }
     }
 
@@ -1241,12 +1385,28 @@ impl ReaperTargetType {
         use ReaperTargetType::*;
         match self {
             TrackArm | TrackSelection | AllTrackFxEnable | TrackMute | TrackSolo
-            | AutomationTouchState => true,
-            TrackSendVolume | TrackSendPan | TrackSendMute | FxParameter | TrackVolume
-            | TrackPan | TrackWidth | FxEnable | FxPreset | Action | Tempo | Playrate
-            | SelectedTrack | Transport | LoadFxSnapshot | LastTouched | GoToBookmark | Seek => {
-                false
-            }
+            | AutomationTouchState | TrackShow | TrackAutomationMode => true,
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | FxParameter
+            | TrackVolume
+            | TrackPan
+            | TrackWidth
+            | FxEnable
+            | FxPreset
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport
+            | LoadFxSnapshot
+            | LastTouched
+            | GoToBookmark
+            | Seek
+            | AutomationModeOverride
+            | FxOpen
+            | FxNavigate => false,
         }
     }
 }
@@ -1711,4 +1871,111 @@ pub struct FxParameterPropValues {
     pub name: String,
     pub expression: String,
     pub index: u32,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum RealearnTrackArea {
+    #[serde(rename = "tcp")]
+    #[display(fmt = "Arrange view")]
+    ArrangeView,
+    #[serde(rename = "mcp")]
+    #[display(fmt = "Mixer")]
+    Mixer,
+}
+
+impl Default for RealearnTrackArea {
+    fn default() -> Self {
+        Self::ArrangeView
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum RealearnAutomationMode {
+    #[display(fmt = "Trim/Read")]
+    TrimRead = 0,
+    #[display(fmt = "Read")]
+    Read = 1,
+    #[display(fmt = "Touch")]
+    Touch = 2,
+    #[display(fmt = "Write")]
+    Write = 3,
+    #[display(fmt = "Latch")]
+    Latch = 4,
+    #[display(fmt = "Latch Preview")]
+    LatchPreview = 5,
+}
+
+impl Default for RealearnAutomationMode {
+    fn default() -> Self {
+        Self::TrimRead
+    }
+}
+
+impl RealearnAutomationMode {
+    fn to_reaper(self) -> AutomationMode {
+        use RealearnAutomationMode::*;
+        match self {
+            TrimRead => AutomationMode::TrimRead,
+            Read => AutomationMode::Read,
+            Touch => AutomationMode::Touch,
+            Write => AutomationMode::Write,
+            Latch => AutomationMode::Latch,
+            LatchPreview => AutomationMode::LatchPreview,
+        }
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    Serialize,
+    Deserialize,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum AutomationModeOverrideType {
+    #[serde(rename = "bypass")]
+    #[display(fmt = "Bypass all envelopes")]
+    Bypass,
+    #[serde(rename = "override")]
+    #[display(fmt = "Override")]
+    Override,
+}
+
+impl Default for AutomationModeOverrideType {
+    fn default() -> Self {
+        Self::Bypass
+    }
 }

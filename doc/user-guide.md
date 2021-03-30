@@ -1869,18 +1869,21 @@ can be converted to relative values - rotary encoders and buttons. They don't af
   _continuous_ targets.
   - _Step size Min_ specifies how much to increase/decrease the target value when an
     increment/decrement is received.
-  - _Step size Max_ is used to limit the effect of encoder acceleration (in case of rotary encoders
-    which support this) or changes in velocity (in case of velocity-sensitive control elements). If
+  - _Step size Max_ is used to limit the effect of acceleration (for rotary encoders
+    which support acceleration and virtual control elements that are mapped as \"Incremental buttons" and have
+    a \"Speed\" > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used
+    as "Incremental buttons"). If
     you set this to the same value like _Step size Min_, encoder acceleration or changes in velocity
     will have absolutely no effect on the incrementation/decrementation amount. If you set it to
     100%, the effect is maximized.
 - **Speed Min/Max:** When you choose a discrete target, the _Step size_ label will change into
   _Speed_. _Discrete_ means there's a concrete number of possible values - it's the opposite of
   _continuous_. If a target is discrete, it cannot have arbitrarily small step sizes. It rather has
-  one predefined atomic step size which never should be deceeded. So allowing arbitrary step size
-  adjustment wouldn't make sense. That's why _Speed_ instead allows you to _multiply_ (positive
-  numbers) or _"divide"_ (negative numbers) value increments with a factor. Negative numbers are
-  most useful for rotary encoders because they will essentially lower their sensitivity. Example:
+  one predefined atomic step size which never should be deceeded. Allowing arbitrary step size
+  adjustment wouldn't make sense. That's why _Speed_ allows you to _multiply_ (positive
+  numbers) or _"divide"_ (negative numbers) value increments with a factor instead. Negative numbers are
+  most useful for rotary encoders because they will essentially lower their sensitivity. Virtual targets
+  are always discrete. Example:
   - Let's assume you selected the discrete target _FX preset_, which is considered discrete because
     an FX with for example 5 presets has 6 well-defined possible values (including the &lt;no
     preset&gt; option), there's nothing inbetween. And let's also assume that you have a controller
