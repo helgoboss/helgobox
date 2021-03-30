@@ -106,6 +106,9 @@ pub struct TargetModel {
     pub automation_mode_override_type: Prop<AutomationModeOverrideType>,
     // # For FX Open and FX Navigate target
     pub fx_display_type: Prop<FxDisplayType>,
+    // # For track selection related targets
+    pub scroll_arrange_view: Prop<bool>,
+    pub scroll_mixer: Prop<bool>,
 }
 
 impl Default for TargetModel {
@@ -160,6 +163,8 @@ impl Default for TargetModel {
             track_automation_mode: prop(Default::default()),
             automation_mode_override_type: prop(Default::default()),
             fx_display_type: prop(Default::default()),
+            scroll_arrange_view: prop(false),
+            scroll_mixer: prop(false),
         }
     }
 }
@@ -461,6 +466,8 @@ impl TargetModel {
             .merge(self.track_automation_mode.changed())
             .merge(self.automation_mode_override_type.changed())
             .merge(self.fx_display_type.changed())
+            .merge(self.scroll_arrange_view.changed())
+            .merge(self.scroll_mixer.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -664,6 +671,8 @@ impl TargetModel {
                     TrackSelection => UnresolvedReaperTarget::TrackSelection {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
+                        scroll_arrange_view: self.scroll_arrange_view.get(),
+                        scroll_mixer: self.scroll_mixer.get(),
                     },
                     TrackMute => UnresolvedReaperTarget::TrackMute {
                         track_descriptor: self.track_descriptor()?,
@@ -717,7 +726,10 @@ impl TargetModel {
                     FxPreset => UnresolvedReaperTarget::FxPreset {
                         fx_descriptor: self.fx_descriptor()?,
                     },
-                    SelectedTrack => UnresolvedReaperTarget::SelectedTrack,
+                    SelectedTrack => UnresolvedReaperTarget::SelectedTrack {
+                        scroll_arrange_view: self.scroll_arrange_view.get(),
+                        scroll_mixer: self.scroll_mixer.get(),
+                    },
                     FxNavigate => UnresolvedReaperTarget::FxNavigate {
                         track_descriptor: self.track_descriptor()?,
                         is_input_fx: self.fx_is_input_fx.get(),
@@ -1319,6 +1331,16 @@ impl ReaperTargetType {
             | Seek
             | AutomationModeOverride => false,
         }
+    }
+
+    pub fn supports_track_must_be_selected(self) -> bool {
+        use ReaperTargetType::*;
+        self.supports_track() && !matches!(self, TrackSelection)
+    }
+
+    pub fn supports_track_scrolling(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, TrackSelection | SelectedTrack)
     }
 
     pub fn supports_fx(self) -> bool {

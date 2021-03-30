@@ -52,6 +52,8 @@ pub enum UnresolvedReaperTarget {
     TrackSelection {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
+        scroll_arrange_view: bool,
+        scroll_mixer: bool,
     },
     TrackMute {
         track_descriptor: TrackDescriptor,
@@ -93,7 +95,10 @@ pub enum UnresolvedReaperTarget {
     FxPreset {
         fx_descriptor: FxDescriptor,
     },
-    SelectedTrack,
+    SelectedTrack {
+        scroll_arrange_view: bool,
+        scroll_mixer: bool,
+    },
     FxNavigate {
         track_descriptor: TrackDescriptor,
         is_input_fx: bool,
@@ -169,9 +174,13 @@ impl UnresolvedReaperTarget {
             TrackSelection {
                 track_descriptor,
                 exclusivity,
+                scroll_arrange_view,
+                scroll_mixer,
             } => ReaperTarget::TrackSelection {
                 track: get_effective_track(context, &track_descriptor.track, compartment)?,
                 exclusivity: *exclusivity,
+                scroll_arrange_view: *scroll_arrange_view,
+                scroll_mixer: *scroll_mixer,
             },
             TrackMute {
                 track_descriptor,
@@ -235,8 +244,13 @@ impl UnresolvedReaperTarget {
             FxPreset { fx_descriptor } => ReaperTarget::FxPreset {
                 fx: get_fx(context, fx_descriptor, compartment)?,
             },
-            SelectedTrack => ReaperTarget::SelectedTrack {
+            SelectedTrack {
+                scroll_arrange_view,
+                scroll_mixer,
+            } => ReaperTarget::SelectedTrack {
                 project: context.context.project_or_current_project(),
+                scroll_arrange_view: *scroll_arrange_view,
+                scroll_mixer: *scroll_mixer,
             },
             FxNavigate {
                 track_descriptor,
@@ -358,7 +372,7 @@ impl UnresolvedReaperTarget {
             Action { .. }
             | Tempo
             | Playrate
-            | SelectedTrack
+            | SelectedTrack { .. }
             | Transport { .. }
             | LastTouched
             | Seek { .. }
@@ -436,7 +450,7 @@ impl UnresolvedReaperTarget {
             | Playrate
             | FxEnable { .. }
             | FxPreset { .. }
-            | SelectedTrack
+            | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | Transport { .. }
             | LoadFxPreset { .. }

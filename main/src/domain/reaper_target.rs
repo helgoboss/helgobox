@@ -89,6 +89,8 @@ pub enum ReaperTarget {
     TrackSelection {
         track: Track,
         exclusivity: TrackExclusivity,
+        scroll_arrange_view: bool,
+        scroll_mixer: bool,
     },
     TrackMute {
         track: Track,
@@ -136,6 +138,8 @@ pub enum ReaperTarget {
     },
     SelectedTrack {
         project: Project,
+        scroll_arrange_view: bool,
+        scroll_mixer: bool,
     },
     FxNavigate {
         fx_chain: FxChain,
@@ -369,7 +373,7 @@ impl RealearnTarget for ReaperTarget {
             FxPreset { fx } => convert_unit_value_to_preset_index(fx, input)
                 .map(|i| i + 1)
                 .unwrap_or(0),
-            SelectedTrack { project } => convert_unit_value_to_track_index(*project, input)
+            SelectedTrack { project, .. } => convert_unit_value_to_track_index(*project, input)
                 .map(|i| i + 1)
                 .unwrap_or(0),
             FxNavigate { fx_chain, .. } => convert_unit_value_to_fx_index(fx_chain, input)
@@ -602,10 +606,12 @@ impl RealearnTarget for ReaperTarget {
                 None => "<No preset>".to_string(),
                 Some(i) => (i + 1).to_string(),
             },
-            SelectedTrack { project } => match convert_unit_value_to_track_index(*project, value) {
-                None => "<Master track>".to_string(),
-                Some(i) => (i + 1).to_string(),
-            },
+            SelectedTrack { project, .. } => {
+                match convert_unit_value_to_track_index(*project, value) {
+                    None => "<Master track>".to_string(),
+                    Some(i) => (i + 1).to_string(),
+                }
+            }
             FxNavigate { fx_chain, .. } => match convert_unit_value_to_fx_index(fx_chain, value) {
                 None => "<No FX>".to_string(),
                 Some(i) => (i + 1).to_string(),
@@ -684,18 +690,31 @@ impl RealearnTarget for ReaperTarget {
                     track.arm(false);
                 }
             }
-            TrackSelection { track, exclusivity } => {
+            TrackSelection {
+                track,
+                exclusivity,
+                scroll_arrange_view,
+                scroll_mixer,
+            } => {
                 if value.as_absolute()?.is_zero() {
                     handle_track_exclusivity(track, *exclusivity, |t| t.select());
                     track.unselect();
                 } else if *exclusivity == TrackExclusivity::ExclusiveAll {
-                    // With have a dedicated REAPER function to select the track exclusively.
+                    // We have a dedicated REAPER function to select the track exclusively.
                     track.select_exclusively();
                 } else {
                     handle_track_exclusivity(track, *exclusivity, |t| t.unselect());
                     track.select();
                 }
-                track.scroll_mixer();
+                if *scroll_arrange_view {
+                    Reaper::get()
+                        .main_section()
+                        .action_by_command_id(CommandId::new(40913))
+                        .invoke_as_trigger(Some(track.project()));
+                }
+                if *scroll_mixer {
+                    track.scroll_mixer();
+                }
             }
             TrackMute { track, exclusivity } => {
                 if value.as_absolute()?.is_zero() {
@@ -820,13 +839,26 @@ impl RealearnTarget for ReaperTarget {
                 };
                 fx.activate_preset(preset_ref);
             }
-            SelectedTrack { project } => {
+            SelectedTrack {
+                project,
+                scroll_arrange_view,
+                scroll_mixer,
+            } => {
                 let track_index = convert_unit_value_to_track_index(*project, value.as_absolute()?);
                 let track = match track_index {
                     None => project.master_track(),
                     Some(i) => project.track_by_index(i).ok_or("track not available")?,
                 };
                 track.select_exclusively();
+                if *scroll_arrange_view {
+                    Reaper::get()
+                        .main_section()
+                        .action_by_command_id(CommandId::new(40913))
+                        .invoke_as_trigger(Some(track.project()));
+                }
+                if *scroll_mixer {
+                    track.scroll_mixer();
+                }
             }
             FxNavigate {
                 fx_chain,
@@ -1059,7 +1091,7 @@ impl ReaperTarget {
             Tempo { project }
             | Playrate { project }
             | Transport { project, .. }
-            | SelectedTrack { project }
+            | SelectedTrack { project, .. }
             | GoToBookmark { project, .. }
             | Seek { project, .. } => project.is_available(),
             FxNavigate { fx_chain, .. } => fx_chain.is_available(),
@@ -1144,7 +1176,7 @@ impl ReaperTarget {
                 )
             }
             // `+ 1` because "<Master track>" is also a possible value.
-            SelectedTrack { project } => (
+            SelectedTrack { project, .. } => (
                 ControlType::AbsoluteDiscrete {
                     atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
                 },
@@ -1307,6 +1339,8 @@ impl ReaperTarget {
                 TrackSelection {
                     track: e.track,
                     exclusivity: Default::default(),
+                    scroll_arrange_view: false,
+                    scroll_mixer: false,
                 }
             }
             FxEnabledChanged(e) => FxEnable { fx: e.fx },
@@ -1383,6 +1417,8 @@ impl ReaperTarget {
                         TrackSelection {
                             track,
                             exclusivity: Default::default(),
+                            scroll_arrange_view: false,
+                            scroll_mixer: false,
                         }
                         .into()
                     }),
@@ -1492,7 +1528,7 @@ impl ReaperTarget {
                 let index = if value == 0 { None } else { Some(value - 1) };
                 fx_preset_unit_value(fx, index)
             }
-            SelectedTrack { project } => {
+            SelectedTrack { project, .. } => {
                 let index = if value == 0 { None } else { Some(value - 1) };
                 selected_track_unit_value(*project, index)
             }
@@ -1558,7 +1594,7 @@ impl ReaperTarget {
             GoToBookmark { project, .. }
             | Tempo { project }
             | Playrate { project }
-            | SelectedTrack { project }
+            | SelectedTrack { project, .. }
             | Seek { project, .. } => *project,
             FxNavigate { fx_chain, .. } => fx_chain.project()?,
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
@@ -1970,7 +2006,7 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            SelectedTrack { project } => {
+            SelectedTrack { project, .. } => {
                 match evt {
                     TrackSelectedChanged(e) if e.new_value && &e.track.project() == project => (
                         true,
@@ -2113,7 +2149,7 @@ impl Target for ReaperTarget {
                 convert_bool_to_unit_value(is_open)
             }
             FxPreset { fx } => fx_preset_unit_value(fx, fx.preset_index().ok()?),
-            SelectedTrack { project } => {
+            SelectedTrack { project, .. } => {
                 let track_index = project
                     .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
                     .and_then(|t| t.index());

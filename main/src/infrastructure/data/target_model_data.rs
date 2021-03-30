@@ -91,6 +91,11 @@ pub struct TargetModelData {
     // FX Open and FX Navigate target
     #[serde(default, skip_serializing_if = "is_default")]
     pub fx_display_type: FxDisplayType,
+    // Track selection related targets
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scroll_arrange_view: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scroll_mixer: bool,
 }
 
 impl TargetModelData {
@@ -139,6 +144,8 @@ impl TargetModelData {
             track_automation_mode: model.track_automation_mode.get(),
             automation_mode_override_type: model.automation_mode_override_type.get(),
             fx_display_type: model.fx_display_type.get(),
+            scroll_arrange_view: model.scroll_arrange_view.get(),
+            scroll_mixer: model.scroll_mixer.get(),
         }
     }
 
@@ -292,6 +299,21 @@ impl TargetModelData {
         model
             .fx_display_type
             .set_with_optional_notification(self.fx_display_type, with_notification);
+        model
+            .scroll_arrange_view
+            .set_with_optional_notification(self.scroll_arrange_view, with_notification);
+        let scroll_mixer = if self.category == TargetCategory::Reaper
+            && self.r#type == ReaperTargetType::TrackSelection
+        {
+            preset_version
+                .map(|v| v < &Version::new(2, 8, 0))
+                .unwrap_or(true)
+        } else {
+            self.scroll_mixer
+        };
+        model
+            .scroll_mixer
+            .set_with_optional_notification(scroll_mixer, with_notification);
     }
 }
 

@@ -1076,6 +1076,12 @@ impl<'a> MutableMappingPanel<'a> {
                 t if t.supports_fx_chain() => {
                     self.mapping.target_model.fx_is_input_fx.set(is_checked);
                 }
+                t if t.supports_track_scrolling() => {
+                    self.mapping
+                        .target_model
+                        .scroll_arrange_view
+                        .set(is_checked);
+                }
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.seek_play.set(is_checked);
                 }
@@ -1092,11 +1098,14 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track() => {
+                t if t.supports_track_must_be_selected() => {
                     self.mapping
                         .target_model
                         .enable_only_if_track_selected
                         .set(is_checked);
+                }
+                t if t.supports_track_scrolling() => {
+                    self.mapping.target_model.scroll_mixer.set(is_checked);
                 }
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.move_view.set(is_checked);
@@ -2748,6 +2757,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                         Some((label, is_input_fx))
                     }
                 }
+                t if t.supports_track_scrolling() => {
+                    Some(("Scroll arrange view", self.target.scroll_arrange_view.get()))
+                }
                 ReaperTargetType::GoToBookmark => {
                     let is_regions = self.target.bookmark_type.get() == BookmarkType::Region;
                     Some(("Regions", is_regions))
@@ -2763,7 +2775,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_check_box_2(&self) {
         let res = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                t if t.supports_track() => {
+                t if t.supports_track_must_be_selected() => {
                     if self.target.track_type.get() == VirtualTrackType::Selected {
                         None
                     } else {
@@ -2772,6 +2784,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                             self.target.enable_only_if_track_selected.get(),
                         ))
                     }
+                }
+                t if t.supports_track_scrolling() => {
+                    Some(("Scroll mixer", self.target.scroll_mixer.get()))
                 }
                 ReaperTargetType::Seek => Some(("Move view", self.target.move_view.get())),
                 _ => None,
@@ -3643,6 +3658,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .fx_is_input_fx
                 .changed()
                 .merge(target.bookmark_type.changed())
+                .merge(target.scroll_arrange_view.changed())
                 .merge(target.seek_play.changed()),
             |view| {
                 view.invalidate_target_check_box_1();
@@ -3652,6 +3668,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .enable_only_if_track_selected
                 .changed()
+                .merge(target.scroll_mixer.changed())
                 .merge(target.move_view.changed()),
             |view| {
                 view.invalidate_target_check_box_2();
