@@ -1310,6 +1310,14 @@ impl ReaperTarget {
                 // TODO-low In future this might come from a certain project
                 project: Reaper::get().current_project(),
             },
+            TrackAutomationModeChanged(e) => TrackAutomationMode {
+                track: e.track,
+                exclusivity: Default::default(),
+                mode: e.new_value,
+            },
+            GlobalAutomationOverrideChanged(e) => AutomationModeOverride {
+                mode_override: e.new_value.unwrap_or(GlobalAutomationModeOverride::Bypass),
+            },
             _ => return None,
         };
         Some(target)
@@ -1376,6 +1384,15 @@ impl ReaperTarget {
                 }
                 .into()
             }))
+            .merge(csurf_rx.track_automation_mode_changed().map(move |track| {
+                let mode = track.automation_mode();
+                TrackAutomationMode {
+                    track,
+                    exclusivity: Default::default(),
+                    mode,
+                }
+                .into()
+            }))
             .merge(
                 csurf_rx
                     .track_solo_changed()
@@ -1430,6 +1447,14 @@ impl ReaperTarget {
                         .into()
                     }),
             )
+            .merge(csurf_rx.global_automation_override_changed().map(move |_| {
+                AutomationModeOverride {
+                    mode_override: Reaper::get()
+                        .global_automation_override()
+                        .unwrap_or(GlobalAutomationModeOverride::Bypass),
+                }
+                .into()
+            }))
     }
 
     fn format_value_generic(&self, value: UnitValue) -> String {
@@ -1693,14 +1718,10 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
-            | Transport { .. } => true,
-            // TODO-high Check if there's really no callback.
-            AutomationModeOverride { .. }
-            // TODO-medium Feedback for selected track would be possible.
+            | AutomationModeOverride { .. }
             | TrackAutomationMode { .. }
-            | TrackShow { .. }
-            | AllTrackFxEnable { .. }
-            | TrackRouteMute { .. } => false,
+            | Transport { .. } => true,
+            TrackShow { .. } | AllTrackFxEnable { .. } | TrackRouteMute { .. } => false,
         }
     }
 
@@ -1857,6 +1878,15 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
+            TrackAutomationMode { track, mode, .. } => {
+                match evt {
+                    TrackAutomationModeChanged(e) if &e.track == track => (
+                        true,
+                        Some(track_automation_mode_unit_value(*mode, e.new_value))
+                    ),
+                    _ => (false, None)
+                }
+            }
             TrackSolo { track, .. } => {
                 match evt {
                     TrackSoloChanged(e) if &e.track == track => (
@@ -1974,15 +2004,22 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
+            AutomationModeOverride { mode_override } => {
+                match evt {
+                    GlobalAutomationOverrideChanged(e) => (
+                        true,
+                        Some(global_automation_mode_override_unit_value(*mode_override, e.new_value))
+                    ),
+                    _ => (false, None)
+                }
+            }
             // Handled from non-control-surface callbacks only.
             Action { .. }
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
             // No value change notification available.
-            | AutomationModeOverride { .. }
             | TrackShow { .. }
-            | TrackAutomationMode { .. }
             | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
              => (false, None),

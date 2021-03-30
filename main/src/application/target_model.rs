@@ -370,6 +370,22 @@ impl TargetModel {
                 self.bookmark_ref.set(*index);
                 self.bookmark_type.set(*bookmark_type);
             }
+            TrackAutomationMode { mode, .. } => {
+                self.track_automation_mode
+                    .set(RealearnAutomationMode::from_reaper(*mode));
+            }
+            AutomationModeOverride { mode_override } => match mode_override {
+                GlobalAutomationModeOverride::Bypass => {
+                    self.automation_mode_override_type
+                        .set(AutomationModeOverrideType::Bypass);
+                }
+                GlobalAutomationModeOverride::Mode(am) => {
+                    self.automation_mode_override_type
+                        .set(AutomationModeOverrideType::Override);
+                    self.track_automation_mode
+                        .set(RealearnAutomationMode::from_reaper(*am));
+                }
+            },
             TrackVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
@@ -378,12 +394,10 @@ impl TargetModel {
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
-            | TrackAutomationMode { .. }
             | TrackRoutePan { .. }
             | TrackRouteMute { .. }
             | Tempo { .. }
             | Playrate { .. }
-            | AutomationModeOverride { .. }
             | FxEnable { .. }
             | FxOpen { .. }
             | FxNavigate { .. }
@@ -1237,9 +1251,9 @@ pub enum ReaperTargetType {
     Seek = 23,
     #[display(fmt = "Track show/hide (no feedback)")]
     TrackShow = 24,
-    #[display(fmt = "Track automation mode (no feedback)")]
+    #[display(fmt = "Track automation mode")]
     TrackAutomationMode = 25,
-    #[display(fmt = "Global automation mode override (no feedback)")]
+    #[display(fmt = "Global automation mode override")]
     AutomationModeOverride = 26,
     #[display(fmt = "Open/close specific FX")]
     FxOpen = 27,
@@ -1947,6 +1961,19 @@ impl RealearnAutomationMode {
             Write => AutomationMode::Write,
             Latch => AutomationMode::Latch,
             LatchPreview => AutomationMode::LatchPreview,
+        }
+    }
+
+    fn from_reaper(value: AutomationMode) -> Self {
+        use AutomationMode::*;
+        match value {
+            TrimRead => Self::TrimRead,
+            Read => Self::Read,
+            Touch => Self::Touch,
+            Write => Self::Write,
+            Latch => Self::Latch,
+            LatchPreview => Self::LatchPreview,
+            Unknown(_) => Self::TrimRead,
         }
     }
 }
