@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-25 (v2.8.0-pre6)</code></td>
+  <td><code>2021-03-30 (v2.8.0-pre7)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -508,7 +508,9 @@ Additionally, the header panel provides a context menu (accessible via right-cli
 on macOS) with the following entries:
 
 - **Copy listed mappings**: Copies all mappings that are visible in the current mapping list to the clipboard 
-  (respecting group, search field and filters). You can insert them by opening the context menu in the row panel.  
+  (respecting group, search field and filters). You can insert them by opening the context menu in the row panel.
+- **Paste mappings (replace all in group):** Replaces all mappings in the current group with the mappings in the
+  clipboard.
 - **Options**
     - **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
       figure out if your combination of settings makes sense. If not, it makes an adjustment.
@@ -715,11 +717,26 @@ The header panel for main mappings consists of a few more user interface element
 The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main mapping
 compartment contains the missing piece of the puzzle:
 
-- **Link current preset to FX / Unlink current preset from FX:** This lets you link the currently active compartment
-  preset with whatever FX window was focused before focusing ReaLearn. This only works if a preset is active and an
-  FX has been focused before. If the active preset is already linked to an FX, you can unlink it.
-    - All links will be saved in the REAPER resource directory (REAPER → Actions → Show action list... → Show REAPER
-      resource path in explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+- **FX-to-preset links**
+    - **Add link from last focused FX to preset:** This lets you link whatever FX window was focused before focusing
+     ReaLearn, to an arbitrary main compartment preset. Needless to say, this only works if an FX has been focused 
+     before.
+        - All links will be saved *globally*, not just within this project!
+        - Location: REAPER resource directory (REAPER → Actions → Show action list... → Show REAPER resource path in
+          explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
+    - ***Arbitrary FX ID:*** If you have added a link already, you will see them here in a list. What you see, is the
+      so-called *FX ID*, which by default simply corresponds to the plug-in's file name (e.g. `reasynth.dll`).
+        - **&lt;Edit FX ID...&gt;:** With this, you can edit the FX ID manually. 
+            - **FX file name:** Allows you to adjust the plug-in file name that triggers the preset change. This is
+              especially useful if you want to use wildcards to automatically match similar-named plug-ins (e.g. VST2
+              and VST3 at once): You can use `*` for matching zero or arbitrary many characters and `?` for matching
+              exactly one arbitrary character. E.g. `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) 
+              and `Pianoteq 7 STAGE.vst3` (VST3).
+              Right now, the FX file name is the only thing that makes up the FX ID. It's likely that more properties
+              for identifying the correct FX "trigger" will be added in future (e.g. the FX preset name).
+        - **&lt;Remove link&gt;:** (Globally) this FX-to-preset link.
+        - ***Arbitrary main preset:*** The checkbox tells you to which main preset the FX ID is linked. You can change
+          the linked preset by clicking another one.
 
 **Attention:** This currently doesn't work with FX that's on the monitoring FX chain!
 
@@ -1023,9 +1040,6 @@ This source reacts to incoming MIDI control-change messages.
     which is (maybe unknowingly) configured to transmit absolute values.
   - **Button (momentary):** A control element that can be pressed and emits absolute values. It emits a > 0%
     value when pressing it and optionally a 0% value when releasing it. Examples: Damper pedal.
-    - Hint: There's no option "Button (toggle)" because ReaLearn can only take full control with momentary
-      buttons. So make sure your controller buttons are in momentary mode! ReaLearn itself provides
-      a toggle mode that is naturally more capable than your controller's built-in toggle mode.
   - **Encoder (relative type _x_):** A control element that emits relative values, usually an endless rotary
     encoder. The _x_ specifies _how_ the relative values are sent. This 1:1 corresponds to the
     relative modes in REAPER's built-in MIDI learn:
@@ -1041,6 +1055,14 @@ This source reacts to incoming MIDI control-change messages.
       - 65 = decrement; 0 = none; 1 = increment
       - 65 < value <= 127 results in higher decrements (63 possible decrement amounts)
       - 1 < value <= 64 results in higher increments (64 possible increment amounts)
+  - **Toggle-only button (avoid!):** A control element that can be pressed and emits absolute values. It emits a 100%
+    value when pressing it, no value when releasing it and a 0% value when pressing it again.
+      - Hint: This is a workaround for controllers that don't have momentary buttons! You should only use this character
+        if there's absolutely no way to configure this control element as a momentary button.
+      - Background: ReaLearn can make a momentary hardware button work like a full-blown toggle button (ReaLearn's
+        toggle mode is inherently more powerful than your controller's built-in toggle mode!). However, the opposite is
+        not true. It can't make a toggle hardware button act like a momentary button.
+      - The way this character works: ReaLearn will simply emit 100%, no matter if the hardware sends 100% or 0%. 
 - **14-bit values:** If unchecked, this source reacts to MIDI control-change messages with 7-bit
   resolution (usually the case). If checked, it reacts to MIDI control-change messages with 14-bit
   resolution. This is not so common but sometimes used by controllers with high-precision faders.
@@ -1093,6 +1115,7 @@ resolution.
   checked, it reacts to registered ones (RPN).
 - **14-bit values:** If unchecked, this source reacts to (N)RPN messages with 7-bit resolution. If
   checked, it reacts to those with 14-bit resolution. In practice, this if often checked.
+- **Character:** See [CC value source](#cc-value-source). Only available for 7-bit resolution.
 
 ###### Polyphonic after touch source
 
@@ -1545,6 +1568,9 @@ This target stops being learnable if you activate the REAPER preference
 too many false positives). If you change the preference, ReaLearn will take it into consideration the next time
 you restart REAPER.
 
+- **Scroll TCP:** Also scrolls the track control panel to the desired track.
+- **Scroll mixer:** Also scrolls the mixer control panel to the desired track.
+
 ###### Track mute target
 
 Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the
@@ -1603,7 +1629,10 @@ instead.
 
 ###### Selected track target
 
-Steps through tracks.
+Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
+
+- **Scroll TCP:** See [Track selection target](#track-selection-target).
+- **Scroll mixer:** See [Track selection target](#track-selection-target).
 
 ###### Track FX all enable target
 
@@ -1619,6 +1648,10 @@ Invokes a transport-related action.
     otherwise invokes stop.
   - **Play/pause:** Starts playing the containing project if the incoming absolute control value is greater than 0%, 
     otherwise invokes pause.
+  - **Stop:** Stops the containing project if the incoming absolute control value is greater than 0%. Useful for
+    distinguishing feedback between *paused* and *stopped* state.
+  - **Pause:** Pauses the containing project if the incoming absolute control value is greater than 0%. Useful for
+    distinguishing feedback between *paused* and *stopped* state. 
   - **Record:** Starts/enables recording for the current project if the incoming absolute control value is greater than 
     0%, otherwise disables recording.
   - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%, 
@@ -1696,6 +1729,9 @@ User interface elements specific to this target:
     - **Right dropdown:** This dropdown displays the markers or regions (depending on the *Regions* checkbox state).
 - **Now!:** This sets the target to the currently playing (or currently focused, if stopped) marker/region.
 - **Regions:** Switches between markers and regions.
+- **Set loop points:** For regions, this will additionally set the loop points to the region start and end position. 
+- **Set time selection:** For regions, this will additionally set the time selection to the region start and end
+  position. 
 
 ###### Seek target
 
@@ -1721,6 +1757,43 @@ and feedback.
 If you tick multiple options, this is the order of fallbacks: If there's no time selection, the loop points will
 be used. If there are no loop points, the current region is used. And if there's no current region, the project
 will be used.
+
+###### Track show/hide target
+
+Shows the track if the incoming absolute control value is greater than 0%, otherwise hides it.
+
+- **Area:** Lets you decide if you want it to show/hide in the track control panel or the mixer.
+
+###### Track automation mode target
+
+Sets the track to a specific automation mode if the incoming control value is greater than 0%, otherwise
+sets it back to REAPER's default track automation mode "Trim/Read".
+
+- **Mode:** Here you can pick the desired automation mode.
+
+###### Global automation mode override target
+
+Sets the global automation mode override to the desired value if the incoming control value is greater than 0%, 
+otherwise removes the override.
+
+- **Behavior:** Lets you decide between bypassing all envelopes or overriding with a specific automation
+  mode.
+- **Mode:** Here you can pick the desired automation mode if *Behavior* is *Override*. 
+
+###### FX open target
+
+Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
+
+- **Display:** Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating 
+  window.
+
+###### Navigate within FX chain target
+
+Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
+To be used with endless rotary encoders or previous/next-style "Incremental buttons".
+
+- **Display:** Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating 
+  window.
 
 ##### Category "Virtual"
 
@@ -2351,8 +2424,6 @@ This one seems to be a very popular use case: To create a dedicated set of mappi
 these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load preset"
 feature.
 
-**Attention:** This currently doesn't work with FX that's on the monitoring FX chain!
-
 To have a nice example, let's assume you want to build a first set of mappings for the VSTi plug-in
 [Vital](https://vital.audio/). The procedure for other plug-ins is the same.
 
@@ -2386,7 +2457,8 @@ Now let's save your newly created set of mappings as preset and link the preset 
 2. Press *Save as...* (next to *Preset*).
     - ReaLearn will ask you if it should make your mappings project-independent. Answer with *Yes* (important).
 3. Enter a descriptive preset name, e.g. "Vital".
-4. Right-click ReaLearn's header panel and press *Link current preset to FX "Vital.dll"*.
+4. Right-click ReaLearn's header panel → `FX-to-preset links` → `<Add link from FX "Vital.dll" to...>` and choose
+   the previously created "Vital" preset.
     - The name `Vital.dll` can vary, depending on your operating system.
     - If it doesn't mention *Vital* but another VST plug-in, focus your Vital VSTi plug-in instance for a moment and
       then go directly to ReaLearn and right-click the header panel.
@@ -2396,6 +2468,9 @@ Now let's save your newly created set of mappings as preset and link the preset 
 Now you just have to set *Auto-load preset* to *Depending on focused FX* and ReaLearn will activate your "Vital" preset
 whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
 project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
+
+**Attention:** "Auto-load preset" currently doesn't work when focusing FX which is located on the monitoring FX chain
+itself!
 
 ## FAQ
 
