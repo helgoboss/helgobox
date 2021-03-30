@@ -5,8 +5,7 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackArea, TrackRoute,
-    TrackRoutePartner,
+    Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
 };
 
 use rx_util::{Event, UnitEvent};
@@ -27,7 +26,9 @@ use serde_repr::*;
 use std::borrow::Cow;
 
 use ascii::AsciiString;
-use reaper_medium::{AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackSendDirection};
+use reaper_medium::{
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackSendDirection,
+};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -682,8 +683,8 @@ impl TargetModel {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                         area: match self.track_area.get() {
-                            RealearnTrackArea::ArrangeView => TrackArea::ArrangeView,
-                            RealearnTrackArea::Mixer => TrackArea::Mixer,
+                            RealearnTrackArea::Tcp => TrackArea::Tcp,
+                            RealearnTrackArea::Mcp => TrackArea::Mcp,
                         },
                     },
                     TrackAutomationMode => UnresolvedReaperTarget::TrackAutomationMode {
@@ -1925,16 +1926,16 @@ pub struct FxParameterPropValues {
 #[repr(usize)]
 pub enum RealearnTrackArea {
     #[serde(rename = "tcp")]
-    #[display(fmt = "Arrange view")]
-    ArrangeView,
+    #[display(fmt = "Track control panel")]
+    Tcp,
     #[serde(rename = "mcp")]
-    #[display(fmt = "Mixer")]
-    Mixer,
+    #[display(fmt = "Mixer control panel")]
+    Mcp,
 }
 
 impl Default for RealearnTrackArea {
     fn default() -> Self {
-        Self::ArrangeView
+        Self::Tcp
     }
 }
 

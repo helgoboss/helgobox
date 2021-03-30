@@ -5,15 +5,15 @@ use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain,
-    FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackArea,
-    TrackRoute, Volume, Width,
+    FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute,
+    Volume, Width,
 };
 use reaper_medium::{
     AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility, FxPresetRef,
     GetLoopTimeRange2Result, GetParameterStepSizesResult, GlobalAutomationModeOverride,
     MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor, PositionInSeconds,
     ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue, SetEditCurPosOptions, SoloMode,
-    UndoBehavior,
+    TrackArea, UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;

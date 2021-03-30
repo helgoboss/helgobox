@@ -12,10 +12,11 @@ use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
-    SendPartnerType, Track, TrackArea, TrackRoute,
+    SendPartnerType, Track, TrackRoute,
 };
 use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, MasterTrackBehavior, TrackLocation,
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, MasterTrackBehavior, TrackArea,
+    TrackLocation,
 };
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;

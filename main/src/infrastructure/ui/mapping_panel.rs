@@ -2758,7 +2758,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
                 t if t.supports_track_scrolling() => {
-                    Some(("Scroll arrange view", self.target.scroll_arrange_view.get()))
+                    Some(("Scroll TCP", self.target.scroll_arrange_view.get()))
                 }
                 ReaperTargetType::GoToBookmark => {
                     let is_regions = self.target.bookmark_type.get() == BookmarkType::Region;
