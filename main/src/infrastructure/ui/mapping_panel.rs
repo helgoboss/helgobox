@@ -1025,7 +1025,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration) {
         match self.mapping.effective_fire_mode() {
-            FireMode::WhenButtonReleased => {
+            FireMode::WhenButtonReleased | FireMode::OnSinglePress | FireMode::OnDoublePress => {
                 self.mapping
                     .mode_model
                     .press_duration_interval
@@ -3385,17 +3385,29 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_2_controls(&self) {
         let label = match self.mapping.effective_fire_mode() {
-            FireMode::WhenButtonReleased => "Min",
-            FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => "Timeout",
+            FireMode::WhenButtonReleased | FireMode::OnSinglePress => Some("Min"),
+            FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => Some("Timeout"),
+            FireMode::OnDoublePress => None,
         };
         self.view
             .require_control(root::ID_MODE_FIRE_LINE_2_LABEL_1)
-            .set_text(label);
-        self.invalidate_mode_fire_controls_internal(
-            root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
-            root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
-            root::ID_MODE_FIRE_LINE_2_LABEL_2,
-            self.mode.press_duration_interval.get_ref().min_val(),
+            .set_text_or_hide(label);
+        if label.is_some() {
+            self.invalidate_mode_fire_controls_internal(
+                root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_2_LABEL_2,
+                self.mode.press_duration_interval.get_ref().min_val(),
+            );
+        }
+        self.show_if(
+            label.is_some(),
+            &[
+                root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_2_LABEL_1,
+                root::ID_MODE_FIRE_LINE_2_LABEL_2,
+            ],
         );
     }
 
@@ -3410,7 +3422,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_3_controls(&self) {
         let option = match self.mapping.effective_fire_mode() {
-            FireMode::WhenButtonReleased => {
+            FireMode::WhenButtonReleased | FireMode::OnSinglePress | FireMode::OnDoublePress => {
                 Some(("Max", self.mode.press_duration_interval.get_ref().max_val()))
             }
             FireMode::AfterTimeout => None,
