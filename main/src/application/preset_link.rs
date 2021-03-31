@@ -11,8 +11,10 @@ pub trait PresetLinkManager: fmt::Debug {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String>;
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Debug, Default)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FxId {
+    #[serde(rename = "fileName")]
     file_name: String,
 }
 

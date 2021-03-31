@@ -8,41 +8,32 @@ use std::rc::Rc;
 
 pub type SharedPresetLinkManager = Rc<RefCell<FileBasedPresetLinkManager>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FxPresetLinkConfig {
     links: Vec<FxPresetLink>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FxPresetLink {
-    fx: FxDescriptor,
-    preset_id: String,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FxDescriptor {
-    file_name: String,
+pub struct FxPresetLink {
+    #[serde(rename = "fx")]
+    pub fx_id: FxId,
+    #[serde(rename = "presetId")]
+    pub preset_id: String,
 }
 
 #[derive(Debug)]
 pub struct FileBasedPresetLinkManager {
     auto_load_configs_dir_path: PathBuf,
-    preset_by_fx: HashMap<FxId, String>,
-}
-
-pub struct PresetLink {
-    pub fx_id: FxId,
-    pub preset_id: String,
+    config: FxPresetLinkConfig,
 }
 
 impl FileBasedPresetLinkManager {
     pub fn new(auto_load_configs_dir_path: PathBuf) -> FileBasedPresetLinkManager {
         let mut manager = FileBasedPresetLinkManager {
             auto_load_configs_dir_path,
-            preset_by_fx: Default::default(),
+            config: Default::default(),
         };
         let _ = manager.load_fx_config();
         manager
@@ -55,32 +46,15 @@ impl FileBasedPresetLinkManager {
     fn load_fx_config(&mut self) -> Result<(), String> {
         let json = fs::read_to_string(&self.fx_config_file_path())
             .map_err(|_| "couldn't read FX preset link config file".to_string())?;
-        let config: FxPresetLinkConfig = serde_json::from_str(&json)
+        self.config = serde_json::from_str(&json)
             .map_err(|e| format!("FX preset link config file isn't valid. Details:\n\n{}", e))?;
-        self.preset_by_fx = config
-            .links
-            .into_iter()
-            .map(|link| (FxId::new(link.fx.file_name), link.preset_id))
-            .collect();
         Ok(())
     }
 
     fn save_fx_config(&self) -> Result<(), String> {
         fs::create_dir_all(&self.auto_load_configs_dir_path)
             .map_err(|_| "couldn't create auto-load-configs directory")?;
-        let fx_config = FxPresetLinkConfig {
-            links: self
-                .preset_by_fx
-                .iter()
-                .map(|(fx_id, preset_id)| FxPresetLink {
-                    fx: FxDescriptor {
-                        file_name: fx_id.file_name().to_string(),
-                    },
-                    preset_id: preset_id.clone(),
-                })
-                .collect(),
-        };
-        let json = serde_json::to_string_pretty(&fx_config)
+        let json = serde_json::to_string_pretty(&self.config)
             .map_err(|_| "couldn't serialize FX preset link config")?;
         fs::write(self.fx_config_file_path(), json)
             .map_err(|_| "couldn't write FX preset link config file")?;
@@ -88,41 +62,46 @@ impl FileBasedPresetLinkManager {
     }
 
     pub fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
-        self.preset_by_fx
-            .iter()
-            .find_map(|(fx_id_pattern, preset_id)| {
-                if fx_id.matches(fx_id_pattern) {
-                    Some(preset_id.clone())
-                } else {
-                    None
-                }
-            })
+        self.config.links.iter().find_map(|link| {
+            if fx_id.matches(&link.fx_id) {
+                Some(link.preset_id.clone())
+            } else {
+                None
+            }
+        })
     }
 
-    pub fn links(&self) -> impl Iterator<Item = PresetLink> + ExactSizeIterator + '_ {
-        self.preset_by_fx
-            .iter()
-            .map(|(fx_id, preset_id)| PresetLink {
-                fx_id: fx_id.clone(),
-                preset_id: preset_id.clone(),
-            })
+    pub fn links(&self) -> impl Iterator<Item = &FxPresetLink> + ExactSizeIterator + '_ {
+        self.config.links.iter()
     }
 
     pub fn update_fx_id(&mut self, old_fx_id: FxId, new_fx_id: FxId) {
-        if let Some(preset_id) = self.preset_by_fx.remove(&old_fx_id) {
-            self.preset_by_fx.insert(new_fx_id, preset_id);
+        for link in &mut self.config.links {
+            if link.fx_id == old_fx_id {
+                link.fx_id = new_fx_id;
+                return;
+            }
         }
         self.save_fx_config().unwrap();
     }
 
     pub fn remove_link(&mut self, fx_id: &FxId) {
-        if self.preset_by_fx.remove(fx_id).is_some() {
-            self.save_fx_config().unwrap();
-        }
+        self.config.links.retain(|l| &l.fx_id != fx_id);
+        self.save_fx_config().unwrap();
     }
 
     pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
-        self.preset_by_fx.insert(fx_id, preset_id);
+        let link = FxPresetLink { fx_id, preset_id };
+        if let Some(l) = self
+            .config
+            .links
+            .iter_mut()
+            .find(|l| &l.fx_id == &link.fx_id)
+        {
+            *l = link;
+        } else {
+            self.config.links.push(link);
+        }
         self.save_fx_config().unwrap();
     }
 }
