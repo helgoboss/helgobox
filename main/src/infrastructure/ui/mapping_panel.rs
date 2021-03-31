@@ -3385,9 +3385,9 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_2_controls(&self) {
         let label = match self.mapping.effective_fire_mode() {
-            FireMode::WhenButtonReleased | FireMode::OnSinglePress => Some("Min"),
+            FireMode::WhenButtonReleased => Some("Min"),
             FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => Some("Timeout"),
-            FireMode::OnDoublePress => None,
+            FireMode::OnDoublePress | FireMode::OnSinglePress => None,
         };
         self.view
             .require_control(root::ID_MODE_FIRE_LINE_2_LABEL_1)
@@ -3422,10 +3422,10 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_mode_fire_line_3_controls(&self) {
         let option = match self.mapping.effective_fire_mode() {
-            FireMode::WhenButtonReleased | FireMode::OnSinglePress | FireMode::OnDoublePress => {
+            FireMode::WhenButtonReleased | FireMode::OnSinglePress => {
                 Some(("Max", self.mode.press_duration_interval.get_ref().max_val()))
             }
-            FireMode::AfterTimeout => None,
+            FireMode::AfterTimeout | FireMode::OnDoublePress => None,
             FireMode::AfterTimeoutKeepFiring => Some(("Rate", self.mode.turbo_rate.get())),
         };
         if let Some((label, value)) = option {
