@@ -530,6 +530,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     });
                 }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
+                    debug!(
+                        self.logger,
+                        "Updating feedback_is_globally_enabled to {}", is_enabled
+                    );
                     self.feedback_is_globally_enabled = is_enabled;
                     if is_enabled {
                         for compartment in MappingCompartment::enum_iter() {
@@ -1252,7 +1256,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.send_all_feedback();
             } else {
                 debug!(self.logger, "Cancelling instance...");
-                self.send_feedback(FeedbackReason::CancelInstance, self.feedback_all_zero());
+                self.send_feedback(FeedbackReason::SuspendInstance, self.feedback_all_zero());
             }
         }
         self.update_on_mappings();
@@ -1480,14 +1484,18 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
 enum FeedbackReason {
     /// When ReaLearn detects a single source as unused.
     ClearUnusedSource,
-    /// When all feedback for that instance gets disabled but other instances should get a chance
-    /// to grab some sources.
+    /// When all feedback for that instance gets disabled (e.g. by instance deactivation) but other
+    /// instances should get a chance to grab some sources. Must be processed even if feedback
+    /// globally disabled (because sent *after* globally disabling feedback).
     ClearAllAllowingSourceTakeover,
     /// When all feedback for that instance gets disabled and switching off is more important than
-    /// letting other instances take over (e.g. when removing instance completely).
+    /// letting other instances take over (e.g. when removing instance completely). Only needs to
+    /// be processed when feedback enabled.
     ClearAllPreventingSourceTakeover,
-    /// When a lower-floor ReaLearn instance is cancelled by an upper-floor one.
-    CancelInstance,
+    /// When a lower-floor ReaLearn instance is cancelled by an upper-floor one. Must be processed
+    /// even if feedback is effectively disabled (because sent at a time when the lower-floor
+    /// instance is covered by the higher-floor instance already).
+    SuspendInstance,
     /// Normal feedback scenarios.
     Normal,
     /// When a ReaLearn instance X takes control of a source after Y has released the source.
@@ -1497,16 +1505,22 @@ enum FeedbackReason {
 }
 
 impl FeedbackReason {
+    /// When this returns true, it allows source takeover by other instances.
     pub fn is_source_release(self) -> bool {
         use FeedbackReason::*;
         matches!(
             self,
-            ClearUnusedSource | ClearAllAllowingSourceTakeover | CancelInstance
+            ClearUnusedSource | ClearAllAllowingSourceTakeover | SuspendInstance
         )
     }
 
-    pub fn always_allow(self) -> bool {
-        matches!(self, FeedbackReason::CancelInstance)
+    /// When this returns true, the processor will initiate the feedback send logic (including
+    /// source takeover) always regardless if feedback is globally enabled or not.
+    pub fn is_always_allowed(self) -> bool {
+        matches!(
+            self,
+            FeedbackReason::SuspendInstance | FeedbackReason::ClearAllAllowingSourceTakeover
+        )
     }
 }
 
@@ -1583,7 +1597,7 @@ fn send_direct_feedback<EH: DomainEventHandler>(
     feedback_reason: FeedbackReason,
     feedback_value: RealFeedbackValue,
 ) {
-    if feedback_reason.always_allow() || instance.feedback_is_effectively_enabled() {
+    if feedback_reason.is_always_allowed() || instance.feedback_is_effectively_enabled() {
         if let Some(feedback_output) = instance.feedback_output {
             if let Some(source_feedback_value) = feedback_value.source {
                 // At this point we can be sure that this mapping can't have a
