@@ -1,7 +1,6 @@
 use crate::application::{FxId, PresetLinkManager};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -62,12 +61,22 @@ impl FileBasedPresetLinkManager {
     }
 
     pub fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
-        self.config.links.iter().find_map(|link| {
-            if fx_id.matches(&link.fx_id) {
-                Some(link.preset_id.clone())
-            } else {
-                None
-            }
+        // Let the links with preset name have precedence.
+        find_match(
+            self.config
+                .links
+                .iter()
+                .filter(|l| l.fx_id.has_preset_name()),
+            fx_id,
+        )
+        .or_else(|| {
+            find_match(
+                self.config
+                    .links
+                    .iter()
+                    .filter(|l| !l.fx_id.has_preset_name()),
+                fx_id,
+            )
         })
     }
 
@@ -92,12 +101,7 @@ impl FileBasedPresetLinkManager {
 
     pub fn link_preset_to_fx(&mut self, preset_id: String, fx_id: FxId) {
         let link = FxPresetLink { fx_id, preset_id };
-        if let Some(l) = self
-            .config
-            .links
-            .iter_mut()
-            .find(|l| &l.fx_id == &link.fx_id)
-        {
+        if let Some(l) = self.config.links.iter_mut().find(|l| l.fx_id == link.fx_id) {
             *l = link;
         } else {
             self.config.links.push(link);
@@ -110,4 +114,17 @@ impl PresetLinkManager for SharedPresetLinkManager {
     fn find_preset_linked_to_fx(&self, fx_id: &FxId) -> Option<String> {
         self.borrow().find_preset_linked_to_fx(fx_id)
     }
+}
+
+fn find_match<'a>(
+    mut links: impl Iterator<Item = &'a FxPresetLink>,
+    fx_id: &FxId,
+) -> Option<String> {
+    links.find_map(|link| {
+        if fx_id.matches(&link.fx_id) {
+            Some(link.preset_id.clone())
+        } else {
+            None
+        }
+    })
 }

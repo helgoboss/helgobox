@@ -469,7 +469,6 @@ impl Session {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
         // When FX focus changes, maybe trigger main preset change
-        let previously_focused_fx = Rc::new(RefCell::new(None));
         when(
             Global::control_surface_rx()
                 // We need this event primarily to get informed of focus changes (because a
@@ -480,6 +479,8 @@ impl Session {
                 .merge(Global::control_surface_rx().fx_closed().map_to(()))
                 // For loading preset when FX opened (even if last focused FX is the same).
                 .merge(Global::control_surface_rx().fx_opened().map_to(()))
+                // When preset changed (for links that also have preset name as criteria)
+                .merge(Global::control_surface_rx().fx_preset_changed().map_to(()))
                 .take_until(self.party_is_over()),
         )
         .with(weak_session)
@@ -492,18 +493,11 @@ impl Session {
                 } else {
                     None
                 };
-                let mut previously_focused_fx = previously_focused_fx.borrow_mut();
-                // Don't do anything if focused FX not changed. We do this in order to not
-                // unnecessarily load presets. E.g. fx_focused() and fx_opened() are fired
-                // in sequence if it's both an "open" and a "change".
-                if *previously_focused_fx != currently_focused_fx {
-                    let fx_id = currently_focused_fx
-                        .as_ref()
-                        .and_then(|f| FxId::from_fx(f).ok());
-                    s.borrow_mut()
-                        .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
-                    *previously_focused_fx = currently_focused_fx;
-                }
+                let fx_id = currently_focused_fx
+                    .as_ref()
+                    .and_then(|f| FxId::from_fx(f, true).ok());
+                s.borrow_mut()
+                    .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
             }
         });
     }
@@ -524,13 +518,10 @@ impl Session {
     }
 
     fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>, weak_session: WeakSession) {
-        if let Some(fx_id) = fx_id {
-            let preset_id = self
-                .main_preset_link_manager
-                .find_preset_linked_to_fx(&fx_id);
+        let preset_id =
+            fx_id.and_then(|id| self.main_preset_link_manager.find_preset_linked_to_fx(&id));
+        if self.active_main_preset_id != preset_id {
             let _ = self.activate_main_preset(preset_id, weak_session);
-        } else {
-            self.activate_main_preset(None, weak_session).unwrap();
         }
     }
 
