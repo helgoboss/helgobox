@@ -1062,7 +1062,8 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 match tt {
                     Action => write!(
                         f,
-                        "Action {}\n{}",
+                        "{}\n{}\n{}",
+                        tt,
                         self.target.command_id_label(),
                         self.target.action_name_label()
                     ),
@@ -1075,21 +1076,19 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.fx_param_label()
                     ),
                     TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection | TrackMute
-                    | TrackSolo => {
+                    | TrackSolo | TrackShow | FxNavigate | AllTrackFxEnable => {
                         write!(f, "{}\nTrack {}", tt, self.track_label())
-                    }
-                    TrackShow => {
-                        write!(f, "Track show/hide\nTrack {}", self.track_label())
                     }
                     TrackAutomationMode => {
                         write!(
                             f,
-                            "Automation mode\nTrack {}\n{}",
+                            "{}\nTrack {}\n{}",
+                            tt,
                             self.track_label(),
                             self.target.track_automation_mode.get()
                         )
                     }
-                    TrackSendVolume | TrackSendPan => write!(
+                    TrackSendVolume | TrackSendPan | TrackSendMute => write!(
                         f,
                         "{}\nTrack {}\n{} {}",
                         tt,
@@ -1097,47 +1096,25 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.route_type_label(),
                         self.route_label()
                     ),
-                    TrackSendMute => write!(
-                        f,
-                        "Track send/receive mute\nTrack {}\n{} {}",
-                        self.track_label(),
-                        self.route_type_label(),
-                        self.route_label()
-                    ),
-                    Tempo | Playrate => write!(f, "{}", tt),
-                    FxEnable => write!(
-                        f,
-                        "Track FX enable\nTrack {}\nFX {}",
-                        self.track_label(),
-                        self.fx_label(),
-                    ),
-                    FxOpen => write!(
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek => write!(f, "{}", tt),
+                    FxOpen | FxEnable | FxPreset => write!(
                         f,
                         "{}\nTrack {}\nFX {}",
                         tt,
                         self.track_label(),
                         self.fx_label(),
                     ),
-                    FxNavigate => write!(f, "{}\nTrack {}\n", tt, self.track_label(),),
-                    FxPreset => write!(
-                        f,
-                        "Track FX preset\nTrack {}\nFX {}",
-                        self.track_label(),
-                        self.fx_label(),
-                    ),
-                    SelectedTrack => write!(f, "{}", tt),
-                    AllTrackFxEnable => {
-                        write!(f, "Track FX all enable\nTrack {}", self.track_label())
-                    }
                     Transport => write!(f, "{}\n{}", tt, self.target.transport_action.get()),
                     AutomationModeOverride => write!(
                         f,
-                        "Automation mode override\n{}",
+                        "{}\n{}",
+                        tt,
                         self.target.automation_mode_override_type.get()
                     ),
                     LoadFxSnapshot => write!(
                         f,
-                        "Load FX snapshot\n{}",
+                        "{}\n{}",
+                        tt,
                         self.target
                             .fx_snapshot
                             .get_ref()
@@ -1145,20 +1122,15 @@ impl<'a> Display for TargetModelWithContext<'a> {
                             .map(|s| s.to_string())
                             .unwrap_or_else(|| "-".to_owned())
                     ),
-                    LastTouched => write!(f, "Last touched"),
                     AutomationTouchState => write!(
                         f,
-                        "Automation touch state\nTrack {}\n{}",
+                        "{}\nTrack {}\n{}",
+                        tt,
                         self.track_label(),
                         self.target.touched_parameter_type.get()
                     ),
-                    Seek => write!(f, "Seek"),
                     GoToBookmark => {
                         let bookmark_type = self.target.bookmark_type.get();
-                        let main_label = match bookmark_type {
-                            BookmarkType::Marker => "Go to marker",
-                            BookmarkType::Region => "Go to region",
-                        };
                         let detail_label = {
                             let anchor_type = self.target.bookmark_anchor_type.get();
                             let bookmark_ref = self.target.bookmark_ref.get();
@@ -1178,7 +1150,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                                 get_non_present_bookmark_label(anchor_type, bookmark_ref)
                             }
                         };
-                        write!(f, "{}\n{}", main_label, detail_label)
+                        write!(f, "{}\n{}", tt, detail_label)
                     }
                 }
             }
