@@ -16,7 +16,7 @@ use crate::domain::{
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
 
-use reaper_high::{Fx, Reaper};
+use reaper_high::Reaper;
 use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use slog::debug;
@@ -469,7 +469,7 @@ impl Session {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
         // When FX focus changes, maybe trigger main preset change
-        let previously_focused_fx: RefCell<Option<Fx>> = RefCell::new(None);
+        let previously_focused_fx = Rc::new(RefCell::new(None));
         when(
             Global::control_surface_rx()
                 // We need this event primarily to get informed of focus changes (because a
@@ -483,7 +483,9 @@ impl Session {
                 .take_until(self.party_is_over()),
         )
         .with(weak_session)
-        .do_sync(move |s, _| {
+        // Doing this async is important to let REAPER digest the info about "Is the window open?"
+        // and "What FX is focused?"
+        .do_async(move |s, _| {
             if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
                 let currently_focused_fx = if let Some(fx) = Reaper::get().focused_fx() {
                     if fx.window_is_open() { Some(fx) } else { None }
@@ -500,8 +502,8 @@ impl Session {
                         .and_then(|f| FxId::from_fx(f).ok());
                     s.borrow_mut()
                         .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+                    *previously_focused_fx = currently_focused_fx;
                 }
-                *previously_focused_fx = currently_focused_fx;
             }
         });
     }
