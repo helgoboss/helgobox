@@ -1217,24 +1217,13 @@ pub fn get_non_present_bookmark_label(
 )]
 #[repr(usize)]
 pub enum ReaperTargetType {
-    #[display(fmt = "FX chain: Navigate within FXs")]
-    FxNavigate = 28,
-    #[display(fmt = "FX: Enable/disable")]
-    FxEnable = 12,
-    #[display(fmt = "FX: Load snapshot")]
-    LoadFxSnapshot = 19,
-    #[display(fmt = "FX: Navigate within presets")]
-    FxPreset = 13,
-    #[display(fmt = "FX: Open/close")]
-    FxOpen = 27,
-    #[display(fmt = "FX: Set parameter value")]
-    FxParameter = 1,
+    // Global targets
     #[display(fmt = "Global: Last touched")]
     LastTouched = 20,
     #[display(fmt = "Global: Set automation mode override")]
     AutomationModeOverride = 26,
-    #[display(fmt = "Marker/region: Go to")]
-    GoToBookmark = 22,
+
+    // Project targets
     #[display(fmt = "Project: Invoke REAPER action")]
     Action = 0,
     #[display(fmt = "Project: Invoke transport action")]
@@ -1247,12 +1236,12 @@ pub enum ReaperTargetType {
     Playrate = 11,
     #[display(fmt = "Project: Set tempo")]
     Tempo = 10,
-    #[display(fmt = "Send: Mute/unmute")]
-    TrackSendMute = 18,
-    #[display(fmt = "Send: Set pan")]
-    TrackSendPan = 9,
-    #[display(fmt = "Send: Set volume")]
-    TrackSendVolume = 3,
+
+    // Marker/region targets
+    #[display(fmt = "Marker/region: Go to")]
+    GoToBookmark = 22,
+
+    // Track targets
     #[display(fmt = "Track: Arm/disarm")]
     TrackArm = 5,
     #[display(fmt = "Track: Enable/disable all FX")]
@@ -1275,6 +1264,29 @@ pub enum ReaperTargetType {
     TrackShow = 24,
     #[display(fmt = "Track: Solo/unsolo")]
     TrackSolo = 8,
+
+    // FX chain targets
+    #[display(fmt = "FX chain: Navigate within FXs")]
+    // FX targets
+    FxNavigate = 28,
+    #[display(fmt = "FX: Enable/disable")]
+    FxEnable = 12,
+    #[display(fmt = "FX: Load snapshot")]
+    LoadFxSnapshot = 19,
+    #[display(fmt = "FX: Navigate within presets")]
+    FxPreset = 13,
+    #[display(fmt = "FX: Open/close")]
+    FxOpen = 27,
+    #[display(fmt = "FX: Set parameter value")]
+    FxParameter = 1,
+
+    // Send targets
+    #[display(fmt = "Send: Mute/unmute")]
+    TrackSendMute = 18,
+    #[display(fmt = "Send: Set pan")]
+    TrackSendPan = 9,
+    #[display(fmt = "Send: Set volume")]
+    TrackSendVolume = 3,
 }
 
 impl Default for ReaperTargetType {
