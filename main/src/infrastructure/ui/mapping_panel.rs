@@ -1202,19 +1202,20 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn update_target_type(&mut self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
-        let i = b.selected_combo_box_item_index();
         use TargetCategory::*;
         match self.mapping.target_model.category.get() {
-            Reaper => self
-                .mapping
-                .target_model
-                .r#type
-                .set(i.try_into().expect("invalid REAPER target type")),
-            Virtual => self
-                .mapping
-                .target_model
-                .control_element_type
-                .set(i.try_into().expect("invalid virtual target type")),
+            Reaper => {
+                let data = b.selected_combo_box_item_data() as usize;
+                self.mapping
+                    .target_model
+                    .r#type
+                    .set(data.try_into().expect("invalid REAPER target type"))
+            }
+            Virtual => self.mapping.target_model.control_element_type.set(
+                b.selected_combo_box_item_index()
+                    .try_into()
+                    .expect("invalid virtual target type"),
+            ),
         };
     }
 
@@ -2007,11 +2008,16 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_type_combo_box_value(&self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
-        let item_index = match self.target.category.get() {
-            Reaper => self.target.r#type.get().into(),
-            Virtual => self.target.control_element_type.get().into(),
+        match self.target.category.get() {
+            Reaper => {
+                let item_data: usize = self.target.r#type.get().into();
+                b.select_combo_box_item_by_data(item_data as isize).unwrap();
+            }
+            Virtual => {
+                let item_index = self.target.control_element_type.get().into();
+                b.select_combo_box_item_by_index(item_index).unwrap();
+            }
         };
-        b.select_combo_box_item_by_index(item_index).unwrap();
     }
 
     fn target_category(&self) -> TargetCategory {
@@ -3890,7 +3896,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         use TargetCategory::*;
         match self.target.category.get() {
             Reaper => {
-                b.fill_combo_box_indexed(ReaperTargetType::into_enum_iter());
+                let items =
+                    ReaperTargetType::into_enum_iter().map(|t| (usize::from(t) as isize, t));
+                b.fill_combo_box_with_data(items);
             }
             Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
         }

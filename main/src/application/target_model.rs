@@ -1217,64 +1217,64 @@ pub fn get_non_present_bookmark_label(
 )]
 #[repr(usize)]
 pub enum ReaperTargetType {
-    #[display(fmt = "Action (limited feedback)")]
-    Action = 0,
-    #[display(fmt = "Track FX parameter")]
-    FxParameter = 1,
-    #[display(fmt = "Track volume")]
-    TrackVolume = 2,
-    #[display(fmt = "Track send/receive volume")]
-    TrackSendVolume = 3,
-    #[display(fmt = "Track pan")]
-    TrackPan = 4,
-    #[display(fmt = "Track arm")]
-    TrackArm = 5,
-    #[display(fmt = "Track selection")]
-    TrackSelection = 6,
-    #[display(fmt = "Track mute")]
-    TrackMute = 7,
-    #[display(fmt = "Track solo")]
-    TrackSolo = 8,
-    #[display(fmt = "Track send/receive pan")]
-    TrackSendPan = 9,
-    #[display(fmt = "Master tempo")]
-    Tempo = 10,
-    #[display(fmt = "Master playrate")]
-    Playrate = 11,
-    #[display(fmt = "Track FX enable (no feedback from automation)")]
-    FxEnable = 12,
-    #[display(fmt = "Track FX preset (feedback since REAPER v6.13)")]
-    FxPreset = 13,
-    #[display(fmt = "Selected track")]
-    SelectedTrack = 14,
-    #[display(fmt = "Track FX all enable (no feedback)")]
-    AllTrackFxEnable = 15,
-    #[display(fmt = "Transport")]
-    Transport = 16,
-    #[display(fmt = "Track width")]
-    TrackWidth = 17,
-    #[display(fmt = "Track send/receive mute (no feedback)")]
-    TrackSendMute = 18,
-    #[display(fmt = "Load FX snapshot (experimental)")]
-    LoadFxSnapshot = 19,
-    #[display(fmt = "Last touched (experimental)")]
-    LastTouched = 20,
-    #[display(fmt = "Automation touch state (experimental)")]
-    AutomationTouchState = 21,
-    #[display(fmt = "Go to marker/region (experimental)")]
-    GoToBookmark = 22,
-    #[display(fmt = "Seek (experimental)")]
-    Seek = 23,
-    #[display(fmt = "Track show/hide (no feedback)")]
-    TrackShow = 24,
-    #[display(fmt = "Track automation mode")]
-    TrackAutomationMode = 25,
-    #[display(fmt = "Global automation mode override")]
-    AutomationModeOverride = 26,
-    #[display(fmt = "Open/close specific FX")]
-    FxOpen = 27,
-    #[display(fmt = "Navigate within FX chain")]
+    #[display(fmt = "FX chain: Navigate within FXs")]
     FxNavigate = 28,
+    #[display(fmt = "FX: Enable/disable")]
+    FxEnable = 12,
+    #[display(fmt = "FX: Load snapshot")]
+    LoadFxSnapshot = 19,
+    #[display(fmt = "FX: Navigate within presets")]
+    FxPreset = 13,
+    #[display(fmt = "FX: Open/close")]
+    FxOpen = 27,
+    #[display(fmt = "FX: Set parameter value")]
+    FxParameter = 1,
+    #[display(fmt = "Global: Last touched")]
+    LastTouched = 20,
+    #[display(fmt = "Global: Set automation mode override")]
+    AutomationModeOverride = 26,
+    #[display(fmt = "Marker/region: Go to")]
+    GoToBookmark = 22,
+    #[display(fmt = "Project: Invoke REAPER action")]
+    Action = 0,
+    #[display(fmt = "Project: Invoke transport action")]
+    Transport = 16,
+    #[display(fmt = "Project: Navigate within tracks")]
+    SelectedTrack = 14,
+    #[display(fmt = "Project: Seek")]
+    Seek = 23,
+    #[display(fmt = "Project: Set playrate")]
+    Playrate = 11,
+    #[display(fmt = "Project: Set tempo")]
+    Tempo = 10,
+    #[display(fmt = "Send: Mute/unmute")]
+    TrackSendMute = 18,
+    #[display(fmt = "Send: Set pan")]
+    TrackSendPan = 9,
+    #[display(fmt = "Send: Set volume")]
+    TrackSendVolume = 3,
+    #[display(fmt = "Track: Arm/disarm")]
+    TrackArm = 5,
+    #[display(fmt = "Track: Enable/disable all FX")]
+    AllTrackFxEnable = 15,
+    #[display(fmt = "Track: Mute/unmute")]
+    TrackMute = 7,
+    #[display(fmt = "Track: Select/unselect")]
+    TrackSelection = 6,
+    #[display(fmt = "Track: Set automation mode")]
+    TrackAutomationMode = 25,
+    #[display(fmt = "Track: Set automation touch state")]
+    AutomationTouchState = 21,
+    #[display(fmt = "Track: Set pan")]
+    TrackPan = 4,
+    #[display(fmt = "Track: Set stereo pan width")]
+    TrackWidth = 17,
+    #[display(fmt = "Track: Set volume")]
+    TrackVolume = 2,
+    #[display(fmt = "Track: Show/hide")]
+    TrackShow = 24,
+    #[display(fmt = "Track: Solo/unsolo")]
+    TrackSolo = 8,
 }
 
 impl Default for ReaperTargetType {
@@ -1447,6 +1447,18 @@ impl ReaperTargetType {
             | AutomationModeOverride
             | FxOpen
             | FxNavigate => false,
+        }
+    }
+
+    pub fn hint(&self) -> &'static str {
+        use ReaperTargetType::*;
+        match self {
+            FxEnable => "no feedback from automation",
+            FxPreset => "auto-feedback since REAPER v6.13",
+            Action => "limited feedback",
+            Seek => "experimental",
+            TrackSendMute | AllTrackFxEnable | TrackShow => "no auto-feedback",
+            _ => "",
         }
     }
 }
