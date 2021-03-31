@@ -590,7 +590,7 @@ impl TrackRouteSelector {
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params);
         let result = evaluator.evaluate(sliced_params);
-        result.max(0.0) as u32
+        result.round().max(0.0) as u32
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -761,7 +761,7 @@ impl VirtualFxParameter {
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params);
         let result = evaluator.evaluate(sliced_params);
-        result.max(0.0) as u32
+        result.round().max(0.0) as u32
     }
 
     pub fn index(&self) -> Option<u32> {
@@ -981,7 +981,7 @@ impl VirtualTrack {
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params);
         let result = evaluator.evaluate(sliced_params);
-        result.max(0.0) as u32
+        result.round().max(0.0) as u32
     }
 
     pub fn with_context<'a>(
@@ -1172,7 +1172,7 @@ impl VirtualChainFx {
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params);
         let result = evaluator.evaluate(sliced_params);
-        result.max(0.0) as u32
+        result.round().max(0.0) as u32
     }
 
     pub fn id(&self) -> Option<Guid> {
