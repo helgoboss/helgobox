@@ -186,4 +186,5 @@ pub mod root {
     pub const ID_TARGET_CHECK_BOX_5: u32 = 40106;
     pub const ID_TARGET_CHECK_BOX_6: u32 = 40107;
     pub const ID_MODE_TAKEOVER_MODE: u32 = 40108;
+    pub const ID_TARGET_HINT: u32 = 40109;
 }

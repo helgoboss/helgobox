@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-03-30 (v2.8.0-pre7)</code></td>
+  <td><code>2021-03-30 (v2.8.0-pre8)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1475,6 +1475,23 @@ Only available for targets associated with a particular FX instance:
 
 All other UI elements in this section depend on the chosen target type.
 
+###### Global: Last touched
+
+This will control whatever target has been last touched in REAPER. It's similar to the built-in REAPER action
+"Adjust last touched FX parameter" but provides the following benefits:
+
+1. It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
+2. It offers feedback.
+
+###### Global: Set automation mode override
+
+Sets the global automation mode override to the desired value if the incoming control value is greater than 0%,
+otherwise removes the override.
+
+- **Behavior:** Lets you decide between bypassing all envelopes or overriding with a specific automation
+  mode.
+- **Mode:** Here you can pick the desired automation mode if *Behavior* is *Override*.
+
 ###### Action target
 
 Triggers or sets the value of a particular REAPER action in the main section.
@@ -1678,14 +1695,6 @@ Please note that some plug-ins have *very large* states. Therefore you should ke
 will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
 can quickly add up and make REAPER/ReaLearn slow!
 
-###### Last touched target
-
-This will control whatever target has last been touched in REAPER. It's similar to the built-in REAPER action
-"Adjust last touched FX parameter" but provides the following benefits:
-
-1. It's applicable to all ReaLearn targets that are learnable (except actions and transport), not just FX parameters.
-2. It offers feedback.
-
 ###### Automation touch state target
 
 When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control
@@ -1770,15 +1779,6 @@ Sets the track to a specific automation mode if the incoming control value is gr
 sets it back to REAPER's default track automation mode "Trim/Read".
 
 - **Mode:** Here you can pick the desired automation mode.
-
-###### Global automation mode override target
-
-Sets the global automation mode override to the desired value if the incoming control value is greater than 0%, 
-otherwise removes the override.
-
-- **Behavior:** Lets you decide between bypassing all envelopes or overriding with a specific automation
-  mode.
-- **Mode:** Here you can pick the desired automation mode if *Behavior* is *Override*. 
 
 ###### FX open target
 

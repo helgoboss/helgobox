@@ -1437,11 +1437,11 @@ impl ReaperTargetType {
     pub fn hint(&self) -> &'static str {
         use ReaperTargetType::*;
         match self {
-            FxEnable => "no feedback from automation",
-            FxPreset => "auto-feedback since REAPER v6.13",
-            Action => "limited feedback",
-            Seek => "experimental",
-            TrackSendMute | AllTrackFxEnable | TrackShow => "no auto-feedback",
+            FxEnable => "No feedback from automation",
+            FxPreset => "Automatic feedback since REAPER v6.13",
+            Action => "Limited feedback only",
+            Seek => "Experimental target",
+            TrackSendMute | AllTrackFxEnable | TrackShow => "No automatic feedback",
             _ => "",
         }
     }

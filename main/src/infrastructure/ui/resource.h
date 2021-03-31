@@ -184,3 +184,4 @@
 #define ID_TARGET_CHECK_BOX_5                   40106
 #define ID_TARGET_CHECK_BOX_6                   40107
 #define ID_MODE_TAKEOVER_MODE                   40108
+#define ID_TARGET_HINT                          40109

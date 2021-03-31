@@ -2006,18 +2006,25 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_type_combo_box_value(&self) {
-        let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
+        let combo = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
-        match self.target.category.get() {
+        let hint = match self.target.category.get() {
             Reaper => {
                 let item_data: usize = self.target.r#type.get().into();
-                b.select_combo_box_item_by_data(item_data as isize).unwrap();
+                combo
+                    .select_combo_box_item_by_data(item_data as isize)
+                    .unwrap();
+                self.target.r#type.get().hint()
             }
             Virtual => {
                 let item_index = self.target.control_element_type.get().into();
-                b.select_combo_box_item_by_index(item_index).unwrap();
+                combo.select_combo_box_item_by_index(item_index).unwrap();
+                ""
             }
         };
+        self.view
+            .require_control(root::ID_TARGET_HINT)
+            .set_text(hint);
     }
 
     fn target_category(&self) -> TargetCategory {
