@@ -732,8 +732,11 @@ compartment contains the missing piece of the puzzle:
               and VST3 at once): You can use `*` for matching zero or arbitrary many characters and `?` for matching
               exactly one arbitrary character. E.g. `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2) 
               and `Pianoteq 7 STAGE.vst3` (VST3).
-              Right now, the FX file name is the only thing that makes up the FX ID. It's likely that more properties
-              for identifying the correct FX "trigger" will be added in future (e.g. the FX preset name).
+            - **FX preset name:** Maybe the FX file name is not enough for you to decide which preset you want to load.
+              Good news: You can add a preset name as additional criteria! E.g. if you have use a sampler, you can load
+              different ReaLearn presets depending on which sample library is loaded into your sampler. Just add two
+              links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names. You can also use
+              wildcards here!
         - **&lt;Remove link&gt;:** (Globally) this FX-to-preset link.
         - ***Arbitrary main preset:*** The checkbox tells you to which main preset the FX ID is linked. You can change
           the linked preset by clicking another one.
@@ -1996,7 +1999,7 @@ affect *feedback* as well (because they might change some target values).
 - **Fire:** Normally, when a button gets pressed, it controls the target immediately. However, by using this dropdown
     and by changing the values below it, you can change this behavior. This dropdown provides different fire modes that 
     decide how exactly ReaLearn should cope with button presses. 
-    - **When button released (if Min > 0 ms):** This mode is essential in order to be able to distinguish between
+    - **Normal (fire on release if Min/Max > 0 ms):** This mode is essential in order to be able to distinguish between
       different press durations.
         - **Min** and **Max** decide how long a button needs to be pressed to have an effect.
         - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
@@ -2022,6 +2025,19 @@ affect *feedback* as well (because they might change some target values).
           instantly on press.
         - **Rate:** This is how frequently the target will be hit once the timeout has passed. In practice it won't
           happen more frequently than about 30 ms (REAPER's main thread loop frequency).
+    - **Double press:** This reacts to double presses of a button (analog to double clicks with the mouse). 
+    - **Single press (if hold < Max ms):** If you want to do something in response to a double press, chances are that
+      you want to do something *else* in response to just a single press. The *Normal* fire mode will fire no matter
+      what! That's why there's an additional *Single press* mode that will not respond to double clicks. Needless to
+      say, the response happens *slightly* delayed - because ReaLearn needs to wait a bit to see if it's going to be a 
+      double press or not.
+        - **Max:** It's even possible to distinguish between single, double *and* long press. In order to do that, you
+          must set the *Max* value of the *Single press* mapping to a value that is lower than the *Timeout* value of
+          your *After timeout* mapping. That way you can use one button for 3 different actions! Example:
+            - Mapping 1 "Single press" with Max = 499ms
+            - Mapping 2 "Double press"
+            - Mapping 3 "After timeout" with Timeout = 500ms
+      
 
 ### REAPER actions
 
