@@ -1406,7 +1406,7 @@ object selectors. We use the example of tracks but the same applies to all other
           discrete values that it is supposed to represent. When that feature is there, you should configure
           "Parameter 1" to represent 100 values and then ReaLearn will take care of using the correct step size
           automatically when setting up a mapping for controlling that parameter.
-        - `floor(p1 * 3) * 100 + p2 * 99`: This will treat "Parameter 1" as a kind of bank selector that allows you
+        - `p1 * 3 * 100 + p2 * 99`: This will treat "Parameter 1" as a kind of bank selector that allows you
           to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each. "Parameter 2" will select the track
           number within the bank. You see, this is very flexible.
         - **You should not to use any other constructs than the ones in these examples!** It's not
