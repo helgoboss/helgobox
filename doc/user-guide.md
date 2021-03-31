@@ -208,8 +208,8 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 
 1. Press the "Add one" button.
    - A new mapping called "1" should appear in the mapping rows panel.
-   - For now it's greyed out because it's not complete yet. The default target is a *Track FX parameter* target
-     which doesn't yet refer to any specific FX. 
+   - For now it's greyed out because it's not complete yet. The default target is a 
+     [FX: Set parameter value](#fx-set-parameter-value) target which doesn't yet refer to any specific FX. 
 2. Press the "Learn source" button of that new mapping.
    - Its label will change to "Stop".
 3. Touch some control element on your MIDI controller (knob, encoder, fader, button, key, pitch
@@ -220,7 +220,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 4. Press the "Learn target" button.
    - Its label will change to "Stop".
 5. Touch the volume fader of your newly created REAPER track.
-   - The button label should jump back to "Learn target" and "Track volume" should appear in the
+   - The button label should jump back to "Learn target" and "Track: Set volume" should appear in the
      _target label_.
    - At this point the mapping should not be greyed out anymore because it's complete and enabled. 
 6. Now you should be able to control the touched target with your control element.
@@ -933,12 +933,12 @@ In previous versions of ReaLearn you could use other methods to achieve a simila
 involved using multiple ReaLearn instances:
 
 - **By enabling/disabling other ReaLearn instances:** You can use one main ReaLearn instance containing
-  a bunch of mappings with "Track FX enable" target in order to enable/disable other ReaLearn FX
+  a bunch of mappings with [FX: Enable/disable](#fx-enabledisable) target in order to enable/disable other ReaLearn FX
   instances. Then each of the other ReaLearn instances acts as one mapping bank/group.
-- **By switching between presets of another ReaLearn instance:** You can use one main ReaLearn instance
-  containing a mapping with "Track FX preset" target in order to navigate between presets of another
-  ReaLearn FX instance. Then each preset in the other ReaLearn instance acts as one mapping bank/group.
-  However, that method is pretty limited and hard to maintain because presets are something global
+- **By switching between presets of another ReaLearn instance:** You can use one main ReaLearn instance containing a
+  mapping with [FX: Navigate within presets](#fx-navigate-within-presets) target in order to navigate between presets of
+  another ReaLearn FX instance. Then each preset in the other ReaLearn instance acts as one mapping bank/group. However,
+  that method is pretty limited and hard to maintain because presets are something global
   (not saved together with your REAPER project).
 
 With *Conditional activation* you can do the same (and more) within just one ReaLearn instance. A fixed
@@ -983,7 +983,7 @@ Here's how you would implement a typical use case. You want your rotary encoder 
 not pressed and control target B when it's pressed.
 
 1. Create a mapping for the button
-    - As "Target", you need to choose ReaLearn itself (Type: "Track FX parameter", Track: `<This>`, FX: "... VSTi: ReaLearn (Helgoboss)"). As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1". 
+    - As "Target", you need to choose ReaLearn itself (Type: "FX: set parameter value", Track: `<This>`, FX: "... VSTi: ReaLearn (Helgoboss)"). As "Parameter", choose an arbitrary ReaLearn parameter, e.g. "Parameter 1". 
     - As "Mode", choose either "Absolute" (if you want to switch the encoder function just momentarily) or "Toggle" (if you want the button to toggle between the two encoder functions).
 1. Create a mapping with target A
     - Set "Active" to "When modifiers on/off", "Modifier A" to "Parameter 1" and disable the checkbox beside it. Set "Modifier B" to `<None>`.
@@ -1134,7 +1134,7 @@ The higher the calculated tempo, the higher the absolute control value. A tempo 
 translated to a control value of 0%, a tempo of 960 bpm to 100% (this corresponds to REAPER's
 supported tempo range).
 
-This source can be used in combination with the _Master tempo_ target to obtain a "poor man's" tempo
+This source can be used in combination with the [Project: Set tempo](#project-set-tempo) target to obtain a "poor man's" tempo
 synchronization. Be aware: MIDI clock naturally suffers from certain inaccuracies and latencies -
 that's an issue inherent to the nature of the MIDI clock protocol itself. E.g. it's not really
 suitable if you need super accurate and instant tempo synchronization. Additionally, ReaLearn's
@@ -1430,7 +1430,7 @@ Only available for targets that are associated with a particular REAPER track:
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
   _&lt;Selected&gt;_.
   
-Targets which control an on/off-style property of tracks (e.g. "Track solo") additionally provide this:
+Targets which control an on/off-style property of tracks (e.g. [Track: Solo/unsolo](#track-solounsolo)) additionally provide this:
 
 - **Exclusive:** By default, this option is set to "No".
     - **No:** Makes the track target affect just this track.
@@ -1492,7 +1492,7 @@ otherwise removes the override.
   mode.
 - **Mode:** Here you can pick the desired automation mode if *Behavior* is *Override*.
 
-###### Action target
+###### Project: Invoke REAPER action
 
 Triggers or sets the value of a particular REAPER action in the main section.
 
@@ -1549,33 +1549,114 @@ of actions can roughly be divided into:
         5. When the action is invoked via a native REAPER action mapping, it will only work if the invocation is done
            using absolute MIDI CC/OSC (not relative).
 
-###### Track FX parameter target
+###### Project: Invoke transport action
 
-Sets the value of a particular track FX parameter.
+Invokes a transport-related action.
 
-- **Parameter:** The parameter to be controlled. The *ID* selector is not supported because FX parameters don't have
-  unique IDs. That's not an issue though because most FX plug-ins have a fixed set of parameters with stable positions.
-  That's why *By position* is the default selector.
+- **Action:** Specifies which transport action should be invoked.
+    - **Play/stop:** Starts playing the containing project if the incoming absolute control value is greater than 0%,
+      otherwise invokes stop.
+    - **Play/pause:** Starts playing the containing project if the incoming absolute control value is greater than 0%,
+      otherwise invokes pause.
+    - **Stop:** Stops the containing project if the incoming absolute control value is greater than 0%. Useful for
+      distinguishing feedback between *paused* and *stopped* state.
+    - **Pause:** Pauses the containing project if the incoming absolute control value is greater than 0%. Useful for
+      distinguishing feedback between *paused* and *stopped* state.
+    - **Record:** Starts/enables recording for the current project if the incoming absolute control value is greater than
+      0%, otherwise disables recording.
+    - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%,
+      otherwise disables it.
 
-###### Track volume target
+###### Project: Navigate within tracks
 
-Sets the track's volume.
+Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
 
-###### Track send/receive volume target
+- **Scroll TCP** and **Scroll mixer**: See [Track: Select/unselect](#track-selectunselect) target.
 
-Sets the track send's volume.
+###### Project: Seek
 
-###### Track pan target
+Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project ...
+with feedback that indicates the current position!
 
-Sets the track's pan value.
+- **Feedback:** Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
+    - **Beat:** Every beat.
+    - **Fast:** As fast as possible, thereby giving the satisfying feeling of continuity. This obviously uses some more
+      resources. No idea how far you can go with that. Try yourself.
+- **Seek play:** Doesn't just change the edit cursor but also changes the play position when the project is currently
+  being played.
+- **Move view:** Also scrolls to the seeked position (even when not playing).
 
-###### Track arm target
+The following options determine which time ranges will be taken into consideration as reference for seeking (control)
+and feedback.
+
+1. **Time selection:** Can use the currently set time selection as reference.
+2. **Use loop points:** Can use the currently set loop points as reference.
+3. **Use regions:** Can use the current region as reference.
+4. **Use project:** Can use the complete project as reference, from start to end.
+
+If you tick multiple options, this is the order of fallbacks: If there's no time selection, the loop points will
+be used. If there are no loop points, the current region is used. And if there's no current region, the project
+will be used.
+
+###### Project: Set playrate
+
+Sets REAPER's master playrate.
+
+###### Project: Set tempo
+
+Sets REAPER's master tempo.
+
+This target is not learnable anymore via the "Learn target" button and also not eligible for
+the [Last touched](#global-last-touched) target because it caused too many "false positives".
+
+###### Marker/region: Go to
+
+Navigates to a specific marker or region. Here's the behavior in detail:
+
+- Regions
+    - If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
+    - If the project is playing, playback will continue with the given region as soon as the currently playing region
+      (or measure if not within a region) has finished playing. This is called "smooth seek".
+- Markers
+    - If the project is stopped, the editor cursor immediately jumps to the given marker.
+    - If the project is playing, playback will immediately be continued at the given marker.
+
+The cool thing about this target compared to REAPER's built-in actions is that it allows to target arbitrarily many
+markers/regions (either by position or by ID) ... and that it supports visual feedback! If you assign this target to a
+button which has an LED, you will see which marker/region is currently playing just by looking at
+your controller.
+
+Please note that this doesn't work when recording!
+
+User interface elements specific to this target:
+
+- **Marker/region:**
+    - **Left dropdown:** This dropdown lets you choose if you want to refer to a marker/region by its
+      user-assigned ID or by its position on the timeline.
+    - **Right dropdown:** This dropdown displays the markers or regions (depending on the *Regions* checkbox state).
+- **Now!:** This sets the target to the currently playing (or currently focused, if stopped) marker/region.
+- **Regions:** Switches between markers and regions.
+- **Set loop points:** For regions, this will additionally set the loop points to the region start and end position.
+- **Set time selection:** For regions, this will additionally set the time selection to the region start and end
+  position.
+
+###### Track: Arm/disarm
 
 Arms the track for recording if the incoming absolute control value is greater than 0%, otherwise
 disarms the track. This disables "Automatic record-arm when track selected". If you don't want that,
-use the _Track selection_ target instead.
+use the _Track: Select/unselect_ target instead.
 
-###### Track selection target
+###### Track: Enable/disable all FX
+
+Enables all the track's FX instances if the incoming absolute control value is greater than
+0%, otherwise disables them.
+
+###### Track: Mute/unmute
+
+Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the
+track.
+
+###### Track: Select/unselect
 
 Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the
 track.
@@ -1588,114 +1669,15 @@ you restart REAPER.
 - **Scroll TCP:** Also scrolls the track control panel to the desired track.
 - **Scroll mixer:** Also scrolls the mixer control panel to the desired track.
 
-###### Track mute target
 
-Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the
-track.
+###### Track: Set automation mode
 
-###### Track solo target
+Sets the track to a specific automation mode if the incoming control value is greater than 0%, otherwise
+sets it back to REAPER's default track automation mode "Trim/Read".
 
-Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the
-track.
+- **Mode:** Here you can pick the desired automation mode.
 
-Provides the following additional settings:
-
-- **Behavior:** See the REAPER user guide for details.
-    - **Solo in place:** Soloes the track while respecting REAPER's routing. This is REAPER's default and since
-      ReaLearn v2.4.0 also ReaLearn's default.
-    - **Solo (ignore routing):** Soloes the track muting everything else, no matter the routing.
-    - **Use REAPER preference:** Follows whatever is set in the REAPER preferences.
-
-Learning this target by pressing the "Solo" button of the *master* track is currently not possible but
-of course you can just select it manually in the dropdown menu.
-
-###### Track send/receive pan target
-
-Sets the track send's pan value.
-
-###### Master tempo target
-
-Sets REAPER's master tempo.
-
-This target is not learnable anymore via the "Learn target" button and also not eligible for the "Last touched" target
-because it caused too many "false positives".
-
-###### Master playrate target
-
-Sets REAPER's master playrate.
-
-###### Track FX enable target
-
-Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise
-disables it.
-
-###### Track FX preset target
-
-Steps through FX presets.
-
-This target is suited for use with knobs, encoders and incremental buttons (previous/next) because it allows
-you to step through the complete preset list. The minimum value always represents *No preset* whereas the
-maximum value always represents the last available preset.
-
-It's *not* suited for activating a particular preset (e.g. by setting *Target Min* and *Max* to the same value),
-because the preset list of an FX is usually not constant. As soon as you modify the preset list, this value will might
-suddenly point to a completely different preset. Even worse, the actual preset might have been deleted.
-
-If you want to activate a particular preset, please use the [Load FX snapshot target](#load-fx-snapshot-target)
-instead.
-
-###### Selected track target
-
-Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
-
-- **Scroll TCP:** See [Track selection target](#track-selection-target).
-- **Scroll mixer:** See [Track selection target](#track-selection-target).
-
-###### Track FX all enable target
-
-Enables all the track's FX instances if the incoming absolute control value is greater than
-0%, otherwise disables them.
-
-###### Transport target
-
-Invokes a transport-related action.
-
-- **Action:** Specifies which transport action should be invoked.
-  - **Play/stop:** Starts playing the containing project if the incoming absolute control value is greater than 0%, 
-    otherwise invokes stop.
-  - **Play/pause:** Starts playing the containing project if the incoming absolute control value is greater than 0%, 
-    otherwise invokes pause.
-  - **Stop:** Stops the containing project if the incoming absolute control value is greater than 0%. Useful for
-    distinguishing feedback between *paused* and *stopped* state.
-  - **Pause:** Pauses the containing project if the incoming absolute control value is greater than 0%. Useful for
-    distinguishing feedback between *paused* and *stopped* state. 
-  - **Record:** Starts/enables recording for the current project if the incoming absolute control value is greater than 
-    0%, otherwise disables recording.
-  - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%, 
-    otherwise disables it.
-
-###### Track width target
-
-Sets the track's width value (applicable if the track is in stereo pan mode).
-
-###### Track send/receive mute target
-
-Mutes/unmutes the track send.
-
-###### Load FX snapshot target
-
-Restores a certain state of a particular FX. Before using this target, you need to take a snapshot of the desired FX
-state using the *Take!* button. This snapshot will be saved as part of ReaLearn's state itself and as a direct
-consequence as a part of your project. This makes your project nicely self-contained. It's perfect for activating
-particular FX presets because it will always restore the desired state, even if the preset list has changed.
-
-This target supports feedback, but only if the snapshot is loaded via ReaLearn itself.
-
-Please note that some plug-ins have *very large* states. Therefore you should keep an eye on the snapshot size, which
-will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
-can quickly add up and make REAPER/ReaLearn slow!
-
-###### Automation touch state target
+###### Track: Set automation touch state
 
 When you use REAPER's "Touch" automation mode, REAPER needs a way to know if you are currently touching the control
 element which is bound to the automation envelope or not. As long as you keep touching it, it will overwrite
@@ -1711,89 +1693,107 @@ touch state. For example, if you have a push encoder, you could map the "push" e
 to write automation only while you are touching the encoder. Or if you don't have a push encoder, you could just use
 some spare button.
 
-###### Go to marker/region target
+###### Track: Set pan
 
-Navigates to a specific marker or region. Here's the behavior in detail:
+Sets the track's pan value.
 
-- Regions
-    - If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
-    - If the project is playing, playback will continue with the given region as soon as the currently playing region
-      (or measure if not within a region) has finished playing. This is called "smooth seek".
-- Markers
-    - If the project is stopped, the editor cursor immediately jumps to the given marker.
-    - If the project is playing, playback will immediately be continued at the given marker.
-    
-The cool thing about this target compared to REAPER's built-in actions is that it allows to target arbitrarily many
-markers/regions (either by position or by ID) ... and that it supports visual feedback! If you assign this target to a
-button which has an LED, you will see which marker/region is currently playing just by looking at
-your controller.
+###### Track: Set stereo pan width
 
-Please note that this doesn't work when recording!
+Sets the track's width value (applicable if the track is in stereo pan mode).
 
-User interface elements specific to this target:
+###### Track: Set volume
 
-- **Marker/region:** 
-    - **Left dropdown:** This dropdown lets you choose if you want to refer to a marker/region by its 
-      user-assigned ID or by its position on the timeline.
-    - **Right dropdown:** This dropdown displays the markers or regions (depending on the *Regions* checkbox state).
-- **Now!:** This sets the target to the currently playing (or currently focused, if stopped) marker/region.
-- **Regions:** Switches between markers and regions.
-- **Set loop points:** For regions, this will additionally set the loop points to the region start and end position. 
-- **Set time selection:** For regions, this will additionally set the time selection to the region start and end
-  position. 
+Sets the track's volume.
 
-###### Seek target
-
-Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project ...
-with feedback that indicates the current position!
-
-- **Feedback:** Determines how frequently ReaLearn captures feedback and sends it to your feedback output.
-    - **Beat:** Every beat.
-    - **Fast:** As fast as possible, thereby giving the satisfying feeling of continuity. This obviously uses some more
-      resources. No idea how far you can go with that. Try yourself.
-- **Seek play:** Doesn't just change the edit cursor but also changes the play position when the project is currently
-  being played.
-- **Move view:** Also scrolls to the seeked position (even when not playing).
-
-The following options determine which time ranges will be taken into consideration as reference for seeking (control) 
-and feedback.
-
-1. **Time selection:** Can use the currently set time selection as reference.
-2. **Use loop points:** Can use the currently set loop points as reference.
-3. **Use regions:** Can use the current region as reference.
-4. **Use project:** Can use the complete project as reference, from start to end.
-
-If you tick multiple options, this is the order of fallbacks: If there's no time selection, the loop points will
-be used. If there are no loop points, the current region is used. And if there's no current region, the project
-will be used.
-
-###### Track show/hide target
+###### Track: Show/hide
 
 Shows the track if the incoming absolute control value is greater than 0%, otherwise hides it.
 
 - **Area:** Lets you decide if you want it to show/hide in the track control panel or the mixer.
 
-###### Track automation mode target
+###### Track: Solo/unsolo
 
-Sets the track to a specific automation mode if the incoming control value is greater than 0%, otherwise
-sets it back to REAPER's default track automation mode "Trim/Read".
+Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the
+track.
 
-- **Mode:** Here you can pick the desired automation mode.
+Provides the following additional settings:
 
-###### FX open target
+- **Behavior:** See the REAPER user guide for details.
+    - **Solo in place:** Soloes the track while respecting REAPER's routing. This is REAPER's default and since
+      ReaLearn v2.4.0 also ReaLearn's default.
+    - **Solo (ignore routing):** Soloes the track muting everything else, no matter the routing.
+    - **Use REAPER preference:** Follows whatever is set in the REAPER preferences.
 
-Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
+Learning this target by pressing the "Solo" button of the *master* track is currently not possible but
+of course you can just select it manually in the dropdown menu.
 
-- **Display:** Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating 
-  window.
-
-###### Navigate within FX chain target
+###### FX chain: Navigate within FXs
 
 Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
 To be used with endless rotary encoders or previous/next-style "Incremental buttons".
 
-- **Display:** Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating 
+- **Display:** Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating
   window.
+
+###### FX: Enable/disable
+
+Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise
+disables it.
+
+###### FX: Load snapshot
+
+Restores a certain state of a particular FX. Before using this target, you need to take a snapshot of the desired FX
+state using the *Take!* button. This snapshot will be saved as part of ReaLearn's state itself and as a direct
+consequence as a part of your project. This makes your project nicely self-contained. It's perfect for activating
+particular FX presets because it will always restore the desired state, even if the preset list has changed.
+
+This target supports feedback, but only if the snapshot is loaded via ReaLearn itself.
+
+Please note that some plug-ins have *very large* states. Therefore you should keep an eye on the snapshot size, which
+will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
+can quickly add up and make REAPER/ReaLearn slow!
+
+###### FX: Navigate within presets
+
+Steps through FX presets.
+
+This target is suited for use with knobs, encoders and incremental buttons (previous/next) because it allows
+you to step through the complete preset list. The minimum value always represents *No preset* whereas the
+maximum value always represents the last available preset.
+
+It's *not* suited for activating a particular preset (e.g. by setting *Target Min* and *Max* to the same value),
+because the preset list of an FX is usually not constant. As soon as you modify the preset list, this value will might
+suddenly point to a completely different preset. Even worse, the actual preset might have been deleted.
+
+If you want to activate a particular preset, please use the [FX: Load snapshot](#fx-load-snapshot) target
+instead.
+
+###### FX: Open/close
+
+Makes the FX instance visible if the incoming control value is greater than 0%, otherwise hides it.
+
+- **Display:** Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating
+  window.
+
+###### FX: Set parameter value
+
+Sets the value of a particular track FX parameter.
+
+- **Parameter:** The parameter to be controlled. The *ID* selector is not supported because FX parameters don't have
+  unique IDs. That's not an issue though because most FX plug-ins have a fixed set of parameters with stable positions.
+  That's why *By position* is the default selector.
+
+###### Send: Mute/unmute
+
+Mutes/unmutes the track send.
+
+###### Send: Set pan
+
+Sets the track send's pan value.
+  
+###### Send: Set volume
+
+Sets the track send's volume.
 
 ##### Category "Virtual"
 
@@ -1832,7 +1832,7 @@ The following elements are relevant for all kinds of sources, both in *control* 
   volume_ target, the volume will always stay within that dB range if controlled via this mapping.
   This wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself. This
   setting applies to targets which are controlled via absolute control values (= all targets with
-  the exception of the "Action target" if invocation type is _Relative_).
+  the exception of the [Project: Invoke REAPER action](#project-invoke-reaper-action) if invocation type is _Relative_).
 - **Feedback transformation (EEL):** This is like _Control transformation (EEL)_ (see further below) but used for
   translating a target value back to a source value for feedback purposes. It usually makes most
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
@@ -1957,23 +1957,21 @@ can be converted to relative values - rotary encoders and buttons. They don't af
   numbers) or _"divide"_ (negative numbers) value increments with a factor instead. Negative numbers are
   most useful for rotary encoders because they will essentially lower their sensitivity. Virtual targets
   are always discrete. Example:
-  - Let's assume you selected the discrete target _FX preset_, which is considered discrete because
-    an FX with for example 5 presets has 6 well-defined possible values (including the &lt;no
-    preset&gt; option), there's nothing inbetween. And let's also assume that you have a controller
-    like Midi Fighter Twister whose rotary encoders don't support built-in acceleration. Now you
-    slightly move an encoder clock-wise and your controller sends an increment +1. If the _Speed
-    Min_ slider was at 1 (default), this will just navigate to the next preset (+1). If the _Speed
-    Min_ slider was at 2, this will jump to the 2nd-next preset (+2). And so on.
-  - There are FX plug-ins out there which report their parameter as discrete with an insanely small
-    step size (e.g. some Native Instrument plug-ins). This kind of defeats the purpose of discrete
-    parameters and one can argue that those parameters should actually be continuous. In such a case,
-    moving your rotary encoder might need *a lot* of turning even if you set *Speed* to the apparent
-    maximum of 100! In this case you will be happy to know that the text field next to the slider allows
-    you to enter values higher than 100.
-  - You can set the "Speed" slider to a negative value, e.g. -2. This is the opposite. It means you
-    need to make your encoder send 2 increments in order to move to the next preset. Or -5: You need
-    to make your encoder send 5 increments to move to the next preset. This is like slowing down the
-    encoder movement.
+    - Let's assume you selected the discrete target [FX: Navigate within presets](#fx-navigate-within-presets), which is
+      considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the
+      &lt;no preset&gt; option), there's nothing inbetween. And let's also assume that you have a controller like Midi
+      Fighter Twister whose rotary encoders don't support built-in acceleration. Now you slightly move an encoder
+      clock-wise and your controller sends an increment +1. If the _Speed Min_ slider was at 1 (default), this will just
+      navigate to the next preset (+1). If the _Speed Min_ slider was at 2, this will jump to the 2nd-next preset (+2).
+      And so on.
+    - There are FX plug-ins out there which report their parameter as discrete with an insanely small step size (e.g.
+      some Native Instrument plug-ins). This kind of defeats the purpose of discrete parameters and one can argue that
+      those parameters should actually be continuous. In such a case, moving your rotary encoder might need *a lot* of
+      turning even if you set *Speed* to the apparent maximum of 100! In this case you will be happy to know that the
+      text field next to the slider allows you to enter values higher than 100.
+    - You can set the "Speed" slider to a negative value, e.g. -2. This is the opposite. It means you need to make your
+      encoder send 2 increments in order to move to the next preset. Or -5: You need to make your encoder send 5
+      increments to move to the next preset. This is like slowing down the encoder movement.
 - **Rotate:** If unchecked, the target value will not change anymore if there's an incoming
   decrement but the target already reached its minimum value. If checked, the target value will jump
   to its maximum value instead. It works analogously if there's an incoming increment and the target
