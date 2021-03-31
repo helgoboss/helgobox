@@ -327,17 +327,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ))
                         .unwrap();
                     // Important to send IO event first ...
-                    if compartment == MappingCompartment::MainMappings {
-                        // A device is only considered to be "in use" if there's at least one *main*
-                        // mapping. It doesn't depend on controller mappings.
-                        let event = self.feedback_output_usage_might_have_changed_event();
-                        debug!(
-                            self.logger,
-                            "IO event after update of all mappings. Feedback output used: {:?}",
-                            event.feedback_output_used
-                        );
-                        self.send_io_update(event).unwrap();
-                    }
+                    self.notify_feedback_dev_usage_might_have_changed(compartment);
                     // ... and then mapping update. Otherwise, if this is an upper-floor instance
                     // clearing all mappings, other instances won't see yet that they are actually
                     // allowed to take over sources! Which might delay the reactivation of
@@ -384,6 +374,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 ),
                             );
                         }
+                        // Important to send IO event first ...
+                        self.notify_feedback_dev_usage_might_have_changed(compartment);
                         self.handle_feedback_after_having_updated_particular_mappings(
                             compartment,
                             &unused_sources,
@@ -551,10 +543,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // all control elements and we don't want to leave traces.
                         self.clear_all_feedback_allowing_source_takeover();
                     };
-                    let event = IoUpdatedEvent {
-                        feedback_output_usage_might_have_changed: true,
-                        ..self.basic_io_changed_event()
-                    };
+                    let event = self.feedback_output_usage_might_have_changed_event();
                     self.send_io_update(event).unwrap();
                 }
                 StartLearnSource {
@@ -827,12 +816,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn feedback_output_usage_might_have_changed_event(&self) -> IoUpdatedEvent {
         IoUpdatedEvent {
-            /// TODO-medium This works but leads to quite many reactions. The best thing would be
-            ///  to always save the previous usage state and determine if there really was a
-            ///  difference. However, this could also be done in the backbone (when treating the
-            ///  hash maps).
             feedback_output_usage_might_have_changed: true,
             ..self.basic_io_changed_event()
+        }
+    }
+
+    fn notify_feedback_dev_usage_might_have_changed(&self, compartment: MappingCompartment) {
+        // A device is only considered to be "in use" if there's at least one
+        // *main* mapping. It doesn't depend on
+        // controller mappings.
+        if compartment == MappingCompartment::MainMappings {
+            let event = self.feedback_output_usage_might_have_changed_event();
+            debug!(
+                self.logger,
+                "IO event. Feedback output used: {:?}", event.feedback_output_used
+            );
+            self.send_io_update(event).unwrap();
         }
     }
 

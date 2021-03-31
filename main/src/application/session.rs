@@ -469,7 +469,7 @@ impl Session {
             s.borrow().invalidate_fx_indexes_of_mapping_targets();
         });
         // When FX focus changes, maybe trigger main preset change
-        let previous_fx: RefCell<Option<Fx>> = RefCell::new(None);
+        let previously_focused_fx: RefCell<Option<Fx>> = RefCell::new(None);
         when(
             Global::control_surface_rx()
                 // We need this event primarily to get informed of focus changes (because a
@@ -485,17 +485,23 @@ impl Session {
         .with(weak_session)
         .do_sync(move |s, _| {
             if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
-                let fx = Reaper::get().focused_fx();
-                let mut previously_focused_fx = previous_fx.borrow_mut();
+                let currently_focused_fx = if let Some(fx) = Reaper::get().focused_fx() {
+                    if fx.window_is_open() { Some(fx) } else { None }
+                } else {
+                    None
+                };
+                let mut previously_focused_fx = previously_focused_fx.borrow_mut();
                 // Don't do anything if focused FX not changed. We do this in order to not
                 // unnecessarily load presets. E.g. fx_focused() and fx_opened() are fired
                 // in sequence if it's both an "open" and a "change".
-                if *previously_focused_fx != fx {
-                    let fx_id = fx.as_ref().and_then(|f| FxId::from_fx(f).ok());
+                if *previously_focused_fx != currently_focused_fx {
+                    let fx_id = currently_focused_fx
+                        .as_ref()
+                        .and_then(|f| FxId::from_fx(f).ok());
                     s.borrow_mut()
                         .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
-                    *previously_focused_fx = fx;
                 }
+                *previously_focused_fx = currently_focused_fx;
             }
         });
     }
