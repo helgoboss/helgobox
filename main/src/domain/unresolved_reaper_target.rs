@@ -84,7 +84,7 @@ pub enum UnresolvedReaperTarget {
     Tempo,
     Playrate,
     AutomationModeOverride {
-        mode_override: GlobalAutomationModeOverride,
+        mode_override: Option<GlobalAutomationModeOverride>,
     },
     FxEnable {
         fx_descriptor: FxDescriptor,

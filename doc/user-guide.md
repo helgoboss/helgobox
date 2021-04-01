@@ -1491,8 +1491,8 @@ This will control whatever target has been last touched in REAPER. It's similar 
 Sets the global automation mode override to the desired value if the incoming control value is greater than 0%,
 otherwise removes the override.
 
-- **Behavior:** Lets you decide between bypassing all envelopes or overriding with a specific automation
-  mode.
+- **Behavior:** Lets you decide between not overriding anything, bypassing all envelopes or overriding with a specific
+  automation mode.
 - **Mode:** Here you can pick the desired automation mode if *Behavior* is *Override*.
 
 ###### Project: Invoke REAPER action

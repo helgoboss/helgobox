@@ -382,11 +382,15 @@ impl TargetModel {
                     .set(RealearnAutomationMode::from_reaper(*mode));
             }
             AutomationModeOverride { mode_override } => match mode_override {
-                GlobalAutomationModeOverride::Bypass => {
+                None => {
+                    self.automation_mode_override_type
+                        .set(AutomationModeOverrideType::None);
+                }
+                Some(GlobalAutomationModeOverride::Bypass) => {
                     self.automation_mode_override_type
                         .set(AutomationModeOverrideType::Bypass);
                 }
-                GlobalAutomationModeOverride::Mode(am) => {
+                Some(GlobalAutomationModeOverride::Mode(am)) => {
                     self.automation_mode_override_type
                         .set(AutomationModeOverrideType::Override);
                     self.track_automation_mode
@@ -709,13 +713,14 @@ impl TargetModel {
                     AutomationModeOverride => UnresolvedReaperTarget::AutomationModeOverride {
                         mode_override: match self.automation_mode_override_type.get() {
                             AutomationModeOverrideType::Bypass => {
-                                GlobalAutomationModeOverride::Bypass
+                                Some(GlobalAutomationModeOverride::Bypass)
                             }
                             AutomationModeOverrideType::Override => {
-                                GlobalAutomationModeOverride::Mode(
+                                Some(GlobalAutomationModeOverride::Mode(
                                     self.track_automation_mode.get().to_reaper(),
-                                )
+                                ))
                             }
+                            AutomationModeOverrideType::None => None,
                         },
                     },
                     FxEnable => UnresolvedReaperTarget::FxEnable {
@@ -2015,6 +2020,9 @@ impl RealearnAutomationMode {
 )]
 #[repr(usize)]
 pub enum AutomationModeOverrideType {
+    #[serde(rename = "none")]
+    #[display(fmt = "None")]
+    None,
     #[serde(rename = "bypass")]
     #[display(fmt = "Bypass all envelopes")]
     Bypass,

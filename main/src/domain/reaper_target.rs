@@ -124,7 +124,7 @@ pub enum ReaperTarget {
         project: Project,
     },
     AutomationModeOverride {
-        mode_override: GlobalAutomationModeOverride,
+        mode_override: Option<GlobalAutomationModeOverride>,
     },
     FxEnable {
         fx: Fx,
@@ -801,7 +801,7 @@ impl RealearnTarget for ReaperTarget {
                 if value.as_absolute()?.is_zero() {
                     Reaper::get().set_global_automation_override(None);
                 } else {
-                    Reaper::get().set_global_automation_override(Some(*mode_override));
+                    Reaper::get().set_global_automation_override(*mode_override);
                 }
             }
             FxEnable { fx } => {
@@ -1386,7 +1386,7 @@ impl ReaperTarget {
                 mode: e.new_value,
             },
             GlobalAutomationOverrideChanged(e) => AutomationModeOverride {
-                mode_override: e.new_value.unwrap_or(GlobalAutomationModeOverride::Bypass),
+                mode_override: e.new_value,
             },
             _ => return None,
         };
@@ -1521,9 +1521,7 @@ impl ReaperTarget {
             )
             .merge(csurf_rx.global_automation_override_changed().map(move |_| {
                 AutomationModeOverride {
-                    mode_override: Reaper::get()
-                        .global_automation_override()
-                        .unwrap_or(GlobalAutomationModeOverride::Bypass),
+                    mode_override: Reaper::get().global_automation_override(),
                 }
                 .into()
             }))
@@ -2685,15 +2683,10 @@ fn track_automation_mode_unit_value(
 }
 
 fn global_automation_mode_override_unit_value(
-    desired_mode_override: GlobalAutomationModeOverride,
+    desired_mode_override: Option<GlobalAutomationModeOverride>,
     actual_mode_override: Option<GlobalAutomationModeOverride>,
 ) -> UnitValue {
-    let is_on = if let Some(o) = actual_mode_override {
-        o == desired_mode_override
-    } else {
-        false
-    };
-    convert_bool_to_unit_value(is_on)
+    convert_bool_to_unit_value(actual_mode_override == desired_mode_override)
 }
 
 fn tempo_unit_value(tempo: Tempo) -> UnitValue {

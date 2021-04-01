@@ -2416,8 +2416,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t @ ReaperTargetType::TrackAutomationMode
                 | t @ ReaperTargetType::AutomationModeOverride => {
                     if t == ReaperTargetType::AutomationModeOverride
-                        && self.target.automation_mode_override_type.get()
-                            == AutomationModeOverrideType::Bypass
+                        && matches!(
+                            self.target.automation_mode_override_type.get(),
+                            AutomationModeOverrideType::Bypass,
+                            AutomationModeOverrideType::None
+                        )
                     {
                         None
                     } else {
