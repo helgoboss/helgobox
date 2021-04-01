@@ -811,12 +811,28 @@ impl ExpressionEvaluator {
     }
 
     pub fn evaluate(&self, params: &ParameterSlice) -> f64 {
-        self.evaluate_internal(params).unwrap_or_default()
+        self.evaluate_internal(params, |_| None).unwrap_or_default()
     }
 
-    fn evaluate_internal(&self, params: &ParameterSlice) -> Result<f64, fasteval::Error> {
+    pub fn evaluate_with_additional_vars(
+        &self,
+        params: &ParameterSlice,
+        additional_vars: impl Fn(&str) -> Option<f64>,
+    ) -> f64 {
+        self.evaluate_internal(params, additional_vars)
+            .unwrap_or_default()
+    }
+
+    fn evaluate_internal(
+        &self,
+        params: &ParameterSlice,
+        additional_vars: impl Fn(&str) -> Option<f64>,
+    ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
+            if let Some(value) = additional_vars(name) {
+                return Some(value);
+            }
             if !name.starts_with('p') {
                 return None;
             }
@@ -980,7 +996,13 @@ impl VirtualTrack {
         compartment: MappingCompartment,
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params);
-        let result = evaluator.evaluate(sliced_params);
+        let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| match name {
+            "this_track_index" => {
+                let index = context.context.track()?.index()?;
+                Some(index as f64)
+            }
+            _ => None,
+        });
         result.round().max(0.0) as u32
     }
 

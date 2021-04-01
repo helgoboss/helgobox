@@ -1393,7 +1393,9 @@ object selectors. We use the example of tracks but the same applies to all other
     - **Expression field:** When you choose this option, a text field will appear next to it. This lets you enter a
       mathematical expression whose result should be a *track index* (the first track in the project has index 0).
       You can access the values of ReaLearn's internal parameters by using the variables `p1` to `p100`. All of them
-      are normalized floating point values, that means they are decimal numbers between `0.0` and `1.0`. Please note
+      are normalized floating point values, that means they are decimal numbers between `0.0` and `1.0`. In dynamic
+      *track* selectors, there's also `this_track_index`, which resolves to the current zero-rooted index of the track
+      on which this ReaLearn instance is located. Please note
       that the expression language is *not EEL* - this is a notable difference to ReaLearn's control/feedback
       transformation and EEL activation condition text fields! The expression language used here just
       provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also
