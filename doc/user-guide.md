@@ -1977,6 +1977,12 @@ can be converted to relative values - rotary encoders and buttons. They don't af
     - You can set the "Speed" slider to a negative value, e.g. -2. This is the opposite. It means you need to make your
       encoder send 2 increments in order to move to the next preset. Or -5: You need to make your encoder send 5
       increments to move to the next preset. This is like slowing down the encoder movement.
+- **Encoder filter (dropdown)**: Allows you to react to clockwise or counter-clockwise encoder movements only, e.g. if
+  you want to invoke one action on clockwise movement and another one on counter-clockwise movement. Or if you want
+  to use different step sizes for different movements.
+    - **Increment & decrement:** ReaLearn will process both increments and decrements.
+    - **Increment only:** ReaLearn will ignore decrements.
+    - **Decrement only:** ReaLearn will ignore increments.
 - **Rotate:** If unchecked, the target value will not change anymore if there's an incoming
   decrement but the target already reached its minimum value. If checked, the target value will jump
   to its maximum value instead. It works analogously if there's an incoming increment and the target
@@ -1998,10 +2004,10 @@ The following UI elements make sense for button-like control elements only (keys
 ...), not for knobs or faders. Also, they only affect *control* direction. However of course, in an indirect way they
 affect *feedback* as well (because they might change some target values).
 
-- **Fire:** Normally, when a button gets pressed, it controls the target immediately. However, by using this dropdown
+- **Fire mode (left dropdown):** Normally, when a button gets pressed, it controls the target immediately. However, by using this dropdown
     and by changing the values below it, you can change this behavior. This dropdown provides different fire modes that 
     decide how exactly ReaLearn should cope with button presses. 
-    - **Normal (fire on release if Min/Max > 0 ms):** This mode is essential in order to be able to distinguish between
+    - **Fire on press (or release if > 0 ms):** This mode is essential in order to be able to distinguish between
       different press durations.
         - **Min** and **Max** decide how long a button needs to be pressed to have an effect.
         - By default, both min and max will be at 0 ms, which means that the duration doesn't matter and
@@ -2016,19 +2022,19 @@ affect *feedback* as well (because they might change some target values).
           depending on how long it has been pressed. For this, use settings like the following:
         - Short press: 0 ms - 250 ms
         - Long press: 250 ms - 5000 ms
-    - **After timeout:** This mode is more "satisfying" because it will let ReaLearn "fire" immediately once a certain
+    - **Fire after timeout:** This mode is more "satisfying" because it will let ReaLearn "fire" immediately once a certain
       time has passed since the press of the button. However, obviously it doesn't have the concept of a "Maximum"
       press duration, so it can't be used to execute different things depending on different press durations (or only as
       the last part in the press duration chain, so to say). 
         - **Timeout:** Sets the timeout in milliseconds. If this is zero, everything will behave as usual.
-    - **After timeout, keep firing (turbo):** Welcome to turbo mode. It will keep hitting your target (always with
+    - **Fire after timeout, keep firing (turbo):** Welcome to turbo mode. It will keep hitting your target (always with
       with the initial button press velocity) at a specific rate. Optionally with an initial delay. Epic!
         - **Timeout:** This is the initial delay before anything happens. Can be zero, then turbo stage is entered
           instantly on press.
         - **Rate:** This is how frequently the target will be hit once the timeout has passed. In practice it won't
           happen more frequently than about 30 ms (REAPER's main thread loop frequency).
-    - **Double press:** This reacts to double presses of a button (analog to double clicks with the mouse). 
-    - **Single press (if hold < Max ms):** If you want to do something in response to a double press, chances are that
+    - **Fire on double press:** This reacts to double presses of a button (analog to double clicks with the mouse). 
+    - **Fire after single press (if hold < Max ms):** If you want to do something in response to a double press, chances are that
       you want to do something *else* in response to just a single press. The *Normal* fire mode will fire no matter
       what! That's why there's an additional *Single press* mode that will not respond to double clicks. Needless to
       say, the response happens *slightly* delayed - because ReaLearn needs to wait a bit to see if it's going to be a 
@@ -2039,6 +2045,13 @@ affect *feedback* as well (because they might change some target values).
             - Mapping 1 "Single press" with Max = 499ms
             - Mapping 2 "Double press"
             - Mapping 3 "After timeout" with Timeout = 500ms
+- **Button filter (right dropdown)**: This allows you to easily ignore button presses or releases.
+    - **Press & release:** ReaLearn will process both button presses (control value = 0%) and button releases (control
+      value > 0%). This is the default.
+    - **Press only:** Makes ReaLearn ignore the release of the button. The same thing can be achieved by setting
+      *Source Min* to 1. However, doing so would also affect the feedback direction, which is often undesirable 
+      because it will mess with the button LED color or on/off state. 
+    - **Release only:** Makes ReaLearn ignore the press of the button (just processing its release). Rare, but possible.
       
 
 ### REAPER actions

@@ -3,8 +3,8 @@ use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
-    AbsoluteMode, FireMode, Interval, OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode,
-    UnitValue,
+    AbsoluteMode, ButtonUsage, EncoderUsage, FireMode, Interval, OutOfRangeBehavior,
+    SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 use serde::{Deserialize, Serialize};
 use slog::debug;
@@ -66,6 +66,10 @@ pub struct ModeModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     takeover_mode: TakeoverMode,
     #[serde(default, skip_serializing_if = "is_default")]
+    button_usage: ButtonUsage,
+    #[serde(default, skip_serializing_if = "is_default")]
+    encoder_usage: EncoderUsage,
+    #[serde(default, skip_serializing_if = "is_default")]
     rotate_is_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     make_absolute_enabled: bool,
@@ -113,6 +117,8 @@ impl ModeModelData {
             // Not used anymore since ReaLearn v2.8.0-pre3
             scale_mode_enabled: false,
             takeover_mode: model.takeover_mode.get(),
+            button_usage: model.button_usage.get(),
+            encoder_usage: model.encoder_usage.get(),
             rotate_is_enabled: model.rotate.get(),
             make_absolute_enabled: model.make_absolute.get(),
         }
@@ -215,6 +221,12 @@ impl ModeModelData {
         model
             .takeover_mode
             .set_with_optional_notification(takeover_mode, with_notification);
+        model
+            .button_usage
+            .set_with_optional_notification(self.button_usage, with_notification);
+        model
+            .encoder_usage
+            .set_with_optional_notification(self.encoder_usage, with_notification);
         model
             .rotate
             .set_with_optional_notification(self.rotate_is_enabled, with_notification);

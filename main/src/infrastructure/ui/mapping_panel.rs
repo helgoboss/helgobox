@@ -4,8 +4,9 @@ use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel, YamlEdi
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    AbsoluteMode, ControlValue, FireMode, MidiClockTransportMessage, OscTypeTag,
-    OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
+    AbsoluteMode, ButtonUsage, ControlValue, EncoderUsage, FireMode, MidiClockTransportMessage,
+    OscTypeTag, OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
+    UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use reaper_high::{
@@ -779,6 +780,26 @@ impl<'a> MutableMappingPanel<'a> {
             .try_into()
             .expect("invalid takeover mode");
         self.mapping.mode_model.takeover_mode.set(mode);
+    }
+
+    fn update_button_usage(&mut self) {
+        let mode = self
+            .view
+            .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid button usage");
+        self.mapping.mode_model.button_usage.set(mode);
+    }
+
+    fn update_encoder_usage(&mut self) {
+        let mode = self
+            .view
+            .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid encoder usage");
+        self.mapping.mode_model.encoder_usage.set(mode);
     }
 
     fn update_mode_reverse(&mut self) {
@@ -1618,6 +1639,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_mode_takeover_mode_combo_box();
+        self.fill_mode_button_usage_combo_box();
+        self.fill_mode_encoder_usage_combo_box();
         self.fill_mode_fire_mode_combo_box();
         self.fill_target_category_combo_box();
     }
@@ -3103,6 +3126,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_round_target_value_check_box();
         self.invalidate_mode_takeover_mode_combo_box();
+        self.invalidate_mode_button_usage_combo_box();
+        self.invalidate_mode_encoder_usage_combo_box();
         self.invalidate_mode_reverse_check_box();
         self.invalidate_mode_eel_control_transformation_edit_control();
         self.invalidate_mode_eel_feedback_transformation_edit_control();
@@ -3544,6 +3569,22 @@ impl<'a> ImmutableMappingPanel<'a> {
             .unwrap();
     }
 
+    fn invalidate_mode_button_usage_combo_box(&self) {
+        let usage = self.mode.button_usage.get();
+        self.view
+            .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
+            .select_combo_box_item_by_index(usage.into())
+            .unwrap();
+    }
+
+    fn invalidate_mode_encoder_usage_combo_box(&self) {
+        let usage = self.mode.encoder_usage.get();
+        self.view
+            .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
+            .select_combo_box_item_by_index(usage.into())
+            .unwrap();
+    }
+
     fn invalidate_mode_reverse_check_box(&self) {
         self.view
             .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
@@ -3762,6 +3803,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when_do_sync(mode.takeover_mode.changed(), |view| {
                 view.invalidate_mode_takeover_mode_combo_box();
             });
+        self.panel
+            .when_do_sync(mode.button_usage.changed(), |view| {
+                view.invalidate_mode_button_usage_combo_box();
+            });
+        self.panel
+            .when_do_sync(mode.encoder_usage.changed(), |view| {
+                view.invalidate_mode_encoder_usage_combo_box();
+            });
         self.panel.when_do_sync(mode.rotate.changed(), |view| {
             view.invalidate_mode_rotate_check_box();
         });
@@ -3892,6 +3941,18 @@ impl<'a> ImmutableMappingPanel<'a> {
             .fill_combo_box_indexed(TakeoverMode::into_enum_iter());
     }
 
+    fn fill_mode_button_usage_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
+            .fill_combo_box_indexed(ButtonUsage::into_enum_iter());
+    }
+
+    fn fill_mode_encoder_usage_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
+            .fill_combo_box_indexed(EncoderUsage::into_enum_iter());
+    }
+
     fn fill_target_type_combo_box(&self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
@@ -4007,6 +4068,8 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_out_of_range_behavior())
             }
             root::ID_MODE_TAKEOVER_MODE => self.write(|p| p.update_takeover_mode()),
+            root::ID_MODE_BUTTON_FILTER_COMBO_BOX => self.write(|p| p.update_button_usage()),
+            root::ID_MODE_RELATIVE_FILTER_COMBO_BOX => self.write(|p| p.update_encoder_usage()),
             root::ID_MODE_FIRE_COMBO_BOX => self.write(|p| p.update_mode_fire_mode()),
             // Target
             root::ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),

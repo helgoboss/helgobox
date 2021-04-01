@@ -185,3 +185,5 @@
 #define ID_TARGET_CHECK_BOX_6                   40107
 #define ID_MODE_TAKEOVER_MODE                   40108
 #define ID_TARGET_HINT                          40109
+#define ID_MODE_RELATIVE_FILTER_COMBO_BOX       40110
+#define ID_MODE_BUTTON_FILTER_COMBO_BOX         40111

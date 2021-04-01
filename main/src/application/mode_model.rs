@@ -2,8 +2,9 @@ use crate::core::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, DiscreteIncrement, FireMode, Interval, OutOfRangeBehavior,
-    PressDurationProcessor, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
+    full_unit_interval, AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FireMode,
+    Interval, OutOfRangeBehavior, PressDurationProcessor, SoftSymmetricUnitValue, TakeoverMode,
+    UnitValue,
 };
 
 use rx_util::UnitEvent;
@@ -24,6 +25,8 @@ pub struct ModeModel {
     pub fire_mode: Prop<FireMode>,
     pub round_target_value: Prop<bool>,
     pub takeover_mode: Prop<TakeoverMode>,
+    pub button_usage: Prop<ButtonUsage>,
+    pub encoder_usage: Prop<EncoderUsage>,
     pub eel_control_transformation: Prop<String>,
     pub eel_feedback_transformation: Prop<String>,
     // For relative control values.
@@ -65,6 +68,8 @@ impl Default for ModeModel {
             fire_mode: prop(Default::default()),
             round_target_value: prop(false),
             takeover_mode: prop(Default::default()),
+            button_usage: prop(Default::default()),
+            encoder_usage: prop(Default::default()),
             eel_control_transformation: prop(String::new()),
             eel_feedback_transformation: prop(String::new()),
             step_interval: prop(Self::default_step_size_interval()),
@@ -99,6 +104,8 @@ impl ModeModel {
         self.fire_mode.set(def.fire_mode.get());
         self.round_target_value.set(def.round_target_value.get());
         self.takeover_mode.set(def.takeover_mode.get());
+        self.button_usage.set(def.button_usage.get());
+        self.encoder_usage.set(def.encoder_usage.get());
         self.rotate.set(def.rotate.get());
         self.make_absolute.set(def.make_absolute.get());
         self.reverse.set(def.reverse.get());
@@ -120,6 +127,8 @@ impl ModeModel {
             .merge(self.fire_mode.changed())
             .merge(self.round_target_value.changed())
             .merge(self.takeover_mode.changed())
+            .merge(self.button_usage.changed())
+            .merge(self.encoder_usage.changed())
             .merge(self.eel_control_transformation.changed())
             .merge(self.eel_feedback_transformation.changed())
             .merge(self.step_interval.changed())
@@ -147,6 +156,8 @@ impl ModeModel {
                 self.turbo_rate.get(),
             ),
             takeover_mode: self.takeover_mode.get(),
+            encoder_usage: self.encoder_usage.get(),
+            button_usage: self.button_usage.get(),
             reverse: self.reverse.get(),
             rotate: self.rotate.get(),
             increment_counter: 0,
