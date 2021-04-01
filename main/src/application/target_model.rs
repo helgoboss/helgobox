@@ -797,18 +797,25 @@ impl TargetModel {
         }
     }
 
-    pub fn supports_track(&self) -> bool {
-        if !self.is_reaper() {
-            return false;
-        }
-        self.r#type.get().supports_track()
-    }
-
     pub fn supports_fx(&self) -> bool {
         if !self.is_reaper() {
             return false;
         }
         self.r#type.get().supports_fx()
+    }
+
+    pub fn supports_automation_mode(&self) -> bool {
+        if !self.is_reaper() {
+            return false;
+        }
+        use ReaperTargetType::*;
+        match self.r#type.get() {
+            TrackAutomationMode => true,
+            AutomationModeOverride => {
+                self.automation_mode_override_type.get() == AutomationModeOverrideType::Override
+            }
+            _ => false,
+        }
     }
 
     pub fn create_control_element(&self) -> VirtualControlElement {

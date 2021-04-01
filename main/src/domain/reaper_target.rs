@@ -36,6 +36,8 @@ use std::convert::TryInto;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 
+/// This target character is just used for auto-correct settings! It doesn't have influence
+/// on control/feedback.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
     Trigger,
@@ -1215,18 +1217,40 @@ impl ReaperTarget {
                 },
                 Discrete,
             ),
-            TrackRouteMute { .. } | FxEnable { .. } | Transport { .. }
-            | AutomationModeOverride { .. }
+            TrackRouteMute { .. } | FxEnable { .. }
             | FxOpen { .. } => {
                 (ControlType::AbsoluteContinuous, Switch)
             }
-            TrackSolo { exclusivity, .. }
+            // Retriggerable because of #277
+            AutomationModeOverride { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+            // Retriggerable because of #277
+            TrackAutomationMode { exclusivity, ..} => {
+                if *exclusivity == TrackExclusivity::NonExclusive {
+                    (ControlType::AbsoluteContinuousRetriggerable, Switch)
+                } else {
+                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+                }
+            }
+            Transport { action, .. } => {
+                use TransportAction::*;
+                match action {
+                    // Retriggerable because we want to be able to retrigger play!
+                    PlayStop|
+                    PlayPause => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+                    Stop |
+                    Pause |
+                    Record |
+                    Repeat => {
+                        (ControlType::AbsoluteContinuous, Switch)
+                    }
+                }
+            }
+                TrackSolo { exclusivity, .. }
             | AllTrackFxEnable { exclusivity, .. }
             | AutomationTouchState { exclusivity, .. }
             | TrackArm { exclusivity, .. }
             | TrackSelection { exclusivity, .. }
             | TrackShow { exclusivity, .. }
-            | TrackAutomationMode { exclusivity, ..}
             | TrackMute { exclusivity, .. } => {
                 if *exclusivity == TrackExclusivity::NonExclusive {
                     (ControlType::AbsoluteContinuous, Switch)

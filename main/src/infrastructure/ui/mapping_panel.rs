@@ -2413,20 +2413,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Invoke"),
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::TrackShow => Some("Area"),
-                t @ ReaperTargetType::TrackAutomationMode
-                | t @ ReaperTargetType::AutomationModeOverride => {
-                    if t == ReaperTargetType::AutomationModeOverride
-                        && matches!(
-                            self.target.automation_mode_override_type.get(),
-                            AutomationModeOverrideType::Bypass,
-                            AutomationModeOverrideType::None
-                        )
-                    {
-                        None
-                    } else {
-                        Some("Mode")
-                    }
-                }
+                _ if self.target.supports_automation_mode() => Some("Mode"),
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
@@ -2617,22 +2604,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.track_area.get().into())
                         .unwrap();
                 }
-                t @ ReaperTargetType::TrackAutomationMode
-                | t @ ReaperTargetType::AutomationModeOverride => {
-                    if t == ReaperTargetType::AutomationModeOverride
-                        && self.target.automation_mode_override_type.get()
-                            == AutomationModeOverrideType::Bypass
-                    {
-                        combo.hide();
-                    } else {
-                        combo.show();
-                        combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
-                        combo
-                            .select_combo_box_item_by_index(
-                                self.target.track_automation_mode.get().into(),
-                            )
-                            .unwrap();
-                    }
+                _ if self.target.supports_automation_mode() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.target.track_automation_mode.get().into(),
+                        )
+                        .unwrap();
                 }
                 ReaperTargetType::AutomationTouchState => {
                     combo.show();

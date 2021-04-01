@@ -53,7 +53,7 @@ fn mapping_has_project_references(mapping: &MappingModel) -> bool {
     let target = &mapping.target_model;
     match target.category.get() {
         TargetCategory::Reaper => {
-            if target.supports_track() && target.track_type.get().refers_to_project() {
+            if target.r#type.get().supports_track() && target.track_type.get().refers_to_project() {
                 return true;
             }
             target.supports_fx() && target.fx_type.get().refers_to_project()
@@ -87,7 +87,7 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
             } else {
                 false
             };
-            if target.supports_track() && target.track_type.get().refers_to_project() {
+            if target.r#type.get().supports_track() && target.track_type.get().refers_to_project() {
                 let new_virtual_track = if changed_to_track_ignore_fx {
                     // Track doesn't matter at all. We change it to <This>. Looks nice.
                     Some(VirtualTrack::This)
