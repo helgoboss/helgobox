@@ -198,6 +198,21 @@ cargo build --features generate
 cargo fmt
 ```
 
+### GUI
+
+The basic GUI skeleton is based on a Windows dialog resource file. I use [ResEdit](http://www.resedit.net/) to edit this
+file with the following preferences:
+
+- [x] Unicode support for generated C code
+- [x] Generate LANGUAGE statements
+    - Language: `Neutral`
+- [ ] Generate IDs for new controls
+- [x] Force CONTROL Statements
+- Block style: `Pascal : BEGIN...END`
+- Defines style: `#define IDC_CONTROL 1000`
+- Default dialog style: `DIALOG`
+- Default menu style: `MENU`
+
 ### Test
 
 Yes, there are test but there should be more. While ReaLearn's basic building blocks
