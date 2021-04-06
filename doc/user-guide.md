@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-04-01 (v2.8.0-pre9)</code></td>
+  <td><code>2021-04-06 (v2.8.0-rc.1)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -42,9 +42,9 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 1. Select your controller's MIDI device as *Control input* and *Feedback output* (if you have a controller
    that supports MIDI feedback).
 1. If you have downloaded a controller preset:
-    - Change the *Compartment* dropdown menu to "Controller mappings" and select the desired preset right next to it.
+    - Switch to "Controller compartment" and select the desired preset right next to it.
     - This should fill the list below with so-called *controller mappings*.
-    - When you are done, switch back to the "Main mappings" compartment.
+    - When you are done, switch back to the "Main compartment".
 1. Add a first mapping by pressing the *Add one* button.
     - A mapping appears that's still inactive (indicated by the grey text color).
 1. Press *Learn source* and move a control element on your MIDI controller.
@@ -400,8 +400,8 @@ So far we've covered the basics. Now let's look into everything in detail.
 
 #### Header panel
 
-The header panel provides the following user interface elements, no matter if the *main mappings* or
-*controller mappings* compartment is shown:
+The header panel provides the following user interface elements, no matter if the *main* or
+*controller* compartment is shown:
 
 - **Control input:** By default, ReaLearn captures MIDI events from _&lt;FX input&gt;_, which
   consists of all MIDI messages that flow into this ReaLearn VSTi FX instance (= track MIDI path).
@@ -440,20 +440,22 @@ The header panel provides the following user interface elements, no matter if th
   element is mapped to which target parameter. If you want to use this feature, just click this button
   and you will see detailed instructions on how to set this up. In order to use this feature, you need the
   *ReaLearn Companion* app, which has a [dedicated section](#companion-app) in this user guide.
-- **Let through:** By default, ReaLearn "eats" *FX input* MIDI events for which there's at least one enabled mapping
-  source. In other words, it doesn't forward MIDI events which are used to control a target parameter. Unmatched MIDI
-  events, however, are forwarded to ReaLearn's FX output. This default setting usually makes much sense if you put the
-  ReaLearn FX in front of another instrument FX. Use these checkboxes to change that behavior. Please note that this
-  refers to MIDI events coming from *FX input* only. MIDI events captured from a MIDI hardware input are never forwarded
+- **Let through:** If *Control input* is set to `<FX input>`, ReaLearn by default "eats" incoming MIDI events for
+  which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events which are used to
+  control a target parameter. Unmatched MIDI events, however, are forwarded to ReaLearn's FX output. This default
+  setting usually makes much sense if you put the ReaLearn FX in front of another instrument FX. Use these checkboxes
+  to change that behavior. If *Control input* is set to something other than `<FX input>`, MIDI events coming from
+  *FX input* are *always* forwarded. MIDI events captured from a MIDI or OSC device input are never forwarded
   to ReaLearn's FX output.
-- **Compartment:** This lets you choose which mapping compartment is displayed. A compartment is a list of mappings
-  that can be saved as independent preset. Initially, it shows the list of so-called "Main mappings", which are the
-  bread and butter of ReaLearn. However, there's another interesting compartment: "Controller mappings". In a nutshell,
-  this compartment lets you define which hardware controllers you have at your disposal and which control elements they
-  have. Learn more about that feature in section [Controller mappings](#controller-mappings).
+- **Show:** This lets you choose which mapping compartment is displayed. A compartment is basically a list of mappings
+  that can be saved as independent preset. Initially, ReaLearn shows the so-called "Main compartment" which contains
+  the so-called "Main mappings" - the bread and butter of ReaLearn. However, there's another interesting compartment,
+  the "Controller compartment". In a nutshell, this compartment lets you define which hardware controllers you have at
+  your disposal and which control elements they have. Learn more about that feature in section 
+  [Controller compartment](#controller-compartment).
 - **Preset:** This is the list of available presets for that compartment. By default, it's set to
   "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
-  corresponding mappings will be loaded and immediately get active. In the *controller mappings* compartment, this list
+  corresponding mappings will be loaded and immediately get active. In the *controller* compartment, this list
   will essentially represent the list of available hardware controller presets. A few are shipped with ReaLearn itself
   (separately downloadable via ReaPack) but you can also define your own ones and add them to this list!
 - **Save:** If you made changes to a preset, you can save them by pressing this button. This works for built-in presets
@@ -478,8 +480,6 @@ The header panel provides the following user interface elements, no matter if th
           **&lt;This&gt;** because it doesn't matter anyway.
         - Track targets are changed to refer to a track via its position instead of its ID.
     - If this is not what you want, you can choose to say no and make modifications yourself.
-- **Reload all:** If you made direct changes to preset files or have downloaded presets via ReaPack, you should press
-  this button to reflect these changes in ReaLearn (reloads all preset files).
 - **Delete:** This permanently deletes the currently chosen preset. You can also delete built-in presets.
   However, if you use ReaPack for installation, it should restore them on next sync.
 - **Add one:** Adds a new mapping at the end of the current mapping list.
@@ -568,6 +568,8 @@ on macOS) with the following entries:
           a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change in
           future in favor of a more nuanced approach!
 - **Help:** As the name says.
+- **Reload all presets from disk:** If you made direct changes to preset files or have downloaded presets via ReaPack,
+  you should press this to reflect these changes in all open ReaLearn instanes (reloads all preset files).
 - **OSC devices:** Allows one to display and modify the list of (globally) configured OSC devices.
     - **&lt;New&gt;:** Opens a window for adding a new OSC devices.
         - **Name:** A descriptive name of the device, e.g. "TouchOSC on my Android phone".
@@ -634,10 +636,10 @@ compartment:
 
 ![Group panel](images/screenshot-group-panel.png)
 
-#### Controller mappings
+#### Controller compartment
 
-By default, ReaLearn shows the list of main mappings. If you select *Controller mappings* in the *Compartment*
-dropdown, you will see the list of controller mappings instead. Each controller mapping represents a control
+By default, ReaLearn shows the list of main mappings. If you switch to the *controller* compartment, you will see the
+list of controller mappings instead. Each controller mapping represents a control
 element on your hardware controller, e.g. a button or fader. This view lets you describe your controller by - well -
 by adding mappings. Almost everything in ReaLearn is a mapping :)
 
@@ -681,7 +683,7 @@ Let's first look at the "slow" way to do this - adding and editing each controll
       "Incremental buttons" mode.
       
 Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate
-back to the "main mappings" compartment, learn the source of some main mapping and touch the control element that you
+back to the *main* compartment, learn the source of some main mapping and touch the control element that you
 have just mapped: Take note how ReaLearn will assign a *virtual* source this time, not a MIDI source! It will also
 display the name of the control element as source label. Now, let's say at some point you swap your controller device
 with another one that has a similar layout, all you need to do is switch the controller preset and you are golden! You
@@ -704,7 +706,7 @@ using *batch learning*:
 You can share your preset with other users by sending them to info@helgoboss.org. I will add it to [this
 list](https://github.com/helgoboss/realearn/tree/master/resources/controllers).
 
-#### Main mappings
+#### Main compartment
 
 The header panel for main mappings consists of a few more user interface elements:
 
@@ -714,7 +716,7 @@ The header panel for main mappings consists of a few more user interface element
   list is cleared so that no mapping is active anymore. Of course this makes sense only if you actually have linked some
   presets. Read on!
 
-The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main mapping
+The header context menu (accessible via right-click on Windows and Linux, control-click on macOS) for the main
 compartment contains the missing piece of the puzzle:
 
 - **FX-to-preset links**
@@ -1006,7 +1008,7 @@ Sources share the following common settings and functions:
 - **Category:** Lets you choose the source category.
     - **MIDI:** Incoming MIDI events.
     - **OSC:** Incoming OSC events.
-    - **Virtual:** Invocations of virtual control elements (coming from controller mappings). This source
+    - **Virtual:** Invocations of virtual control elements (coming from virtual controller mappings). This source
       category is available for main mappings only. 
 - **Type:** Let's you choose the source type. Available types depend on the selected category.
   
@@ -1027,7 +1029,7 @@ This source reacts to incoming MIDI control-change messages.
 
 - **CC:** Optionally restricts this source to messages with a certain MIDI control-change controller
   number.
-- **Character:** MIDI control-change messages (7-bit ones) serve a very wide spectrum of MIDI
+- **Character:** MIDI control-change messages serve a very wide spectrum of MIDI
   control use cases. Even though some control-change controller numbers have a special purpose
   according to the MIDI specification (e.g. CC 7 = channel volume), nothing prevents one from using
   them for totally different purposes. In practice that happens quite often, especially when using
@@ -1118,7 +1120,7 @@ resolution.
   checked, it reacts to registered ones (RPN).
 - **14-bit values:** If unchecked, this source reacts to (N)RPN messages with 7-bit resolution. If
   checked, it reacts to those with 14-bit resolution. In practice, this if often checked.
-- **Character:** See [CC value source](#cc-value-source). Only available for 7-bit resolution.
+- **Character:** See [CC value source](#cc-value-source).
 
 ###### Polyphonic after touch source
 
@@ -1607,6 +1609,8 @@ will be used.
 
 Sets REAPER's master playrate.
 
+**Attention:** This target doesn't currently work if the project containing ReaLearn is not the active project tab.
+
 ###### Project: Set tempo
 
 Sets REAPER's master tempo.
@@ -1622,6 +1626,7 @@ Navigates to a specific marker or region. Here's the behavior in detail:
     - If the project is stopped, the editor cursor immediately jumps to the start position of the given region.
     - If the project is playing, playback will continue with the given region as soon as the currently playing region
       (or measure if not within a region) has finished playing. This is called "smooth seek".
+    - **Attention:** This currently doesn't work if the project containing ReaLearn is not the active project tab.
 - Markers
     - If the project is stopped, the editor cursor immediately jumps to the given marker.
     - If the project is playing, playback will immediately be continued at the given marker.
@@ -1880,14 +1885,14 @@ They don't apply to rotary encoders for example. They don't affect *feedback*.
     Then it works like this: Each time you press the key, the target value will increase, according to the mode's
     settings. You can even make the amount of change velocity-sensitive! If you want the target value to decrease,
     just check the _Reverse_ checkbox. 
-  - **Toggle:** Toggle mode is a very simple mode that takes and optionally transforms absolute source control
-    values. It's used to toggle a target between _on_ and _off_ states. Only makes sense for button-like
-    control elements.
+  - **Toggle buttons:** Toggle buttons mode is used to toggle a target between on and off states. It only makes sense
+    for momentary buttons (which fire a value > 0 on each press).
     - **Important:** Sometimes the controller itself provides a toggle mode for buttons. Don't use this!
     Always set up your controller buttons to work in momentary mode! It's impossible for the controller
     to know which state (on/off) a target currently has. Therefore, if you use the controller's built-in
     toggle function, it's quite likely that it gets out of sync with the actual target state at some point.
-    ReaLearn's own toggle mode has a clear advantage here.  
+    ReaLearn's own toggle mode has a clear advantage here.
+    - This mode is not supported for controller mappings that have a virtual target. 
 - **Jump Min/Max:** If you are not using motorized faders, absolute mode is inherently prone to
   parameter jumps. A parameter jump occurs if you touch a control element (e.g. fader) whose
   position in no way reflects the current target value. This can result in audible jumps because the
@@ -1987,6 +1992,8 @@ can be converted to relative values - rotary encoders and buttons. They don't af
   decrement but the target already reached its minimum value. If checked, the target value will jump
   to its maximum value instead. It works analogously if there's an incoming increment and the target
   already reached its maximum value.
+    - If this flag is enabled for controller mappings which have a virtual target, every main mapping controlled by
+      that virtual control element will *rotate* - even if the main mapping itself doesn't have *rotate* enabled.
 - **Make absolute:** Check this box if you want to emulate an absolute control element with a relative encoder.
   This is useful if you have configured your controller to be relative all the way (which is good!) but you want
   to use a control transformation EEL formula - which is not possible if you change the target with relative
@@ -2459,12 +2466,12 @@ To have a nice example, let's assume you want to build a first set of mappings f
 #### Step 1: Activate the correct controller preset 
 
 Before you start, I strongly recommend to download a ReaLearn controller preset for your specific controller from
-ReaPack and activate it in the *Controller mappings* compartment. You will need to press *Reload all* to make a
-a newly downloaded controller preset appear in the preset list. If there's no suitable preset for your controller
-available on ReaPack, build your own.
+ReaPack and activate it in the *controller compartment*. You will need to right-click the header panel and choose
+*Reload all presets from disk* to make a a newly downloaded controller preset appear in the preset list. If there's no
+suitable preset for your controller available on ReaPack, build your own.
 
 This step is completely optional but it gives you many advantages, both in the short and long run. Please see
-section [Controller mappings](#controller-mappings) for details.
+section [Controller compartment](#controller-compartment) for details.
 
 #### Step 2: Create mappings for your FX plug-in
 
@@ -2482,7 +2489,7 @@ plug-in:
 
 Now let's save your newly created set of mappings as preset and link the preset to the Vital VSTi plug-in:
 
-1. Make sure the *Main mappings* compartment is shown.
+1. Make sure the *main* compartment is shown.
 2. Press *Save as...* (next to *Preset*).
     - ReaLearn will ask you if it should make your mappings project-independent. Answer with *Yes* (important).
 3. Enter a descriptive preset name, e.g. "Vital".
@@ -2702,8 +2709,8 @@ ReaLearn can use this device in two modes, each of which has different (dis)adva
 
 - *Standard mode*
     - All controls work, including feedback.
-    - Button LED feedback looks a bit confusing in toggle mode (but works correctly, thanks to the "Send feedback after
-      control" workaround).
+    - Button LED feedback looks a bit confusing in toggle mode (but works correctly if you switch on 
+      "Send feedback after control" in the mappings).
     - Needs some preparation via X-TOUCH Editor.
 - *MC mode:*
     - No preparation necessary.
@@ -2753,6 +2760,10 @@ Works out of the box with above mentioned restrictions.
 
 - **Mackie Control**: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
   X-Touch's extra buttons. However, nothing prevents you from mapping those directly.
+
+### Behringer X-Touch Mini
+
+From what I've heard, configuration is similar to the X-Touch Compact.
 
 ### PreSonus FaderPort Classic
 
