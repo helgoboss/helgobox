@@ -1864,7 +1864,7 @@ impl ReaperTarget {
                 index,
                 ..
             } => match evt {
-                PlayPositionChanged(e) => {
+                PlayPositionChanged(e) if e.project == *project => {
                     let v =
                         current_value_of_bookmark(*project, *bookmark_type, *index, e.new_value);
                     (true, Some(v))
@@ -1872,9 +1872,19 @@ impl ReaperTarget {
                 _ => (false, None),
             },
             Seek { project, options } => match evt {
-                PlayPositionChanged(e) => {
+                PlayPositionChanged(e) if e.project == *project => {
                     let v = current_value_of_seek(*project, *options, e.new_value);
                     (true, Some(v))
+                }
+                _ => (false, None),
+            },
+            // This is necessary at the moment because control surface SetPlayState callback works
+            // for currently active project tab already.
+            Transport { project, action } if *action != TransportAction::Repeat => match evt {
+                PlayPositionChanged(e)
+                    if e.project == *project && e.project != Reaper::get().current_project() =>
+                {
+                    (true, None)
                 }
                 _ => (false, None),
             },
@@ -1999,15 +2009,15 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            Tempo { .. } => match evt {
-                MasterTempoChanged(e) => (
+            Tempo { project } => match evt {
+                MasterTempoChanged(e) if e.project == *project => (
                     true,
                     Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value)))
                 ),
                 _ => (false, None)
             },
-            Playrate { .. } => match evt {
-                MasterPlayrateChanged(e) => (
+            Playrate { project } => match evt {
+                MasterPlayrateChanged(e) if e.project == *project => (
                     true,
                     Some(playrate_unit_value(PlayRate::from_playback_speed_factor(e.new_value)))
                 ),
@@ -2063,38 +2073,38 @@ impl ReaperTarget {
                     _ => (false, None)
                 }
             }
-            Transport { action, .. } => {
+            Transport { project, action, .. } => {
                 match *action {
                     TransportAction::PlayStop | TransportAction::PlayPause => match evt {
-                        PlayStateChanged(e) => (
+                        PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value.is_playing))
                         ),
                         _ => (false, None)
                     }
                     TransportAction::Stop => match evt {
-                        PlayStateChanged(e) => (
+                        PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(!e.new_value.is_playing && !e.new_value.is_paused))
                         ),
                         _ => (false, None)
                     }
                     TransportAction::Pause => match evt {
-                        PlayStateChanged(e) => (
+                        PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value.is_paused))
                         ),
                         _ => (false, None)
                     }
                     TransportAction::Record => match evt {
-                        PlayStateChanged(e) => (
+                        PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value.is_recording))
                         ),
                         _ => (false, None)
                     }
                     TransportAction::Repeat => match evt {
-                        RepeatStateChanged(e) => (
+                        RepeatStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value))
                         ),
@@ -2103,9 +2113,9 @@ impl ReaperTarget {
                 }
             }
             // Handled both from control-surface and non-control-surface callbacks.
-            GoToBookmark { .. } => {
+            GoToBookmark { project, .. } => {
                 match evt {
-                    BookmarksChanged(_) => (
+                    BookmarksChanged(e) if e.project == *project => (
                         true,
                         None
                     ),

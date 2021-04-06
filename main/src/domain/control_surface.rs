@@ -15,7 +15,7 @@ use rosc::{OscMessage, OscPacket};
 
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, PositionInSeconds,
-    ReaperNormalizedFxParamValue,
+    ReaProject, ReaperNormalizedFxParamValue,
 };
 use rxrust::prelude::*;
 use slog::debug;
@@ -44,7 +44,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
-    full_beats: u32,
+    full_beats: HashMap<ReaProject, u32>,
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
@@ -115,6 +115,7 @@ pub struct SourceReleasedEvent {
 
 #[derive(Debug)]
 pub struct PlayPositionChangedEvent {
+    pub project: Project,
     pub new_value: PositionInSeconds,
 }
 
@@ -176,7 +177,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 Global::get().local_executor(),
             ),
             counter: 0,
-            full_beats: 0,
+            full_beats: Default::default(),
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
@@ -357,19 +358,21 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
         }
         // Emit beats as feedback events
-        // TODO-medium Make multi-project compatible.
-        let project = Reaper::get().current_project();
-        let reference_pos = if project.is_playing() {
-            project.play_position_latency_compensated()
-        } else {
-            project.edit_cursor_position()
-        };
-        if self.beat_has_changed(project, reference_pos) {
-            let event = AdditionalFeedbackEvent::PlayPositionChanged(PlayPositionChangedEvent {
-                new_value: reference_pos,
-            });
-            for p in &mut self.main_processors {
-                p.process_additional_feedback_event(&event);
+        for project in Reaper::get().projects() {
+            let reference_pos = if project.is_playing() {
+                project.play_position_latency_compensated()
+            } else {
+                project.edit_cursor_position()
+            };
+            if self.record_possible_beat_change(project, reference_pos) {
+                let event =
+                    AdditionalFeedbackEvent::PlayPositionChanged(PlayPositionChangedEvent {
+                        project,
+                        new_value: reference_pos,
+                    });
+                for p in &mut self.main_processors {
+                    p.process_additional_feedback_event(&event);
+                }
             }
         }
         // OSC
@@ -467,11 +470,16 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         })
     }
 
-    fn beat_has_changed(&mut self, project: Project, reference_pos: PositionInSeconds) -> bool {
+    fn record_possible_beat_change(
+        &mut self,
+        project: Project,
+        reference_pos: PositionInSeconds,
+    ) -> bool {
         let beat_info = project.beat_info_at(reference_pos);
         let new_full_beats = beat_info.full_beats.get() as _;
-        let beat_changed = new_full_beats != self.full_beats;
-        self.full_beats = new_full_beats;
+        let full_beats = self.full_beats.entry(project.raw()).or_default();
+        let beat_changed = new_full_beats != *full_beats;
+        *full_beats = new_full_beats;
         beat_changed
     }
 }

@@ -459,11 +459,10 @@ impl UnresolvedReaperTarget {
             | FxPreset { .. }
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
-            | Transport { .. }
             | LoadFxPreset { .. }
             | LastTouched
             | AutomationTouchState { .. } => return None,
-            GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
+            Transport { .. } | GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
             Seek { options, .. } => options.feedback_resolution,
         };
         Some(res)
