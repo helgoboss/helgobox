@@ -1,0 +1,930 @@
+{
+  "version": "2.8.0-rc.1",
+  "name": "padKONTROL",
+  "defaultGroup": {},
+  "mappings": [
+    {
+      "id": "5455b850-6961-4d21-8779-a628fe774bd7",
+      "name": "Pad1",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 49,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "ce9b082a-9f43-4568-bda9-9fda78327e2b",
+      "name": "Pad2",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 57,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "15256a98-d125-42a5-be89-cd692f5cadbf",
+      "name": "Pad3",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 53,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 2,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "c41d28bb-3f56-4c65-b1f4-dfbd300e3b55",
+      "name": "Pad4",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 51,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 3,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "39438673-1155-42e9-83c8-563f72bb552b",
+      "name": "Pad5",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 48,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 4,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "8e3aba68-63b6-4cb1-a333-601b01370776",
+      "name": "Pad6",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 47,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 5,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "a4b46e39-506a-4af7-bc9b-e99c57d35232",
+      "name": "Pad7",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 45,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 6,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "87af5aa1-c68c-4454-8287-db0d1194ea3c",
+      "name": "Pad8",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 43,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 7,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "0bcc560b-d7cb-47b9-9c3e-66aaf861b964",
+      "name": "Pad9",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 37,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 8,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "88fd5c38-edb8-4d3a-9dce-5561b2ddcb3b",
+      "name": "Pad10",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 39,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 9,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "8c0f0f58-c12a-480e-b5bd-a309a3d27436",
+      "name": "Pad11",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 56,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 10,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "d1cc91ed-96dd-48bb-bc29-abcd458f8b48",
+      "name": "Pad12",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 44,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 11,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "f3b28179-a3d5-4c25-a370-7953941011fa",
+      "name": "Pad13",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 36,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 12,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "85feb2ac-4641-4968-bbbb-234bb353a680",
+      "name": "Pad14",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 40,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 13,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "214fbca0-e87d-4196-a66e-f38c81181d9a",
+      "name": "Pad15",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 42,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 14,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "afd39d99-5ecc-4419-bd88-642bf17f8cfd",
+      "name": "Pad16",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 46,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 15,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "ebd3fcac-16b9-4ac1-acfb-10b2399c0d7b",
+      "name": "Knob1",
+      "source": {
+        "channel": 14,
+        "number": 10,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "dc8005b5-274a-48b9-bbd5-687c8f998a48",
+      "name": "Knob2",
+      "source": {
+        "channel": 14,
+        "number": 73,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 1,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "00f6105b-b492-46c9-8bc2-b73474e8ae06",
+      "name": "X-axis",
+      "source": {
+        "channel": 14,
+        "number": 21,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 2,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "69530858-17f8-4e96-abb8-d85b4258a064",
+      "name": "Y-axis",
+      "source": {
+        "channel": 14,
+        "number": 91,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": 3,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "cdabda06-48d9-480e-9c7e-1123cd8e8b7c",
+      "name": "Pedal",
+      "source": {
+        "type": 1,
+        "channel": 14,
+        "number": 35,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 16,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    },
+    {
+      "id": "6bc6d4e0-bedf-420b-9d89-92e5de46fb54",
+      "name": "ProgCh",
+      "source": {
+        "type": 5,
+        "channel": 14,
+        "isRegistered": false,
+        "is14Bit": false,
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 17,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      }
+    }
+  ],
+  "customData": {
+    "companion": {
+      "controls": [
+        {
+          "height": 32,
+          "id": "d925d877-8a71-4306-a0b7-734b9f3a3d73",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "c41d28bb-3f56-4c65-b1f4-dfbd300e3b55"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 480,
+          "y": 96
+        },
+        {
+          "height": 32,
+          "id": "183e7ff7-41bb-4681-b6cc-15e5fe00ac19",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "15256a98-d125-42a5-be89-cd692f5cadbf"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 416,
+          "y": 96
+        },
+        {
+          "height": 32,
+          "id": "0ed15da0-7260-415b-94e1-55d0cb9eab36",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ce9b082a-9f43-4568-bda9-9fda78327e2b"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 352,
+          "y": 96
+        },
+        {
+          "height": 32,
+          "id": "70002c9a-512e-4986-9abc-b5f7ef23d73d",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "5455b850-6961-4d21-8779-a628fe774bd7"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 288,
+          "y": 96
+        },
+        {
+          "height": 32,
+          "id": "76ff772c-b46a-48f3-9567-6ffd435da87a",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "39438673-1155-42e9-83c8-563f72bb552b"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 288,
+          "y": 160
+        },
+        {
+          "height": 32,
+          "id": "3d75274d-0c64-4200-8a6d-3490d8efa571",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "8e3aba68-63b6-4cb1-a333-601b01370776"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 352,
+          "y": 160
+        },
+        {
+          "height": 32,
+          "id": "47f170a4-baf8-47ae-a193-8a4f3e4b8473",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "a4b46e39-506a-4af7-bc9b-e99c57d35232"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 416,
+          "y": 160
+        },
+        {
+          "height": 32,
+          "id": "32943c0f-2a95-4e38-a065-1b9fdeea88f4",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "87af5aa1-c68c-4454-8287-db0d1194ea3c"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 480,
+          "y": 160
+        },
+        {
+          "height": 32,
+          "id": "a9a59618-7c82-4ac7-91eb-109a2296a780",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "0bcc560b-d7cb-47b9-9c3e-66aaf861b964"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 288,
+          "y": 224
+        },
+        {
+          "height": 32,
+          "id": "11e869ae-3d51-4f2a-8a05-9f103527c4d3",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "88fd5c38-edb8-4d3a-9dce-5561b2ddcb3b"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 352,
+          "y": 224
+        },
+        {
+          "height": 32,
+          "id": "a096802c-75f7-4cc2-a2c1-f50ca5b9f467",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "8c0f0f58-c12a-480e-b5bd-a309a3d27436"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 416,
+          "y": 224
+        },
+        {
+          "height": 32,
+          "id": "04f82bbd-b329-40a1-b40b-5341a6dc3392",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "d1cc91ed-96dd-48bb-bc29-abcd458f8b48"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 480,
+          "y": 224
+        },
+        {
+          "height": 32,
+          "id": "d5ddbe15-ca88-49bd-a61c-e291a841ca81",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "f3b28179-a3d5-4c25-a370-7953941011fa"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 288,
+          "y": 288
+        },
+        {
+          "height": 32,
+          "id": "f9fd7512-9b4a-4f4a-a19a-c503c6150078",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "85feb2ac-4641-4968-bbbb-234bb353a680"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 352,
+          "y": 288
+        },
+        {
+          "height": 32,
+          "id": "4e7db907-b7bf-44ea-9992-e7be491ef5f1",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "214fbca0-e87d-4196-a66e-f38c81181d9a"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 416,
+          "y": 288
+        },
+        {
+          "height": 32,
+          "id": "cb9d208a-a39e-445f-be64-9963a4b5add3",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "afd39d99-5ecc-4419-bd88-642bf17f8cfd"
+          ],
+          "shape": "rectangle",
+          "width": 32,
+          "x": 480,
+          "y": 288
+        },
+        {
+          "height": 32,
+          "id": "00c639f1-3b82-43f1-a709-4dce9659250a",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ebd3fcac-16b9-4ac1-acfb-10b2399c0d7b"
+          ],
+          "shape": "circle",
+          "width": 32,
+          "x": 384,
+          "y": 32
+        },
+        {
+          "height": 32,
+          "id": "d38029f6-6d92-40ed-bf6e-28281296b3c1",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "dc8005b5-274a-48b9-bbd5-687c8f998a48"
+          ],
+          "shape": "circle",
+          "width": 32,
+          "x": 480,
+          "y": 32
+        },
+        {
+          "height": 16,
+          "id": "91c13c55-9bc6-4b77-9459-185075969755",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "6bc6d4e0-bedf-420b-9d89-92e5de46fb54"
+          ],
+          "shape": "rectangle",
+          "width": 48,
+          "x": 192,
+          "y": 160
+        },
+        {
+          "height": 48,
+          "id": "9660a90f-2f51-4ce7-84ff-3d6fbfd87aab",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "cdabda06-48d9-480e-9c7e-1123cd8e8b7c"
+          ],
+          "shape": "rectangle",
+          "width": 48,
+          "x": 192,
+          "y": 224
+        },
+        {
+          "height": 96,
+          "id": "8100b340-3feb-4c9d-b80c-294ccac0947e",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "00f6105b-b492-46c9-8bc2-b73474e8ae06",
+            "69530858-17f8-4e96-abb8-d85b4258a064"
+          ],
+          "shape": "rectangle",
+          "width": 96,
+          "x": 64,
+          "y": 192
+        }
+      ],
+      "gridDivisionCount": 2,
+      "gridSize": 32
+    }
+  }
+}

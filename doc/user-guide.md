@@ -2798,6 +2798,30 @@ MCU mode also works, but just partially and it doesn't offer complete customizat
 
 - **FaderPort 8**
 
+### Evolution UC-33
+
+#### Presets
+
+- **UC-33** (contributed by Roger Green)
+    - Made for device preset 1 and channel 16.
+
+### Korg padKONTROL
+
+#### Presets
+
+- **padKONTROL** (contributed by Roger Green)
+    - Made for scene 1 and channel 15.
+
+### Nord Stage 3
+
+#### Presets
+
+- **Nord Stage 3** (contributed by Roger Green)
+
+#### Presets
+
+- **padKONTROL** (contributed by Roger Green)
+    - Made for scene 1 and channel 15.
 
 ### Hexler TouchOSC
 
