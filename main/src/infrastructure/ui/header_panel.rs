@@ -782,8 +782,14 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_MAIN_COMPARTMENT_RADIO_BUTTON);
         match self.active_compartment() {
-            MappingCompartment::ControllerMappings => controller_radio.check(),
-            MappingCompartment::MainMappings => main_radio.check(),
+            MappingCompartment::ControllerMappings => {
+                controller_radio.check();
+                main_radio.uncheck();
+            }
+            MappingCompartment::MainMappings => {
+                controller_radio.uncheck();
+                main_radio.check()
+            }
         };
     }
 
