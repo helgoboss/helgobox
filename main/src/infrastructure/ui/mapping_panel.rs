@@ -1636,7 +1636,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_source_category_combo_box();
         self.fill_source_midi_message_number_combo_box();
         self.fill_source_midi_clock_transport_message_type_combo_box();
-        self.fill_mode_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_mode_takeover_mode_combo_box();
         self.fill_mode_button_usage_combo_box();
@@ -3115,6 +3114,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_controls(&self) {
+        self.fill_mode_type_combo_box();
         self.invalidate_mode_type_combo_box();
         self.invalidate_mode_control_appearance();
         self.invalidate_mode_source_value_controls();
@@ -3918,9 +3918,19 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn fill_mode_type_combo_box(&self) {
+        let target_category = self.mapping.target_model.category.get();
+        let items = AbsoluteMode::into_enum_iter().map(|m| {
+            let suffix =
+                if target_category == TargetCategory::Virtual && m == AbsoluteMode::ToggleButtons {
+                    " (invalid because target is virtual!)"
+                } else {
+                    ""
+                };
+            format!("{}{}", m, suffix)
+        });
         self.view
             .require_control(root::ID_SETTINGS_MODE_COMBO_BOX)
-            .fill_combo_box_indexed(AbsoluteMode::into_enum_iter());
+            .fill_combo_box_indexed(items);
     }
 
     fn fill_mode_out_of_range_behavior_combo_box(&self) {
