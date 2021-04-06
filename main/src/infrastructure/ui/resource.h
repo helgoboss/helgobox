@@ -14,12 +14,14 @@
 #define ID_YAML_EDITOR_PANEL                    139
 #define IDM_MULTIS                              40000
 #define ID_ADD_MAPPING_BUTTON                   40000
+#define ID_GROUP_IS_EMPTY_TEXT                  40000
 #define ID_MAIN_PANEL_VERSION_TEXT              40000
 #define ID_MAPPING_ROW_REMOVE_BUTTON            40000
 #define ID_MESSAGE_TEXT                         40000
 #define ID_TARGET_LINE_2_EDIT_CONTROL           40000
 #define ID_YAML_EDIT_INFO_TEXT                  40000
 #define IDM_BUTTONS                             40001
+#define ID_DISPLAY_ALL_GROUPS_BUTTON            40001
 #define ID_FEEDBACK_DEVICE_COMBO_BOX            40001
 #define ID_MAIN_PANEL_STATUS_TEXT               40001
 #define ID_MAPPING_ROW_EDIT_BUTTON              40001

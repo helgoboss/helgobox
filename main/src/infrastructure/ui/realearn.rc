@@ -261,6 +261,8 @@ ID_MAPPING_ROWS_PANEL DIALOG 0, 0, 470, 289
 STYLE DS_SHELLFONT | WS_VISIBLE | WS_CHILDWINDOW
 FONT 8, "Ms Shell Dlg"
 BEGIN
+    PUSHBUTTON      "Display mappings in all groups", ID_DISPLAY_ALL_GROUPS_BUTTON, 157, 137, 156, 14, 0, WS_EX_LEFT
+    CTEXT           "There are no mappings in this compartment.", ID_GROUP_IS_EMPTY_TEXT, 149, 121, 173, 9, SS_CENTER, WS_EX_LEFT
 END
 
 

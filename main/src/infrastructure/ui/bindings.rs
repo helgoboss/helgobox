@@ -16,12 +16,14 @@ pub mod root {
     pub const ID_YAML_EDITOR_PANEL: u32 = 139;
     pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
+    pub const ID_GROUP_IS_EMPTY_TEXT: u32 = 40000;
     pub const ID_MAIN_PANEL_VERSION_TEXT: u32 = 40000;
     pub const ID_MAPPING_ROW_REMOVE_BUTTON: u32 = 40000;
     pub const ID_MESSAGE_TEXT: u32 = 40000;
     pub const ID_TARGET_LINE_2_EDIT_CONTROL: u32 = 40000;
     pub const ID_YAML_EDIT_INFO_TEXT: u32 = 40000;
     pub const IDM_BUTTONS: u32 = 40001;
+    pub const ID_DISPLAY_ALL_GROUPS_BUTTON: u32 = 40001;
     pub const ID_FEEDBACK_DEVICE_COMBO_BOX: u32 = 40001;
     pub const ID_MAIN_PANEL_STATUS_TEXT: u32 = 40001;
     pub const ID_MAPPING_ROW_EDIT_BUTTON: u32 = 40001;

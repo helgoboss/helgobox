@@ -327,6 +327,10 @@ impl MappingRowsPanel {
         for i in row_index..self.rows.len() {
             self.rows.get(i).expect("impossible").set_mapping(None);
         }
+        self.invalidate_empty_group_controls(
+            filtered_mappings.len(),
+            session.mapping_count(compartment),
+        );
     }
 
     fn mapping_matches_filter(
@@ -378,6 +382,34 @@ impl MappingRowsPanel {
         self.invalidate_scroll_info();
     }
 
+    fn invalidate_empty_group_controls(
+        &self,
+        displayed_mapping_count: usize,
+        all_mappings_count: usize,
+    ) {
+        let label = self.view.require_control(root::ID_GROUP_IS_EMPTY_TEXT);
+        let button = self
+            .view
+            .require_control(root::ID_DISPLAY_ALL_GROUPS_BUTTON);
+        let (label_text, button_text) = if displayed_mapping_count == 0 {
+            if all_mappings_count == 0 {
+                (Some("There are no mappings in this compartment."), None)
+            } else {
+                (
+                    Some("This group is empty."),
+                    Some(format!(
+                        "Display {} mappings in all groups",
+                        all_mappings_count
+                    )),
+                )
+            }
+        } else {
+            (None, None)
+        };
+        label.set_text_or_hide(label_text);
+        button.set_text_or_hide(button_text);
+    }
+
     fn register_listeners(self: SharedView<Self>) {
         let shared_session = self.session();
         let session = shared_session.borrow();
@@ -415,6 +447,12 @@ impl MappingRowsPanel {
                 view.invalidate_scroll_info();
             },
         );
+    }
+
+    fn display_all_groups(&self) {
+        self.main_state
+            .borrow_mut()
+            .clear_group_filter_for_active_compartment();
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
@@ -537,12 +575,23 @@ impl View for MappingRowsPanel {
         true
     }
 
+    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
+        util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
+    }
+
     fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
         util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
     }
 
     fn context_menu_wanted(self: SharedView<Self>, location: Point<Pixels>) {
         let _ = self.open_context_menu(location);
+    }
+
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        match resource_id {
+            root::ID_DISPLAY_ALL_GROUPS_BUTTON => self.display_all_groups(),
+            _ => {}
+        }
     }
 }
 

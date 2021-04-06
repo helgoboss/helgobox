@@ -85,6 +85,10 @@ impl MainState {
         self.group_filter[compartment].set(None);
     }
 
+    pub fn clear_group_filter_for_active_compartment(&mut self) {
+        self.clear_group_filter(self.active_compartment.get());
+    }
+
     pub fn clear_search_expression_filter(&mut self) {
         self.search_expression.set("".to_string());
     }
