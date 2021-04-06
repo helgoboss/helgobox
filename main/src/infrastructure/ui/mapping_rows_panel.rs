@@ -597,6 +597,7 @@ impl View for MappingRowsPanel {
         let _ = self.open_context_menu(location);
     }
 
+    #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::ID_DISPLAY_ALL_GROUPS_BUTTON => self.clear_filter_or_display_all_groups(),
