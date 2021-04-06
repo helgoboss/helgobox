@@ -2612,8 +2612,8 @@ You can also do this using the "MULTIPLE" button:
 
 All Midi Fighter Twister controller presets available on the Helgoboss ReaPack repository assume relative values.
 
-- **Midi Fighter Twister:** First virtual bank.
-- **Midi Fighter Twister - Bank 2:** Second virtual bank.
+- **DJ TechTools Midi Fighter Twister:** First virtual bank.
+- **DJ TechTools Midi Fighter Twister - Bank 2:** Second virtual bank.
 
 #### Hints
 
@@ -2628,7 +2628,7 @@ potential of ReaLearn can't be used.
 
 #### Presets
 
-- **APC Key 25**
+- **Akai APC Key 25**
 
 ### Arturia MiniLab mkII
 
@@ -2654,7 +2654,7 @@ get this option):
 
 All MiniLab mkII controller presets assume relative values.
 
-- **MiniLab mkII**
+- **Arturia MiniLab mkII**
 
 #### Hints
 
@@ -2678,7 +2678,7 @@ I always press "Setup" + the upper left pad to put this device into "Live" mode.
 
 All presets assume "Live" mode.
 
-- **Launchpad Pro**
+- **Novation Launchpad Pro**
 
 ### iCON Platform M+
 
@@ -2743,8 +2743,8 @@ layer:
 
 The following controller presets assume relative values.
  
-- **X-Touch Compact:** Layer A.
-- **X-Touch Compact - Layer B:** Layer B.
+- **Behringer X-Touch Compact:** Layer A.
+- **Behringer X-Touch Compact - Layer B:** Layer B.
 
 ##### Hints
 
@@ -2776,7 +2776,7 @@ this for you automatically if you use the **FaderPort Classic** controller prese
 
 #### Presets
 
-- **FaderPort Classic**
+- **PreSonus FaderPort Classic**
 
 ### PreSonus FaderPort 8
 
@@ -2796,20 +2796,20 @@ MCU mode also works, but just partially and it doesn't offer complete customizat
 
 #### Presets
 
-- **FaderPort 8**
+- **PreSonus FaderPort 8**
 
 ### Evolution UC-33
 
 #### Presets
 
-- **UC-33** (contributed by Roger Green)
+- **Evolution UC-33** (contributed by Roger Green)
     - Made for device preset 1 and channel 16.
 
 ### Korg padKONTROL
 
 #### Presets
 
-- **padKONTROL** (contributed by Roger Green)
+- **Korg padKONTROL** (contributed by Roger Green)
     - Made for scene 1 and channel 15.
 
 ### Nord Stage 3
@@ -2817,11 +2817,6 @@ MCU mode also works, but just partially and it doesn't offer complete customizat
 #### Presets
 
 - **Nord Stage 3** (contributed by Roger Green)
-
-#### Presets
-
-- **padKONTROL** (contributed by Roger Green)
-    - Made for scene 1 and channel 15.
 
 ### Hexler TouchOSC
 
