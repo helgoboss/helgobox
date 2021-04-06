@@ -738,12 +738,31 @@ impl HeaderPanel {
         self.invalidate_compartment_combo_box();
         self.invalidate_preset_controls();
         self.invalidate_group_controls();
-        self.invalidate_let_matched_events_through_check_box();
-        self.invalidate_let_unmatched_events_through_check_box();
+        self.invalidate_let_through_controls();
         self.invalidate_source_filter_buttons();
         self.invalidate_target_filter_buttons();
         self.invalidate_add_one_button();
         self.invalidate_learn_many_button();
+    }
+
+    fn invalidate_let_through_controls(&self) {
+        let label = self.view.require_control(root::ID_LET_THROUGH_LABEL_TEXT);
+        let matched_box = self
+            .view
+            .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
+        let unmatched_box = self
+            .view
+            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
+        let session = self.session();
+        let session = session.borrow();
+        let show = session.control_input() == ControlInput::Midi(MidiControlInput::FxInput);
+        label.set_visible(show);
+        matched_box.set_visible(show);
+        unmatched_box.set_visible(show);
+        if show {
+            matched_box.set_checked(session.let_matched_events_through.get());
+            unmatched_box.set_checked(session.let_unmatched_events_through.get());
+        }
     }
 
     fn invalidate_control_input_combo_box(&self) {
@@ -1392,36 +1411,6 @@ impl HeaderPanel {
         };
     }
 
-    fn invalidate_let_matched_events_through_check_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
-        let session = self.session();
-        let session = session.borrow();
-        if session.control_input() == ControlInput::Midi(MidiControlInput::FxInput) {
-            b.show();
-            b.set_checked(session.let_matched_events_through.get());
-        } else {
-            b.hide();
-            b.uncheck();
-        }
-    }
-
-    fn invalidate_let_unmatched_events_through_check_box(&self) {
-        let b = self
-            .view
-            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
-        let session = self.session();
-        let session = session.borrow();
-        let text = if session.control_input() == ControlInput::Midi(MidiControlInput::FxInput) {
-            "Unmatched events"
-        } else {
-            "FX input events"
-        };
-        b.set_text(text);
-        b.set_checked(self.session().borrow().let_unmatched_events_through.get());
-    }
-
     fn mappings_are_read_only(&self) -> bool {
         self.session()
             .borrow()
@@ -1781,12 +1770,15 @@ impl HeaderPanel {
         self.when(session.everything_changed(), |view, _| {
             view.reset();
         });
-        self.when(session.let_matched_events_through.changed(), |view, _| {
-            view.invalidate_let_matched_events_through_check_box();
-        });
-        self.when(session.let_unmatched_events_through.changed(), |view, _| {
-            view.invalidate_let_unmatched_events_through_check_box();
-        });
+        self.when(
+            session
+                .let_matched_events_through
+                .changed()
+                .merge(session.let_unmatched_events_through.changed()),
+            |view, _| {
+                view.invalidate_let_through_controls();
+            },
+        );
         self.when(session.learn_many_state_changed(), |view, _| {
             view.invalidate_all_controls();
         });
@@ -1797,8 +1789,7 @@ impl HeaderPanel {
                 .merge(session.osc_input_device_id.changed()),
             |view, _| {
                 view.invalidate_control_input_combo_box();
-                view.invalidate_let_matched_events_through_check_box();
-                view.invalidate_let_unmatched_events_through_check_box();
+                view.invalidate_let_through_controls();
                 let shared_session = view.session();
                 let mut session = shared_session.borrow_mut();
                 if session.auto_correct_settings.get() {

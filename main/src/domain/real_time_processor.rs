@@ -109,12 +109,9 @@ impl RealTimeProcessor {
             }
             self.process_incoming_midi(frame_offset, msg, Caller::Vst(host));
         } else {
-            // #33 Even though MIDI input device is not set to <FX input>, we want to be able to
-            // influence whether messages are let through or not. In this case, FX input events
-            // are always unmatched.
-            if self.let_unmatched_events_through {
-                self.send_short_midi_to_fx_output(msg, Caller::Vst(host))
-            }
+            // #33, #290 If MIDI input device is not set to <FX input>, we want to pass through all
+            // messages.
+            self.send_short_midi_to_fx_output(msg, Caller::Vst(host))
         }
     }
 
