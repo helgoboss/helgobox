@@ -1754,18 +1754,26 @@ impl Session {
         }
     }
 
+    pub fn control_input(&self) -> ControlInput {
+        if let Some(osc_dev_id) = self.osc_input_device_id.get() {
+            ControlInput::Osc(osc_dev_id)
+        } else {
+            ControlInput::Midi(self.midi_control_input.get())
+        }
+    }
+
+    pub fn feedback_output(&self) -> Option<FeedbackOutput> {
+        if let Some(osc_dev_id) = self.osc_output_device_id.get() {
+            Some(FeedbackOutput::Osc(osc_dev_id))
+        } else {
+            self.midi_feedback_output.get().map(FeedbackOutput::Midi)
+        }
+    }
+
     fn sync_settings(&self) {
         let task = NormalMainTask::UpdateSettings {
-            control_input: if let Some(osc_dev_id) = self.osc_input_device_id.get() {
-                ControlInput::Osc(osc_dev_id)
-            } else {
-                ControlInput::Midi(self.midi_control_input.get())
-            },
-            feedback_output: if let Some(osc_dev_id) = self.osc_output_device_id.get() {
-                Some(FeedbackOutput::Osc(osc_dev_id))
-            } else {
-                self.midi_feedback_output.get().map(FeedbackOutput::Midi)
-            },
+            control_input: self.control_input(),
+            feedback_output: self.feedback_output(),
         };
         self.normal_main_task_sender.try_send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {

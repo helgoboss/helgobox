@@ -22,7 +22,7 @@ use crate::application::{
 };
 use crate::core::when;
 use crate::domain::{
-    ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget,
+    ControlInput, ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiFeedbackOutput};
@@ -1396,19 +1396,30 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX);
-        if self.session().borrow().midi_control_input.get() == MidiControlInput::FxInput {
-            b.enable();
-            b.set_checked(self.session().borrow().let_matched_events_through.get());
+        let session = self.session();
+        let session = session.borrow();
+        if session.control_input() == ControlInput::Midi(MidiControlInput::FxInput) {
+            b.show();
+            b.set_checked(session.let_matched_events_through.get());
         } else {
-            b.disable();
+            b.hide();
             b.uncheck();
         }
     }
 
     fn invalidate_let_unmatched_events_through_check_box(&self) {
-        self.view
-            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX)
-            .set_checked(self.session().borrow().let_unmatched_events_through.get());
+        let b = self
+            .view
+            .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
+        let session = self.session();
+        let session = session.borrow();
+        let text = if session.control_input() == ControlInput::Midi(MidiControlInput::FxInput) {
+            "Unmatched events"
+        } else {
+            "FX input events"
+        };
+        b.set_text(text);
+        b.set_checked(self.session().borrow().let_unmatched_events_through.get());
     }
 
     fn mappings_are_read_only(&self) -> bool {
