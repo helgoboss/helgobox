@@ -3233,7 +3233,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            mode.supports_rotate() && target.can_report_current_value(),
+            mode.supports_rotate(),
             &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
         );
         self.show_if(

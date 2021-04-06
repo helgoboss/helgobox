@@ -686,9 +686,7 @@ impl RealTimeProcessor {
                         compartment,
                         m.id(),
                         control_value,
-                        ControlOptions {
-                            enforce_send_feedback_after_control: false,
-                        },
+                        ControlOptions::default(),
                     );
                     matched = true;
                 }
@@ -1037,6 +1035,7 @@ fn control_controller_mappings_midi(
                         enforce_send_feedback_after_control: m
                             .options()
                             .send_feedback_after_control,
+                        mode_control_options: m.mode_control_options(),
                     },
                 ),
                 ProcessDirect(control_value) => {
@@ -1045,9 +1044,7 @@ fn control_controller_mappings_midi(
                         MappingCompartment::ControllerMappings,
                         m.id(),
                         control_value,
-                        ControlOptions {
-                            enforce_send_feedback_after_control: false,
-                        },
+                        ControlOptions::default(),
                     );
                     true
                 }

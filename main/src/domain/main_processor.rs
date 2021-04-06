@@ -10,7 +10,7 @@ use crate::domain::{
     SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, OscSource, UnitValue};
+use helgoboss_learn::{ControlValue, MidiSource, ModeControlOptions, OscSource, UnitValue};
 
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -1048,12 +1048,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
-                        let feedback = m.control_if_enabled(
-                            control_value,
-                            ControlOptions {
-                                enforce_send_feedback_after_control: false,
-                            },
-                        );
+                        let feedback =
+                            m.control_if_enabled(control_value, ControlOptions::default());
                         send_direct_and_virtual_feedback(
                             &InstanceProps {
                                 rt_sender: &self.feedback_real_time_task_sender,
@@ -1460,9 +1456,10 @@ pub enum ControlMainTask {
     },
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub struct ControlOptions {
     pub enforce_send_feedback_after_control: bool,
+    pub mode_control_options: ModeControlOptions,
 }
 
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
@@ -1714,6 +1711,7 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                                 enforce_send_feedback_after_control: m
                                     .options()
                                     .send_feedback_after_control,
+                                mode_control_options: m.mode_control_options(),
                             },
                         )
                     }

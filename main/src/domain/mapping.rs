@@ -9,8 +9,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSource, MidiSourceValue, OscSource, RawMidiEvent,
-    SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, MidiSource, MidiSourceValue, ModeControlOptions, OscSource,
+    RawMidiEvent, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -141,6 +141,10 @@ impl MainMapping {
 
     pub fn options(&self) -> &ProcessorMappingOptions {
         &self.core.options
+    }
+
+    pub fn mode_control_options(&self) -> ModeControlOptions {
+        self.core.mode_control_options()
     }
 
     pub fn splinter_real_time_mapping(&mut self) -> RealTimeMapping {
@@ -368,7 +372,10 @@ impl MainMapping {
             Some(CompoundMappingTarget::Reaper(t)) => t,
             _ => return None,
         };
-        let final_value = self.core.mode.control(value, target);
+        let final_value =
+            self.core
+                .mode
+                .control_with_options(value, target, options.mode_control_options);
         if let Some(v) = final_value {
             if self.core.options.prevent_echo_feedback {
                 self.core.time_of_last_control = Some(Instant::now());
@@ -606,6 +613,10 @@ impl RealTimeMapping {
         &self.core.options
     }
 
+    pub fn mode_control_options(&self) -> ModeControlOptions {
+        self.core.mode_control_options()
+    }
+
     pub fn control_midi_virtualizing(
         &mut self,
         source_value: &MidiSourceValue<RawShortMessage>,
@@ -642,6 +653,12 @@ impl MappingCore {
             t.elapsed() <= MAX_ECHO_FEEDBACK_DELAY
         } else {
             false
+        }
+    }
+
+    fn mode_control_options(&self) -> ModeControlOptions {
+        ModeControlOptions {
+            enforce_rotate: self.mode.rotate,
         }
     }
 }
