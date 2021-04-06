@@ -214,6 +214,7 @@ impl SourceModel {
                                     let msb_controller_number = U7::new(n.get() % 32);
                                     msb_controller_number.into()
                                 }),
+                                custom_character: self.custom_character.get(),
                             }
                         } else {
                             MidiSource::ControlChangeValue {
@@ -335,13 +336,10 @@ impl SourceModel {
             return false;
         }
         use MidiSourceType::*;
-        match self.midi_source_type.get() {
-            ControlChangeValue | ParameterNumberValue if self.is_14_bit.get().contains(&false) => {
-                true
-            }
-            Raw => true,
-            _ => false,
-        }
+        matches!(
+            self.midi_source_type.get(),
+            ControlChangeValue | ParameterNumberValue | Raw
+        )
     }
 
     pub fn supports_midi_clock_transport_message_type(&self) -> bool {

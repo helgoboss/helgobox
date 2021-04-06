@@ -132,6 +132,7 @@ impl MappingModelData {
             model.source_model.borrow_mut(),
             with_notification,
             compartment,
+            preset_version,
         );
         self.mode.apply_to_model_flexible(
             model.mode_model.borrow_mut(),

@@ -6,6 +6,7 @@ use crate::domain::MappingCompartment;
 use crate::infrastructure::data::ControlElementId;
 use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
@@ -87,7 +88,7 @@ impl SourceModelData {
     }
 
     pub fn apply_to_model(&self, model: &mut SourceModel, compartment: MappingCompartment) {
-        self.apply_to_model_flexible(model, true, compartment);
+        self.apply_to_model_flexible(model, true, compartment, None);
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
@@ -96,6 +97,7 @@ impl SourceModelData {
         model: &mut SourceModel,
         with_notification: bool,
         compartment: MappingCompartment,
+        preset_version: Option<&Version>,
     ) {
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
@@ -130,9 +132,26 @@ impl SourceModelData {
         model
             .channel
             .set_with_optional_notification(self.channel, with_notification);
+        let character = if self.category == SourceCategory::Midi
+            && self.r#type == MidiSourceType::ControlChangeValue
+            && self.is_14_bit == Some(true)
+        {
+            // In old versions, 14-bit CC didn't support custom characters. We don't want it to
+            // interfere even it was set.
+            let is_old_preset = preset_version
+                .map(|v| v < &Version::parse("2.8.0-pre9").unwrap())
+                .unwrap_or(true);
+            if is_old_preset {
+                SourceCharacter::RangeElement
+            } else {
+                self.character
+            }
+        } else {
+            self.character
+        };
         model
             .custom_character
-            .set_with_optional_notification(self.character, with_notification);
+            .set_with_optional_notification(character, with_notification);
         model
             .is_registered
             .set_with_optional_notification(self.is_registered, with_notification);
@@ -271,7 +290,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings);
+        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings, None);
         // Then
         assert_eq!(
             model.midi_source_type.get(),
@@ -311,7 +330,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings);
+        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings, None);
         // Then
         assert_eq!(model.midi_source_type.get(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel.get(), None);
