@@ -68,7 +68,7 @@ impl MainPanel {
                 session,
                 Rc::downgrade(&panel_manager),
                 self.state.clone(),
-                Point::new(DialogUnits(0), DialogUnits(104)),
+                Point::new(DialogUnits(0), DialogUnits(124)),
             )
             .into(),
             panel_manager,

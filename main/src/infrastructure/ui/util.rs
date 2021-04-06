@@ -3,7 +3,7 @@ use swell_ui::{DialogUnits, Dimensions};
 
 /// The optimal size of the main panel in dialog units.
 pub const MAIN_PANEL_DIMENSIONS: Dimensions<DialogUnits> =
-    Dimensions::new(DialogUnits(470), DialogUnits(423));
+    Dimensions::new(DialogUnits(470), DialogUnits(447));
 
 pub mod symbols {
     pub fn arrow_up_symbol() -> &'static str {

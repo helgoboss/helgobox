@@ -205,6 +205,7 @@ impl HeaderPanel {
             ContactDeveloper,
             OpenWebsite,
             Donate,
+            ReloadAllPresets,
             EditNewOscDevice,
             EditExistingOscDevice(OscDeviceId),
             RemoveOscDevice(OscDeviceId),
@@ -444,6 +445,9 @@ impl HeaderPanel {
                         item("Donate", || MenuAction::Donate),
                     ],
                 ),
+                item("Reload all presets from disk", || {
+                    MenuAction::ReloadAllPresets
+                }),
                 separator(),
                 item("Send feedback now", || MenuAction::SendFeedbackNow),
                 item("Log debug info", || MenuAction::LogDebugInfo),
@@ -563,6 +567,7 @@ impl HeaderPanel {
             MenuAction::ContactDeveloper => self.contact_developer(),
             MenuAction::OpenWebsite => self.open_website(),
             MenuAction::Donate => self.donate(),
+            MenuAction::ReloadAllPresets => self.reload_all_presets(),
             MenuAction::SendFeedbackNow => self.session().borrow().send_all_feedback(),
             MenuAction::LogDebugInfo => self.log_debug_info(),
             MenuAction::EditPresetLinkFxId(fx_id) => edit_preset_link_fx_id(fx_id),
@@ -728,7 +733,6 @@ impl HeaderPanel {
     }
 
     fn fill_all_controls(&self) {
-        self.fill_compartment_combo_box();
         self.fill_preset_auto_load_mode_combo_box();
     }
 
@@ -771,10 +775,16 @@ impl HeaderPanel {
     }
 
     fn invalidate_compartment_combo_box(&self) {
-        self.view
-            .require_control(root::ID_COMPARTMENT_COMBO_BOX)
-            .select_combo_box_item_by_index(self.active_compartment().into())
-            .unwrap();
+        let controller_radio = self
+            .view
+            .require_control(root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON);
+        let main_radio = self
+            .view
+            .require_control(root::ID_MAIN_COMPARTMENT_RADIO_BUTTON);
+        match self.active_compartment() {
+            MappingCompartment::ControllerMappings => controller_radio.check(),
+            MappingCompartment::MainMappings => main_radio.check(),
+        };
     }
 
     fn invalidate_preset_auto_load_mode_combo_box(&self) {
@@ -881,9 +891,20 @@ impl HeaderPanel {
     }
 
     fn invalidate_preset_controls(&self) {
+        self.invalidate_preset_label_text();
         self.invalidate_preset_combo_box();
         self.invalidate_preset_buttons();
         self.invalidate_preset_auto_load_mode_combo_box();
+    }
+
+    fn invalidate_preset_label_text(&self) {
+        let text = match self.active_compartment() {
+            MappingCompartment::ControllerMappings => "Controller preset",
+            MappingCompartment::MainMappings => "Main preset",
+        };
+        self.view
+            .require_control(root::ID_PRESET_LABEL_TEXT)
+            .set_text(text);
     }
 
     fn invalidate_preset_combo_box(&self) {
@@ -974,12 +995,6 @@ impl HeaderPanel {
         };
         combo.select_combo_box_item_by_data(data).unwrap();
         combo.set_enabled(enabled);
-    }
-
-    fn fill_compartment_combo_box(&self) {
-        self.view
-            .require_control(root::ID_COMPARTMENT_COMBO_BOX)
-            .fill_combo_box_indexed(MappingCompartment::enum_iter());
     }
 
     fn fill_preset_auto_load_mode_combo_box(&self) {
@@ -1241,16 +1256,10 @@ impl HeaderPanel {
         }
     }
 
-    fn update_compartment(&self) {
+    fn update_compartment(&self, compartment: MappingCompartment) {
         let mut main_state = self.main_state.borrow_mut();
         main_state.stop_filter_learning();
-        main_state.active_compartment.set(
-            self.view
-                .require_control(root::ID_COMPARTMENT_COMBO_BOX)
-                .selected_combo_box_item_index()
-                .try_into()
-                .expect("invalid compartment"),
-        );
+        main_state.active_compartment.set(compartment);
     }
 
     fn remove_group(&self) {
@@ -1932,56 +1941,60 @@ impl View for HeaderPanel {
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
-        use root::*;
         match resource_id {
-            ID_GROUP_ADD_BUTTON => self.add_group(),
-            ID_GROUP_DELETE_BUTTON => self.remove_group(),
-            ID_GROUP_EDIT_BUTTON => self.edit_group(),
-            ID_ADD_MAPPING_BUTTON => self.add_mapping(),
-            ID_LEARN_MANY_MAPPINGS_BUTTON => {
+            root::ID_GROUP_ADD_BUTTON => self.add_group(),
+            root::ID_GROUP_DELETE_BUTTON => self.remove_group(),
+            root::ID_GROUP_EDIT_BUTTON => self.edit_group(),
+            root::ID_ADD_MAPPING_BUTTON => self.add_mapping(),
+            root::ID_LEARN_MANY_MAPPINGS_BUTTON => {
                 self.toggle_learn_many_mappings();
             }
-            ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
-            ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
-            ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
-            ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
-            ID_CLEAR_SEARCH_BUTTON => self.clear_search_expression(),
-            ID_IMPORT_BUTTON => {
+            root::ID_FILTER_BY_SOURCE_BUTTON => self.toggle_learn_source_filter(),
+            root::ID_FILTER_BY_TARGET_BUTTON => self.toggle_learn_target_filter(),
+            root::ID_CLEAR_SOURCE_FILTER_BUTTON => self.clear_source_filter(),
+            root::ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
+            root::ID_CLEAR_SEARCH_BUTTON => self.clear_search_expression(),
+            root::ID_IMPORT_BUTTON => {
                 if let Err(msg) = self.import_from_clipboard() {
                     self.view.require_window().alert("ReaLearn", msg);
                 }
             }
-            ID_EXPORT_BUTTON => self.export_to_clipboard(),
-            ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_matched_events_through(),
-            ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => self.update_let_unmatched_events_through(),
-            ID_PRESET_DELETE_BUTTON => {
+            root::ID_EXPORT_BUTTON => self.export_to_clipboard(),
+            root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => {
+                self.update_let_matched_events_through()
+            }
+            root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX => {
+                self.update_let_unmatched_events_through()
+            }
+            root::ID_PRESET_DELETE_BUTTON => {
                 self.delete_active_preset().unwrap();
             }
-            ID_PRESET_SAVE_AS_BUTTON => {
+            root::ID_PRESET_SAVE_AS_BUTTON => {
                 self.save_as_preset().unwrap();
             }
-            ID_PRESET_SAVE_BUTTON => {
+            root::ID_PRESET_SAVE_BUTTON => {
                 self.save_active_preset().unwrap();
             }
-            ID_PRESET_RELOAD_ALL_BUTTON => {
-                self.reload_all_presets();
-            }
-            ID_PROJECTION_BUTTON => {
+            root::ID_PROJECTION_BUTTON => {
                 self.companion_app_presenter.show_app_info();
+            }
+            root::ID_CONTROLLER_COMPARTMENT_RADIO_BUTTON => {
+                self.update_compartment(MappingCompartment::ControllerMappings)
+            }
+            root::ID_MAIN_COMPARTMENT_RADIO_BUTTON => {
+                self.update_compartment(MappingCompartment::MainMappings)
             }
             _ => {}
         }
     }
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
-        use root::*;
         match resource_id {
-            ID_CONTROL_DEVICE_COMBO_BOX => self.update_control_input(),
-            ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
-            ID_COMPARTMENT_COMBO_BOX => self.update_compartment(),
-            ID_GROUP_COMBO_BOX => self.update_group(),
-            ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
-            ID_PRESET_COMBO_BOX => self.update_preset(),
+            root::ID_CONTROL_DEVICE_COMBO_BOX => self.update_control_input(),
+            root::ID_FEEDBACK_DEVICE_COMBO_BOX => self.update_feedback_output(),
+            root::ID_GROUP_COMBO_BOX => self.update_group(),
+            root::ID_AUTO_LOAD_COMBO_BOX => self.update_preset_auto_load_mode(),
+            root::ID_PRESET_COMBO_BOX => self.update_preset(),
             _ => unreachable!(),
         }
     }
@@ -1995,9 +2008,8 @@ impl View for HeaderPanel {
             // dialog proc is not reentered - we are just reacting (async) to a change.
             return false;
         }
-        use root::*;
         match resource_id {
-            ID_HEADER_SEARCH_EDIT_CONTROL => self.update_search_expression(),
+            root::ID_HEADER_SEARCH_EDIT_CONTROL => self.update_search_expression(),
             _ => unreachable!(),
         }
         true
