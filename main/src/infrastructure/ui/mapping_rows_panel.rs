@@ -328,6 +328,7 @@ impl MappingRowsPanel {
             self.rows.get(i).expect("impossible").set_mapping(None);
         }
         self.invalidate_empty_group_controls(
+            &main_state,
             filtered_mappings.len(),
             session.mapping_count(compartment),
         );
@@ -384,6 +385,7 @@ impl MappingRowsPanel {
 
     fn invalidate_empty_group_controls(
         &self,
+        main_state: &MainState,
         displayed_mapping_count: usize,
         all_mappings_count: usize,
     ) {
@@ -394,6 +396,11 @@ impl MappingRowsPanel {
         let (label_text, button_text) = if displayed_mapping_count == 0 {
             if all_mappings_count == 0 {
                 (Some("There are no mappings in this compartment."), None)
+            } else if main_state.filter_is_active_except_group() {
+                (
+                    Some("No mapping matching filter and search string."),
+                    Some("Clear filter and search string".to_owned()),
+                )
             } else {
                 (
                     Some("This group is empty."),
@@ -449,10 +456,13 @@ impl MappingRowsPanel {
         );
     }
 
-    fn display_all_groups(&self) {
-        self.main_state
-            .borrow_mut()
-            .clear_group_filter_for_active_compartment();
+    fn clear_filter_or_display_all_groups(&self) {
+        let mut main_state = self.main_state.borrow_mut();
+        if main_state.filter_is_active_except_group() {
+            main_state.clear_all_filters_except_group();
+        } else {
+            main_state.clear_group_filter_for_active_compartment();
+        }
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
@@ -589,7 +599,7 @@ impl View for MappingRowsPanel {
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
-            root::ID_DISPLAY_ALL_GROUPS_BUTTON => self.display_all_groups(),
+            root::ID_DISPLAY_ALL_GROUPS_BUTTON => self.clear_filter_or_display_all_groups(),
             _ => {}
         }
     }

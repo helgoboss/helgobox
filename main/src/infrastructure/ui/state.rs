@@ -105,7 +105,11 @@ impl MainState {
         self.group_filter[self.active_compartment.get()]
             .get_ref()
             .is_some()
-            || self.source_filter.get_ref().is_some()
+            || self.filter_is_active_except_group()
+    }
+
+    pub fn filter_is_active_except_group(&self) -> bool {
+        self.source_filter.get_ref().is_some()
             || self.target_filter.get_ref().is_some()
             || !self.search_expression.get_ref().trim().is_empty()
     }
