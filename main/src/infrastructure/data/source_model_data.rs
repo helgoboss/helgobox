@@ -139,7 +139,7 @@ impl SourceModelData {
             // In old versions, 14-bit CC didn't support custom characters. We don't want it to
             // interfere even it was set.
             let is_old_preset = preset_version
-                .map(|v| v < &Version::parse("2.8.0-pre10").unwrap())
+                .map(|v| v < &Version::parse("2.8.0-rc.1").unwrap())
                 .unwrap_or(true);
             if is_old_preset {
                 SourceCharacter::RangeElement
