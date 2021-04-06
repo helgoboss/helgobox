@@ -453,8 +453,8 @@ The header panel provides the following user interface elements, no matter if th
   the "Controller compartment". In a nutshell, this compartment lets you define which hardware controllers you have at
   your disposal and which control elements they have. Learn more about that feature in section 
   [Controller compartment](#controller-compartment).
-- **Preset:** This is the list of available presets for that compartment. By default, it's set to
-  "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
+- **Controller preset / Main preset:** This is the list of available presets for that compartment. By default, it's set 
+  to "&lt;None&gt;", which means that no particular preset is active. If you select a preset in this list, its
   corresponding mappings will be loaded and immediately get active. In the *controller* compartment, this list
   will essentially represent the list of available hardware controller presets. A few are shipped with ReaLearn itself
   (separately downloadable via ReaPack) but you can also define your own ones and add them to this list!
@@ -527,7 +527,7 @@ on macOS) with the following entries:
     - **Move to upper floor:** If ticked, this instance is allowed to cancel other instances which share the same input
       and/or output device (hardware devices only, not FX input or output!). With this you can easily let your 
       controller control the currently focused FX but fall back to your usual controls when it's closed. It's intended
-      to be used primarily on instances that use \"Auto-load preset: Depending on focused FX\". 
+      to be used primarily on instances that use \"Auto-load: Depending on focused FX\". 
         - By default, each ReaLearn instance "lives" on the lower floor. This is often okay because ReaLearn instances
           are friendly fellows and like sharing controllers with each other.
         - For example, if 2 instances use the same input or output device and they use different control elements, they
@@ -710,7 +710,7 @@ list](https://github.com/helgoboss/realearn/tree/master/resources/controllers).
 
 The header panel for main mappings consists of a few more user interface elements:
 
-- **Auto-load preset:** If you switch this to *Depending on focused FX*, ReaLearn will start to observe which
+- **Auto-load:** If you switch this to *Depending on focused FX*, ReaLearn will start to observe which
   FX window is currently focused. Whenever the focus changes, it will check if you have linked a compartment preset
   to it and will automatically load it. Whenever a non-linked FX gets focus or the linked FX is closed, the mapping
   list is cleared so that no mapping is active anymore. Of course this makes sense only if you actually have linked some
@@ -2454,10 +2454,10 @@ The "Previous group" mapping then looks like this:
 
 ![Step 5](images/tutorial-2-step-5.jpg)
 
-### 3. Using "Auto-load preset" to control whatever plug-in is currently in focus 
+### 3. Using "Auto-load" to control whatever plug-in is currently in focus 
 
 This one seems to be a very popular use case: To create a dedicated set of mappings for a specific FX plug-in and load
-these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load preset"
+these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load"
 feature.
 
 To have a nice example, let's assume you want to build a first set of mappings for the VSTi plug-in
@@ -2499,13 +2499,13 @@ Now let's save your newly created set of mappings as preset and link the preset 
     - If it doesn't mention *Vital* but another VST plug-in, focus your Vital VSTi plug-in instance for a moment and
       then go directly to ReaLearn and right-click the header panel.
 
-#### Step 4: Activate "Audo-load preset"
+#### Step 4: Activate "Auto-load"
 
-Now you just have to set *Auto-load preset* to *Depending on focused FX* and ReaLearn will activate your "Vital" preset
+Now you just have to set *Auto-load* to *Depending on focused FX* and ReaLearn will activate your "Vital" preset
 whenever Vital VSTi plug-in has focus. If you want this in all projects without having to add ReaLearn to each
 project manually, add a dedicated ReaLearn instance to REAPER's monitoring FX chain (REAPER → View → Monitoring FX).
 
-**Attention:** "Auto-load preset" currently doesn't work when focusing FX which is located on the monitoring FX chain
+**Attention:** "Auto-load" currently doesn't work when focusing FX which is located on the monitoring FX chain
 itself!
 
 ## FAQ
