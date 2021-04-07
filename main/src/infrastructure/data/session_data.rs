@@ -306,7 +306,9 @@ impl SessionData {
         );
         // Mappings
         let context = session.context().clone();
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
+        // The context is just for loading of old presets. Compartment variables weren't existing at
+        // that time, so we don't need to make them available here.
+        let extended_context = ExtendedProcessorContext::new_context_and_params(&context, &params);
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             session.set_mappings_without_notification(
                 compartment,

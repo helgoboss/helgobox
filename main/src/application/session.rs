@@ -75,6 +75,7 @@ pub struct Session {
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
     group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     parameter_settings_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
+    compartment_variables_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     group_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
@@ -89,6 +90,7 @@ pub struct Session {
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
+    compartment_variables: EnumMap<MappingCompartment, HashMap<String, f64>>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
 }
@@ -194,6 +196,7 @@ impl Session {
             mapping_list_changed_subject: Default::default(),
             group_list_changed_subject: Default::default(),
             parameter_settings_changed_subject: Default::default(),
+            compartment_variables_changed_subject: Default::default(),
             mapping_changed_subject: Default::default(),
             group_changed_subject: Default::default(),
             source_touched_subject: Default::default(),
@@ -211,6 +214,7 @@ impl Session {
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
+            compartment_variables: Default::default(),
             on_mappings: Default::default(),
         }
     }
@@ -326,12 +330,30 @@ impl Session {
         self.notify_parameter_settings_changed(compartment);
     }
 
+    pub fn set_compartment_variables(
+        &mut self,
+        compartment: MappingCompartment,
+        variables: HashMap<String, f64>,
+    ) {
+        self.compartment_variables[compartment] = variables;
+        self.notify_compartment_variables_changed(compartment);
+    }
+
     pub fn set_parameter_settings_without_notification(
         &mut self,
         compartment: MappingCompartment,
         parameter_settings: Vec<ParameterSetting>,
     ) {
         self.parameter_settings[compartment] = parameter_settings;
+    }
+
+    // TODO-high Call
+    pub fn set_compartment_variables_without_notification(
+        &mut self,
+        compartment: MappingCompartment,
+        variables: HashMap<String, f64>,
+    ) {
+        self.compartment_variables[compartment] = variables;
     }
 
     pub fn set_parameter_settings_from_non_default(
@@ -358,6 +380,7 @@ impl Session {
         self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
         for compartment in MappingCompartment::enum_iter() {
+            self.sync_compartment_variables(compartment);
             self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
@@ -403,6 +426,12 @@ impl Session {
             .with(weak_session.clone())
             .do_async(move |session, (compartment, _)| {
                 session.borrow_mut().sync_all_mappings_full(compartment);
+            });
+        // Whenever compartment variables change, sync them.
+        when(self.compartment_variables_changed())
+            .with(weak_session.clone())
+            .do_async(move |session, compartment| {
+                session.borrow_mut().sync_compartment_variables(compartment);
             });
         // Whenever something changes that determines if feedback is enabled in general, let the
         // processors know.
@@ -681,10 +710,8 @@ impl Session {
                         // Parameter values are not important for mode auto correction because
                         // dynamic targets don't really profit from it anyway. Therefore just
                         // use zero parameters.
-                        let extended_context = ExtendedProcessorContext::new(
-                            &processor_context,
-                            &ZEROED_PLUGIN_PARAMETERS,
-                        );
+                        let extended_context =
+                            ExtendedProcessorContext::new_context_only(&processor_context);
                         mapping
                             .borrow_mut()
                             .adjust_mode_if_necessary(extended_context);
@@ -760,7 +787,11 @@ impl Session {
     }
 
     pub fn extended_context(&self) -> ExtendedProcessorContext {
-        ExtendedProcessorContext::new(&self.context, &self.parameters)
+        ExtendedProcessorContext::new(&self.context, &self.parameters, &self.compartment_variables)
+    }
+
+    pub fn compartment_variables(&self) -> &EnumMap<MappingCompartment, HashMap<String, f64>> {
+        &self.compartment_variables
     }
 
     pub fn add_default_group(&mut self, compartment: MappingCompartment, name: String) -> GroupId {
@@ -1559,6 +1590,10 @@ impl Session {
         self.parameter_settings_changed_subject.clone()
     }
 
+    pub fn compartment_variables_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+        self.compartment_variables_changed_subject.clone()
+    }
+
     /// Fires if a group itself has been changed.
     pub fn group_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
         self.group_changed_subject.clone()
@@ -1735,6 +1770,13 @@ impl Session {
         AsyncNotifier::notify(&mut self.parameter_settings_changed_subject, &compartment);
     }
 
+    fn notify_compartment_variables_changed(&mut self, compartment: MappingCompartment) {
+        AsyncNotifier::notify(
+            &mut self.compartment_variables_changed_subject,
+            &compartment,
+        );
+    }
+
     /// Notifies listeners async a group in the group list has changed.
     fn notify_group_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.group_changed_subject, &compartment);
@@ -1783,6 +1825,14 @@ impl Session {
             midi_feedback_output: self.midi_feedback_output.get(),
         };
         self.normal_real_time_task_sender.send(task).unwrap();
+    }
+
+    fn sync_compartment_variables(&self, compartment: MappingCompartment) {
+        let task = NormalMainTask::UpdateCompartmentVariables(
+            compartment,
+            self.compartment_variables[compartment].clone(),
+        );
+        self.normal_main_task_sender.try_send(task).unwrap();
     }
 
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {

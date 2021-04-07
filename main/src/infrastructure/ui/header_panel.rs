@@ -44,6 +44,7 @@ use crate::infrastructure::ui::{
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::net::Ipv4Addr;
 
 const OSC_INDEX_OFFSET: isize = 1000;
@@ -213,6 +214,7 @@ impl HeaderPanel {
             ToggleOscDeviceFeedback(OscDeviceId),
             ToggleOscDeviceBundles(OscDeviceId),
             EditCompartmentParameter(MappingCompartment, u32),
+            EditCompartmentVariables(MappingCompartment),
             SendFeedbackNow,
             LogDebugInfo,
         }
@@ -314,6 +316,9 @@ impl HeaderPanel {
                         })
                         .collect(),
                 ),
+                item("Edit compartment variables...", move || {
+                    MenuAction::EditCompartmentVariables(compartment)
+                }),
                 separator(),
                 menu(
                     "Server",
@@ -490,6 +495,9 @@ impl HeaderPanel {
             }
             MenuAction::EditCompartmentParameter(compartment, rel_index) => {
                 let _ = edit_compartment_parameter(self.session(), compartment, rel_index);
+            }
+            MenuAction::EditCompartmentVariables(compartment) => {
+                let _ = edit_compartment_variables(self.session(), compartment);
             }
             MenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
             MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
@@ -1565,7 +1573,7 @@ impl HeaderPanel {
 
     fn save_active_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
-        let (context, params, mut mappings, preset_id, compartment) = {
+        let (context, params, mut mappings, preset_id, compartment, variables) = {
             let session = session.borrow();
             let compartment = self.active_compartment();
             let preset_id = match compartment {
@@ -1586,9 +1594,10 @@ impl HeaderPanel {
                 mappings,
                 preset_id.to_owned(),
                 compartment,
+                session.compartment_variables().clone(),
             )
         };
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
+        let extended_context = ExtendedProcessorContext::new(&context, &params, &variables);
         self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let session = session.borrow();
         let default_group = session.default_group(compartment).borrow().clone();
@@ -1666,7 +1675,7 @@ impl HeaderPanel {
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
         let session = self.session();
-        let (context, params, mut mappings, compartment, param_settings) = {
+        let (context, params, mut mappings, compartment, param_settings, variables) = {
             let session = session.borrow_mut();
             let compartment = self.active_compartment();
             let mappings: Vec<_> = session
@@ -1679,9 +1688,10 @@ impl HeaderPanel {
                 mappings,
                 compartment,
                 session.non_default_parameter_settings_by_compartment(compartment),
+                session.compartment_variables().clone(),
             )
         };
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
+        let extended_context = ExtendedProcessorContext::new(&context, &params, &variables);
         self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),
@@ -2211,6 +2221,21 @@ fn remove_osc_device(parent_window: Window, dev_id: OscDeviceId) {
         .unwrap();
 }
 
+fn edit_compartment_variables(
+    session: SharedSession,
+    compartment: MappingCompartment,
+) -> Result<(), &'static str> {
+    let modified_variables = {
+        let session = session.borrow();
+        let variables = session.compartment_variables()[compartment].clone();
+        edit_variables(variables)?
+    };
+    session
+        .borrow_mut()
+        .set_compartment_variables(compartment, modified_variables);
+    Ok(())
+}
+
 fn edit_compartment_parameter(
     session: SharedSession,
     compartment: MappingCompartment,
@@ -2271,6 +2296,33 @@ fn edit_compartment_parameter_internal(
         return Err("unexpected length difference");
     }
     Ok(out_settings)
+}
+
+fn edit_variables(variables: HashMap<String, f64>) -> Result<HashMap<String, f64>, &'static str> {
+    let mut captions_csv = (0..8)
+        .flat_map(|i| {
+            vec![
+                format!("Variable {} name", i + 1),
+                format!("Variable {} value", i + 1),
+            ]
+        })
+        .join(",");
+    captions_csv.push_str(",separator=;,extrawidth=80");
+    let mut initial_csv = (0..8)
+        .zip(variables.iter().sorted_by_key(|e| e.0))
+        .flat_map(|(i, entry)| vec![entry.0.to_string(), entry.1.to_string()])
+        .join(";");
+    let csv = Reaper::get()
+        .medium_reaper()
+        .get_user_inputs("ReaLearn", 16, captions_csv, initial_csv, 512)
+        .ok_or("cancelled")?;
+    let out_variables: HashMap<String, f64> = csv
+        .to_str()
+        .split(';')
+        .tuples()
+        .filter_map(|(name, value)| Some((name.to_string(), value.parse::<f64>().ok()?)))
+        .collect();
+    Ok(out_variables)
 }
 
 fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {

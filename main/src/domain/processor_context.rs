@@ -1,6 +1,9 @@
-use crate::domain::ParameterArray;
+use crate::domain::{MappingCompartment, ParameterArray, ZEROED_PLUGIN_PARAMETERS};
+use enum_map::EnumMap;
+use once_cell::sync::Lazy;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::TypeSpecificPluginContext;
+use std::collections::HashMap;
 use std::ptr::NonNull;
 use vst::plugin::HostCallback;
 
@@ -8,11 +11,42 @@ use vst::plugin::HostCallback;
 pub struct ExtendedProcessorContext<'a> {
     context: &'a ProcessorContext,
     params: &'a ParameterArray,
+    compartment_variables: &'a EnumMap<MappingCompartment, HashMap<String, f64>>,
 }
 
+static EMPTY_COMPARTMENT_VARIABLES: Lazy<EnumMap<MappingCompartment, HashMap<String, f64>>> =
+    Lazy::new(|| Default::default());
+
 impl<'a> ExtendedProcessorContext<'a> {
-    pub fn new(context: &'a ProcessorContext, params: &'a ParameterArray) -> Self {
-        Self { context, params }
+    pub fn new_context_only(context: &'a ProcessorContext) -> Self {
+        Self {
+            context,
+            params: &ZEROED_PLUGIN_PARAMETERS,
+            compartment_variables: &EMPTY_COMPARTMENT_VARIABLES,
+        }
+    }
+
+    pub fn new_context_and_params(
+        context: &'a ProcessorContext,
+        params: &'a ParameterArray,
+    ) -> Self {
+        Self {
+            context,
+            params,
+            compartment_variables: &EMPTY_COMPARTMENT_VARIABLES,
+        }
+    }
+
+    pub fn new(
+        context: &'a ProcessorContext,
+        params: &'a ParameterArray,
+        compartment_variables: &'a EnumMap<MappingCompartment, HashMap<String, f64>>,
+    ) -> Self {
+        Self {
+            context,
+            params,
+            compartment_variables,
+        }
     }
 
     pub fn context(&self) -> &'a ProcessorContext {
@@ -21,6 +55,19 @@ impl<'a> ExtendedProcessorContext<'a> {
 
     pub fn params(&self) -> &'a ParameterArray {
         &self.params
+    }
+
+    pub fn get_variable_value(&self, compartment: MappingCompartment, name: &str) -> Option<f64> {
+        if let Some(value) = self.compartment_variables[compartment].get(name).copied() {
+            Some(value)
+        } else if compartment == MappingCompartment::MainMappings {
+            // Fallback to controller compartment variables
+            self.compartment_variables[MappingCompartment::ControllerMappings]
+                .get(name)
+                .copied()
+        } else {
+            None
+        }
     }
 }
 

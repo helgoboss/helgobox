@@ -588,7 +588,9 @@ impl TrackRouteSelector {
         compartment: MappingCompartment,
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
+        let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| {
+            context.get_variable_value(compartment, name)
+        });
         result.round().max(0.0) as u32
     }
 
@@ -759,7 +761,9 @@ impl VirtualFxParameter {
         compartment: MappingCompartment,
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
+        let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| {
+            context.get_variable_value(compartment, name)
+        });
         result.round().max(0.0) as u32
     }
 
@@ -828,10 +832,7 @@ impl ExpressionEvaluator {
         additional_vars: impl Fn(&str) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
-        let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
-            if let Some(value) = additional_vars(name) {
-                return Some(value);
-            }
+        let get_param_value = |name: &str| -> Option<f64> {
             if !name.starts_with('p') {
                 return None;
             }
@@ -842,6 +843,9 @@ impl ExpressionEvaluator {
             let index = (value - 1) as usize;
             let param_value = params[index];
             Some(param_value as f64)
+        };
+        let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
+            get_param_value(name).or_else(|| additional_vars(name))
         };
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
         Ok(val)
@@ -1000,7 +1004,7 @@ impl VirtualTrack {
                 let index = context.context().track()?.index()?;
                 Some(index as f64)
             }
-            _ => None,
+            _ => context.get_variable_value(compartment, name),
         });
         result.round().max(0.0) as u32
     }
@@ -1192,7 +1196,9 @@ impl VirtualChainFx {
         compartment: MappingCompartment,
     ) -> u32 {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
+        let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| {
+            context.get_variable_value(compartment, name)
+        });
         result.round().max(0.0) as u32
     }
 

@@ -65,6 +65,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
     parameters: ParameterArray,
+    compartment_variables: EnumMap<MappingCompartment, HashMap<String, f64>>,
     event_handler: EH,
     context: ProcessorContext,
     control_mode: ControlMode,
@@ -113,6 +114,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             poll_control_mappings: Default::default(),
             feedback_is_globally_enabled: false,
             parameters: ZEROED_PLUGIN_PARAMETERS,
+            compartment_variables: Default::default(),
             event_handler,
             context,
             control_mode: ControlMode::Controlling,
@@ -288,6 +290,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             m.refresh_all(ExtendedProcessorContext::new(
                                 &self.context,
                                 &self.parameters,
+                                &self.compartment_variables,
                             ));
                             if m.feedback_is_effectively_on() {
                                 // Mark source as used
@@ -349,8 +352,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // Mappings with virtual targets don't have to be refreshed because virtual
                         // targets are always active and never change depending on circumstances.
                         for m in self.mappings[compartment].values_mut() {
-                            let context =
-                                ExtendedProcessorContext::new(&self.context, &self.parameters);
+                            let context = ExtendedProcessorContext::new(
+                                &self.context,
+                                &self.parameters,
+                                &self.compartment_variables,
+                            );
                             let (target_changed, activation_update) = m.refresh_target(context);
                             if target_changed || activation_update.is_some() {
                                 changed_mappings.push(m.id());
@@ -395,6 +401,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     mapping.refresh_all(ExtendedProcessorContext::new(
                         &self.context,
                         &self.parameters,
+                        &self.compartment_variables,
                     ));
                     // Sync to real-time processor
                     self.normal_real_time_task_sender
@@ -583,6 +590,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.event_handler
                         .handle_event(DomainEvent::FullResyncRequested);
                 }
+                UpdateCompartmentVariables(compartment, variables) => {
+                    debug!(self.logger, "Updating variables for {}", compartment);
+                    self.compartment_variables[compartment] = variables;
+                    // TODO-high Refresh targets
+                }
             }
         }
         // Process parameter tasks
@@ -616,8 +628,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 }
                             }
                             if m.target_can_be_affected_by_parameters() {
-                                let context =
-                                    ExtendedProcessorContext::new(&self.context, &self.parameters);
+                                let context = ExtendedProcessorContext::new(
+                                    &self.context,
+                                    &self.parameters,
+                                    &self.compartment_variables,
+                                );
                                 let (has_changed, activation_change) = m.refresh_target(context);
                                 if has_changed || activation_change.is_some() {
                                     changed_mappings.push(m.id())
@@ -703,8 +718,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             compartment,
                         ) {
                             if m.target_can_be_affected_by_parameters() {
-                                let context =
-                                    ExtendedProcessorContext::new(&self.context, &self.parameters);
+                                let context = ExtendedProcessorContext::new(
+                                    &self.context,
+                                    &self.parameters,
+                                    &self.compartment_variables,
+                                );
                                 let (target_has_changed, activation_change) =
                                     m.refresh_target(context);
                                 if target_has_changed || activation_change.is_some() {
@@ -752,6 +770,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     m.refresh_target(ExtendedProcessorContext::new(
                                         &self.context,
                                         &self.parameters,
+                                        &self.compartment_variables,
                                     ));
                                     if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
                                         if m.feedback_is_effectively_on() {
@@ -1403,6 +1422,7 @@ pub enum NormalMainTask {
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
+    UpdateCompartmentVariables(MappingCompartment, HashMap<String, f64>),
     RefreshAllTargets,
     UpdateSettings {
         control_input: ControlInput,
