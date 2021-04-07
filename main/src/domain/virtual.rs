@@ -117,23 +117,23 @@ impl VirtualSourceValue {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub enum VirtualControlElement {
     Multi(VirtualControlElementId),
     Button(VirtualControlElementId),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub enum VirtualControlElementId {
     Indexed(u32),
     // No full String because we don't want heap allocations due to clones in real-time thread.
     Named(SmallAsciiString),
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub struct SmallAsciiString {
-    content: [u8; SmallAsciiString::MAX_LENGTH],
     length: u8,
+    content: [u8; SmallAsciiString::MAX_LENGTH],
 }
 
 impl SmallAsciiString {
@@ -204,3 +204,99 @@ impl VirtualControlElement {
         }
     }
 }
+
+pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &'static [&'static str] = &[
+    "main/fader",
+    "ch1/fader",
+    "ch2/fader",
+    "ch3/fader",
+    "ch4/fader",
+    "ch5/fader",
+    "ch6/fader",
+    "ch7/fader",
+    "ch8/fader",
+    "ch1/v-pot",
+    "ch2/v-pot",
+    "ch3/v-pot",
+    "ch4/v-pot",
+    "ch5/v-pot",
+    "ch6/v-pot",
+    "ch7/v-pot",
+    "ch8/v-pot",
+    "jog",
+];
+
+pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &'static [&'static str] = &[
+    "ch1/v-select",
+    "ch2/v-select",
+    "ch3/v-select",
+    "ch4/v-select",
+    "ch5/v-select",
+    "ch6/v-select",
+    "ch7/v-select",
+    "ch8/v-select",
+    "ch1/select",
+    "ch2/select",
+    "ch3/select",
+    "ch4/select",
+    "ch5/select",
+    "ch6/select",
+    "ch7/select",
+    "ch8/select",
+    "ch1/mute",
+    "ch2/mute",
+    "ch3/mute",
+    "ch4/mute",
+    "ch5/mute",
+    "ch6/mute",
+    "ch7/mute",
+    "ch8/mute",
+    "ch1/solo",
+    "ch2/solo",
+    "ch3/solo",
+    "ch4/solo",
+    "ch5/solo",
+    "ch6/solo",
+    "ch7/solo",
+    "ch8/solo",
+    "ch1/record-ready",
+    "ch2/record-ready",
+    "ch3/record-ready",
+    "ch4/record-ready",
+    "ch5/record-ready",
+    "ch6/record-ready",
+    "ch7/record-ready",
+    "ch8/record-ready",
+    "main/fader/touch",
+    "ch1/fader/touch",
+    "ch2/fader/touch",
+    "ch3/fader/touch",
+    "ch4/fader/touch",
+    "ch5/fader/touch",
+    "ch6/fader/touch",
+    "ch7/fader/touch",
+    "ch8/fader/touch",
+    "marker",
+    "read",
+    "write",
+    "rewind",
+    "fast-fwd",
+    "play",
+    "stop",
+    "record",
+    "cycle",
+    "zoom",
+    "scrub",
+    // Chose to make the following buttons, not multis - although ReaLearn would allow to convert
+    // them into multis in the virtual controller mapping. Reason: On Mackie consoles these are
+    // usually buttons. Exposing them as buttons has the benefit that we can use Realearn's
+    // button-specific features in the main mapping such as advanced fire modes.
+    "ch-left",
+    "ch-right",
+    "bank-left",
+    "bank-right",
+    "cursor-left",
+    "cursor-right",
+    "cursor-up",
+    "cursor-down",
+];

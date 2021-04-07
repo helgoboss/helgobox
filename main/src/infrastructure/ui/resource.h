@@ -191,3 +191,5 @@
 #define ID_TARGET_HINT                          40109
 #define ID_MODE_RELATIVE_FILTER_COMBO_BOX       40110
 #define ID_MODE_BUTTON_FILTER_COMBO_BOX         40111
+#define ID_TARGET_LINE_3_BUTTON                 40112
+#define ID_SOURCE_LINE_4_BUTTON                 40113

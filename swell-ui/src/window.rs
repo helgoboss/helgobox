@@ -204,7 +204,7 @@ impl Window {
     }
 
     pub fn fill_combo_box_indexed_vec<I: Display>(self, items: Vec<I>) {
-        self.fill_combo_box_indexed(items.into_iter())
+        self.fill_combo_box_indexed(items.into_iter());
     }
 
     pub fn fill_combo_box_small<I: Display>(self, items: impl Iterator<Item = I>) {

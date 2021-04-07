@@ -193,4 +193,6 @@ pub mod root {
     pub const ID_TARGET_HINT: u32 = 40109;
     pub const ID_MODE_RELATIVE_FILTER_COMBO_BOX: u32 = 40110;
     pub const ID_MODE_BUTTON_FILTER_COMBO_BOX: u32 = 40111;
+    pub const ID_TARGET_LINE_3_BUTTON: u32 = 40112;
+    pub const ID_SOURCE_LINE_4_BUTTON: u32 = 40113;
 }

@@ -40,14 +40,15 @@ use crate::domain::{
     ExtendedProcessorContext, FxDisplayType, MappingCompartment, PlayPosFeedbackResolution,
     QualifiedMappingId, RealearnTarget, ReaperTarget, SmallAsciiString, SoloBehavior,
     TargetCharacter, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
-    VirtualControlElement, VirtualControlElementId, VirtualFx,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, PREDEFINED_VIRTUAL_BUTTON_NAMES,
+    PREDEFINED_VIRTUAL_MULTI_NAMES,
 };
 use itertools::Itertools;
 
 use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{
-    DialogUnits, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+    DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
 
 #[derive(Debug)]
@@ -129,6 +130,36 @@ impl MappingPanel {
         session
             .borrow_mut()
             .toggle_learning_target(&session, self.qualified_mapping_id().expect("no mapping"));
+    }
+
+    fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+        let control_element_type = mapping.borrow().target_model.control_element_type.get();
+        let window = self.view.require_window();
+        let text = prompt_for_predefined_control_element_name(window, control_element_type)
+            .ok_or("nothing picked")?;
+        let ascii_string = SmallAsciiString::create_compatible_ascii_string(&text);
+        mapping
+            .borrow_mut()
+            .target_model
+            .control_element_name
+            .set(ascii_string);
+        Ok(())
+    }
+
+    fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+        let control_element_type = mapping.borrow().source_model.control_element_type.get();
+        let window = self.view.require_window();
+        let text = prompt_for_predefined_control_element_name(window, control_element_type)
+            .ok_or("nothing picked")?;
+        let ascii_string = SmallAsciiString::create_compatible_ascii_string(&text);
+        mapping
+            .borrow_mut()
+            .source_model
+            .control_element_name
+            .set(ascii_string);
+        Ok(())
     }
 
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -1795,7 +1826,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_SOURCE_OSC_ADDRESS_LABEL_TEXT,
                 root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL,
             ],
-        )
+        );
+        self.show_if(
+            source.supports_control_element_name(),
+            &[root::ID_SOURCE_LINE_4_BUTTON],
+        );
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
@@ -2304,6 +2339,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_3_combo_box_1();
         self.invalidate_target_line_3_combo_box_2();
         self.invalidate_target_line_3_edit_control();
+        self.invalidate_target_line_3_button();
     }
 
     fn invalidate_target_line_4(&self) {
@@ -2314,6 +2350,22 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_4_combo_box_2();
         self.invalidate_target_line_4_edit_control();
         self.invalidate_target_line_4_button();
+    }
+
+    fn invalidate_target_line_3_button(&self) {
+        let text = match self.target_category() {
+            TargetCategory::Reaper => None,
+            TargetCategory::Virtual => {
+                if self.target.control_element_index.get().is_some() {
+                    None
+                } else {
+                    Some("Pick!")
+                }
+            }
+        };
+        self.view
+            .require_control(root::ID_TARGET_LINE_3_BUTTON)
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_4_button(&self) {
@@ -4042,6 +4094,9 @@ impl View for MappingPanel {
             root::ID_SOURCE_LEARN_BUTTON => self.toggle_learn_source(),
             root::ID_SOURCE_RPN_CHECK_BOX => self.write(|p| p.update_source_is_registered()),
             root::ID_SOURCE_14_BIT_CHECK_BOX => self.write(|p| p.update_source_is_14_bit()),
+            root::ID_SOURCE_LINE_4_BUTTON => {
+                let _ = self.handle_source_line_4_button_press();
+            }
             // Mode
             root::ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
             root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => {
@@ -4063,6 +4118,9 @@ impl View for MappingPanel {
             root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             root::ID_TARGET_LINE_2_BUTTON => {
                 self.write(|p| p.handle_target_line_2_button_press());
+            }
+            root::ID_TARGET_LINE_3_BUTTON => {
+                let _ = self.handle_target_line_3_button_press();
             }
             root::ID_TARGET_LINE_4_BUTTON => {
                 let _ = self.handle_target_line_4_button_press();
@@ -4306,14 +4364,17 @@ fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
 fn group_mappings_by_virtual_control_element<'a>(
     mappings: impl Iterator<Item = &'a SharedMapping>,
 ) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
-    // Group by Option<VirtualControlElement>
-    let grouped_by_option = mappings.group_by(|m| {
+    let key_fn = |m: &SharedMapping| {
         let m = m.borrow();
         match m.target_model.category.get() {
             TargetCategory::Reaper => None,
             TargetCategory::Virtual => Some(m.target_model.create_control_element()),
         }
-    });
+    };
+    // Group by Option<VirtualControlElement>
+    let grouped_by_option = mappings
+        .sorted_by_key(|m| key_fn(m))
+        .group_by(|m| key_fn(m));
     // Filter out None keys and collect to map with vector values
     grouped_by_option
         .into_iter()
@@ -4542,4 +4603,78 @@ fn control_element_combo_box_entries(
             (i as isize, label)
         }))
         .collect()
+}
+
+fn prompt_for_predefined_control_element_name(
+    window: Window,
+    r#type: VirtualControlElementType,
+) -> Option<String> {
+    let names = match r#type {
+        VirtualControlElementType::Multi => PREDEFINED_VIRTUAL_MULTI_NAMES,
+        VirtualControlElementType::Button => PREDEFINED_VIRTUAL_BUTTON_NAMES,
+    };
+    let menu_bar = MenuBar::new_popup_menu();
+    let pure_menu = {
+        use swell_ui::menu_tree::*;
+        let entries = build_slash_menu_entries(names, "");
+        let mut root_menu = root_menu(entries);
+        root_menu.index(1);
+        fill_menu(menu_bar.menu(), &root_menu);
+        root_menu
+    };
+    let result_index = window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
+    let item = pure_menu.find_item_by_id(result_index)?;
+    Some(item.invoke_handler())
+}
+
+fn build_slash_menu_entries(
+    names: &[&str],
+    prefix: &str,
+) -> Vec<swell_ui::menu_tree::Entry<String>> {
+    use swell_ui::menu_tree::*;
+    let mut entries = Vec::new();
+    for (key, group) in &names
+        .iter()
+        .sorted()
+        .group_by(|name| extract_first_segment(name))
+    {
+        if key.is_empty() {
+            // All non-nested entries on this level (items).
+            for name in group {
+                let full_name = if prefix.is_empty() {
+                    name.to_string()
+                } else {
+                    format!("{}/{}", prefix, name)
+                };
+                entries.push(item(*name, move || full_name));
+            }
+        } else {
+            // A nested entry (menu).
+            let remaining_names: Vec<_> = group.map(|name| extract_remaining_name(name)).collect();
+            let new_prefix = if prefix.is_empty() {
+                key.to_string()
+            } else {
+                format!("{}/{}", prefix, key)
+            };
+            let inner_entries = build_slash_menu_entries(&remaining_names, &new_prefix);
+            entries.push(menu(key, inner_entries));
+        }
+    }
+    entries
+}
+
+fn extract_first_segment(text: &str) -> &str {
+    if let Some(slash_index) = text.find('/') {
+        &text[0..slash_index]
+    } else {
+        ""
+    }
+}
+
+fn extract_remaining_name(text: &str) -> &str {
+    if let Some(slash_index) = text.find('/') {
+        &text[slash_index + 1..]
+    } else {
+        text
+    }
 }
