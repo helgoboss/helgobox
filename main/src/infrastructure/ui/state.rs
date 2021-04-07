@@ -5,7 +5,9 @@ use crate::application::{GroupId, MappingModel};
 use enum_map::{enum_map, EnumMap};
 use rx_util::UnitEvent;
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
+use wildmatch::WildMatch;
 
 pub type SharedMainState = Rc<RefCell<MainState>>;
 
@@ -17,7 +19,7 @@ pub struct MainState {
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
     pub group_filter: EnumMap<MappingCompartment, Prop<Option<GroupFilter>>>,
-    pub search_expression: Prop<String>,
+    pub search_expression: Prop<SearchExpression>,
     pub status_msg: Prop<String>,
 }
 
@@ -90,7 +92,7 @@ impl MainState {
     }
 
     pub fn clear_search_expression_filter(&mut self) {
-        self.search_expression.set("".to_string());
+        self.search_expression.set(Default::default());
     }
 
     pub fn clear_source_filter(&mut self) {
@@ -111,11 +113,43 @@ impl MainState {
     pub fn filter_is_active_except_group(&self) -> bool {
         self.source_filter.get_ref().is_some()
             || self.target_filter.get_ref().is_some()
-            || !self.search_expression.get_ref().trim().is_empty()
+            || !self.search_expression.get_ref().is_empty()
     }
 
     pub fn stop_filter_learning(&mut self) {
         self.is_learning_source_filter.set(false);
         self.is_learning_target_filter.set(false);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SearchExpression(WildMatch);
+
+impl SearchExpression {
+    pub fn new(text: &str) -> SearchExpression {
+        let wild_match = if text.is_empty() {
+            WildMatch::default()
+        } else {
+            let modified_text = format!("*{}*", text.to_lowercase());
+            WildMatch::new(&modified_text)
+        };
+        Self(wild_match)
+    }
+
+    pub fn matches(&self, text: &str) -> bool {
+        self.0.matches(&text.to_lowercase())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.to_string().is_empty()
+    }
+}
+
+impl fmt::Display for SearchExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = self.0.to_string();
+        let s = s.strip_prefix('*').unwrap_or(&s);
+        let s = s.strip_suffix('*').unwrap_or(&s);
+        f.write_str(s)
     }
 }

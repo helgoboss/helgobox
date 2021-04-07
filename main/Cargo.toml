@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.8.0-rc.1"
+version = "2.8.0-rc.2"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -118,7 +118,7 @@ hex = "0.4.2"
 # For evaluation of <Dynamic> formulas
 fasteval = { version = "0.2.4", default-features = false }
 # For wildcard support when using "By name" selector
-wildmatch = "1.1.0"
+wildmatch = "2.1.0"
 # For creating HashSet literals for projection feedback and in unit tests
 maplit = "1.0.2"
 # For easier support of named virtual control elements

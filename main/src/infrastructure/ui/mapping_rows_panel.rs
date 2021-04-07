@@ -364,14 +364,8 @@ impl MappingRowsPanel {
                 return false;
             }
         }
-        let search_expression = main_state.search_expression.get_ref().trim().to_lowercase();
-        if !search_expression.is_empty()
-            && !mapping
-                .name
-                .get_ref()
-                .to_lowercase()
-                .contains(&search_expression)
-        {
+        let search_expression = main_state.search_expression.get_ref();
+        if !search_expression.is_empty() && !search_expression.matches(&mapping.name.get_ref()) {
             return false;
         }
         true

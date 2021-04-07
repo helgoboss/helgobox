@@ -74,12 +74,12 @@ impl FxId {
 
     fn file_name_matches(&self, fx_id_pattern: &FxId) -> bool {
         let wild_match = wildmatch::WildMatch::new(&fx_id_pattern.file_name);
-        wild_match.is_match(self.file_name())
+        wild_match.matches(self.file_name())
     }
 
     fn preset_name_matches(&self, fx_id_pattern: &FxId) -> bool {
         let wild_match = wildmatch::WildMatch::new(&fx_id_pattern.preset_name);
-        wild_match.is_match(self.preset_name())
+        wild_match.matches(self.preset_name())
     }
 }
 

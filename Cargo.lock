@@ -2597,7 +2597,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.8.0-rc.1"
+version = "2.8.0-rc.2"
 dependencies = [
  "ascii",
  "askama",
@@ -3903,9 +3903,9 @@ checksum = "c168940144dd21fd8046987c16a46a33d5fc84eec29ef9dcddc2ac9e31526b7c"
 
 [[package]]
 name = "wildmatch"
-version = "1.1.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f44b95f62d34113cf558c93511ac93027e03e9c29a60dd0fd70e6e025c7270a"
+checksum = "d6c48bd20df7e4ced539c12f570f937c6b4884928a87fee70a479d72f031d4e0"
 
 [[package]]
 name = "winapi"

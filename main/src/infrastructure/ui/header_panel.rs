@@ -39,7 +39,7 @@ use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
     get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, SharedIndependentPanelManager, SharedMainState,
+    MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -1156,18 +1156,21 @@ impl HeaderPanel {
             .view
             .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL);
         let text = ec.text().unwrap_or_else(|_| "".to_string());
-        self.main_state.borrow_mut().search_expression.set(text);
+        self.main_state
+            .borrow_mut()
+            .search_expression
+            .set(SearchExpression::new(&text));
     }
 
     fn invalidate_search_expression(&self) {
         let main_state = self.main_state.borrow();
-        let search_expression = main_state.search_expression.get_ref().as_str();
-        self.view
-            .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
-            .set_text_if_not_focused(search_expression);
+        let search_expression = main_state.search_expression.get_ref().to_string();
         self.view
             .require_control(root::ID_CLEAR_SEARCH_BUTTON)
             .set_enabled(!search_expression.is_empty());
+        self.view
+            .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
+            .set_text_if_not_focused(search_expression);
     }
 
     fn update_control_input(&self) {

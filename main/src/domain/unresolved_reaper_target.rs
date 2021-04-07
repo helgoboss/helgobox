@@ -728,7 +728,7 @@ impl VirtualFxParameter {
             }
             ByName(name) => fx
                 .parameters()
-                .find(|p| name.is_match(p.name().to_str()))
+                .find(|p| name.matches(p.name().to_str()))
                 .ok_or_else(|| FxParameterResolveError::FxParameterNotFound {
                     name: Some(name.clone()),
                     index: None,
@@ -1080,7 +1080,7 @@ impl fmt::Display for VirtualChainFx {
 fn find_track_by_name(project: Project, name: &WildMatch) -> Option<Track> {
     project.tracks().find(|t| match t.name() {
         None => false,
-        Some(n) => name.is_match(n.to_str()),
+        Some(n) => name.matches(n.to_str()),
     })
 }
 
@@ -1224,7 +1224,7 @@ impl VirtualChainFx {
 }
 
 fn find_fx_by_name(chain: &FxChain, name: &WildMatch) -> Option<Fx> {
-    chain.fxs().find(|fx| name.is_match(fx.name().to_str()))
+    chain.fxs().find(|fx| name.matches(fx.name().to_str()))
 }
 
 #[derive(Clone, Debug, Display, Error)]
@@ -1494,7 +1494,7 @@ fn find_route_by_name(
     name: &WildMatch,
     route_type: TrackRouteType,
 ) -> Option<TrackRoute> {
-    let matcher = |r: &TrackRoute| name.is_match(r.name().to_str());
+    let matcher = |r: &TrackRoute| name.matches(r.name().to_str());
     match route_type {
         TrackRouteType::Send => track.typed_sends(SendPartnerType::Track).find(matcher),
         TrackRouteType::Receive => track.receives().find(matcher),
