@@ -120,6 +120,7 @@ impl OscFeedbackHandler {
             .task_receiver
             .try_iter()
             .take(OSC_OUTGOING_BULK_SIZE)
+            .sorted_by_key(|task| task.dev_id)
             .group_by(|task| task.dev_id);
         for (dev_id, group) in grouped_by_device.into_iter() {
             if let Some(dev) = self.osc_output_devices.iter().find(|d| d.id() == dev_id) {
