@@ -230,7 +230,7 @@ impl MainMapping {
 
     pub fn refresh_all(&mut self, context: ExtendedProcessorContext) {
         self.refresh_target(context);
-        self.update_activation(&context.params);
+        self.update_activation(&context.params());
     }
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {

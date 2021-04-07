@@ -154,7 +154,11 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         let context = session.extended_context();
-        if !context.context.project_or_current_project().is_available() {
+        if !context
+            .context()
+            .project_or_current_project()
+            .is_available()
+        {
             // Prevent error on project close
             return;
         }

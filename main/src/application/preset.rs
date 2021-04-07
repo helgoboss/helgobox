@@ -72,7 +72,7 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
                 if refers_to_project {
                     let target_with_context = target.with_context(context, compartment);
                     let virtual_fx = if target_with_context.fx().ok().as_ref()
-                        == Some(context.context.containing_fx())
+                        == Some(context.context().containing_fx())
                     {
                         // This is ourselves!
                         VirtualFx::This

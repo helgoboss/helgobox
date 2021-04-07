@@ -2223,7 +2223,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     ) {
                         combo.show();
                         let context = self.session.extended_context();
-                        let project = context.context.project_or_current_project();
+                        let project = context.context().project_or_current_project();
                         // Fill
                         combo.fill_combo_box_indexed(track_combo_box_entries(project));
                         // Set

@@ -6,13 +6,21 @@ use vst::plugin::HostCallback;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedProcessorContext<'a> {
-    pub context: &'a ProcessorContext,
-    pub params: &'a ParameterArray,
+    context: &'a ProcessorContext,
+    params: &'a ParameterArray,
 }
 
 impl<'a> ExtendedProcessorContext<'a> {
     pub fn new(context: &'a ProcessorContext, params: &'a ParameterArray) -> Self {
         Self { context, params }
+    }
+
+    pub fn context(&self) -> &'a ProcessorContext {
+        &self.context
+    }
+
+    pub fn params(&self) -> &'a ParameterArray {
+        &self.params
     }
 }
 

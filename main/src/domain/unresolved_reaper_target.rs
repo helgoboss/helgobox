@@ -148,7 +148,7 @@ impl UnresolvedReaperTarget {
             } => ReaperTarget::Action {
                 action: action.clone(),
                 invocation_type: *invocation_type,
-                project: context.context.project_or_current_project(),
+                project: context.context().project_or_current_project(),
             },
             FxParameter {
                 fx_parameter_descriptor,
@@ -226,10 +226,10 @@ impl UnresolvedReaperTarget {
                 route: get_track_route(context, descriptor, compartment)?,
             },
             Tempo => ReaperTarget::Tempo {
-                project: context.context.project_or_current_project(),
+                project: context.context().project_or_current_project(),
             },
             Playrate => ReaperTarget::Playrate {
-                project: context.context.project_or_current_project(),
+                project: context.context().project_or_current_project(),
             },
             AutomationModeOverride { mode_override } => ReaperTarget::AutomationModeOverride {
                 mode_override: *mode_override,
@@ -251,7 +251,7 @@ impl UnresolvedReaperTarget {
                 scroll_arrange_view,
                 scroll_mixer,
             } => ReaperTarget::SelectedTrack {
-                project: context.context.project_or_current_project(),
+                project: context.context().project_or_current_project(),
                 scroll_arrange_view: *scroll_arrange_view,
                 scroll_mixer: *scroll_mixer,
             },
@@ -276,7 +276,7 @@ impl UnresolvedReaperTarget {
                 exclusivity: *exclusivity,
             },
             Transport { action } => ReaperTarget::Transport {
-                project: context.context.project_or_current_project(),
+                project: context.context().project_or_current_project(),
                 action: *action,
             },
             LoadFxPreset {
@@ -312,7 +312,7 @@ impl UnresolvedReaperTarget {
                 set_time_selection,
                 set_loop_points,
             } => {
-                let project = context.context.project_or_current_project();
+                let project = context.context().project_or_current_project();
                 let res = find_bookmark(
                     project,
                     *bookmark_type,
@@ -329,7 +329,7 @@ impl UnresolvedReaperTarget {
                 }
             }
             Seek { options } => {
-                let project = context.context.project_or_current_project();
+                let project = context.context().project_or_current_project();
                 ReaperTarget::Seek {
                     project,
                     options: *options,
@@ -587,7 +587,7 @@ impl TrackRouteSelector {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> u32 {
-        let sliced_params = compartment.slice_params(context.params);
+        let sliced_params = compartment.slice_params(context.params());
         let result = evaluator.evaluate(sliced_params);
         result.round().max(0.0) as u32
     }
@@ -758,7 +758,7 @@ impl VirtualFxParameter {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> u32 {
-        let sliced_params = compartment.slice_params(context.params);
+        let sliced_params = compartment.slice_params(context.params());
         let result = evaluator.evaluate(sliced_params);
         result.round().max(0.0) as u32
     }
@@ -919,10 +919,10 @@ impl VirtualTrack {
         compartment: MappingCompartment,
     ) -> Result<Track, TrackResolveError> {
         use VirtualTrack::*;
-        let project = context.context.project_or_current_project();
+        let project = context.context().project_or_current_project();
         let track = match self {
             This => context
-                .context
+                .context()
                 .containing_fx()
                 .track()
                 .cloned()
@@ -994,10 +994,10 @@ impl VirtualTrack {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> u32 {
-        let sliced_params = compartment.slice_params(context.params);
+        let sliced_params = compartment.slice_params(context.params());
         let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| match name {
             "this_track_index" => {
-                let index = context.context.track()?.index()?;
+                let index = context.context().track()?.index()?;
                 Some(index as f64)
             }
             _ => None,
@@ -1191,7 +1191,7 @@ impl VirtualChainFx {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> u32 {
-        let sliced_params = compartment.slice_params(context.params);
+        let sliced_params = compartment.slice_params(context.params());
         let result = evaluator.evaluate(sliced_params);
         result.round().max(0.0) as u32
     }
@@ -1304,7 +1304,7 @@ pub fn get_fx(
 ) -> Result<Fx, &'static str> {
     match &descriptor.fx {
         VirtualFx::This => {
-            let fx = context.context.containing_fx();
+            let fx = context.context().containing_fx();
             if fx.is_available() {
                 Ok(fx.clone())
             } else {

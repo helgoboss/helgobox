@@ -999,7 +999,7 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     pub fn project(&self) -> Project {
-        self.context.context.project_or_current_project()
+        self.context.context().project_or_current_project()
     }
 
     // TODO-low Consider returning a Cow
