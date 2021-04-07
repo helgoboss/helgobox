@@ -2221,15 +2221,19 @@ impl<'a> ImmutableMappingPanel<'a> {
                     &HashMap::new(),
                 );
                 combo.fill_combo_box_with_data_vec(options);
-                let data = self
-                    .target
-                    .control_element_index
-                    .get()
-                    .map(|i| i as isize)
-                    .unwrap_or(-1);
-                combo.select_combo_box_item_by_data(data).unwrap();
+                self.select_control_element_index_combo_item(combo);
             }
         }
+    }
+
+    fn select_control_element_index_combo_item(&self, combo: Window) {
+        let data = self
+            .target
+            .control_element_index
+            .get()
+            .map(|i| i as isize)
+            .unwrap_or(-1);
+        combo.select_combo_box_item_by_data(data).unwrap();
     }
 
     fn invalidate_target_line_2_edit_control(&self) {
@@ -3627,8 +3631,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.bookmark_type.changed())
                 .merge(target.bookmark_anchor_type.changed())
                 .merge(target.bookmark_ref.changed())
-                .merge(target.control_element_index.changed())
-                .merge(target.control_element_name.changed())
                 .merge(target.transport_action.changed())
                 .merge(target.action.changed()),
             |view| {
@@ -3636,6 +3638,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
+        self.panel
+            .when_do_sync(target.control_element_index.changed(), |view| {
+                let combo = view
+                    .view
+                    .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
+                view.select_control_element_index_combo_item(combo);
+                view.invalidate_target_line_3();
+            });
+        self.panel
+            .when_do_sync(target.control_element_name.changed(), |view| {
+                view.invalidate_target_line_3();
+            });
         self.panel.when_do_sync(
             target
                 .fx_type
