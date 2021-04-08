@@ -102,7 +102,10 @@ impl MappingRowPanel {
 
     fn invalidate_name_labels(&self, mapping: &MappingModel) {
         let main_state = self.main_state.borrow();
-        let group_name = if main_state.group_filter_for_active_compartment().is_some() {
+        let group_name = if main_state
+            .displayed_group_for_active_compartment()
+            .is_some()
+        {
             None
         } else {
             // All groups are shown. Add more context!
@@ -373,7 +376,7 @@ impl MappingRowPanel {
         let within_same_group = self
             .main_state
             .borrow()
-            .group_filter_for_active_compartment()
+            .displayed_group_for_active_compartment()
             .is_some();
         let _ = self.session().borrow_mut().move_mapping_within_list(
             self.active_compartment(),

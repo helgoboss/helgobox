@@ -103,7 +103,7 @@ impl HeaderPanel {
         let group_filter = self
             .main_state
             .borrow()
-            .group_filter_for_active_compartment()?;
+            .displayed_group_for_active_compartment()?;
         Some(group_filter.group_id())
     }
 
@@ -168,14 +168,12 @@ impl HeaderPanel {
                 .add_default_group(self.active_compartment(), name);
             self.main_state
                 .borrow_mut()
-                .set_group_filter_for_active_compartment(Some(GroupFilter(id)));
+                .set_displayed_group_for_active_compartment(Some(GroupFilter(id)));
         }
     }
 
     fn add_mapping(&self) {
-        self.main_state
-            .borrow_mut()
-            .clear_all_filters_except_group();
+        self.main_state.borrow_mut().clear_all_filters();
         self.session().borrow_mut().add_default_mapping(
             self.active_compartment(),
             self.active_group_id().unwrap_or_default(),
@@ -616,7 +614,7 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let session = session.borrow();
-        MappingRowsPanel::filtered_mappings(&session, &main_state, compartment)
+        MappingRowsPanel::filtered_mappings(&session, &main_state, compartment, false)
             .cloned()
             .collect()
     }
@@ -624,7 +622,7 @@ impl HeaderPanel {
     fn paste_replace_all_in_group(&self, mapping_datas: Vec<MappingModelData>) {
         let main_state = self.main_state.borrow();
         let group_id = main_state
-            .group_filter_for_active_compartment()
+            .displayed_group_for_active_compartment()
             .map(|f| f.group_id())
             .unwrap_or_default();
         let compartment = main_state.active_compartment.get();
@@ -879,7 +877,7 @@ impl HeaderPanel {
         let data = match self
             .main_state
             .borrow()
-            .group_filter_for_active_compartment()
+            .displayed_group_for_active_compartment()
         {
             None => -2isize,
             Some(GroupFilter(id)) => {
@@ -914,7 +912,7 @@ impl HeaderPanel {
             match self
                 .main_state
                 .borrow()
-                .group_filter_for_active_compartment()
+                .displayed_group_for_active_compartment()
             {
                 None => (true, false, false),
                 Some(GroupFilter(id)) if id.is_default() => (true, false, true),
@@ -1305,7 +1303,7 @@ impl HeaderPanel {
         let id = match self
             .main_state
             .borrow()
-            .group_filter_for_active_compartment()
+            .displayed_group_for_active_compartment()
         {
             Some(GroupFilter(id)) if !id.is_default() => id,
             _ => return,
@@ -1326,7 +1324,7 @@ impl HeaderPanel {
         if let Some(delete_mappings) = delete_mappings_result {
             self.main_state
                 .borrow_mut()
-                .set_group_filter_for_active_compartment(Some(GroupFilter(GroupId::default())));
+                .set_displayed_group_for_active_compartment(Some(GroupFilter(GroupId::default())));
             self.session()
                 .borrow_mut()
                 .remove_group(compartment, id, delete_mappings);
@@ -1338,7 +1336,7 @@ impl HeaderPanel {
         let weak_group = match self
             .main_state
             .borrow()
-            .group_filter_for_active_compartment()
+            .displayed_group_for_active_compartment()
         {
             Some(GroupFilter(id)) => {
                 if id.is_default() {
@@ -1386,7 +1384,7 @@ impl HeaderPanel {
         };
         self.main_state
             .borrow_mut()
-            .set_group_filter_for_active_compartment(group_filter);
+            .set_displayed_group_for_active_compartment(group_filter);
     }
 
     fn update_preset_auto_load_mode(&self) {
@@ -1767,7 +1765,7 @@ impl HeaderPanel {
     fn reset(&self) {
         self.main_state
             .borrow_mut()
-            .set_group_filter_for_active_compartment(Some(GroupFilter(GroupId::default())));
+            .set_displayed_group_for_active_compartment(Some(GroupFilter(GroupId::default())));
         if let Some(already_open_panel) = self.group_panel.borrow().as_ref() {
             already_open_panel.close();
         }
@@ -1862,7 +1860,7 @@ impl HeaderPanel {
         });
         let main_state = self.main_state.borrow();
         self.when(
-            main_state.group_filter_for_any_compartment_changed(),
+            main_state.displayed_group_for_any_compartment_changed(),
             |view, _| {
                 view.invalidate_group_controls();
             },

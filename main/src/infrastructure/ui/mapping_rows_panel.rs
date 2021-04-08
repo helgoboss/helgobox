@@ -16,6 +16,7 @@ use std::cmp;
 
 use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
+use regex::internal::Input;
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -79,7 +80,7 @@ impl MappingRowsPanel {
         {
             let mut main_state = self.main_state.borrow_mut();
             main_state.active_compartment.set(compartment);
-            main_state.clear_all_filters();
+            main_state.clear_all_filters_and_displayed_group();
         }
         self.scroll(index);
     }
@@ -124,7 +125,7 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        let mut mappings = Self::filtered_mappings(&session, &main_state, compartment);
+        let mut mappings = Self::filtered_mappings(&session, &main_state, compartment, false);
         mappings.position(|m| m.borrow().id() == mapping_id)
     }
 
@@ -243,12 +244,12 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        if !main_state.filter_is_active() {
+        if !main_state.filter_and_displayed_group_is_active() {
             return session.mapping_count(self.active_compartment());
         }
         session
             .mappings(self.active_compartment())
-            .filter(|m| Self::mapping_matches_filter(&session, &main_state, *m))
+            .filter(|m| Self::mapping_matches_filter(&session, &main_state, *m, false))
             .count()
     }
 
@@ -289,11 +290,12 @@ impl MappingRowsPanel {
         session: &'a Session,
         main_state: &'a MainState,
         compartment: MappingCompartment,
+        ignore_group: bool,
     ) -> impl Iterator<Item = &'a SharedMapping> {
-        let filter_is_active = main_state.filter_is_active();
+        let filter_is_active = main_state.filter_and_displayed_group_is_active();
         session.mappings(compartment).filter(move |m| {
             if filter_is_active {
-                Self::mapping_matches_filter(session, main_state, *m)
+                Self::mapping_matches_filter(session, main_state, *m, ignore_group)
             } else {
                 true
             }
@@ -303,12 +305,12 @@ impl MappingRowsPanel {
     /// Let mapping rows reflect the correct mappings.
     fn invalidate_mapping_rows(&self) {
         let mut row_index = 0;
-        let compartment = self.active_compartment();
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
+        let compartment = main_state.active_compartment.get();
         let filtered_mappings: Vec<_> =
-            Self::filtered_mappings(&session, &main_state, compartment).collect();
+            Self::filtered_mappings(&session, &main_state, compartment, false).collect();
         let scroll_pos = self.scroll_position.get();
         if scroll_pos < filtered_mappings.len() {
             for mapping in &filtered_mappings[scroll_pos..] {
@@ -327,9 +329,10 @@ impl MappingRowsPanel {
             self.rows.get(i).expect("impossible").set_mapping(None);
         }
         self.invalidate_empty_group_controls(
+            &session,
             &main_state,
+            compartment,
             filtered_mappings.len(),
-            session.mapping_count(compartment),
         );
     }
 
@@ -337,11 +340,14 @@ impl MappingRowsPanel {
         session: &Session,
         main_state: &MainState,
         mapping: &SharedMapping,
+        ignore_group: bool,
     ) -> bool {
         let mapping = mapping.borrow();
-        if let Some(group_filter) = main_state.group_filter_for_active_compartment() {
-            if !group_filter.matches(&mapping) {
-                return false;
+        if !ignore_group {
+            if let Some(group_filter) = main_state.displayed_group_for_active_compartment() {
+                if !group_filter.matches(&mapping) {
+                    return false;
+                }
             }
         }
         if let Some(filter_source) = main_state.source_filter.get_ref() {
@@ -378,36 +384,69 @@ impl MappingRowsPanel {
 
     fn invalidate_empty_group_controls(
         &self,
+        session: &Session,
         main_state: &MainState,
+        compartment: MappingCompartment,
         displayed_mapping_count: usize,
-        all_mappings_count: usize,
     ) {
-        let label = self.view.require_control(root::ID_GROUP_IS_EMPTY_TEXT);
-        let button = self
-            .view
-            .require_control(root::ID_DISPLAY_ALL_GROUPS_BUTTON);
         let (label_text, button_text) = if displayed_mapping_count == 0 {
-            if all_mappings_count == 0 {
-                (Some("There are no mappings in this compartment."), None)
-            } else if main_state.filter_is_active_except_group() {
-                (
+            use EmptyMappingListCase::*;
+            match self.determine_empty_mapping_list_case(session, main_state, compartment) {
+                CompartmentEmpty => (Some("There are no mappings in this compartment."), None),
+                FilterSet | GroupAndFilterSetFilterIsProblem => (
                     Some("No mapping matching filter and search string."),
                     Some("Clear filter and search string".to_owned()),
-                )
-            } else {
-                (
+                ),
+                GroupSet => (
                     Some("This group is empty."),
                     Some(format!(
-                        "Display {} mappings in all groups",
-                        all_mappings_count
+                        "Show {} mappings in all groups",
+                        session.mapping_count(compartment)
                     )),
-                )
+                ),
+                GroupAndFilterSetGroupIsProblem => (
+                    Some("There are matching mappings in other groups."),
+                    Some("Show mappings in all groups".to_owned()),
+                ),
             }
         } else {
             (None, None)
         };
-        label.set_text_or_hide(label_text);
-        button.set_text_or_hide(button_text);
+        let label = self
+            .view
+            .require_control(root::ID_GROUP_IS_EMPTY_TEXT)
+            .set_text_or_hide(label_text);
+        let button = self
+            .view
+            .require_control(root::ID_DISPLAY_ALL_GROUPS_BUTTON)
+            .set_text_or_hide(button_text);
+    }
+
+    fn determine_empty_mapping_list_case(
+        &self,
+        session: &Session,
+        main_state: &MainState,
+        compartment: MappingCompartment,
+    ) -> EmptyMappingListCase {
+        if session.mapping_count(compartment) == 0 {
+            EmptyMappingListCase::CompartmentEmpty
+        } else {
+            let filter_is_active = main_state.filter_is_active();
+            let displayed_group = main_state.displayed_group[compartment].get();
+            if !filter_is_active && displayed_group.is_some() {
+                EmptyMappingListCase::GroupSet
+            } else if filter_is_active && displayed_group.is_none() {
+                EmptyMappingListCase::FilterSet
+            } else {
+                // Both filter is active and displayed group.
+                // Try filter while ignoring group.
+                if Self::filtered_mappings(&session, &main_state, compartment, true).count() == 0 {
+                    EmptyMappingListCase::GroupAndFilterSetFilterIsProblem
+                } else {
+                    EmptyMappingListCase::GroupAndFilterSetGroupIsProblem
+                }
+            }
+        }
     }
 
     fn register_listeners(self: SharedView<Self>) {
@@ -436,7 +475,7 @@ impl MappingRowsPanel {
                 .merge(main_state.target_filter.changed())
                 .merge(main_state.search_expression.changed())
                 .merge(main_state.active_compartment.changed())
-                .merge(main_state.group_filter_for_any_compartment_changed())
+                .merge(main_state.displayed_group_for_any_compartment_changed())
                 .merge(session.group_list_changed().map_to(())),
             |view, _| {
                 if !view.scroll(0) {
@@ -449,13 +488,20 @@ impl MappingRowsPanel {
         );
     }
 
-    fn clear_filter_or_display_all_groups(&self) {
+    fn fix_empty_mapping_list(&self) -> Result<(), &'static str> {
+        use EmptyMappingListCase::*;
+        let session = self.session();
+        let session = session.borrow();
         let mut main_state = self.main_state.borrow_mut();
-        if main_state.filter_is_active_except_group() {
-            main_state.clear_all_filters_except_group();
-        } else {
-            main_state.clear_group_filter_for_active_compartment();
-        }
+        let compartment = main_state.active_compartment.get();
+        match self.determine_empty_mapping_list_case(&session, &main_state, compartment) {
+            CompartmentEmpty => return Err("can't be fixed"),
+            FilterSet | GroupAndFilterSetFilterIsProblem => main_state.clear_all_filters(),
+            GroupSet | GroupAndFilterSetGroupIsProblem => {
+                main_state.clear_displayed_group_for_active_compartment()
+            }
+        };
+        Ok(())
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
@@ -466,7 +512,7 @@ impl MappingRowsPanel {
             let clipboard_object = get_object_from_clipboard();
             let main_state = self.main_state.borrow();
             let group_id = main_state
-                .group_filter_for_active_compartment()
+                .displayed_group_for_active_compartment()
                 .map(|f| f.group_id())
                 .unwrap_or_default();
             let compartment = main_state.active_compartment.get();
@@ -593,7 +639,9 @@ impl View for MappingRowsPanel {
     #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
-            root::ID_DISPLAY_ALL_GROUPS_BUTTON => self.clear_filter_or_display_all_groups(),
+            root::ID_DISPLAY_ALL_GROUPS_BUTTON => {
+                let _ = self.fix_empty_mapping_list();
+            }
             _ => {}
         }
     }
@@ -603,4 +651,12 @@ impl Drop for MappingRowsPanel {
     fn drop(&mut self) {
         debug!(Reaper::get().logger(), "Dropping mapping rows panel...");
     }
+}
+
+enum EmptyMappingListCase {
+    CompartmentEmpty,
+    FilterSet,
+    GroupSet,
+    GroupAndFilterSetFilterIsProblem,
+    GroupAndFilterSetGroupIsProblem,
 }
