@@ -15,7 +15,7 @@ use crate::infrastructure::ui::bindings::root::{
 use crate::infrastructure::ui::util::symbols;
 use crate::infrastructure::ui::{
     copy_object_to_clipboard, get_object_from_clipboard, util, ClipboardObject,
-    IndependentPanelManager, SharedMainState,
+    IndependentPanelManager, Item, SharedMainState,
 };
 use reaper_high::Reaper;
 use reaper_low::raw;
@@ -82,7 +82,7 @@ impl MappingRowPanel {
     }
 
     fn invalidate_all_controls(&self, mapping: &MappingModel) {
-        self.invalidate_name_label(&mapping);
+        self.invalidate_name_labels(&mapping);
         self.invalidate_source_label(&mapping);
         self.invalidate_target_label(&mapping);
         self.invalidate_learn_source_button(&mapping);
@@ -100,11 +100,31 @@ impl MappingRowPanel {
             .set_visible(!self.is_last_row);
     }
 
-    fn invalidate_name_label(&self, mapping: &MappingModel) {
+    fn invalidate_name_labels(&self, mapping: &MappingModel) {
+        let main_state = self.main_state.borrow();
+        let group_name = if main_state.group_filter_for_active_compartment().is_some() {
+            None
+        } else {
+            // All groups are shown. Add more context!
+            let group_id = mapping.group_id.get();
+            let compartment = main_state.active_compartment.get();
+            let session = self.session();
+            let label =
+                if let Some(group) = session.borrow().find_group_by_id(compartment, group_id) {
+                    group.borrow().name().to_owned()
+                } else {
+                    "<group not present>".to_owned()
+                };
+            Some(label)
+        };
         self.view
             .require_window()
-            .require_control(root::ID_MAPPING_ROW_GROUP_BOX)
+            .require_control(root::ID_MAPPING_ROW_MAPPING_LABEL)
             .set_text(mapping.effective_name());
+        self.view
+            .require_window()
+            .require_control(root::ID_MAPPING_ROW_GROUP_LABEL)
+            .set_text_or_hide(group_name);
     }
 
     fn session(&self) -> SharedSession {
@@ -267,7 +287,7 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         self.when(mapping.name.changed(), |view| {
-            view.with_mapping(Self::invalidate_name_label);
+            view.with_mapping(Self::invalidate_name_labels);
         });
         self.when(mapping.source_model.changed(), |view| {
             view.with_mapping(Self::invalidate_source_label);
@@ -279,7 +299,7 @@ impl MappingRowPanel {
                 .merge(ReaperTarget::potential_static_change_events()),
             |view| {
                 view.with_mapping(|p, m| {
-                    p.invalidate_name_label(m);
+                    p.invalidate_name_labels(m);
                     p.invalidate_target_label(m);
                 });
             },
