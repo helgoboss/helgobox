@@ -287,6 +287,20 @@ pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &'static [&'static str] = &[
     "cycle",
     "zoom",
     "scrub",
+    "nudge",
+    "drop",
+    "replace",
+    "click",
+    "solo",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f7",
+    "f8",
+    "smpte-beats",
     // Chose to make the following buttons, not multis - although ReaLearn would allow to convert
     // them into multis in the virtual controller mapping. Reason: On Mackie consoles these are
     // usually buttons. Exposing them as buttons has the benefit that we can use Realearn's
