@@ -104,7 +104,7 @@ impl MappingRowPanel {
         self.view
             .require_window()
             .require_control(root::ID_MAPPING_ROW_GROUP_BOX)
-            .set_text(mapping.name.get_ref().as_str());
+            .set_text(mapping.effective_name());
     }
 
     fn session(&self) -> SharedSession {
@@ -129,7 +129,7 @@ impl MappingRowPanel {
                 plain_label
             } else {
                 let first_mapping = mappings[0].borrow();
-                let first_mapping_name = first_mapping.name.get_ref().clone();
+                let first_mapping_name = first_mapping.effective_name();
                 if mappings.len() == 1 {
                     format!("{}\n({})", plain_label, first_mapping_name)
                 } else {
@@ -278,7 +278,10 @@ impl MappingRowPanel {
                 .changed()
                 .merge(ReaperTarget::potential_static_change_events()),
             |view| {
-                view.with_mapping(Self::invalidate_target_label);
+                view.with_mapping(|p, m| {
+                    p.invalidate_name_label(m);
+                    p.invalidate_target_label(m);
+                });
             },
         );
         self.when(mapping.control_is_enabled.changed(), |view| {

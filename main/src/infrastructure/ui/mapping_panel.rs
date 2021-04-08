@@ -1689,7 +1689,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_window_title(&self) {
         self.view
             .require_window()
-            .set_text(format!("Mapping \"{}\"", self.mapping.name.get_ref()));
+            .set_text(format!("Mapping \"{}\"", self.mapping.effective_name()));
     }
 
     fn invalidate_mapping_prevent_echo_feedback_check_box(&self) {
@@ -3668,6 +3668,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.r#type.changed())
                 .merge(target.control_element_type.changed()),
             |view| {
+                view.invalidate_window_title();
                 view.invalidate_target_controls();
                 view.invalidate_mode_controls();
             },
@@ -3686,12 +3687,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.transport_action.changed())
                 .merge(target.action.changed()),
             |view| {
+                view.invalidate_window_title();
                 view.invalidate_target_controls();
                 view.invalidate_mode_controls();
             },
         );
         self.panel
             .when_do_sync(target.control_element_index.changed(), |view| {
+                view.invalidate_window_title();
                 let combo = view
                     .view
                     .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
@@ -3700,6 +3703,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
         self.panel
             .when_do_sync(target.control_element_name.changed(), |view| {
+                view.invalidate_window_title();
                 view.invalidate_target_line_3();
             });
         self.panel.when_do_sync(
@@ -3781,6 +3785,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.scroll_arrange_view.changed())
                 .merge(target.seek_play.changed()),
             |view| {
+                view.invalidate_window_title();
                 view.invalidate_target_check_box_1();
             },
         );
@@ -3821,6 +3826,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
         self.panel
             .when_do_sync(target.automation_mode_override_type.changed(), |view| {
+                view.invalidate_window_title();
                 view.invalidate_target_line_2_combo_box_2();
             });
     }
@@ -4592,7 +4598,7 @@ fn control_element_combo_box_entries(
                 None => pos.to_string(),
                 Some(mappings) => {
                     let first_mapping = mappings[0].borrow();
-                    let first_mapping_name = first_mapping.name.get_ref().clone();
+                    let first_mapping_name = first_mapping.effective_name();
                     if mappings.len() == 1 {
                         format!("{} ({})", pos, first_mapping_name)
                     } else {

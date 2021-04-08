@@ -843,6 +843,8 @@ impl TargetModel {
             Some(action) => {
                 if action.is_available() {
                     action.command_id().to_string().into()
+                } else if let Some(command_name) = action.command_name() {
+                    format!("<Not present> ({})", command_name.to_str()).into()
                 } else {
                     "<Not present>".into()
                 }
@@ -862,6 +864,77 @@ impl TargetModel {
         match self.action().ok() {
             None => "-".into(),
             Some(a) => a.name().into_string().into(),
+        }
+    }
+}
+
+impl fmt::Display for TargetModel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.category.get() {
+            TargetCategory::Reaper => {
+                use ReaperTargetType::*;
+                let tt = self.r#type.get();
+                match tt {
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | TrackArm | TrackPan
+                    | TrackWidth | TrackVolume | TrackShow | TrackSolo | FxNavigate | FxEnable
+                    | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset | FxOpen
+                    | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
+                    | LoadFxSnapshot => f.write_str(tt.short_name()),
+                    Action => match self.action().ok() {
+                        None => write!(f, "Action {}", self.command_id_label()),
+                        Some(a) => f.write_str(a.name().to_str()),
+                    },
+                    AutomationModeOverride => {
+                        write!(f, "{}: ", tt.short_name())?;
+                        use AutomationModeOverrideType::*;
+                        let ovr_type = self.automation_mode_override_type.get();
+                        match ovr_type {
+                            None | Bypass => write!(f, "{}", ovr_type),
+                            Override => write!(f, "{}", self.track_automation_mode.get()),
+                        }
+                    }
+                    Transport => {
+                        write!(f, "{}", self.transport_action.get())
+                    }
+                    GoToBookmark => {
+                        let type_label = match self.bookmark_type.get() {
+                            BookmarkType::Marker => "Marker",
+                            BookmarkType::Region => "Region",
+                        };
+                        let bm_prefix = match self.bookmark_anchor_type.get() {
+                            BookmarkAnchorType::Id => "",
+                            BookmarkAnchorType::Index => "#",
+                        };
+                        write!(
+                            f,
+                            "Go to {} {}{}",
+                            type_label,
+                            bm_prefix,
+                            self.bookmark_ref.get()
+                        )
+                    }
+                    TrackAutomationMode => write!(
+                        f,
+                        "{}: {}",
+                        tt.short_name(),
+                        self.track_automation_mode.get()
+                    ),
+                    AutomationTouchState => write!(
+                        f,
+                        "{}: {}",
+                        tt.short_name(),
+                        self.touched_parameter_type.get()
+                    ),
+                }
+            }
+            TargetCategory::Virtual => {
+                let element_label = if let Some(index) = self.control_element_index.get() {
+                    index.to_string()
+                } else {
+                    self.control_element_name.get_ref().to_string()
+                };
+                write!(f, "{} {}", self.control_element_type.get(), element_label)
+            }
         }
     }
 }
@@ -1072,6 +1145,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 use ReaperTargetType::*;
                 let tt = self.target.r#type.get();
                 match tt {
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek => write!(f, "{}", tt),
                     Action => write!(
                         f,
                         "{}\n{}\n{}",
@@ -1108,7 +1182,6 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.route_type_label(),
                         self.route_label()
                     ),
-                    Tempo | Playrate | SelectedTrack | LastTouched | Seek => write!(f, "{}", tt),
                     FxOpen | FxEnable | FxPreset => write!(
                         f,
                         "{}\nTrack {}\nFX {}",
@@ -1455,6 +1528,41 @@ impl ReaperTargetType {
             Seek => "Experimental target",
             TrackSendMute | AllTrackFxEnable | TrackShow => "No automatic feedback",
             _ => "",
+        }
+    }
+
+    pub fn short_name(&self) -> &'static str {
+        use ReaperTargetType::*;
+        match self {
+            LastTouched => "Last touched",
+            AutomationModeOverride => "Automation override",
+            Action => "Action",
+            Transport => "Transport",
+            SelectedTrack => "Navigate tracks",
+            Seek => "Seek",
+            Playrate => "Playrate",
+            Tempo => "Tempo",
+            GoToBookmark => "Go to bookmark",
+            TrackArm => "(Dis)arm track",
+            AllTrackFxEnable => "Enable/disable all track FX",
+            TrackMute => "(Un)mute track",
+            TrackSelection => "(Un)select track",
+            TrackAutomationMode => "Track automation mode",
+            AutomationTouchState => "Automation touch state",
+            TrackPan => "Track pan",
+            TrackWidth => "Track pan width",
+            TrackVolume => "Track volume",
+            TrackShow => "Show/hide track",
+            TrackSolo => "(Un)solo track",
+            FxNavigate => "Navigate FXs",
+            FxEnable => "Enable/disable FX",
+            LoadFxSnapshot => "Load FX snapshot",
+            FxPreset => "Navigate FX presets",
+            FxOpen => "Open/close FX",
+            FxParameter => "FX parameter value",
+            TrackSendMute => "(Un)mute send",
+            TrackSendPan => "Send pan",
+            TrackSendVolume => "Send volume",
         }
     }
 }

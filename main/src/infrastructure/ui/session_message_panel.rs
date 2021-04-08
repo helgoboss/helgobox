@@ -35,7 +35,7 @@ impl SessionMessagePanel {
                 session.find_mapping_and_index_by_id(state.compartment, state.current_mapping_id)
             {
                 let mapping = mapping.borrow();
-                let mapping_label = format!("mapping {}", mapping.name.get_ref());
+                let mapping_label = format!("mapping {}", mapping.effective_name());
                 match state.sub_state {
                     LearnManySubState::LearningSource {
                         control_element_type,

@@ -98,6 +98,14 @@ impl MappingModel {
         QualifiedMappingId::new(self.compartment, self.id)
     }
 
+    pub fn effective_name(&self) -> String {
+        if self.name.get_ref().is_empty() {
+            self.target_model.to_string()
+        } else {
+            self.name.get_ref().clone()
+        }
+    }
+
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
         self.advanced_settings.get_ref().as_ref()
     }

@@ -928,7 +928,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                         .map(|m| {
                             let m = m.borrow();
                             TargetDescriptor {
-                                label: m.name.get_ref().clone(),
+                                label: m.effective_name(),
                             }
                         })
                         .collect();
@@ -939,7 +939,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                 } else {
                     // Direct
                     let single_descriptor = TargetDescriptor {
-                        label: m.name.get_ref().clone(),
+                        label: m.effective_name(),
                     };
                     vec![single_descriptor]
                 }
