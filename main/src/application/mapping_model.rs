@@ -106,6 +106,10 @@ impl MappingModel {
         }
     }
 
+    pub fn clear_name(&mut self) {
+        self.name.set(Default::default());
+    }
+
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
         self.advanced_settings.get_ref().as_ref()
     }

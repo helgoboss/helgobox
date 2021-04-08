@@ -928,12 +928,16 @@ impl fmt::Display for TargetModel {
                 }
             }
             TargetCategory::Virtual => {
-                let element_label = if let Some(index) = self.control_element_index.get() {
-                    index.to_string()
+                if let Some(index) = self.control_element_index.get() {
+                    write!(f, "{} {}", self.control_element_type.get(), index + 1)
                 } else {
-                    self.control_element_name.get_ref().to_string()
-                };
-                write!(f, "{} {}", self.control_element_type.get(), element_label)
+                    write!(
+                        f,
+                        "{} ({})",
+                        self.control_element_name.get_ref().to_string(),
+                        self.control_element_type.get()
+                    )
+                }
             }
         }
     }

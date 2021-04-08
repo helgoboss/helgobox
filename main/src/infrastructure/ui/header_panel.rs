@@ -18,7 +18,7 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 use crate::application::{
     make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
     GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset,
-    PresetManager, SharedSession, VirtualControlElementType, WeakSession,
+    PresetManager, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::core::when;
 use crate::domain::{
@@ -39,7 +39,7 @@ use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
     get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
+    Item, MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -189,6 +189,7 @@ impl HeaderPanel {
         enum MenuAction {
             None,
             CopyListedMappings,
+            AutoNameListedMappings,
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             ToggleAutoCorrectSettings,
             ToggleSendFeedbackOnlyIfTrackArmed,
@@ -253,6 +254,9 @@ impl HeaderPanel {
                         disabled_item("Paste mappings (replace all in group)")
                     }
                 },
+                item("Auto-name listed mappings", || {
+                    MenuAction::AutoNameListedMappings
+                }),
                 menu(
                     "Options",
                     vec![
@@ -471,6 +475,7 @@ impl HeaderPanel {
         match result {
             MenuAction::None => {}
             MenuAction::CopyListedMappings => self.copy_listed_mappings(),
+            MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
             MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
             }
@@ -578,17 +583,42 @@ impl HeaderPanel {
     }
 
     fn copy_listed_mappings(&self) {
-        let main_state = self.main_state.borrow();
-        let compartment = main_state.active_compartment.get();
-        let session = self.session();
-        let session = session.borrow();
-        let mappings = MappingRowsPanel::filtered_mappings(&session, &main_state, compartment);
-        let mapping_datas = mappings
-            .into_iter()
+        let mapping_datas = self
+            .get_listened_mappings()
+            .iter()
             .map(|m| MappingModelData::from_model(&*m.borrow()))
             .collect();
         let obj = ClipboardObject::Mappings(mapping_datas);
         let _ = copy_object_to_clipboard(obj);
+    }
+
+    fn auto_name_listed_mappings(&self) {
+        let listed_mappings = self.get_listened_mappings();
+        if listed_mappings.is_empty() {
+            return;
+        }
+        if !self.view.require_window().confirm(
+            "ReaLearn",
+            format!(
+                "This clears the names of {} mappings, which in turn makes them use the auto-generated name. Do you really want to continue?",
+                listed_mappings.len()
+            ),
+        ) {
+            return;
+        }
+        for m in listed_mappings {
+            m.borrow_mut().clear_name();
+        }
+    }
+
+    fn get_listened_mappings(&self) -> Vec<SharedMapping> {
+        let main_state = self.main_state.borrow();
+        let compartment = main_state.active_compartment.get();
+        let session = self.session();
+        let session = session.borrow();
+        MappingRowsPanel::filtered_mappings(&session, &main_state, compartment)
+            .cloned()
+            .collect()
     }
 
     fn paste_replace_all_in_group(&self, mapping_datas: Vec<MappingModelData>) {

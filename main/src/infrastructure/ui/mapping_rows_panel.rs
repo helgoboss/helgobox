@@ -124,10 +124,8 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        let filtered_mappings = Self::filtered_mappings(&session, &main_state, compartment);
-        filtered_mappings
-            .iter()
-            .position(|m| m.borrow().id() == mapping_id)
+        let mut mappings = Self::filtered_mappings(&session, &main_state, compartment);
+        mappings.position(|m| m.borrow().id() == mapping_id)
     }
 
     pub fn edit_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
@@ -289,17 +287,17 @@ impl MappingRowsPanel {
 
     pub fn filtered_mappings<'a>(
         session: &'a Session,
-        main_state: &MainState,
+        main_state: &'a MainState,
         compartment: MappingCompartment,
-    ) -> Vec<&'a SharedMapping> {
-        if main_state.filter_is_active() {
-            session
-                .mappings(compartment)
-                .filter(|m| Self::mapping_matches_filter(session, main_state, *m))
-                .collect()
-        } else {
-            session.mappings(compartment).collect()
-        }
+    ) -> impl Iterator<Item = &'a SharedMapping> {
+        let filter_is_active = main_state.filter_is_active();
+        session.mappings(compartment).filter(move |m| {
+            if filter_is_active {
+                Self::mapping_matches_filter(session, main_state, *m)
+            } else {
+                true
+            }
+        })
     }
 
     /// Let mapping rows reflect the correct mappings.
@@ -309,7 +307,8 @@ impl MappingRowsPanel {
         let shared_session = self.session();
         let session = shared_session.borrow();
         let main_state = self.main_state.borrow();
-        let filtered_mappings = Self::filtered_mappings(&session, &main_state, compartment);
+        let filtered_mappings: Vec<_> =
+            Self::filtered_mappings(&session, &main_state, compartment).collect();
         let scroll_pos = self.scroll_position.get();
         if scroll_pos < filtered_mappings.len() {
             for mapping in &filtered_mappings[scroll_pos..] {
