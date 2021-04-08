@@ -1335,14 +1335,7 @@ impl Session {
             .enumerate()
             .find(|(_i, m)| m.borrow().id() == id.id)
             .ok_or("mapping not found")?;
-        let duplicate = {
-            let mapping = mapping.borrow();
-            let mut duplicate = mapping.duplicate();
-            duplicate
-                .name
-                .set(format!("Copy of {}", mapping.name.get_ref()));
-            duplicate
-        };
+        let duplicate = mapping.borrow().duplicate();
         let duplicate_id = duplicate.id();
         self.mappings[id.compartment].insert(index + 1, share_mapping(duplicate));
         self.notify_mapping_list_changed(id.compartment, Some(duplicate_id));
