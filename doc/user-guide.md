@@ -19,6 +19,7 @@
 1. [Tutorials](#tutorials)
 1. [Frequently asked questions (FAQ)](#faq)
 1. [Tested controllers](#tested-controllers)
+1. [Presets](#presets)
 
 ## Quick start
 
@@ -1065,14 +1066,14 @@ This source reacts to incoming MIDI control-change messages.
       - 65 = decrement; 0 = none; 1 = increment
       - 65 < value <= 127 results in higher decrements (63 possible decrement amounts)
       - 1 < value <= 64 results in higher increments (64 possible increment amounts)
-  - **Toggle-only button (avoid!):** A control element that can be pressed and emits absolute values. It emits a 100%
+  - **Toggle-only button (avoid!):** A control element that can be pressed and emits absolute values. It emits a > 0%
     value when pressing it, no value when releasing it and a 0% value when pressing it again.
       - Hint: This is a workaround for controllers that don't have momentary buttons! You should only use this character
         if there's absolutely no way to configure this control element as a momentary button.
       - Background: ReaLearn can make a momentary hardware button work like a full-blown toggle button (ReaLearn's
         toggle mode is inherently more powerful than your controller's built-in toggle mode!). However, the opposite is
         not true. It can't make a toggle hardware button act like a momentary button.
-      - The way this character works: ReaLearn will simply emit 100%, no matter if the hardware sends 100% or 0%. 
+      - The way this character works: ReaLearn will simply emit 100%, no matter what the hardware sends. 
 - **14-bit values:** If unchecked, this source reacts to MIDI control-change messages with 7-bit
   resolution (usually the case). If checked, it reacts to MIDI control-change messages with 14-bit
   resolution. This is not so common but sometimes used by controllers with high-precision faders.
@@ -2806,6 +2807,22 @@ Works out of the box with above mentioned restrictions.
 
 From what I've heard, configuration is similar to the X-Touch Compact.
 
+### Behringer X-Touch One
+
+Works!
+
+This one provides many modes. The most important ones are:
+
+- *MC Std:* This is the default mode, covers all buttons and works great with the "Mackie
+  Control" preset. A potential downside is that the device itself controls the "Master" button so you can't use that
+  button in ReaLearn to customize its logic.
+- *MidiRel:* This has the advantage of having a freely assignable "Master" button. The downside is that the fader
+  resolution is only 7 bit! Moreover, I've not yet created a controller preset for the MIDI mode.
+
+#### Presets
+
+- **Mackie Control**: This works great. 
+
 ### PreSonus FaderPort Classic
 
 This works well, including 10-bit fader resolution, feedback for the motorized fader and turning LEDs on/off.
@@ -2899,3 +2916,98 @@ OSC messages. Therefore you need to untick "Can deal with bundles" in the OSC de
 ### Behringer XR18
 
 See Behringer X32.
+
+
+## Presets
+
+The Helgoboss ReaPack repository provides a growing number of ReaLearn controller and main presets.
+
+### Controller presets
+
+The philosophy of most *controller* presets contained in this repository is to model the controller as faithfully as
+possible by providing a 1:1 mapping of real control elements to virtual control elements. Depending on the type of
+controller, the virtual control elements are sometimes numeric, sometimes named and sometimes both. Some controller
+presets offer a controller layout (and thus can be instantly used with the *Projection* feature), others not (yet).
+
+The majority of controller presets is discussed in the section [Tested controllers](#tested-controllers). Here we only
+discuss those that don't directly model a real-world controller.
+
+#### Mackie Control
+
+**Covered domains:** DAW
+
+Although the term "Mackie Control" refers to a real controller device, it's nowadays most famous as a protocol standard
+for DAW controllers. This particular ReaLearn controller preset supports large parts of this standard. You can think
+of this standard as ...
+
+1. an agreement which buttons/faders/encoders/LCDs/etc. a proper DAW controller should have,
+2. which MIDI messages they send and receive
+3. and which *effect* the control elements should have on the DAW.
+
+It's no magic, it's mostly just an agreement on which MIDI messages to use - which is very useful because this agreement
+is what makes it possible that different DAW controllers of all kinds of manufacturers can instantly work with any DAW
+that supports the Mackie Control protocol.
+
+If you have a (DAW) controller device which supports the *Mackie Control* standard, you don't necessarily need to 
+find a specific preset for your controller or craft your own one, you can just use the "Mackie Control" preset. 
+
+**Important:** Because this is a *controller preset*, this preset is about virtual control element naming (1) and
+mapping of MIDI messages to those virtual control elements (2) only! It's not about the effect, e.g. letting the fader
+control your track volume (3)! In order to get an effect, you need to choose a suitable main preset or build some main
+custom mappings yourself (it's very easy because that's what ReaLearn is all about!).
+
+Besides getting descriptive control element naming (e.g. `play` or `stop`), using this preset should give you instant
+compatibility with some of the main presets available on the Helgoboss ReaPack repository.
+
+When you create *main* mappings using this controller preset, you can - as always - use the "Learn" function. However,
+Mackie-compatible controllers often have LCD displays, which you can of course not learn because they are not control
+elements. They can only display things, so they only support the *feedback* direction. Here's how you use them:
+
+- **Assignment 7-segment display**: At the moment, this is the only LCD display supported by this controller preset.
+  It allows you to display the numbers between `00` and `99`. Use a virtual source with the type *Multi*, ID `<Named>`
+  and name `lcd/assignment`. Use an arbitary feedback-enabled target to make it display the value as percentage. As with
+  all kind of feedback (also motorized faders and LEDs), you can use e.g. the mapping's *Source/Target Min/Max* settings
+  to adjust the displayed value range.
+
+### Main presets
+
+The number of *main* presets in this repository is relatively small because ReaLearn is all about enabling you 
+to quickly come up with your own customized mappings. The few main presets available primarily exist to give you
+some inspiration and to provide you with a good starting point for your own presets. If you like one preset and need it
+to be stable, it's best if you make your own copy of it and use this one (because I might update it at a later point,
+potentially introducing changes that you don't want).
+
+Another purpose of the main presets in this repository is to demonstrate one big advantage of separating controller
+presets from main presets: You can freely combine them on a mix-and-match basis. This enables you to get out-of-the-box
+access to all kinds of interesting control scenarios with potentially very different controllers.
+
+Speaking of *freely*. Of course, this only works as long as controller and main presets share the same philosophy
+and virtual control element naming/numbering. *A controller preset is not automagically compatible with a main preset!*
+As you can imagine, there are far too many different types of controllers and control scenarios out there to make this
+work in all cases. However, ReaLearn provides many means to get close to this ideal.
+
+In order to make it easier for users to know which main presets are compatible with which controller presets, ReaLearn
+is in the process of introducing so-called domains. For now, the following domains are considered:
+
+- **DAW:** For typical Mackie-style DAW control elements.
+- **Grid:** For grid-control elements such as the ones on the Launchpad.
+- **Linear:** For control elements that are best represented as increasing numbers, e.g. a simple generic row of knobs.
+
+The general idea is:
+
+- Controller presets *cover* domains.
+    - E.g. the Akai APC Key 25 has control elements of all of the mentioned domains.
+- A controller should not double-expose one single control element under different virtual control element names.
+- Main presets *support* domains.
+    - E.g. they could assign a track volume change to both the numbered multi control element 5 ("Linear" domain) and
+      to the named multi control element `ch5/fader` ("DAW" domain) by using 2 mappings with the same target.
+      Then we say this preset supports both domains.
+
+#### DAW control
+
+**Supported domains:** DAW
+
+- A preset that emulates the typical "Mackie Control"-style DAW control. Not completely, but a large part.
+- Is compatible with any controller preset that covers the DAW domain.
+- Tested with controllers X-Touch One and iCON Platform M+ so far.
+- Is a work in progress and will be improved over time.
