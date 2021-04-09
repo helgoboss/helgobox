@@ -748,9 +748,15 @@ impl<'a> MutableMappingPanel<'a> {
         if let Ok(value) = c.text() {
             use SourceCategory::*;
             match self.mapping.source_model.category.get() {
-                Midi => {
-                    self.mapping.source_model.raw_midi_pattern.set(value);
-                }
+                Midi => match self.mapping.source_model.midi_source_type.get() {
+                    MidiSourceType::Raw => {
+                        self.mapping.source_model.raw_midi_pattern.set(value);
+                    }
+                    MidiSourceType::Script => {
+                        self.mapping.source_model.midi_script.set(value);
+                    }
+                    _ => {}
+                },
                 Osc => {
                     self.mapping.source_model.osc_address_pattern.set(value);
                 }
@@ -1821,7 +1827,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             &[root::ID_SOURCE_NUMBER_COMBO_BOX],
         );
         self.show_if(
-            source.is_sys_ex() || source.is_osc(),
+            source.is_raw_midi() || source.is_midi_script() || source.is_osc(),
             &[
                 root::ID_SOURCE_OSC_ADDRESS_LABEL_TEXT,
                 root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL,
@@ -1993,7 +1999,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         use SourceCategory::*;
         let value_text = match self.source.category.get() {
-            Midi => self.source.raw_midi_pattern.get_ref().as_str(),
+            Midi => match self.source.midi_source_type.get() {
+                MidiSourceType::Raw => self.source.raw_midi_pattern.get_ref().as_str(),
+                MidiSourceType::Script => self.source.midi_script.get_ref().as_str(),
+                _ => return,
+            },
             Osc => self.source.osc_address_pattern.get_ref().as_str(),
             Virtual => return,
         };
@@ -3158,7 +3168,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             source
                 .osc_address_pattern
                 .changed()
-                .merge(source.raw_midi_pattern.changed()),
+                .merge(source.raw_midi_pattern.changed())
+                .merge(source.midi_script.changed()),
             |view| {
                 view.invalidate_source_osc_address_pattern_edit_control();
             },

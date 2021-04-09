@@ -1,4 +1,5 @@
-use helgoboss_learn::{MidiSource, MidiSourceValue, SourceCharacter};
+use crate::domain::MidiSource;
+use helgoboss_learn::{MidiSourceValue, SourceCharacter};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessageScanner, ControllerNumber,
     PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, StructuredShortMessage,

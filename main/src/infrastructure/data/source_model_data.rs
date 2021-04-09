@@ -43,6 +43,8 @@ pub struct SourceModelData {
     pub message: MidiClockTransportMessage,
     #[serde(default, skip_serializing_if = "is_default")]
     pub raw_midi_pattern: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub midi_script: String,
     // OSC
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_address_pattern: String,
@@ -75,6 +77,7 @@ impl SourceModelData {
             is_14_bit: model.is_14_bit.get(),
             message: model.midi_clock_transport_message.get(),
             raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
+            midi_script: model.midi_script.get_ref().clone(),
             osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
             osc_arg_index: model.osc_arg_index.get(),
             osc_arg_type: model.osc_arg_type_tag.get(),
@@ -165,6 +168,9 @@ impl SourceModelData {
             .raw_midi_pattern
             .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
         model
+            .midi_script
+            .set_with_optional_notification(self.midi_script.clone(), with_notification);
+        model
             .osc_address_pattern
             .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
         model
@@ -221,6 +227,7 @@ mod tests {
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
                 raw_midi_pattern: "".to_owned(),
+                midi_script: "".to_owned(),
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: None,
                 osc_arg_type: Default::default(),
@@ -258,6 +265,7 @@ mod tests {
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
                 raw_midi_pattern: "".to_owned(),
+                midi_script: "".to_owned(),
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: None,
                 osc_arg_type: Default::default(),
@@ -282,6 +290,7 @@ mod tests {
             message: MidiClockTransportMessage::Start,
             raw_midi_pattern: "".to_owned(),
             osc_address_pattern: "".to_owned(),
+            midi_script: "".to_owned(),
             osc_arg_index: None,
             osc_arg_type: Default::default(),
             osc_arg_is_relative: false,
@@ -321,6 +330,7 @@ mod tests {
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
             raw_midi_pattern: "".to_owned(),
+            midi_script: "".to_owned(),
             osc_address_pattern: "".to_owned(),
             osc_arg_index: None,
             osc_arg_type: Default::default(),
@@ -371,6 +381,7 @@ mod tests {
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
                 raw_midi_pattern: "".to_owned(),
+                midi_script: "".to_owned(),
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: Some(0),
                 osc_arg_type: Default::default(),
@@ -412,6 +423,7 @@ mod tests {
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Continue,
                 raw_midi_pattern: "".to_owned(),
+                midi_script: "".to_owned(),
                 osc_address_pattern: "".to_owned(),
                 osc_arg_index: Some(0),
                 osc_arg_type: Default::default(),

@@ -1,7 +1,8 @@
 use crate::domain::{
-    classify_midi_message, MidiMessageClassification, MidiSourceScanner, RealTimeProcessor,
+    classify_midi_message, MidiMessageClassification, MidiSource, MidiSourceScanner,
+    RealTimeProcessor,
 };
-use helgoboss_learn::{MidiSource, MidiSourceValue};
+use helgoboss_learn::MidiSourceValue;
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
 use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{

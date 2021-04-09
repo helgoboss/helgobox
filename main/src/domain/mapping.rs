@@ -1,16 +1,16 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
-    MappingActivationEffect, Mode, ParameterArray, ParameterSlice, PlayPosFeedbackResolution,
-    RealSource, RealearnTarget, ReaperTarget, TargetCharacter, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    MappingActivationEffect, MidiSource, Mode, ParameterArray, ParameterSlice,
+    PlayPosFeedbackResolution, RealSource, RealearnTarget, ReaperTarget, TargetCharacter,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
+    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSource, MidiSourceValue, ModeControlOptions, OscSource,
-    RawMidiEvent, SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, MidiSourceValue, ModeControlOptions, OscSource, RawMidiEvent,
+    SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};

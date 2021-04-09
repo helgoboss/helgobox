@@ -224,6 +224,7 @@ pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &'static [&'static str] = &[
     "ch7/v-pot",
     "ch8/v-pot",
     "jog",
+    "lcd/assignment",
 ];
 
 pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &'static [&'static str] = &[

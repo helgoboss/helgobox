@@ -6,7 +6,7 @@ use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask,
-    InstanceOrchestrationEvent, MainProcessor, MappingCompartment, NormalAudioHookTask,
+    InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MidiSource, NormalAudioHookTask,
     OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource, RealTimeSender,
     RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
@@ -20,7 +20,7 @@ use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
-use helgoboss_learn::{MidiSource, OscSource};
+use helgoboss_learn::OscSource;
 
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};

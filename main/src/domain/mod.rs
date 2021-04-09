@@ -16,8 +16,14 @@ pub use audio_hook::*;
 mod mode;
 pub use mode::*;
 
+mod midi_source;
+pub use midi_source::*;
+
 mod eel_transformation;
 pub use eel_transformation::*;
+
+mod eel_midi_source_script;
+pub use eel_midi_source_script::*;
 
 mod realearn_target;
 pub use realearn_target::*;

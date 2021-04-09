@@ -3,14 +3,14 @@ use crate::domain::{
     CompoundMappingTarget, ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
     FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, MidiFeedbackOutput, NormalRealTimeTask,
-    OscDeviceId, OscFeedbackTask, PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext,
-    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget, SourceFeedbackValue,
-    SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
+    MappingActivationEffect, MappingCompartment, MappingId, MidiFeedbackOutput, MidiSource,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
+    PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
+    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
 };
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, MidiSource, ModeControlOptions, OscSource, UnitValue};
+use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
 
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;

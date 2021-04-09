@@ -1,13 +1,14 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
-    CompoundMappingSource, ExtendedSourceCharacter, MappingCompartment, SmallAsciiString,
-    VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
+    CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
+    MidiSource, SmallAsciiString, VirtualControlElement, VirtualControlElementId, VirtualSource,
+    VirtualTarget,
 };
 use ascii::AsciiString;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, MidiSource, OscArgDescriptor, OscSource, OscTypeTag,
+    ControlValue, MidiClockTransportMessage, OscArgDescriptor, OscSource, OscTypeTag,
     SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
@@ -33,6 +34,7 @@ pub struct SourceModel {
     pub is_registered: Prop<Option<bool>>,
     pub is_14_bit: Prop<Option<bool>>,
     pub raw_midi_pattern: Prop<String>,
+    pub midi_script: Prop<String>,
     // OSC
     pub osc_address_pattern: Prop<String>,
     pub osc_arg_index: Prop<Option<u32>>,
@@ -60,6 +62,7 @@ impl Default for SourceModel {
             is_registered: prop(Some(false)),
             is_14_bit: prop(Some(false)),
             raw_midi_pattern: prop("".to_owned()),
+            midi_script: prop("".to_owned()),
             osc_address_pattern: prop("".to_owned()),
             osc_arg_index: prop(Some(0)),
             osc_arg_type_tag: prop(Default::default()),
@@ -82,6 +85,7 @@ impl SourceModel {
             .merge(self.is_registered.changed())
             .merge(self.is_14_bit.changed())
             .merge(self.raw_midi_pattern.changed())
+            .merge(self.midi_script.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_index.changed())
             .merge(self.control_element_name.changed())
@@ -98,7 +102,7 @@ impl SourceModel {
                 self.category.set(SourceCategory::Midi);
                 self.midi_source_type.set(MidiSourceType::from_source(s));
                 self.channel.set(s.channel());
-                use MidiSource::*;
+                use helgoboss_learn::MidiSource::*;
                 match s {
                     NoteVelocity { key_number, .. }
                     | PolyphonicKeyPressureAmount { key_number, .. } => {
@@ -242,6 +246,9 @@ impl SourceModel {
                         pattern: self.raw_midi_pattern.get_ref().parse().unwrap_or_default(),
                         custom_character: self.custom_character.get(),
                     },
+                    Script => MidiSource::Script {
+                        script: EelMidiSourceScript::compile(self.midi_script.get_ref()).ok(),
+                    },
                 };
                 CompoundMappingSource::Midi(midi_source)
             }
@@ -365,9 +372,14 @@ impl SourceModel {
         self.category.get() == SourceCategory::Osc
     }
 
-    pub fn is_sys_ex(&self) -> bool {
+    pub fn is_raw_midi(&self) -> bool {
         self.category.get() == SourceCategory::Midi
             && self.midi_source_type.get() == MidiSourceType::Raw
+    }
+
+    pub fn is_midi_script(&self) -> bool {
+        self.category.get() == SourceCategory::Midi
+            && self.midi_source_type.get() == MidiSourceType::Script
     }
 
     fn channel_label(&self) -> Cow<str> {
@@ -574,8 +586,10 @@ pub enum MidiSourceType {
     ClockTempo = 8,
     #[display(fmt = "MIDI clock transport")]
     ClockTransport = 9,
-    #[display(fmt = "Raw MIDI (feedback only)")]
+    #[display(fmt = "Raw MIDI (feedback only for now)")]
     Raw = 10,
+    #[display(fmt = "MIDI script (feedback only)")]
+    Script = 11,
 }
 
 impl Default for MidiSourceType {
@@ -586,7 +600,7 @@ impl Default for MidiSourceType {
 
 impl MidiSourceType {
     pub fn from_source(source: &MidiSource) -> MidiSourceType {
-        use MidiSource::*;
+        use helgoboss_learn::MidiSource::*;
         match source {
             NoteVelocity { .. } => MidiSourceType::NoteVelocity,
             NoteKeyNumber { .. } => MidiSourceType::NoteKeyNumber,
@@ -600,6 +614,7 @@ impl MidiSourceType {
             ClockTempo => MidiSourceType::ClockTempo,
             ClockTransport { .. } => MidiSourceType::ClockTransport,
             Raw { .. } => MidiSourceType::Raw,
+            Script { .. } => MidiSourceType::Script,
         }
     }
 

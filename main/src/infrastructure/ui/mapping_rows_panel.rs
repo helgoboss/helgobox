@@ -16,7 +16,6 @@ use std::cmp;
 
 use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
-use regex::internal::Input;
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -412,12 +411,10 @@ impl MappingRowsPanel {
         } else {
             (None, None)
         };
-        let label = self
-            .view
+        self.view
             .require_control(root::ID_GROUP_IS_EMPTY_TEXT)
             .set_text_or_hide(label_text);
-        let button = self
-            .view
+        self.view
             .require_control(root::ID_DISPLAY_ALL_GROUPS_BUTTON)
             .set_text_or_hide(button_text);
     }

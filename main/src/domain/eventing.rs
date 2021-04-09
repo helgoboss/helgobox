@@ -1,8 +1,8 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, ParameterArray,
-    ProjectionFeedbackValue, SourceFeedbackValue,
+    CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
+    ParameterArray, ProjectionFeedbackValue, SourceFeedbackValue,
 };
-use helgoboss_learn::{MidiSource, OscSource, UnitValue};
+use helgoboss_learn::{OscSource, UnitValue};
 use std::collections::HashSet;
 use std::fmt::Debug;
 

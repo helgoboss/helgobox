@@ -1,10 +1,10 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiSourceScanner, NormalMainTask, PartialControlMatch,
+    MidiMessageClassification, MidiSource, MidiSourceScanner, NormalMainTask, PartialControlMatch,
     RealTimeMapping, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSource, MidiSourceValue, RawMidiEvent};
+use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,

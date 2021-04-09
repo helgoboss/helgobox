@@ -1,5 +1,6 @@
 use crate::core::bindings::root;
 use std::ffi::{CStr, CString};
+use std::mem::MaybeUninit;
 
 #[derive(Debug)]
 pub struct Vm(root::NSEEL_VMCTX);
@@ -19,6 +20,19 @@ impl Vm {
         let c_string = CString::new(name).expect("variable name is not valid UTF-8");
         let ptr = unsafe { root::NSEEL_VM_regvar(self.0, c_string.as_ptr()) };
         Variable(ptr)
+    }
+
+    pub fn get_mem_slice(&self, index: u32, size: u32) -> &[f64] {
+        let mut valid_count = MaybeUninit::zeroed();
+        let ptr =
+            unsafe { root::NSEEL_VM_getramptr_noalloc(self.0, index, valid_count.as_mut_ptr()) };
+        let valid_count = unsafe { valid_count.assume_init() };
+        if ptr.is_null() || valid_count <= 0 {
+            return &[];
+        }
+        let slice_len = std::cmp::min(valid_count as u32, size);
+        let slice = std::ptr::slice_from_raw_parts(ptr, slice_len as _);
+        unsafe { &*slice }
     }
 
     pub fn compile(&self, code: &str) -> Result<Program, String> {
@@ -98,5 +112,25 @@ mod tests {
         };
         // Then
         assert_eq!(y_result, 43.0);
+    }
+
+    #[test]
+    fn get_mem_slice() {
+        // Given
+        let vm = Vm::new();
+        let x = vm.register_variable("x");
+        let program = vm
+            .compile("y[0] = x + 1; y[1] = x + 2; y[2] = x + 5")
+            .expect("couldn't compile");
+        // // When
+        let slice = unsafe {
+            x.set(42.0);
+            program.execute();
+            vm.get_mem_slice(0, 3)
+        };
+        // Then
+        assert_eq!(slice[0], 43.0);
+        assert_eq!(slice[1], 44.0);
+        assert_eq!(slice[2], 47.0);
     }
 }

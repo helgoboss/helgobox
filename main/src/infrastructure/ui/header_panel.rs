@@ -39,7 +39,7 @@ use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
     get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    Item, MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
+    MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
