@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-04-06 (v2.8.0-rc.1)</code></td>
+  <td><code>2021-04-09 (v2.8.0-rc.2)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -485,7 +485,8 @@ The header panel provides the following user interface elements, no matter if th
 - **Add one:** Adds a new mapping at the end of the current mapping list.
 - **Learn many:** Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
   the on-screen instructions. Click *Stop* when you are finished with your bulk learning strike.
-- **Search:** Enter some text here in order to display just mappings whose name matches the text.
+- **Search:** Enter some text here in order to display just mappings whose name matches the text. The search expression
+  also supports wildcards `*` and `?` for doing more blurry searches.
 - **Filter source:** If you work with many mappings and you have problems memorizing them, you
   will love this feature. When you press this button, ReaLearn will start listening to incoming MIDI/OSC
   events and temporarily disable all target control. You can play around freely on your controller
@@ -511,6 +512,8 @@ on macOS) with the following entries:
   (respecting group, search field and filters). You can insert them by opening the context menu in the row panel.
 - **Paste mappings (replace all in group):** Replaces all mappings in the current group with the mappings in the
   clipboard.
+- **Auto-name listed mappings:** Clears the names of all listed mappings so ReaLearn's auto-naming mechanism can kick
+  in. 
 - **Options**
     - **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
       figure out if your combination of settings makes sense. If not, it makes an adjustment.
@@ -618,7 +621,8 @@ compartment:
         - To enable/disable control/feedback for multiple mappings at once.
         - To keep track of mappings if there are many of them.
     - This dropdown contains the following options:
-        - **&lt;All&gt;:** Displays all mappings in the compartment, no matter to which group they belong.
+        - **&lt;All&gt;:** Displays all mappings in the compartment, no matter to which group they belong. In this view,
+          you will see the name of the group on the right side of a mapping row. 
         - **&lt;Default&gt;:** Displays mappings that belong to the *default* group. This is where mappings
           end up if you don't care about grouping. This is a special group that can't be removed.
         - ***Custom group*:** Displays all mappings in your custom group.
@@ -812,7 +816,8 @@ feedback, because relative feedback doesn't make sense.
 This section provides the following mapping-related settings and functions:
 
 - **Name:** Here you can enter a descriptive name for the mapping. This is especially useful in
-  combination with the search function if there are many mappings to keep track of.
+  combination with the search function if there are many mappings to keep track of. If you clear
+  the name, ReaLearn will name the mapping automatically based on its target.
 - **Control enabled / Feedback enabled:** Use these checkboxes to enable/disable control and/or
   feedback for this mapping.
 - **Active:** This dropdown controls so-called conditional activation of mappings. See the
@@ -1283,6 +1288,39 @@ This behaves like pitch wheel (because the pattern describes exactly the way how
 E0 [0gfe dcba] [0nml kjih]
 ```
 
+###### Script source
+
+This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCD displays.
+It lets you write an EEL script that will be executed whenever ReaLearn "feels" like it needs to send some feedback
+to the MIDI device.
+
+- **Script:** The EEL script.
+- **...:** Opens the script in a separate window.
+
+**Script input**
+
+The input of the script is the current normalized feedback value. You can access it via EEL variable `y`, a floating
+point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the
+"Tuning" section of the mapping.
+
+**Script output**
+
+The script's task is to provide a list of bytes to be sent to the MIDI device. In order to do this, you must assign 
+the bytes to subsequent slots of the EEL script's virtual local address space (by indexing via brackets) **and**
+setting the variable `msg_size` to the number of bytes to be sent. If you forget the latter step, nothing will be sent
+because that variable defaults to zero!
+
+**Example**
+
+The following example creates a 3-byte MIDI message.  
+
+```eel
+msg_size = 3;
+0[] = 0xb0; 
+1[] = 0x4b; 
+2[] = y * 64; 
+```
+
 ##### Category "OSC"
 
 OSC sources allow configuration of the following aspects:
@@ -1318,6 +1356,9 @@ Both types have:
 - **Name:** For more advanced virtual control scenarios it can be useful to think in names instead of numbers. If you
   select ID `<Named>`, you can give your virtual control element a name. It can take up to 16 alphanumeric and 
   punctuation characters (no exotic characters, e.g. no umlauts).
+- **Pick:** Lets you pick predefined names. The names you see here are heavily inspired by the wording used with Mackie
+  Control devices. If you want your main preset to be compatible with as many controller presets as possible, try to use
+  them instead of inventing your own naming scheme. 
 
 ###### Multi
 
