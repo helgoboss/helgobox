@@ -112,12 +112,13 @@ impl MappingRowPanel {
             let group_id = mapping.group_id.get();
             let compartment = main_state.active_compartment.get();
             let session = self.session();
-            let label =
-                if let Some(group) = session.borrow().find_group_by_id(compartment, group_id) {
-                    group.borrow().name().to_owned()
-                } else {
-                    "<group not present>".to_owned()
-                };
+            let label = if group_id.is_default() {
+                "<Default>".to_owned()
+            } else if let Some(group) = session.borrow().find_group_by_id(compartment, group_id) {
+                group.borrow().name().to_owned()
+            } else {
+                "<group not present>".to_owned()
+            };
             Some(label)
         };
         self.view
