@@ -205,7 +205,7 @@ impl VirtualControlElement {
     }
 }
 
-pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &'static [&'static str] = &[
+pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &[&str] = &[
     "main/fader",
     "ch1/fader",
     "ch2/fader",
@@ -227,7 +227,7 @@ pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &'static [&'static str] = &[
     "lcd/assignment",
 ];
 
-pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &'static [&'static str] = &[
+pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &[&str] = &[
     "ch1/v-select",
     "ch2/v-select",
     "ch3/v-select",

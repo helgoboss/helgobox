@@ -47,7 +47,7 @@ impl EelEditorPanel {
     fn invalidate_info(&self) {
         let info_text = match self.compile() {
             Ok(_) => "Your script compiled successfully.".to_string(),
-            Err(e) => e.to_string(),
+            Err(e) => e,
         };
         self.view
             .require_control(root::ID_YAML_EDIT_INFO_TEXT)

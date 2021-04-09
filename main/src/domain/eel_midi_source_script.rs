@@ -56,7 +56,7 @@ impl MidiSourceScript for EelMidiSourceScript {
         }
         let mut array = [0; RawMidiEvent::MAX_LENGTH];
         let mut i = 0u32;
-        for byte in slice.into_iter().take(RawMidiEvent::MAX_LENGTH) {
+        for byte in slice.iter().take(RawMidiEvent::MAX_LENGTH) {
             array[i as usize] = byte.round() as u8;
             i += 1;
         }
