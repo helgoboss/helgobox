@@ -1,68 +1,52 @@
+use crate::core::eel::{Program, Vm};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use reaper_low::raw;
-use serde_yaml::Mapping as YamlMapping;
 use std::cell::RefCell;
 use swell_ui::{SharedView, View, ViewContext, Window};
 use wrap_debug::WrapDebug;
 
 #[derive(Debug)]
-pub struct YamlEditorPanel {
+pub struct EelEditorPanel {
     view: ViewContext,
-    content: RefCell<Result<Option<YamlMapping>, serde_yaml::Error>>,
-    apply: WrapDebug<Box<dyn Fn(Option<YamlMapping>)>>,
+    content: RefCell<String>,
+    apply: WrapDebug<Box<dyn Fn(String)>>,
+    vm: Vm,
 }
 
-impl YamlEditorPanel {
-    pub fn new(
-        initial_content: Option<YamlMapping>,
-        apply: impl Fn(Option<YamlMapping>) + 'static,
-    ) -> Self {
+impl EelEditorPanel {
+    pub fn new(initial_content: String, apply: impl Fn(String) + 'static) -> Self {
         Self {
             view: Default::default(),
-            content: RefCell::new(Ok(initial_content)),
+            content: RefCell::new(initial_content),
             apply: WrapDebug(Box::new(apply)),
+            vm: Vm::new(),
         }
     }
 
     fn apply(&self) {
-        if let Ok(c) = self.content.borrow().as_ref() {
-            (self.apply)(c.clone());
-        }
+        (self.apply)(self.content.borrow().clone());
     }
 
-    fn parse_final_result(&self) -> Result<Option<YamlMapping>, serde_yaml::Error> {
+    fn compile(&self) -> Result<Program, String> {
         let text = self.text();
-        let trimmed_text = text.trim();
-        let res = if trimmed_text.is_empty() {
-            None
-        } else {
-            Some(serde_yaml::from_str(trimmed_text)?)
-        };
-        Ok(res)
+        self.vm.compile(&text)
     }
 
     fn invalidate_text_from_initial_content(&self) {
-        let text = if let Ok(Some(m)) = &self.content.borrow().as_ref() {
-            serde_yaml::to_string(m).unwrap()
-        } else {
-            "".to_owned()
-        };
-        self.set_text(&text);
+        let initial_content = &self.content.borrow();
+        self.set_text(initial_content);
+        self.invalidate_info();
     }
 
     fn update_content(&self) {
-        *self.content.borrow_mut() = self.parse_final_result();
+        *self.content.borrow_mut() = self.text();
         self.invalidate_info();
     }
 
     fn invalidate_info(&self) {
-        let info_text = match self.content.borrow().as_ref() {
-            Ok(None) => "Okay! No properties defined.".to_owned(),
-            Ok(Some(m)) => format!(
-                "Okay! Defined {} properties. Close the window to apply them.",
-                m.len()
-            ),
+        let info_text = match self.compile() {
+            Ok(_) => "Your script compiled successfully.".to_string(),
             Err(e) => e.to_string(),
         };
         self.view
@@ -72,7 +56,7 @@ impl YamlEditorPanel {
 
     fn open_in_text_editor(&self) {
         if let Ok(edited_text) =
-            open_in_text_editor(&self.text(), self.view.require_window(), ".yaml")
+            open_in_text_editor(&self.text(), self.view.require_window(), ".eel")
         {
             self.set_text(&edited_text);
             self.update_content();
@@ -93,7 +77,7 @@ impl YamlEditorPanel {
     }
 }
 
-impl View for YamlEditorPanel {
+impl View for EelEditorPanel {
     fn dialog_resource_id(&self) -> u32 {
         root::ID_YAML_EDITOR_PANEL
     }
@@ -105,14 +89,6 @@ impl View for YamlEditorPanel {
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
         self.invalidate_text_from_initial_content();
         true
-    }
-
-    fn close_requested(self: SharedView<Self>) -> bool {
-        if self.parse_final_result().is_err() {
-            !self.view.require_window().confirm("ReaLearn", "Are you sure you want to close this window? The text you have entered is not valid YAML, so ReaLearn will discard it!")
-        } else {
-            false
-        }
     }
 
     fn closed(self: SharedView<Self>, _window: Window) {
@@ -147,6 +123,6 @@ impl View for YamlEditorPanel {
 
 fn help() {
     open_in_browser(
-        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#advanced-settings",
+        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#script-source",
     );
 }

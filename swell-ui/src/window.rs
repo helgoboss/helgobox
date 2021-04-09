@@ -366,12 +366,20 @@ impl Window {
         result as _
     }
 
+    /// Returns up to 256 bytes and doesn't do line break conversion.
     pub fn text(self) -> Result<String, &'static str> {
         self.text_internal(256)
     }
 
-    pub fn large_text(self) -> Result<String, &'static str> {
-        self.text_internal(20_000)
+    /// Returns up to 20000 bytes. Also normalizes line breaks to simple unix-style linefeeds.
+    pub fn multi_line_text(self) -> Result<String, &'static str> {
+        let text = self.text_internal(20_000)?;
+        let fixed_text = if cfg!(windows) {
+            text.replace("\r\n", "\n")
+        } else {
+            text
+        };
+        Ok(fixed_text)
     }
 
     fn text_internal(self, max_size: u32) -> Result<String, &'static str> {
@@ -386,6 +394,19 @@ impl Window {
 
     pub fn set_text<'a>(self, text: impl Into<SwellStringArg<'a>>) {
         unsafe { Swell::get().SetWindowText(self.raw, text.into().as_ptr()) };
+    }
+
+    /// Converts line breaks to Windows-style if necessary.
+    pub fn set_multi_line_text(self, text: impl AsRef<str>) {
+        #[cfg(windows)]
+        {
+            let fixed_text = text.as_ref().replace('\n', "\r\n");
+            self.set_text(fixed_text)
+        }
+        #[cfg(unix)]
+        {
+            self.set_text(text.as_ref());
+        }
     }
 
     pub fn set_text_or_hide<'a>(self, text: Option<impl Into<SwellStringArg<'a>>>) {

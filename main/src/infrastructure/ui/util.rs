@@ -1,5 +1,5 @@
 use reaper_high::Reaper;
-use swell_ui::{DialogUnits, Dimensions};
+use swell_ui::{DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
 pub const MAIN_PANEL_DIMENSIONS: Dimensions<DialogUnits> =
@@ -135,4 +135,24 @@ pub fn open_in_browser(url: &str) {
             format!("Couldn't open browser. Please open the following address in your browser manually:\n\n{}\n\n", url)
         );
     }
+}
+
+pub fn open_in_text_editor(
+    text: &str,
+    parent_window: Window,
+    suffix: &str,
+) -> Result<String, &'static str> {
+    edit::edit_with_builder(&text, edit::Builder::new().prefix("realearn-").suffix(suffix)).map_err(|e| {
+        use std::io::ErrorKind::*;
+        let msg = match e.kind() {
+            NotFound => "Couldn't find text editor.".to_owned(),
+            InvalidData => {
+                "File is not properly UTF-8 encoded. Either avoid any special characters or make sure you use UTF-8 encoding!".to_owned()
+            }
+            _ => e.to_string()
+        };
+        parent_window
+            .alert("ReaLearn", format!("Couldn't obtain text:\n\n{}", msg));
+        "couldn't obtain text"
+    })
 }

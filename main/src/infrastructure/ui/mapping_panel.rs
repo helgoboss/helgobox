@@ -1,6 +1,8 @@
 use crate::core::{notification, when};
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::{ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel};
+use crate::infrastructure::ui::{
+    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
+};
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -60,7 +62,8 @@ pub struct MappingPanel {
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
     sliders: RefCell<Option<Sliders>>,
-    advanced_settings_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
+    yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
+    eel_editor: RefCell<Option<SharedView<EelEditorPanel>>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
@@ -112,7 +115,8 @@ impl MappingPanel {
             )),
             is_invoked_programmatically: false.into(),
             sliders: None.into(),
-            advanced_settings_editor: Default::default(),
+            yaml_editor: Default::default(),
+            eel_editor: Default::default(),
             party_is_over_subject: Default::default(),
         }
     }
@@ -210,29 +214,70 @@ impl MappingPanel {
         }
     }
 
-    fn edit_advanced_settings(&self) {
+    fn edit_midi_source_script(&self) {
+        self.edit_eel(
+            |m| m.source_model.midi_script.get_ref().clone(),
+            |m, eel| m.source_model.midi_script.set(eel),
+        );
+    }
+
+    fn edit_eel(
+        &self,
+        get_initial_value: impl Fn(&MappingModel) -> String,
+        apply: impl Fn(&mut MappingModel, String) + 'static,
+    ) {
         let mapping = self.mapping();
-        let yaml_mapping = { mapping.borrow().advanced_settings().cloned() };
         let weak_mapping = Rc::downgrade(&mapping);
-        let editor = YamlEditorPanel::new(yaml_mapping, move |yaml_mapping| {
+        let initial_value = { get_initial_value(&mapping.borrow()) };
+        let editor = EelEditorPanel::new(initial_value, move |edited_script| {
             let m = match weak_mapping.upgrade() {
                 None => return,
                 Some(m) => m,
             };
-            let result = { m.borrow_mut().set_advanced_settings(yaml_mapping, true) };
+            apply(&mut m.borrow_mut(), edited_script);
+        });
+        let editor = SharedView::new(editor);
+        let editor_clone = editor.clone();
+        if let Some(existing_editor) = self.eel_editor.replace(Some(editor)) {
+            existing_editor.close();
+        };
+        editor_clone.open(self.view.require_window());
+    }
+
+    fn edit_yaml(
+        &self,
+        get_initial_value: impl Fn(&MappingModel) -> Option<serde_yaml::Mapping>,
+        apply: impl Fn(&mut MappingModel, Option<serde_yaml::Mapping>) -> Result<(), String> + 'static,
+    ) {
+        let mapping = self.mapping();
+        let weak_mapping = Rc::downgrade(&mapping);
+        let initial_value = { get_initial_value(&mapping.borrow()) };
+        let editor = YamlEditorPanel::new(initial_value, move |yaml_mapping| {
+            let m = match weak_mapping.upgrade() {
+                None => return,
+                Some(m) => m,
+            };
+            let result = apply(&mut m.borrow_mut(), yaml_mapping);
             if let Err(e) = result {
                 notification::alert(format!(
-                    "Your advanced mapping settings have been applied and saved but they contain the following error and therefore won't have any effect:\n\n{}",
+                    "Your changes have been applied and saved but they contain the following error and therefore won't have any effect:\n\n{}",
                     e
                 ));
             };
         });
         let editor = SharedView::new(editor);
         let editor_clone = editor.clone();
-        if let Some(existing_editor) = self.advanced_settings_editor.replace(Some(editor)) {
+        if let Some(existing_editor) = self.yaml_editor.replace(Some(editor)) {
             existing_editor.close();
         };
         editor_clone.open(self.view.require_window());
+    }
+
+    fn edit_advanced_settings(&self) {
+        self.edit_yaml(
+            |m| m.advanced_settings().cloned(),
+            |m, yaml| m.set_advanced_settings(yaml, true),
+        );
     }
 
     pub fn notify_target_value_changed(
@@ -286,7 +331,10 @@ impl MappingPanel {
         self.stop_party();
         self.view.require_window().hide();
         self.mapping.replace(None);
-        if let Some(p) = self.advanced_settings_editor.replace(None) {
+        if let Some(p) = self.yaml_editor.replace(None) {
+            p.close();
+        }
+        if let Some(p) = self.eel_editor.replace(None) {
             p.close();
         }
         self.mapping_header_panel.clear_item();
@@ -745,7 +793,7 @@ impl<'a> MutableMappingPanel<'a> {
         let c = self
             .view
             .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
-        if let Ok(value) = c.text() {
+        if let Ok(value) = c.multi_line_text() {
             use SourceCategory::*;
             match self.mapping.source_model.category.get() {
                 Midi => match self.mapping.source_model.midi_source_type.get() {
@@ -1751,7 +1799,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 "Channel",
                 self.source.midi_source_type.get().number_label(),
                 "Character",
-                "Pattern",
+                match self.source.midi_source_type.get() {
+                    MidiSourceType::Raw => "Pattern",
+                    MidiSourceType::Script => "Script",
+                    _ => "",
+                },
             ),
             Virtual => ("ID", "Name", "", ""),
             Osc => ("", "Argument", "Type", "Address"),
@@ -1832,6 +1884,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_SOURCE_OSC_ADDRESS_LABEL_TEXT,
                 root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL,
             ],
+        );
+        self.show_if(
+            source.is_midi_script(),
+            &[root::ID_SOURCE_SCRIPT_DETAIL_BUTTON],
         );
         self.show_if(
             source.supports_control_element_name(),
@@ -2007,7 +2063,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Osc => self.source.osc_address_pattern.get_ref().as_str(),
             Virtual => return,
         };
-        c.set_text(value_text);
+        c.set_multi_line_text(value_text);
     }
 
     fn invalidate_source_character_combo_box(&self) {
@@ -4114,6 +4170,7 @@ impl View for MappingPanel {
             root::ID_SOURCE_LINE_4_BUTTON => {
                 let _ = self.handle_source_line_4_button_press();
             }
+            root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_midi_source_script(),
             // Mode
             root::ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
             root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => {
