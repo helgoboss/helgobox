@@ -1073,7 +1073,12 @@ This source reacts to incoming MIDI control-change messages.
       - Background: ReaLearn can make a momentary hardware button work like a full-blown toggle button (ReaLearn's
         toggle mode is inherently more powerful than your controller's built-in toggle mode!). However, the opposite is
         not true. It can't make a toggle hardware button act like a momentary button.
-      - The way this character works: ReaLearn will simply emit 100%, no matter what the hardware sends. 
+      - The way this character works: ReaLearn will simply emit 100%, no matter what the hardware sends.
+      - **Attention:** If you use the toggle-only source character in combination with mode "Incremental buttons", you
+        must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC). Even if
+        your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete
+        (instead of theoretically possible) maximum value. Otherwise, for this special case, a fixed 
+        out-of-range-behavior will set in that will just ignore all button presses.
 - **14-bit values:** If unchecked, this source reacts to MIDI control-change messages with 7-bit
   resolution (usually the case). If checked, it reacts to MIDI control-change messages with 14-bit
   resolution. This is not so common but sometimes used by controllers with high-precision faders.
