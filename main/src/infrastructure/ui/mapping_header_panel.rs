@@ -32,7 +32,7 @@ pub trait Item: Debug {
     fn supports_name_change(&self) -> bool;
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
-    fn set_name(&mut self, name: String);
+    fn set_name(&mut self, name: String, initiator: u32);
     fn control_is_enabled(&self) -> bool;
     fn set_control_is_enabled(&mut self, value: bool);
     fn feedback_is_enabled(&self) -> bool;
@@ -46,7 +46,7 @@ pub trait Item: Debug {
     fn bank_condition(&self) -> BankConditionModel;
     fn set_bank_condition(&mut self, value: BankConditionModel);
     fn eel_condition(&self) -> &str;
-    fn set_eel_condition(&mut self, value: String);
+    fn set_eel_condition(&mut self, value: String, initiator: u32);
 }
 
 pub enum ItemProp {
@@ -106,7 +106,7 @@ impl MappingHeaderPanel {
     }
 
     fn invalidate_controls_internal(&self, item: &dyn Item) {
-        self.invalidate_name_edit_control(item);
+        self.invalidate_name_edit_control(item, None);
         self.invalidate_control_enabled_check_box(item);
         self.invalidate_feedback_enabled_check_box(item);
         self.invalidate_activation_controls(item);
@@ -125,11 +125,14 @@ impl MappingHeaderPanel {
         self.invalidate_controls();
     }
 
-    fn invalidate_name_edit_control(&self, item: &dyn Item) {
+    fn invalidate_name_edit_control(&self, item: &dyn Item, initiator: Option<u32>) {
+        if initiator == Some(root::ID_MAPPING_NAME_EDIT_CONTROL) {
+            return;
+        }
         let c = self
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL);
-        c.set_text_if_not_focused(item.name());
+        c.set_text(item.name());
         c.set_enabled(item.supports_name_change());
     }
 
@@ -150,7 +153,7 @@ impl MappingHeaderPanel {
         self.invalidate_activation_type_combo_box(item);
         self.invalidate_activation_setting_1_controls(item);
         self.invalidate_activation_setting_2_controls(item);
-        self.invalidate_activation_eel_condition_edit_control(item);
+        self.invalidate_activation_eel_condition_edit_control(item, None);
     }
 
     fn invalidate_activation_control_appearance(&self, item: &dyn Item) {
@@ -356,7 +359,7 @@ impl MappingHeaderPanel {
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        item.set_name(value);
+        item.set_name(value, root::ID_MAPPING_NAME_EDIT_CONTROL);
     }
 
     fn update_activation_eel_condition(&self, item: &mut dyn Item) {
@@ -365,7 +368,7 @@ impl MappingHeaderPanel {
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        item.set_eel_condition(value);
+        item.set_eel_condition(value, root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
     }
 
     fn update_activation_type(&self, item: &mut dyn Item) {
@@ -439,10 +442,17 @@ impl MappingHeaderPanel {
         set(item, current.with_param_index(value));
     }
 
-    fn invalidate_activation_eel_condition_edit_control(&self, item: &dyn Item) {
+    fn invalidate_activation_eel_condition_edit_control(
+        &self,
+        item: &dyn Item,
+        initiator: Option<u32>,
+    ) {
+        if initiator == Some(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL) {
+            return;
+        }
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
-            .set_text_if_not_focused(item.eel_condition());
+            .set_text(item.eel_condition());
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
@@ -466,12 +476,12 @@ impl MappingHeaderPanel {
         f(self, &mut *item.borrow_mut());
     }
 
-    pub fn invalidate_due_to_changed_prop(&self, prop: ItemProp) {
+    pub fn invalidate_due_to_changed_prop(&self, prop: ItemProp, initiator: Option<u32>) {
         self.with_item_if_set(|_, item| {
             self.invoke_programmatically(|| {
                 use ItemProp::*;
                 match prop {
-                    Name => self.invalidate_name_edit_control(item),
+                    Name => self.invalidate_name_edit_control(item, initiator),
                     ControlEnabled => self.invalidate_control_enabled_check_box(item),
                     FeedbackEnabled => self.invalidate_feedback_enabled_check_box(item),
                     ActivationType => self.invalidate_activation_controls(item),
@@ -481,7 +491,9 @@ impl MappingHeaderPanel {
                         self.invalidate_activation_setting_1_controls(item);
                         self.invalidate_activation_setting_2_controls(item);
                     }
-                    EelCondition => self.invalidate_activation_eel_condition_edit_control(item),
+                    EelCondition => {
+                        self.invalidate_activation_eel_condition_edit_control(item, initiator)
+                    }
                 };
             });
         });
@@ -624,8 +636,8 @@ impl Item for MappingModel {
         self.name.get_ref()
     }
 
-    fn set_name(&mut self, name: String) {
-        self.name.set(name);
+    fn set_name(&mut self, name: String, initiator: u32) {
+        self.name.set_with_initiator(name, Some(initiator));
     }
 
     fn control_is_enabled(&self) -> bool {
@@ -684,8 +696,10 @@ impl Item for MappingModel {
         self.activation_condition_model.eel_condition.get_ref()
     }
 
-    fn set_eel_condition(&mut self, value: String) {
-        self.activation_condition_model.eel_condition.set(value);
+    fn set_eel_condition(&mut self, value: String, initiator: u32) {
+        self.activation_condition_model
+            .eel_condition
+            .set_with_initiator(value, Some(initiator));
     }
 }
 
@@ -710,8 +724,8 @@ impl Item for GroupModel {
         }
     }
 
-    fn set_name(&mut self, name: String) {
-        self.name.set(name);
+    fn set_name(&mut self, name: String, initiator: u32) {
+        self.name.set_with_initiator(name, Some(initiator));
     }
 
     fn control_is_enabled(&self) -> bool {
@@ -770,7 +784,9 @@ impl Item for GroupModel {
         self.activation_condition_model.eel_condition.get_ref()
     }
 
-    fn set_eel_condition(&mut self, value: String) {
-        self.activation_condition_model.eel_condition.set(value);
+    fn set_eel_condition(&mut self, value: String, initiator: u32) {
+        self.activation_condition_model
+            .eel_condition
+            .set_with_initiator(value, Some(initiator));
     }
 }

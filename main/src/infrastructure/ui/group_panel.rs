@@ -3,7 +3,7 @@ use crate::core::when;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
 use reaper_low::raw;
-use rx_util::UnitEvent;
+use rx_util::{SharedItemEvent, SharedPayload};
 use std::rc::Rc;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -32,23 +32,23 @@ impl GroupPanel {
     fn register_listeners(self: Rc<Self>) {
         let group = self.group.upgrade().expect("group gone");
         let group = group.borrow();
-        self.when(group.name.changed(), |view| {
+        self.when(group.name.changed_with_initiator(), |view, initiator| {
             view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::Name);
+                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
         });
-        self.when(group.control_is_enabled.changed(), |view| {
+        self.when(group.control_is_enabled.changed(), |view, _| {
             view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ControlEnabled);
+                .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);
         });
-        self.when(group.feedback_is_enabled.changed(), |view| {
+        self.when(group.feedback_is_enabled.changed(), |view, _| {
             view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled);
+                .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
         });
         self.when(
             group.activation_condition_model.activation_type.changed(),
-            |view| {
+            |view, _| {
                 view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ActivationType);
+                    .invalidate_due_to_changed_prop(ItemProp::ActivationType, None);
             },
         );
         self.when(
@@ -56,9 +56,9 @@ impl GroupPanel {
                 .activation_condition_model
                 .modifier_condition_1
                 .changed(),
-            |view| {
+            |view, _| {
                 view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1);
+                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1, None);
             },
         );
         self.when(
@@ -66,31 +66,38 @@ impl GroupPanel {
                 .activation_condition_model
                 .modifier_condition_2
                 .changed(),
-            |view| {
+            |view, _| {
                 view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2);
+                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2, None);
             },
         );
         self.when(
             group.activation_condition_model.bank_condition.changed(),
-            |view| {
+            |view, _| {
                 view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::BankCondition);
+                    .invalidate_due_to_changed_prop(ItemProp::BankCondition, None);
             },
         );
         self.when(
-            group.activation_condition_model.eel_condition.changed(),
-            |view| {
+            group
+                .activation_condition_model
+                .eel_condition
+                .changed_with_initiator(),
+            |view, initiator| {
                 view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::EelCondition);
+                    .invalidate_due_to_changed_prop(ItemProp::EelCondition, initiator);
             },
         );
     }
 
-    fn when(self: &Rc<Self>, event: impl UnitEvent, reaction: impl Fn(Rc<Self>) + 'static + Copy) {
+    fn when<I: SharedPayload>(
+        self: &Rc<Self>,
+        event: impl SharedItemEvent<I>,
+        reaction: impl Fn(Rc<Self>, I) + 'static + Copy,
+    ) {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
-            .do_sync(move |panel, _| reaction(panel));
+            .do_sync(move |panel, item| reaction(panel, item));
     }
 }
 

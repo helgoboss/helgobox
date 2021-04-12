@@ -16,7 +16,7 @@ use reaper_high::{
 };
 use reaper_low::raw;
 use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
-use rx_util::UnitEvent;
+use rx_util::{SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::convert::TryInto;
@@ -294,6 +294,9 @@ impl MappingPanel {
                     .require_control(root::ID_TARGET_VALUE_EDIT_CONTROL),
                 self.view.require_control(root::ID_TARGET_VALUE_TEXT),
                 new_value,
+                None,
+                root::ID_TARGET_VALUE_EDIT_CONTROL,
+                true,
             );
         });
     }
@@ -465,10 +468,10 @@ impl MappingPanel {
             .merge(self.party_is_over_subject.borrow().clone())
     }
 
-    fn when_do_sync(
+    fn when<I: SharedPayload>(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
-        reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
+        event: impl SharedItemEvent<I>,
+        reaction: impl Fn(&ImmutableMappingPanel, I) + 'static + Copy,
     ) {
         when(event.take_until(self.party_is_over()))
             .with(Rc::downgrade(self))
@@ -517,16 +520,16 @@ impl MappingPanel {
     }
 }
 
-fn decorate_reaction(
-    reaction: impl Fn(&ImmutableMappingPanel) + 'static + Copy,
-) -> impl Fn(Rc<MappingPanel>, ()) + Copy {
-    move |view, _| {
+fn decorate_reaction<I: SharedPayload>(
+    reaction: impl Fn(&ImmutableMappingPanel, I) + 'static + Copy,
+) -> impl Fn(Rc<MappingPanel>, I) + Copy {
+    move |view, item| {
         let view_mirror = view.clone();
         view_mirror.is_invoked_programmatically.set(true);
         scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
         // If the reaction can't be displayed anymore because the mapping is not filled anymore,
         // so what.
-        let _ = view.read(reaction);
+        let _ = view.read(move |p| reaction(p, item.clone()));
     }
 }
 
@@ -917,7 +920,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .target_value_interval
-            .set_with(|prev| prev.with_min(value));
+            .set_with_with_initiator(
+                |prev| prev.with_min(value),
+                Some(root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL),
+            );
     }
 
     fn get_value_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
@@ -939,7 +945,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .target_value_interval
-            .set_with(|prev| prev.with_max(value));
+            .set_with_with_initiator(
+                |prev| prev.with_max(value),
+                Some(root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL),
+            );
     }
 
     fn update_mode_min_jump_from_edit_control(&mut self) {
@@ -949,7 +958,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .jump_interval
-            .set_with(|prev| prev.with_min(value));
+            .set_with_with_initiator(
+                |prev| prev.with_min(value),
+                Some(root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL),
+            );
     }
 
     fn update_mode_max_jump_from_edit_control(&mut self) {
@@ -959,7 +971,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .jump_interval
-            .set_with(|prev| prev.with_max(value));
+            .set_with_with_initiator(
+                |prev| prev.with_max(value),
+                Some(root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL),
+            );
     }
 
     fn update_mode_min_source_value_from_edit_control(&mut self) {
@@ -969,7 +984,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .source_value_interval
-            .set_with(|prev| prev.with_min(value));
+            .set_with_with_initiator(
+                |prev| prev.with_min(value),
+                Some(root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL),
+            );
     }
 
     fn get_value_from_source_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
@@ -987,7 +1005,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .source_value_interval
-            .set_with(|prev| prev.with_max(value));
+            .set_with_with_initiator(
+                |prev| prev.with_max(value),
+                Some(root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL),
+            );
     }
 
     fn update_mode_min_step_from_edit_control(&mut self) {
@@ -997,7 +1018,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .step_interval
-            .set_with(|prev| prev.with_min(value));
+            .set_with_with_initiator(
+                |prev| prev.with_min(value),
+                Some(root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL),
+            );
     }
 
     fn handle_mode_fire_line_2_edit_control_change(&mut self) {
@@ -1007,7 +1031,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .press_duration_interval
-            .set_with(|prev| prev.with_min(value));
+            .set_with_with_initiator(
+                |prev| prev.with_min(value),
+                Some(root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL),
+            );
     }
 
     fn get_value_from_duration_edit_control(&self, edit_control_id: u32) -> Option<Duration> {
@@ -1035,14 +1062,20 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .step_interval
-            .set_with(|prev| prev.with_max(value));
+            .set_with_with_initiator(
+                |prev| prev.with_max(value),
+                Some(root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL),
+            );
     }
 
     fn handle_mode_fire_line_3_edit_control_change(&mut self) {
         let value = self
             .get_value_from_duration_edit_control(root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL)
             .unwrap_or_else(|| Duration::from_millis(0));
-        self.handle_mode_fire_line_3_duration_change(value);
+        self.handle_mode_fire_line_3_duration_change(
+            value,
+            Some(root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL),
+        );
     }
 
     fn update_mode_eel_control_transformation(&mut self) {
@@ -1054,7 +1087,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .eel_control_transformation
-            .set(value);
+            .set_with_initiator(
+                value,
+                Some(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL),
+            );
     }
 
     fn update_mode_eel_feedback_transformation(&mut self) {
@@ -1066,7 +1102,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping
             .mode_model
             .eel_feedback_transformation
-            .set(value);
+            .set_with_initiator(
+                value,
+                Some(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL),
+            );
     }
 
     fn update_mode_min_target_value_from_slider(&mut self, slider: Window) {
@@ -1126,20 +1165,23 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn handle_mode_fire_line_3_slider_change(&mut self, slider: Window) {
         let value = slider.slider_duration();
-        self.handle_mode_fire_line_3_duration_change(value);
+        self.handle_mode_fire_line_3_duration_change(value, None);
     }
 
-    fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration) {
+    fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration, initiator: Option<u32>) {
         match self.mapping.effective_fire_mode() {
             FireMode::WhenButtonReleased | FireMode::OnSinglePress | FireMode::OnDoublePress => {
                 self.mapping
                     .mode_model
                     .press_duration_interval
-                    .set_with(|prev| prev.with_max(value));
+                    .set_with_with_initiator(|prev| prev.with_max(value), initiator);
             }
             FireMode::AfterTimeout => {}
             FireMode::AfterTimeoutKeepFiring => {
-                self.mapping.mode_model.turbo_rate.set(value);
+                self.mapping
+                    .mode_model
+                    .turbo_rate
+                    .set_with_initiator(value, initiator);
             }
         }
     }
@@ -1736,7 +1778,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mapping_send_feedback_after_control_check_box();
         self.invalidate_mapping_advanced_settings_button();
         self.invalidate_source_controls();
-        self.invalidate_target_controls();
+        self.invalidate_target_controls(None);
         self.invalidate_mode_controls();
     }
 
@@ -1780,7 +1822,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_14_bit_check_box();
         self.invalidate_source_is_registered_check_box();
         self.invalidate_source_midi_message_number_controls();
-        self.invalidate_source_parameter_number_message_number_controls();
+        self.invalidate_source_parameter_number_message_number_controls(None);
         self.invalidate_source_character_combo_box();
         self.invalidate_source_midi_clock_transport_message_type_combo_box();
         self.invalidate_source_osc_address_pattern_edit_control();
@@ -2021,7 +2063,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo.select_combo_box_item_by_data(data).unwrap();
     }
 
-    fn invalidate_source_parameter_number_message_number_controls(&self) {
+    fn invalidate_source_parameter_number_message_number_controls(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_SOURCE_NUMBER_EDIT_CONTROL) {
+            return;
+        }
         let c = self
             .view
             .require_control(root::ID_SOURCE_NUMBER_EDIT_CONTROL);
@@ -2043,7 +2088,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             }
             Virtual => self.source.control_element_name.get_ref().to_string(),
         };
-        c.set_text_if_not_focused(text)
+        c.set_text(text)
     }
 
     fn invalidate_source_osc_address_pattern_edit_control(&self) {
@@ -2094,13 +2139,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .unwrap();
     }
 
-    fn invalidate_target_controls(&self) {
+    fn invalidate_target_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_value_control_visibility();
         self.invalidate_target_category_combo_box();
         self.invalidate_target_type_combo_box();
-        self.invalidate_target_line_2();
-        self.invalidate_target_line_3();
-        self.invalidate_target_line_4();
+        self.invalidate_target_line_2(initiator);
+        self.invalidate_target_line_3(initiator);
+        self.invalidate_target_line_4(initiator);
         self.invalidate_target_check_box_1();
         self.invalidate_target_check_box_2();
         self.invalidate_target_check_box_3();
@@ -2337,7 +2382,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo.select_combo_box_item_by_data(data).unwrap();
     }
 
-    fn invalidate_target_line_2_edit_control(&self) {
+    fn invalidate_target_line_2_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_2_EDIT_CONTROL) {
+            return;
+        }
         let control = self
             .view
             .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL);
@@ -2356,7 +2404,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             return;
                         }
                     };
-                    control.set_text_if_not_focused(text);
+                    control.set_text(text);
                     control.show();
                 }
                 _ => {
@@ -2369,13 +2417,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_target_line_2(&self) {
+    fn invalidate_target_line_2(&self, initiator: Option<u32>) {
         self.invalidate_target_line_2_label_1();
         self.invalidate_target_line_2_label_2();
         self.invalidate_target_line_2_label_3();
         self.invalidate_target_line_2_combo_box_1();
         self.invalidate_target_line_2_combo_box_2();
-        self.invalidate_target_line_2_edit_control();
+        self.invalidate_target_line_2_edit_control(initiator);
         self.invalidate_target_line_2_button();
     }
 
@@ -2399,22 +2447,22 @@ impl<'a> ImmutableMappingPanel<'a> {
             .with_context(self.session.extended_context(), self.mapping.compartment())
     }
 
-    fn invalidate_target_line_3(&self) {
+    fn invalidate_target_line_3(&self, initiator: Option<u32>) {
         self.invalidate_target_line_3_label_1();
         self.invalidate_target_line_3_label_3();
         self.invalidate_target_line_3_combo_box_1();
         self.invalidate_target_line_3_combo_box_2();
-        self.invalidate_target_line_3_edit_control();
+        self.invalidate_target_line_3_edit_control(initiator);
         self.invalidate_target_line_3_button();
     }
 
-    fn invalidate_target_line_4(&self) {
+    fn invalidate_target_line_4(&self, initiator: Option<u32>) {
         self.invalidate_target_line_4_label_1();
         self.invalidate_target_line_4_label_2();
         self.invalidate_target_line_4_label_3();
         self.invalidate_target_line_4_combo_box_1();
         self.invalidate_target_line_4_combo_box_2();
-        self.invalidate_target_line_4_edit_control();
+        self.invalidate_target_line_4_edit_control(initiator);
         self.invalidate_target_line_4_button();
     }
 
@@ -2465,7 +2513,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_target_line_4_edit_control(&self) {
+    fn invalidate_target_line_4_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_4_EDIT_CONTROL) {
+            return;
+        }
         let control = self
             .view
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
@@ -2482,7 +2533,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             return;
                         }
                     };
-                    control.set_text_if_not_focused(text);
+                    control.set_text(text);
                     control.show();
                 }
                 t if t.supports_send() => {
@@ -2500,7 +2551,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             return;
                         }
                     };
-                    control.set_text_if_not_focused(text);
+                    control.set_text(text);
                     control.show();
                 }
                 _ => {
@@ -2513,7 +2564,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_target_line_3_edit_control(&self) {
+    fn invalidate_target_line_3_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_TARGET_LINE_3_EDIT_CONTROL) {
+            return;
+        }
         let control = self
             .view
             .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL);
@@ -2532,7 +2586,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             return;
                         }
                     };
-                    control.set_text_if_not_focused(text);
+                    control.set_text(text);
                     control.show();
                 }
                 _ => {
@@ -2544,7 +2598,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     control.hide();
                 } else {
                     let text = self.target.control_element_name.get_ref().to_string();
-                    control.set_text_if_not_focused(text);
+                    control.set_text(text);
                     control.show();
                 }
             }
@@ -3027,6 +3081,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_TARGET_VALUE_EDIT_CONTROL,
             root::ID_TARGET_VALUE_TEXT,
             value,
+            None,
         )
     }
 
@@ -3047,18 +3102,22 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn register_session_listeners(&self) {
-        self.panel
-            .when_do_sync(self.session.mapping_which_learns_source_changed(), |view| {
+        self.panel.when(
+            self.session.mapping_which_learns_source_changed(),
+            |view, _| {
                 view.invalidate_source_learn_button();
-            });
-        self.panel
-            .when_do_sync(self.session.mapping_which_learns_target_changed(), |view| {
+            },
+        );
+        self.panel.when(
+            self.session.mapping_which_learns_target_changed(),
+            |view, _| {
                 view.invalidate_target_learn_button();
-            });
-        self.panel.when_do_sync(
+            },
+        );
+        self.panel.when(
             ReaperTarget::potential_static_change_events()
                 .merge(ReaperTarget::potential_dynamic_change_events()),
-            |view| {
+            |view, _| {
                 // These changes can happen because of removals (e.g. project close, FX deletions,
                 // track deletions etc.). We want to update whatever is possible. But if the own
                 // project is missing, this was a project close and we don't need to do anything
@@ -3066,172 +3125,175 @@ impl<'a> ImmutableMappingPanel<'a> {
                 if !view.target_with_context().project().is_available() {
                     return;
                 }
-                view.invalidate_target_controls();
+                view.invalidate_target_controls(None);
                 view.invalidate_mode_controls();
             },
         );
     }
 
     fn register_mapping_listeners(&self) {
-        self.panel
-            .when_do_sync(self.mapping.name.changed(), |view| {
+        self.panel.when(
+            self.mapping.name.changed_with_initiator(),
+            |view, initiator| {
                 view.invalidate_window_title();
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::Name);
-            });
+                    .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+            },
+        );
         self.panel
-            .when_do_sync(self.mapping.control_is_enabled.changed(), |view| {
+            .when(self.mapping.control_is_enabled.changed(), |view, _| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ControlEnabled);
+                    .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);
             });
         self.panel
-            .when_do_sync(self.mapping.feedback_is_enabled.changed(), |view| {
+            .when(self.mapping.feedback_is_enabled.changed(), |view, _| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled);
+                    .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
             });
         self.panel
-            .when_do_sync(self.mapping.prevent_echo_feedback.changed(), |view| {
+            .when(self.mapping.prevent_echo_feedback.changed(), |view, _| {
                 view.invalidate_mapping_prevent_echo_feedback_check_box();
             });
-        self.panel
-            .when_do_sync(self.mapping.send_feedback_after_control.changed(), |view| {
+        self.panel.when(
+            self.mapping.send_feedback_after_control.changed(),
+            |view, _| {
                 view.invalidate_mapping_send_feedback_after_control_check_box();
-            });
+            },
+        );
         self.panel
-            .when_do_sync(self.mapping.advanced_settings_changed(), |view| {
+            .when(self.mapping.advanced_settings_changed(), |view, _| {
                 view.invalidate_mapping_advanced_settings_button();
             });
-        self.panel.when_do_sync(
+        self.panel.when(
             self.mapping
                 .activation_condition_model
                 .activation_type
                 .changed(),
-            |view| {
+            |view, _| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ActivationType);
+                    .invalidate_due_to_changed_prop(ItemProp::ActivationType, None);
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             self.mapping
                 .activation_condition_model
                 .modifier_condition_1
                 .changed(),
-            |view| {
+            |view, _| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1);
+                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1, None);
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             self.mapping
                 .activation_condition_model
                 .modifier_condition_2
                 .changed(),
-            |view| {
+            |view, _| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2);
+                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2, None);
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             self.mapping
                 .activation_condition_model
                 .bank_condition
                 .changed(),
-            |view| {
+            |view, _| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::BankCondition);
+                    .invalidate_due_to_changed_prop(ItemProp::BankCondition, None);
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             self.mapping
                 .activation_condition_model
                 .eel_condition
-                .changed(),
-            |view| {
+                .changed_with_initiator(),
+            |view, initiator| {
                 view.panel
                     .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::EelCondition);
+                    .invalidate_due_to_changed_prop(ItemProp::EelCondition, initiator);
             },
         );
     }
 
     fn register_source_listeners(&self) {
         let source = self.source;
-        self.panel.when_do_sync(
+        self.panel.when(
             source
                 .category
                 .changed()
                 .merge(source.midi_source_type.changed())
                 .merge(source.control_element_type.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_source_controls();
                 view.invalidate_mode_controls();
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             source
                 .channel
                 .changed()
                 .merge(source.control_element_index.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_source_control_visibilities();
                 view.invalidate_source_channel_or_control_element_combo_box();
             },
         );
-        self.panel.when_do_sync(source.is_14_bit.changed(), |view| {
+        self.panel.when(source.is_14_bit.changed(), |view, _| {
             view.invalidate_source_controls();
             view.invalidate_mode_controls();
         });
         self.panel
-            .when_do_sync(source.midi_message_number.changed(), |view| {
+            .when(source.midi_message_number.changed(), |view, _| {
                 view.invalidate_source_midi_message_number_controls();
             });
-        self.panel.when_do_sync(
+        self.panel.when(
             source
                 .parameter_number_message_number
-                .changed()
-                .merge(source.osc_arg_index.changed())
-                .merge(source.control_element_name.changed()),
-            |view| {
-                view.invalidate_source_parameter_number_message_number_controls();
+                .changed_with_initiator()
+                .merge(source.osc_arg_index.changed_with_initiator())
+                .merge(source.control_element_name.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_source_parameter_number_message_number_controls(initiator);
             },
         );
-        self.panel
-            .when_do_sync(source.is_registered.changed(), |view| {
-                view.invalidate_source_is_registered_check_box();
-            });
-        self.panel.when_do_sync(
+        self.panel.when(source.is_registered.changed(), |view, _| {
+            view.invalidate_source_is_registered_check_box();
+        });
+        self.panel.when(
             source
                 .custom_character
                 .changed()
                 .merge(source.osc_arg_type_tag.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_source_character_combo_box();
                 view.invalidate_mode_controls();
             },
         );
         self.panel
-            .when_do_sync(source.midi_clock_transport_message.changed(), |view| {
+            .when(source.midi_clock_transport_message.changed(), |view, _| {
                 view.invalidate_source_midi_clock_transport_message_type_combo_box();
             });
-        self.panel.when_do_sync(
+        self.panel.when(
             source
                 .osc_address_pattern
                 .changed()
                 .merge(source.raw_midi_pattern.changed())
                 .merge(source.midi_script.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_source_osc_address_pattern_edit_control();
             },
         );
         self.panel
-            .when_do_sync(source.osc_arg_is_relative.changed(), |view| {
+            .when(source.osc_arg_is_relative.changed(), |view, _| {
                 view.invalidate_source_controls();
             });
     }
@@ -3240,10 +3302,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mode_type_combo_box();
         self.invalidate_mode_type_combo_box();
         self.invalidate_mode_control_appearance();
-        self.invalidate_mode_source_value_controls();
-        self.invalidate_mode_target_value_controls();
-        self.invalidate_mode_step_controls();
-        self.invalidate_mode_fire_controls();
+        self.invalidate_mode_source_value_controls(None);
+        self.invalidate_mode_target_value_controls(None);
+        self.invalidate_mode_step_controls(None);
+        self.invalidate_mode_fire_controls(None);
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
@@ -3252,8 +3314,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_button_usage_combo_box();
         self.invalidate_mode_encoder_usage_combo_box();
         self.invalidate_mode_reverse_check_box();
-        self.invalidate_mode_eel_control_transformation_edit_control();
-        self.invalidate_mode_eel_feedback_transformation_edit_control();
+        self.invalidate_mode_eel_control_transformation_edit_control(None);
+        self.invalidate_mode_eel_feedback_transformation_edit_control(None);
     }
 
     fn invalidate_mode_type_combo_box(&self) {
@@ -3379,31 +3441,33 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_mode_source_value_controls(&self) {
-        self.invalidate_mode_min_source_value_controls();
-        self.invalidate_mode_max_source_value_controls();
+    fn invalidate_mode_source_value_controls(&self, initiator: Option<u32>) {
+        self.invalidate_mode_min_source_value_controls(initiator);
+        self.invalidate_mode_max_source_value_controls(initiator);
     }
 
-    fn invalidate_mode_target_value_controls(&self) {
-        self.invalidate_mode_min_target_value_controls();
-        self.invalidate_mode_max_target_value_controls();
-        self.invalidate_mode_min_jump_controls();
-        self.invalidate_mode_max_jump_controls();
+    fn invalidate_mode_target_value_controls(&self, initiator: Option<u32>) {
+        self.invalidate_mode_min_target_value_controls(initiator);
+        self.invalidate_mode_max_target_value_controls(initiator);
+        self.invalidate_mode_min_jump_controls(initiator);
+        self.invalidate_mode_max_jump_controls(initiator);
     }
 
-    fn invalidate_mode_min_source_value_controls(&self) {
+    fn invalidate_mode_min_source_value_controls(&self, initiator: Option<u32>) {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
             self.mode.source_value_interval.get_ref().min_val(),
+            initiator,
         );
     }
 
-    fn invalidate_mode_max_source_value_controls(&self) {
+    fn invalidate_mode_max_source_value_controls(&self, initiator: Option<u32>) {
         self.invalidate_mode_source_value_controls_internal(
             root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
             self.mode.source_value_interval.get_ref().max_val(),
+            initiator,
         );
     }
 
@@ -3412,34 +3476,39 @@ impl<'a> ImmutableMappingPanel<'a> {
         slider_control_id: u32,
         edit_control_id: u32,
         value: UnitValue,
+        initiator: Option<u32>,
     ) {
         let formatted_value = self
             .source
             .format_control_value(ControlValue::Absolute(value))
             .unwrap_or_else(|_| "".to_string());
-        self.view
-            .require_control(edit_control_id)
-            .set_text_if_not_focused(formatted_value);
+        if initiator != Some(edit_control_id) {
+            self.view
+                .require_control(edit_control_id)
+                .set_text(formatted_value);
+        }
         self.view
             .require_control(slider_control_id)
             .set_slider_unit_value(value);
     }
 
-    fn invalidate_mode_min_target_value_controls(&self) {
+    fn invalidate_mode_min_target_value_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_controls_internal(
             root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
             self.mode.target_value_interval.get_ref().min_val(),
+            initiator,
         );
     }
 
-    fn invalidate_mode_max_target_value_controls(&self) {
+    fn invalidate_mode_max_target_value_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_controls_internal(
             root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
             self.mode.target_value_interval.get_ref().max_val(),
+            initiator,
         );
     }
 
@@ -3449,6 +3518,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         edit_control_id: u32,
         value_text_control_id: u32,
         value: UnitValue,
+        initiator: Option<u32>,
     ) {
         invalidate_target_controls_free(
             self.real_target().as_ref(),
@@ -3456,6 +3526,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             self.view.require_control(edit_control_id),
             self.view.require_control(value_text_control_id),
             value,
+            initiator,
+            edit_control_id,
+            false,
         );
     }
 
@@ -3475,45 +3548,48 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_mode_min_jump_controls(&self) {
+    fn invalidate_mode_min_jump_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_controls_internal(
             root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
             self.mode.jump_interval.get_ref().min_val(),
+            initiator,
         );
     }
 
-    fn invalidate_mode_max_jump_controls(&self) {
+    fn invalidate_mode_max_jump_controls(&self, initiator: Option<u32>) {
         self.invalidate_target_controls_internal(
             root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
             self.mode.jump_interval.get_ref().max_val(),
+            initiator,
         );
     }
 
-    fn invalidate_mode_step_controls(&self) {
-        self.invalidate_mode_min_step_controls();
-        self.invalidate_mode_max_step_controls();
+    fn invalidate_mode_step_controls(&self, initiator: Option<u32>) {
+        self.invalidate_mode_min_step_controls(initiator);
+        self.invalidate_mode_max_step_controls(initiator);
     }
 
-    fn invalidate_mode_fire_controls(&self) {
+    fn invalidate_mode_fire_controls(&self, initiator: Option<u32>) {
         self.invalidate_mode_fire_mode_combo_box();
-        self.invalidate_mode_fire_line_2_controls();
-        self.invalidate_mode_fire_line_3_controls();
+        self.invalidate_mode_fire_line_2_controls(initiator);
+        self.invalidate_mode_fire_line_3_controls(initiator);
     }
 
-    fn invalidate_mode_min_step_controls(&self) {
+    fn invalidate_mode_min_step_controls(&self, initiator: Option<u32>) {
         self.invalidate_mode_step_controls_internal(
             root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
             self.mode.step_interval.get_ref().min_val(),
+            initiator,
         );
     }
 
-    fn invalidate_mode_fire_line_2_controls(&self) {
+    fn invalidate_mode_fire_line_2_controls(&self, initiator: Option<u32>) {
         let label = match self.mapping.effective_fire_mode() {
             FireMode::WhenButtonReleased => Some("Min"),
             FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => Some("Timeout"),
@@ -3528,6 +3604,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
                 root::ID_MODE_FIRE_LINE_2_LABEL_2,
                 self.mode.press_duration_interval.get_ref().min_val(),
+                initiator,
             );
         }
         self.show_if(
@@ -3541,16 +3618,17 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
-    fn invalidate_mode_max_step_controls(&self) {
+    fn invalidate_mode_max_step_controls(&self, initiator: Option<u32>) {
         self.invalidate_mode_step_controls_internal(
             root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
             self.mode.step_interval.get_ref().max_val(),
+            initiator,
         );
     }
 
-    fn invalidate_mode_fire_line_3_controls(&self) {
+    fn invalidate_mode_fire_line_3_controls(&self, initiator: Option<u32>) {
         let option = match self.mapping.effective_fire_mode() {
             FireMode::WhenButtonReleased | FireMode::OnSinglePress => {
                 Some(("Max", self.mode.press_duration_interval.get_ref().max_val()))
@@ -3567,6 +3645,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
                 root::ID_MODE_FIRE_LINE_3_LABEL_2,
                 value,
+                initiator,
             );
         }
         self.show_if(
@@ -3586,6 +3665,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         edit_control_id: u32,
         value_text_control_id: u32,
         value: SoftSymmetricUnitValue,
+        initiator: Option<u32>,
     ) {
         let (val, edit_text, value_text) = match &self.real_target() {
             Some(target) => {
@@ -3625,9 +3705,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     .set_slider_symmetric_unit_value(v);
             }
         }
-        self.view
-            .require_control(edit_control_id)
-            .set_text_if_not_focused(edit_text);
+        if initiator != Some(edit_control_id) {
+            self.view
+                .require_control(edit_control_id)
+                .set_text(edit_text);
+        }
         self.view
             .require_control(value_text_control_id)
             .set_text(value_text)
@@ -3639,13 +3721,16 @@ impl<'a> ImmutableMappingPanel<'a> {
         edit_control_id: u32,
         value_text_control_id: u32,
         duration: Duration,
+        initiator: Option<u32>,
     ) {
         self.view
             .require_control(slider_control_id)
             .set_slider_duration(duration);
-        self.view
-            .require_control(edit_control_id)
-            .set_text_if_not_focused(duration.as_millis().to_string());
+        if initiator != Some(edit_control_id) {
+            self.view
+                .require_control(edit_control_id)
+                .set_text(duration.as_millis().to_string());
+        }
         self.view
             .require_control(value_text_control_id)
             .set_text("ms")
@@ -3714,111 +3799,119 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.reverse.get());
     }
 
-    fn invalidate_mode_eel_control_transformation_edit_control(&self) {
+    fn invalidate_mode_eel_control_transformation_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL) {
+            return;
+        }
         self.view
             .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
-            .set_text_if_not_focused(self.mode.eel_control_transformation.get_ref().as_str());
+            .set_text(self.mode.eel_control_transformation.get_ref().as_str());
     }
 
-    fn invalidate_mode_eel_feedback_transformation_edit_control(&self) {
+    fn invalidate_mode_eel_feedback_transformation_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL) {
+            return;
+        }
         self.view
             .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
-            .set_text_if_not_focused(self.mode.eel_feedback_transformation.get_ref().as_str());
+            .set_text(self.mode.eel_feedback_transformation.get_ref().as_str());
     }
 
     fn register_target_listeners(&self) {
         let target = self.target;
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .category
                 .changed()
                 .merge(target.r#type.changed())
                 .merge(target.control_element_type.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_window_title();
-                view.invalidate_target_controls();
+                view.invalidate_target_controls(None);
                 view.invalidate_mode_controls();
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .track_type
-                .changed()
-                .merge(target.track_index.changed())
-                .merge(target.track_id.changed())
-                .merge(target.track_name.changed())
-                .merge(target.track_expression.changed())
-                .merge(target.bookmark_type.changed())
-                .merge(target.bookmark_anchor_type.changed())
-                .merge(target.bookmark_ref.changed())
-                .merge(target.transport_action.changed())
-                .merge(target.action.changed()),
-            |view| {
+                .changed_with_initiator()
+                .merge(target.track_index.changed_with_initiator())
+                .merge(target.track_id.changed_with_initiator())
+                .merge(target.track_name.changed_with_initiator())
+                .merge(target.track_expression.changed_with_initiator())
+                .merge(target.bookmark_type.changed_with_initiator())
+                .merge(target.bookmark_anchor_type.changed_with_initiator())
+                .merge(target.bookmark_ref.changed_with_initiator())
+                .merge(target.transport_action.changed_with_initiator())
+                .merge(target.action.changed_with_initiator()),
+            |view, initiator| {
                 view.invalidate_window_title();
-                view.invalidate_target_controls();
+                view.invalidate_target_controls(initiator);
                 view.invalidate_mode_controls();
             },
         );
         self.panel
-            .when_do_sync(target.control_element_index.changed(), |view| {
+            .when(target.control_element_index.changed(), |view, _| {
                 view.invalidate_window_title();
                 let combo = view
                     .view
                     .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
                 view.select_control_element_index_combo_item(combo);
-                view.invalidate_target_line_3();
+                view.invalidate_target_line_3(None);
             });
-        self.panel
-            .when_do_sync(target.control_element_name.changed(), |view| {
+        self.panel.when(
+            target.control_element_name.changed_with_initiator(),
+            |view, initiator| {
                 view.invalidate_window_title();
-                view.invalidate_target_line_3();
-            });
-        self.panel.when_do_sync(
+                view.invalidate_target_line_3(initiator);
+            },
+        );
+        self.panel.when(
             target
                 .fx_type
-                .changed()
-                .merge(target.fx_index.changed())
-                .merge(target.fx_id.changed())
-                .merge(target.fx_name.changed())
-                .merge(target.fx_expression.changed())
-                .merge(target.fx_is_input_fx.changed()),
-            |view| {
-                view.invalidate_target_controls();
+                .changed_with_initiator()
+                .merge(target.fx_index.changed_with_initiator())
+                .merge(target.fx_id.changed_with_initiator())
+                .merge(target.fx_name.changed_with_initiator())
+                .merge(target.fx_expression.changed_with_initiator())
+                .merge(target.fx_is_input_fx.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_target_controls(initiator);
                 view.invalidate_mode_controls();
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .route_selector_type
-                .changed()
-                .merge(target.route_type.changed())
-                .merge(target.route_index.changed())
-                .merge(target.route_id.changed())
-                .merge(target.route_name.changed())
-                .merge(target.route_expression.changed()),
-            |view| {
-                view.invalidate_target_controls();
+                .changed_with_initiator()
+                .merge(target.route_type.changed_with_initiator())
+                .merge(target.route_index.changed_with_initiator())
+                .merge(target.route_id.changed_with_initiator())
+                .merge(target.route_name.changed_with_initiator())
+                .merge(target.route_expression.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_target_controls(initiator);
                 view.invalidate_mode_controls();
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .param_type
-                .changed()
-                .merge(target.param_index.changed())
-                .merge(target.param_name.changed())
-                .merge(target.param_expression.changed()),
-            |view| {
-                view.invalidate_target_controls();
+                .changed_with_initiator()
+                .merge(target.param_index.changed_with_initiator())
+                .merge(target.param_name.changed_with_initiator())
+                .merge(target.param_expression.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_target_controls(initiator);
                 view.invalidate_mode_controls();
             },
         );
         self.panel
-            .when_do_sync(target.action_invocation_type.changed(), |view| {
-                view.invalidate_target_line_3();
+            .when(target.action_invocation_type.changed(), |view, _| {
+                view.invalidate_target_line_3(None);
                 view.invalidate_mode_controls();
             });
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .solo_behavior
                 .changed()
@@ -3826,73 +3919,72 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.track_automation_mode.changed())
                 .merge(target.automation_mode_override_type.changed())
                 .merge(target.track_area.changed()),
-            |view| {
-                view.invalidate_target_line_3();
+            |view, _| {
+                view.invalidate_target_line_3(None);
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .fx_snapshot
                 .changed()
                 .merge(target.fx_display_type.changed()),
-            |view| {
-                view.invalidate_target_line_4();
+            |view, _| {
+                view.invalidate_target_line_4(None);
             },
         );
         self.panel
-            .when_do_sync(target.track_exclusivity.changed(), |view| {
-                view.invalidate_target_line_4();
+            .when(target.track_exclusivity.changed(), |view, _| {
+                view.invalidate_target_line_4(None);
                 view.invalidate_mode_controls();
             });
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .fx_is_input_fx
                 .changed()
                 .merge(target.bookmark_type.changed())
                 .merge(target.scroll_arrange_view.changed())
                 .merge(target.seek_play.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_window_title();
                 view.invalidate_target_check_box_1();
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .enable_only_if_track_selected
                 .changed()
                 .merge(target.scroll_mixer.changed())
                 .merge(target.move_view.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_target_check_box_2();
             },
         );
-        self.panel.when_do_sync(
+        self.panel.when(
             target
                 .enable_only_if_fx_has_focus
                 .changed()
                 .merge(target.use_project.changed()),
-            |view| {
+            |view, _| {
                 view.invalidate_target_check_box_3();
             },
         );
+        self.panel.when(target.use_regions.changed(), |view, _| {
+            view.invalidate_target_check_box_4();
+        });
         self.panel
-            .when_do_sync(target.use_regions.changed(), |view| {
-                view.invalidate_target_check_box_4();
-            });
-        self.panel
-            .when_do_sync(target.use_loop_points.changed(), |view| {
+            .when(target.use_loop_points.changed(), |view, _| {
                 view.invalidate_target_check_box_5();
             });
         self.panel
-            .when_do_sync(target.use_time_selection.changed(), |view| {
+            .when(target.use_time_selection.changed(), |view, _| {
                 view.invalidate_target_check_box_6();
             });
         self.panel
-            .when_do_sync(target.feedback_resolution.changed(), |view| {
+            .when(target.feedback_resolution.changed(), |view, _| {
                 view.invalidate_target_line_2_combo_box_1();
             });
         self.panel
-            .when_do_sync(target.automation_mode_override_type.changed(), |view| {
+            .when(target.automation_mode_override_type.changed(), |view, _| {
                 view.invalidate_window_title();
                 view.invalidate_target_line_2_combo_box_2();
             });
@@ -3900,75 +3992,86 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_mode_listeners(&self) {
         let mode = self.mode;
-        self.panel.when_do_sync(mode.r#type.changed(), |view| {
+        self.panel.when(mode.r#type.changed(), |view, _| {
             view.invalidate_mode_controls();
         });
-        self.panel
-            .when_do_sync(mode.target_value_interval.changed(), |view| {
-                view.invalidate_mode_min_target_value_controls();
-                view.invalidate_mode_max_target_value_controls();
-            });
-        self.panel
-            .when_do_sync(mode.source_value_interval.changed(), |view| {
-                view.invalidate_mode_source_value_controls();
-            });
-        self.panel
-            .when_do_sync(mode.jump_interval.changed(), |view| {
-                view.invalidate_mode_min_jump_controls();
-                view.invalidate_mode_max_jump_controls();
-            });
-        self.panel
-            .when_do_sync(mode.step_interval.changed(), |view| {
-                view.invalidate_mode_step_controls();
-            });
-        self.panel.when_do_sync(
+        self.panel.when(
+            mode.target_value_interval.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_min_target_value_controls(initiator);
+                view.invalidate_mode_max_target_value_controls(initiator);
+            },
+        );
+        self.panel.when(
+            mode.source_value_interval.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_source_value_controls(initiator);
+            },
+        );
+        self.panel.when(
+            mode.jump_interval.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_min_jump_controls(initiator);
+                view.invalidate_mode_max_jump_controls(initiator);
+            },
+        );
+        self.panel.when(
+            mode.step_interval.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_step_controls(initiator);
+            },
+        );
+        self.panel.when(
             mode.press_duration_interval
-                .changed()
-                .merge(mode.fire_mode.changed())
-                .merge(mode.turbo_rate.changed()),
-            |view| {
-                view.invalidate_mode_fire_controls();
+                .changed_with_initiator()
+                .merge(mode.fire_mode.changed_with_initiator())
+                .merge(mode.turbo_rate.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_mode_fire_controls(initiator);
             },
         );
         self.panel
-            .when_do_sync(mode.out_of_range_behavior.changed(), |view| {
+            .when(mode.out_of_range_behavior.changed(), |view, _| {
                 view.invalidate_mode_out_of_range_behavior_combo_box();
             });
         self.panel
-            .when_do_sync(mode.round_target_value.changed(), |view| {
+            .when(mode.round_target_value.changed(), |view, _| {
                 view.invalidate_mode_round_target_value_check_box();
             });
-        self.panel
-            .when_do_sync(mode.takeover_mode.changed(), |view| {
-                view.invalidate_mode_takeover_mode_combo_box();
-            });
-        self.panel
-            .when_do_sync(mode.button_usage.changed(), |view| {
-                view.invalidate_mode_button_usage_combo_box();
-            });
-        self.panel
-            .when_do_sync(mode.encoder_usage.changed(), |view| {
-                view.invalidate_mode_encoder_usage_combo_box();
-            });
-        self.panel.when_do_sync(mode.rotate.changed(), |view| {
+        self.panel.when(mode.takeover_mode.changed(), |view, _| {
+            view.invalidate_mode_takeover_mode_combo_box();
+        });
+        self.panel.when(mode.button_usage.changed(), |view, _| {
+            view.invalidate_mode_button_usage_combo_box();
+        });
+        self.panel.when(mode.encoder_usage.changed(), |view, _| {
+            view.invalidate_mode_encoder_usage_combo_box();
+        });
+        self.panel.when(mode.rotate.changed(), |view, _| {
             view.invalidate_mode_rotate_check_box();
         });
-        self.panel
-            .when_do_sync(mode.make_absolute.changed(), |view| {
+        self.panel.when(
+            mode.make_absolute.changed_with_initiator(),
+            |view, initiator| {
                 view.invalidate_mode_make_absolute_check_box();
-                view.invalidate_mode_step_controls();
-            });
-        self.panel.when_do_sync(mode.reverse.changed(), |view| {
+                view.invalidate_mode_step_controls(initiator);
+            },
+        );
+        self.panel.when(mode.reverse.changed(), |view, _| {
             view.invalidate_mode_reverse_check_box();
         });
-        self.panel
-            .when_do_sync(mode.eel_control_transformation.changed(), |view| {
-                view.invalidate_mode_eel_control_transformation_edit_control();
-            });
-        self.panel
-            .when_do_sync(mode.eel_feedback_transformation.changed(), |view| {
-                view.invalidate_mode_eel_feedback_transformation_edit_control();
-            });
+        self.panel.when(
+            mode.eel_control_transformation.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_eel_control_transformation_edit_control(initiator);
+            },
+        );
+        self.panel.when(
+            mode.eel_feedback_transformation.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_eel_feedback_transformation_edit_control(initiator);
+            },
+        );
     }
 
     fn fill_source_category_combo_box(&self) {
@@ -4462,6 +4565,9 @@ fn invalidate_target_controls_free(
     edit_control: Window,
     value_text_control: Window,
     value: UnitValue,
+    initiator: Option<u32>,
+    edit_control_id: u32,
+    set_text_only_if_edit_control_not_focused: bool,
 ) {
     let (edit_text, value_text) = match real_target {
         Some(target) => {
@@ -4479,7 +4585,11 @@ fn invalidate_target_controls_free(
         None => ("".to_string(), "".to_string()),
     };
     slider_control.set_slider_unit_value(value);
-    edit_control.set_text_if_not_focused(edit_text);
+    if initiator != Some(edit_control_id)
+        && (!set_text_only_if_edit_control_not_focused || !edit_control.has_focus())
+    {
+        edit_control.set_text(edit_text);
+    }
     value_text_control.set_text(value_text);
 }
 

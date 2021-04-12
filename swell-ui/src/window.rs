@@ -418,13 +418,6 @@ impl Window {
         }
     }
 
-    pub fn set_text_if_not_focused<'a>(self, text: impl Into<SwellStringArg<'a>>) {
-        if self.has_focus() {
-            return;
-        }
-        self.set_text(text);
-    }
-
     pub fn parent(self) -> Option<Window> {
         Window::new(unsafe { Swell::get().GetParent(self.raw) })
     }

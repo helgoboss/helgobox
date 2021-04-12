@@ -128,8 +128,8 @@ where
     }
 
     /// Sets this property to the given value using the given initiator.
-    pub fn set_with_initiator(&mut self, value: T, initiator: I) {
-        self.internal_set(value, Some(initiator));
+    pub fn set_with_initiator(&mut self, value: T, initiator: Option<I>) {
+        self.internal_set(value, initiator);
     }
 
     fn internal_set(&mut self, value: T, initiator: Option<I>) {
@@ -176,6 +176,11 @@ where
     pub fn set_with(&mut self, f: impl Fn(&T) -> T) {
         let value = f(&self.value);
         self.set(value);
+    }
+
+    pub fn set_with_with_initiator(&mut self, f: impl Fn(&T) -> T, initiator: Option<I>) {
+        let value = f(&self.value);
+        self.internal_set(value, initiator);
     }
 }
 
