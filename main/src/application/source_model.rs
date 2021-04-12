@@ -8,8 +8,8 @@ use ascii::AsciiString;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, MidiClockTransportMessage, OscArgDescriptor, OscSource, OscTypeTag,
-    SourceCharacter, UnitValue,
+    ControlValue, DetailedSourceCharacter, MidiClockTransportMessage, OscArgDescriptor, OscSource,
+    OscTypeTag, SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -188,6 +188,26 @@ impl SourceModel {
 
     pub fn character(&self) -> ExtendedSourceCharacter {
         self.create_source().character()
+    }
+
+    pub fn possible_detailed_characters(&self) -> Vec<DetailedSourceCharacter> {
+        match self.create_source() {
+            CompoundMappingSource::Midi(s) => s.possible_detailed_characters(),
+            CompoundMappingSource::Osc(s) => s.possible_detailed_characters(),
+            CompoundMappingSource::Virtual(s) => match s.control_element() {
+                VirtualControlElement::Multi(_) => vec![
+                    DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
+                    DetailedSourceCharacter::MomentaryOnOffButton,
+                    DetailedSourceCharacter::PressOnlyButton,
+                    DetailedSourceCharacter::RangeControl,
+                    DetailedSourceCharacter::Relative,
+                ],
+                VirtualControlElement::Button(_) => vec![
+                    DetailedSourceCharacter::MomentaryOnOffButton,
+                    DetailedSourceCharacter::PressOnlyButton,
+                ],
+            },
+        }
     }
 
     /// Creates a source reflecting this model's current values

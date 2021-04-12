@@ -197,4 +197,6 @@ pub mod root {
     pub const ID_TARGET_LINE_3_BUTTON: u32 = 40112;
     pub const ID_SOURCE_LINE_4_BUTTON: u32 = 40113;
     pub const ID_SOURCE_SCRIPT_DETAIL_BUTTON: u32 = 40114;
+    pub const ID_MAPPING_HELP_CONTENT_LABEL: u32 = 40115;
+    pub const ID_MAPPING_HELP_SUBJECT_LABEL: u32 = 40116;
 }

@@ -837,6 +837,10 @@ impl TargetModel {
         self.category.get() == TargetCategory::Reaper
     }
 
+    pub fn is_virtual(&self) -> bool {
+        self.category.get() == TargetCategory::Virtual
+    }
+
     fn command_id_label(&self) -> Cow<str> {
         match self.action.get_ref() {
             None => "-".into(),

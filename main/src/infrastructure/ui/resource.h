@@ -195,3 +195,5 @@
 #define ID_TARGET_LINE_3_BUTTON                 40112
 #define ID_SOURCE_LINE_4_BUTTON                 40113
 #define ID_SOURCE_SCRIPT_DETAIL_BUTTON          40114
+#define ID_MAPPING_HELP_CONTENT_LABEL           40115
+#define ID_MAPPING_HELP_SUBJECT_LABEL           40116

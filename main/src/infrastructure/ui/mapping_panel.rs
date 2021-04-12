@@ -6,7 +6,8 @@ use crate::infrastructure::ui::{
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    AbsoluteMode, ButtonUsage, ControlValue, EncoderUsage, FireMode, MidiClockTransportMessage,
+    check_mode_applicability, AbsoluteMode, ButtonUsage, ControlValue, DetailedSourceCharacter,
+    EncoderUsage, FireMode, MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter,
     OscTypeTag, OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
     UnitValue,
 };
@@ -632,6 +633,62 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mode_hint(&self, mode_parameter: ModeParameter) {
+        let base_input = ModeApplicabilityCheckInput {
+            target_is_virtual: self.mapping.target_model.is_virtual(),
+            is_feedback: false,
+            make_absolute: self.mapping.mode_model.make_absolute.get(),
+            source_character: DetailedSourceCharacter::RangeControl,
+            absolute_mode: self.mapping.mode_model.r#type.get(),
+            mode_parameter,
+        };
+        let possible_characters = self.mapping.source_model.possible_detailed_characters();
+        let hints = possible_characters
+            .iter()
+            .map(move |source_character| {
+                let control = ModeApplicabilityCheckInput {
+                    is_feedback: false,
+                    source_character: *source_character,
+                    ..base_input
+                };
+                let feedback = ModeApplicabilityCheckInput {
+                    is_feedback: true,
+                    source_character: *source_character,
+                    ..base_input
+                };
+                (
+                    source_character,
+                    check_mode_applicability(control),
+                    check_mode_applicability(feedback),
+                )
+            })
+            .filter(|(_, ch, fh)| ch.is_some() || fh.is_some());
+        let help_content = hints
+            .map(|(c, ch, fh)| {
+                format!(
+                    "If source is a {}:{}{}",
+                    c,
+                    if let Some(hint) = ch {
+                        format!("\n- CONTROL: {}", hint)
+                    } else {
+                        String::new()
+                    },
+                    if let Some(hint) = fh {
+                        format!("\n- FEEDBACK: {}", hint)
+                    } else {
+                        String::new()
+                    }
+                )
+            })
+            .join("\n\n");
+        self.view
+            .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
+            .set_text(format!("Help: {}", mode_parameter.to_string()));
+        self.view
+            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
+            .set_multi_line_text(help_content);
+    }
+
     fn update_mapping_send_feedback_after_control(&mut self) {
         self.mapping.send_feedback_after_control.set(
             self.view
@@ -817,6 +874,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_rotate(&mut self) {
+        self.update_mode_hint(ModeParameter::Rotate);
         self.mapping.mode_model.rotate.set(
             self.view
                 .require_control(root::ID_SETTINGS_ROTATE_CHECK_BOX)
@@ -825,6 +883,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_make_absolute(&mut self) {
+        // TODO-high Add mode hint
         self.mapping.mode_model.make_absolute.set(
             self.view
                 .require_control(root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX)
@@ -839,10 +898,12 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid out-of-range behavior");
+        self.update_mode_hint(ModeParameter::OutOfRangeBehavior(behavior));
         self.mapping.mode_model.out_of_range_behavior.set(behavior);
     }
 
     fn update_mode_fire_mode(&mut self) {
+        self.update_mode_hint(ModeParameter::FireMode);
         let mode = self
             .view
             .require_control(root::ID_MODE_FIRE_COMBO_BOX)
@@ -853,6 +914,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_round_target_value(&mut self) {
+        // TODO-high Add mode hint
         self.mapping.mode_model.round_target_value.set(
             self.view
                 .require_control(root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX)
@@ -861,6 +923,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_takeover_mode(&mut self) {
+        self.update_mode_hint(ModeParameter::TakeoverMode);
         let mode = self
             .view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
@@ -871,6 +934,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_button_usage(&mut self) {
+        self.update_mode_hint(ModeParameter::ButtonFilter);
         let mode = self
             .view
             .require_control(root::ID_MODE_BUTTON_FILTER_COMBO_BOX)
@@ -881,6 +945,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_encoder_usage(&mut self) {
+        self.update_mode_hint(ModeParameter::RelativeFilter);
         let mode = self
             .view
             .require_control(root::ID_MODE_RELATIVE_FILTER_COMBO_BOX)
@@ -891,6 +956,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_reverse(&mut self) {
+        self.update_mode_hint(ModeParameter::Reverse);
         self.mapping.mode_model.reverse.set(
             self.view
                 .require_control(root::ID_SETTINGS_REVERSE_CHECK_BOX)
@@ -903,6 +969,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_type(&mut self) {
+        // TODO-high Add mode hint
         let b = self.view.require_control(root::ID_SETTINGS_MODE_COMBO_BOX);
         self.mapping.mode_model.r#type.set(
             b.selected_combo_box_item_index()
@@ -1079,6 +1146,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_eel_control_transformation(&mut self) {
+        self.update_mode_hint(ModeParameter::ControlTransformation);
         let value = self
             .view
             .require_control(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL)
@@ -1094,6 +1162,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_eel_feedback_transformation(&mut self) {
+        self.update_mode_hint(ModeParameter::FeedbackTransformation);
         let value = self
             .view
             .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
@@ -1109,6 +1178,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_target_value_from_slider(&mut self, slider: Window) {
+        self.update_mode_hint(ModeParameter::TargetMinMax);
         self.mapping
             .mode_model
             .target_value_interval
@@ -1116,6 +1186,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_max_target_value_from_slider(&mut self, slider: Window) {
+        self.update_mode_hint(ModeParameter::TargetMinMax);
         self.mapping
             .mode_model
             .target_value_interval
@@ -1123,6 +1194,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_source_value_from_slider(&mut self, slider: Window) {
+        self.update_mode_hint(ModeParameter::SourceMinMax);
         self.mapping
             .mode_model
             .source_value_interval
@@ -1130,6 +1202,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_max_source_value_from_slider(&mut self, slider: Window) {
+        self.update_mode_hint(ModeParameter::SourceMinMax);
         self.mapping
             .mode_model
             .source_value_interval
@@ -1138,25 +1211,46 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn update_mode_min_step_from_slider(&mut self, slider: Window) {
         let step_counts = self.mapping_uses_step_counts();
-        let prop = &mut self.mapping.mode_model.step_interval;
-        if step_counts {
-            prop.set_with(|prev| prev.with_min(slider.slider_symmetric_unit_value()));
+        let (mode_param, value) = if step_counts {
+            (
+                ModeParameter::SpeedMin,
+                slider.slider_symmetric_unit_value(),
+            )
         } else {
-            prop.set_with(|prev| prev.with_min(slider.slider_unit_value().to_symmetric()));
-        }
+            (
+                ModeParameter::StepSizeMin,
+                slider.slider_unit_value().to_symmetric(),
+            )
+        };
+        self.update_mode_hint(mode_param);
+        self.mapping
+            .mode_model
+            .step_interval
+            .set_with(|prev| prev.with_min(value));
     }
 
     fn update_mode_max_step_from_slider(&mut self, slider: Window) {
         let step_counts = self.mapping_uses_step_counts();
-        let prop = &mut self.mapping.mode_model.step_interval;
-        if step_counts {
-            prop.set_with(|prev| prev.with_max(slider.slider_symmetric_unit_value()));
+        let (mode_param, value) = if step_counts {
+            (
+                ModeParameter::SpeedMax,
+                slider.slider_symmetric_unit_value(),
+            )
         } else {
-            prop.set_with(|prev| prev.with_max(slider.slider_unit_value().to_symmetric()));
-        }
+            (
+                ModeParameter::StepSizeMax,
+                slider.slider_unit_value().to_symmetric(),
+            )
+        };
+        self.update_mode_hint(mode_param);
+        self.mapping
+            .mode_model
+            .step_interval
+            .set_with(|prev| prev.with_max(value));
     }
 
     fn handle_mode_fire_line_2_slider_change(&mut self, slider: Window) {
+        // TODO-high Add mode hint
         self.mapping
             .mode_model
             .press_duration_interval
@@ -1164,6 +1258,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_mode_fire_line_3_slider_change(&mut self, slider: Window) {
+        // TODO-high Add mode hint
         let value = slider.slider_duration();
         self.handle_mode_fire_line_3_duration_change(value, None);
     }
@@ -1193,6 +1288,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_min_jump_from_slider(&mut self, slider: Window) {
+        self.update_mode_hint(ModeParameter::JumpMinMax);
         self.mapping
             .mode_model
             .jump_interval
@@ -1200,6 +1296,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_max_jump_from_slider(&mut self, slider: Window) {
+        self.update_mode_hint(ModeParameter::JumpMinMax);
         self.mapping
             .mode_model
             .jump_interval
