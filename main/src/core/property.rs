@@ -13,7 +13,7 @@ where
 }
 
 /// ReaLearn property type.
-pub type Prop<T> = LocalProp<'static, T, AsyncNotifier<()>, AsyncNotifier<T>>;
+pub type Prop<T> = LocalProp<'static, T, u32, AsyncNotifier<Option<u32>>, AsyncNotifier<T>>;
 
 pub struct AsyncNotifier<T>(PhantomData<T>);
 

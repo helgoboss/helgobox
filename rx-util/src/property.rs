@@ -10,11 +10,12 @@ use std::marker::PhantomData;
 /// 'static in them, the closure would require all of its captured references to be 'static. In that
 /// case we would be forced to use shared ownership (e.g. `Rc`) instead of &mut references to do
 /// the test.
-pub type LocalProp<'a, T, N, N2> =
-    Prop<T, LocalPropSubject<'a, ()>, LocalPropSubject<'a, T>, N, N2>;
+pub type LocalProp<'a, T, I, N, N2> =
+    Prop<T, I, LocalPropSubject<'a, Option<I>>, LocalPropSubject<'a, T>, N, N2>;
 pub type LocalPropSubject<'a, T> = LocalSubject<'a, T, ()>;
 
-pub type SharedProp<T, N, N2> = Prop<T, SharedPropSubject<()>, SharedPropSubject<T>, N, N2>;
+pub type SharedProp<T, I, N, N2> =
+    Prop<T, I, SharedPropSubject<Option<I>>, SharedPropSubject<T>, N, N2>;
 pub type SharedPropSubject<T> = SharedSubject<T, ()>;
 
 /// A reactive property which has the following characteristics:
@@ -31,24 +32,26 @@ pub type SharedPropSubject<T> = SharedSubject<T, ()>;
 /// # Type parameters
 ///
 /// - `T`: value type
+/// - `I`: initiator type
 /// - `S`: subject type
 /// - `N`: notifier (not a function pointer because the notifier is usually everywhere the same in
 ///   one application, so we save memory by attaching it to the type instead of the instance)
-pub struct Prop<T, S, S2, N, N2>
+pub struct Prop<T, I, S, S2, N, N2>
 where
     // Incomparable values don't make sense because change notification is
     // what properties are all about!
     T: PartialEq + Clone,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     value: T,
     subject: S,
     value_subject: S2,
     transformer: fn(T) -> T,
-    p: PhantomData<(N, N2)>,
+    p: PhantomData<(I, N, N2)>,
 }
 
 pub trait Notifier {
@@ -72,12 +75,13 @@ where
     }
 }
 
-impl<T, S, S2, N, N2> Prop<T, S, S2, N, N2>
+impl<T, I, S, S2, N, N2> Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     /// Creates the property with an initial value and identity transformer.
@@ -120,12 +124,21 @@ where
     /// might be changed into another one before. Observers are notified only if the given value
     /// is different from the current value.
     pub fn set(&mut self, value: T) {
+        self.internal_set(value, None);
+    }
+
+    /// Sets this property to the given value using the given initiator.
+    pub fn set_with_initiator(&mut self, value: T, initiator: I) {
+        self.internal_set(value, Some(initiator));
+    }
+
+    fn internal_set(&mut self, value: T, initiator: Option<I>) {
         let transformed_value = (self.transformer)(value);
         if transformed_value == self.value {
             return;
         }
         self.value = transformed_value;
-        N::notify(&mut self.subject, &());
+        N::notify(&mut self.subject, &initiator);
         N2::notify(&mut self.value_subject, &self.value);
     }
 
@@ -166,13 +179,14 @@ where
     }
 }
 
-impl<'a, T, N, N2> LocalProp<'a, T, N, N2>
+impl<'a, T, I, N, N2> LocalProp<'a, T, I, N, N2>
 where
     T: PartialEq + Clone,
-    N: Notifier<T = (), Subject = LocalPropSubject<'a, ()>>,
+    I: Copy,
+    N: Notifier<T = Option<I>, Subject = LocalPropSubject<'a, Option<I>>>,
     N2: Notifier<T = T, Subject = LocalPropSubject<'a, T>>,
 {
-    /// Fires whenever the value is changed.
+    /// Fires whenever the value has changed.
     ///
     /// Event always contains a unit value instead of the
     /// new value. This is perfect for combining observables because observables can be combined
@@ -180,9 +194,15 @@ where
     /// interested in the new value anyway because they will just call some reusable
     /// invalidation code that queries the new value itself.
     pub fn changed(&self) -> impl LocalObservable<'a, Item = (), Err = ()> {
+        self.subject.clone().map_to(())
+    }
+
+    /// Fires whenever the value has changed. Also delivers the initiator of the change, if any.
+    pub fn changed_with_initiator(&self) -> impl LocalObservable<'a, Item = Option<I>, Err = ()> {
         self.subject.clone()
     }
 
+    /// Fires whenever the value has changed to the given value.
     pub fn changed_to(&self, value: T) -> impl LocalObservable<'a, Item = (), Err = ()>
     where
         T: Clone + 'static,
@@ -201,23 +221,25 @@ where
     }
 }
 
-impl<T, N, N2> SharedProp<T, N, N2>
+impl<T, I, N, N2> SharedProp<T, I, N, N2>
 where
     T: PartialEq + Clone,
-    N: Notifier<T = (), Subject = SharedPropSubject<()>>,
+    I: Copy + 'static,
+    N: Notifier<T = Option<I>, Subject = SharedPropSubject<Option<I>>>,
     N2: Notifier<T = T, Subject = SharedPropSubject<T>>,
 {
     pub fn changed(&self) -> impl SharedEvent<()> {
-        self.subject.clone()
+        self.subject.clone().map_to(())
     }
 }
 
-impl<T, S, S2, N, N2> fmt::Debug for Prop<T, S, S2, N, N2>
+impl<T, I, S, S2, N, N2> fmt::Debug for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone + fmt::Debug,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -227,12 +249,13 @@ where
     }
 }
 
-impl<T, S, S2, N, N2> Clone for Prop<T, S, S2, N, N2>
+impl<T, I, S, S2, N, N2> Clone for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     fn clone(&self) -> Self {
@@ -246,12 +269,13 @@ where
     }
 }
 
-impl<T, S, S2, N, N2> Default for Prop<T, S, S2, N, N2>
+impl<T, I, S, S2, N, N2> Default for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone + Default,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     fn default() -> Self {
@@ -265,12 +289,13 @@ where
     }
 }
 
-impl<T, S, S2, N, N2> From<T> for Prop<T, S, S2, N, N2>
+impl<T, I, S, S2, N, N2> From<T> for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     fn from(value: T) -> Self {
@@ -278,12 +303,13 @@ where
     }
 }
 
-impl<'a, T, S, S2, N, N2> PartialEq for Prop<T, S, S2, N, N2>
+impl<'a, T, I, S, S2, N, N2> PartialEq for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
-    S: Observer<(), ()> + Default,
+    I: Copy,
+    S: Observer<Option<I>, ()> + Default,
     S2: Observer<T, ()> + Default,
-    N: Notifier<T = (), Subject = S>,
+    N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
     fn eq(&self, other: &Self) -> bool {
@@ -469,7 +495,8 @@ mod tests {
 
     // TODO-low Add some SharedProp tests
 
-    type TestProp<'a, T> = LocalProp<'a, T, LocalSyncNotifier<'a, ()>, LocalSyncNotifier<'a, T>>;
+    type TestProp<'a, T> =
+        LocalProp<'a, T, u32, LocalSyncNotifier<'a, Option<u32>>, LocalSyncNotifier<'a, T>>;
 
     fn prop<'a, T>(initial_value: T) -> TestProp<'a, T>
     where

@@ -1187,18 +1187,23 @@ impl HeaderPanel {
         self.main_state
             .borrow_mut()
             .search_expression
-            .set(SearchExpression::new(&text));
+            .set_with_initiator(
+                SearchExpression::new(&text),
+                root::ID_HEADER_SEARCH_EDIT_CONTROL,
+            );
     }
 
-    fn invalidate_search_expression(&self) {
+    fn invalidate_search_expression(&self, initiator: Option<u32>) {
         let main_state = self.main_state.borrow();
         let search_expression = main_state.search_expression.get_ref().to_string();
         self.view
             .require_control(root::ID_CLEAR_SEARCH_BUTTON)
             .set_enabled(!search_expression.is_empty());
-        self.view
-            .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
-            .set_text_if_not_focused(search_expression);
+        if initiator != Some(root::ID_HEADER_SEARCH_EDIT_CONTROL) {
+            self.view
+                .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
+                .set_text(search_expression);
+        }
     }
 
     fn update_control_input(&self) {
@@ -1865,11 +1870,14 @@ impl HeaderPanel {
                 view.invalidate_group_controls();
             },
         );
-        self.when(main_state.search_expression.changed(), |view, _| {
-            view.invoke_programmatically(|| {
-                view.invalidate_search_expression();
-            });
-        });
+        self.when(
+            main_state.search_expression.changed_with_initiator(),
+            |view, initiator| {
+                view.invoke_programmatically(|| {
+                    view.invalidate_search_expression(initiator);
+                });
+            },
+        );
         self.when(
             main_state
                 .is_learning_target_filter
@@ -1968,7 +1976,7 @@ impl View for HeaderPanel {
     fn opened(self: SharedView<Self>, _window: Window) -> bool {
         self.fill_all_controls();
         self.invalidate_all_controls();
-        self.invalidate_search_expression();
+        self.invalidate_search_expression(None);
         self.register_listeners();
         true
     }
