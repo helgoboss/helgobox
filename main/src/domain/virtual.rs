@@ -6,6 +6,7 @@ use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::fmt::Display;
 use std::iter::FromIterator;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct VirtualTarget {
@@ -130,6 +131,27 @@ pub enum VirtualControlElementId {
     Named(SmallAsciiString),
 }
 
+impl FromStr for VirtualControlElementId {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(position) = s.parse::<i32>() {
+            let index = std::cmp::max(0, position - 1) as u32;
+            Ok(Self::Indexed(index))
+        } else {
+            let ascii_string = SmallAsciiString::create_compatible_ascii_string(s);
+            let small_ascii_string = SmallAsciiString::from_ascii_str(&ascii_string)?;
+            Ok(Self::Named(small_ascii_string))
+        }
+    }
+}
+
+impl Default for VirtualControlElementId {
+    fn default() -> Self {
+        Self::Indexed(0)
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub struct SmallAsciiString {
     length: u8,
@@ -205,113 +227,118 @@ impl VirtualControlElement {
     }
 }
 
-pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &[&str] = &[
-    "main/fader",
-    "ch1/fader",
-    "ch2/fader",
-    "ch3/fader",
-    "ch4/fader",
-    "ch5/fader",
-    "ch6/fader",
-    "ch7/fader",
-    "ch8/fader",
-    "ch1/v-pot",
-    "ch2/v-pot",
-    "ch3/v-pot",
-    "ch4/v-pot",
-    "ch5/v-pot",
-    "ch6/v-pot",
-    "ch7/v-pot",
-    "ch8/v-pot",
-    "jog",
-    "lcd/assignment",
-];
+pub mod control_element_domains {
+    pub mod daw {
+        pub const PREDEFINED_VIRTUAL_MULTI_NAMES: &[&str] = &[
+            "main/fader",
+            "ch1/fader",
+            "ch2/fader",
+            "ch3/fader",
+            "ch4/fader",
+            "ch5/fader",
+            "ch6/fader",
+            "ch7/fader",
+            "ch8/fader",
+            "ch1/v-pot",
+            "ch2/v-pot",
+            "ch3/v-pot",
+            "ch4/v-pot",
+            "ch5/v-pot",
+            "ch6/v-pot",
+            "ch7/v-pot",
+            "ch8/v-pot",
+            "jog",
+            "lcd/assignment",
+        ];
 
-pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &[&str] = &[
-    "ch1/v-select",
-    "ch2/v-select",
-    "ch3/v-select",
-    "ch4/v-select",
-    "ch5/v-select",
-    "ch6/v-select",
-    "ch7/v-select",
-    "ch8/v-select",
-    "ch1/select",
-    "ch2/select",
-    "ch3/select",
-    "ch4/select",
-    "ch5/select",
-    "ch6/select",
-    "ch7/select",
-    "ch8/select",
-    "ch1/mute",
-    "ch2/mute",
-    "ch3/mute",
-    "ch4/mute",
-    "ch5/mute",
-    "ch6/mute",
-    "ch7/mute",
-    "ch8/mute",
-    "ch1/solo",
-    "ch2/solo",
-    "ch3/solo",
-    "ch4/solo",
-    "ch5/solo",
-    "ch6/solo",
-    "ch7/solo",
-    "ch8/solo",
-    "ch1/record-ready",
-    "ch2/record-ready",
-    "ch3/record-ready",
-    "ch4/record-ready",
-    "ch5/record-ready",
-    "ch6/record-ready",
-    "ch7/record-ready",
-    "ch8/record-ready",
-    "main/fader/touch",
-    "ch1/fader/touch",
-    "ch2/fader/touch",
-    "ch3/fader/touch",
-    "ch4/fader/touch",
-    "ch5/fader/touch",
-    "ch6/fader/touch",
-    "ch7/fader/touch",
-    "ch8/fader/touch",
-    "marker",
-    "read",
-    "write",
-    "rewind",
-    "fast-fwd",
-    "play",
-    "stop",
-    "record",
-    "cycle",
-    "zoom",
-    "scrub",
-    "nudge",
-    "drop",
-    "replace",
-    "click",
-    "solo",
-    "f1",
-    "f2",
-    "f3",
-    "f4",
-    "f5",
-    "f6",
-    "f7",
-    "f8",
-    "smpte-beats",
-    // Chose to make the following buttons, not multis - although ReaLearn would allow to convert
-    // them into multis in the virtual controller mapping. Reason: On Mackie consoles these are
-    // usually buttons. Exposing them as buttons has the benefit that we can use Realearn's
-    // button-specific features in the main mapping such as advanced fire modes.
-    "ch-left",
-    "ch-right",
-    "bank-left",
-    "bank-right",
-    "cursor-left",
-    "cursor-right",
-    "cursor-up",
-    "cursor-down",
-];
+        pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &[&str] = &[
+            "ch1/v-select",
+            "ch2/v-select",
+            "ch3/v-select",
+            "ch4/v-select",
+            "ch5/v-select",
+            "ch6/v-select",
+            "ch7/v-select",
+            "ch8/v-select",
+            "ch1/select",
+            "ch2/select",
+            "ch3/select",
+            "ch4/select",
+            "ch5/select",
+            "ch6/select",
+            "ch7/select",
+            "ch8/select",
+            "ch1/mute",
+            "ch2/mute",
+            "ch3/mute",
+            "ch4/mute",
+            "ch5/mute",
+            "ch6/mute",
+            "ch7/mute",
+            "ch8/mute",
+            "ch1/solo",
+            "ch2/solo",
+            "ch3/solo",
+            "ch4/solo",
+            "ch5/solo",
+            "ch6/solo",
+            "ch7/solo",
+            "ch8/solo",
+            "ch1/record-ready",
+            "ch2/record-ready",
+            "ch3/record-ready",
+            "ch4/record-ready",
+            "ch5/record-ready",
+            "ch6/record-ready",
+            "ch7/record-ready",
+            "ch8/record-ready",
+            "main/fader/touch",
+            "ch1/fader/touch",
+            "ch2/fader/touch",
+            "ch3/fader/touch",
+            "ch4/fader/touch",
+            "ch5/fader/touch",
+            "ch6/fader/touch",
+            "ch7/fader/touch",
+            "ch8/fader/touch",
+            "marker",
+            "read",
+            "write",
+            "rewind",
+            "fast-fwd",
+            "play",
+            "stop",
+            "record",
+            "cycle",
+            "zoom",
+            "scrub",
+            "nudge",
+            "drop",
+            "replace",
+            "click",
+            "solo",
+            "f1",
+            "f2",
+            "f3",
+            "f4",
+            "f5",
+            "f6",
+            "f7",
+            "f8",
+            "smpte-beats",
+            // Chose to make the following buttons, not multis - although ReaLearn would allow to
+            // convert them into multis in the virtual controller mapping. Reason: On
+            // Mackie consoles these are usually buttons. Exposing them as buttons has
+            // the benefit that we can use Realearn's button-specific features in the
+            // main mapping such as advanced fire modes.
+            "ch-left",
+            "ch-right",
+            "bank-left",
+            "bank-right",
+            "cursor-left",
+            "cursor-right",
+            "cursor-up",
+            "cursor-down",
+        ];
+    }
+}

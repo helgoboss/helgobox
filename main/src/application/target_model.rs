@@ -16,8 +16,8 @@ use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
     FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
-    PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SmallAsciiString,
-    SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
+    PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SoloBehavior,
+    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
     UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
     VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
@@ -25,7 +25,6 @@ use crate::domain::{
 use serde_repr::*;
 use std::borrow::Cow;
 
-use ascii::AsciiString;
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackSendDirection,
 };
@@ -41,8 +40,7 @@ pub struct TargetModel {
     pub category: Prop<TargetCategory>,
     // # For virtual targets
     pub control_element_type: Prop<VirtualControlElementType>,
-    pub control_element_index: Prop<Option<u32>>,
-    pub control_element_name: Prop<AsciiString>,
+    pub control_element_id: Prop<VirtualControlElementId>,
     // # For REAPER targets
     // TODO-low Rename this to reaper_target_type
     pub r#type: Prop<ReaperTargetType>,
@@ -118,8 +116,7 @@ impl Default for TargetModel {
         Self {
             category: prop(TargetCategory::default()),
             control_element_type: prop(VirtualControlElementType::default()),
-            control_element_index: prop(Some(0)),
-            control_element_name: prop(AsciiString::new()),
+            control_element_id: prop(Default::default()),
             r#type: prop(ReaperTargetType::FxParameter),
             action: prop(None),
             action_invocation_type: prop(ActionInvocationType::default()),
@@ -454,8 +451,7 @@ impl TargetModel {
             .merge(self.track_exclusivity.changed())
             .merge(self.transport_action.changed())
             .merge(self.control_element_type.changed())
-            .merge(self.control_element_index.changed())
-            .merge(self.control_element_name.changed())
+            .merge(self.control_element_id.changed())
             .merge(self.fx_snapshot.changed())
             .merge(self.touched_parameter_type.changed())
             .merge(self.bookmark_ref.changed())
@@ -821,16 +817,7 @@ impl TargetModel {
     pub fn create_control_element(&self) -> VirtualControlElement {
         self.control_element_type
             .get()
-            .create_control_element(self.control_element_id())
-    }
-
-    fn control_element_id(&self) -> VirtualControlElementId {
-        match self.control_element_index.get() {
-            None => VirtualControlElementId::Named(
-                SmallAsciiString::from_ascii_str(self.control_element_name.get_ref()).unwrap(),
-            ),
-            Some(i) => VirtualControlElementId::Indexed(i),
-        }
+            .create_control_element(self.control_element_id.get())
     }
 
     fn is_reaper(&self) -> bool {
@@ -931,18 +918,14 @@ impl fmt::Display for TargetModel {
                     ),
                 }
             }
-            TargetCategory::Virtual => {
-                if let Some(index) = self.control_element_index.get() {
-                    write!(f, "{} {}", self.control_element_type.get(), index + 1)
-                } else {
-                    write!(
-                        f,
-                        "{} ({})",
-                        self.control_element_name.get_ref().to_string(),
-                        self.control_element_type.get()
-                    )
+            TargetCategory::Virtual => match self.control_element_id.get() {
+                VirtualControlElementId::Indexed(i) => {
+                    write!(f, "{} {}", self.control_element_type.get(), i + 1)
                 }
-            }
+                VirtualControlElementId::Named(n) => {
+                    write!(f, "{} ({})", n, self.control_element_type.get())
+                }
+            },
         }
     }
 }

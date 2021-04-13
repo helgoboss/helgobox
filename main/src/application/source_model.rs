@@ -1,10 +1,8 @@
 use crate::core::{prop, Prop};
 use crate::domain::{
     CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
-    MidiSource, SmallAsciiString, VirtualControlElement, VirtualControlElementId, VirtualSource,
-    VirtualTarget,
+    MidiSource, VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
 };
-use ascii::AsciiString;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -42,8 +40,7 @@ pub struct SourceModel {
     pub osc_arg_is_relative: Prop<bool>,
     // Virtual
     pub control_element_type: Prop<VirtualControlElementType>,
-    pub control_element_index: Prop<Option<u32>>,
-    pub control_element_name: Prop<AsciiString>,
+    pub control_element_id: Prop<VirtualControlElementId>,
 }
 
 impl Default for SourceModel {
@@ -52,8 +49,7 @@ impl Default for SourceModel {
             category: prop(SourceCategory::Midi),
             midi_source_type: prop(MidiSourceType::ControlChangeValue),
             control_element_type: prop(VirtualControlElementType::Multi),
-            control_element_index: prop(Some(0)),
-            control_element_name: prop(AsciiString::new()),
+            control_element_id: prop(Default::default()),
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
@@ -87,8 +83,7 @@ impl SourceModel {
             .merge(self.raw_midi_pattern.changed())
             .merge(self.midi_script.changed())
             .merge(self.control_element_type.changed())
-            .merge(self.control_element_index.changed())
-            .merge(self.control_element_name.changed())
+            .merge(self.control_element_id.changed())
             .merge(self.osc_address_pattern.changed())
             .merge(self.osc_arg_index.changed())
             .merge(self.osc_arg_type_tag.changed())
@@ -155,12 +150,7 @@ impl SourceModel {
                 self.category.set(SourceCategory::Virtual);
                 self.control_element_type
                     .set(VirtualControlElementType::from_source(s));
-                let (index, name) = match s.control_element().id() {
-                    VirtualControlElementId::Indexed(i) => (Some(i), AsciiString::new()),
-                    VirtualControlElementId::Named(name) => (None, name.as_ascii_str().to_owned()),
-                };
-                self.control_element_index.set(index);
-                self.control_element_name.set(name);
+                self.control_element_id.set(s.control_element().id());
             }
             Osc(s) => {
                 self.category.set(SourceCategory::Osc);
@@ -295,10 +285,6 @@ impl SourceModel {
         ))
     }
 
-    pub fn supports_virtual_control_element_index(&self) -> bool {
-        self.category.get() == SourceCategory::Virtual
-    }
-
     pub fn supports_type(&self) -> bool {
         use SourceCategory::*;
         matches!(self.category.get(), Midi | Virtual)
@@ -385,7 +371,7 @@ impl SourceModel {
     }
 
     pub fn supports_control_element_name(&self) -> bool {
-        self.category.get() == SourceCategory::Virtual && self.control_element_index.get().is_none()
+        self.category.get() == SourceCategory::Virtual
     }
 
     pub fn is_osc(&self) -> bool {
@@ -423,16 +409,7 @@ impl SourceModel {
     pub fn create_control_element(&self) -> VirtualControlElement {
         self.control_element_type
             .get()
-            .create_control_element(self.control_element_id())
-    }
-
-    fn control_element_id(&self) -> VirtualControlElementId {
-        match self.control_element_index.get() {
-            None => VirtualControlElementId::Named(
-                SmallAsciiString::from_ascii_str(self.control_element_name.get_ref()).unwrap(),
-            ),
-            Some(i) => VirtualControlElementId::Indexed(i),
-        }
+            .create_control_element(self.control_element_id.get())
     }
 }
 

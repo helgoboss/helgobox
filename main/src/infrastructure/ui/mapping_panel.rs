@@ -37,14 +37,14 @@ use crate::application::{
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
+use crate::domain::control_element_domains;
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
     ExtendedProcessorContext, FxDisplayType, MappingCompartment, PlayPosFeedbackResolution,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, SmallAsciiString, SoloBehavior,
-    TargetCharacter, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
-    VirtualControlElement, VirtualControlElementId, VirtualFx, PREDEFINED_VIRTUAL_BUTTON_NAMES,
-    PREDEFINED_VIRTUAL_MULTI_NAMES,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter,
+    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
+    VirtualControlElementId, VirtualFx,
 };
 use itertools::Itertools;
 
@@ -141,18 +141,30 @@ impl MappingPanel {
             .toggle_learning_target(&session, self.qualified_mapping_id().expect("no mapping"));
     }
 
-    fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
+    fn handle_target_line_2_button_press(self: SharedView<Self>) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let control_element_type = mapping.borrow().target_model.control_element_type.get();
-        let window = self.view.require_window();
-        let text = prompt_for_predefined_control_element_name(window, control_element_type)
-            .ok_or("nothing picked")?;
-        let ascii_string = SmallAsciiString::create_compatible_ascii_string(&text);
-        mapping
-            .borrow_mut()
-            .target_model
-            .control_element_name
-            .set(ascii_string);
+        let category = mapping.borrow().target_model.category.get();
+        match category {
+            TargetCategory::Reaper => {
+                self.write(|p| p.handle_target_line_2_button_press());
+            }
+            TargetCategory::Virtual => {
+                let control_element_type = mapping.borrow().target_model.control_element_type.get();
+                let window = self.view.require_window();
+                let text = prompt_for_predefined_control_element_name(window, control_element_type)
+                    .ok_or("nothing picked")?;
+                mapping
+                    .borrow_mut()
+                    .target_model
+                    .control_element_id
+                    .set(text.parse().unwrap_or_default());
+            }
+        };
+        Ok(())
+    }
+
+    fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
+        // Not in use at the moment
         Ok(())
     }
 
@@ -162,12 +174,11 @@ impl MappingPanel {
         let window = self.view.require_window();
         let text = prompt_for_predefined_control_element_name(window, control_element_type)
             .ok_or("nothing picked")?;
-        let ascii_string = SmallAsciiString::create_compatible_ascii_string(&text);
         mapping
             .borrow_mut()
             .source_model
-            .control_element_name
-            .set(ascii_string);
+            .control_element_id
+            .set(text.parse().unwrap_or_default());
         Ok(())
     }
 
@@ -553,80 +564,84 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_2_button_press(&mut self) {
-        match self.reaper_target_type() {
-            ReaperTargetType::Action => {
-                let reaper = Reaper::get().medium_reaper();
-                use InitialAction::*;
-                let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
-                    None => NoneSelected,
-                    Some(a) => Selected(a.command_id()),
-                };
-                // TODO-low Add this to reaper-high with rxRust
-                if reaper.low().pointers().PromptForAction.is_none() {
-                    self.view.require_window().alert(
-                        "ReaLearn",
-                        "Please update to REAPER >= 6.12 in order to pick actions!",
-                    );
-                    return;
-                }
-                reaper.prompt_for_action_create(initial_action, SectionId::new(0));
-                let shared_mapping = self.shared_mapping.clone();
-                Global::control_surface_rx()
-                    .main_thread_idle()
-                    .take_until(self.panel.party_is_over())
-                    .map(|_| {
-                        Reaper::get()
-                            .medium_reaper()
-                            .prompt_for_action_poll(SectionId::new(0))
-                    })
-                    .filter(|r| *r != PromptForActionResult::NoneSelected)
-                    .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
-                    .subscribe_complete(
-                        move |r| {
-                            if let PromptForActionResult::Selected(command_id) = r {
-                                let action = Reaper::get()
-                                    .main_section()
-                                    .action_by_command_id(command_id);
-                                shared_mapping
-                                    .borrow_mut()
-                                    .target_model
-                                    .action
-                                    .set(Some(action));
-                            }
-                        },
-                        || {
+        match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => {
+                    let reaper = Reaper::get().medium_reaper();
+                    use InitialAction::*;
+                    let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
+                        None => NoneSelected,
+                        Some(a) => Selected(a.command_id()),
+                    };
+                    // TODO-low Add this to reaper-high with rxRust
+                    if reaper.low().pointers().PromptForAction.is_none() {
+                        self.view.require_window().alert(
+                            "ReaLearn",
+                            "Please update to REAPER >= 6.12 in order to pick actions!",
+                        );
+                        return;
+                    }
+                    reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+                    let shared_mapping = self.shared_mapping.clone();
+                    Global::control_surface_rx()
+                        .main_thread_idle()
+                        .take_until(self.panel.party_is_over())
+                        .map(|_| {
                             Reaper::get()
                                 .medium_reaper()
-                                .prompt_for_action_finish(SectionId::new(0));
+                                .prompt_for_action_poll(SectionId::new(0))
+                        })
+                        .filter(|r| *r != PromptForActionResult::NoneSelected)
+                        .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
+                        .subscribe_complete(
+                            move |r| {
+                                if let PromptForActionResult::Selected(command_id) = r {
+                                    let action = Reaper::get()
+                                        .main_section()
+                                        .action_by_command_id(command_id);
+                                    shared_mapping
+                                        .borrow_mut()
+                                        .target_model
+                                        .action
+                                        .set(Some(action));
+                                }
+                            },
+                            || {
+                                Reaper::get()
+                                    .medium_reaper()
+                                    .prompt_for_action_finish(SectionId::new(0));
+                            },
+                        );
+                }
+                ReaperTargetType::GoToBookmark => {
+                    let project = self.session.context().project_or_current_project();
+                    let current_bookmark_data = project.current_bookmark();
+                    let (bookmark_type, bookmark_index) = match (
+                        current_bookmark_data.marker_index,
+                        current_bookmark_data.region_index,
+                    ) {
+                        (None, None) => return,
+                        (Some(i), None) => (BookmarkType::Marker, i),
+                        (None, Some(i)) => (BookmarkType::Region, i),
+                        (Some(mi), Some(ri)) => match self.mapping.target_model.bookmark_type.get()
+                        {
+                            BookmarkType::Marker => (BookmarkType::Marker, mi),
+                            BookmarkType::Region => (BookmarkType::Region, ri),
                         },
-                    );
-            }
-            ReaperTargetType::GoToBookmark => {
-                let project = self.session.context().project_or_current_project();
-                let current_bookmark_data = project.current_bookmark();
-                let (bookmark_type, bookmark_index) = match (
-                    current_bookmark_data.marker_index,
-                    current_bookmark_data.region_index,
-                ) {
-                    (None, None) => return,
-                    (Some(i), None) => (BookmarkType::Marker, i),
-                    (None, Some(i)) => (BookmarkType::Region, i),
-                    (Some(mi), Some(ri)) => match self.mapping.target_model.bookmark_type.get() {
-                        BookmarkType::Marker => (BookmarkType::Marker, mi),
-                        BookmarkType::Region => (BookmarkType::Region, ri),
-                    },
-                };
-                let bookmark_id = project
-                    .find_bookmark_by_index(bookmark_index)
-                    .unwrap()
-                    .basic_info()
-                    .id;
-                let target = &mut self.mapping.target_model;
-                target.bookmark_anchor_type.set(BookmarkAnchorType::Id);
-                target.bookmark_type.set(bookmark_type);
-                target.bookmark_ref.set(bookmark_id.get());
-            }
-            _ => {}
+                    };
+                    let bookmark_id = project
+                        .find_bookmark_by_index(bookmark_index)
+                        .unwrap()
+                        .basic_info()
+                        .id;
+                    let target = &mut self.mapping.target_model;
+                    target.bookmark_anchor_type.set(BookmarkAnchorType::Id);
+                    target.bookmark_type.set(bookmark_type);
+                    target.bookmark_ref.set(bookmark_id.get());
+                }
+                _ => {}
+            },
+            TargetCategory::Virtual => {}
         }
     }
 
@@ -678,7 +693,7 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    fn update_source_channel_or_control_element(&mut self) {
+    fn update_source_channel(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.mapping.source_model.category.get() {
@@ -688,13 +703,6 @@ impl<'a> MutableMappingPanel<'a> {
                     id => Some(Channel::new(id as _)),
                 };
                 self.mapping.source_model.channel.set(value);
-            }
-            Virtual => {
-                let index = match b.selected_combo_box_item_data() {
-                    -1 => None,
-                    d => Some(d as u32),
-                };
-                self.mapping.source_model.control_element_index.set(index);
             }
             _ => {}
         };
@@ -799,8 +807,10 @@ impl<'a> MutableMappingPanel<'a> {
             }
             Virtual => {
                 let text = text.unwrap_or_default();
-                let value = SmallAsciiString::create_compatible_ascii_string(&text);
-                self.mapping.source_model.control_element_name.set(value);
+                self.mapping
+                    .source_model
+                    .control_element_id
+                    .set(text.parse().unwrap_or_default());
             }
         };
     }
@@ -1554,13 +1564,7 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 _ => {}
             },
-            TargetCategory::Virtual => {
-                let index = match combo.selected_combo_box_item_data() {
-                    -1 => None,
-                    d => Some(d as u32),
-                };
-                self.mapping.target_model.control_element_index.set(index);
-            }
+            TargetCategory::Virtual => {}
         }
     }
 
@@ -1708,9 +1712,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_2_edit_control_change(&mut self) {
-        let control = self
-            .view
-            .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL);
+        let edit_control_id = root::ID_TARGET_LINE_2_EDIT_CONTROL;
+        let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_track() => match self.mapping.target_model.track_type.get() {
@@ -1730,7 +1733,13 @@ impl<'a> MutableMappingPanel<'a> {
                 },
                 _ => {}
             },
-            TargetCategory::Virtual => {}
+            TargetCategory::Virtual => {
+                let text = control.text().unwrap_or_default();
+                self.mapping
+                    .target_model
+                    .control_element_id
+                    .set_with_initiator(text.parse().unwrap_or_default(), Some(edit_control_id));
+            }
         }
     }
 
@@ -1757,11 +1766,7 @@ impl<'a> MutableMappingPanel<'a> {
                 },
                 _ => {}
             },
-            TargetCategory::Virtual => {
-                let text = control.text().unwrap_or_default();
-                let value = SmallAsciiString::create_compatible_ascii_string(&text);
-                self.mapping.target_model.control_element_name.set(value);
-            }
+            TargetCategory::Virtual => {}
         }
     }
 
@@ -2015,7 +2020,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_category_combo_box();
         self.invalidate_source_type_combo_box();
         self.invalidate_source_learn_button();
-        self.invalidate_source_channel_or_control_element_combo_box();
+        self.invalidate_source_channel();
         self.invalidate_source_14_bit_check_box();
         self.invalidate_source_is_registered_check_box();
         self.invalidate_source_midi_message_number_controls();
@@ -2026,7 +2031,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_source_control_appearance(&self) {
-        self.fill_source_channel_or_control_element_combo_box();
+        self.fill_source_channel_combo_box();
         self.invalidate_source_control_labels();
         self.invalidate_source_control_visibilities();
     }
@@ -2044,7 +2049,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     _ => "",
                 },
             ),
-            Virtual => ("ID", "Name", "", ""),
+            Virtual => ("", "ID", "", ""),
             Osc => ("", "Argument", "Type", "Address"),
         };
         self.view
@@ -2072,7 +2077,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             ],
         );
         self.show_if(
-            source.supports_channel() || source.supports_virtual_control_element_index(),
+            source.supports_channel(),
             &[
                 root::ID_SOURCE_CHANNEL_COMBO_BOX,
                 root::ID_SOURCE_CHANNEL_LABEL,
@@ -2199,7 +2204,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(text);
     }
 
-    fn invalidate_source_channel_or_control_element_combo_box(&self) {
+    fn invalidate_source_channel(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category.get() {
@@ -2212,15 +2217,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                         b.select_combo_box_item_by_data(ch.get() as _).unwrap();
                     }
                 };
-            }
-            Virtual => {
-                let data = self
-                    .source
-                    .control_element_index
-                    .get()
-                    .map(|i| i as isize)
-                    .unwrap_or(-1);
-                b.select_combo_box_item_by_data(data).unwrap();
             }
             _ => {}
         };
@@ -2289,7 +2285,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     "".to_owned()
                 }
             }
-            Virtual => self.source.control_element_name.get_ref().to_string(),
+            Virtual => self.source.control_element_id.get().to_string(),
         };
         c.set_text(text)
     }
@@ -2564,25 +2560,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             },
             TargetCategory::Virtual => {
-                combo.show();
-                let options = control_element_combo_box_entries(
-                    self.source.control_element_type.get(),
-                    &HashMap::new(),
-                );
-                combo.fill_combo_box_with_data_vec(options);
-                self.select_control_element_index_combo_item(combo);
+                combo.hide();
             }
         }
-    }
-
-    fn select_control_element_index_combo_item(&self, combo: Window) {
-        let data = self
-            .target
-            .control_element_index
-            .get()
-            .map(|i| i as isize)
-            .unwrap_or(-1);
-        combo.select_combo_box_item_by_data(data).unwrap();
     }
 
     fn invalidate_target_line_2_edit_control(&self, initiator: Option<u32>) {
@@ -2615,7 +2595,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             },
             TargetCategory::Virtual => {
-                control.hide();
+                let text = self.target.control_element_id.get().to_string();
+                control.set_text(text);
+                control.show();
             }
         }
     }
@@ -2637,7 +2619,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::GoToBookmark => Some("Now!"),
                 _ => None,
             },
-            TargetCategory::Virtual => None,
+            TargetCategory::Virtual => Some("Pick!"),
         };
         self.view
             .require_control(root::ID_TARGET_LINE_2_BUTTON)
@@ -2670,19 +2652,10 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_3_button(&self) {
-        let text = match self.target_category() {
-            TargetCategory::Reaper => None,
-            TargetCategory::Virtual => {
-                if self.target.control_element_index.get().is_some() {
-                    None
-                } else {
-                    Some("Pick!")
-                }
-            }
-        };
+        // Not in use at the moment
         self.view
             .require_control(root::ID_TARGET_LINE_3_BUTTON)
-            .set_text_or_hide(text);
+            .hide();
     }
 
     fn invalidate_target_line_4_button(&self) {
@@ -2797,13 +2770,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             },
             TargetCategory::Virtual => {
-                if self.target.control_element_index.get().is_some() {
-                    control.hide();
-                } else {
-                    let text = self.target.control_element_name.get_ref().to_string();
-                    control.set_text(text);
-                    control.show();
-                }
+                control.hide();
             }
         }
     }
@@ -2820,13 +2787,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
             },
-            TargetCategory::Virtual => {
-                if self.target.control_element_index.get().is_some() {
-                    None
-                } else {
-                    Some("Name")
-                }
-            }
+            TargetCategory::Virtual => None,
         };
         self.view
             .require_control(root::ID_TARGET_LINE_3_LABEL_1)
@@ -3459,16 +3420,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_help();
             },
         );
-        self.panel.when(
-            source
-                .channel
-                .changed()
-                .merge(source.control_element_index.changed()),
-            |view, _| {
-                view.invalidate_source_control_visibilities();
-                view.invalidate_source_channel_or_control_element_combo_box();
-            },
-        );
+        self.panel.when(source.channel.changed(), |view, _| {
+            view.invalidate_source_control_visibilities();
+            view.invalidate_source_channel();
+        });
         self.panel.when(source.is_14_bit.changed(), |view, _| {
             view.invalidate_source_controls();
             view.invalidate_mode_controls();
@@ -3482,7 +3437,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .parameter_number_message_number
                 .changed_with_initiator()
                 .merge(source.osc_arg_index.changed_with_initiator())
-                .merge(source.control_element_name.changed_with_initiator()),
+                .merge(source.control_element_id.changed_with_initiator()),
             |view, initiator| {
                 view.invalidate_source_parameter_number_message_number_controls(initiator);
             },
@@ -4158,20 +4113,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
-        self.panel
-            .when(target.control_element_index.changed(), |view, _| {
-                view.invalidate_window_title();
-                let combo = view
-                    .view
-                    .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
-                view.select_control_element_index_combo_item(combo);
-                view.invalidate_target_line_3(None);
-            });
         self.panel.when(
-            target.control_element_name.changed_with_initiator(),
+            target.control_element_id.changed_with_initiator(),
             |view, initiator| {
                 view.invalidate_window_title();
-                view.invalidate_target_line_3(initiator);
+                view.invalidate_target_line_2(initiator);
             },
         );
         self.panel.when(
@@ -4413,7 +4359,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
     }
 
-    fn fill_source_channel_or_control_element_combo_box(&self) {
+    fn fill_source_channel_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category.get() {
@@ -4421,18 +4367,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 iter::once((-1isize, "<Any> (no feedback)".to_string()))
                     .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
             ),
-            Virtual => {
-                let controller_mappings = self
-                    .session
-                    .mappings(MappingCompartment::ControllerMappings);
-                let grouped_mappings =
-                    group_mappings_by_virtual_control_element(controller_mappings);
-                let options = control_element_combo_box_entries(
-                    self.source.control_element_type.get(),
-                    &grouped_mappings,
-                );
-                b.fill_combo_box_with_data_vec(options);
-            }
             _ => {}
         };
     }
@@ -4604,7 +4538,7 @@ impl View for MappingPanel {
             root::ID_TARGET_LEARN_BUTTON => self.toggle_learn_target(),
             root::ID_TARGET_OPEN_BUTTON => self.write(|p| p.open_target()),
             root::ID_TARGET_LINE_2_BUTTON => {
-                self.write(|p| p.handle_target_line_2_button_press());
+                let _ = self.handle_target_line_2_button_press();
             }
             root::ID_TARGET_LINE_3_BUTTON => {
                 let _ = self.handle_target_line_3_button_press();
@@ -4621,9 +4555,7 @@ impl View for MappingPanel {
             // Source
             root::ID_SOURCE_CATEGORY_COMBO_BOX => self.write(|p| p.update_source_category()),
             root::ID_SOURCE_TYPE_COMBO_BOX => self.write(|p| p.update_source_type()),
-            root::ID_SOURCE_CHANNEL_COMBO_BOX => {
-                self.write(|p| p.update_source_channel_or_control_element())
-            }
+            root::ID_SOURCE_CHANNEL_COMBO_BOX => self.write(|p| p.update_source_channel()),
             root::ID_SOURCE_NUMBER_COMBO_BOX => {
                 self.write(|p| p.update_source_midi_message_number())
             }
@@ -5108,14 +5040,39 @@ fn prompt_for_predefined_control_element_name(
     window: Window,
     r#type: VirtualControlElementType,
 ) -> Option<String> {
-    let names = match r#type {
-        VirtualControlElementType::Multi => PREDEFINED_VIRTUAL_MULTI_NAMES,
-        VirtualControlElementType::Button => PREDEFINED_VIRTUAL_BUTTON_NAMES,
-    };
     let menu_bar = MenuBar::new_popup_menu();
     let pure_menu = {
         use swell_ui::menu_tree::*;
-        let entries = build_slash_menu_entries(names, "");
+        let daw_control_names = match r#type {
+            VirtualControlElementType::Multi => {
+                control_element_domains::daw::PREDEFINED_VIRTUAL_MULTI_NAMES
+            }
+            VirtualControlElementType::Button => {
+                control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
+            }
+        };
+        let number_batch_size = 10;
+        let entries = vec![
+            menu(
+                "DAW control",
+                build_slash_menu_entries(daw_control_names, ""),
+            ),
+            menu(
+                "Numbered",
+                (0..100 / number_batch_size)
+                    .map(|batch_index| {
+                        let offset = batch_index * number_batch_size;
+                        let range = offset..(offset + number_batch_size);
+                        menu(
+                            format!("{} - {}", range.start + 1, range.end),
+                            range
+                                .map(|i| item((i + 1).to_string(), move || (i + 1).to_string()))
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+            ),
+        ];
         let mut root_menu = root_menu(entries);
         root_menu.index(1);
         fill_menu(menu_bar.menu(), &root_menu);

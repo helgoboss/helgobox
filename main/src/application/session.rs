@@ -10,7 +10,7 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackOutput, MainMapping, MappingCompartment, MappingId,
     MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualSource,
+    RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
     COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::{enum_map, EnumMap};
@@ -871,7 +871,9 @@ impl Session {
             let target_model = TargetModel {
                 category: prop(TargetCategory::Virtual),
                 control_element_type: prop(control_element_type),
-                control_element_index: prop(Some(next_control_element_index)),
+                control_element_id: prop(VirtualControlElementId::Indexed(
+                    next_control_element_index,
+                )),
                 ..Default::default()
             };
             mapping.target_model = target_model;
@@ -925,7 +927,11 @@ impl Session {
                 {
                     return None;
                 }
-                target.control_element_index.get()
+                if let VirtualControlElementId::Indexed(i) = target.control_element_id.get() {
+                    Some(i)
+                } else {
+                    None
+                }
             })
             .max();
         if let Some(i) = max_index_so_far {

@@ -3,7 +3,7 @@ use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualCon
 use crate::core::default_util::is_default;
 use crate::core::notification;
 use crate::domain::MappingCompartment;
-use crate::infrastructure::data::ControlElementId;
+use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use semver::Version;
@@ -58,7 +58,7 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_index: ControlElementId,
+    control_element_index: VirtualControlElementIdData,
 }
 
 impl SourceModelData {
@@ -83,9 +83,8 @@ impl SourceModelData {
             osc_arg_type: model.osc_arg_type_tag.get(),
             osc_arg_is_relative: model.osc_arg_is_relative.get(),
             control_element_type: model.control_element_type.get(),
-            control_element_index: ControlElementId::from_index_and_name(
-                model.control_element_index.get(),
-                model.control_element_name.get_ref(),
+            control_element_index: VirtualControlElementIdData::from_model(
+                model.control_element_id.get(),
             ),
         }
     }
@@ -185,12 +184,10 @@ impl SourceModelData {
         model
             .control_element_type
             .set_with_optional_notification(self.control_element_type, with_notification);
-        model
-            .control_element_index
-            .set_with_optional_notification(self.control_element_index.index(), with_notification);
-        model
-            .control_element_name
-            .set_with_optional_notification(self.control_element_index.name(), with_notification);
+        model.control_element_id.set_with_optional_notification(
+            self.control_element_index.to_model(),
+            with_notification,
+        );
     }
 }
 
