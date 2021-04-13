@@ -203,15 +203,20 @@ cargo fmt
 The basic GUI skeleton is based on a Windows dialog resource file. I use [ResEdit](http://www.resedit.net/) to edit this
 file with the following preferences:
 
-- [x] Unicode support for generated C code
-- [x] Generate LANGUAGE statements
-    - Language: `Neutral`
-- [ ] Generate IDs for new controls
-- [x] Force CONTROL Statements
-- Block style: `Pascal : BEGIN...END`
-- Defines style: `#define IDC_CONTROL 1000`
-- Default dialog style: `DIALOG`
-- Default menu style: `MENU`
+- Code generation
+    - [x] Unicode support for generated C code
+    - [x] Generate LANGUAGE statements
+        - Language: `Neutral`
+    - [ ] Generate IDs for new controls
+    - [ ] Force CONTROL Statements
+        - Tried switching this on in 4504e19b but on Linux the mapping panel had issues with it. 
+    - Block style: `Pascal : BEGIN...END`
+    - Defines style: `#define IDC_CONTROL 1000`
+    - Default dialog style: `DIALOG`
+    - Default menu style: `MENU`
+- Dialog Editor / Control Preferences
+    - Radio Button
+        - [x] Force CONTROL Statement
 
 ### Test
 
