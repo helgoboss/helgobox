@@ -839,7 +839,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_make_absolute(&mut self) {
-        // TODO-high Add mode hint
+        self.update_mode_hint(ModeParameter::MakeAbsolute);
         self.mapping.mode_model.make_absolute.set(
             self.view
                 .require_control(root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX)
@@ -859,18 +859,18 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_fire_mode(&mut self) {
-        self.update_mode_hint(ModeParameter::FireMode);
         let mode = self
             .view
             .require_control(root::ID_MODE_FIRE_COMBO_BOX)
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid fire mode");
+        self.update_mode_hint(ModeParameter::FireMode(mode));
         self.mapping.mode_model.fire_mode.set(mode);
     }
 
     fn update_mode_round_target_value(&mut self) {
-        // TODO-high Add mode hint
+        self.update_mode_hint(ModeParameter::RoundTargetValue);
         self.mapping.mode_model.round_target_value.set(
             self.view
                 .require_control(root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX)
@@ -925,13 +925,13 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_type(&mut self) {
-        // TODO-high Add mode hint
         let b = self.view.require_control(root::ID_SETTINGS_MODE_COMBO_BOX);
-        self.mapping.mode_model.r#type.set(
-            b.selected_combo_box_item_index()
-                .try_into()
-                .expect("invalid mode type"),
-        );
+        let mode = b
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid mode type");
+        self.update_mode_hint(ModeParameter::AbsoluteMode(mode));
+        self.mapping.mode_model.r#type.set(mode);
         self.mapping
             .set_preferred_mode_values(self.session.extended_context());
     }
@@ -1206,7 +1206,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_mode_fire_line_2_slider_change(&mut self, slider: Window) {
-        // TODO-high Add mode hint
         self.mapping
             .mode_model
             .press_duration_interval
@@ -1214,7 +1213,6 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_mode_fire_line_3_slider_change(&mut self, slider: Window) {
-        // TODO-high Add mode hint
         let value = slider.slider_duration();
         self.handle_mode_fire_line_3_duration_change(value, None);
     }
