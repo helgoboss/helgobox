@@ -2045,7 +2045,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_parameter_number_message_number_controls(None);
         self.invalidate_source_character_combo_box();
         self.invalidate_source_midi_clock_transport_message_type_combo_box();
-        self.invalidate_source_osc_address_pattern_edit_control();
+        self.invalidate_source_osc_address_pattern_edit_control(None);
     }
 
     fn invalidate_source_control_appearance(&self) {
@@ -2288,9 +2288,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         let c = self
             .view
             .require_control(root::ID_SOURCE_NUMBER_EDIT_CONTROL);
-        if c.has_focus() {
-            return;
-        }
         use SourceCategory::*;
         let text = match self.source.category.get() {
             Midi => match self.source.parameter_number_message_number.get() {
@@ -2309,13 +2306,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         c.set_text(text)
     }
 
-    fn invalidate_source_osc_address_pattern_edit_control(&self) {
+    fn invalidate_source_osc_address_pattern_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL) {
+            return;
+        }
         let c = self
             .view
             .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
-        if c.has_focus() {
-            return;
-        }
         use SourceCategory::*;
         let value_text = match self.source.category.get() {
             Midi => match self.source.midi_source_type.get() {
@@ -3482,11 +3479,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when(
             source
                 .osc_address_pattern
-                .changed()
-                .merge(source.raw_midi_pattern.changed())
-                .merge(source.midi_script.changed()),
-            |view, _| {
-                view.invalidate_source_osc_address_pattern_edit_control();
+                .changed_with_initiator()
+                .merge(source.raw_midi_pattern.changed_with_initiator())
+                .merge(source.midi_script.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_source_osc_address_pattern_edit_control(initiator);
             },
         );
         self.panel
