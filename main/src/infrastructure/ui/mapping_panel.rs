@@ -837,7 +837,7 @@ impl<'a> MutableMappingPanel<'a> {
         let c = self
             .view
             .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
-        if let Ok(value) = c.multi_line_text() {
+        if let Ok(value) = c.text() {
             use SourceCategory::*;
             match self.mapping.source_model.category.get() {
                 Midi => match self.mapping.source_model.midi_source_type.get() {
@@ -2314,16 +2314,23 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
         use SourceCategory::*;
-        let value_text = match self.source.category.get() {
+        let (value_text, read_only) = match self.source.category.get() {
             Midi => match self.source.midi_source_type.get() {
-                MidiSourceType::Raw => self.source.raw_midi_pattern.get_ref().as_str(),
-                MidiSourceType::Script => self.source.midi_script.get_ref().as_str(),
+                MidiSourceType::Raw => (self.source.raw_midi_pattern.get_ref().as_str(), false),
+                MidiSourceType::Script => {
+                    let midi_script = self.source.midi_script.get_ref();
+                    (
+                        midi_script.lines().next().unwrap_or_default(),
+                        midi_script.lines().count() > 1,
+                    )
+                }
                 _ => return,
             },
-            Osc => self.source.osc_address_pattern.get_ref().as_str(),
+            Osc => (self.source.osc_address_pattern.get_ref().as_str(), false),
             Virtual => return,
         };
-        c.set_multi_line_text(value_text);
+        c.set_text(value_text);
+        c.set_enabled(!read_only);
     }
 
     fn invalidate_source_character_combo_box(&self) {
