@@ -1902,33 +1902,32 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .is_err()
             {
                 false
-            } else {
-                if let Some(mode_parameter) = self.panel.last_touched_mode_parameter.borrow().get()
-                {
-                    let (control_hint, feedback_hint) =
-                        self.get_control_and_feedback_hint(source_character, mode_parameter);
-                    let mut content = String::new();
-                    if let Some(hint) = control_hint {
-                        content.push_str("- Control: ");
-                        content.push_str(hint);
-                        content.push('\n');
-                    }
-                    if let Some(hint) = feedback_hint {
-                        content.push_str("- Feedback: ");
-                        content.push_str(hint);
-                        content.push('\n');
-                    }
-                    let subject = format!("Help: {}", mode_parameter.to_string());
-                    self.view
-                        .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
-                        .set_text(subject);
-                    self.view
-                        .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-                        .set_multi_line_text(content);
-                    true
-                } else {
-                    false
+            } else if let Some(mode_parameter) =
+                self.panel.last_touched_mode_parameter.borrow().get()
+            {
+                let (control_hint, feedback_hint) =
+                    self.get_control_and_feedback_hint(source_character, mode_parameter);
+                let mut content = String::new();
+                if let Some(hint) = control_hint {
+                    content.push_str("- Control: ");
+                    content.push_str(hint);
+                    content.push('\n');
                 }
+                if let Some(hint) = feedback_hint {
+                    content.push_str("- Feedback: ");
+                    content.push_str(hint);
+                    content.push('\n');
+                }
+                let subject = format!("Help: {}", mode_parameter.to_string());
+                self.view
+                    .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
+                    .set_text(subject);
+                self.view
+                    .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
+                    .set_multi_line_text(content);
+                true
+            } else {
+                false
             }
         } else {
             false
@@ -3577,7 +3576,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         &self,
         mode_parameter: ModeParameter,
         base_input: ModeApplicabilityCheckInput,
-        possible_source_characters: &Vec<DetailedSourceCharacter>,
+        possible_source_characters: &[DetailedSourceCharacter],
     ) -> bool {
         let control_is_enabled = self.mapping.control_is_enabled.get();
         let feedback_is_enabled = self.mapping.feedback_is_enabled.get();
@@ -4874,6 +4873,7 @@ fn group_mappings_by_virtual_control_element<'a>(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn invalidate_target_controls_free(
     real_target: Option<&CompoundMappingTarget>,
     slider_control: Window,

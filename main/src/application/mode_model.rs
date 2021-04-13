@@ -82,9 +82,15 @@ impl Default for ModeModel {
 
 impl ModeModel {
     pub fn default_step_size_interval() -> Interval<SoftSymmetricUnitValue> {
+        // 0.01 has been chosen as default minimum step size because it corresponds to 1%.
+        //
+        // 0.05 has been chosen as default maximum step size in order to make users aware that
+        // ReaLearn supports encoder acceleration ("dial harder = more increments") and
+        // velocity-sensitive buttons ("press harder = more increments") but still is low
+        // enough to not lead to surprising results such as ugly parameter jumps.
         Interval::new(
             SoftSymmetricUnitValue::new(0.01),
-            SoftSymmetricUnitValue::new(0.01),
+            SoftSymmetricUnitValue::new(0.05),
         )
     }
 
@@ -143,7 +149,7 @@ impl ModeModel {
         &self,
         mode_parameter: ModeParameter,
         base_input: ModeApplicabilityCheckInput,
-        possible_source_characters: &Vec<DetailedSourceCharacter>,
+        possible_source_characters: &[DetailedSourceCharacter],
         control_is_relevant: bool,
         feedback_is_relevant: bool,
     ) -> bool {
@@ -166,7 +172,7 @@ impl ModeModel {
     pub fn create_mode(
         &self,
         base_input: ModeApplicabilityCheckInput,
-        possible_source_characters: &Vec<DetailedSourceCharacter>,
+        possible_source_characters: &[DetailedSourceCharacter],
     ) -> Mode {
         let is_relevant = |mode_parameter: ModeParameter| {
             // We take both control and feedback into account to not accidentally get slightly
