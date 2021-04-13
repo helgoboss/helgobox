@@ -1,4 +1,4 @@
-use crate::core::{notification, when};
+use crate::core::{notification, when, Prop};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
     EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
@@ -65,6 +65,8 @@ pub struct MappingPanel {
     sliders: RefCell<Option<Sliders>>,
     yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
     eel_editor: RefCell<Option<SharedView<EelEditorPanel>>>,
+    last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
+    last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
 }
@@ -118,6 +120,8 @@ impl MappingPanel {
             sliders: None.into(),
             yaml_editor: Default::default(),
             eel_editor: Default::default(),
+            last_touched_mode_parameter: Default::default(),
+            last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
         }
     }
@@ -378,6 +382,7 @@ impl MappingPanel {
     /// Invalidates everything and registers listeners.
     fn start_party(self: SharedView<Self>) {
         self.read(|p| {
+            p.clear_help();
             p.fill_all_controls();
             p.invalidate_all_controls();
             p.register_listeners();
@@ -634,59 +639,10 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_mode_hint(&self, mode_parameter: ModeParameter) {
-        let base_input = ModeApplicabilityCheckInput {
-            target_is_virtual: self.mapping.target_model.is_virtual(),
-            is_feedback: false,
-            make_absolute: self.mapping.mode_model.make_absolute.get(),
-            source_character: DetailedSourceCharacter::RangeControl,
-            absolute_mode: self.mapping.mode_model.r#type.get(),
-            mode_parameter,
-        };
-        let possible_characters = self.mapping.source_model.possible_detailed_characters();
-        let hints = possible_characters
-            .iter()
-            .map(move |source_character| {
-                let control = ModeApplicabilityCheckInput {
-                    is_feedback: false,
-                    source_character: *source_character,
-                    ..base_input
-                };
-                let feedback = ModeApplicabilityCheckInput {
-                    is_feedback: true,
-                    source_character: *source_character,
-                    ..base_input
-                };
-                (
-                    source_character,
-                    check_mode_applicability(control),
-                    check_mode_applicability(feedback),
-                )
-            })
-            .filter(|(_, ch, fh)| ch.is_some() || fh.is_some());
-        let help_content = hints
-            .map(|(c, ch, fh)| {
-                format!(
-                    "If source is a {}:{}{}",
-                    c,
-                    if let Some(hint) = ch {
-                        format!("\n- CONTROL: {}", hint)
-                    } else {
-                        String::new()
-                    },
-                    if let Some(hint) = fh {
-                        format!("\n- FEEDBACK: {}", hint)
-                    } else {
-                        String::new()
-                    }
-                )
-            })
-            .join("\n\n");
-        self.view
-            .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
-            .set_text(format!("Help: {}", mode_parameter.to_string()));
-        self.view
-            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
-            .set_multi_line_text(help_content);
+        self.panel
+            .last_touched_mode_parameter
+            .borrow_mut()
+            .set(Some(mode_parameter));
     }
 
     fn update_mapping_send_feedback_after_control(&mut self) {
@@ -1740,6 +1696,19 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    fn handle_applicable_to_combo_box_change(&mut self) {
+        let data = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
+            .selected_combo_box_item_data()
+            .try_into()
+            .ok();
+        self.panel
+            .last_touched_source_character
+            .borrow_mut()
+            .set(data);
+    }
+
     fn handle_target_line_2_edit_control_change(&mut self) {
         let control = self
             .view
@@ -1877,6 +1846,140 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_controls();
         self.invalidate_target_controls(None);
         self.invalidate_mode_controls();
+    }
+
+    fn invalidate_help(&self) {
+        let applicable_to_label = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL);
+        let applicable_to_combo = self
+            .view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX);
+        let success = if let Some(mode_parameter) =
+            self.panel.last_touched_mode_parameter.borrow().get()
+        {
+            let relevant_source_characters: Vec<_> = self
+                .mapping
+                .source_model
+                .possible_detailed_characters()
+                .into_iter()
+                .filter(|character| {
+                    let (ch, fh) = self.get_control_and_feedback_hint(*character, mode_parameter);
+                    ch.is_some() || fh.is_some()
+                })
+                .collect();
+            if let Some(first_character) = relevant_source_characters.first().copied() {
+                applicable_to_label.show();
+                applicable_to_combo.show();
+                applicable_to_combo.fill_combo_box_with_data_small(
+                    relevant_source_characters
+                        .into_iter()
+                        .map(|ch| (ch.into(), ch)),
+                );
+                self.panel
+                    .last_touched_source_character
+                    .borrow_mut()
+                    .set(Some(first_character));
+                self.invalidate_help_from_source_character();
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        if !success {
+            self.clear_help();
+        }
+    }
+
+    fn invalidate_help_from_source_character(&self) {
+        let success = if let Some(source_character) =
+            self.panel.last_touched_source_character.borrow().get()
+        {
+            if self
+                .view
+                .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
+                .select_combo_box_item_by_data(source_character.into())
+                .is_err()
+            {
+                false
+            } else {
+                if let Some(mode_parameter) = self.panel.last_touched_mode_parameter.borrow().get()
+                {
+                    let (control_hint, feedback_hint) =
+                        self.get_control_and_feedback_hint(source_character, mode_parameter);
+                    let mut content = String::new();
+                    if let Some(hint) = control_hint {
+                        content.push_str("- Control: ");
+                        content.push_str(hint);
+                        content.push('\n');
+                    }
+                    if let Some(hint) = feedback_hint {
+                        content.push_str("- Feedback: ");
+                        content.push_str(hint);
+                        content.push('\n');
+                    }
+                    let subject = format!("Help: {}", mode_parameter.to_string());
+                    self.view
+                        .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
+                        .set_text(subject);
+                    self.view
+                        .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
+                        .set_multi_line_text(content);
+                    true
+                } else {
+                    false
+                }
+            }
+        } else {
+            false
+        };
+        if !success {
+            self.clear_help();
+        }
+    }
+
+    fn get_control_and_feedback_hint(
+        &self,
+        source_character: DetailedSourceCharacter,
+        mode_parameter: ModeParameter,
+    ) -> (Option<&str>, Option<&str>) {
+        let base_input = ModeApplicabilityCheckInput {
+            target_is_virtual: self.mapping.target_model.is_virtual(),
+            is_feedback: false,
+            make_absolute: self.mapping.mode_model.make_absolute.get(),
+            source_character,
+            absolute_mode: self.mapping.mode_model.r#type.get(),
+            mode_parameter,
+        };
+        let control = ModeApplicabilityCheckInput {
+            is_feedback: false,
+            ..base_input
+        };
+        let feedback = ModeApplicabilityCheckInput {
+            is_feedback: true,
+            ..base_input
+        };
+        (
+            check_mode_applicability(control),
+            check_mode_applicability(feedback),
+        )
+    }
+
+    fn clear_help(&self) {
+        self.view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_LABEL)
+            .hide();
+        self.view
+            .require_control(root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX)
+            .hide();
+        self.view
+            .require_control(root::ID_MAPPING_HELP_SUBJECT_LABEL)
+            .set_text("Help");
+        self.view
+            .require_control(root::ID_MAPPING_HELP_CONTENT_LABEL)
+            .set_text("");
     }
 
     fn invalidate_window_title(&self) {
@@ -3196,6 +3299,22 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.register_source_listeners();
         self.register_target_listeners();
         self.register_mode_listeners();
+        self.register_help_listeners();
+    }
+
+    fn register_help_listeners(&self) {
+        self.panel.when(
+            self.panel.last_touched_mode_parameter.borrow().changed(),
+            |view, _| {
+                view.invalidate_help();
+            },
+        );
+        self.panel.when(
+            self.panel.last_touched_source_character.borrow().changed(),
+            |view, _| {
+                view.invalidate_help_from_source_character();
+            },
+        );
     }
 
     fn register_session_listeners(&self) {
@@ -3332,6 +3451,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             |view, _| {
                 view.invalidate_source_controls();
                 view.invalidate_mode_controls();
+                view.invalidate_help();
             },
         );
         self.panel.when(
@@ -3373,6 +3493,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             |view, _| {
                 view.invalidate_source_character_combo_box();
                 view.invalidate_mode_controls();
+                view.invalidate_help();
             },
         );
         self.panel
@@ -3926,6 +4047,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_window_title();
                 view.invalidate_target_controls(None);
                 view.invalidate_mode_controls();
+                view.invalidate_help();
             },
         );
         self.panel.when(
@@ -4091,6 +4213,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let mode = self.mode;
         self.panel.when(mode.r#type.changed(), |view, _| {
             view.invalidate_mode_controls();
+            view.invalidate_help();
         });
         self.panel.when(
             mode.target_value_interval.changed_with_initiator(),
@@ -4152,6 +4275,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             |view, initiator| {
                 view.invalidate_mode_make_absolute_check_box();
                 view.invalidate_mode_step_controls(initiator);
+                view.invalidate_help();
             },
         );
         self.panel.when(mode.reverse.changed(), |view, _| {
@@ -4447,6 +4571,10 @@ impl View for MappingPanel {
             }
             root::ID_TARGET_LINE_4_COMBO_BOX_2 => {
                 self.write(|p| p.handle_target_line_4_combo_box_2_change())
+            }
+            // Help
+            root::ID_MAPPING_HELP_APPLICABLE_TO_COMBO_BOX => {
+                self.write(|p| p.handle_applicable_to_combo_box_change())
             }
             _ => unreachable!(),
         }
