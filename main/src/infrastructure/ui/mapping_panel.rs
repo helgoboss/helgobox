@@ -3519,6 +3519,8 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when(source.osc_arg_is_relative.changed(), |view, _| {
                 view.invalidate_source_controls();
+                view.invalidate_mode_controls();
+                view.invalidate_help();
             });
     }
 
