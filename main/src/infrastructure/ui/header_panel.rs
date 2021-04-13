@@ -1194,17 +1194,16 @@ impl HeaderPanel {
     }
 
     fn invalidate_search_expression(&self, initiator: Option<u32>) {
-        if initiator == Some(root::ID_HEADER_SEARCH_EDIT_CONTROL) {
-            return;
-        }
         let main_state = self.main_state.borrow();
         let search_expression = main_state.search_expression.get_ref().to_string();
         self.view
             .require_control(root::ID_CLEAR_SEARCH_BUTTON)
             .set_enabled(!search_expression.is_empty());
-        self.view
-            .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
-            .set_text(search_expression);
+        if initiator != Some(root::ID_HEADER_SEARCH_EDIT_CONTROL) {
+            self.view
+                .require_control(root::ID_HEADER_SEARCH_EDIT_CONTROL)
+                .set_text(search_expression);
+        }
     }
 
     fn update_control_input(&self) {
