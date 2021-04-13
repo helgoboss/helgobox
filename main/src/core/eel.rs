@@ -36,18 +36,21 @@ impl Vm {
     }
 
     pub fn compile(&self, code: &str) -> Result<Program, String> {
-        let c_string = CString::new(code).map_err(|_| "code is not valid UTF-8")?;
+        if code.trim().is_empty() {
+            return Err("Empty".to_owned());
+        }
+        let c_string = CString::new(code).map_err(|_| "Code is not valid UTF-8")?;
         let code_handle = unsafe { root::NSEEL_code_compile(self.0, c_string.as_ptr(), 0) };
         if code_handle.is_null() {
             let error = unsafe { root::NSEEL_code_getcodeerror(self.0) };
             if error.is_null() {
-                return Err("unknown error".to_string());
+                return Err("Unknown error".to_string());
             }
             let c_str = unsafe { CStr::from_ptr(error) };
             let string = c_str
                 .to_owned()
                 .into_string()
-                .unwrap_or_else(|_| "couldn't convert error to string".to_string());
+                .unwrap_or_else(|_| "Couldn't convert error to string".to_string());
             return Err(string);
         }
         Ok(Program(code_handle))
