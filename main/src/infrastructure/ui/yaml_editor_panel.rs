@@ -49,6 +49,7 @@ impl YamlEditorPanel {
             "".to_owned()
         };
         self.set_text(&text);
+        self.invalidate_info();
     }
 
     fn update_content(&self) {
