@@ -151,8 +151,12 @@ impl MappingPanel {
             TargetCategory::Virtual => {
                 let control_element_type = mapping.borrow().target_model.control_element_type.get();
                 let window = self.view.require_window();
-                let text = prompt_for_predefined_control_element_name(window, control_element_type)
-                    .ok_or("nothing picked")?;
+                let text = prompt_for_predefined_control_element_name(
+                    window,
+                    control_element_type,
+                    &HashMap::new(),
+                )
+                .ok_or("nothing picked")?;
                 mapping
                     .borrow_mut()
                     .target_model
@@ -172,8 +176,22 @@ impl MappingPanel {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
         let control_element_type = mapping.borrow().source_model.control_element_type.get();
         let window = self.view.require_window();
-        let text = prompt_for_predefined_control_element_name(window, control_element_type)
-            .ok_or("nothing picked")?;
+        let controller_mappings: Vec<_> = {
+            let session = self.session();
+            let session = session.borrow();
+            session
+                .mappings(MappingCompartment::ControllerMappings)
+                .cloned()
+                .collect()
+        };
+        let grouped_mappings =
+            group_mappings_by_virtual_control_element(controller_mappings.iter());
+        let text = prompt_for_predefined_control_element_name(
+            window,
+            control_element_type,
+            &grouped_mappings,
+        )
+        .ok_or("nothing picked")?;
         mapping
             .borrow_mut()
             .source_model
@@ -5010,35 +5028,10 @@ fn parse_position_as_index(edit_control: Window) -> u32 {
     std::cmp::max(position - 1, 0) as u32
 }
 
-fn control_element_combo_box_entries(
-    control_element_type: VirtualControlElementType,
-    grouped_mappings: &HashMap<VirtualControlElement, Vec<&SharedMapping>>,
-) -> Vec<(isize, String)> {
-    iter::once((-1isize, "<Named>".to_owned()))
-        .chain((0..100).map(|i| {
-            let element =
-                control_element_type.create_control_element(VirtualControlElementId::Indexed(i));
-            let pos = i + 1;
-            let label = match grouped_mappings.get(&element) {
-                None => pos.to_string(),
-                Some(mappings) => {
-                    let first_mapping = mappings[0].borrow();
-                    let first_mapping_name = first_mapping.effective_name();
-                    if mappings.len() == 1 {
-                        format!("{} ({})", pos, first_mapping_name)
-                    } else {
-                        format!("{} ({} + {})", pos, first_mapping_name, mappings.len() - 1)
-                    }
-                }
-            };
-            (i as isize, label)
-        }))
-        .collect()
-}
-
 fn prompt_for_predefined_control_element_name(
     window: Window,
     r#type: VirtualControlElementType,
+    grouped_mappings: &HashMap<VirtualControlElement, Vec<&SharedMapping>>,
 ) -> Option<String> {
     let menu_bar = MenuBar::new_popup_menu();
     let pure_menu = {
@@ -5066,7 +5059,33 @@ fn prompt_for_predefined_control_element_name(
                         menu(
                             format!("{} - {}", range.start + 1, range.end),
                             range
-                                .map(|i| item((i + 1).to_string(), move || (i + 1).to_string()))
+                                .map(|i| {
+                                    let label = {
+                                        let pos = i + 1;
+                                        let element = r#type.create_control_element(
+                                            VirtualControlElementId::Indexed(i),
+                                        );
+                                        match grouped_mappings.get(&element) {
+                                            None => pos.to_string(),
+                                            Some(mappings) => {
+                                                let first_mapping = mappings[0].borrow();
+                                                let first_mapping_name =
+                                                    first_mapping.effective_name();
+                                                if mappings.len() == 1 {
+                                                    format!("{} ({})", pos, first_mapping_name)
+                                                } else {
+                                                    format!(
+                                                        "{} ({} + {})",
+                                                        pos,
+                                                        first_mapping_name,
+                                                        mappings.len() - 1
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    };
+                                    item(label, move || (i + 1).to_string())
+                                })
                                 .collect(),
                         )
                     })
