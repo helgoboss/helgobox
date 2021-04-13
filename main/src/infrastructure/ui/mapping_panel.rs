@@ -167,9 +167,8 @@ impl MappingPanel {
         Ok(())
     }
 
-    fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
+    fn handle_target_line_3_button_press(&self) {
         // Not in use at the moment
-        Ok(())
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -711,6 +710,7 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
+    #[allow(clippy::single_match)]
     fn update_source_channel(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
@@ -2222,6 +2222,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(text);
     }
 
+    #[allow(clippy::single_match)]
     fn invalidate_source_channel(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
@@ -4377,6 +4378,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
     }
 
+    #[allow(clippy::single_match)]
     fn fill_source_channel_combo_box(&self) {
         let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
         use SourceCategory::*;
@@ -4559,7 +4561,7 @@ impl View for MappingPanel {
                 let _ = self.handle_target_line_2_button_press();
             }
             root::ID_TARGET_LINE_3_BUTTON => {
-                let _ = self.handle_target_line_3_button_press();
+                self.handle_target_line_3_button_press();
             }
             root::ID_TARGET_LINE_4_BUTTON => {
                 let _ = self.handle_target_line_4_button_press();
