@@ -1218,7 +1218,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_mode_fire_line_3_duration_change(&mut self, value: Duration, initiator: Option<u32>) {
-        match self.mapping.effective_fire_mode() {
+        match self.mapping.mode_model.fire_mode.get() {
             FireMode::WhenButtonReleased | FireMode::OnSinglePress | FireMode::OnDoublePress => {
                 self.mapping
                     .mode_model
@@ -1935,17 +1935,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         };
         if !success {
             self.clear_help();
-        }
-    }
-
-    fn get_base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
-        ModeApplicabilityCheckInput {
-            target_is_virtual: self.mapping.target_model.is_virtual(),
-            is_feedback: false,
-            make_absolute: self.mapping.mode_model.make_absolute.get(),
-            source_character: DetailedSourceCharacter::RangeControl,
-            absolute_mode: self.mapping.mode_model.r#type.get(),
-            mode_parameter: ModeParameter::TargetMinMax,
         }
     }
 
@@ -3584,25 +3573,19 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn mode_parameter_is_relevant(
         &self,
-        base_input: ModeApplicabilityCheckInput,
         mode_parameter: ModeParameter,
-        relevant_source_characters: &Vec<DetailedSourceCharacter>,
+        base_input: ModeApplicabilityCheckInput,
+        possible_source_characters: &Vec<DetailedSourceCharacter>,
     ) -> bool {
         let control_is_enabled = self.mapping.control_is_enabled.get();
         let feedback_is_enabled = self.mapping.feedback_is_enabled.get();
-        relevant_source_characters.iter().any(|source_character| {
-            let is_applicable = |is_feedback| {
-                let input = ModeApplicabilityCheckInput {
-                    is_feedback,
-                    mode_parameter,
-                    source_character: *source_character,
-                    ..base_input
-                };
-                check_mode_applicability(input).is_relevant()
-            };
-            (control_is_enabled && is_applicable(false))
-                || (feedback_is_enabled && is_applicable(true))
-        })
+        self.mapping.mode_model.mode_parameter_is_relevant(
+            mode_parameter,
+            base_input,
+            possible_source_characters,
+            control_is_enabled,
+            feedback_is_enabled,
+        )
     }
 
     fn invalidate_mode_control_visibilities(&self) {
@@ -3611,9 +3594,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             Some(t) => t,
         };
         let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
-        let base_input = self.get_base_mode_applicability_check_input();
+        let base_input = self.mapping.base_mode_applicability_check_input();
         let is_relevant = |mode_parameter: ModeParameter| {
-            self.mode_parameter_is_relevant(base_input, mode_parameter, &relevant_source_characters)
+            self.mode_parameter_is_relevant(mode_parameter, base_input, &relevant_source_characters)
         };
         let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
             && self.target_with_context().is_known_to_be_roundable();
@@ -3889,12 +3872,12 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_controls(&self, initiator: Option<u32>) {
-        let base_input = self.get_base_mode_applicability_check_input();
-        let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
+        let base_input = self.mapping.base_mode_applicability_check_input();
+        let possible_source_characters = self.mapping.source_model.possible_detailed_characters();
         if self.mode_parameter_is_relevant(
-            base_input,
             ModeParameter::FireMode,
-            &relevant_source_characters,
+            base_input,
+            &possible_source_characters,
         ) {
             self.invalidate_mode_fire_mode_combo_box();
             self.invalidate_mode_fire_line_2_controls(initiator);
@@ -3913,7 +3896,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_line_2_controls(&self, initiator: Option<u32>) {
-        let label = match self.mapping.effective_fire_mode() {
+        let label = match self.mapping.mode_model.fire_mode.get() {
             FireMode::WhenButtonReleased => Some("Min"),
             FireMode::AfterTimeout | FireMode::AfterTimeoutKeepFiring => Some("Timeout"),
             FireMode::OnDoublePress | FireMode::OnSinglePress => None,
@@ -3952,7 +3935,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_line_3_controls(&self, initiator: Option<u32>) {
-        let option = match self.mapping.effective_fire_mode() {
+        let option = match self.mapping.mode_model.fire_mode.get() {
             FireMode::WhenButtonReleased | FireMode::OnSinglePress => {
                 Some(("Max", self.mode.press_duration_interval.get_ref().max_val()))
             }
@@ -4082,7 +4065,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let combo = self.view.require_control(root::ID_MODE_FIRE_COMBO_BOX);
         combo.set_enabled(self.target_category() != TargetCategory::Virtual);
         combo
-            .select_combo_box_item_by_index(self.mapping.effective_fire_mode().into())
+            .select_combo_box_item_by_index(self.mapping.mode_model.fire_mode.get().into())
             .unwrap();
     }
 

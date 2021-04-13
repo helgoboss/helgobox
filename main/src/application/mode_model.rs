@@ -2,9 +2,10 @@ use crate::core::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
-    full_unit_interval, AbsoluteMode, ButtonUsage, DiscreteIncrement, EncoderUsage, FireMode,
-    Interval, OutOfRangeBehavior, PressDurationProcessor, SoftSymmetricUnitValue, TakeoverMode,
-    UnitValue,
+    check_mode_applicability, full_unit_interval, AbsoluteMode, ButtonUsage,
+    DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode, Interval,
+    ModeApplicabilityCheckInput, ModeParameter, OutOfRangeBehavior, PressDurationProcessor,
+    SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 
 use rx_util::UnitEvent;
@@ -138,52 +139,161 @@ impl ModeModel {
             .merge(self.make_absolute.changed())
     }
 
+    pub fn mode_parameter_is_relevant(
+        &self,
+        mode_parameter: ModeParameter,
+        base_input: ModeApplicabilityCheckInput,
+        possible_source_characters: &Vec<DetailedSourceCharacter>,
+        control_is_relevant: bool,
+        feedback_is_relevant: bool,
+    ) -> bool {
+        possible_source_characters.iter().any(|source_character| {
+            let is_applicable = |is_feedback| {
+                let input = ModeApplicabilityCheckInput {
+                    is_feedback,
+                    mode_parameter,
+                    source_character: *source_character,
+                    ..base_input
+                };
+                check_mode_applicability(input).is_relevant()
+            };
+            (control_is_relevant && is_applicable(false))
+                || (feedback_is_relevant && is_applicable(true))
+        })
+    }
+
     /// Creates a mode reflecting this model's current values
-    pub fn create_mode(&self, enforced_fire_mode: Option<FireMode>) -> Mode {
+    pub fn create_mode(
+        &self,
+        base_input: ModeApplicabilityCheckInput,
+        possible_source_characters: &Vec<DetailedSourceCharacter>,
+    ) -> Mode {
+        let is_relevant = |mode_parameter: ModeParameter| {
+            // We take both control and feedback into account to not accidentally get slightly
+            // different behavior if feedback is not enabled.
+            self.mode_parameter_is_relevant(
+                mode_parameter,
+                base_input,
+                &possible_source_characters,
+                true,
+                true,
+            )
+        };
+        // We know that just step max sometimes needs to be set to a sensible default (= step min)
+        // and we know that step size and speed is mutually exclusive and therefore doesn't need
+        // to be handled separately.
+        let step_max_is_relevant =
+            is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
+        let min_step_count = convert_to_step_count(self.step_interval.get_ref().min_val());
+        let min_step_size = self.step_interval.get_ref().min_val().abs();
         Mode {
-            absolute_mode: self.r#type.get(),
-            source_value_interval: self.source_value_interval.get(),
-            target_value_interval: self.target_value_interval.get(),
+            absolute_mode: if is_relevant(ModeParameter::AbsoluteMode) {
+                self.r#type.get()
+            } else {
+                AbsoluteMode::default()
+            },
+            source_value_interval: if is_relevant(ModeParameter::SourceMinMax) {
+                self.source_value_interval.get()
+            } else {
+                full_unit_interval()
+            },
+            target_value_interval: if is_relevant(ModeParameter::TargetMinMax) {
+                self.target_value_interval.get()
+            } else {
+                full_unit_interval()
+            },
             step_count_interval: Interval::new(
-                convert_to_step_count(self.step_interval.get_ref().min_val()),
-                convert_to_step_count(self.step_interval.get_ref().max_val()),
+                min_step_count,
+                if step_max_is_relevant {
+                    convert_to_step_count(self.step_interval.get_ref().max_val())
+                } else {
+                    min_step_count
+                },
             ),
-            step_size_interval: self.positive_step_size_interval(),
-            jump_interval: self.jump_interval.get(),
+            step_size_interval: Interval::new_auto(
+                min_step_size,
+                if step_max_is_relevant {
+                    self.step_interval.get_ref().max_val().abs()
+                } else {
+                    min_step_size
+                },
+            ),
+            jump_interval: if is_relevant(ModeParameter::JumpMinMax) {
+                self.jump_interval.get()
+            } else {
+                full_unit_interval()
+            },
             press_duration_processor: PressDurationProcessor::new(
-                enforced_fire_mode.unwrap_or_else(|| self.fire_mode.get()),
+                if is_relevant(ModeParameter::FireMode) {
+                    self.fire_mode.get()
+                } else {
+                    FireMode::default()
+                },
                 self.press_duration_interval.get(),
                 self.turbo_rate.get(),
             ),
-            takeover_mode: self.takeover_mode.get(),
-            encoder_usage: self.encoder_usage.get(),
-            button_usage: self.button_usage.get(),
-            reverse: self.reverse.get(),
-            rotate: self.rotate.get(),
+            takeover_mode: if is_relevant(ModeParameter::TakeoverMode) {
+                self.takeover_mode.get()
+            } else {
+                TakeoverMode::default()
+            },
+            encoder_usage: if is_relevant(ModeParameter::RelativeFilter) {
+                self.encoder_usage.get()
+            } else {
+                EncoderUsage::default()
+            },
+            button_usage: if is_relevant(ModeParameter::ButtonFilter) {
+                self.button_usage.get()
+            } else {
+                ButtonUsage::default()
+            },
+            reverse: if is_relevant(ModeParameter::Reverse) {
+                self.reverse.get()
+            } else {
+                false
+            },
+            rotate: if is_relevant(ModeParameter::Rotate) {
+                self.rotate.get()
+            } else {
+                false
+            },
             increment_counter: 0,
-            round_target_value: self.round_target_value.get(),
-            out_of_range_behavior: self.out_of_range_behavior.get(),
-            control_transformation: EelTransformation::compile(
-                self.eel_control_transformation.get_ref(),
-                OutputVariable::Y,
-            )
-            .ok(),
-            feedback_transformation: EelTransformation::compile(
-                self.eel_feedback_transformation.get_ref(),
-                OutputVariable::X,
-            )
-            .ok(),
-            convert_relative_to_absolute: self.make_absolute.get(),
+            round_target_value: if is_relevant(ModeParameter::RoundTargetValue) {
+                self.round_target_value.get()
+            } else {
+                false
+            },
+            out_of_range_behavior: if is_relevant(ModeParameter::OutOfRangeBehavior) {
+                self.out_of_range_behavior.get()
+            } else {
+                OutOfRangeBehavior::default()
+            },
+            control_transformation: if is_relevant(ModeParameter::ControlTransformation) {
+                EelTransformation::compile(
+                    self.eel_control_transformation.get_ref(),
+                    OutputVariable::Y,
+                )
+                .ok()
+            } else {
+                None
+            },
+            feedback_transformation: if is_relevant(ModeParameter::FeedbackTransformation) {
+                EelTransformation::compile(
+                    self.eel_feedback_transformation.get_ref(),
+                    OutputVariable::X,
+                )
+                .ok()
+            } else {
+                None
+            },
+            convert_relative_to_absolute: if is_relevant(ModeParameter::MakeAbsolute) {
+                self.make_absolute.get()
+            } else {
+                false
+            },
             current_absolute_value: UnitValue::MIN,
             previous_absolute_control_value: None,
         }
-    }
-
-    fn positive_step_size_interval(&self) -> Interval<UnitValue> {
-        Interval::new_auto(
-            self.step_interval.get_ref().min_val().abs(),
-            self.step_interval.get_ref().max_val().abs(),
-        )
     }
 }
 
