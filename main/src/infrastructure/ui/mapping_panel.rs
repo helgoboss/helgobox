@@ -854,7 +854,7 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid out-of-range behavior");
-        self.update_mode_hint(ModeParameter::OutOfRangeBehavior(behavior));
+        self.update_mode_hint(ModeParameter::SpecificOutOfRangeBehavior(behavior));
         self.mapping.mode_model.out_of_range_behavior.set(behavior);
     }
 
@@ -865,7 +865,7 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid fire mode");
-        self.update_mode_hint(ModeParameter::FireMode(mode));
+        self.update_mode_hint(ModeParameter::SpecificFireMode(mode));
         self.mapping.mode_model.fire_mode.set(mode);
     }
 
@@ -930,7 +930,7 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid mode type");
-        self.update_mode_hint(ModeParameter::AbsoluteMode(mode));
+        self.update_mode_hint(ModeParameter::SpecificAbsoluteMode(mode));
         self.mapping.mode_model.r#type.set(mode);
         self.mapping
             .set_preferred_mode_values(self.session.extended_context());
@@ -1938,6 +1938,17 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
+    fn get_base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
+        ModeApplicabilityCheckInput {
+            target_is_virtual: self.mapping.target_model.is_virtual(),
+            is_feedback: false,
+            make_absolute: self.mapping.mode_model.make_absolute.get(),
+            source_character: DetailedSourceCharacter::RangeControl,
+            absolute_mode: self.mapping.mode_model.r#type.get(),
+            mode_parameter: ModeParameter::TargetMinMax,
+        }
+    }
+
     fn get_control_and_feedback_hint(
         &self,
         source_character: DetailedSourceCharacter,
@@ -1960,8 +1971,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             ..base_input
         };
         (
-            check_mode_applicability(control),
-            check_mode_applicability(feedback),
+            check_mode_applicability(control).hint(),
+            check_mode_applicability(feedback).hint(),
         )
     }
 
@@ -2136,6 +2147,12 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn show_if(&self, condition: bool, control_resource_ids: &[u32]) {
+        for id in control_resource_ids {
+            self.view.require_control(*id).set_visible(condition);
+        }
+    }
+
+    fn enable_if(&self, condition: bool, control_resource_ids: &[u32]) {
         for id in control_resource_ids {
             self.view.require_control(*id).set_visible(condition);
         }
@@ -3360,12 +3377,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);
+                view.invalidate_mode_controls();
             });
         self.panel
             .when(self.mapping.feedback_is_enabled.changed(), |view, _| {
                 view.panel
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
+                view.invalidate_mode_controls();
             });
         self.panel
             .when(self.mapping.prevent_echo_feedback.changed(), |view, _| {
@@ -3563,25 +3582,64 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(step_label);
     }
 
+    fn mode_parameter_is_relevant(
+        &self,
+        base_input: ModeApplicabilityCheckInput,
+        mode_parameter: ModeParameter,
+        relevant_source_characters: &Vec<DetailedSourceCharacter>,
+    ) -> bool {
+        let control_is_enabled = self.mapping.control_is_enabled.get();
+        let feedback_is_enabled = self.mapping.feedback_is_enabled.get();
+        relevant_source_characters.iter().any(|source_character| {
+            let is_applicable = |is_feedback| {
+                let input = ModeApplicabilityCheckInput {
+                    is_feedback,
+                    mode_parameter,
+                    source_character: *source_character,
+                    ..base_input
+                };
+                check_mode_applicability(input).is_relevant()
+            };
+            (control_is_enabled && is_applicable(false))
+                || (feedback_is_enabled && is_applicable(true))
+        })
+    }
+
     fn invalidate_mode_control_visibilities(&self) {
-        let mode = self.mode;
         let target = match self.real_target() {
             None => return,
             Some(t) => t,
         };
-        let show_round_controls = mode.supports_round_target_value()
+        let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
+        let base_input = self.get_base_mode_applicability_check_input();
+        let is_relevant = |mode_parameter: ModeParameter| {
+            self.mode_parameter_is_relevant(base_input, mode_parameter, &relevant_source_characters)
+        };
+        let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
             && self.target_with_context().is_known_to_be_roundable();
-        self.show_if(
+        self.enable_if(
             show_round_controls,
             &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
         );
-        self.show_if(
-            mode.supports_reverse(),
+        self.enable_if(
+            is_relevant(ModeParameter::SourceMinMax),
+            &[
+                root::ID_SETTINGS_SOURCE_LABEL,
+                root::ID_SETTINGS_SOURCE_MIN_LABEL,
+                root::ID_SETTINGS_SOURCE_MAX_LABEL,
+                root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
+                root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
+                root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
+                root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
+            ],
+        );
+        self.enable_if(
+            is_relevant(ModeParameter::Reverse),
             &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
         );
-        let show_jump_controls = mode.supports_jump() && target.can_report_current_value();
-        self.show_if(
-            show_jump_controls,
+        let target_can_report_current_value = target.can_report_current_value();
+        self.enable_if(
+            target_can_report_current_value && is_relevant(ModeParameter::JumpMinMax),
             &[
                 root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
                 root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
@@ -3594,19 +3652,19 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
             ],
         );
-        self.show_if(
-            show_jump_controls && mode.supports_takeover_mode(),
+        self.enable_if(
+            target_can_report_current_value && is_relevant(ModeParameter::TakeoverMode),
             &[root::ID_MODE_TAKEOVER_LABEL, root::ID_MODE_TAKEOVER_MODE],
         );
-        self.show_if(
-            mode.supports_out_of_range_behavior(),
+        self.enable_if(
+            is_relevant(ModeParameter::OutOfRangeBehavior),
             &[
                 root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
                 root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
             ],
         );
-        self.show_if(
-            target.can_report_current_value(),
+        self.enable_if(
+            is_relevant(ModeParameter::TargetMinMax) && target_can_report_current_value,
             &[
                 root::ID_SETTINGS_TARGET_LABEL_TEXT,
                 root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
@@ -3619,40 +3677,81 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
             ],
         );
-        self.show_if(
-            mode.supports_steps(),
+        let step_min_is_relevant =
+            is_relevant(ModeParameter::StepSizeMin) || is_relevant(ModeParameter::SpeedMin);
+        let step_max_is_relevant =
+            is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
+        self.enable_if(
+            step_min_is_relevant || step_max_is_relevant,
+            &[root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT],
+        );
+        self.enable_if(
+            step_min_is_relevant,
             &[
-                root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT,
                 root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
                 root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
                 root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
                 root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+            ],
+        );
+        self.enable_if(
+            step_max_is_relevant,
+            &[
                 root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
                 root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
                 root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
                 root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
             ],
         );
-        self.show_if(
-            mode.supports_rotate(),
+        self.enable_if(
+            is_relevant(ModeParameter::Rotate),
             &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
         );
-        self.show_if(
-            mode.supports_make_absolute(),
+        self.enable_if(
+            is_relevant(ModeParameter::MakeAbsolute),
             &[root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX],
         );
-        self.show_if(
-            mode.supports_eel_control_transformation(),
+        self.enable_if(
+            is_relevant(ModeParameter::ControlTransformation),
             &[
                 root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
                 root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
             ],
         );
-        self.show_if(
-            mode.supports_eel_feedback_transformation(),
+        self.enable_if(
+            is_relevant(ModeParameter::FeedbackTransformation),
             &[
                 root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
                 root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+            ],
+        );
+        self.enable_if(
+            is_relevant(ModeParameter::RelativeFilter),
+            &[root::ID_MODE_RELATIVE_FILTER_COMBO_BOX],
+        );
+        self.enable_if(
+            is_relevant(ModeParameter::ButtonFilter),
+            &[root::ID_MODE_BUTTON_FILTER_COMBO_BOX],
+        );
+        self.enable_if(
+            is_relevant(ModeParameter::FireMode),
+            &[
+                root::ID_MODE_FIRE_COMBO_BOX,
+                root::ID_MODE_FIRE_LINE_2_LABEL_1,
+                root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_2_LABEL_2,
+                root::ID_MODE_FIRE_LINE_3_LABEL_1,
+                root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
+                root::ID_MODE_FIRE_LINE_3_LABEL_2,
+            ],
+        );
+        self.enable_if(
+            is_relevant(ModeParameter::AbsoluteMode),
+            &[
+                root::ID_SETTINGS_MODE_COMBO_BOX,
+                root::ID_SETTINGS_MODE_LABEL,
             ],
         );
     }
@@ -3790,9 +3889,17 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_fire_controls(&self, initiator: Option<u32>) {
-        self.invalidate_mode_fire_mode_combo_box();
-        self.invalidate_mode_fire_line_2_controls(initiator);
-        self.invalidate_mode_fire_line_3_controls(initiator);
+        let base_input = self.get_base_mode_applicability_check_input();
+        let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
+        if self.mode_parameter_is_relevant(
+            base_input,
+            ModeParameter::FireMode,
+            &relevant_source_characters,
+        ) {
+            self.invalidate_mode_fire_mode_combo_box();
+            self.invalidate_mode_fire_line_2_controls(initiator);
+            self.invalidate_mode_fire_line_3_controls(initiator);
+        }
     }
 
     fn invalidate_mode_min_step_controls(&self, initiator: Option<u32>) {

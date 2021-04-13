@@ -179,51 +179,6 @@ impl ModeModel {
         }
     }
 
-    pub fn supports_reverse(&self) -> bool {
-        // For feedback always relevant
-        true
-    }
-
-    pub fn supports_out_of_range_behavior(&self) -> bool {
-        // For feedback always relevant
-        true
-    }
-
-    pub fn supports_jump(&self) -> bool {
-        self.r#type.get() == AbsoluteMode::Normal
-    }
-
-    pub fn supports_eel_control_transformation(&self) -> bool {
-        self.r#type.get() == AbsoluteMode::Normal
-    }
-
-    pub fn supports_eel_feedback_transformation(&self) -> bool {
-        true
-    }
-
-    pub fn supports_round_target_value(&self) -> bool {
-        self.r#type.get() == AbsoluteMode::Normal
-    }
-
-    pub fn supports_takeover_mode(&self) -> bool {
-        self.r#type.get() == AbsoluteMode::Normal
-    }
-
-    pub fn supports_steps(&self) -> bool {
-        // No matter which absolute mode, incoming relative values always support this
-        true
-    }
-
-    pub fn supports_rotate(&self) -> bool {
-        // No matter which absolute mode, incoming relative values always support this
-        true
-    }
-
-    pub fn supports_make_absolute(&self) -> bool {
-        // No matter which absolute mode, incoming relative values always support this
-        true
-    }
-
     fn positive_step_size_interval(&self) -> Interval<UnitValue> {
         Interval::new_auto(
             self.step_interval.get_ref().min_val().abs(),
