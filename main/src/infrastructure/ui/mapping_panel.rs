@@ -11,7 +11,7 @@ use helgoboss_learn::{
     OscTypeTag, OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
     UnitValue,
 };
-use helgoboss_midi::{Channel, U14, U7};
+use helgoboss_midi::{Channel, ShortMessageType, U14, U7};
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
@@ -170,9 +170,14 @@ impl MappingPanel {
     }
 
     fn handle_target_line_3_button_press(&self) {
-        open_in_browser(
-            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#raw-midi-source",
-        );
+        if let Some(preset) = prompt_for_predefined_raw_midi_pattern(self.view.require_window()) {
+            let mapping = self.mapping();
+            mapping
+                .borrow_mut()
+                .target_model
+                .raw_midi_pattern
+                .set(preset);
+        }
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -2736,7 +2741,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::SendMidi => Some("Help"),
+                ReaperTargetType::SendMidi => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5190,6 +5195,41 @@ fn parse_position_as_index(edit_control: Window) -> u32 {
     std::cmp::max(position - 1, 0) as u32
 }
 
+fn chunked_number_menu<R>(
+    count: u32,
+    batch_size: u32,
+    format_one_rooted: bool,
+    f: impl Fn(u32) -> swell_ui::menu_tree::Entry<R>,
+) -> Vec<swell_ui::menu_tree::Entry<R>> {
+    use swell_ui::menu_tree::*;
+    (0..count / batch_size)
+        .map(|batch_index| {
+            let offset = batch_index * batch_size;
+            let range = offset..(offset + batch_size);
+            menu(
+                format!(
+                    "{} - {}",
+                    if format_one_rooted {
+                        range.start + 1
+                    } else {
+                        range.start
+                    },
+                    if format_one_rooted {
+                        range.end
+                    } else {
+                        range.end - 1
+                    }
+                ),
+                range.map(&f).collect(),
+            )
+        })
+        .collect()
+}
+
+fn channel_menu<R>(f: impl Fn(u8) -> R) -> Vec<R> {
+    (0..16).map(&f).collect()
+}
+
 fn prompt_for_predefined_control_element_name(
     window: Window,
     r#type: VirtualControlElementType,
@@ -5206,7 +5246,6 @@ fn prompt_for_predefined_control_element_name(
                 control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
             }
         };
-        let number_batch_size = 10;
         let entries = vec![
             menu(
                 "DAW control",
@@ -5214,44 +5253,31 @@ fn prompt_for_predefined_control_element_name(
             ),
             menu(
                 "Numbered",
-                (0..100 / number_batch_size)
-                    .map(|batch_index| {
-                        let offset = batch_index * number_batch_size;
-                        let range = offset..(offset + number_batch_size);
-                        menu(
-                            format!("{} - {}", range.start + 1, range.end),
-                            range
-                                .map(|i| {
-                                    let label = {
-                                        let pos = i + 1;
-                                        let element = r#type.create_control_element(
-                                            VirtualControlElementId::Indexed(i),
-                                        );
-                                        match grouped_mappings.get(&element) {
-                                            None => pos.to_string(),
-                                            Some(mappings) => {
-                                                let first_mapping = mappings[0].borrow();
-                                                let first_mapping_name =
-                                                    first_mapping.effective_name();
-                                                if mappings.len() == 1 {
-                                                    format!("{} ({})", pos, first_mapping_name)
-                                                } else {
-                                                    format!(
-                                                        "{} ({} + {})",
-                                                        pos,
-                                                        first_mapping_name,
-                                                        mappings.len() - 1
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    };
-                                    item(label, move || (i + 1).to_string())
-                                })
-                                .collect(),
-                        )
-                    })
-                    .collect(),
+                chunked_number_menu(100, 10, true, |i| {
+                    let label = {
+                        let pos = i + 1;
+                        let element =
+                            r#type.create_control_element(VirtualControlElementId::Indexed(i));
+                        match grouped_mappings.get(&element) {
+                            None => pos.to_string(),
+                            Some(mappings) => {
+                                let first_mapping = mappings[0].borrow();
+                                let first_mapping_name = first_mapping.effective_name();
+                                if mappings.len() == 1 {
+                                    format!("{} ({})", pos, first_mapping_name)
+                                } else {
+                                    format!(
+                                        "{} ({} + {})",
+                                        pos,
+                                        first_mapping_name,
+                                        mappings.len() - 1
+                                    )
+                                }
+                            }
+                        }
+                    };
+                    item(label, move || (i + 1).to_string())
+                }),
             ),
         ];
         let mut root_menu = root_menu(entries);
@@ -5262,6 +5288,122 @@ fn prompt_for_predefined_control_element_name(
     let result_index = window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
     let item = pure_menu.find_item_by_id(result_index)?;
     Some(item.invoke_handler())
+}
+
+fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
+    let menu_bar = MenuBar::new_popup_menu();
+    enum MenuAction {
+        Preset(String),
+        Help,
+    }
+    fn fmt_ch(ch: u8) -> String {
+        format!("Channel {}", ch + 1)
+    }
+    fn double_data_byte_msg_menu(
+        source_type: MidiSourceType,
+        msg_type: ShortMessageType,
+        label: &str,
+    ) -> swell_ui::menu_tree::Entry<MenuAction> {
+        use swell_ui::menu_tree::*;
+        menu(
+            source_type.to_string(),
+            channel_menu(|ch| {
+                menu(
+                    fmt_ch(ch),
+                    chunked_number_menu(128, 8, false, |i| {
+                        item(format!("{} {}", label, i), move || {
+                            let status_byte: u8 = msg_type.into();
+                            MenuAction::Preset(format!(
+                                "{:02X} {:02X} [0nml kjih]",
+                                status_byte + ch,
+                                i
+                            ))
+                        })
+                    }),
+                )
+            }),
+        )
+    }
+
+    fn single_data_byte_msg_menu(
+        source_type: MidiSourceType,
+        msg_type: ShortMessageType,
+        last_byte: u8,
+    ) -> swell_ui::menu_tree::Entry<MenuAction> {
+        use swell_ui::menu_tree::*;
+        menu(
+            source_type.to_string(),
+            channel_menu(|ch| {
+                item(fmt_ch(ch), move || {
+                    let status_byte: u8 = msg_type.into();
+                    MenuAction::Preset(format!(
+                        "{:02X} [0nml kjih] {:02X}",
+                        status_byte + ch,
+                        last_byte
+                    ))
+                })
+            }),
+        )
+    }
+
+    let pure_menu = {
+        use swell_ui::menu_tree::*;
+
+        use MenuAction::*;
+        let entries = vec![
+            item("Help", || Help),
+            double_data_byte_msg_menu(
+                MidiSourceType::ControlChangeValue,
+                ShortMessageType::ControlChange,
+                "CC",
+            ),
+            double_data_byte_msg_menu(
+                MidiSourceType::NoteVelocity,
+                ShortMessageType::NoteOn,
+                "Note",
+            ),
+            single_data_byte_msg_menu(MidiSourceType::NoteKeyNumber, ShortMessageType::NoteOn, 127),
+            menu(
+                MidiSourceType::PitchBendChangeValue.to_string(),
+                channel_menu(|ch| {
+                    item(fmt_ch(ch), move || {
+                        let status_byte: u8 = ShortMessageType::PitchBendChange.into();
+                        Preset(format!("{:02X} [0gfe dcba] [0nml kjih]", status_byte + ch))
+                    })
+                }),
+            ),
+            single_data_byte_msg_menu(
+                MidiSourceType::ChannelPressureAmount,
+                ShortMessageType::ChannelPressure,
+                0,
+            ),
+            single_data_byte_msg_menu(
+                MidiSourceType::ProgramChangeNumber,
+                ShortMessageType::ProgramChange,
+                0,
+            ),
+            double_data_byte_msg_menu(
+                MidiSourceType::PolyphonicKeyPressureAmount,
+                ShortMessageType::PolyphonicKeyPressure,
+                "Note",
+            ),
+        ];
+        let mut root_menu = root_menu(entries);
+        root_menu.index(1);
+        fill_menu(menu_bar.menu(), &root_menu);
+        root_menu
+    };
+    let result_index = window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
+    let item = pure_menu.find_item_by_id(result_index)?;
+    match item.invoke_handler() {
+        MenuAction::Preset(preset) => Some(preset),
+        MenuAction::Help => {
+            open_in_browser(
+                "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#raw-midi-source",
+            );
+            None
+        }
+    }
 }
 
 fn build_slash_menu_entries(
