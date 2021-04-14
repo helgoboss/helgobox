@@ -1292,7 +1292,7 @@ pub enum ReaperTargetType {
     Action = 0,
     #[display(fmt = "Project: Invoke transport action")]
     Transport = 16,
-    #[display(fmt = "Project: Navigate within tracks")]
+    #[display(fmt = "Project: Navigate between tracks")]
     SelectedTrack = 14,
     #[display(fmt = "Project: Seek")]
     Seek = 23,
@@ -1330,14 +1330,14 @@ pub enum ReaperTargetType {
     TrackSolo = 8,
 
     // FX chain targets
-    #[display(fmt = "FX chain: Navigate within FXs")]
+    #[display(fmt = "FX chain: Navigate between FXs")]
     // FX targets
     FxNavigate = 28,
     #[display(fmt = "FX: Enable/disable")]
     FxEnable = 12,
     #[display(fmt = "FX: Load snapshot")]
     LoadFxSnapshot = 19,
-    #[display(fmt = "FX: Navigate within presets")]
+    #[display(fmt = "FX: Navigate between presets")]
     FxPreset = 13,
     #[display(fmt = "FX: Open/close")]
     FxOpen = 27,

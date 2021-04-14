@@ -947,7 +947,7 @@ involved using multiple ReaLearn instances:
   a bunch of mappings with [FX: Enable/disable](#fx-enabledisable) target in order to enable/disable other ReaLearn FX
   instances. Then each of the other ReaLearn instances acts as one mapping bank/group.
 - **By switching between presets of another ReaLearn instance:** You can use one main ReaLearn instance containing a
-  mapping with [FX: Navigate within presets](#fx-navigate-within-presets) target in order to navigate between presets of
+  mapping with [FX: Navigate between presets](#fx-navigate-between-presets) target in order to navigate between presets of
   another ReaLearn FX instance. Then each preset in the other ReaLearn instance acts as one mapping bank/group. However,
   that method is pretty limited and hard to maintain because presets are something global
   (not saved together with your REAPER project).
@@ -1627,7 +1627,7 @@ Invokes a transport-related action.
     - **Repeat:** Enables repeat for the containing project if the incoming absolute control value is greater than 0%,
       otherwise disables it.
 
-###### Project: Navigate within tracks
+###### Project: Navigate between tracks
 
 Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
 
@@ -1790,7 +1790,7 @@ Provides the following additional settings:
 Learning this target by pressing the "Solo" button of the *master* track is currently not possible but
 of course you can just select it manually in the dropdown menu.
 
-###### FX chain: Navigate within FXs
+###### FX chain: Navigate between FXs
 
 Steps through the FX instances in the FX chain by always having exactly one FX instance visible.
 To be used with endless rotary encoders or previous/next-style "Incremental buttons".
@@ -1816,7 +1816,7 @@ Please note that some plug-ins have *very large* states. Therefore you should ke
 will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
 can quickly add up and make REAPER/ReaLearn slow!
 
-###### FX: Navigate within presets
+###### FX: Navigate between presets
 
 Steps through FX presets.
 
@@ -2027,7 +2027,7 @@ can be converted to relative values - rotary encoders and buttons. They don't af
   numbers) or _"divide"_ (negative numbers) value increments with a factor instead. Negative numbers are
   most useful for rotary encoders because they will essentially lower their sensitivity. Virtual targets
   are always discrete. Example:
-    - Let's assume you selected the discrete target [FX: Navigate within presets](#fx-navigate-within-presets), which is
+    - Let's assume you selected the discrete target [FX: Navigate between presets](#fx-navigate-between-presets), which is
       considered discrete because an FX with for example 5 presets has 6 well-defined possible values (including the
       &lt;no preset&gt; option), there's nothing inbetween. And let's also assume that you have a controller like Midi
       Fighter Twister whose rotary encoders don't support built-in acceleration. Now you slightly move an encoder
@@ -3016,7 +3016,7 @@ work in all cases. However, ReaLearn provides many means to get close to this id
 In order to make it easier for users to know which main presets are compatible with which controller presets, ReaLearn
 is in the process of introducing so-called domains. For now, the following domains are considered:
 
-- **DAW control:** For typical Mackie-style DAW control elements.
+- **DAW:** For typical Mackie-style DAW control elements.
 - **Grid:** For grid-control elements such as the ones on the Launchpad.
 - **Numbered:** For control elements that are best represented as increasing numbers, e.g. a simple generic row of knobs.
 
@@ -3027,12 +3027,12 @@ The general idea is:
 - A controller should not double-expose one single control element under different virtual control element names.
 - Main presets *support* domains.
     - E.g. they could assign a track volume change to both the numbered multi control element 5 ("Numbered" domain) and
-      to the named multi control element `ch5/fader` ("DAW control" domain) by using 2 mappings with the same target.
+      to the named multi control element `ch5/fader` ("DAW" domain) by using 2 mappings with the same target.
       Then we say this preset supports both domains.
 
 #### DAW control
 
-**Supported domains:** DAW control
+**Supported domains:** DAW
 
 - A preset that emulates the typical "Mackie Control"-style DAW control. Not completely, but a large part.
 - Is compatible with any controller preset that covers the DAW domain.
