@@ -2406,7 +2406,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_controls(&self, initiator: Option<u32>) {
-        self.invalidate_target_value_control_visibility();
         self.invalidate_target_category_combo_box();
         self.invalidate_target_type_combo_box();
         self.invalidate_target_line_2(initiator);
@@ -2420,18 +2419,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_check_box_6();
         self.invalidate_target_value_controls();
         self.invalidate_target_learn_button();
-    }
-
-    fn invalidate_target_value_control_visibility(&self) {
-        self.show_if(
-            self.target.category.get() == TargetCategory::Reaper,
-            &[
-                root::ID_TARGET_VALUE_LABEL_TEXT,
-                root::ID_TARGET_VALUE_SLIDER_CONTROL,
-                root::ID_TARGET_VALUE_EDIT_CONTROL,
-                root::ID_TARGET_VALUE_TEXT,
-            ],
-        );
     }
 
     fn invalidate_target_type_combo_box(&self) {
@@ -3300,9 +3287,29 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_value_controls(&self) {
-        if let Some(t) = self.real_target() {
-            let value = t.current_value().unwrap_or(UnitValue::MIN);
-            self.invalidate_target_value_controls_with_value(value);
+        let error = if let Some(t) = self.real_target() {
+            if t.can_report_current_value() {
+                let value = t.current_value().unwrap_or(UnitValue::MIN);
+                self.invalidate_target_value_controls_with_value(value);
+                None
+            } else {
+                Some("")
+            }
+        } else {
+            Some("Target currently inactive!")
+        };
+        let value_text = self.view.require_control(root::ID_TARGET_VALUE_TEXT);
+        self.show_if(
+            error.is_none(),
+            &[
+                root::ID_TARGET_VALUE_LABEL_TEXT,
+                root::ID_TARGET_VALUE_SLIDER_CONTROL,
+                root::ID_TARGET_VALUE_EDIT_CONTROL,
+            ],
+        );
+        value_text.set_enabled(error.is_none());
+        if let Some(msg) = error {
+            value_text.set_text(msg);
         }
     }
 
@@ -4256,7 +4263,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .param_type
                 .changed_with_initiator()
-                .merge(target.param_index.changed_with_initiator())
                 .merge(target.param_name.changed_with_initiator())
                 .merge(target.param_expression.changed_with_initiator()),
             |view, initiator| {
@@ -4264,6 +4270,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
+        self.panel.when(target.param_index.changed(), |view, _| {
+            view.invalidate_target_value_controls();
+            view.invalidate_mode_controls();
+        });
         self.panel
             .when(target.action_invocation_type.changed(), |view, _| {
                 view.invalidate_target_line_3(None);
@@ -4288,6 +4298,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.fx_display_type.changed()),
             |view, _| {
                 view.invalidate_target_line_4(None);
+                view.invalidate_target_value_controls();
             },
         );
         self.panel
@@ -4305,6 +4316,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             |view, _| {
                 view.invalidate_window_title();
                 view.invalidate_target_check_box_1();
+                view.invalidate_target_value_controls();
             },
         );
         self.panel.when(
