@@ -282,7 +282,7 @@ impl HeaderPanel {
                             || MenuAction::ToggleSendFeedbackOnlyIfTrackArmed,
                         ),
                         item_with_opts(
-                            "Move instance to upper floor",
+                            "Make instance superior",
                             ItemOpts {
                                 enabled: true,
                                 checked: session.lives_on_upper_floor.get(),
@@ -754,10 +754,17 @@ impl HeaderPanel {
     }
 
     fn toggle_upper_floor_membership(&self) {
-        self.session()
-            .borrow_mut()
-            .lives_on_upper_floor
-            .set_with(|prev| !*prev);
+        let enabled = {
+            let session = self.session();
+            let mut session = session.borrow_mut();
+            let new_state = !session.lives_on_upper_floor.get();
+            session.lives_on_upper_floor.set(new_state);
+            new_state
+        };
+        if enabled {
+            let msg = "This ReaLearn instance is now superior. When this instance is active (contains active main mappings), it will disable other ReaLearn instances with the same control input and/or feedback output that don't have this setting turned on.";
+            self.view.require_window().alert("ReaLearn", msg);
+        };
     }
 
     fn fill_all_controls(&self) {
