@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-04-09 (v2.8.0-rc.2)</code></td>
+  <td><code>2021-04-14 (v2.8.0-rc.4)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -528,21 +528,21 @@ on macOS) with the following entries:
       it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
       naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
       track is unarmed (*this is subject to change in future!*).
-    - **Move to upper floor:** If ticked, this instance is allowed to cancel other instances which share the same input
-      and/or output device (hardware devices only, not FX input or output!). With this you can easily let your 
+    - **Make instance superior:** If ticked, this instance is allowed to cancel other instances which share the same
+      input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your 
       controller control the currently focused FX but fall back to your usual controls when it's closed. It's intended
       to be used primarily on instances that use \"Auto-load: Depending on focused FX\". 
-        - By default, each ReaLearn instance "lives" on the lower floor. This is often okay because ReaLearn instances
+        - By default, ReaLearn instances are not superior, just normal. This is often okay because ReaLearn instances
           are friendly fellows and like sharing controllers with each other.
         - For example, if 2 instances use the same input or output device and they use different control elements, they
           can peacefully coexist. And even if they share a control element for the *control direction*, they are still
           fine with it. The same control element will control 2 mappings, why not!
         - Things start to get hairy as soon as 2 instances want to send *feedback* to the same control elements at the
           same time. You should avoid this. You should not even do this within one ReaLearn instance. This can't work.
-        - Sometimes you want one instance to cover/cancel/mute another one! You can do this by moving this instance to
-          the upper floor. Then, whenever this instance has at least one active mapping, all lower-floor instances with
+        - Sometimes you want one instance to cover/cancel/mute another one! You can do this by making this instance 
+          *superior*. Then, whenever this instance has at least one active mapping, all non-superior instances with
           the same control and/or feedback device will be disabled for control and/or feedback.
-        - You can have multiple instances on the upper floor. Make sure they get along with each other :)
+        - You can have multiple superior instances. Make sure they get along with each other :)
 - **Server**
     - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn Companion app to
       connect to ReaLearn.
@@ -1300,8 +1300,8 @@ This source is feedback-only and exists for enabling more complex feedback use c
 It lets you write an EEL script that will be executed whenever ReaLearn "feels" like it needs to send some feedback
 to the MIDI device.
 
-- **Script:** The EEL script.
-- **...:** Opens the script in a separate window.
+- **Script:** The EEL script. Is disabled if the script contains more than one line.
+- **...:** Opens the script in a separate window (for multi-line scripts).
 
 **Script input**
 
@@ -1350,26 +1350,29 @@ OSC sources allow configuration of the following aspects:
 As pointed out before, *virtual* sources exist in order to decouple your mappings from the actual
 MIDI/OSC source.
 
-The following virtual source types are kind of the lowest common denominator of possible controls. They
-are inspired by the popular 8-knobs/8-buttons layout. Sometimes the knobs are just knobs, sometimes they are rotary
-encoders - it doesn't really matter in most cases. The most important distinction is "something which you can move"
-or "something which you can press".
+If you want to define a virtual source, you first need to choose among two types of virtual control elements: 
+"Multi" (control elements that support more than 2 values) and "Button" (simple on/off controls). It's sort of the
+lowest common denominator among all possible control element types. This distinction is used by ReaLearn
+to optimize its user interface. In future, it might be used for additional improvements. 
 
-Both types have:
+Both types are explained in detail below. They support the following settings:
 
-- **ID:** The logical number of the control element. In a row of 8 knobs one would typically assign number 1 to the
-  leftmost one and number 8 to the rightmost one. It's your choice.
-- **Name:** For more advanced virtual control scenarios it can be useful to think in names instead of numbers. If you
-  select ID `<Named>`, you can give your virtual control element a name. It can take up to 16 alphanumeric and 
-  punctuation characters (no exotic characters, e.g. no umlauts).
-- **Pick:** Lets you pick predefined names. The names you see here are heavily inspired by the wording used with Mackie
-  Control devices. If you want your main preset to be compatible with as many controller presets as possible, try to use
-  them instead of inventing your own naming scheme. 
+- **ID:** A number or name for uniquely identifying the control element.
+    - Numbers are especially suited for the 8-knobs/8-buttons layouts. In a row of 8 knobs one would typically assign
+      number 1 to the leftmost and number 8 to the rightmost one. It's your choice.
+    - For more advanced virtual control scenarios it can be useful to think in names instead of numbers. That's why 
+      the IDs of virtual control elements are not limited to numbers only. You can use up to 16 alphanumeric and 
+      punctuation characters (no exotic characters, e.g. no umlauts).
+- **Pick:** Lets you conveniently pick out of predefined numbers and names. If you want your main preset to be
+  compatible with as many controller presets as possible, try to use predefined names instead of inventing your own
+  naming scheme.
+    - **DAW control:** The names you see here are heavily inspired by the wording used with Mackie Control devices.
+    - **Numbered:** Simply lets you pick among any number between 1 and 100. Wow, you can save up to 3 key presses!!!
 
 ###### Multi
 
 Represents a control element that you can "move", that is, something that allows you to choose between more than 2
-values. Usually everything which is *not* a button :) Here's a list of typical *multis*:  
+values. Usually everything which is *not* a simple on/off button :) Here's a list of typical *multis*:  
 
 - Fader
 - Knob
@@ -1379,18 +1382,19 @@ values. Usually everything which is *not* a button :) Here's a list of typical *
 - XY pad (1 axis)
 - Touch strip
 - (Endless) rotary encoder
+- Velocity-sensitive pads or keys
 
 ###### Button
 
-Represents a control element that you can "press", that is, something which is just a trigger or has only 2 states
-(on/off). Usually everything which is a button. Here's a list of typical *multis*:
+Represents a control element that distinguishes between two possible states only (e.g. on/off), or even just one
+("trigger"). Usually it has the form factor of a button that you can "press". Here's a list of typical *buttons*:
 
 - Play button
 - Switch
 - Sustain pedal
 
-It's not 100% clear sometimes, e.g. velocity-sensitive keys could be either a multi or a button. Choose what is suited
-best for your musical use case. 
+Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that
+you are not interested in the velocity sensitivity.
 
 #### Target
 
@@ -1407,12 +1411,14 @@ shared among all targets:
         - **Virtual:** Targets that invoke virtual control elements. This source
           category is available for controller mappings only.
     - **Right dropdown:** Lets you choose a target type within that category.
-
+    
 ##### Category "REAPER"
 
 All REAPER targets additionally have this:
 
 - **Value:** Reflects the current value of this mapping target and lets you change it.
+    - If the target can't be resolved at the moment, it will show "Target currently inactive!".
+
 
 Targets that need a track, FX, FX parameter or send/receive have dropdowns that let you choose how you want to address 
 these objects. Let's call them *object selectors*. Here's an explanation of commonly available
@@ -1874,6 +1880,13 @@ controller mappings. ReaLearn allows you to prepare your mapping for both cases 
 terms of increments or decrements. Control elements that can emit relative values are rotary encoders and
 virtual multis.
 
+Having so many settings available at the same time can be a bit daunting. ReaLearn helps you by hiding settings
+that don't make sense in the current context. It shows or hides them based on the following criteria:
+
+- Is control and/or feedback enabled for the mapping?
+- What are the characteristics of the source and target?
+- What's the current setting of *Absolute mode* and *Make absolute*?
+
 No matter which kind of source, the following UI elements are always relevant:
 
 - **Reset to defaults:** Resets the settings to some sensible defaults. 
@@ -2003,7 +2016,7 @@ can be converted to relative values - rotary encoders and buttons. They don't af
     which support acceleration and virtual control elements that are mapped as \"Incremental buttons" and have
     a \"Speed\" > 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used
     as "Incremental buttons"). If
-    you set this to the same value like _Step size Min_, encoder acceleration or changes in velocity
+    you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity
     will have absolutely no effect on the incrementation/decrementation amount. If you set it to
     100%, the effect is maximized.
 - **Speed Min/Max:** When you choose a discrete target, the _Step size_ label will change into
@@ -2106,7 +2119,16 @@ affect *feedback* as well (because they might change some target values).
       *Source Min* to 1. However, doing so would also affect the feedback direction, which is often undesirable 
       because it will mess with the button LED color or on/off state. 
     - **Release only:** Makes ReaLearn ignore the press of the button (just processing its release). Rare, but possible.
-      
+   
+#### Help
+
+This section provides context-sensitive help for the tuning section. Whenever you touch a setting in
+the tuning section, some text will appear which explains what this element does, both for the *control* and for the
+*feedback* direction (if applicable).
+
+- **If source is a:** It often depends on the kind of source what effect a setting has. Therefore this dropdown
+  always contains a list of sources. It only displays relevant kinds of sources. If a source kind is impossible
+  according to the current source settings or if it's not supported by the setting, it won't appear in the list.
 
 ### REAPER actions
 
@@ -2969,8 +2991,8 @@ Mackie-compatible controllers often have LCD displays, which you can of course n
 elements. They can only display things, so they only support the *feedback* direction. Here's how you use them:
 
 - **Assignment 7-segment display**: At the moment, this is the only LCD display supported by this controller preset.
-  It allows you to display the numbers between `00` and `99`. Use a virtual source with the type *Multi*, ID `<Named>`
-  and name `lcd/assignment`. Use an arbitary feedback-enabled target to make it display the value as percentage. As with
+  It allows you to display the numbers between `00` and `99`. Use a virtual source with type *Multi* and ID 
+  `lcd/assignment`. Use an arbitrary feedback-enabled target to make it display the value as percentage. As with
   all kind of feedback (also motorized faders and LEDs), you can use e.g. the mapping's *Source/Target Min/Max* settings
   to adjust the displayed value range.
 
@@ -2994,9 +3016,9 @@ work in all cases. However, ReaLearn provides many means to get close to this id
 In order to make it easier for users to know which main presets are compatible with which controller presets, ReaLearn
 is in the process of introducing so-called domains. For now, the following domains are considered:
 
-- **DAW:** For typical Mackie-style DAW control elements.
+- **DAW control:** For typical Mackie-style DAW control elements.
 - **Grid:** For grid-control elements such as the ones on the Launchpad.
-- **Linear:** For control elements that are best represented as increasing numbers, e.g. a simple generic row of knobs.
+- **Numbered:** For control elements that are best represented as increasing numbers, e.g. a simple generic row of knobs.
 
 The general idea is:
 
@@ -3004,13 +3026,13 @@ The general idea is:
     - E.g. the Akai APC Key 25 has control elements of all of the mentioned domains.
 - A controller should not double-expose one single control element under different virtual control element names.
 - Main presets *support* domains.
-    - E.g. they could assign a track volume change to both the numbered multi control element 5 ("Linear" domain) and
-      to the named multi control element `ch5/fader` ("DAW" domain) by using 2 mappings with the same target.
+    - E.g. they could assign a track volume change to both the numbered multi control element 5 ("Numbered" domain) and
+      to the named multi control element `ch5/fader` ("DAW control" domain) by using 2 mappings with the same target.
       Then we say this preset supports both domains.
 
 #### DAW control
 
-**Supported domains:** DAW
+**Supported domains:** DAW control
 
 - A preset that emulates the typical "Mackie Control"-style DAW control. Not completely, but a large part.
 - Is compatible with any controller preset that covers the DAW domain.
