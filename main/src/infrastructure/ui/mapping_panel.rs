@@ -3595,10 +3595,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_mode_control_visibilities(&self) {
-        let target = match self.real_target() {
-            None => return,
-            Some(t) => t,
-        };
         let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
         let base_input = self.mapping.base_mode_applicability_check_input();
         let is_relevant = |mode_parameter: ModeParameter| {
@@ -3608,7 +3604,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                 &relevant_source_characters,
             )
         };
-        let target_can_report_current_value = target.can_report_current_value();
+        let real_target = self.real_target();
+        let target_can_report_current_value = real_target
+            .as_ref()
+            .map(|t| t.can_report_current_value())
+            .unwrap_or_default();
         // For all source characters
         {
             let show_source_min_max = is_relevant(ModeParameter::SourceMinMax);
@@ -3724,10 +3724,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         // For encoders and incremental buttons
         {
-            let step_min_is_relevant =
-                is_relevant(ModeParameter::StepSizeMin) || is_relevant(ModeParameter::SpeedMin);
-            let step_max_is_relevant =
-                is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
+            let step_min_is_relevant = real_target.is_some()
+                && (is_relevant(ModeParameter::StepSizeMin)
+                    || is_relevant(ModeParameter::SpeedMin));
+            let step_max_is_relevant = real_target.is_some()
+                && (is_relevant(ModeParameter::StepSizeMax)
+                    || is_relevant(ModeParameter::SpeedMax));
             self.enable_if(
                 step_min_is_relevant || step_max_is_relevant,
                 &[root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT],
