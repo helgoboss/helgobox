@@ -1,4 +1,4 @@
-use crate::domain::{MidiControlInput, MidiFeedbackOutput, OscDeviceId};
+use crate::domain::{MidiControlInput, MidiDestination, OscDeviceId};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -32,7 +32,7 @@ pub enum DeviceControlInput {
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum FeedbackOutput {
-    Midi(MidiFeedbackOutput),
+    Midi(MidiDestination),
     Osc(OscDeviceId),
 }
 
@@ -40,7 +40,7 @@ impl FeedbackOutput {
     pub fn device_output(self) -> Option<DeviceFeedbackOutput> {
         use FeedbackOutput::*;
         match self {
-            Midi(MidiFeedbackOutput::Device(id)) => Some(DeviceFeedbackOutput::Midi(id)),
+            Midi(MidiDestination::Device(id)) => Some(DeviceFeedbackOutput::Midi(id)),
             Osc(id) => Some(DeviceFeedbackOutput::Osc(id)),
             _ => None,
         }

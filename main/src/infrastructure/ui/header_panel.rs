@@ -25,7 +25,7 @@ use crate::domain::{
     ControlInput, ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
-use crate::domain::{MidiControlInput, MidiFeedbackOutput};
+use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
     ExtendedPresetManager, MappingModelData, OscDevice, SessionData,
 };
@@ -1193,7 +1193,7 @@ impl HeaderPanel {
         let b = self
             .view
             .require_control(root::ID_FEEDBACK_DEVICE_COMBO_BOX);
-        use MidiFeedbackOutput::*;
+        use MidiDestination::*;
         if let Some(osc_device_id) = self.session().borrow().osc_output_device_id.get_ref() {
             // We currently don't let the UI set both a MIDI and OSC device. Although internally
             // this would be perfectly possible, it could be confusing.
@@ -1309,7 +1309,7 @@ impl HeaderPanel {
                     session.osc_output_device_id.set(None);
                     session
                         .midi_feedback_output
-                        .set(Some(MidiFeedbackOutput::FxOutput));
+                        .set(Some(MidiDestination::FxOutput));
                     true
                 }
                 -1 => {
@@ -1335,7 +1335,7 @@ impl HeaderPanel {
                     session.osc_output_device_id.set(None);
                     session
                         .midi_feedback_output
-                        .set(Some(MidiFeedbackOutput::Device(dev_id)));
+                        .set(Some(MidiDestination::Device(dev_id)));
                     true
                 }
                 _ => false,

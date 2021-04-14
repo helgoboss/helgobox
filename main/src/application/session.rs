@@ -8,7 +8,7 @@ use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
     ExtendedProcessorContext, FeedbackOutput, MainMapping, MappingCompartment, MappingId,
-    MidiControlInput, MidiFeedbackOutput, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
     RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
     COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
@@ -53,7 +53,7 @@ pub struct Session {
     pub auto_correct_settings: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
-    pub midi_feedback_output: Prop<Option<MidiFeedbackOutput>>,
+    pub midi_feedback_output: Prop<Option<MidiDestination>>,
     pub osc_input_device_id: Prop<Option<OscDeviceId>>,
     pub osc_output_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,

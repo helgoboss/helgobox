@@ -2,7 +2,7 @@ use crate::domain::{
     classify_midi_message, MidiMessageClassification, MidiSource, MidiSourceScanner,
     RealTimeProcessor,
 };
-use helgoboss_learn::MidiSourceValue;
+use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
 use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{
@@ -42,6 +42,7 @@ pub enum NormalAudioHookTask {
 #[derive(Debug)]
 pub enum FeedbackAudioHookTask {
     MidiDeviceFeedback(MidiOutputDeviceId, MidiSourceValue<RawShortMessage>),
+    SendMidi(MidiOutputDeviceId, Box<RawMidiEvent>),
 }
 
 #[derive(Debug)]
@@ -121,6 +122,13 @@ impl OnAudioBuffer for RealearnAudioHook {
                             }
                         });
                     }
+                }
+                SendMidi(dev_id, raw_midi_event) => {
+                    MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                        if let Some(mo) = mo {
+                            mo.send_msg(&*raw_midi_event, SendMidiTime::Instantly);
+                        }
+                    });
                 }
             }
         }

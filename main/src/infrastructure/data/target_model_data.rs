@@ -12,8 +12,8 @@ use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, SeekOptions, SoloBehavior, TouchedParameterType, TrackExclusivity,
-    TrackRouteType, TransportAction, VirtualTrack,
+    MappingCompartment, SeekOptions, SendMidiDestination, SoloBehavior, TouchedParameterType,
+    TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::VirtualControlElementIdData;
 use crate::infrastructure::plugin::App;
@@ -96,6 +96,10 @@ pub struct TargetModelData {
     pub scroll_arrange_view: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub scroll_mixer: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub send_midi_destination: SendMidiDestination,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub raw_midi_pattern: String,
 }
 
 impl TargetModelData {
@@ -145,6 +149,8 @@ impl TargetModelData {
             fx_display_type: model.fx_display_type.get(),
             scroll_arrange_view: model.scroll_arrange_view.get(),
             scroll_mixer: model.scroll_mixer.get(),
+            send_midi_destination: model.send_midi_destination.get(),
+            raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
         }
     }
 
@@ -311,6 +317,12 @@ impl TargetModelData {
         model
             .scroll_mixer
             .set_with_optional_notification(scroll_mixer, with_notification);
+        model
+            .send_midi_destination
+            .set_with_optional_notification(self.send_midi_destination, with_notification);
+        model
+            .raw_midi_pattern
+            .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
     }
 }
 

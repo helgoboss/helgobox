@@ -1,7 +1,7 @@
 use crate::core::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, RawMidiPattern, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain,
@@ -181,6 +181,39 @@ pub enum ReaperTarget {
         project: Project,
         options: SeekOptions,
     },
+    SendMidi {
+        pattern: RawMidiPattern,
+        destination: SendMidiDestination,
+    },
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum SendMidiDestination {
+    #[serde(rename = "fx-output")]
+    #[display(fmt = "FX output (with FX input only)")]
+    FxOutput,
+    #[serde(rename = "feedback-output")]
+    #[display(fmt = "Feedback output")]
+    FeedbackOutput,
+}
+
+impl Default for SendMidiDestination {
+    fn default() -> Self {
+        Self::FxOutput
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -302,7 +335,7 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => parse_value_from_pan(text),
             Playrate { .. } => parse_value_from_playback_speed_factor(text),
             Tempo { .. } => parse_value_from_bpm(text),
-            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
+            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } | SendMidi { .. } => {
                 self.parse_value_from_discrete_value(text)
             }
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
@@ -335,7 +368,7 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
             Tempo { .. } => parse_step_size_from_bpm(text),
-            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
+            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } | SendMidi { .. } => {
                 self.parse_value_from_discrete_value(text)
             }
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
@@ -393,6 +426,10 @@ impl RealearnTarget for ReaperTarget {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (input.get() / step_size).round() as _
             }
+            SendMidi { pattern, .. } => {
+                let step_size = pattern.step_size().ok_or("not supported")?;
+                (input.get() / step_size.get()).round() as _
+            }
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
@@ -428,6 +465,13 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
+            SendMidi { .. } => {
+                if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(value) {
+                    discrete_value.to_string()
+                } else {
+                    "0".to_owned()
+                }
+            }
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -458,6 +502,13 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
             Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
+            SendMidi { .. } => {
+                if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(step_size) {
+                    discrete_value.to_string()
+                } else {
+                    "0".to_owned()
+                }
+            }
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -547,7 +598,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | Transport { .. } => "%",
-            TrackPan { .. } | TrackRoutePan { .. } => "",
+            TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
         }
     }
 
@@ -580,7 +631,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | Transport { .. } => "%",
-            TrackPan { .. } | TrackRoutePan { .. } => "",
+            TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
         }
     }
 
@@ -626,6 +677,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Transport { .. }
             | Seek { .. }
+            | SendMidi { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
         }
@@ -1034,12 +1086,13 @@ impl RealearnTarget for ReaperTarget {
                     },
                 );
             }
+            SendMidi { .. } => return Err("SendMidi is handled in other ways"),
         };
         Ok(())
     }
 
     fn can_report_current_value(&self) -> bool {
-        true
+        !matches!(self, ReaperTarget::SendMidi { .. })
     }
 }
 
@@ -1126,7 +1179,7 @@ impl ReaperTarget {
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
                 fx.is_available()
             }
-            AutomationModeOverride { .. } => true,
+            AutomationModeOverride { .. } | SendMidi { .. } => true,
         }
     }
 
@@ -1267,6 +1320,14 @@ impl ReaperTarget {
             | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+            }
+            SendMidi { pattern, .. } => match pattern.step_size() {
+                None => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+                Some(step_size) => if pattern.resolution() == 1 {
+                    (ControlType::AbsoluteContinuousRetriggerable, Switch)
+                } else {
+                    (ControlType::AbsoluteDiscrete { atomic_step_size: step_size }, Discrete)
+                }
             }
         }
     }
@@ -1588,6 +1649,13 @@ impl ReaperTarget {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (value as f64 * step_size).try_into()?
             }
+            SendMidi { pattern, .. } => {
+                if let Some(step_size) = pattern.step_size() {
+                    (value as f64 * step_size.get()).try_into()?
+                } else {
+                    UnitValue::MIN
+                }
+            }
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
@@ -1623,7 +1691,9 @@ impl ReaperTarget {
     pub fn project(&self) -> Option<Project> {
         use ReaperTarget::*;
         let project = match self {
-            Action { .. } | Transport { .. } | AutomationModeOverride { .. } => return None,
+            Action { .. } | Transport { .. } | AutomationModeOverride { .. } | SendMidi { .. } => {
+                return None;
+            }
             FxParameter { param } => param.fx().project()?,
             TrackVolume { track }
             | TrackPan { track }
@@ -1681,7 +1751,8 @@ impl ReaperTarget {
             | GoToBookmark { .. }
             | Seek { .. }
             | AutomationModeOverride { .. }
-            | Transport { .. } => return None,
+            | Transport { .. }
+            | SendMidi { .. } => return None,
         };
         Some(track)
     }
@@ -1713,7 +1784,8 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | FxNavigate { .. }
-            | Transport { .. } => return None,
+            | Transport { .. }
+            | SendMidi { .. } => return None,
         };
         Some(fx)
     }
@@ -1748,7 +1820,8 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Seek { .. }
-            | Transport { .. } => return None,
+            | Transport { .. }
+            | SendMidi { .. } => return None,
         };
         Some(route)
     }
@@ -1783,11 +1856,12 @@ impl ReaperTarget {
             | Transport { .. }
             | LoadFxSnapshot { .. }
             | AutomationModeOverride { .. }
-            | Seek { .. } => None,
+            | Seek { .. }
+            | SendMidi { .. } => None,
         }
     }
 
-    pub fn supports_feedback(&self) -> bool {
+    pub fn supports_automatic_feedback(&self) -> bool {
         use ReaperTarget::*;
         match self {
             Action { .. }
@@ -1815,7 +1889,10 @@ impl ReaperTarget {
             | AutomationModeOverride { .. }
             | TrackAutomationMode { .. }
             | Transport { .. } => true,
-            TrackShow { .. } | AllTrackFxEnable { .. } | TrackRouteMute { .. } => false,
+            TrackShow { .. }
+            | AllTrackFxEnable { .. }
+            | TrackRouteMute { .. }
+            | SendMidi { .. } => false,
         }
     }
 
@@ -2140,6 +2217,7 @@ impl ReaperTarget {
             | TrackShow { .. }
             | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
+            | SendMidi { .. }
              => (false, None),
         }
     }
@@ -2278,6 +2356,7 @@ impl Target for ReaperTarget {
             Seek { project, options } => {
                 current_value_of_seek(*project, *options, project.play_or_edit_cursor_position())
             }
+            SendMidi { .. } => return None,
         };
         Some(result)
     }

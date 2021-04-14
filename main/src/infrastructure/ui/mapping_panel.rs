@@ -37,7 +37,7 @@ use crate::application::{
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
-use crate::domain::control_element_domains;
+use crate::domain::{control_element_domains, SendMidiDestination};
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
@@ -48,6 +48,7 @@ use crate::domain::{
 };
 use itertools::Itertools;
 
+use crate::infrastructure::ui::util::open_in_browser;
 use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{
@@ -168,7 +169,9 @@ impl MappingPanel {
     }
 
     fn handle_target_line_3_button_press(&self) {
-        // Not in use at the moment
+        open_in_browser(
+            "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#raw-midi-source",
+        );
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -1574,6 +1577,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .transport_action
                         .set(i.try_into().expect("invalid transport action"));
                 }
+                ReaperTargetType::SendMidi => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .send_midi_destination
+                        .set(i.try_into().expect("invalid send MIDI destination"));
+                }
                 t if t.supports_track() => {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
@@ -1785,6 +1795,13 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendMidi => {
+                    let text = control.text().unwrap_or_default();
+                    self.mapping
+                        .target_model
+                        .raw_midi_pattern
+                        .set_with_initiator(text, Some(edit_control_id));
+                }
                 t if t.supports_fx() => match self.mapping.target_model.fx_type.get() {
                     VirtualFxType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -2467,6 +2484,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     BookmarkType::Region => Some("Region"),
                 },
                 ReaperTargetType::Seek => Some("Feedback"),
+                ReaperTargetType::SendMidi => Some("Output"),
                 t if t.supports_track() => Some("Track"),
                 _ => None,
             },
@@ -2579,6 +2597,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                         self.target.bookmark_anchor_type.get(),
                         self.target.bookmark_ref.get(),
                     );
+                }
+                ReaperTargetType::SendMidi => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(SendMidiDestination::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.send_midi_destination.get().into(),
+                        )
+                        .unwrap();
                 }
                 t if t.supports_track() => {
                     if matches!(
@@ -2706,10 +2733,16 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_3_button(&self) {
-        // Not in use at the moment
+        let text = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendMidi => Some("Help"),
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
         self.view
             .require_control(root::ID_TARGET_LINE_3_BUTTON)
-            .hide();
+            .set_text_or_hide(text);
     }
 
     fn invalidate_target_line_4_button(&self) {
@@ -2803,6 +2836,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendMidi => {
+                    control.show();
+                    let text = self.target.raw_midi_pattern.get_ref();
+                    control.set_text(text.as_str());
+                }
                 t if t.supports_fx() => {
                     let text = match self.target.fx_type.get() {
                         VirtualFxType::Dynamic => self.target.fx_expression.get_ref().clone(),
@@ -2835,8 +2873,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Action => Some("Invoke"),
                 ReaperTargetType::TrackSolo => Some("Behavior"),
                 ReaperTargetType::TrackShow => Some("Area"),
-                _ if self.target.supports_automation_mode() => Some("Mode"),
                 ReaperTargetType::AutomationTouchState => Some("Type"),
+                ReaperTargetType::SendMidi => Some("Pattern"),
+                _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
@@ -3642,7 +3681,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ],
             );
             let show_target_min_max =
-                is_relevant(ModeParameter::TargetMinMax) && target_can_report_current_value;
+                is_relevant(ModeParameter::TargetMinMax) && real_target.is_some();
             self.enable_if(
                 show_target_min_max,
                 &[
@@ -4358,6 +4397,17 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_window_title();
                 view.invalidate_target_line_2_combo_box_2();
             });
+        self.panel
+            .when(target.send_midi_destination.changed(), |view, _| {
+                view.invalidate_target_line_2(None);
+            });
+        self.panel.when(
+            target.raw_midi_pattern.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_target_line_3(initiator);
+                view.invalidate_mode_controls();
+            },
+        );
     }
 
     fn register_mode_listeners(&self) {

@@ -3,12 +3,13 @@ use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
     MappingCompartment, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions,
-    SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
+    SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
+use helgoboss_learn::RawMidiPattern;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
@@ -131,6 +132,10 @@ pub enum UnresolvedReaperTarget {
     },
     Seek {
         options: SeekOptions,
+    },
+    SendMidi {
+        pattern: RawMidiPattern,
+        destination: SendMidiDestination,
     },
 }
 
@@ -335,6 +340,13 @@ impl UnresolvedReaperTarget {
                     options: *options,
                 }
             }
+            SendMidi {
+                pattern,
+                destination,
+            } => ReaperTarget::SendMidi {
+                pattern: pattern.clone(),
+                destination: *destination,
+            },
         };
         Ok(resolved)
     }
@@ -384,6 +396,7 @@ impl UnresolvedReaperTarget {
             | LastTouched
             | Seek { .. }
             | AutomationModeOverride { .. }
+            | SendMidi { .. }
             | GoToBookmark { .. } => (None, None),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
@@ -461,6 +474,7 @@ impl UnresolvedReaperTarget {
             | AllTrackFxEnable { .. }
             | LoadFxPreset { .. }
             | LastTouched
+            | SendMidi { .. }
             | AutomationTouchState { .. } => return None,
             Transport { .. } | GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
             Seek { options, .. } => options.feedback_resolution,

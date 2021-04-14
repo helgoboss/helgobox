@@ -398,7 +398,7 @@ impl MainMapping {
         &self,
         target: &ReaperTarget,
     ) -> Option<FeedbackValue> {
-        if target.supports_feedback() {
+        if target.supports_automatic_feedback() {
             // The target value was changed and that triggered feedback. Therefore we don't
             // need to send it here a second time (even if `send_feedback_after_control` is
             // enabled). This happens in the majority of cases.
@@ -603,6 +603,22 @@ impl RealTimeMapping {
 
     pub fn has_reaper_target(&self) -> bool {
         matches!(self.target_type, Some(UnresolvedTargetType::Reaper))
+    }
+
+    pub fn control_from_mode(&mut self, control_value: ControlValue) -> Option<ControlValue> {
+        let target = self.core.target.as_ref()?;
+        self.core.mode.control(control_value, target)
+    }
+
+    pub fn needs_to_be_processed_in_real_time(&self) -> bool {
+        matches!(
+            &self.core.target,
+            Some(CompoundMappingTarget::Reaper(ReaperTarget::SendMidi { .. }))
+        )
+    }
+
+    pub fn target(&self) -> Option<&CompoundMappingTarget> {
+        self.core.target.as_ref()
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {

@@ -3,7 +3,7 @@ use crate::domain::{
     CompoundMappingTarget, ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
     FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, MidiFeedbackOutput, MidiSource,
+    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
     RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
@@ -1642,13 +1642,13 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
         SourceFeedbackValue::Midi(v) => {
             if let FeedbackOutput::Midi(midi_output) = feedback_output {
                 match midi_output {
-                    MidiFeedbackOutput::FxOutput => {
+                    MidiDestination::FxOutput => {
                         instance
                             .rt_sender
                             .send(FeedbackRealTimeTask::FxOutputFeedback(v))
                             .unwrap();
                     }
-                    MidiFeedbackOutput::Device(dev_id) => {
+                    MidiDestination::Device(dev_id) => {
                         // We send to the audio hook in this case (the default case) because there's
                         // only one audio hook (not one per instance as with real-time processors),
                         // so it can guarantee us a globally deterministic order. This is necessary

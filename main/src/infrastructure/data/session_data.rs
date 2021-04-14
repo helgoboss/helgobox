@@ -3,8 +3,8 @@ use crate::application::{
 };
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiFeedbackOutput,
-    OscDeviceId, ParameterArray, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId,
+    ParameterArray, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -163,7 +163,7 @@ impl SessionData {
             feedback_device_id: if let Some(osc_dev_id) = session.osc_output_device_id.get() {
                 Some(FeedbackDeviceId::Osc(osc_dev_id))
             } else {
-                use MidiFeedbackOutput::*;
+                use MidiDestination::*;
                 session.midi_feedback_output.get().map(|o| match o {
                     Device(dev_id) => FeedbackDeviceId::MidiOrFxOutput(dev_id.to_string()),
                     FxOutput => FeedbackDeviceId::MidiOrFxOutput("fx-output".to_owned()),
@@ -230,14 +230,14 @@ impl SessionData {
                 use FeedbackDeviceId::*;
                 match dev_id {
                     MidiOrFxOutput(s) if s == "fx-output" => {
-                        (Some(MidiFeedbackOutput::FxOutput), None)
+                        (Some(MidiDestination::FxOutput), None)
                     }
                     MidiOrFxOutput(midi_dev_id_string) => {
                         let midi_dev_id = midi_dev_id_string
                             .parse::<u8>()
                             .map(MidiOutputDeviceId::new)
                             .map_err(|_| "invalid MIDI output device ID")?;
-                        (Some(MidiFeedbackOutput::Device(midi_dev_id)), None)
+                        (Some(MidiDestination::Device(midi_dev_id)), None)
                     }
                     Osc(osc_dev_id) => (None, Some(*osc_dev_id)),
                 }

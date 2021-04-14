@@ -1,10 +1,11 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiSource, MidiSourceScanner, NormalMainTask, PartialControlMatch,
-    RealTimeMapping, VirtualSourceValue,
+    classify_midi_message, CompoundMappingSource, CompoundMappingTarget, ControlMainTask,
+    ControlMode, ControlOptions, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
+    MappingId, MidiClockCalculator, MidiMessageClassification, MidiSource, MidiSourceScanner,
+    NormalMainTask, PartialControlMatch, RealTimeMapping, ReaperTarget, SendMidiDestination,
+    VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
+use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent, RawMidiPattern};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -32,7 +33,7 @@ pub struct RealTimeProcessor {
     // Synced processing settings
     control_mode: ControlMode,
     midi_control_input: MidiControlInput,
-    midi_feedback_output: Option<MidiFeedbackOutput>,
+    midi_feedback_output: Option<MidiDestination>,
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
     let_matched_events_through: bool,
     let_unmatched_events_through: bool,
@@ -433,11 +434,11 @@ impl RealTimeProcessor {
             None => AudioHook,
             // Feedback sent directly to device. Same here: We let the audio hook do everything in
             // order to not run into surprising situations where control or feedback don't work.
-            Some(MidiFeedbackOutput::Device(_)) => AudioHook,
+            Some(MidiDestination::Device(_)) => AudioHook,
             // Feedback sent to FX output. Here we have to be more careful because sending feedback
             // to FX output involves host callback invocation. This can only be done from the VST
             // plug-in.
-            Some(MidiFeedbackOutput::FxOutput) => Vst,
+            Some(MidiDestination::FxOutput) => Vst,
         }
     }
 
@@ -451,6 +452,7 @@ impl RealTimeProcessor {
             use FeedbackRealTimeTask::*;
             match task {
                 FxOutputFeedback(v) => {
+                    // If the feedback driver is not VST, this will be discarded, no problem.
                     self.send_midi_feedback(&v, caller);
                 }
                 SendLifecycleMidi(compartment, mapping_id, phase) => {
@@ -528,7 +530,7 @@ impl RealTimeProcessor {
                 if self.control_is_globally_enabled {
                     if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                        self.control_midi(&source_value);
+                        self.control_midi(&source_value, caller);
                     }
                 }
             }
@@ -578,7 +580,7 @@ impl RealTimeProcessor {
 
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage, caller: Caller) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        let matched = self.control_midi(&source_value);
+        let matched = self.control_midi(&source_value, caller);
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -612,7 +614,7 @@ impl RealTimeProcessor {
         caller: Caller,
     ) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        let matched = self.control_midi(&source_value);
+        let matched = self.control_midi(&source_value, caller);
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -634,7 +636,7 @@ impl RealTimeProcessor {
             // and therefore doesn't qualify anymore as a candidate for normal CC sources.
             return;
         }
-        let matched = self.control_midi(&source_value);
+        let matched = self.control_midi(&source_value, caller);
         if matched {
             self.process_matched_short(msg, caller);
         } else {
@@ -649,9 +651,9 @@ impl RealTimeProcessor {
     }
 
     /// Returns whether this source value matched one of the mappings.
-    fn control_midi(&mut self, value: &MidiSourceValue<RawShortMessage>) -> bool {
+    fn control_midi(&mut self, value: &MidiSourceValue<RawShortMessage>, caller: Caller) -> bool {
         // We do pattern matching in order to use Rust's borrow splitting.
-        let matched_controller = if let [ref mut controller_mappings, ref main_mappings] =
+        let matched_controller = if let [ref mut controller_mappings, ref mut main_mappings] =
             self.mappings.as_mut_slice()
         {
             control_controller_mappings_midi(
@@ -659,17 +661,20 @@ impl RealTimeProcessor {
                 controller_mappings,
                 main_mappings,
                 value,
+                caller,
+                self.midi_feedback_output,
             )
         } else {
             unreachable!()
         };
-        let matched_main = self.control_main_mappings_midi(value);
+        let matched_main = self.control_main_mappings_midi(value, caller);
         matched_main || matched_controller
     }
 
     fn control_main_mappings_midi(
         &mut self,
         source_value: &MidiSourceValue<RawShortMessage>,
+        caller: Caller,
     ) -> bool {
         let compartment = MappingCompartment::MainMappings;
         let mut matched = false;
@@ -681,12 +686,14 @@ impl RealTimeProcessor {
         {
             if let CompoundMappingSource::Midi(s) = &m.source() {
                 if let Some(control_value) = s.control(source_value) {
-                    forward_control_to_main_processor(
+                    let _ = process_real_mapping(
+                        m,
                         &self.control_main_task_sender,
                         compartment,
-                        m.id(),
                         control_value,
                         ControlOptions::default(),
+                        caller,
+                        self.midi_feedback_output,
                     );
                     matched = true;
                 }
@@ -722,7 +729,7 @@ impl RealTimeProcessor {
 
     fn send_midi_feedback(&self, value: &MidiSourceValue<RawShortMessage>, caller: Caller) {
         if let MidiSourceValue::Raw(msg) = value {
-            self.send_raw_midi_to_fx_output(msg, caller);
+            send_raw_midi_to_fx_output(msg, caller);
         } else {
             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
@@ -742,14 +749,14 @@ impl RealTimeProcessor {
     ) {
         if let Some(output) = self.midi_feedback_output {
             match output {
-                MidiFeedbackOutput::FxOutput => {
+                MidiDestination::FxOutput => {
                     // We can't send it now because we don't have safe access to the host callback
                     // because this method is being called from the audio hook.
                     let _ = self.feedback_task_sender.try_send(
                         FeedbackRealTimeTask::SendLifecycleMidi(compartment, m.id(), phase),
                     );
                 }
-                MidiFeedbackOutput::Device(dev_id) => {
+                MidiDestination::Device(dev_id) => {
                     MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                         if let Some(mo) = mo {
                             for m in m.lifecycle_midi_messages(phase) {
@@ -773,19 +780,9 @@ impl RealTimeProcessor {
         for m in messages {
             match m {
                 LifecycleMidiMessage::Short(msg) => self.send_short_midi_to_fx_output(*msg, caller),
-                LifecycleMidiMessage::Raw(data) => self.send_raw_midi_to_fx_output(data, caller),
+                LifecycleMidiMessage::Raw(data) => send_raw_midi_to_fx_output(data, caller),
             }
         }
-    }
-
-    fn send_raw_midi_to_fx_output(&self, data: &RawMidiEvent, caller: Caller) {
-        let host = match caller {
-            Caller::Vst(h) => h,
-            _ => return,
-        };
-        let event = build_sysex_midi_vst_event(data.bytes());
-        let events = build_vst_events(&event as *const _ as _);
-        host.process_events(&events);
     }
 
     fn send_short_midi_to_fx_output(&self, msg: RawShortMessage, caller: Caller) {
@@ -918,7 +915,7 @@ pub enum NormalRealTimeTask {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
         midi_control_input: MidiControlInput,
-        midi_feedback_output: Option<MidiFeedbackOutput>,
+        midi_feedback_output: Option<MidiDestination>,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
@@ -976,6 +973,9 @@ pub struct ActivationChange {
 /// A feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackRealTimeTask {
+    // When it comes to MIDI feedback, the real-time processor is only responsible for FX output
+    // feedback. Direct-device feedback is taken care of by the global audio hook for reasons of
+    // proper ordering.
     FxOutputFeedback(MidiSourceValue<RawShortMessage>),
     // Used only if feedback output is <FX output>, otherwise done synchronously.
     SendLifecycleMidi(MappingCompartment, MappingId, LifecyclePhase),
@@ -996,12 +996,12 @@ pub enum MidiControlInput {
     Device(MidiInputDeviceId),
 }
 
-/// MIDI destination to which ReaLearn's feedback data is sent.
+/// MIDI destination to which e.g. ReaLearn's feedback data can be sent.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub enum MidiFeedbackOutput {
-    /// Routes feedback messages to the ReaLearn FX output.
+pub enum MidiDestination {
+    /// Routes messages to the ReaLearn FX output.
     FxOutput,
-    /// Routes feedback messages directly to a MIDI output device.
+    /// Routes messages directly to a MIDI output device.
     Device(MidiOutputDeviceId),
 }
 
@@ -1010,8 +1010,10 @@ fn control_controller_mappings_midi(
     // Mappings with virtual targets
     controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
     // Mappings with virtual sources
-    main_mappings: &HashMap<MappingId, RealTimeMapping>,
+    main_mappings: &mut HashMap<MappingId, RealTimeMapping>,
     value: &MidiSourceValue<RawShortMessage>,
+    caller: Caller,
+    midi_feedback_output: Option<MidiDestination>,
 ) -> bool {
     let mut matched = false;
     for m in controller_mappings
@@ -1037,14 +1039,18 @@ fn control_controller_mappings_midi(
                             .send_feedback_after_control,
                         mode_control_options: m.mode_control_options(),
                     },
+                    caller,
+                    midi_feedback_output,
                 ),
                 ProcessDirect(control_value) => {
-                    forward_control_to_main_processor(
+                    let _ = process_real_mapping(
+                        m,
                         sender,
                         MappingCompartment::ControllerMappings,
-                        m.id(),
                         control_value,
                         ControlOptions::default(),
+                        caller,
+                        midi_feedback_output,
                     );
                     true
                 }
@@ -1055,6 +1061,74 @@ fn control_controller_mappings_midi(
         }
     }
     matched
+}
+
+fn process_real_mapping(
+    mapping: &mut RealTimeMapping,
+    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    compartment: MappingCompartment,
+    value: ControlValue,
+    options: ControlOptions,
+    caller: Caller,
+    midi_feedback_output: Option<MidiDestination>,
+) -> Result<(), &'static str> {
+    if mapping.needs_to_be_processed_in_real_time() {
+        let v = mapping
+            .control_from_mode(value)
+            .ok_or("mode didn't return control value")?
+            .as_absolute()?;
+        match mapping.target().ok_or("target not resolved")? {
+            CompoundMappingTarget::Reaper(ReaperTarget::SendMidi {
+                pattern,
+                destination,
+            }) => {
+                // This is a type of mapping that we should process right here because we want to
+                // send a MIDI message and this needs to happen in the audio thread.
+                // Going to the main thread and back would be such a waste!
+                let raw_midi_event = pattern.to_concrete_midi_event(v);
+                let midi_destination = match caller {
+                    Caller::Vst(_) => match destination {
+                        SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
+                        SendMidiDestination::FeedbackOutput => {
+                            Some(midi_feedback_output.ok_or("no feedback output set")?)
+                        }
+                    },
+                    Caller::AudioHook => {
+                        match destination {
+                            SendMidiDestination::FxOutput => {
+                                // Control input = Device | Destination = FX output.
+                                // Not supported currently. It could be by introducing a new
+                                // `FxOutputTask` with a SendMidiToFxOutput variant, tasks being
+                                // processed by `run_from_vst()` only no matter the feedback driver.
+                                None
+                            }
+                            SendMidiDestination::FeedbackOutput => {
+                                Some(midi_feedback_output.ok_or("no feedback output set")?)
+                            }
+                        }
+                    }
+                };
+                match midi_destination {
+                    Some(MidiDestination::FxOutput) => {
+                        send_raw_midi_to_fx_output(&raw_midi_event, caller);
+                    }
+                    Some(MidiDestination::Device(dev_id)) => {
+                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                            if let Some(mo) = mo {
+                                mo.send_msg(&raw_midi_event, SendMidiTime::Instantly);
+                            }
+                        });
+                    }
+                    _ => {}
+                };
+                Ok(())
+            }
+            _ => Err("unexpected real-time processing target"),
+        }
+    } else {
+        forward_control_to_main_processor(sender, compartment, mapping.id(), value, options);
+        Ok(())
+    }
 }
 
 fn forward_control_to_main_processor(
@@ -1078,25 +1152,29 @@ fn forward_control_to_main_processor(
 /// Returns whether this source value matched one of the mappings.
 fn control_main_mappings_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    main_mappings: &HashMap<MappingId, RealTimeMapping>,
+    main_mappings: &mut HashMap<MappingId, RealTimeMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
+    caller: Caller,
+    midi_feedback_output: Option<MidiDestination>,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
     let mut matched = false;
     for m in main_mappings
-        .values()
+        .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
         if let CompoundMappingSource::Virtual(s) = &m.source() {
             if let Some(control_value) = s.control(&value) {
-                forward_control_to_main_processor(
+                let _ = process_real_mapping(
+                    m,
                     sender,
                     MappingCompartment::MainMappings,
-                    m.id(),
                     control_value,
                     options,
+                    caller,
+                    midi_feedback_output,
                 );
                 matched = true;
             }
@@ -1109,4 +1187,14 @@ fn control_main_mappings_virtual(
 enum Driver {
     AudioHook,
     Vst,
+}
+
+fn send_raw_midi_to_fx_output(data: &RawMidiEvent, caller: Caller) {
+    let host = match caller {
+        Caller::Vst(h) => h,
+        _ => return,
+    };
+    let event = build_sysex_midi_vst_event(data.bytes());
+    let events = build_vst_events(&event as *const _ as _);
+    host.process_events(&events);
 }

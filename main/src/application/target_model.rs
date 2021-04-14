@@ -16,8 +16,8 @@ use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
     FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
-    PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SoloBehavior,
-    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
+    PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SendMidiDestination,
+    SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
     UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
     VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
@@ -109,6 +109,9 @@ pub struct TargetModel {
     // # For track selection related targets
     pub scroll_arrange_view: Prop<bool>,
     pub scroll_mixer: Prop<bool>,
+    // # For Send MIDI target
+    pub raw_midi_pattern: Prop<String>,
+    pub send_midi_destination: Prop<SendMidiDestination>,
 }
 
 impl Default for TargetModel {
@@ -164,6 +167,8 @@ impl Default for TargetModel {
             fx_display_type: prop(Default::default()),
             scroll_arrange_view: prop(false),
             scroll_mixer: prop(false),
+            raw_midi_pattern: prop(Default::default()),
+            send_midi_destination: prop(Default::default()),
         }
     }
 }
@@ -410,6 +415,10 @@ impl TargetModel {
                         .set(RealearnAutomationMode::from_reaper(*am));
                 }
             },
+            // Currently not used
+            SendMidi { pattern, .. } => {
+                self.raw_midi_pattern.set(pattern.to_string());
+            }
             TrackVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
@@ -486,6 +495,8 @@ impl TargetModel {
             .merge(self.fx_display_type.changed())
             .merge(self.scroll_arrange_view.changed())
             .merge(self.scroll_mixer.changed())
+            .merge(self.raw_midi_pattern.changed())
+            .merge(self.send_midi_destination.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -787,6 +798,10 @@ impl TargetModel {
                     Seek => UnresolvedReaperTarget::Seek {
                         options: self.seek_options(),
                     },
+                    SendMidi => UnresolvedReaperTarget::SendMidi {
+                        pattern: self.raw_midi_pattern.get_ref().parse().unwrap_or_default(),
+                        destination: self.send_midi_destination.get(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -886,7 +901,7 @@ impl fmt::Display for TargetModel {
                     | TrackWidth | TrackVolume | TrackShow | TrackSolo | FxNavigate | FxEnable
                     | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset | FxOpen
                     | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
-                    | LoadFxSnapshot => f.write_str(tt.short_name()),
+                    | LoadFxSnapshot | SendMidi => f.write_str(tt.short_name()),
                     Action => match self.action().ok() {
                         None => write!(f, "Action {}", self.command_id_label()),
                         Some(a) => f.write_str(a.name().to_str()),
@@ -1152,7 +1167,9 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 use ReaperTargetType::*;
                 let tt = self.target.r#type.get();
                 match tt {
-                    Tempo | Playrate | SelectedTrack | LastTouched | Seek => write!(f, "{}", tt),
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi => {
+                        write!(f, "{}", tt)
+                    }
                     Action => write!(
                         f,
                         "{}\n{}\n{}",
@@ -1351,6 +1368,10 @@ pub enum ReaperTargetType {
     TrackSendPan = 9,
     #[display(fmt = "Send: Set volume")]
     TrackSendVolume = 3,
+
+    // Misc
+    #[display(fmt = "MIDI: Send message")]
+    SendMidi = 29,
 }
 
 impl Default for ReaperTargetType {
@@ -1391,6 +1412,7 @@ impl ReaperTargetType {
             AutomationModeOverride { .. } => ReaperTargetType::AutomationModeOverride,
             FxOpen { .. } => ReaperTargetType::FxOpen,
             FxNavigate { .. } => ReaperTargetType::FxNavigate,
+            SendMidi { .. } => ReaperTargetType::SendMidi,
         }
     }
 
@@ -1409,6 +1431,7 @@ impl ReaperTargetType {
             | LastTouched
             | GoToBookmark
             | Seek
+            | SendMidi
             | AutomationModeOverride => false,
         }
     }
@@ -1450,6 +1473,7 @@ impl ReaperTargetType {
             | TrackShow
             | TrackAutomationMode
             | AutomationModeOverride
+            | SendMidi
             | FxNavigate => false,
         }
     }
@@ -1493,6 +1517,7 @@ impl ReaperTargetType {
             | TrackAutomationMode
             | AutomationModeOverride
             | FxOpen
+            | SendMidi
             | FxNavigate => false,
         }
     }
@@ -1522,6 +1547,7 @@ impl ReaperTargetType {
             | Seek
             | AutomationModeOverride
             | FxOpen
+            | SendMidi
             | FxNavigate => false,
         }
     }
@@ -1531,7 +1557,7 @@ impl ReaperTargetType {
     }
 
     pub fn supports_feedback(&self) -> bool {
-        true
+        *self != ReaperTargetType::SendMidi
     }
 
     pub fn hint(&self) -> &'static str {
@@ -1578,6 +1604,7 @@ impl ReaperTargetType {
             TrackSendMute => "(Un)mute send",
             TrackSendPan => "Send pan",
             TrackSendVolume => "Send volume",
+            SendMidi => "Send MIDI",
         }
     }
 }
