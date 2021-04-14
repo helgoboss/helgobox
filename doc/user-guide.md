@@ -2694,6 +2694,35 @@ All Midi Fighter Twister controller presets available on the Helgoboss ReaPack r
 - Even though the Twister has its own bank/paging feature, I would recommend to use ReaLearn's built-in conditional
   activation feature instead. This provides advantages, for example when using the Controller Projection feature.
 - LED color depends on the target value and is adjustable via "Source Min/Max".
+- If you want to set the LEDs of the Twister to a fixed color layout instead of letting the LED color change dynamically
+  in response to target parameter values changes, I can recommend Stereokai's Midi Fighter Twister Color Designer, a
+  small web app running in your browser. It lets you configure the LED colors in a playful way and export them to
+  ReaLearn.
+    1. Quit REAPER (to give the web app exclusive access to the Twister MIDI device).
+    1. [Open the web app](https://www.stereokai.com/midi-fighter-twister-color-designer/).
+    1. Configure the LED colors by turning the encoders.
+    1. Press "Copy colors to clipboard".
+    1. Close the Browser tab.
+    1. Start REAPER.
+    1. Add a main mapping with only feedback enabled.
+    1. Open the "Advanced settings"
+       - Enter this (replacing the placeholder):
+         ```yaml
+         on_activate:
+           send_midi_feedback:
+             - raw: REPLACE_WITH_DESIGNER_OUTPUT
+         ```
+       - Example:
+         ```yaml
+         on_activate:
+           send_midi_feedback:
+             - raw: B1 0D 32 B1 0E 36
+         ```
+    1. Close the "Advanced settings" window.
+    1. Now, whenever this mapping is activated, the LED colors will be sent to the Twister. That means
+       you can also use [conditional activation](#conditional-activation) to use different color layouts with
+       different (ReaLearn-internal) banks or modifiers!
+    
 
 ### Akai "APC Key 25"
 
