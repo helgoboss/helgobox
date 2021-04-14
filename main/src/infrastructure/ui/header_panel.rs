@@ -188,6 +188,7 @@ impl HeaderPanel {
             None,
             CopyListedMappings,
             AutoNameListedMappings,
+            MoveListedMappingsToGroup(GroupId),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             ToggleAutoCorrectSettings,
             ToggleSendFeedbackOnlyIfTrackArmed,
@@ -255,6 +256,20 @@ impl HeaderPanel {
                 item("Auto-name listed mappings", || {
                     MenuAction::AutoNameListedMappings
                 }),
+                menu(
+                    "Move listed mappings to group",
+                    once(item("<Default>", move || {
+                        MenuAction::MoveListedMappingsToGroup(GroupId::default())
+                    }))
+                    .chain(session.groups_sorted(compartment).map(move |g| {
+                        let g = g.borrow();
+                        let g_id = g.id();
+                        item(g.name.get_ref().to_owned(), move || {
+                            MenuAction::MoveListedMappingsToGroup(g_id)
+                        })
+                    }))
+                    .collect(),
+                ),
                 menu(
                     "Options",
                     vec![
@@ -474,6 +489,9 @@ impl HeaderPanel {
             MenuAction::None => {}
             MenuAction::CopyListedMappings => self.copy_listed_mappings(),
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
+            MenuAction::MoveListedMappingsToGroup(group_id) => {
+                self.move_listed_mappings_to_group(group_id)
+            }
             MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
             }
@@ -607,6 +625,30 @@ impl HeaderPanel {
         for m in listed_mappings {
             m.borrow_mut().clear_name();
         }
+    }
+
+    fn move_listed_mappings_to_group(&self, group_id: GroupId) {
+        let listed_mappings = self.get_listened_mappings();
+        if listed_mappings.is_empty() {
+            return;
+        }
+        if !self.view.require_window().confirm(
+            "ReaLearn",
+            format!(
+                "Do you really want to move {} mappings to the specified group?",
+                listed_mappings.len()
+            ),
+        ) {
+            return;
+        }
+        let compartment = self.active_compartment();
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let mapping_ids: Vec<_> = listed_mappings
+            .into_iter()
+            .map(|m| m.borrow().id())
+            .collect();
+        let _ = session.move_mappings_to_group(compartment, &mapping_ids, group_id);
     }
 
     fn get_listened_mappings(&self) -> Vec<SharedMapping> {

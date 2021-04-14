@@ -687,7 +687,7 @@ fn move_mapping_to_group(
 ) {
     session
         .borrow_mut()
-        .move_mapping_to_group(compartment, mapping_id, group_id)
+        .move_mappings_to_group(compartment, &[mapping_id], group_id)
         .unwrap();
 }
 
