@@ -29,8 +29,9 @@ use crate::domain::ui_util::{
     parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, HierarchyEntry,
-    HierarchyEntryProvider, RealearnTarget,
+    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ControlContext,
+    FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider, MidiDestination,
+    RealearnTarget,
 };
 use std::convert::TryInto;
 use std::num::NonZeroU32;
@@ -683,7 +684,7 @@ impl RealearnTarget for ReaperTarget {
         }
     }
 
-    fn control(&self, value: ControlValue) -> Result<(), &'static str> {
+    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         use ControlValue::*;
         use ReaperTarget::*;
         match self {
@@ -1086,7 +1087,36 @@ impl RealearnTarget for ReaperTarget {
                     },
                 );
             }
-            SendMidi { .. } => return Err("SendMidi is handled in other ways"),
+            SendMidi {
+                pattern,
+                destination,
+            } => {
+                // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
+                // MIDI messages is handled directly in the real-time processor.
+                let raw_midi_event = pattern.to_concrete_midi_event(value.as_absolute()?);
+                match *destination {
+                    SendMidiDestination::FxOutput => {
+                        return Err("OSC => MIDI FX output not supported");
+                    }
+                    SendMidiDestination::FeedbackOutput => {
+                        let feedback_output =
+                            context.feedback_output.ok_or("no feedback output set")?;
+                        if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) =
+                            feedback_output
+                        {
+                            let _ = context
+                                .feedback_audio_hook_task_sender
+                                .send(FeedbackAudioHookTask::SendMidi(
+                                    dev_id,
+                                    Box::new(raw_midi_event),
+                                ))
+                                .unwrap();
+                        } else {
+                            return Err("feedback output is not a MIDI device");
+                        }
+                    }
+                }
+            }
         };
         Ok(())
     }

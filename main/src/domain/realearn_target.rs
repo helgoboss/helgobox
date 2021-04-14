@@ -1,4 +1,4 @@
-use crate::domain::TargetCharacter;
+use crate::domain::{FeedbackAudioHookTask, FeedbackOutput, RealTimeSender, TargetCharacter};
 use helgoboss_learn::{ControlValue, UnitValue};
 
 pub trait RealearnTarget {
@@ -37,6 +37,12 @@ pub trait RealearnTarget {
     fn step_size_unit(&self) -> &'static str;
     /// Formats the value completely (including a possible unit).
     fn format_value(&self, value: UnitValue) -> String;
-    fn control(&self, value: ControlValue) -> Result<(), &'static str>;
+    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str>;
     fn can_report_current_value(&self) -> bool;
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ControlContext<'a> {
+    pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
+    pub feedback_output: Option<FeedbackOutput>,
 }

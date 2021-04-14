@@ -1,13 +1,14 @@
 use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
-    CompoundMappingTarget, ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput,
-    FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
-    PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
-    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
-    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
+    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
+    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent,
+    IoUpdatedEvent, MainMapping, MappingActivationEffect, MappingCompartment, MappingId,
+    MidiDestination, MidiSource, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
+    PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext, QualifiedSource,
+    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
+    ReaperTarget, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
+    VirtualSourceValue,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
@@ -225,7 +226,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             // there might be a short amount of time
                             // where we still receive control
                             // statements. We filter them here.
-                            let feedback = m.control_if_enabled(value, options);
+                            let feedback = m.control_if_enabled(
+                                value,
+                                options,
+                                ControlContext {
+                                    feedback_audio_hook_task_sender: &self
+                                        .feedback_audio_hook_task_sender,
+                                    feedback_output: self.feedback_output,
+                                },
+                            );
                             self.send_feedback(FeedbackReason::Normal, feedback);
                         };
                     }
@@ -234,7 +243,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             for compartment in MappingCompartment::enum_iter() {
                 for id in self.poll_control_mappings[compartment].iter() {
                     if let Some(m) = self.mappings[compartment].get_mut(id) {
-                        let feedback = m.poll_if_control_enabled();
+                        let feedback = m.poll_if_control_enabled(ControlContext {
+                            feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                            feedback_output: self.feedback_output,
+                        });
                         self.send_feedback(FeedbackReason::Normal, feedback);
                     }
                 }
@@ -1048,8 +1060,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
-                        let feedback =
-                            m.control_if_enabled(control_value, ControlOptions::default());
+                        let feedback = m.control_if_enabled(
+                            control_value,
+                            ControlOptions::default(),
+                            ControlContext {
+                                feedback_audio_hook_task_sender: &self
+                                    .feedback_audio_hook_task_sender,
+                                feedback_output: self.feedback_output,
+                            },
+                        );
                         send_direct_and_virtual_feedback(
                             &InstanceProps {
                                 rt_sender: &self.feedback_real_time_task_sender,
@@ -1713,6 +1732,10 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                                     .send_feedback_after_control,
                                 mode_control_options: m.mode_control_options(),
                             },
+                            ControlContext {
+                                feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
+                                feedback_output: instance.feedback_output,
+                            },
                         )
                     }
                     ProcessDirect(_) => {
@@ -1737,6 +1760,7 @@ fn control_main_mappings_virtual(
     main_mappings: &mut HashMap<MappingId, MainMapping>,
     value: VirtualSourceValue,
     options: ControlOptions,
+    context: ControlContext,
 ) -> Vec<FeedbackValue> {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1746,7 +1770,7 @@ fn control_main_mappings_virtual(
         .filter_map(|m| {
             if let CompoundMappingSource::Virtual(s) = &m.source() {
                 let control_value = s.control(&value)?;
-                m.control_if_enabled(control_value, options)
+                m.control_if_enabled(control_value, options, context)
             } else {
                 None
             }

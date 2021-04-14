@@ -5,7 +5,7 @@ use crate::domain::{
     NormalMainTask, PartialControlMatch, RealTimeMapping, ReaperTarget, SendMidiDestination,
     VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent, RawMidiPattern};
+use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,

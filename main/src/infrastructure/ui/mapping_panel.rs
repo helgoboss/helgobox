@@ -37,7 +37,7 @@ use crate::application::{
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
-use crate::domain::{control_element_domains, SendMidiDestination};
+use crate::domain::{control_element_domains, ControlContext, FeedbackOutput, SendMidiDestination};
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
@@ -48,6 +48,7 @@ use crate::domain::{
 };
 use itertools::Itertools;
 
+use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::util::open_in_browser;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -4805,8 +4806,10 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok(Some(t)) = self.read(|p| p.real_target()) {
-                    update_target_value(&t, s.slider_unit_value());
+                if let Ok((Some(t), feedback_output)) =
+                    self.read(|p| (p.real_target(), p.session.feedback_output()))
+                {
+                    update_target_value(&t, s.slider_unit_value(), feedback_output);
                 }
             }
             _ => unreachable!(),
@@ -4863,14 +4866,14 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (target, value) = view.write(|p| {
+                let (target, value, feedback_output) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                         .unwrap_or(UnitValue::MIN);
-                    (p.real_target(), value)
+                    (p.real_target(), value, p.session.feedback_output())
                 });
                 if let Some(t) = target {
-                    update_target_value(&t, value);
+                    update_target_value(&t, value, feedback_output);
                 }
             }
             _ => return false,
@@ -4946,9 +4949,19 @@ enum PositiveOrSymmetricUnitValue {
     Symmetric(SoftSymmetricUnitValue),
 }
 
-fn update_target_value(target: &CompoundMappingTarget, value: UnitValue) {
+fn update_target_value(
+    target: &CompoundMappingTarget,
+    value: UnitValue,
+    feedback_output: Option<FeedbackOutput>,
+) {
     // If it doesn't work in some cases, so what.
-    let _ = target.control(ControlValue::Absolute(value));
+    let _ = target.control(
+        ControlValue::Absolute(value),
+        ControlContext {
+            feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
+            feedback_output,
+        },
+    );
 }
 
 fn group_mappings_by_virtual_control_element<'a>(

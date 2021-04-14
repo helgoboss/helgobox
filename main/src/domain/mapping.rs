@@ -1,9 +1,9 @@
 use crate::domain::{
-    ActivationChange, ActivationCondition, ControlOptions, ExtendedProcessorContext,
-    MappingActivationEffect, MidiSource, Mode, ParameterArray, ParameterSlice,
-    PlayPosFeedbackResolution, RealSource, RealearnTarget, ReaperTarget, TargetCharacter,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
-    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ActivationChange, ActivationCondition, ControlContext, ControlOptions,
+    ExtendedProcessorContext, MappingActivationEffect, MidiSource, Mode, ParameterArray,
+    ParameterSlice, PlayPosFeedbackResolution, RealSource, RealearnTarget, ReaperTarget,
+    TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
+    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -339,7 +339,7 @@ impl MainMapping {
     }
 
     /// This is for timer-triggered control and works like `control_if_enabled`.
-    pub fn poll_if_control_enabled(&mut self) -> Option<FeedbackValue> {
+    pub fn poll_if_control_enabled(&mut self, context: ControlContext) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
         }
@@ -352,7 +352,7 @@ impl MainMapping {
         // firing triggered by a timer.
         // Be graceful here.
         // TODO-medium In future we could display some kind of small unintrusive error message.
-        let _ = target.control(final_value);
+        let _ = target.control(final_value, context);
         self.feedback_after_control_if_unsupported_by_target(target)
     }
 
@@ -364,6 +364,7 @@ impl MainMapping {
         &mut self,
         value: ControlValue,
         options: ControlOptions,
+        context: ControlContext,
     ) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
@@ -382,7 +383,7 @@ impl MainMapping {
             }
             // Be graceful here.
             // TODO-medium In future we could display some kind of small unintrusive error message.
-            let _ = target.control(v);
+            let _ = target.control(v, context);
             self.feedback_after_control_if_unsupported_by_target(target)
         } else {
             // The target value was not changed. If `send_feedback_after_control` is enabled, we
@@ -986,10 +987,10 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn control(&self, value: ControlValue) -> Result<(), &'static str> {
+    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.control(value),
+            Reaper(t) => t.control(value, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }

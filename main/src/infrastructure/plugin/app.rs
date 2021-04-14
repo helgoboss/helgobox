@@ -535,8 +535,8 @@ impl App {
         });
     }
 
-    pub fn feedback_audio_hook_task_sender(&self) -> RealTimeSender<FeedbackAudioHookTask> {
-        self.feedback_audio_hook_task_sender.clone()
+    pub fn feedback_audio_hook_task_sender(&self) -> &RealTimeSender<FeedbackAudioHookTask> {
+        &self.feedback_audio_hook_task_sender
     }
 
     pub fn additional_feedback_event_sender(
