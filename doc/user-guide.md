@@ -2677,6 +2677,11 @@ You can also do this using the "MULTIPLE" button:
 3. Change the Encoder MIDI Type.
 4. Press "CANCEL"
 
+If you want to make use of the Twister's built-in encoder acceleration, you should set the *encoder* sensitivity to
+"Velocity sensitive". In order to make use of it, make sure that ReaLearn's *Step size Max* or *Speed Max* is set high
+enough, both in the controller mappings (already done in the latest Twister controller presets) and your
+specific main mapping.
+
 #### Presets
 
 All Midi Fighter Twister controller presets available on the Helgoboss ReaPack repository assume relative values.
