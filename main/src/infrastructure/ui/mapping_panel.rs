@@ -800,9 +800,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn update_source_parameter_number_message_number(&mut self) {
-        let c = self
-            .view
-            .require_control(root::ID_SOURCE_NUMBER_EDIT_CONTROL);
+        let edit_control_id = root::ID_SOURCE_NUMBER_EDIT_CONTROL;
+        let c = self.view.require_control(edit_control_id);
         let text = c.text().ok();
         use SourceCategory::*;
         match self.mapping.source_model.category.get() {
@@ -811,7 +810,7 @@ impl<'a> MutableMappingPanel<'a> {
                 self.mapping
                     .source_model
                     .parameter_number_message_number
-                    .set(value);
+                    .set_with_initiator(value, Some(edit_control_id));
             }
             Osc => {
                 let value = text
@@ -821,36 +820,47 @@ impl<'a> MutableMappingPanel<'a> {
                         Some(if v == 0 { v } else { v - 1 })
                     })
                     .unwrap_or(0);
-                self.mapping.source_model.osc_arg_index.set(Some(value));
+                self.mapping
+                    .source_model
+                    .osc_arg_index
+                    .set_with_initiator(Some(value), Some(edit_control_id));
             }
             Virtual => {
                 let text = text.unwrap_or_default();
                 self.mapping
                     .source_model
                     .control_element_id
-                    .set(text.parse().unwrap_or_default());
+                    .set_with_initiator(text.parse().unwrap_or_default(), Some(edit_control_id));
             }
         };
     }
 
     fn update_source_pattern(&mut self) {
-        let c = self
-            .view
-            .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
+        let edit_control_id = root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL;
+        let c = self.view.require_control(edit_control_id);
         if let Ok(value) = c.text() {
             use SourceCategory::*;
             match self.mapping.source_model.category.get() {
                 Midi => match self.mapping.source_model.midi_source_type.get() {
                     MidiSourceType::Raw => {
-                        self.mapping.source_model.raw_midi_pattern.set(value);
+                        self.mapping
+                            .source_model
+                            .raw_midi_pattern
+                            .set_with_initiator(value, Some(edit_control_id));
                     }
                     MidiSourceType::Script => {
-                        self.mapping.source_model.midi_script.set(value);
+                        self.mapping
+                            .source_model
+                            .midi_script
+                            .set_with_initiator(value, Some(edit_control_id));
                     }
                     _ => {}
                 },
                 Osc => {
-                    self.mapping.source_model.osc_address_pattern.set(value);
+                    self.mapping
+                        .source_model
+                        .osc_address_pattern
+                        .set_with_initiator(value, Some(edit_control_id));
                 }
                 Virtual => {}
             }
@@ -1737,15 +1747,24 @@ impl<'a> MutableMappingPanel<'a> {
                 t if t.supports_track() => match self.mapping.target_model.track_type.get() {
                     VirtualTrackType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
-                        self.mapping.target_model.track_expression.set(expression);
+                        self.mapping
+                            .target_model
+                            .track_expression
+                            .set_with_initiator(expression, Some(edit_control_id));
                     }
                     VirtualTrackType::ByName => {
                         let name = control.text().unwrap_or_default();
-                        self.mapping.target_model.track_name.set(name);
+                        self.mapping
+                            .target_model
+                            .track_name
+                            .set_with_initiator(name, Some(edit_control_id));
                     }
                     VirtualTrackType::ByIndex => {
                         let index = parse_position_as_index(control);
-                        self.mapping.target_model.track_index.set(index);
+                        self.mapping
+                            .target_model
+                            .track_index
+                            .set_with_initiator(index, Some(edit_control_id));
                     }
                     _ => {}
                 },
@@ -1762,23 +1781,31 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_3_edit_control_change(&mut self) {
-        let control = self
-            .view
-            .require_control(root::ID_TARGET_LINE_3_EDIT_CONTROL);
+        let edit_control_id = root::ID_TARGET_LINE_3_EDIT_CONTROL;
+        let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_fx() => match self.mapping.target_model.fx_type.get() {
                     VirtualFxType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
-                        self.mapping.target_model.fx_expression.set(expression);
+                        self.mapping
+                            .target_model
+                            .fx_expression
+                            .set_with_initiator(expression, Some(edit_control_id));
                     }
                     VirtualFxType::ByName => {
                         let name = control.text().unwrap_or_default();
-                        self.mapping.target_model.fx_name.set(name);
+                        self.mapping
+                            .target_model
+                            .fx_name
+                            .set_with_initiator(name, Some(edit_control_id));
                     }
                     VirtualFxType::ByIndex => {
                         let index = parse_position_as_index(control);
-                        self.mapping.target_model.fx_index.set(index);
+                        self.mapping
+                            .target_model
+                            .fx_index
+                            .set_with_initiator(index, Some(edit_control_id));
                     }
                     _ => {}
                 },
@@ -1789,38 +1816,55 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_4_edit_control_change(&mut self) {
-        let control = self
-            .view
-            .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
+        let edit_control_id = root::ID_TARGET_LINE_4_EDIT_CONTROL;
+        let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::FxParameter => match self.mapping.target_model.param_type.get() {
                     VirtualFxParameterType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
-                        self.mapping.target_model.param_expression.set(expression);
+                        self.mapping
+                            .target_model
+                            .param_expression
+                            .set_with_initiator(expression, Some(edit_control_id));
                     }
                     VirtualFxParameterType::ByName => {
                         let name = control.text().unwrap_or_default();
-                        self.mapping.target_model.param_name.set(name);
+                        self.mapping
+                            .target_model
+                            .param_name
+                            .set_with_initiator(name, Some(edit_control_id));
                     }
                     VirtualFxParameterType::ByIndex => {
                         let index = parse_position_as_index(control);
-                        self.mapping.target_model.param_index.set(index);
+                        self.mapping
+                            .target_model
+                            .param_index
+                            .set_with_initiator(index, Some(edit_control_id));
                     }
                 },
                 t if t.supports_send() => match self.mapping.target_model.route_selector_type.get()
                 {
                     TrackRouteSelectorType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
-                        self.mapping.target_model.route_expression.set(expression);
+                        self.mapping
+                            .target_model
+                            .route_expression
+                            .set_with_initiator(expression, Some(edit_control_id));
                     }
                     TrackRouteSelectorType::ByName => {
                         let name = control.text().unwrap_or_default();
-                        self.mapping.target_model.route_name.set(name);
+                        self.mapping
+                            .target_model
+                            .route_name
+                            .set_with_initiator(name, Some(edit_control_id));
                     }
                     TrackRouteSelectorType::ByIndex => {
                         let index = parse_position_as_index(control);
-                        self.mapping.target_model.route_index.set(index);
+                        self.mapping
+                            .target_model
+                            .route_index
+                            .set_with_initiator(index, Some(edit_control_id));
                     }
                     _ => {}
                 },
@@ -3550,23 +3594,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(step_label);
     }
 
-    fn mode_parameter_is_relevant(
-        &self,
-        mode_parameter: ModeParameter,
-        base_input: ModeApplicabilityCheckInput,
-        possible_source_characters: &[DetailedSourceCharacter],
-    ) -> bool {
-        let control_is_enabled = self.mapping.control_is_enabled.get();
-        let feedback_is_enabled = self.mapping.feedback_is_enabled.get();
-        self.mapping.mode_model.mode_parameter_is_relevant(
-            mode_parameter,
-            base_input,
-            possible_source_characters,
-            control_is_enabled,
-            feedback_is_enabled,
-        )
-    }
-
     fn invalidate_mode_control_visibilities(&self) {
         let target = match self.real_target() {
             None => return,
@@ -3575,7 +3602,11 @@ impl<'a> ImmutableMappingPanel<'a> {
         let relevant_source_characters = self.mapping.source_model.possible_detailed_characters();
         let base_input = self.mapping.base_mode_applicability_check_input();
         let is_relevant = |mode_parameter: ModeParameter| {
-            self.mode_parameter_is_relevant(mode_parameter, base_input, &relevant_source_characters)
+            self.mapping.mode_parameter_is_relevant(
+                mode_parameter,
+                base_input,
+                &relevant_source_characters,
+            )
         };
         let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
             && self.target_with_context().is_known_to_be_roundable();
@@ -3853,7 +3884,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_mode_fire_controls(&self, initiator: Option<u32>) {
         let base_input = self.mapping.base_mode_applicability_check_input();
         let possible_source_characters = self.mapping.source_model.possible_detailed_characters();
-        if self.mode_parameter_is_relevant(
+        if self.mapping.mode_parameter_is_relevant(
             ModeParameter::FireMode,
             base_input,
             &possible_source_characters,
