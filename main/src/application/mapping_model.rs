@@ -224,6 +224,33 @@ impl MappingModel {
         }
     }
 
+    pub fn control_is_enabled_and_supported(&self) -> bool {
+        self.control_is_enabled.get()
+            && self.source_model.supports_control()
+            && self.target_model.supports_control()
+    }
+
+    pub fn feedback_is_enabled_and_supported(&self) -> bool {
+        self.feedback_is_enabled.get()
+            && self.source_model.supports_feedback()
+            && self.target_model.supports_feedback()
+    }
+
+    pub fn mode_parameter_is_relevant(
+        &self,
+        mode_parameter: ModeParameter,
+        base_input: ModeApplicabilityCheckInput,
+        possible_source_characters: &[DetailedSourceCharacter],
+    ) -> bool {
+        self.mode_model.mode_parameter_is_relevant(
+            mode_parameter,
+            base_input,
+            possible_source_characters,
+            self.control_is_enabled_and_supported(),
+            self.feedback_is_enabled_and_supported(),
+        )
+    }
+
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
     pub fn create_main_mapping(

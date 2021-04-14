@@ -90,6 +90,24 @@ impl SourceModel {
             .merge(self.osc_arg_is_relative.changed())
     }
 
+    pub fn supports_control(&self) -> bool {
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => self.midi_source_type.get().supports_control(),
+            Osc => true,
+            Virtual => true,
+        }
+    }
+
+    pub fn supports_feedback(&self) -> bool {
+        use SourceCategory::*;
+        match self.category.get() {
+            Midi => self.midi_source_type.get().supports_feedback(),
+            Osc => true,
+            Virtual => true,
+        }
+    }
+
     pub fn apply_from_source(&mut self, source: &CompoundMappingSource) {
         use CompoundMappingSource::*;
         match source {
@@ -623,6 +641,16 @@ impl MidiSourceType {
             ParameterNumberValue => "Number",
             _ => "",
         }
+    }
+
+    pub fn supports_control(&self) -> bool {
+        use MidiSourceType::*;
+        !matches!(self, Script | Raw)
+    }
+
+    pub fn supports_feedback(&self) -> bool {
+        use MidiSourceType::*;
+        !matches!(self, ClockTempo | ClockTransport)
     }
 }
 

@@ -169,6 +169,22 @@ impl Default for TargetModel {
 }
 
 impl TargetModel {
+    pub fn supports_control(&self) -> bool {
+        use TargetCategory::*;
+        match self.category.get() {
+            Reaper => self.r#type.get().supports_control(),
+            Virtual => true,
+        }
+    }
+
+    pub fn supports_feedback(&self) -> bool {
+        use TargetCategory::*;
+        match self.category.get() {
+            Reaper => self.r#type.get().supports_feedback(),
+            Virtual => true,
+        }
+    }
+
     pub fn take_fx_snapshot(
         &self,
         context: ExtendedProcessorContext,
@@ -1508,6 +1524,14 @@ impl ReaperTargetType {
             | FxOpen
             | FxNavigate => false,
         }
+    }
+
+    pub fn supports_control(&self) -> bool {
+        true
+    }
+
+    pub fn supports_feedback(&self) -> bool {
+        true
     }
 
     pub fn hint(&self) -> &'static str {
