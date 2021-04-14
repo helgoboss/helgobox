@@ -3608,145 +3608,193 @@ impl<'a> ImmutableMappingPanel<'a> {
                 &relevant_source_characters,
             )
         };
-        let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
-            && self.target_with_context().is_known_to_be_roundable();
-        self.enable_if(
-            show_round_controls,
-            &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::SourceMinMax),
-            &[
-                root::ID_SETTINGS_SOURCE_LABEL,
-                root::ID_SETTINGS_SOURCE_MIN_LABEL,
-                root::ID_SETTINGS_SOURCE_MAX_LABEL,
-                root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
-            ],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::Reverse),
-            &[root::ID_SETTINGS_REVERSE_CHECK_BOX],
-        );
         let target_can_report_current_value = target.can_report_current_value();
-        self.enable_if(
-            target_can_report_current_value && is_relevant(ModeParameter::JumpMinMax),
-            &[
-                root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
-            ],
-        );
-        self.enable_if(
-            target_can_report_current_value && is_relevant(ModeParameter::TakeoverMode),
-            &[root::ID_MODE_TAKEOVER_LABEL, root::ID_MODE_TAKEOVER_MODE],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::OutOfRangeBehavior),
-            &[
-                root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
-                root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
-            ],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::TargetMinMax) && target_can_report_current_value,
-            &[
-                root::ID_SETTINGS_TARGET_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_LABEL_TEXT,
-                root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
-            ],
-        );
-        let step_min_is_relevant =
-            is_relevant(ModeParameter::StepSizeMin) || is_relevant(ModeParameter::SpeedMin);
-        let step_max_is_relevant =
-            is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
-        self.enable_if(
-            step_min_is_relevant || step_max_is_relevant,
-            &[root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT],
-        );
-        self.enable_if(
-            step_min_is_relevant,
-            &[
-                root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
-                root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
-            ],
-        );
-        self.enable_if(
-            step_max_is_relevant,
-            &[
-                root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
-                root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
-                root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
-            ],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::Rotate),
-            &[root::ID_SETTINGS_ROTATE_CHECK_BOX],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::MakeAbsolute),
-            &[root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::ControlTransformation),
-            &[
-                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
-                root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
-            ],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::FeedbackTransformation),
-            &[
-                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
-                root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
-            ],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::RelativeFilter),
-            &[root::ID_MODE_RELATIVE_FILTER_COMBO_BOX],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::ButtonFilter),
-            &[root::ID_MODE_BUTTON_FILTER_COMBO_BOX],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::FireMode),
-            &[
-                root::ID_MODE_FIRE_COMBO_BOX,
-                root::ID_MODE_FIRE_LINE_2_LABEL_1,
-                root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
-                root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
-                root::ID_MODE_FIRE_LINE_2_LABEL_2,
-                root::ID_MODE_FIRE_LINE_3_LABEL_1,
-                root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
-                root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
-                root::ID_MODE_FIRE_LINE_3_LABEL_2,
-            ],
-        );
-        self.enable_if(
-            is_relevant(ModeParameter::AbsoluteMode),
-            &[
-                root::ID_SETTINGS_MODE_COMBO_BOX,
-                root::ID_SETTINGS_MODE_LABEL,
-            ],
-        );
+        // For all source characters
+        {
+            let show_source_min_max = is_relevant(ModeParameter::SourceMinMax);
+            self.enable_if(
+                show_source_min_max,
+                &[
+                    root::ID_SETTINGS_SOURCE_LABEL,
+                    root::ID_SETTINGS_SOURCE_MIN_LABEL,
+                    root::ID_SETTINGS_SOURCE_MAX_LABEL,
+                    root::ID_SETTINGS_MIN_SOURCE_VALUE_EDIT_CONTROL,
+                    root::ID_SETTINGS_MIN_SOURCE_VALUE_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MAX_SOURCE_VALUE_EDIT_CONTROL,
+                    root::ID_SETTINGS_MAX_SOURCE_VALUE_SLIDER_CONTROL,
+                ],
+            );
+            let show_reverse = is_relevant(ModeParameter::Reverse);
+            self.enable_if(show_reverse, &[root::ID_SETTINGS_REVERSE_CHECK_BOX]);
+            let show_out_of_range_behavior = is_relevant(ModeParameter::OutOfRangeBehavior);
+            self.enable_if(
+                show_out_of_range_behavior,
+                &[
+                    root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
+                    root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
+                ],
+            );
+            let show_target_min_max =
+                is_relevant(ModeParameter::TargetMinMax) && target_can_report_current_value;
+            self.enable_if(
+                show_target_min_max,
+                &[
+                    root::ID_SETTINGS_TARGET_LABEL_TEXT,
+                    root::ID_SETTINGS_MIN_TARGET_LABEL_TEXT,
+                    root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
+                    root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
+                    root::ID_SETTINGS_MAX_TARGET_LABEL_TEXT,
+                    root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
+                    root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
+                ],
+            );
+            let show_feedback_transformation = is_relevant(ModeParameter::FeedbackTransformation);
+            self.enable_if(
+                show_feedback_transformation,
+                &[
+                    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
+                    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+                ],
+            );
+            self.enable_if(
+                show_source_min_max
+                    || show_reverse
+                    || show_out_of_range_behavior
+                    || show_target_min_max
+                    || show_feedback_transformation,
+                &[root::ID_MODE_ALL_GROUP_BOX],
+            );
+        }
+        // For knobs/faders and buttons
+        {
+            let show_jump =
+                target_can_report_current_value && is_relevant(ModeParameter::JumpMinMax);
+            self.enable_if(
+                show_jump,
+                &[
+                    root::ID_SETTINGS_TARGET_JUMP_LABEL_TEXT,
+                    root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
+                    root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
+                    root::ID_SETTINGS_MIN_TARGET_JUMP_LABEL_TEXT,
+                    root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
+                    root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
+                    root::ID_SETTINGS_MAX_TARGET_JUMP_LABEL_TEXT,
+                ],
+            );
+            let show_round_controls = is_relevant(ModeParameter::RoundTargetValue)
+                && self.target_with_context().is_known_to_be_roundable();
+            self.enable_if(
+                show_round_controls,
+                &[root::ID_SETTINGS_ROUND_TARGET_VALUE_CHECK_BOX],
+            );
+            let show_takeover =
+                target_can_report_current_value && is_relevant(ModeParameter::TakeoverMode);
+            self.enable_if(
+                show_takeover,
+                &[root::ID_MODE_TAKEOVER_LABEL, root::ID_MODE_TAKEOVER_MODE],
+            );
+            let show_control_transformation = is_relevant(ModeParameter::ControlTransformation);
+            self.enable_if(
+                show_control_transformation,
+                &[
+                    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_LABEL,
+                    root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL,
+                ],
+            );
+            let show_absolute_mode = is_relevant(ModeParameter::AbsoluteMode);
+            self.enable_if(
+                show_absolute_mode,
+                &[
+                    root::ID_SETTINGS_MODE_COMBO_BOX,
+                    root::ID_SETTINGS_MODE_LABEL,
+                ],
+            );
+            self.enable_if(
+                show_jump
+                    || show_round_controls
+                    || show_takeover
+                    || show_control_transformation
+                    || show_absolute_mode,
+                &[root::ID_MODE_KNOB_FADER_GROUP_BOX],
+            );
+        }
+        // For encoders and incremental buttons
+        {
+            let step_min_is_relevant =
+                is_relevant(ModeParameter::StepSizeMin) || is_relevant(ModeParameter::SpeedMin);
+            let step_max_is_relevant =
+                is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
+            self.enable_if(
+                step_min_is_relevant || step_max_is_relevant,
+                &[root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT],
+            );
+            self.enable_if(
+                step_min_is_relevant,
+                &[
+                    root::ID_SETTINGS_MIN_STEP_SIZE_LABEL_TEXT,
+                    root::ID_SETTINGS_MIN_STEP_SIZE_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MIN_STEP_SIZE_EDIT_CONTROL,
+                    root::ID_SETTINGS_MIN_STEP_SIZE_VALUE_TEXT,
+                ],
+            );
+            self.enable_if(
+                step_max_is_relevant,
+                &[
+                    root::ID_SETTINGS_MAX_STEP_SIZE_LABEL_TEXT,
+                    root::ID_SETTINGS_MAX_STEP_SIZE_SLIDER_CONTROL,
+                    root::ID_SETTINGS_MAX_STEP_SIZE_EDIT_CONTROL,
+                    root::ID_SETTINGS_MAX_STEP_SIZE_VALUE_TEXT,
+                ],
+            );
+            let show_rotate = is_relevant(ModeParameter::Rotate);
+            self.enable_if(show_rotate, &[root::ID_SETTINGS_ROTATE_CHECK_BOX]);
+            let show_make_absolute = is_relevant(ModeParameter::MakeAbsolute);
+            self.enable_if(
+                show_make_absolute,
+                &[root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX],
+            );
+            let show_relative_filter = is_relevant(ModeParameter::RelativeFilter);
+            self.enable_if(
+                show_relative_filter,
+                &[root::ID_MODE_RELATIVE_FILTER_COMBO_BOX],
+            );
+            self.enable_if(
+                step_min_is_relevant
+                    || step_max_is_relevant
+                    || show_rotate
+                    || show_make_absolute
+                    || show_relative_filter,
+                &[root::ID_MODE_RELATIVE_GROUP_BOX],
+            );
+        }
+        // For buttons
+        {
+            let show_button_filter = is_relevant(ModeParameter::ButtonFilter);
+            self.enable_if(show_button_filter, &[root::ID_MODE_BUTTON_FILTER_COMBO_BOX]);
+            let show_fire_mode = is_relevant(ModeParameter::FireMode);
+            self.enable_if(
+                show_fire_mode,
+                &[
+                    root::ID_MODE_FIRE_COMBO_BOX,
+                    root::ID_MODE_FIRE_LINE_2_LABEL_1,
+                    root::ID_MODE_FIRE_LINE_2_SLIDER_CONTROL,
+                    root::ID_MODE_FIRE_LINE_2_EDIT_CONTROL,
+                    root::ID_MODE_FIRE_LINE_2_LABEL_2,
+                    root::ID_MODE_FIRE_LINE_3_LABEL_1,
+                    root::ID_MODE_FIRE_LINE_3_SLIDER_CONTROL,
+                    root::ID_MODE_FIRE_LINE_3_EDIT_CONTROL,
+                    root::ID_MODE_FIRE_LINE_3_LABEL_2,
+                ],
+            );
+            self.enable_if(
+                show_button_filter || show_fire_mode,
+                &[root::ID_MODE_BUTTON_GROUP_BOX],
+            );
+        }
     }
 
     fn invalidate_mode_source_value_controls(&self, initiator: Option<u32>) {

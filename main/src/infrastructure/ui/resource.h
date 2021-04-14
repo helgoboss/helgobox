@@ -203,3 +203,7 @@
 #define ID_SETTINGS_SOURCE_MIN_LABEL            40120
 #define ID_SETTINGS_SOURCE_MAX_LABEL            40121
 #define ID_SETTINGS_MODE_LABEL                  40122
+#define ID_MODE_RELATIVE_GROUP_BOX              40123
+#define ID_MODE_KNOB_FADER_GROUP_BOX            40124
+#define ID_MODE_ALL_GROUP_BOX                   40125
+#define ID_MODE_BUTTON_GROUP_BOX                40126
