@@ -754,6 +754,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             use FeedbackMainTask::*;
             match task {
                 TargetTouched => {
+                    // A target has been touched! We re-resolve all "Last touched" targets so they
+                    // now control the last touched target.
                     for compartment in MappingCompartment::enum_iter() {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
                             // Virtual targets are not candidates for "Last touched" so we don't
@@ -767,7 +769,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                         &self.context,
                                         &self.parameters,
                                     ));
-                                    if let Some(CompoundMappingTarget::Reaper(_)) = m.target() {
+                                    if m.has_reaper_target() && m.has_resolved_successfully() {
                                         if m.feedback_is_effectively_on() {
                                             m.feedback(true)
                                         } else {
@@ -958,40 +960,53 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let projection_feedback_desired = feedback_is_effectively_on;
         let source_feedback_desired =
             self.feedback_is_effectively_enabled() && feedback_is_effectively_on && !m.is_echo();
-        let compound_target = m.target();
-        if let Some(CompoundMappingTarget::Reaper(target)) = compound_target {
-            let (value_changed, new_value) = f(target);
-            if value_changed {
-                // Immediate value capturing. Makes OSC feedback *much* smoother in
-                // combination with high-throughput thread. Especially quick pulls
-                // of many faders at once profit from it because intermediate
-                // values are be captured and immediately sent so user doesn't see
-                // stuttering faders on their device.
-                // It's important to capture the current value from the event because
-                // querying *at this time* from the target itself might result in
-                // the old value to be returned. This is the case with FX parameter
-                // changes for examples and especially in case of on/off targets this
-                // can lead to horribly wrong feedback. Previously we didn't have this
-                // issue because we always deferred to the next main loop cycle.
-                let new_target_value = m
-                    .given_or_current_value(new_value, target)
-                    .unwrap_or(UnitValue::MIN);
-                // Feedback
-                let feedback_value = m.feedback_given_target_value(
-                    new_target_value,
-                    projection_feedback_desired,
-                    source_feedback_desired,
-                );
-                self.send_feedback(FeedbackReason::Normal, feedback_value);
-                // Inform session, e.g. for UI updates
-                self.event_handler
-                    .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
-                        compartment,
-                        mapping_id: m.id(),
-                        target: compound_target,
-                        new_value: new_target_value,
-                    }));
-            }
+        let result = m
+            .targets()
+            .iter()
+            .filter_map(|target| {
+                let target = match target {
+                    CompoundMappingTarget::Reaper(t) => t,
+                    _ => return None,
+                };
+                let (value_changed, new_value) = f(target);
+                if value_changed {
+                    // Immediate value capturing. Makes OSC feedback *much* smoother in
+                    // combination with high-throughput thread. Especially quick pulls
+                    // of many faders at once profit from it because intermediate
+                    // values are be captured and immediately sent so user doesn't see
+                    // stuttering faders on their device.
+                    // It's important to capture the current value from the event because
+                    // querying *at this time* from the target itself might result in
+                    // the old value to be returned. This is the case with FX parameter
+                    // changes for examples and especially in case of on/off targets this
+                    // can lead to horribly wrong feedback. Previously we didn't have this
+                    // issue because we always deferred to the next main loop cycle.
+                    let new_target_value = m
+                        .given_or_current_value(new_value, target)
+                        .unwrap_or(UnitValue::MIN);
+                    // Feedback
+                    let feedback_value = m.feedback_given_target_value(
+                        new_target_value,
+                        projection_feedback_desired,
+                        source_feedback_desired,
+                    );
+                    Some((new_target_value, feedback_value))
+                } else {
+                    None
+                }
+            })
+            .max_by_key(|(new_target_value, _)| *new_target_value);
+        if let Some((new_target_value, feedback_value)) = result {
+            self.send_feedback(FeedbackReason::Normal, feedback_value);
+            // Inform session, e.g. for UI updates
+            self.event_handler
+                .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
+                    compartment,
+                    mapping_id: m.id(),
+                    // First target should be enough.
+                    target: m.targets().first(),
+                    new_value: new_target_value,
+                }));
         }
     }
 
@@ -1584,7 +1599,7 @@ fn send_direct_and_virtual_feedback<EH: DomainEventHandler>(
                         .values()
                         .filter(|m| m.feedback_is_effectively_on())
                     {
-                        if let Some(CompoundMappingTarget::Virtual(t)) = m.target() {
+                        if let Some(t) = m.virtual_target() {
                             if t.control_element() == value.control_element() {
                                 if let Some(FeedbackValue::Real(final_feedback_value)) = m
                                     .feedback_given_target_value(

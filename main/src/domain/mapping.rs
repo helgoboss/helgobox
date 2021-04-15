@@ -114,7 +114,7 @@ impl MainMapping {
                 id,
                 source,
                 mode,
-                target: None,
+                targets: vec![],
                 options,
                 time_of_last_control: None,
             },
@@ -164,7 +164,31 @@ impl MainMapping {
     }
 
     pub fn has_virtual_target(&self) -> bool {
-        matches!(self.target(), Some(CompoundMappingTarget::Virtual(_)))
+        self.virtual_target().is_some()
+    }
+
+    pub fn virtual_target(&self) -> Option<&VirtualTarget> {
+        if let Some(UnresolvedCompoundMappingTarget::Virtual(t)) = self.unresolved_target.as_ref() {
+            Some(t)
+        } else {
+            None
+        }
+    }
+
+    pub fn has_reaper_target(&self) -> bool {
+        self.unresolved_reaper_target().is_some()
+    }
+
+    pub fn has_resolved_successfully(&self) -> bool {
+        !self.core.targets.is_empty()
+    }
+
+    pub fn unresolved_reaper_target(&self) -> Option<&UnresolvedReaperTarget> {
+        if let Some(UnresolvedCompoundMappingTarget::Reaper(t)) = self.unresolved_target.as_ref() {
+            Some(t)
+        } else {
+            None
+        }
     }
 
     /// Returns `Some` if this affects the mapping's activation state in any way.
@@ -258,18 +282,18 @@ impl MainMapping {
         context: ExtendedProcessorContext,
     ) -> (bool, Option<ActivationChange>) {
         let was_active_before = self.core.options.target_is_active;
-        let (target, is_active) = match self.unresolved_target.as_ref() {
-            None => (None, false),
+        let (targets, is_active) = match self.unresolved_target.as_ref() {
+            None => (vec![], false),
             Some(t) => match t.resolve(context, self.core.compartment).ok() {
-                None => (None, false),
-                Some(rt) => {
-                    let met = t.conditions_are_met(&rt);
-                    (Some(rt), met)
+                None => (vec![], false),
+                Some(resolved_targets) => {
+                    let met = t.conditions_are_met(&resolved_targets);
+                    (resolved_targets, met)
                 }
             },
         };
-        let target_changed = target != self.core.target;
-        self.core.target = target;
+        let target_changed = targets != self.core.targets;
+        self.core.targets = targets;
         self.core.options.target_is_active = is_active;
         if is_active == was_active_before {
             return (target_changed, None);
@@ -334,8 +358,8 @@ impl MainMapping {
         }
     }
 
-    pub fn target(&self) -> Option<&CompoundMappingTarget> {
-        self.core.target.as_ref()
+    pub fn targets(&self) -> &[CompoundMappingTarget] {
+        &self.core.targets
     }
 
     /// This is for timer-triggered control and works like `control_if_enabled`.
@@ -343,17 +367,32 @@ impl MainMapping {
         if !self.control_is_effectively_on() {
             return None;
         }
-        let target = match &self.core.target {
-            Some(CompoundMappingTarget::Reaper(t)) => t,
-            _ => return None,
-        };
-        let final_value = self.core.mode.poll(target)?;
-        // Echo feedback, send feedback after control ... all of that is not important when
-        // firing triggered by a timer.
-        // Be graceful here.
-        // TODO-medium In future we could display some kind of small unintrusive error message.
-        let _ = target.control(final_value, context);
-        self.feedback_after_control_if_unsupported_by_target(target)
+        let mut should_send_feedback = false;
+        for target in &self.core.targets {
+            let target = if let CompoundMappingTarget::Reaper(t) = target {
+                t
+            } else {
+                continue;
+            };
+            let final_value = if let Some(v) = self.core.mode.poll(target) {
+                v
+            } else {
+                continue;
+            };
+            // Echo feedback, send feedback after control ... all of that is not important when
+            // firing triggered by a timer.
+            // Be graceful here.
+            // TODO-medium In future we could display some kind of small unintrusive error message.
+            let _ = target.control(final_value, context);
+            if self.should_send_non_auto_feedback_after_control(target) {
+                should_send_feedback = true;
+            }
+        }
+        if should_send_feedback {
+            self.feedback(true)
+        } else {
+            None
+        }
     }
 
     /// Controls mode => target.
@@ -369,41 +408,60 @@ impl MainMapping {
         if !self.control_is_effectively_on() {
             return None;
         }
-        let target = match &self.core.target {
-            Some(CompoundMappingTarget::Reaper(t)) => t,
-            _ => return None,
-        };
-        let final_value =
-            self.core
-                .mode
-                .control_with_options(value, target, options.mode_control_options);
-        if let Some(v) = final_value {
+        let mut send_feedback = false;
+        let mut at_least_one_target_val_was_changed = false;
+        for target in &self.core.targets {
+            let target = if let CompoundMappingTarget::Reaper(t) = target {
+                t
+            } else {
+                continue;
+            };
+            let final_value =
+                self.core
+                    .mode
+                    .control_with_options(value, target, options.mode_control_options);
+            if let Some(v) = final_value {
+                at_least_one_target_val_was_changed = true;
+                // Be graceful here.
+                // TODO-medium In future we could display some kind of small unintrusive error
+                // message.
+                let _ = target.control(v, context);
+                if self.should_send_non_auto_feedback_after_control(target) {
+                    send_feedback = true;
+                }
+            } else {
+                // The target value was not changed. If `send_feedback_after_control` is enabled, we
+                // still send feedback - this can be useful with controllers which insist
+                // controlling the LED on their own. The feedback sent by ReaLearn
+                // will fix this self-controlled LED state.
+                send_feedback = true;
+            }
+        }
+        if at_least_one_target_val_was_changed {
             if self.core.options.prevent_echo_feedback {
                 self.core.time_of_last_control = Some(Instant::now());
             }
-            // Be graceful here.
-            // TODO-medium In future we could display some kind of small unintrusive error message.
-            let _ = target.control(v, context);
-            self.feedback_after_control_if_unsupported_by_target(target)
+            if send_feedback {
+                self.feedback(true)
+            } else {
+                None
+            }
         } else {
-            // The target value was not changed. If `send_feedback_after_control` is enabled, we
-            // still send feedback - this can be useful with controllers which insist controlling
-            // the LED on their own. The feedback sent by ReaLearn will fix this self-controlled
-            // LED state.
-            self.feedback_after_control_if_enabled(options)
+            if send_feedback {
+                self.feedback_after_control_if_enabled(options)
+            } else {
+                None
+            }
         }
     }
 
     /// Not usable for mappings with virtual targets.
-    fn feedback_after_control_if_unsupported_by_target(
-        &self,
-        target: &ReaperTarget,
-    ) -> Option<FeedbackValue> {
+    fn should_send_non_auto_feedback_after_control(&self, target: &ReaperTarget) -> bool {
         if target.supports_automatic_feedback() {
             // The target value was changed and that triggered feedback. Therefore we don't
             // need to send it here a second time (even if `send_feedback_after_control` is
             // enabled). This happens in the majority of cases.
-            None
+            false
         } else {
             // The target value was changed but the target doesn't support feedback. If
             // `send_feedback_after_control` is enabled, we at least send feedback after we
@@ -414,11 +472,7 @@ impl MainMapping {
             // TODO-low Wouldn't it be better to always send feedback in this situation? But that
             //  could the user let believe that it actually works while in reality it's not "true"
             //  feedback that is independent from control. So an opt-in is maybe the right thing.
-            if self.core.options.send_feedback_after_control && self.feedback_is_effectively_on() {
-                self.feedback(true)
-            } else {
-                None
-            }
+            self.core.options.send_feedback_after_control && self.feedback_is_effectively_on()
         }
     }
 
@@ -438,13 +492,17 @@ impl MainMapping {
 
     /// Returns `None` when used on mappings with virtual targets.
     pub fn feedback(&self, with_projection_feedback: bool) -> Option<FeedbackValue> {
-        let target = match &self.core.target {
-            Some(CompoundMappingTarget::Reaper(t)) => t,
-            _ => return None,
-        };
-        let target_value = target.current_value()?;
+        let combined_target_value = self
+            .core
+            .targets
+            .iter()
+            .filter_map(|target| match target {
+                CompoundMappingTarget::Reaper(t) => t.current_value(),
+                _ => None,
+            })
+            .max()?;
         self.feedback_given_target_value(
-            target_value,
+            combined_target_value,
             with_projection_feedback,
             !self.core.is_echo(),
         )
@@ -510,7 +568,9 @@ impl MainMapping {
     }
 
     pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
-        self.core.target.as_ref()?;
+        if self.core.targets.is_empty() {
+            return None;
+        }
         let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
             s.control(msg)?
         } else {
@@ -606,20 +666,23 @@ impl RealTimeMapping {
         matches!(self.target_type, Some(UnresolvedTargetType::Reaper))
     }
 
-    pub fn control_from_mode(&mut self, control_value: ControlValue) -> Option<ControlValue> {
-        let target = self.core.target.as_ref()?;
+    pub fn control_first_target_from_mode(
+        &mut self,
+        control_value: ControlValue,
+    ) -> Option<ControlValue> {
+        let target = self.core.targets.first()?;
         self.core.mode.control(control_value, target)
     }
 
     pub fn needs_to_be_processed_in_real_time(&self) -> bool {
         matches!(
-            &self.core.target,
+            self.core.targets.first(),
             Some(CompoundMappingTarget::Reaper(ReaperTarget::SendMidi { .. }))
         )
     }
 
-    pub fn target(&self) -> Option<&CompoundMappingTarget> {
-        self.core.target.as_ref()
+    pub fn first_target(&self) -> Option<&CompoundMappingTarget> {
+        self.core.targets.first()
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
@@ -638,7 +701,9 @@ impl RealTimeMapping {
         &mut self,
         source_value: &MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
-        self.core.target.as_ref()?;
+        if self.core.targets.is_empty() {
+            return None;
+        }
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
             s.control(&source_value)?
         } else {
@@ -659,7 +724,7 @@ pub struct MappingCore {
     id: MappingId,
     source: CompoundMappingSource,
     mode: Mode,
-    target: Option<CompoundMappingTarget>,
+    targets: Vec<CompoundMappingTarget>,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
 }
@@ -857,22 +922,23 @@ impl UnresolvedCompoundMappingTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Result<CompoundMappingTarget, &'static str> {
+    ) -> Result<Vec<CompoundMappingTarget>, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
         let resolved = match self {
             Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context, compartment)?),
             Virtual(t) => CompoundMappingTarget::Virtual(*t),
         };
-        Ok(resolved)
+        // TODO-high
+        Ok(vec![resolved])
     }
 
-    pub fn conditions_are_met(&self, target: &CompoundMappingTarget) -> bool {
+    pub fn conditions_are_met(&self, targets: &[CompoundMappingTarget]) -> bool {
         use UnresolvedCompoundMappingTarget::*;
-        match (self, target) {
+        targets.iter().all(|target| match (self, target) {
             (Reaper(t), CompoundMappingTarget::Reaper(rt)) => t.conditions_are_met(rt),
             (Virtual(_), CompoundMappingTarget::Virtual(_)) => true,
             _ => unreachable!(),
-        }
+        })
     }
 
     pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
@@ -1100,7 +1166,8 @@ fn match_partially(
     control_value: ControlValue,
 ) -> Option<PartialControlMatch> {
     use CompoundMappingTarget::*;
-    let result = match core.target.as_ref()? {
+    // First target is enough because this does nothing yet for REAPER targets.
+    let result = match core.targets.first()? {
         Reaper(_) => {
             // Send to main processor because this needs to be done in main thread.
             PartialControlMatch::ProcessDirect(control_value)

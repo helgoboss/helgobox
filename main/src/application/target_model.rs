@@ -1097,7 +1097,9 @@ impl<'a> TargetModelWithContext<'a> {
     /// track/FX/parameter) is not available.
     pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
         let unresolved = self.target.create_target()?;
-        unresolved.resolve(self.context, self.compartment)
+        let targets = unresolved.resolve(self.context, self.compartment)?;
+        // For now look only at the first one in the UI.
+        targets.first().cloned().ok_or("resolved to zero targets")
     }
 
     pub fn is_known_to_be_roundable(&self) -> bool {

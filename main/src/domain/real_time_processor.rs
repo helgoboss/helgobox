@@ -1074,10 +1074,11 @@ fn process_real_mapping(
 ) -> Result<(), &'static str> {
     if mapping.needs_to_be_processed_in_real_time() {
         let v = mapping
-            .control_from_mode(value)
+            // We won't have more than one "Send MIDI" target.
+            .control_first_target_from_mode(value)
             .ok_or("mode didn't return control value")?
             .as_absolute()?;
-        match mapping.target().ok_or("target not resolved")? {
+        match mapping.first_target().ok_or("target not resolved")? {
             CompoundMappingTarget::Reaper(ReaperTarget::SendMidi {
                 pattern,
                 destination,
