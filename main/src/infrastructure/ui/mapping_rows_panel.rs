@@ -15,7 +15,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
-use crate::domain::{CompoundMappingTarget, MappingCompartment, MappingId};
+use crate::domain::{MappingCompartment, MappingId};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -356,15 +356,10 @@ impl MappingRowsPanel {
             }
         }
         if let Some(filter_target) = main_state.target_filter.get_ref() {
-            let mapping_target = match mapping
-                .target_model
-                .with_context(session.extended_context(), mapping.compartment())
-                .create_target()
+            if !mapping
+                .with_context(session.extended_context())
+                .has_target(filter_target)
             {
-                Ok(CompoundMappingTarget::Reaper(t)) => t,
-                _ => return false,
-            };
-            if mapping_target != *filter_target {
                 return false;
             }
         }

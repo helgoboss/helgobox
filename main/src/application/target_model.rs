@@ -1100,17 +1100,19 @@ impl<'a> TargetModelWithContext<'a> {
     ///
     /// Returns an error if not enough information is provided by the model or if something (e.g.
     /// track/FX/parameter) is not available.
-    pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
+    pub fn resolve(&self) -> Result<Vec<CompoundMappingTarget>, &'static str> {
         let unresolved = self.target.create_target()?;
-        let targets = unresolved.resolve(self.context, self.compartment)?;
-        // TODO-high Support all targets and let consumer decide (e.g. target value slider should
-        //  control all targets!)
-        targets.first().cloned().ok_or("resolved to zero targets")
+        unresolved.resolve(self.context, self.compartment)
+    }
+
+    pub fn resolve_first(&self) -> Result<CompoundMappingTarget, &'static str> {
+        let targets = self.resolve()?;
+        targets.into_iter().next().ok_or("resolved to empty list")
     }
 
     pub fn is_known_to_be_roundable(&self) -> bool {
         // TODO-low use cached
-        self.create_target()
+        self.resolve_first()
             .map(|t| {
                 matches!(
                     t.control_type(),
@@ -1775,9 +1777,9 @@ fn virtualize_route(route: &TrackRoute, context: &ProcessorContext) -> VirtualTr
 pub enum VirtualTrackType {
     #[display(fmt = "<This>")]
     This,
-    #[display(fmt = "<Selected>")]
+    #[display(fmt = "<Selected> (single)")]
     Selected,
-    #[display(fmt = "<Selected> *")]
+    #[display(fmt = "<Selected> (multi)")]
     SelectedMultiple,
     #[display(fmt = "<Dynamic>")]
     Dynamic,
@@ -1850,6 +1852,11 @@ impl VirtualTrackType {
     pub fn refers_to_project(&self) -> bool {
         use VirtualTrackType::*;
         matches!(self, ByIdOrName | ById)
+    }
+
+    pub fn track_selected_condition_makes_sense(&self) -> bool {
+        use VirtualTrackType::*;
+        !matches!(self, Selected | SelectedMultiple)
     }
 }
 

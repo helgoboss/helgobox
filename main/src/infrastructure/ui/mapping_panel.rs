@@ -580,12 +580,16 @@ fn decorate_reaction<I: SharedPayload>(
 }
 
 impl<'a> MutableMappingPanel<'a> {
-    fn real_target(&self) -> Option<CompoundMappingTarget> {
-        self.target_with_context().create_target().ok()
+    fn resolved_targets(&self) -> Vec<CompoundMappingTarget> {
+        self.target_with_context().resolve().unwrap_or_default()
+    }
+
+    fn first_resolved_target(&self) -> Option<CompoundMappingTarget> {
+        self.resolved_targets().into_iter().next()
     }
 
     fn open_target(&self) {
-        if let Some(t) = self.real_target() {
+        if let Some(t) = self.first_resolved_target() {
             Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || t.open())
                 .unwrap();
@@ -993,13 +997,13 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn get_value_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
-        let target = self.real_target()?;
+        let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
         target.parse_as_value(text.as_str()).ok()
     }
 
     fn get_step_size_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
-        let target = self.real_target()?;
+        let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
         target.parse_as_step_size(text.as_str()).ok()
     }
@@ -3302,13 +3306,18 @@ impl<'a> ImmutableMappingPanel<'a> {
         let res = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 t if t.supports_track_must_be_selected() => {
-                    if self.target.track_type.get() == VirtualTrackType::Selected {
-                        None
-                    } else {
+                    if self
+                        .target
+                        .track_type
+                        .get()
+                        .track_selected_condition_makes_sense()
+                    {
                         Some((
                             "Track must be selected",
                             self.target.enable_only_if_track_selected.get(),
                         ))
+                    } else {
+                        None
                     }
                 }
                 t if t.supports_track_scrolling() => {
@@ -3402,7 +3411,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_value_controls(&self) {
-        let error = if let Some(t) = self.real_target() {
+        // TODO-high This might set the value slider to the wrong value because it only takes the
+        //  first resolved target into account.
+        let error = if let Some(t) = self.first_resolved_target() {
             if t.can_report_current_value() {
                 let value = t.current_value().unwrap_or(UnitValue::MIN);
                 self.invalidate_target_value_controls_with_value(value);
@@ -3726,7 +3737,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 &relevant_source_characters,
             )
         };
-        let real_target = self.real_target();
+        let real_target = self.first_resolved_target();
         let target_can_report_current_value = real_target
             .as_ref()
             .map(|t| t.can_report_current_value())
@@ -4001,7 +4012,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         initiator: Option<u32>,
     ) {
         invalidate_target_controls_free(
-            self.real_target().as_ref(),
+            // It's okay to use the first resolved target only because we use it solely to gather
+            // some target characteristics, no the value.
+            self.first_resolved_target().as_ref(),
             self.view.require_control(slider_control_id),
             self.view.require_control(edit_control_id),
             self.view.require_control(value_text_control_id),
@@ -4155,7 +4168,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         value: SoftSymmetricUnitValue,
         initiator: Option<u32>,
     ) {
-        let (val, edit_text, value_text) = match &self.real_target() {
+        let (val, edit_text, value_text) = match &self.first_resolved_target() {
             Some(target) => {
                 if self.mapping_uses_step_counts() {
                     let edit_text = convert_unit_value_to_factor(value).to_string();
@@ -4719,8 +4732,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn real_target(&self) -> Option<CompoundMappingTarget> {
-        self.target_with_context().create_target().ok()
+    fn resolved_targets(&self) -> Vec<CompoundMappingTarget> {
+        self.target_with_context().resolve().unwrap_or_default()
+    }
+
+    fn first_resolved_target(&self) -> Option<CompoundMappingTarget> {
+        self.resolved_targets().into_iter().next()
     }
 }
 
@@ -4895,10 +4912,10 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok((Some(t), feedback_output)) =
-                    self.read(|p| (p.real_target(), p.session.feedback_output()))
+                if let Ok((targets, feedback_output)) =
+                    self.read(|p| (p.resolved_targets(), p.session.feedback_output()))
                 {
-                    update_target_value(&t, s.slider_unit_value(), feedback_output);
+                    update_target_value(&targets, s.slider_unit_value(), feedback_output);
                 }
             }
             _ => unreachable!(),
@@ -4955,15 +4972,13 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (target, value, feedback_output) = view.write(|p| {
+                let (targets, value, feedback_output) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                         .unwrap_or(UnitValue::MIN);
-                    (p.real_target(), value, p.session.feedback_output())
+                    (p.resolved_targets(), value, p.session.feedback_output())
                 });
-                if let Some(t) = target {
-                    update_target_value(&t, value, feedback_output);
-                }
+                update_target_value(&targets, value, feedback_output);
             }
             _ => return false,
         };
@@ -5039,19 +5054,21 @@ enum PositiveOrSymmetricUnitValue {
 }
 
 fn update_target_value(
-    target: &CompoundMappingTarget,
+    targets: &[CompoundMappingTarget],
     value: UnitValue,
     feedback_output: Option<FeedbackOutput>,
 ) {
-    // If it doesn't work in some cases, so what.
-    let _ = target.control(
-        ControlValue::Absolute(value),
-        ControlContext {
-            feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
-            osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
-            feedback_output,
-        },
-    );
+    for target in targets {
+        // If it doesn't work in some cases, so what.
+        let _ = target.control(
+            ControlValue::Absolute(value),
+            ControlContext {
+                feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
+                osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
+                feedback_output,
+            },
+        );
+    }
 }
 
 fn group_mappings_by_virtual_control_element<'a>(

@@ -320,7 +320,7 @@ impl<'a> MappingModelWithContext<'a> {
         let result = match self.mapping.source_model.character() {
             Normal(RangeElement) => mode_type == AbsoluteMode::Normal,
             Normal(MomentaryButton) | Normal(ToggleButton) => {
-                let target = self.target_with_context().create_target()?;
+                let target = self.target_with_context().resolve_first()?;
                 match mode_type {
                     AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
                         !target.control_type().is_relative()
@@ -348,10 +348,14 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn has_target(&self, target: &ReaperTarget) -> bool {
-        match self.target_with_context().create_target() {
-            Ok(CompoundMappingTarget::Reaper(t)) => t == *target,
-            _ => false,
-        }
+        self.target_with_context()
+            .resolve()
+            .iter()
+            .flatten()
+            .any(|t| match t {
+                CompoundMappingTarget::Reaper(t) => t == target,
+                _ => false,
+            })
     }
 
     pub fn preferred_mode_type(&self) -> Result<AbsoluteMode, &'static str> {
@@ -360,7 +364,7 @@ impl<'a> MappingModelWithContext<'a> {
         let result = match self.mapping.source_model.character() {
             Normal(RangeElement) | VirtualContinuous => AbsoluteMode::Normal,
             Normal(MomentaryButton) | Normal(ToggleButton) => {
-                let target = self.target_with_context().create_target()?;
+                let target = self.target_with_context().resolve_first()?;
                 if target.control_type().is_relative() {
                     AbsoluteMode::IncrementalButtons
                 } else {
@@ -385,7 +389,7 @@ impl<'a> MappingModelWithContext<'a> {
             // If we convert increments to absolute values, we want step sizes of course.
             return false;
         }
-        let target = match self.target_with_context().create_target().ok() {
+        let target = match self.target_with_context().resolve_first().ok() {
             None => return false,
             Some(t) => t,
         };
@@ -415,7 +419,7 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     fn target_step_size(&self) -> Option<UnitValue> {
-        let target = self.target_with_context().create_target().ok()?;
+        let target = self.target_with_context().resolve_first().ok()?;
         target.control_type().step_size()
     }
 
