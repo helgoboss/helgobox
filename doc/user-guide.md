@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-04-14 (v2.8.0-rc.4)</code></td>
+  <td><code>2021-04-15 (v2.8.0-rc.5)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -19,7 +19,7 @@
 1. [Tutorials](#tutorials)
 1. [Frequently asked questions (FAQ)](#faq)
 1. [Tested controllers](#tested-controllers)
-1. [Presets](#presets)
+1. [Additional presets](#additional-presets)
 
 ## Quick start
 
@@ -515,6 +515,8 @@ on macOS) with the following entries:
   clipboard.
 - **Auto-name listed mappings:** Clears the names of all listed mappings so ReaLearn's auto-naming mechanism can kick
   in. 
+- **Move listed mappings to group:** Lets you move all currently listed mappings to the specified group. Perfect in
+  combination with the textual search!
 - **Options**
     - **Auto-correct settings:** By default, whenever you change something in ReaLearn, it tries to
       figure out if your combination of settings makes sense. If not, it makes an adjustment.
@@ -1478,7 +1480,11 @@ Only available for targets that are associated with a particular REAPER track:
     possible:
   - **&lt;This&gt;**: Track which hosts this ReaLearn instance. If ReaLearn is on the monitoring FX
     chain, this resolves to the master track of the current project.
-  - **&lt;Selected&gt;**: Currently selected track.
+  - **&lt;Selected&gt;**: Currently selected track. If multiple tracks are selected, refers only to the first one.
+  - **&lt;All selected&gt;**: All currently selected tracks. This makes track targets (not FX target and not send
+    targets) do its job on *all* selected tracks.
+        - *Attention:* If you select many tracks, things can become quite slow!
+        - The feedback value always corresponds to the highest value among all selected tracks.
   - **&lt;Master&gt;**: Master track of the project which hosts this ReaLearn instance. 
       - If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
       - If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX
@@ -1857,6 +1863,48 @@ Sets the track send's pan value.
 ###### Send: Set volume
 
 Sets the track send's volume.
+
+###### MIDI: Send message
+
+Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages. This target turns ReaLearn into
+a capable and convenient MIDI → MIDI and OSC → MIDI converter.
+
+- **Output:** Where to send the MIDI message.
+    - **FX output:** Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows
+      into the FX below ReaLearn, e.g. a VST instrument. This only works if *Control input* is set to `<FX input>`!
+    - **Feedback output:** Sends the MIDI message to the device which is set as *Feedback output*. Of course this only
+      works if it's a MIDI device.
+- **Pattern:** Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation. It also allows you
+  to encode the incoming *absolute* control value as part of the message (after it has been processed by the tuning
+  section). The syntax for doing this takes some getting used to but it's very flexible. It's exactly the same syntax as
+  used in the [Raw MIDI source](#raw-midi-source).
+  Please read about it there!
+- **Pick!:** Provides many predefined patterns. Just pick one here, set the destination to "Feedback output" and
+  add a "ReaControlMIDI" FX below to see which messages ReaLearn sends.
+  
+Remarks:
+
+- The incoming value *must* be absolute. If you use a relative encoder, you need to use *Make absolute* to turn it into
+  an absolute value.
+
+
+###### OSC: Send message
+
+Sends OSC messages with up to one argument in response to incoming messages. This target turns ReaLearn into
+a capable and convenient MIDI → OSC and OSC → OSC converter. If an argument number is entered (e.g. `1`),
+it will encode the incoming absolute control value as that argument (after it has been processed by the tuning section).
+
+- **Output:** Where to send the OSC message.
+    - **&lt;Feedback output&gt;:** Sends the OSC message to the device which is set as *Feedback output*. Of course this only
+      works if it's an OSC device.
+    - ***Specific device:*** Sends the OSC message to a specific device. 
+- **Address** and **Argument**: This corresponds to the identically named settings of [OSC sources](#category-osc).
+  Check that section for details.
+
+Remarks:
+
+- The incoming value *must* be absolute. If you use a relative encoder, you need to use *Make absolute* to turn it into
+  an absolute value.
 
 ##### Category "Virtual"
 
@@ -2979,7 +3027,7 @@ OSC messages. Therefore you need to untick "Can deal with bundles" in the OSC de
 See Behringer X32.
 
 
-## Presets
+## Additional presets
 
 The Helgoboss ReaPack repository provides a growing number of ReaLearn controller and main presets.
 
