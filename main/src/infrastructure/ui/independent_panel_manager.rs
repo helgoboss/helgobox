@@ -36,7 +36,7 @@ impl IndependentPanelManager {
                 };
                 if is_our_mapping {
                     p.clone()
-                        .notify_target_value_changed(event.target, event.new_value);
+                        .notify_target_value_changed(event.targets, event.new_value);
                 }
             }
         }

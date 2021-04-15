@@ -28,7 +28,7 @@ pub enum DomainEvent<'a> {
 pub struct TargetValueChangedEvent<'a> {
     pub compartment: MappingCompartment,
     pub mapping_id: MappingId,
-    pub target: Option<&'a CompoundMappingTarget>,
+    pub targets: &'a [CompoundMappingTarget],
     pub new_value: UnitValue,
 }
 

@@ -956,11 +956,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         m: &MainMapping,
         f: &impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
-        let feedback_is_effectively_on = m.feedback_is_effectively_on();
-        let projection_feedback_desired = feedback_is_effectively_on;
-        let source_feedback_desired =
-            self.feedback_is_effectively_enabled() && feedback_is_effectively_on && !m.is_echo();
-        let result = m
+        // It's enough if one of the resolved targets is affected. Then we are going to need the
+        // values of all of them!
+        let mut at_least_one_target_is_affected = false;
+        let new_values: Vec<(&ReaperTarget, Option<UnitValue>)> = m
             .targets()
             .iter()
             .filter_map(|target| {
@@ -968,44 +967,54 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     CompoundMappingTarget::Reaper(t) => t,
                     _ => return None,
                 };
+                // Immediate value capturing. Makes OSC feedback *much* smoother in
+                // combination with high-throughput thread. Especially quick pulls
+                // of many faders at once profit from it because intermediate
+                // values are captured and immediately sent so user doesn't see
+                // stuttering faders on their device.
+                // It's important to capture the current value from the event because
+                // querying *at this time* from the target itself might result in
+                // the old value to be returned. This is the case with FX parameter
+                // changes for examples and especially in case of on/off targets this
+                // can lead to horribly wrong feedback. Previously we didn't have this
+                // issue because we always deferred to the next main loop cycle.
                 let (value_changed, new_value) = f(target);
                 if value_changed {
-                    // Immediate value capturing. Makes OSC feedback *much* smoother in
-                    // combination with high-throughput thread. Especially quick pulls
-                    // of many faders at once profit from it because intermediate
-                    // values are be captured and immediately sent so user doesn't see
-                    // stuttering faders on their device.
-                    // It's important to capture the current value from the event because
-                    // querying *at this time* from the target itself might result in
-                    // the old value to be returned. This is the case with FX parameter
-                    // changes for examples and especially in case of on/off targets this
-                    // can lead to horribly wrong feedback. Previously we didn't have this
-                    // issue because we always deferred to the next main loop cycle.
-                    let new_target_value = m
-                        .given_or_current_value(new_value, target)
-                        .unwrap_or(UnitValue::MIN);
-                    // Feedback
-                    let feedback_value = m.feedback_given_target_value(
-                        new_target_value,
-                        projection_feedback_desired,
-                        source_feedback_desired,
-                    );
-                    Some((new_target_value, feedback_value))
-                } else {
-                    None
+                    at_least_one_target_is_affected = true;
                 }
+                Some((target, new_value))
             })
-            .max_by_key(|(new_target_value, _)| *new_target_value);
-        if let Some((new_target_value, feedback_value)) = result {
+            .collect();
+        if !at_least_one_target_is_affected {
+            return;
+        }
+        let new_target_value = new_values
+            .into_iter()
+            .map(|(target, new_value)| {
+                m.given_or_current_value(new_value, target)
+                    .unwrap_or(UnitValue::MIN)
+            })
+            .max();
+        if let Some(new_value) = new_target_value {
+            // Feedback
+            let feedback_is_effectively_on = m.feedback_is_effectively_on();
+            let projection_feedback_desired = feedback_is_effectively_on;
+            let source_feedback_desired = self.feedback_is_effectively_enabled()
+                && feedback_is_effectively_on
+                && !m.is_echo();
+            let feedback_value = m.feedback_given_target_value(
+                new_value,
+                projection_feedback_desired,
+                source_feedback_desired,
+            );
             self.send_feedback(FeedbackReason::Normal, feedback_value);
             // Inform session, e.g. for UI updates
             self.event_handler
                 .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
                     compartment,
                     mapping_id: m.id(),
-                    // First target should be enough.
-                    target: m.targets().first(),
-                    new_value: new_target_value,
+                    targets: m.targets(),
+                    new_value,
                 }));
         }
     }

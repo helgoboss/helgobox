@@ -324,12 +324,15 @@ impl MappingPanel {
 
     pub fn notify_target_value_changed(
         self: SharedView<Self>,
-        target: Option<&CompoundMappingTarget>,
+        target: &[CompoundMappingTarget],
         new_value: UnitValue,
     ) {
         self.invoke_programmatically(|| {
             invalidate_target_controls_free(
-                target,
+                // We use the target only to derive some characteristics. When having multiple
+                // targets, they should all share the same characteristics, so we can just take
+                // the first one.
+                target.first(),
                 self.view
                     .require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
                 self.view

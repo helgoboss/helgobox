@@ -924,12 +924,17 @@ impl UnresolvedCompoundMappingTarget {
         compartment: MappingCompartment,
     ) -> Result<Vec<CompoundMappingTarget>, &'static str> {
         use UnresolvedCompoundMappingTarget::*;
-        let resolved = match self {
-            Reaper(t) => CompoundMappingTarget::Reaper(t.resolve(context, compartment)?),
-            Virtual(t) => CompoundMappingTarget::Virtual(*t),
+        let resolved_targets = match self {
+            Reaper(t) => {
+                let reaper_targets = t.resolve(context, compartment)?;
+                reaper_targets
+                    .into_iter()
+                    .map(CompoundMappingTarget::Reaper)
+                    .collect()
+            }
+            Virtual(t) => vec![CompoundMappingTarget::Virtual(*t)],
         };
-        // TODO-high
-        Ok(vec![resolved])
+        Ok(resolved_targets)
     }
 
     pub fn conditions_are_met(&self, targets: &[CompoundMappingTarget]) -> bool {
