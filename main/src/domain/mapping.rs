@@ -446,12 +446,10 @@ impl MainMapping {
             } else {
                 None
             }
+        } else if send_feedback {
+            self.feedback_after_control_if_enabled(options)
         } else {
-            if send_feedback {
-                self.feedback_after_control_if_enabled(options)
-            } else {
-                None
-            }
+            None
         }
     }
 
