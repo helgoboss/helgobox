@@ -91,7 +91,10 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
                 let new_virtual_track = if changed_to_track_ignore_fx {
                     // Track doesn't matter at all. We change it to <This>. Looks nice.
                     Some(VirtualTrack::This)
-                } else if let Ok(t) = target.with_context(context, compartment).effective_track() {
+                } else if let Ok(t) = target
+                    .with_context(context, compartment)
+                    .first_effective_track()
+                {
                     if let Some(i) = t.index() {
                         Some(VirtualTrack::ByIndex(i))
                     } else {

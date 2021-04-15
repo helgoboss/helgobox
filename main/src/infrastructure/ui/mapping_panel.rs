@@ -1634,7 +1634,7 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_fx() => {
-                    if let Ok(track) = self.target_with_context().effective_track() {
+                    if let Ok(track) = self.target_with_context().first_effective_track() {
                         let chain = if self.mapping.target_model.fx_is_input_fx.get() {
                             track.input_fx_chain()
                         } else {
@@ -1731,7 +1731,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .set(i.try_into().expect("invalid FX display type"));
                 }
                 t if t.supports_send() => {
-                    if let Ok(track) = self.target_with_context().effective_track() {
+                    if let Ok(track) = self.target_with_context().first_effective_track() {
                         let i = combo.selected_combo_box_item_index();
                         let route_type = self.mapping.target_model.route_type.get();
                         if let Ok(route) = resolve_track_route_by_index(&track, route_type, i as _)
@@ -2675,10 +2675,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.fill_combo_box_indexed(track_combo_box_entries(project));
                         // Set
                         if let Some(virtual_track) = self.target.virtual_track() {
-                            if let Ok(track) =
-                                virtual_track.resolve(context, self.mapping.compartment())
+                            if let Some(resolved_track) = virtual_track
+                                .resolve(context, self.mapping.compartment())
+                                .ok()
+                                .and_then(|tracks| tracks.into_iter().next())
                             {
-                                let i = track.index().unwrap();
+                                let i = resolved_track.index().unwrap();
                                 combo.select_combo_box_item_by_index(i as _).unwrap();
                             } else {
                                 combo.select_new_combo_box_item(
@@ -3076,7 +3078,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         if let Ok(track) = self
                             .target
                             .with_context(context, self.mapping.compartment())
-                            .effective_track()
+                            .first_effective_track()
                         {
                             // Fill
                             let chain = if self.target.fx_is_input_fx.get() {
@@ -3210,7 +3212,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         let target_with_context = self
                             .target
                             .with_context(context, self.mapping.compartment());
-                        if let Ok(track) = target_with_context.effective_track() {
+                        if let Ok(track) = target_with_context.first_effective_track() {
                             // Fill
                             let route_type = self.target.route_type.get();
                             combo.fill_combo_box_indexed_vec(send_combo_box_entries(

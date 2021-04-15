@@ -368,6 +368,12 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
             index: None,
             expression: None,
         },
+        SelectedMultiple => TrackData {
+            guid: Some("selected*".to_string()),
+            name: None,
+            index: None,
+            expression: None,
+        },
         Master => TrackData {
             guid: Some("master".to_string()),
             name: None,
@@ -654,7 +660,14 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
             TrackPropValues::from_virtual_track(VirtualTrack::Master)
         }
         TrackData { guid: Some(g), .. } if g == "selected" => {
-            TrackPropValues::from_virtual_track(VirtualTrack::Selected)
+            TrackPropValues::from_virtual_track(VirtualTrack::Selected {
+                allow_multiple: false,
+            })
+        }
+        TrackData { guid: Some(g), .. } if g == "selected*" => {
+            TrackPropValues::from_virtual_track(VirtualTrack::Selected {
+                allow_multiple: true,
+            })
         }
         TrackData {
             guid: Some(g),

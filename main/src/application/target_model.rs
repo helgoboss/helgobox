@@ -515,7 +515,12 @@ impl TargetModel {
         use VirtualTrackType::*;
         let track = match self.track_type.get() {
             This => VirtualTrack::This,
-            Selected => VirtualTrack::Selected,
+            Selected => VirtualTrack::Selected {
+                allow_multiple: false,
+            },
+            SelectedMultiple => VirtualTrack::Selected {
+                allow_multiple: true,
+            },
             Master => VirtualTrack::Master,
             ById => VirtualTrack::ById(self.track_id.get()?),
             ByName => VirtualTrack::ByName(WildMatch::new(self.track_name.get_ref())),
@@ -1098,7 +1103,8 @@ impl<'a> TargetModelWithContext<'a> {
     pub fn create_target(&self) -> Result<CompoundMappingTarget, &'static str> {
         let unresolved = self.target.create_target()?;
         let targets = unresolved.resolve(self.context, self.compartment)?;
-        // For now look only at the first one in the UI.
+        // TODO-high Support all targets and let consumer decide (e.g. target value slider should
+        //  control all targets!)
         targets.first().cloned().ok_or("resolved to zero targets")
     }
 
@@ -1126,13 +1132,15 @@ impl<'a> TargetModelWithContext<'a> {
         self.context.context().project_or_current_project()
     }
 
-    // TODO-low Consider returning a Cow
-    pub fn effective_track(&self) -> Result<Track, &'static str> {
+    pub fn first_effective_track(&self) -> Result<Track, &'static str> {
         self.target
             .virtual_track()
             .ok_or("virtual track not complete")?
             .resolve(self.context, self.compartment)
-            .map_err(|_| "particular track couldn't be resolved")
+            .map_err(|_| "particular track couldn't be resolved")?
+            .into_iter()
+            .next()
+            .ok_or("resolved to empty track list")
     }
 
     // Returns an error if that send (or track) doesn't exist.
@@ -1769,6 +1777,8 @@ pub enum VirtualTrackType {
     This,
     #[display(fmt = "<Selected>")]
     Selected,
+    #[display(fmt = "<Selected> *")]
+    SelectedMultiple,
     #[display(fmt = "<Dynamic>")]
     Dynamic,
     #[display(fmt = "<Master>")]
@@ -1821,7 +1831,13 @@ impl VirtualTrackType {
         use VirtualTrack::*;
         match virtual_track {
             This => Self::This,
-            Selected => Self::Selected,
+            Selected { allow_multiple } => {
+                if *allow_multiple {
+                    Self::SelectedMultiple
+                } else {
+                    Self::Selected
+                }
+            }
             Dynamic(_) => Self::Dynamic,
             Master => Self::Master,
             ByIdOrName(_, _) => Self::ByIdOrName,

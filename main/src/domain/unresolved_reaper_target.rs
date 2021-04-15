@@ -26,6 +26,9 @@ use std::num::NonZeroU32;
 use std::rc::Rc;
 use wildmatch::WildMatch;
 
+/// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
+const MAX_MULTIPLE: usize = 1000;
+
 #[derive(Debug)]
 pub enum UnresolvedReaperTarget {
     Action {
@@ -149,127 +152,156 @@ impl UnresolvedReaperTarget {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Result<ReaperTarget, &'static str> {
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
         use UnresolvedReaperTarget::*;
-        let resolved = match self {
+        let resolved_targets = match self {
             Action {
                 action,
                 invocation_type,
-            } => ReaperTarget::Action {
+            } => vec![ReaperTarget::Action {
                 action: action.clone(),
                 invocation_type: *invocation_type,
                 project: context.context().project_or_current_project(),
-            },
+            }],
             FxParameter {
                 fx_parameter_descriptor,
-            } => ReaperTarget::FxParameter {
+            } => vec![ReaperTarget::FxParameter {
                 param: get_fx_param(context, fx_parameter_descriptor, compartment)?,
-            },
-            TrackVolume { track_descriptor } => ReaperTarget::TrackVolume {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-            },
-            TrackSendVolume { descriptor } => ReaperTarget::TrackRouteVolume {
+            }],
+            TrackVolume { track_descriptor } => {
+                get_effective_tracks(context, &track_descriptor.track, compartment)?
+                    .into_iter()
+                    .map(|track| ReaperTarget::TrackVolume { track })
+                    .collect()
+            }
+            TrackSendVolume { descriptor } => vec![ReaperTarget::TrackRouteVolume {
                 route: get_track_route(context, descriptor, compartment)?,
-            },
-            TrackPan { track_descriptor } => ReaperTarget::TrackPan {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-            },
-            TrackWidth { track_descriptor } => ReaperTarget::TrackWidth {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-            },
+            }],
+            TrackPan { track_descriptor } => {
+                get_effective_tracks(context, &track_descriptor.track, compartment)?
+                    .into_iter()
+                    .map(|track| ReaperTarget::TrackPan { track })
+                    .collect()
+            }
+            TrackWidth { track_descriptor } => {
+                get_effective_tracks(context, &track_descriptor.track, compartment)?
+                    .into_iter()
+                    .map(|track| ReaperTarget::TrackWidth { track })
+                    .collect()
+            }
             TrackArm {
                 track_descriptor,
                 exclusivity,
-            } => ReaperTarget::TrackArm {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-            },
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackArm {
+                    track,
+                    exclusivity: *exclusivity,
+                })
+                .collect(),
             TrackSelection {
                 track_descriptor,
                 exclusivity,
                 scroll_arrange_view,
                 scroll_mixer,
-            } => ReaperTarget::TrackSelection {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-                scroll_arrange_view: *scroll_arrange_view,
-                scroll_mixer: *scroll_mixer,
-            },
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackSelection {
+                    track,
+                    exclusivity: *exclusivity,
+                    scroll_arrange_view: *scroll_arrange_view,
+                    scroll_mixer: *scroll_mixer,
+                })
+                .collect(),
             TrackMute {
                 track_descriptor,
                 exclusivity,
-            } => ReaperTarget::TrackMute {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-            },
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackMute {
+                    track,
+                    exclusivity: *exclusivity,
+                })
+                .collect(),
             TrackShow {
                 track_descriptor,
                 exclusivity,
                 area,
-            } => ReaperTarget::TrackShow {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-                area: *area,
-            },
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackShow {
+                    track,
+                    exclusivity: *exclusivity,
+                    area: *area,
+                })
+                .collect(),
             TrackSolo {
                 track_descriptor,
                 exclusivity,
                 behavior,
-            } => ReaperTarget::TrackSolo {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-                behavior: *behavior,
-            },
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackSolo {
+                    track,
+                    exclusivity: *exclusivity,
+                    behavior: *behavior,
+                })
+                .collect(),
             TrackAutomationMode {
                 track_descriptor,
                 exclusivity,
                 mode,
-            } => ReaperTarget::TrackAutomationMode {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-                mode: *mode,
-            },
-            TrackSendPan { descriptor } => ReaperTarget::TrackRoutePan {
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackAutomationMode {
+                    track,
+                    exclusivity: *exclusivity,
+                    mode: *mode,
+                })
+                .collect(),
+            TrackSendPan { descriptor } => vec![ReaperTarget::TrackRoutePan {
                 route: get_track_route(context, descriptor, compartment)?,
-            },
-            TrackSendMute { descriptor } => ReaperTarget::TrackRouteMute {
+            }],
+            TrackSendMute { descriptor } => vec![ReaperTarget::TrackRouteMute {
                 route: get_track_route(context, descriptor, compartment)?,
-            },
-            Tempo => ReaperTarget::Tempo {
+            }],
+            Tempo => vec![ReaperTarget::Tempo {
                 project: context.context().project_or_current_project(),
-            },
-            Playrate => ReaperTarget::Playrate {
+            }],
+            Playrate => vec![ReaperTarget::Playrate {
                 project: context.context().project_or_current_project(),
-            },
-            AutomationModeOverride { mode_override } => ReaperTarget::AutomationModeOverride {
-                mode_override: *mode_override,
-            },
-            FxEnable { fx_descriptor } => ReaperTarget::FxEnable {
+            }],
+            AutomationModeOverride { mode_override } => {
+                vec![ReaperTarget::AutomationModeOverride {
+                    mode_override: *mode_override,
+                }]
+            }
+            FxEnable { fx_descriptor } => vec![ReaperTarget::FxEnable {
                 fx: get_fx(context, fx_descriptor, compartment)?,
-            },
+            }],
             FxOpen {
                 fx_descriptor,
                 display_type,
-            } => ReaperTarget::FxOpen {
+            } => vec![ReaperTarget::FxOpen {
                 fx: get_fx(context, fx_descriptor, compartment)?,
                 display_type: *display_type,
-            },
-            FxPreset { fx_descriptor } => ReaperTarget::FxPreset {
+            }],
+            FxPreset { fx_descriptor } => vec![ReaperTarget::FxPreset {
                 fx: get_fx(context, fx_descriptor, compartment)?,
-            },
+            }],
             SelectedTrack {
                 scroll_arrange_view,
                 scroll_mixer,
-            } => ReaperTarget::SelectedTrack {
+            } => vec![ReaperTarget::SelectedTrack {
                 project: context.context().project_or_current_project(),
                 scroll_arrange_view: *scroll_arrange_view,
                 scroll_mixer: *scroll_mixer,
-            },
+            }],
             FxNavigate {
                 track_descriptor,
                 is_input_fx,
                 display_type,
-            } => ReaperTarget::FxNavigate {
+            } => vec![ReaperTarget::FxNavigate {
                 fx_chain: get_fx_chain(
                     context,
                     &track_descriptor.track,
@@ -277,26 +309,29 @@ impl UnresolvedReaperTarget {
                     compartment,
                 )?,
                 display_type: *display_type,
-            },
+            }],
             AllTrackFxEnable {
                 track_descriptor,
                 exclusivity,
-            } => ReaperTarget::AllTrackFxEnable {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                exclusivity: *exclusivity,
-            },
-            Transport { action } => ReaperTarget::Transport {
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::AllTrackFxEnable {
+                    track,
+                    exclusivity: *exclusivity,
+                })
+                .collect(),
+            Transport { action } => vec![ReaperTarget::Transport {
                 project: context.context().project_or_current_project(),
                 action: *action,
-            },
+            }],
             LoadFxPreset {
                 fx_descriptor,
                 chunk,
-            } => ReaperTarget::LoadFxSnapshot {
+            } => vec![ReaperTarget::LoadFxSnapshot {
                 fx: get_fx(context, fx_descriptor, compartment)?,
                 chunk: chunk.clone(),
                 chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
-            },
+            }],
             LastTouched => {
                 let last_touched_target = BackboneState::get()
                     .last_touched_target()
@@ -304,17 +339,20 @@ impl UnresolvedReaperTarget {
                 if !last_touched_target.is_available() {
                     return Err("last touched target gone");
                 }
-                last_touched_target
+                vec![last_touched_target]
             }
             AutomationTouchState {
                 track_descriptor,
                 parameter_type,
                 exclusivity,
-            } => ReaperTarget::AutomationTouchState {
-                track: get_effective_track(context, &track_descriptor.track, compartment)?,
-                parameter_type: *parameter_type,
-                exclusivity: *exclusivity,
-            },
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::AutomationTouchState {
+                    track,
+                    parameter_type: *parameter_type,
+                    exclusivity: *exclusivity,
+                })
+                .collect(),
             GoToBookmark {
                 bookmark_type,
                 bookmark_anchor_type,
@@ -329,40 +367,40 @@ impl UnresolvedReaperTarget {
                     *bookmark_anchor_type,
                     *bookmark_ref,
                 )?;
-                ReaperTarget::GoToBookmark {
+                vec![ReaperTarget::GoToBookmark {
                     project,
                     bookmark_type: *bookmark_type,
                     index: res.index,
                     position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
                     set_time_selection: *set_time_selection,
                     set_loop_points: *set_loop_points,
-                }
+                }]
             }
             Seek { options } => {
                 let project = context.context().project_or_current_project();
-                ReaperTarget::Seek {
+                vec![ReaperTarget::Seek {
                     project,
                     options: *options,
-                }
+                }]
             }
             SendMidi {
                 pattern,
                 destination,
-            } => ReaperTarget::SendMidi {
+            } => vec![ReaperTarget::SendMidi {
                 pattern: pattern.clone(),
                 destination: *destination,
-            },
+            }],
             SendOsc {
                 address_pattern,
                 arg_descriptor,
                 device_id,
-            } => ReaperTarget::SendOsc {
+            } => vec![ReaperTarget::SendOsc {
                 address_pattern: address_pattern.clone(),
                 arg_descriptor: *arg_descriptor,
                 device_id: *device_id,
-            },
+            }],
         };
-        Ok(resolved)
+        Ok(resolved_targets)
     }
 
     /// Returns whether all conditions for this target to be active are met.
@@ -499,11 +537,11 @@ impl UnresolvedReaperTarget {
     }
 }
 
-pub fn get_effective_track(
+pub fn get_effective_tracks(
     context: ExtendedProcessorContext,
     virtual_track: &VirtualTrack,
     compartment: MappingCompartment,
-) -> Result<Track, &'static str> {
+) -> Result<Vec<Track>, &'static str> {
     virtual_track
         .resolve(context, compartment)
         .map_err(|_| "track couldn't be resolved")
@@ -515,7 +553,11 @@ pub fn get_track_route(
     descriptor: &TrackRouteDescriptor,
     compartment: MappingCompartment,
 ) -> Result<TrackRoute, &'static str> {
-    let track = get_effective_track(context, &descriptor.track_descriptor.track, compartment)?;
+    let track = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?
+        // TODO-high Support multiple tracks
+        .into_iter()
+        .next()
+        .ok_or("no track resolved")?;
     descriptor
         .route
         .resolve(&track, context, compartment)
@@ -720,7 +762,7 @@ pub enum VirtualTrack {
     /// Current track (the one which contains the ReaLearn instance).
     This,
     /// Currently selected track.
-    Selected,
+    Selected { allow_multiple: bool },
     /// Position in project based on parameter values.
     Dynamic(Box<ExpressionEvaluator>),
     /// Master track.
@@ -883,7 +925,11 @@ impl fmt::Display for VirtualTrack {
         use VirtualTrack::*;
         match self {
             This => f.write_str("<This>"),
-            Selected => f.write_str("<Selected>"),
+            Selected { allow_multiple } => f.write_str(if *allow_multiple {
+                "<Selected> *"
+            } else {
+                "<Selected>"
+            }),
             Master => f.write_str("<Master>"),
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
@@ -947,30 +993,35 @@ impl VirtualTrack {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Result<Track, TrackResolveError> {
+    ) -> Result<Vec<Track>, TrackResolveError> {
         use VirtualTrack::*;
         let project = context.context().project_or_current_project();
-        let track = match self {
-            This => context
-                .context()
-                .containing_fx()
-                .track()
-                .cloned()
-                // If this is monitoring FX, we want this to resolve to the master track since
-                // in most functions, monitoring FX chain is the "input FX chain" of the master
-                // track.
-                .unwrap_or_else(|| project.master_track()),
-            Selected => project
-                .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-                .ok_or(TrackResolveError::NoTrackSelected)?,
+        let tracks = match self {
+            This => {
+                let single = context
+                    .context()
+                    .containing_fx()
+                    .track()
+                    .cloned()
+                    // If this is monitoring FX, we want this to resolve to the master track since
+                    // in most functions, monitoring FX chain is the "input FX chain" of the master
+                    // track.
+                    .unwrap_or_else(|| project.master_track());
+                vec![single]
+            }
+            Selected { allow_multiple } => project
+                .selected_tracks(MasterTrackBehavior::IncludeMasterTrack)
+                .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
+                .collect(),
             Dynamic(evaluator) => {
                 let index = Self::evaluate_to_track_index(evaluator, context, compartment);
-                resolve_track_by_index(project, index)?
+                let single = resolve_track_by_index(project, index)?;
+                vec![single]
             }
-            Master => project.master_track(),
+            Master => vec![project.master_track()],
             ByIdOrName(guid, name) => {
                 let t = project.track_by_guid(guid);
-                if t.is_available() {
+                let single = if t.is_available() {
                     t
                 } else {
                     find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
@@ -978,29 +1029,35 @@ impl VirtualTrack {
                         name: Some(name.clone()),
                         index: None,
                     })?
-                }
+                };
+                vec![single]
             }
             ById(guid) => {
-                let t = project.track_by_guid(guid);
-                if !t.is_available() {
+                let single = project.track_by_guid(guid);
+                if !single.is_available() {
                     return Err(TrackResolveError::TrackNotFound {
                         guid: Some(*guid),
                         name: None,
                         index: None,
                     });
                 }
-                t
+                vec![single]
             }
             ByName(name) => {
-                find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                    guid: None,
-                    name: Some(name.clone()),
-                    index: None,
-                })?
+                let single =
+                    find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
+                        guid: None,
+                        name: Some(name.clone()),
+                        index: None,
+                    })?;
+                vec![single]
             }
-            ByIndex(index) => resolve_track_by_index(project, *index)?,
+            ByIndex(index) => {
+                let single = resolve_track_by_index(project, *index)?;
+                vec![single]
+            }
         };
-        Ok(track)
+        Ok(tracks)
     }
 
     pub fn calculated_track_index(
@@ -1277,9 +1334,15 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use VirtualTrack::*;
         match self.virtual_track {
-            This | Selected | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
+            This | Selected { .. } | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
             _ => {
-                if let Ok(t) = self.virtual_track.resolve(self.context, self.compartment) {
+                // TODO-high Improve multi-track naming
+                if let Some(t) = self
+                    .virtual_track
+                    .resolve(self.context, self.compartment)
+                    .ok()
+                    .and_then(|tracks| tracks.into_iter().next())
+                {
                     f.write_str(&get_track_label(&t))
                 } else {
                     f.write_str(&get_non_present_virtual_track_label(&self.virtual_track))
@@ -1367,7 +1430,10 @@ pub fn get_fx(
                     // resync the FX whenever something has changed anyway. But
                     // for monitoring FX it could still be good (which we don't get notified
                     // about unfortunately).
-                    if matches!(descriptor.track_descriptor.track, VirtualTrack::Selected) {
+                    if matches!(
+                        descriptor.track_descriptor.track,
+                        VirtualTrack::Selected { .. }
+                    ) {
                         MaybeOwned::Owned(VirtualChainFx::ByIndex(*index))
                     } else {
                         MaybeOwned::Borrowed(chain_fx)
@@ -1447,7 +1513,11 @@ pub fn get_fx_chain(
     is_input_fx: bool,
     compartment: MappingCompartment,
 ) -> Result<FxChain, &'static str> {
-    let track = get_effective_track(context, track, compartment)?;
+    let track = get_effective_tracks(context, track, compartment)?
+        // TODO-high Support multiple tracks
+        .into_iter()
+        .next()
+        .ok_or("no track resolved")?;
     let result = if is_input_fx {
         if track.is_master_track() {
             // The combination "Master track + input FX chain" by convention represents the
