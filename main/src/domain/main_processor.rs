@@ -232,6 +232,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 ControlContext {
                                     feedback_audio_hook_task_sender: &self
                                         .feedback_audio_hook_task_sender,
+                                    osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                     feedback_output: self.feedback_output,
                                 },
                             );
@@ -245,6 +246,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     if let Some(m) = self.mappings[compartment].get_mut(id) {
                         let feedback = m.poll_if_control_enabled(ControlContext {
                             feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                            osc_feedback_task_sender: &self.osc_feedback_task_sender,
                             feedback_output: self.feedback_output,
                         });
                         self.send_feedback(FeedbackReason::Normal, feedback);
@@ -1066,6 +1068,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             ControlContext {
                                 feedback_audio_hook_task_sender: &self
                                     .feedback_audio_hook_task_sender,
+                                osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                 feedback_output: self.feedback_output,
                             },
                         );
@@ -1734,6 +1737,7 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                             },
                             ControlContext {
                                 feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
+                                osc_feedback_task_sender: instance.osc_feedback_task_sender,
                                 feedback_output: instance.feedback_output,
                             },
                         )

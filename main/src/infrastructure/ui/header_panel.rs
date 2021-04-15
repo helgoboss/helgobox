@@ -1110,12 +1110,11 @@ impl HeaderPanel {
                 -100isize,
                 generate_osc_device_heading(osc_devices.len()),
             )))
-            .chain(osc_devices.enumerate().map(|(i, dev)| {
-                (
-                    OSC_INDEX_OFFSET + i as isize,
-                    get_osc_device_label(dev, false),
-                )
-            })),
+            .chain(
+                osc_devices
+                    .enumerate()
+                    .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(false))),
+            ),
         )
     }
 
@@ -1180,12 +1179,11 @@ impl HeaderPanel {
                 -100isize,
                 generate_osc_device_heading(osc_devices.len()),
             )))
-            .chain(osc_devices.enumerate().map(|(i, dev)| {
-                (
-                    OSC_INDEX_OFFSET + i as isize,
-                    get_osc_device_label(dev, true),
-                )
-            })),
+            .chain(
+                osc_devices
+                    .enumerate()
+                    .map(|(i, dev)| (OSC_INDEX_OFFSET + i as isize, dev.get_list_label(true))),
+            ),
         )
     }
 
@@ -2162,18 +2160,6 @@ fn get_midi_device_label(name: ReaperString, raw_id: u8, status: MidiDeviceStatu
         // https://github.com/helgoboss/realearn/issues/78
         name.into_inner().to_string_lossy(),
         status
-    )
-}
-
-fn get_osc_device_label(dev: &OscDevice, is_output: bool) -> String {
-    format!(
-        "{}{}",
-        dev.name(),
-        if is_output {
-            dev.output_status()
-        } else {
-            dev.input_status()
-        }
     )
 }
 

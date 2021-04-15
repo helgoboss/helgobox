@@ -391,7 +391,7 @@ impl RealearnPlugin {
                     App::get().feedback_audio_hook_task_sender().clone(),
                     App::get().additional_feedback_event_sender(),
                     App::get().instance_orchestration_event_sender(),
-                    App::get().osc_feedback_task_sender(),
+                    App::get().osc_feedback_task_sender().clone(),
                     weak_session.clone(),
                     processor_context,
                 );

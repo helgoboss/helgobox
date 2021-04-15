@@ -300,6 +300,18 @@ impl OscDevice {
     pub fn toggle_can_deal_with_bundles(&mut self) {
         self.can_deal_with_bundles = !self.can_deal_with_bundles;
     }
+
+    pub fn get_list_label(&self, is_output: bool) -> String {
+        format!(
+            "{}{}",
+            self.name(),
+            if is_output {
+                self.output_status()
+            } else {
+                self.input_status()
+            }
+        )
+    }
 }
 
 #[derive(Display)]

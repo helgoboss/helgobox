@@ -2,7 +2,7 @@ use crate::core::default_util::is_default;
 use crate::core::{prop, Prop};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, Target};
+use helgoboss_learn::{ControlType, OscArgDescriptor, OscTypeTag, Target};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
@@ -15,7 +15,7 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
+    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
     PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SendMidiDestination,
     SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
@@ -112,6 +112,11 @@ pub struct TargetModel {
     // # For Send MIDI target
     pub raw_midi_pattern: Prop<String>,
     pub send_midi_destination: Prop<SendMidiDestination>,
+    // # For Send OSC target
+    pub osc_address_pattern: Prop<String>,
+    pub osc_arg_index: Prop<Option<u32>>,
+    pub osc_arg_type_tag: Prop<OscTypeTag>,
+    pub osc_dev_id: Prop<Option<OscDeviceId>>,
 }
 
 impl Default for TargetModel {
@@ -169,6 +174,10 @@ impl Default for TargetModel {
             scroll_mixer: prop(false),
             raw_midi_pattern: prop(Default::default()),
             send_midi_destination: prop(Default::default()),
+            osc_address_pattern: prop("".to_owned()),
+            osc_arg_index: prop(Some(0)),
+            osc_arg_type_tag: prop(Default::default()),
+            osc_dev_id: prop(None),
         }
     }
 }
@@ -415,11 +424,10 @@ impl TargetModel {
                         .set(RealearnAutomationMode::from_reaper(*am));
                 }
             },
-            // Currently not used
-            SendMidi { pattern, .. } => {
-                self.raw_midi_pattern.set(pattern.to_string());
-            }
-            TrackVolume { .. }
+
+            SendMidi { .. }
+            | SendOsc { .. }
+            | TrackVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
@@ -497,6 +505,10 @@ impl TargetModel {
             .merge(self.scroll_mixer.changed())
             .merge(self.raw_midi_pattern.changed())
             .merge(self.send_midi_destination.changed())
+            .merge(self.osc_address_pattern.changed())
+            .merge(self.osc_arg_index.changed())
+            .merge(self.osc_arg_type_tag.changed())
+            .merge(self.osc_dev_id.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -802,6 +814,11 @@ impl TargetModel {
                         pattern: self.raw_midi_pattern.get_ref().parse().unwrap_or_default(),
                         destination: self.send_midi_destination.get(),
                     },
+                    SendOsc => UnresolvedReaperTarget::SendOsc {
+                        address_pattern: self.osc_address_pattern.get_ref().clone(),
+                        arg_descriptor: self.osc_arg_descriptor(),
+                        device_id: self.osc_dev_id.get(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -810,6 +827,16 @@ impl TargetModel {
                 Ok(UnresolvedCompoundMappingTarget::Virtual(virtual_target))
             }
         }
+    }
+
+    fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {
+        let arg_index = self.osc_arg_index.get()?;
+        Some(OscArgDescriptor::new(
+            arg_index,
+            self.osc_arg_type_tag.get(),
+            // Doesn't matter for sending
+            false,
+        ))
     }
 
     pub fn with_context<'a>(
@@ -901,7 +928,7 @@ impl fmt::Display for TargetModel {
                     | TrackWidth | TrackVolume | TrackShow | TrackSolo | FxNavigate | FxEnable
                     | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset | FxOpen
                     | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
-                    | LoadFxSnapshot | SendMidi => f.write_str(tt.short_name()),
+                    | LoadFxSnapshot | SendMidi | SendOsc => f.write_str(tt.short_name()),
                     Action => match self.action().ok() {
                         None => write!(f, "Action {}", self.command_id_label()),
                         Some(a) => f.write_str(a.name().to_str()),
@@ -1167,7 +1194,7 @@ impl<'a> Display for TargetModelWithContext<'a> {
                 use ReaperTargetType::*;
                 let tt = self.target.r#type.get();
                 match tt {
-                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi => {
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc => {
                         write!(f, "{}", tt)
                     }
                     Action => write!(
@@ -1372,6 +1399,8 @@ pub enum ReaperTargetType {
     // Misc
     #[display(fmt = "MIDI: Send message")]
     SendMidi = 29,
+    #[display(fmt = "OSC: Send message")]
+    SendOsc = 30,
 }
 
 impl Default for ReaperTargetType {
@@ -1413,6 +1442,7 @@ impl ReaperTargetType {
             FxOpen { .. } => ReaperTargetType::FxOpen,
             FxNavigate { .. } => ReaperTargetType::FxNavigate,
             SendMidi { .. } => ReaperTargetType::SendMidi,
+            SendOsc { .. } => ReaperTargetType::SendOsc,
         }
     }
 
@@ -1432,6 +1462,7 @@ impl ReaperTargetType {
             | GoToBookmark
             | Seek
             | SendMidi
+            | SendOsc
             | AutomationModeOverride => false,
         }
     }
@@ -1474,6 +1505,7 @@ impl ReaperTargetType {
             | TrackAutomationMode
             | AutomationModeOverride
             | SendMidi
+            | SendOsc
             | FxNavigate => false,
         }
     }
@@ -1518,6 +1550,7 @@ impl ReaperTargetType {
             | AutomationModeOverride
             | FxOpen
             | SendMidi
+            | SendOsc
             | FxNavigate => false,
         }
     }
@@ -1548,6 +1581,7 @@ impl ReaperTargetType {
             | AutomationModeOverride
             | FxOpen
             | SendMidi
+            | SendOsc
             | FxNavigate => false,
         }
     }
@@ -1557,7 +1591,8 @@ impl ReaperTargetType {
     }
 
     pub fn supports_feedback(&self) -> bool {
-        *self != ReaperTargetType::SendMidi
+        use ReaperTargetType::*;
+        !matches!(self, SendMidi | SendOsc)
     }
 
     pub fn hint(&self) -> &'static str {
@@ -1605,6 +1640,7 @@ impl ReaperTargetType {
             TrackSendPan => "Send pan",
             TrackSendVolume => "Send volume",
             SendMidi => "Send MIDI",
+            SendOsc => "Send OSC",
         }
     }
 }

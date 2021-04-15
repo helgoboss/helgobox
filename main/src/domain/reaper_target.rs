@@ -1,7 +1,9 @@
 use crate::core::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, ControlValue, RawMidiPattern, Target, UnitValue};
+use helgoboss_learn::{
+    ControlType, ControlValue, OscArgDescriptor, OscTypeTag, RawMidiPattern, Target, UnitValue,
+};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain,
@@ -31,8 +33,9 @@ use crate::domain::ui_util::{
 use crate::domain::{
     handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ControlContext,
     FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider, MidiDestination,
-    RealearnTarget,
+    OscDeviceId, OscFeedbackTask, RealearnTarget,
 };
+use rosc::OscMessage;
 use std::convert::TryInto;
 use std::num::NonZeroU32;
 use std::rc::Rc;
@@ -185,6 +188,11 @@ pub enum ReaperTarget {
     SendMidi {
         pattern: RawMidiPattern,
         destination: SendMidiDestination,
+    },
+    SendOsc {
+        address_pattern: String,
+        arg_descriptor: Option<OscArgDescriptor>,
+        device_id: Option<OscDeviceId>,
     },
 }
 
@@ -359,6 +367,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Transport { .. }
+            | SendOsc { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
@@ -396,6 +405,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Transport { .. }
+            | SendOsc { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
         }
@@ -454,6 +464,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Seek { .. }
+            | SendOsc { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -493,6 +504,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | SendOsc { .. }
             | Transport { .. } => format_as_percentage_without_unit(value),
             TrackWidth { .. } => format_as_symmetric_percentage_without_unit(value),
         }
@@ -534,6 +546,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | SendOsc { .. }
             | Transport { .. } => format_as_percentage_without_unit(step_size),
             TrackWidth { .. } => format_as_double_percentage_without_unit(step_size),
         }
@@ -598,6 +611,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | SendOsc { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
         }
@@ -631,6 +645,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | SendOsc { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
         }
@@ -679,6 +694,7 @@ impl RealearnTarget for ReaperTarget {
             | Transport { .. }
             | Seek { .. }
             | SendMidi { .. }
+            | SendOsc { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
         }
@@ -1117,12 +1133,41 @@ impl RealearnTarget for ReaperTarget {
                     }
                 }
             }
+            SendOsc {
+                address_pattern,
+                arg_descriptor,
+                device_id,
+            } => {
+                let msg = OscMessage {
+                    addr: address_pattern.clone(),
+                    args: if let Some(desc) = *arg_descriptor {
+                        desc.to_concrete_args(value.as_absolute()?)
+                            .ok_or("sending of this OSC type not supported")?
+                    } else {
+                        vec![]
+                    },
+                };
+                let effective_dev_id = device_id
+                    .or_else(|| {
+                        if let FeedbackOutput::Osc(dev_id) = context.feedback_output? {
+                            Some(dev_id)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or("no destination device for sending OSC")?;
+                context
+                    .osc_feedback_task_sender
+                    .send(OscFeedbackTask::new(effective_dev_id, msg))
+                    .unwrap();
+            }
         };
         Ok(())
     }
 
     fn can_report_current_value(&self) -> bool {
-        !matches!(self, ReaperTarget::SendMidi { .. })
+        use ReaperTarget::*;
+        !matches!(self, SendMidi { .. } | SendOsc { .. })
     }
 }
 
@@ -1209,7 +1254,7 @@ impl ReaperTarget {
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
                 fx.is_available()
             }
-            AutomationModeOverride { .. } | SendMidi { .. } => true,
+            AutomationModeOverride { .. } | SendMidi { .. } | SendOsc { .. } => true,
         }
     }
 
@@ -1358,6 +1403,17 @@ impl ReaperTarget {
                 } else {
                     (ControlType::AbsoluteDiscrete { atomic_step_size: step_size }, Discrete)
                 }
+            }
+            SendOsc { arg_descriptor, .. }  => if let Some(desc) = arg_descriptor {
+                use OscTypeTag::*;
+                match desc.type_tag() {
+                    Float | Double => (ControlType::AbsoluteContinuousRetriggerable, Continuous),
+                    Bool => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+                    Nil | Inf => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+                    _ => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+                }
+            } else {
+                (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
         }
     }
@@ -1709,6 +1765,7 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Seek { .. }
+            | SendOsc { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -1721,7 +1778,11 @@ impl ReaperTarget {
     pub fn project(&self) -> Option<Project> {
         use ReaperTarget::*;
         let project = match self {
-            Action { .. } | Transport { .. } | AutomationModeOverride { .. } | SendMidi { .. } => {
+            Action { .. }
+            | Transport { .. }
+            | AutomationModeOverride { .. }
+            | SendMidi { .. }
+            | SendOsc { .. } => {
                 return None;
             }
             FxParameter { param } => param.fx().project()?,
@@ -1782,7 +1843,8 @@ impl ReaperTarget {
             | Seek { .. }
             | AutomationModeOverride { .. }
             | Transport { .. }
-            | SendMidi { .. } => return None,
+            | SendMidi { .. }
+            | SendOsc { .. } => return None,
         };
         Some(track)
     }
@@ -1815,7 +1877,8 @@ impl ReaperTarget {
             | Seek { .. }
             | FxNavigate { .. }
             | Transport { .. }
-            | SendMidi { .. } => return None,
+            | SendMidi { .. }
+            | SendOsc { .. } => return None,
         };
         Some(fx)
     }
@@ -1851,7 +1914,8 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | Seek { .. }
             | Transport { .. }
-            | SendMidi { .. } => return None,
+            | SendMidi { .. }
+            | SendOsc { .. } => return None,
         };
         Some(route)
     }
@@ -1887,7 +1951,8 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationModeOverride { .. }
             | Seek { .. }
-            | SendMidi { .. } => None,
+            | SendMidi { .. }
+            | SendOsc { .. } => None,
         }
     }
 
@@ -1922,7 +1987,8 @@ impl ReaperTarget {
             TrackShow { .. }
             | AllTrackFxEnable { .. }
             | TrackRouteMute { .. }
-            | SendMidi { .. } => false,
+            | SendMidi { .. }
+            | SendOsc { .. } => false,
         }
     }
 
@@ -2248,6 +2314,7 @@ impl ReaperTarget {
             | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
             | SendMidi { .. }
+            | SendOsc { .. }
              => (false, None),
         }
     }
@@ -2386,7 +2453,7 @@ impl Target for ReaperTarget {
             Seek { project, options } => {
                 current_value_of_seek(*project, *options, project.play_or_edit_cursor_position())
             }
-            SendMidi { .. } => return None,
+            SendMidi { .. } | SendOsc { .. } => return None,
         };
         Some(result)
     }

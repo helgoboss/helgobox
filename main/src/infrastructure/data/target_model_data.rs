@@ -12,11 +12,12 @@ use crate::core::default_util::{is_default, is_none_or_some_default};
 use crate::core::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, SeekOptions, SendMidiDestination, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    MappingCompartment, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior,
+    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::VirtualControlElementIdData;
 use crate::infrastructure::plugin::App;
+use helgoboss_learn::OscTypeTag;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -96,10 +97,20 @@ pub struct TargetModelData {
     pub scroll_arrange_view: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub scroll_mixer: bool,
+    // Send MIDI
     #[serde(default, skip_serializing_if = "is_default")]
     pub send_midi_destination: SendMidiDestination,
     #[serde(default, skip_serializing_if = "is_default")]
     pub raw_midi_pattern: String,
+    // Send OSC
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_address_pattern: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_arg_type: OscTypeTag,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_dev_id: Option<OscDeviceId>,
 }
 
 impl TargetModelData {
@@ -151,6 +162,10 @@ impl TargetModelData {
             scroll_mixer: model.scroll_mixer.get(),
             send_midi_destination: model.send_midi_destination.get(),
             raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
+            osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
+            osc_arg_index: model.osc_arg_index.get(),
+            osc_arg_type: model.osc_arg_type_tag.get(),
+            osc_dev_id: model.osc_dev_id.get(),
         }
     }
 
@@ -323,6 +338,18 @@ impl TargetModelData {
         model
             .raw_midi_pattern
             .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
+        model
+            .osc_address_pattern
+            .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
+        model
+            .osc_arg_index
+            .set_with_optional_notification(self.osc_arg_index, with_notification);
+        model
+            .osc_arg_type_tag
+            .set_with_optional_notification(self.osc_arg_type, with_notification);
+        model
+            .osc_dev_id
+            .set_with_optional_notification(self.osc_dev_id, with_notification);
     }
 }
 

@@ -551,8 +551,8 @@ impl App {
         self.instance_orchestration_event_sender.clone()
     }
 
-    pub fn osc_feedback_task_sender(&self) -> crossbeam_channel::Sender<OscFeedbackTask> {
-        self.osc_feedback_task_sender.clone()
+    pub fn osc_feedback_task_sender(&self) -> &crossbeam_channel::Sender<OscFeedbackTask> {
+        &self.osc_feedback_task_sender
     }
 
     fn temporarily_reclaim_control_surface_ownership(

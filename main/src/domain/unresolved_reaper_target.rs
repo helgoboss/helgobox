@@ -2,14 +2,14 @@ use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget, SeekOptions,
-    SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity, TransportAction,
-    COMPARTMENT_PARAMETER_COUNT,
+    MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget,
+    SeekOptions, SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity,
+    TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
-use helgoboss_learn::RawMidiPattern;
+use helgoboss_learn::{OscArgDescriptor, RawMidiPattern};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
@@ -136,6 +136,11 @@ pub enum UnresolvedReaperTarget {
     SendMidi {
         pattern: RawMidiPattern,
         destination: SendMidiDestination,
+    },
+    SendOsc {
+        address_pattern: String,
+        arg_descriptor: Option<OscArgDescriptor>,
+        device_id: Option<OscDeviceId>,
     },
 }
 
@@ -347,6 +352,15 @@ impl UnresolvedReaperTarget {
                 pattern: pattern.clone(),
                 destination: *destination,
             },
+            SendOsc {
+                address_pattern,
+                arg_descriptor,
+                device_id,
+            } => ReaperTarget::SendOsc {
+                address_pattern: address_pattern.clone(),
+                arg_descriptor: *arg_descriptor,
+                device_id: *device_id,
+            },
         };
         Ok(resolved)
     }
@@ -397,6 +411,7 @@ impl UnresolvedReaperTarget {
             | Seek { .. }
             | AutomationModeOverride { .. }
             | SendMidi { .. }
+            | SendOsc { .. }
             | GoToBookmark { .. } => (None, None),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
@@ -475,6 +490,7 @@ impl UnresolvedReaperTarget {
             | LoadFxPreset { .. }
             | LastTouched
             | SendMidi { .. }
+            | SendOsc { .. }
             | AutomationTouchState { .. } => return None,
             Transport { .. } | GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
             Seek { options, .. } => options.feedback_resolution,

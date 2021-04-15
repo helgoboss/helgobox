@@ -11,7 +11,7 @@ use helgoboss_learn::{
     OscTypeTag, OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
     UnitValue,
 };
-use helgoboss_midi::{Channel, ShortMessageType, U14, U7};
+use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
@@ -811,31 +811,24 @@ impl<'a> MutableMappingPanel<'a> {
     fn update_source_parameter_number_message_number(&mut self) {
         let edit_control_id = root::ID_SOURCE_NUMBER_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
-        let text = c.text().ok();
+        let text = c.text().unwrap_or_default();
         use SourceCategory::*;
         match self.mapping.source_model.category.get() {
             Midi => {
-                let value = text.and_then(|t| t.parse::<U14>().ok());
+                let value = text.parse().ok();
                 self.mapping
                     .source_model
                     .parameter_number_message_number
                     .set_with_initiator(value, Some(edit_control_id));
             }
             Osc => {
-                let value = text
-                    .and_then(|t| {
-                        let v = t.parse::<u32>().ok()?;
-                        // UI is 1-rooted
-                        Some(if v == 0 { v } else { v - 1 })
-                    })
-                    .unwrap_or(0);
+                let value = parse_osc_arg_index(&text);
                 self.mapping
                     .source_model
                     .osc_arg_index
-                    .set_with_initiator(Some(value), Some(edit_control_id));
+                    .set_with_initiator(value, Some(edit_control_id));
             }
             Virtual => {
-                let text = text.unwrap_or_default();
                 self.mapping
                     .source_model
                     .control_element_id
@@ -1533,6 +1526,13 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .osc_arg_type_tag
+                        .set(i.try_into().expect("invalid OSC type tag"));
+                }
                 ReaperTargetType::FxParameter => {
                     let param_type = combo
                         .selected_combo_box_item_index()
@@ -1589,6 +1589,18 @@ impl<'a> MutableMappingPanel<'a> {
                         .target_model
                         .send_midi_destination
                         .set(i.try_into().expect("invalid send MIDI destination"));
+                }
+                ReaperTargetType::SendOsc => {
+                    let dev_id = match combo.selected_combo_box_item_data() {
+                        -1 => None,
+                        i if i >= 0 => App::get()
+                            .osc_device_manager()
+                            .borrow()
+                            .find_device_by_index(i as usize)
+                            .map(|dev| *dev.id()),
+                        _ => None,
+                    };
+                    self.mapping.target_model.osc_dev_id.set(dev_id);
                 }
                 t if t.supports_track() => {
                     let project = self.session.context().project_or_current_project();
@@ -1808,6 +1820,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .raw_midi_pattern
                         .set_with_initiator(text, Some(edit_control_id));
                 }
+                ReaperTargetType::SendOsc => {
+                    let pattern = control.text().unwrap_or_default();
+                    self.mapping
+                        .target_model
+                        .osc_address_pattern
+                        .set_with_initiator(pattern, Some(edit_control_id));
+                }
                 t if t.supports_fx() => match self.mapping.target_model.fx_type.get() {
                     VirtualFxType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -1843,6 +1862,13 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc => {
+                    let text = control.text().unwrap_or_default();
+                    self.mapping
+                        .target_model
+                        .osc_arg_index
+                        .set_with_initiator(parse_osc_arg_index(&text), Some(edit_control_id));
+                }
                 ReaperTargetType::FxParameter => match self.mapping.target_model.param_type.get() {
                     VirtualFxParameterType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
@@ -2361,13 +2387,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 None => "".to_owned(),
                 Some(n) => n.to_string(),
             },
-            Osc => {
-                if let Some(i) = self.source.osc_arg_index.get() {
-                    (i + 1).to_string()
-                } else {
-                    "".to_owned()
-                }
-            }
+            Osc => format_osc_arg_index(self.source.osc_arg_index.get()),
             Virtual => self.source.control_element_id.get().to_string(),
         };
         c.set_text(text)
@@ -2491,6 +2511,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 },
                 ReaperTargetType::Seek => Some("Feedback"),
                 ReaperTargetType::SendMidi => Some("Output"),
+                ReaperTargetType::SendOsc => Some("Output"),
                 t if t.supports_track() => Some("Track"),
                 _ => None,
             },
@@ -2613,6 +2634,32 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
+                ReaperTargetType::SendOsc => {
+                    combo.show();
+                    let osc_device_manager = App::get().osc_device_manager();
+                    let osc_device_manager = osc_device_manager.borrow();
+                    let osc_devices = osc_device_manager.devices();
+                    combo.fill_combo_box_with_data_small(
+                        std::iter::once((-1isize, "<Feedback output>".to_string())).chain(
+                            osc_devices
+                                .enumerate()
+                                .map(|(i, dev)| (i as isize, dev.get_list_label(true))),
+                        ),
+                    );
+                    if let Some(dev_id) = self.mapping.target_model.osc_dev_id.get() {
+                        match osc_device_manager.find_index_by_id(&dev_id) {
+                            None => {
+                                combo.select_new_combo_box_item(format!(
+                                    "<Not present> ({})",
+                                    dev_id
+                                ));
+                            }
+                            Some(i) => combo.select_combo_box_item_by_data(i as isize).unwrap(),
+                        }
+                    } else {
+                        combo.select_combo_box_item_by_data(-1).unwrap();
+                    };
+                }
                 t if t.supports_track() => {
                     if matches!(
                         self.target.track_type.get(),
@@ -2662,6 +2709,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_track() => {
+                    control.show();
                     let text = match self.target.track_type.get() {
                         VirtualTrackType::Dynamic => self.target.track_expression.get_ref().clone(),
                         VirtualTrackType::ByIndex => {
@@ -2675,7 +2723,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                         }
                     };
                     control.set_text(text);
-                    control.show();
                 }
                 _ => {
                     control.hide();
@@ -2791,6 +2838,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_EDIT_CONTROL);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::SendOsc => {
+                    control.show();
+                    let text = format_osc_arg_index(self.target.osc_arg_index.get());
+                    control.set_text(text.as_str());
+                }
                 ReaperTargetType::FxParameter => {
                     let text = match self.target.param_type.get() {
                         VirtualFxParameterType::Dynamic => {
@@ -2847,6 +2899,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let text = self.target.raw_midi_pattern.get_ref();
                     control.set_text(text.as_str());
                 }
+                ReaperTargetType::SendOsc => {
+                    control.show();
+                    let text = self.target.osc_address_pattern.get_ref();
+                    control.set_text(text.as_str());
+                }
                 t if t.supports_fx() => {
                     let text = match self.target.fx_type.get() {
                         VirtualFxType::Dynamic => self.target.fx_expression.get_ref().clone(),
@@ -2881,6 +2938,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackShow => Some("Area"),
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
+                ReaperTargetType::SendOsc => Some("Pattern"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
@@ -2898,6 +2956,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
+                ReaperTargetType::SendOsc => Some("Argument"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_send() => match self.target.route_type.get() {
@@ -2968,6 +3027,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::SendOsc => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
+                    let tag = self.target.osc_arg_type_tag.get();
+                    combo.select_combo_box_item_by_index(tag.into()).unwrap();
+                }
                 ReaperTargetType::FxParameter => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
@@ -4346,11 +4411,17 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_target_value_controls();
             },
         );
-        self.panel
-            .when(target.track_exclusivity.changed(), |view, _| {
-                view.invalidate_target_line_4(None);
+        self.panel.when(
+            target
+                .track_exclusivity
+                .changed_with_initiator()
+                .merge(target.osc_arg_type_tag.changed_with_initiator())
+                .merge(target.osc_arg_index.changed_with_initiator()),
+            |view, initiator| {
+                view.invalidate_target_line_4(initiator);
                 view.invalidate_mode_controls();
-            });
+            },
+        );
         self.panel.when(
             target
                 .fx_is_input_fx
@@ -4403,12 +4474,20 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_window_title();
                 view.invalidate_target_line_2_combo_box_2();
             });
-        self.panel
-            .when(target.send_midi_destination.changed(), |view, _| {
-                view.invalidate_target_line_2(None);
-            });
         self.panel.when(
-            target.raw_midi_pattern.changed_with_initiator(),
+            target
+                .send_midi_destination
+                .changed()
+                .merge(target.osc_dev_id.changed()),
+            |view, _| {
+                view.invalidate_target_line_2(None);
+            },
+        );
+        self.panel.when(
+            target
+                .raw_midi_pattern
+                .changed_with_initiator()
+                .merge(target.osc_address_pattern.changed_with_initiator()),
             |view, initiator| {
                 view.invalidate_target_line_3(initiator);
                 view.invalidate_mode_controls();
@@ -4964,6 +5043,7 @@ fn update_target_value(
         ControlValue::Absolute(value),
         ControlContext {
             feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
+            osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
             feedback_output,
         },
     );
@@ -5455,5 +5535,19 @@ fn extract_remaining_name(text: &str) -> &str {
         &text[slash_index + 1..]
     } else {
         text
+    }
+}
+
+fn parse_osc_arg_index(text: &str) -> Option<u32> {
+    let v = text.parse::<u32>().ok()?;
+    // UI is 1-rooted
+    Some(if v == 0 { v } else { v - 1 })
+}
+
+fn format_osc_arg_index(index: Option<u32>) -> String {
+    if let Some(i) = index {
+        (i + 1).to_string()
+    } else {
+        "".to_owned()
     }
 }

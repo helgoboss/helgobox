@@ -1,4 +1,6 @@
-use crate::domain::{FeedbackAudioHookTask, FeedbackOutput, RealTimeSender, TargetCharacter};
+use crate::domain::{
+    FeedbackAudioHookTask, FeedbackOutput, OscFeedbackTask, RealTimeSender, TargetCharacter,
+};
 use helgoboss_learn::{ControlValue, UnitValue};
 
 pub trait RealearnTarget {
@@ -44,5 +46,6 @@ pub trait RealearnTarget {
 #[derive(Copy, Clone, Debug)]
 pub struct ControlContext<'a> {
     pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
+    pub osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
 }
