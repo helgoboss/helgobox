@@ -554,7 +554,7 @@ pub fn get_track_route(
     compartment: MappingCompartment,
 ) -> Result<TrackRoute, &'static str> {
     let track = get_effective_tracks(context, &descriptor.track_descriptor.track, compartment)?
-        // TODO-high Support multiple tracks
+        // TODO-medium Support multiple tracks
         .into_iter()
         .next()
         .ok_or("no track resolved")?;
@@ -926,9 +926,9 @@ impl fmt::Display for VirtualTrack {
         match self {
             This => f.write_str("<This>"),
             Selected { allow_multiple } => f.write_str(if *allow_multiple {
-                "<Selected> (single)"
+                "<Selected>"
             } else {
-                "<Selected> (multi)"
+                "<All selected>"
             }),
             Master => f.write_str("<Master>"),
             Dynamic(_) => f.write_str("<Dynamic>"),
@@ -1336,7 +1336,6 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
         match self.virtual_track {
             This | Selected { .. } | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
             _ => {
-                // TODO-high Improve multi-track naming
                 if let Some(t) = self
                     .virtual_track
                     .resolve(self.context, self.compartment)
@@ -1514,7 +1513,7 @@ pub fn get_fx_chain(
     compartment: MappingCompartment,
 ) -> Result<FxChain, &'static str> {
     let track = get_effective_tracks(context, track, compartment)?
-        // TODO-high Support multiple tracks
+        // TODO-medium Support multiple tracks
         .into_iter()
         .next()
         .ok_or("no track resolved")?;

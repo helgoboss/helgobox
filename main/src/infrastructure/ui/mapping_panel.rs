@@ -1564,9 +1564,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_2_combo_box_2_change(&mut self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
+        let combo_id = root::ID_TARGET_LINE_2_COMBO_BOX_2;
+        let combo = self.view.require_control(combo_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
@@ -1613,7 +1612,10 @@ impl<'a> MutableMappingPanel<'a> {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
                     if let Some(track) = project.track_by_index(i as _) {
-                        self.mapping.target_model.track_id.set(Some(*track.guid()));
+                        self.mapping
+                            .target_model
+                            .track_id
+                            .set_with_initiator(Some(*track.guid()), Some(combo_id));
                         // We also set index and name so that we can easily switch between types.
                         self.mapping
                             .target_model
@@ -2592,10 +2594,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_target_line_2_combo_box_2(&self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
+    fn invalidate_target_line_2_combo_box_2(&self, initiator: Option<u32>) {
+        let combo_id = root::ID_TARGET_LINE_2_COMBO_BOX_2;
+        if initiator == Some(combo_id) {
+            return;
+        }
+        let combo = self.view.require_control(combo_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Transport => {
@@ -2750,7 +2754,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_2_label_2();
         self.invalidate_target_line_2_label_3();
         self.invalidate_target_line_2_combo_box_1();
-        self.invalidate_target_line_2_combo_box_2();
+        self.invalidate_target_line_2_combo_box_2(initiator);
         self.invalidate_target_line_2_edit_control(initiator);
         self.invalidate_target_line_2_button();
     }
@@ -3411,7 +3415,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_value_controls(&self) {
-        // TODO-high This might set the value slider to the wrong value because it only takes the
+        // TODO-medium This might set the value slider to the wrong value because it only takes the
         //  first resolved target into account.
         let error = if let Some(t) = self.first_resolved_target() {
             if t.can_report_current_value() {
@@ -4487,11 +4491,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when(target.feedback_resolution.changed(), |view, _| {
                 view.invalidate_target_line_2_combo_box_1();
             });
-        self.panel
-            .when(target.automation_mode_override_type.changed(), |view, _| {
+        self.panel.when(
+            target
+                .automation_mode_override_type
+                .changed_with_initiator(),
+            |view, initiator| {
                 view.invalidate_window_title();
-                view.invalidate_target_line_2_combo_box_2();
-            });
+                view.invalidate_target_line_2_combo_box_2(initiator);
+            },
+        );
         self.panel.when(
             target
                 .send_midi_destination

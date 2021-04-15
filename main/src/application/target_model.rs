@@ -1777,9 +1777,9 @@ fn virtualize_route(route: &TrackRoute, context: &ProcessorContext) -> VirtualTr
 pub enum VirtualTrackType {
     #[display(fmt = "<This>")]
     This,
-    #[display(fmt = "<Selected> (single)")]
+    #[display(fmt = "<Selected>")]
     Selected,
-    #[display(fmt = "<Selected> (multi)")]
+    #[display(fmt = "<All selected>")]
     SelectedMultiple,
     #[display(fmt = "<Dynamic>")]
     Dynamic,
