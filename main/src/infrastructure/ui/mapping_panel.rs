@@ -5509,7 +5509,7 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
         MenuAction::Preset(preset) => Some(preset),
         MenuAction::Help => {
             open_in_browser(
-                "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#raw-midi-source",
+                "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#midi-send-message",
             );
             None
         }
