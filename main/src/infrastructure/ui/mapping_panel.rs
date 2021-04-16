@@ -37,7 +37,9 @@ use crate::application::{
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
-use crate::domain::{control_element_domains, ControlContext, FeedbackOutput, SendMidiDestination};
+use crate::domain::{
+    control_element_domains, ControlContext, FeedbackOutput, InstanceState, SendMidiDestination,
+};
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
@@ -169,15 +171,37 @@ impl MappingPanel {
         Ok(())
     }
 
-    fn handle_target_line_3_button_press(&self) {
-        if let Some(preset) = prompt_for_predefined_raw_midi_pattern(self.view.require_window()) {
-            let mapping = self.mapping();
-            mapping
-                .borrow_mut()
-                .target_model
-                .raw_midi_pattern
-                .set(preset);
+    fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+        match mapping.borrow().target_model.r#type.get() {
+            ReaperTargetType::SendMidi => {
+                if let Some(preset) =
+                    prompt_for_predefined_raw_midi_pattern(self.view.require_window())
+                {
+                    let mapping = self.mapping();
+                    mapping
+                        .borrow_mut()
+                        .target_model
+                        .raw_midi_pattern
+                        .set(preset);
+                }
+            }
+            ReaperTargetType::PlayPreview => {
+                let session = self.session();
+                let session = session.borrow();
+                let item = session
+                    .context()
+                    .project_or_current_project()
+                    .first_selected_item()
+                    .ok_or("no item selected")?;
+                session
+                    .instance_state()
+                    .borrow_mut()
+                    .fill_preview_slot_with_item_source(0, item)?;
+            }
+            _ => {}
         }
+        Ok(())
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -2802,6 +2826,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendMidi => Some("Pick!"),
+                ReaperTargetType::PlayPreview => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -2952,6 +2977,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
+                ReaperTargetType::PlayPreview => Some("Source"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
@@ -4823,7 +4849,7 @@ impl View for MappingPanel {
                 let _ = self.handle_target_line_2_button_press();
             }
             root::ID_TARGET_LINE_3_BUTTON => {
-                self.handle_target_line_3_button_press();
+                let _ = self.handle_target_line_3_button_press();
             }
             root::ID_TARGET_LINE_4_BUTTON => {
                 let _ = self.handle_target_line_4_button_press();
@@ -4920,10 +4946,19 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok((targets, feedback_output)) =
-                    self.read(|p| (p.resolved_targets(), p.session.feedback_output()))
-                {
-                    update_target_value(&targets, s.slider_unit_value(), feedback_output);
+                if let Ok((targets, feedback_output, instance_state)) = self.read(|p| {
+                    (
+                        p.resolved_targets(),
+                        p.session.feedback_output(),
+                        p.session.instance_state().clone(),
+                    )
+                }) {
+                    update_target_value(
+                        &targets,
+                        s.slider_unit_value(),
+                        feedback_output,
+                        &instance_state,
+                    );
                 }
             }
             _ => unreachable!(),
@@ -4980,13 +5015,18 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (targets, value, feedback_output) = view.write(|p| {
+                let (targets, value, feedback_output, instance_state) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                         .unwrap_or(UnitValue::MIN);
-                    (p.resolved_targets(), value, p.session.feedback_output())
+                    (
+                        p.resolved_targets(),
+                        value,
+                        p.session.feedback_output(),
+                        p.session.instance_state().clone(),
+                    )
                 });
-                update_target_value(&targets, value, feedback_output);
+                update_target_value(&targets, value, feedback_output, &instance_state);
             }
             _ => return false,
         };
@@ -5065,6 +5105,7 @@ fn update_target_value(
     targets: &[CompoundMappingTarget],
     value: UnitValue,
     feedback_output: Option<FeedbackOutput>,
+    instance_state: &Rc<RefCell<InstanceState>>,
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
@@ -5074,6 +5115,7 @@ fn update_target_value(
                 feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
                 osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
                 feedback_output,
+                instance_state,
             },
         );
         if let Err(msg) = res {

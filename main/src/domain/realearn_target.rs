@@ -1,7 +1,10 @@
 use crate::domain::{
-    FeedbackAudioHookTask, FeedbackOutput, OscFeedbackTask, RealTimeSender, TargetCharacter,
+    FeedbackAudioHookTask, FeedbackOutput, InstanceState, OscFeedbackTask, RealTimeSender,
+    TargetCharacter,
 };
 use helgoboss_learn::{ControlValue, UnitValue};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub trait RealearnTarget {
     fn character(&self) -> TargetCharacter;
@@ -48,4 +51,5 @@ pub struct ControlContext<'a> {
     pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
     pub osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
+    pub instance_state: &'a Rc<RefCell<InstanceState>>,
 }

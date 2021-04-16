@@ -1381,7 +1381,7 @@ pub enum ReaperTargetType {
     AllTrackFxEnable = 15,
     #[display(fmt = "Track: Mute/unmute")]
     TrackMute = 7,
-    #[display(fmt = "Track: Play preview")]
+    #[display(fmt = "Preview: Invoke transport action")]
     PlayPreview = 31,
     #[display(fmt = "Track: Select/unselect")]
     TrackSelection = 6,

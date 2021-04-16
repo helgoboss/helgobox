@@ -5,9 +5,9 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::core::Global;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, MainProcessor, NormalMainTask, ParameterMainTask,
-    ProcessorContext, RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor,
-    PLUGIN_PARAMETER_COUNT,
+    ControlMainTask, FeedbackRealTimeTask, InstanceState, MainProcessor, NormalMainTask,
+    ParameterMainTask, ProcessorContext, RealTimeProcessorLocker, RealTimeSender,
+    SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
 use crate::domain::{NormalRealTimeTask, RealTimeProcessor};
 use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginParameters;
@@ -354,6 +354,7 @@ impl RealearnPlugin {
                         return;
                     }
                 };
+                let instance_state = Rc::new(RefCell::new(InstanceState::default()));
                 // Session
                 let session = Session::new(
                     instance_id.clone(),
@@ -370,6 +371,7 @@ impl RealearnPlugin {
                     App::get().controller_preset_manager(),
                     App::get().main_preset_manager(),
                     App::get().preset_link_manager(),
+                    instance_state.clone(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
@@ -394,6 +396,7 @@ impl RealearnPlugin {
                     App::get().osc_feedback_task_sender().clone(),
                     weak_session.clone(),
                     processor_context,
+                    instance_state,
                 );
                 App::get().register_processor_couple(
                     instance_id,

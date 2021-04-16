@@ -1176,7 +1176,10 @@ impl RealearnTarget for ReaperTarget {
                     .unwrap();
             }
             PlayPreview { track, slot_index } => {
-                BackboneState::get().play_preview(*slot_index, track.as_ref())?;
+                context
+                    .instance_state
+                    .borrow_mut()
+                    .play_preview(*slot_index, track.as_ref())?;
             }
         };
         Ok(())
@@ -1277,7 +1280,9 @@ impl ReaperTarget {
                         return false;
                     }
                 }
-                BackboneState::get().preview_slot_is_filled(*slot_index)
+                // TODO-medium We should check the control context (instance state) if slot filled.
+                // BackboneState::get().preview_slot_is_filled(*slot_index)
+                true
             }
             AutomationModeOverride { .. } | SendMidi { .. } | SendOsc { .. } => true,
         }

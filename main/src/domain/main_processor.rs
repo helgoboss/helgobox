@@ -2,7 +2,7 @@ use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
     CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, InstanceState,
     IoUpdatedEvent, MainMapping, MappingActivationEffect, MappingCompartment, MappingId,
     MidiDestination, MidiSource, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
     PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext, QualifiedSource,
@@ -18,7 +18,9 @@ use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
 use slog::debug;
 use smallvec::SmallVec;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -72,6 +74,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     control_is_globally_enabled: bool,
     control_input: ControlInput,
     feedback_output: Option<FeedbackOutput>,
+    instance_state: Rc<RefCell<InstanceState>>,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -91,6 +94,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
+        instance_state: Rc<RefCell<InstanceState>>,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
@@ -124,6 +128,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             additional_feedback_event_sender,
             instance_orchestration_event_sender,
             feedback_audio_hook_task_sender,
+            instance_state,
         }
     }
 
@@ -234,6 +239,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                         .feedback_audio_hook_task_sender,
                                     osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                     feedback_output: self.feedback_output,
+                                    instance_state: &self.instance_state,
                                 },
                                 &self.logger,
                             );
@@ -249,6 +255,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
                             osc_feedback_task_sender: &self.osc_feedback_task_sender,
                             feedback_output: self.feedback_output,
+                            instance_state: &self.instance_state,
                         });
                         self.send_feedback(FeedbackReason::Normal, feedback);
                     }
@@ -1057,6 +1064,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             event_handler: &self.event_handler,
                             feedback_output: self.feedback_output,
                             logger: &self.logger,
+                            instance_state: &self.instance_state,
                         },
                         &mut self.mappings_with_virtual_targets,
                         &mut self.mappings[MappingCompartment::MainMappings],
@@ -1095,6 +1103,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     .feedback_audio_hook_task_sender,
                                 osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                 feedback_output: self.feedback_output,
+                                instance_state: &self.instance_state,
                             },
                             &self.logger,
                         );
@@ -1110,6 +1119,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 event_handler: &self.event_handler,
                                 feedback_output: self.feedback_output,
                                 logger: &self.logger,
+                                instance_state: &self.instance_state,
                             },
                             &self.mappings_with_virtual_targets,
                             FeedbackReason::Normal,
@@ -1195,6 +1205,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             event_handler: &self.event_handler,
             feedback_output: self.feedback_output,
             logger: &self.logger,
+            instance_state: &self.instance_state,
         }
     }
 
@@ -1579,6 +1590,7 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     event_handler: &'a EH,
     feedback_output: Option<FeedbackOutput>,
     logger: &'a slog::Logger,
+    instance_state: &'a Rc<RefCell<InstanceState>>,
 }
 
 impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {
@@ -1765,6 +1777,7 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                                 feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
                                 osc_feedback_task_sender: instance.osc_feedback_task_sender,
                                 feedback_output: instance.feedback_output,
+                                instance_state: instance.instance_state,
                             },
                             &instance.logger,
                         )

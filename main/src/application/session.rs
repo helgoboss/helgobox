@@ -7,8 +7,8 @@ use crate::core::default_util::is_default;
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackOutput, MainMapping, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    ExtendedProcessorContext, FeedbackOutput, InstanceState, MainMapping, MappingCompartment,
+    MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
     RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
     COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
@@ -91,6 +91,7 @@ pub struct Session {
     main_preset_link_manager: Box<dyn PresetLinkManager>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
+    instance_state: Rc<RefCell<InstanceState>>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -159,6 +160,7 @@ impl Session {
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
+        instance_state: Rc<RefCell<InstanceState>>,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -212,6 +214,7 @@ impl Session {
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
             on_mappings: Default::default(),
+            instance_state,
         }
     }
 
@@ -1769,6 +1772,10 @@ impl Session {
         } else {
             self.midi_feedback_output.get().map(FeedbackOutput::Midi)
         }
+    }
+
+    pub fn instance_state(&self) -> &Rc<RefCell<InstanceState>> {
+        &self.instance_state
     }
 
     fn sync_settings(&self) {
