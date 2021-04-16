@@ -2951,7 +2951,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::TrackShow => Some("Area"),
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
-                ReaperTargetType::SendOsc => Some("Pattern"),
+                ReaperTargetType::SendOsc => Some("Address"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
