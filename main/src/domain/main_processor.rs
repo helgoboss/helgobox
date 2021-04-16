@@ -235,6 +235,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                     feedback_output: self.feedback_output,
                                 },
+                                &self.logger,
                             );
                             self.send_feedback(FeedbackReason::Normal, feedback);
                         };
@@ -1095,6 +1096,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                 feedback_output: self.feedback_output,
                             },
+                            &self.logger,
                         );
                         send_direct_and_virtual_feedback(
                             &InstanceProps {
@@ -1764,6 +1766,7 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                                 osc_feedback_task_sender: instance.osc_feedback_task_sender,
                                 feedback_output: instance.feedback_output,
                             },
+                            &instance.logger,
                         )
                     }
                     ProcessDirect(_) => {
@@ -1789,6 +1792,7 @@ fn control_main_mappings_virtual(
     value: VirtualSourceValue,
     options: ControlOptions,
     context: ControlContext,
+    logger: &slog::Logger,
 ) -> Vec<FeedbackValue> {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1798,7 +1802,7 @@ fn control_main_mappings_virtual(
         .filter_map(|m| {
             if let CompoundMappingSource::Virtual(s) = &m.source() {
                 let control_value = s.control(&value)?;
-                m.control_if_enabled(control_value, options, context)
+                m.control_if_enabled(control_value, options, context, logger)
             } else {
                 None
             }

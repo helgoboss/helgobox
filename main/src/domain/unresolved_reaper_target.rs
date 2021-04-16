@@ -1,4 +1,4 @@
-use crate::application::BookmarkAnchorType;
+use crate::application::{BookmarkAnchorType, ReaperTargetType};
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
@@ -144,6 +144,10 @@ pub enum UnresolvedReaperTarget {
         address_pattern: String,
         arg_descriptor: Option<OscArgDescriptor>,
         device_id: Option<OscDeviceId>,
+    },
+    PlayPreview {
+        track_descriptor: Option<TrackDescriptor>,
+        slot_index: usize,
     },
 }
 
@@ -399,6 +403,25 @@ impl UnresolvedReaperTarget {
                 arg_descriptor: *arg_descriptor,
                 device_id: *device_id,
             }],
+            PlayPreview {
+                track_descriptor,
+                slot_index,
+            } => {
+                if let Some(desc) = track_descriptor.as_ref() {
+                    get_effective_tracks(context, &desc.track, compartment)?
+                        .into_iter()
+                        .map(|track| ReaperTarget::PlayPreview {
+                            track: Some(track),
+                            slot_index: *slot_index,
+                        })
+                        .collect()
+                } else {
+                    vec![ReaperTarget::PlayPreview {
+                        track: None,
+                        slot_index: *slot_index,
+                    }]
+                }
+            }
         };
         Ok(resolved_targets)
     }
@@ -496,6 +519,9 @@ impl UnresolvedReaperTarget {
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
             | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
+            PlayPreview {
+                track_descriptor, ..
+            } => (track_descriptor.as_ref(), None),
         }
     }
 
@@ -529,6 +555,8 @@ impl UnresolvedReaperTarget {
             | LastTouched
             | SendMidi { .. }
             | SendOsc { .. }
+            // TODO-high Have a look what we need
+            | PlayPreview { ..}
             | AutomationTouchState { .. } => return None,
             Transport { .. } | GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
             Seek { options, .. } => options.feedback_resolution,

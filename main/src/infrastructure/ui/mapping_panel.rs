@@ -5068,7 +5068,7 @@ fn update_target_value(
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
-        let _ = target.control(
+        let res = target.control(
             ControlValue::Absolute(value),
             ControlContext {
                 feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
@@ -5076,6 +5076,9 @@ fn update_target_value(
                 feedback_output,
             },
         );
+        if let Err(msg) = res {
+            slog::debug!(App::logger(), "Control failed: {}", msg);
+        }
     }
 }
 

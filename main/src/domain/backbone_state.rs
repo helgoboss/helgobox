@@ -1,12 +1,16 @@
 use crate::domain::{
-    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, RealearnTargetContext,
-    ReaperTarget,
+    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, PreviewSlot,
+    RealearnTargetContext, ReaperTarget,
 };
+use reaper_high::{Reaper, Track};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::path::{Path, PathBuf};
 
 make_available_globally_in_main_thread_on_demand!(BackboneState);
+
+const PREVIEW_SLOT_COUNT: usize = 20;
 
 /// This is the domain-layer "backbone" which can hold state that's shared among all ReaLearn
 /// instances.
@@ -18,6 +22,7 @@ pub struct BackboneState {
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
     feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<String>>>,
     upper_floor_instances: RefCell<HashSet<String>>,
+    preview_slots: RefCell<[PreviewSlot; PREVIEW_SLOT_COUNT]>,
 }
 
 impl BackboneState {
@@ -28,11 +33,37 @@ impl BackboneState {
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
+            preview_slots: Default::default(),
         }
     }
 
     pub fn target_context() -> &'static RefCell<RealearnTargetContext> {
         &BackboneState::get().target_context
+    }
+
+    pub fn fill_preview_slot(&self, slot_index: usize, file: &Path) -> Result<(), &'static str> {
+        let mut preview_slots = self.preview_slots.borrow_mut();
+        let slot = preview_slots.get_mut(slot_index).ok_or("no such slot")?;
+        slot.fill_with_file(file)
+    }
+
+    pub fn play_preview(
+        &self,
+        slot_index: usize,
+        track: Option<&Track>,
+    ) -> Result<(), &'static str> {
+        let mut preview_slots = self.preview_slots.borrow_mut();
+        let slot = preview_slots.get_mut(slot_index).ok_or("no such slot")?;
+        slot.play(track)
+    }
+
+    pub fn preview_slot_is_filled(&self, slot_index: usize) -> bool {
+        let preview_slots = self.preview_slots.borrow();
+        if let Some(slot) = preview_slots.get(slot_index) {
+            slot.is_filled()
+        } else {
+            false
+        }
     }
 
     pub fn last_touched_target(&self) -> Option<ReaperTarget> {

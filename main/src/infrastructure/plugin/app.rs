@@ -277,6 +277,12 @@ impl App {
         BackboneState::make_available_globally(BackboneState::new(RealearnTargetContext::new(
             self.additional_feedback_event_sender.clone(),
         )));
+        // TODO-high
+        let preview_file =
+            PathBuf::from("C:\\Program Files (x86)\\GOG Galaxy\\web\\audio\\camera_shutter.wav");
+        BackboneState::get()
+            .fill_preview_slot(0, &preview_file)
+            .unwrap();
         App::get().register_actions();
         server::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();

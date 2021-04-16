@@ -446,6 +446,7 @@ impl TargetModel {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | LoadFxSnapshot { .. }
+            | PlayPreview { .. }
             | Seek { .. } => {}
         };
     }
@@ -824,6 +825,12 @@ impl TargetModel {
                         arg_descriptor: self.osc_arg_descriptor(),
                         device_id: self.osc_dev_id.get(),
                     },
+                    PlayPreview => UnresolvedReaperTarget::PlayPreview {
+                        // TODO-high Ignore track if option set.
+                        track_descriptor: Some(self.track_descriptor()?),
+                        // TODO-high Use real slot
+                        slot_index: 0,
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -934,6 +941,8 @@ impl fmt::Display for TargetModel {
                     | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset | FxOpen
                     | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
                     | LoadFxSnapshot | SendMidi | SendOsc => f.write_str(tt.short_name()),
+                    // TODO-high Show slot info
+                    PlayPreview => f.write_str(tt.short_name()),
                     Action => match self.action().ok() {
                         None => write!(f, "Action {}", self.command_id_label()),
                         Some(a) => f.write_str(a.name().to_str()),
@@ -1209,6 +1218,10 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc => {
                         write!(f, "{}", tt)
                     }
+                    // TODO-high Show slot and track info. What's the difference to TargetModel?
+                    PlayPreview => {
+                        write!(f, "{}", tt)
+                    }
                     Action => write!(
                         f,
                         "{}\n{}\n{}",
@@ -1368,6 +1381,8 @@ pub enum ReaperTargetType {
     AllTrackFxEnable = 15,
     #[display(fmt = "Track: Mute/unmute")]
     TrackMute = 7,
+    #[display(fmt = "Track: Play preview")]
+    PlayPreview = 31,
     #[display(fmt = "Track: Select/unselect")]
     TrackSelection = 6,
     #[display(fmt = "Track: Set automation mode")]
@@ -1455,6 +1470,7 @@ impl ReaperTargetType {
             FxNavigate { .. } => ReaperTargetType::FxNavigate,
             SendMidi { .. } => ReaperTargetType::SendMidi,
             SendOsc { .. } => ReaperTargetType::SendOsc,
+            PlayPreview { .. } => ReaperTargetType::PlayPreview,
         }
     }
 
@@ -1464,7 +1480,7 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackShow | TrackAutomationMode | TrackSolo
             | TrackSendPan | TrackSendMute | FxEnable | FxOpen | FxNavigate | FxPreset
-            | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
+            | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState | PlayPreview => true,
             Action
             | Tempo
             | Playrate
@@ -1518,6 +1534,7 @@ impl ReaperTargetType {
             | AutomationModeOverride
             | SendMidi
             | SendOsc
+            | PlayPreview
             | FxNavigate => false,
         }
     }
@@ -1563,6 +1580,7 @@ impl ReaperTargetType {
             | FxOpen
             | SendMidi
             | SendOsc
+            | PlayPreview
             | FxNavigate => false,
         }
     }
@@ -1594,6 +1612,7 @@ impl ReaperTargetType {
             | FxOpen
             | SendMidi
             | SendOsc
+            | PlayPreview
             | FxNavigate => false,
         }
     }
@@ -1653,6 +1672,7 @@ impl ReaperTargetType {
             TrackSendVolume => "Send volume",
             SendMidi => "Send MIDI",
             SendOsc => "Send OSC",
+            PlayPreview => "Play preview",
         }
     }
 }

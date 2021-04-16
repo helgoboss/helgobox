@@ -381,8 +381,7 @@ impl MainMapping {
             };
             // Echo feedback, send feedback after control ... all of that is not important when
             // firing triggered by a timer.
-            // Be graceful here.
-            // TODO-medium In future we could display some kind of small unintrusive error message.
+            // Be graceful here. Don't debug-log errors for now because this is polled.
             let _ = target.control(final_value, context);
             if self.should_send_non_auto_feedback_after_control(target) {
                 should_send_feedback = true;
@@ -404,6 +403,7 @@ impl MainMapping {
         value: ControlValue,
         options: ControlOptions,
         context: ControlContext,
+        logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
@@ -423,9 +423,9 @@ impl MainMapping {
             if let Some(v) = final_value {
                 at_least_one_target_val_was_changed = true;
                 // Be graceful here.
-                // TODO-medium In future we could display some kind of small unintrusive error
-                // message.
-                let _ = target.control(v, context);
+                if let Err(msg) = target.control(v, context) {
+                    slog::debug!(logger, "Control failed: {}", msg);
+                }
                 if self.should_send_non_auto_feedback_after_control(target) {
                     send_feedback = true;
                 }
