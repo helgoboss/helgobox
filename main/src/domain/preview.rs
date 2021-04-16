@@ -1,8 +1,9 @@
+use enumflags2::BitFlags;
 use reaper_high::{Reaper, Track};
 use reaper_low::raw;
 use reaper_medium::{
-    MidiImportBehavior, OwnedPreviewRegister, PlayingPreviewRegister, ReaperLockError,
-    ReaperVolumeValue,
+    BufferingBehavior, MeasureAlignment, MidiImportBehavior, OwnedPreviewRegister,
+    PlayingPreviewRegister, PositionInSeconds, ReaperLockError, ReaperVolumeValue,
 };
 use std::mem;
 use std::path::Path;
@@ -79,7 +80,11 @@ impl PreviewSlot {
                 let register = unsafe {
                     Reaper::get()
                         .medium_session()
-                        .play_preview_ex(state.register, 0, 0.0)
+                        .play_preview_ex(
+                            state.register,
+                            BitFlags::empty(),
+                            MeasureAlignment::PlayImmediately,
+                        )
                         .map_err(|_| "couldn't play preview")?
                 };
                 State::Playing(PlayingState { register })
@@ -88,7 +93,7 @@ impl PreviewSlot {
             State::Playing(state) => {
                 state.register.lock(|result| -> Result<(), &'static str> {
                     let register = result.map_err(|_| "couldn't acquire lock")?;
-                    register.set_cur_pos(0.0);
+                    register.set_cur_pos(PositionInSeconds::new(0.0));
                     Ok(())
                 })?;
                 State::Playing(PlayingState {

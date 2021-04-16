@@ -2617,6 +2617,7 @@ dependencies = [
  "embed-resource",
  "enum-iterator",
  "enum-map",
+ "enumflags2",
  "env_logger 0.8.2",
  "fasteval",
  "futures",
