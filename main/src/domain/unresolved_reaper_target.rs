@@ -926,9 +926,9 @@ impl fmt::Display for VirtualTrack {
         match self {
             This => f.write_str("<This>"),
             Selected { allow_multiple } => f.write_str(if *allow_multiple {
-                "<Selected>"
-            } else {
                 "<All selected>"
+            } else {
+                "<Selected>"
             }),
             Master => f.write_str("<Master>"),
             Dynamic(_) => f.write_str("<Dynamic>"),
