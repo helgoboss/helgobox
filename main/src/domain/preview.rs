@@ -32,12 +32,51 @@ impl Default for PreviewSlot {
     }
 }
 
+type TransitionResult = Result<State, (State, &'static str)>;
+
 #[derive(Debug)]
 enum State {
     Empty,
     Stopped(StoppedState),
     Playing(PlayingState),
-    Transition,
+    Transitioning,
+}
+
+impl State {
+    pub fn play(self, reg: &SharedRegister) -> TransitionResult {
+        use State::*;
+        match self {
+            Empty => Err((State::Empty, "slot is empty")),
+            Stopped(s) => s.play(reg),
+            Playing(s) => s.play(reg),
+            Transitioning => unreachable!(),
+        }
+    }
+
+    pub fn stop(self) -> TransitionResult {
+        use State::*;
+        match self {
+            s @ Empty | s @ Stopped(_) => Ok(s),
+            Playing(s) => s.stop(),
+            Transitioning => unreachable!(),
+        }
+    }
+
+    pub fn fill_with_source(self, source: PcmSource, reg: &SharedRegister) -> TransitionResult {
+        use State::*;
+        match self {
+            Empty | Stopped(_) => match set_register_source(reg, &source) {
+                Ok(_) => Ok(Stopped(StoppedState { source })),
+                Err(e) => Err((Empty, e)),
+            },
+            Playing(s) => {
+                // Important to stop before we destroy the existing source.
+                let stopped = s.stop()?;
+                stopped.play(reg)
+            }
+            Transitioning => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -46,12 +85,12 @@ struct StoppedState {
 }
 
 impl StoppedState {
-    fn play(self, register: &SharedRegister) -> Result<PlayingState, (&'static str, StoppedState)> {
+    fn play(self, register: &SharedRegister) -> TransitionResult {
         let result = unsafe {
             Reaper::get().medium_session().play_preview_ex(
                 register.clone(),
-                BitFlags::empty(),
-                MeasureAlignment::PlayImmediately,
+                BufferingBehavior::BufferSource | BufferingBehavior::VariSpeed,
+                MeasureAlignment::AlignWithMeasureStart,
             )
         };
         match result {
@@ -60,9 +99,9 @@ impl StoppedState {
                     source: self.source,
                     handle,
                 };
-                Ok(next_state)
+                Ok(State::Playing(next_state))
             }
-            Err(_) => Err(("couldn't play preview", self)),
+            Err(_) => Err((State::Stopped(self), "couldn't play preview")),
         }
     }
 }
@@ -74,20 +113,23 @@ struct PlayingState {
 }
 
 impl PlayingState {
-    fn play(self, register: &SharedRegister) -> Result<PlayingState, (&'static str, PlayingState)> {
+    fn play(self, register: &SharedRegister) -> TransitionResult {
         match register.lock() {
             Ok(mut guard) => {
                 guard.set_cur_pos(PositionInSeconds::new(0.0));
-                Ok(self)
+                Ok(State::Playing(self))
             }
-            Err(_) => Err(("couldn't acquire lock", self)),
+            Err(_) => Err((State::Playing(self), "couldn't acquire lock")),
         }
     }
 
-    fn stop(self) -> StoppedState {
-        let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
-        StoppedState {
+    fn stop(self) -> TransitionResult {
+        let next_state = State::Stopped(StoppedState {
             source: self.source,
+        });
+        match unsafe { Reaper::get().medium_session().stop_preview(self.handle) } {
+            Ok(_) => Ok(next_state),
+            Err(_) => Err((next_state, "couldn't stop, hopefully stopped already")),
         }
     }
 }
@@ -119,62 +161,33 @@ impl PreviewSlot {
     }
 
     pub fn fill_with_source(&mut self, source: PcmSource) -> Result<(), &'static str> {
-        let (next_state, result) = match mem::replace(&mut self.state, State::Transition) {
-            State::Empty | State::Stopped(_) => match self.set_register_source(&source) {
-                Ok(_) => (State::Stopped(StoppedState { source }), Ok(())),
-                Err(e) => (State::Empty, Err(e)),
-            },
-            State::Playing(old_playing) => {
-                // Important to stop before we destroy the existing source.
-                let mut stopped = old_playing.stop();
-                match self.set_register_source(&source) {
-                    Ok(_) => {
-                        stopped.source = source;
-                        match stopped.play(&self.register) {
-                            Ok(new_playing) => (State::Playing(new_playing), Ok(())),
-                            Err((e, stopped)) => (State::Stopped(stopped), Err(e)),
-                        }
-                    }
-                    Err(e) => (State::Stopped(stopped), Err(e)),
-                }
-            }
-            State::Transition => unreachable!(),
-        };
-        self.state = next_state;
-        result
+        let result = self
+            .start_transition()
+            .fill_with_source(source, &self.register);
+        self.finish_transition(result)
     }
 
     pub fn play(&mut self, track: Option<&Track>) -> Result<(), &'static str> {
-        let (next_state, result) = match mem::replace(&mut self.state, State::Transition) {
-            State::Empty => (State::Empty, Err("slot is empty")),
-            State::Stopped(stopped) => match stopped.play(&self.register) {
-                Ok(playing) => (State::Playing(playing), Ok(())),
-                Err((e, stopped)) => (State::Stopped(stopped), Err(e)),
-            },
-            State::Playing(old_playing) => match old_playing.play(&self.register) {
-                Ok(new_playing) => (State::Playing(new_playing), Ok(())),
-                Err((e, old_playing)) => (State::Playing(old_playing), Err(e)),
-            },
-            State::Transition => unreachable!(),
+        let result = self.start_transition().play(&self.register);
+        self.finish_transition(result)
+    }
+
+    pub fn stop(&mut self) -> Result<(), &'static str> {
+        let result = self.start_transition().stop();
+        self.finish_transition(result)
+    }
+
+    fn start_transition(&mut self) -> State {
+        std::mem::replace(&mut self.state, State::Transitioning)
+    }
+
+    fn finish_transition(&mut self, result: TransitionResult) -> Result<(), &'static str> {
+        let (next_state, result) = match result {
+            Ok(s) => (s, Ok(())),
+            Err((s, msg)) => (s, Err(msg)),
         };
         self.state = next_state;
         result
-    }
-
-    pub fn stop(&mut self) {
-        self.state = match mem::replace(&mut self.state, State::Transition) {
-            s @ State::Empty | s @ State::Stopped(_) => s,
-            State::Playing(playing) => State::Stopped(playing.stop()),
-            State::Transition => unreachable!(),
-        };
-    }
-
-    fn set_register_source(&self, source: &PcmSource) -> Result<(), &'static str> {
-        self.register
-            .lock()
-            .map_err(|_| "couldn't acquire lock")?
-            .set_src(Some(source.raw()));
-        Ok(())
     }
 }
 
@@ -202,4 +215,11 @@ impl Drop for PcmSource {
             // Reaper::get().medium_reaper().pcm_source_destroy(self.raw);
         }
     }
+}
+
+fn set_register_source(reg: &SharedRegister, source: &PcmSource) -> Result<(), &'static str> {
+    reg.lock()
+        .map_err(|_| "couldn't acquire lock")?
+        .set_src(Some(source.raw()));
+    Ok(())
 }
