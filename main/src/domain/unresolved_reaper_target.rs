@@ -3,8 +3,8 @@ use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
     MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget,
-    SeekOptions, SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity,
-    TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType,
+    TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -148,6 +148,8 @@ pub enum UnresolvedReaperTarget {
     PlayPreview {
         track_descriptor: Option<TrackDescriptor>,
         slot_index: usize,
+        action: TransportAction,
+        play_options: SlotPlayOptions,
     },
 }
 
@@ -406,19 +408,25 @@ impl UnresolvedReaperTarget {
             PlayPreview {
                 track_descriptor,
                 slot_index,
+                action,
+                play_options,
             } => {
                 if let Some(desc) = track_descriptor.as_ref() {
                     get_effective_tracks(context, &desc.track, compartment)?
                         .into_iter()
-                        .map(|track| ReaperTarget::PlayPreview {
+                        .map(|track| ReaperTarget::ClipTransport {
                             track: Some(track),
                             slot_index: *slot_index,
+                            action: *action,
+                            play_options: *play_options,
                         })
                         .collect()
                 } else {
-                    vec![ReaperTarget::PlayPreview {
+                    vec![ReaperTarget::ClipTransport {
                         track: None,
                         slot_index: *slot_index,
+                        action: *action,
+                        play_options: *play_options,
                     }]
                 }
             }

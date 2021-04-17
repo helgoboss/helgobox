@@ -33,7 +33,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ControlContext,
     FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider, MidiDestination,
-    OscDeviceId, OscFeedbackTask, RealearnTarget,
+    OscDeviceId, OscFeedbackTask, RealearnTarget, SlotPlayOptions,
 };
 use reaper_low::raw;
 use rosc::OscMessage;
@@ -196,9 +196,11 @@ pub enum ReaperTarget {
         arg_descriptor: Option<OscArgDescriptor>,
         device_id: Option<OscDeviceId>,
     },
-    PlayPreview {
+    ClipTransport {
         track: Option<Track>,
         slot_index: usize,
+        action: TransportAction,
+        play_options: SlotPlayOptions,
     },
 }
 
@@ -374,7 +376,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Transport { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
@@ -413,7 +415,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Transport { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
         }
@@ -473,7 +475,7 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | Seek { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -514,7 +516,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => format_as_percentage_without_unit(value),
             TrackWidth { .. } => format_as_symmetric_percentage_without_unit(value),
         }
@@ -557,7 +559,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => format_as_percentage_without_unit(step_size),
             TrackWidth { .. } => format_as_double_percentage_without_unit(step_size),
         }
@@ -623,7 +625,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
         }
@@ -658,7 +660,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
         }
@@ -708,7 +710,7 @@ impl RealearnTarget for ReaperTarget {
             | Seek { .. }
             | SendMidi { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
         }
@@ -1175,11 +1177,48 @@ impl RealearnTarget for ReaperTarget {
                     .send(OscFeedbackTask::new(effective_dev_id, msg))
                     .unwrap();
             }
-            PlayPreview { track, slot_index } => {
-                context
-                    .instance_state
-                    .borrow_mut()
-                    .play_preview(*slot_index, track.as_ref())?;
+            ClipTransport {
+                track,
+                slot_index,
+                action,
+                play_options,
+            } => {
+                use TransportAction::*;
+                let on = !value.as_absolute()?.is_zero();
+                let mut instance_state = context.instance_state.borrow_mut();
+                let slot = instance_state.get_slot_mut(*slot_index)?;
+                match action {
+                    PlayStop => {
+                        if on {
+                            slot.play(track.as_ref(), *play_options)?;
+                        } else {
+                            slot.stop()?;
+                        }
+                    }
+                    PlayPause => {
+                        if on {
+                            slot.play(track.as_ref(), *play_options)?;
+                        } else {
+                            slot.pause()?;
+                        }
+                    }
+                    Stop => {
+                        if on {
+                            slot.stop()?;
+                        }
+                    }
+                    Pause => {
+                        if on {
+                            slot.pause()?;
+                        }
+                    }
+                    Record => {
+                        return Err("not supported at the moment");
+                    }
+                    Repeat => {
+                        slot.toggle_looped()?;
+                    }
+                };
             }
         };
         Ok(())
@@ -1274,7 +1313,9 @@ impl ReaperTarget {
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
                 fx.is_available()
             }
-            PlayPreview { track, slot_index } => {
+            ClipTransport {
+                track, slot_index, ..
+            } => {
                 if let Some(t) = track {
                     if !t.is_available() {
                         return false;
@@ -1445,7 +1486,7 @@ impl ReaperTarget {
             } else {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
-            PlayPreview { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch)
+            ClipTransport { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch)
         }
     }
     /// Notifies about other events which can affect the resulting `ReaperTarget`.
@@ -1797,7 +1838,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | Seek { .. }
             | SendOsc { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -1837,7 +1878,7 @@ impl ReaperTarget {
             | Playrate { project }
             | SelectedTrack { project, .. }
             | Seek { project, .. } => *project,
-            PlayPreview { track, .. } => return track.as_ref().map(|t| t.project()),
+            ClipTransport { track, .. } => return track.as_ref().map(|t| t.project()),
             FxNavigate { fx_chain, .. } => fx_chain.project()?,
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
                 fx.project()?
@@ -1878,7 +1919,7 @@ impl ReaperTarget {
             | Transport { .. }
             | SendMidi { .. }
             | SendOsc { .. } => return None,
-            PlayPreview { track, .. } => return track.as_ref(),
+            ClipTransport { track, .. } => return track.as_ref(),
         };
         Some(track)
     }
@@ -1912,7 +1953,7 @@ impl ReaperTarget {
             | FxNavigate { .. }
             | Transport { .. }
             | SendMidi { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | SendOsc { .. } => return None,
         };
         Some(fx)
@@ -1950,7 +1991,7 @@ impl ReaperTarget {
             | Seek { .. }
             | Transport { .. }
             | SendMidi { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | SendOsc { .. } => return None,
         };
         Some(route)
@@ -1988,7 +2029,7 @@ impl ReaperTarget {
             | AutomationModeOverride { .. }
             | Seek { .. }
             | SendMidi { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | SendOsc { .. } => None,
         }
     }
@@ -2020,7 +2061,7 @@ impl ReaperTarget {
             | Seek { .. }
             | AutomationModeOverride { .. }
             | TrackAutomationMode { .. }
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             | Transport { .. } => true,
             TrackShow { .. }
             | AllTrackFxEnable { .. }
@@ -2348,7 +2389,7 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | Seek { .. }
             // TODO-high
-            | PlayPreview { .. }
+            | ClipTransport { .. }
             // No value change notification available.
             | TrackShow { .. }
             | TrackRouteMute { .. }
@@ -2495,7 +2536,7 @@ impl Target for ReaperTarget {
             }
             SendMidi { .. } | SendOsc { .. } => return None,
             // TODO-high
-            PlayPreview { .. } => return None,
+            ClipTransport { .. } => return None,
         };
         Some(result)
     }

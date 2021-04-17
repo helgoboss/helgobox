@@ -37,27 +37,37 @@ type TransitionResult = Result<State, (State, &'static str)>;
 #[derive(Debug)]
 enum State {
     Empty,
-    Stopped(StoppedState),
+    Suspended(SuspendedState),
     Playing(PlayingState),
     Transitioning,
 }
 
 impl State {
-    pub fn play(self, reg: &SharedRegister) -> TransitionResult {
+    pub fn play(self, reg: &SharedRegister, options: SlotPlayOptions) -> TransitionResult {
         use State::*;
         match self {
-            Empty => Err((State::Empty, "slot is empty")),
-            Stopped(s) => s.play(reg),
+            Empty => Err((Empty, "slot is empty")),
+            Suspended(s) => s.play(reg, options),
             Playing(s) => s.play(reg),
             Transitioning => unreachable!(),
         }
     }
 
-    pub fn stop(self) -> TransitionResult {
+    pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
         use State::*;
         match self {
-            s @ Empty | s @ Stopped(_) => Ok(s),
-            Playing(s) => s.stop(),
+            Empty => Ok(Empty),
+            Suspended(s) => s.stop(reg),
+            Playing(s) => s.stop(reg),
+            Transitioning => unreachable!(),
+        }
+    }
+
+    pub fn pause(self) -> TransitionResult {
+        use State::*;
+        match self {
+            s @ Empty | s @ Suspended(_) => Ok(s),
+            Playing(s) => s.pause(),
             Transitioning => unreachable!(),
         }
     }
@@ -65,32 +75,40 @@ impl State {
     pub fn fill_with_source(self, source: PcmSource, reg: &SharedRegister) -> TransitionResult {
         use State::*;
         match self {
-            Empty | Stopped(_) => match set_register_source(reg, &source) {
-                Ok(_) => Ok(Stopped(StoppedState { source })),
+            Empty | Suspended(_) => match lock(reg) {
+                Ok(mut g) => {
+                    g.set_src(Some(source.raw()));
+                    g.set_cur_pos(PositionInSeconds::new(0.0));
+                    Ok(Suspended(SuspendedState { source }))
+                }
                 Err(e) => Err((Empty, e)),
             },
-            Playing(s) => {
-                // Important to stop before we destroy the existing source.
-                let stopped = s.stop()?;
-                stopped.play(reg)
-            }
+            Playing(s) => s.fill_with_source(source, reg),
             Transitioning => unreachable!(),
         }
     }
 }
 
 #[derive(Debug)]
-struct StoppedState {
+struct SuspendedState {
     source: PcmSource,
 }
 
-impl StoppedState {
-    fn play(self, register: &SharedRegister) -> TransitionResult {
+impl SuspendedState {
+    pub fn play(self, register: &SharedRegister, options: SlotPlayOptions) -> TransitionResult {
         let result = unsafe {
             Reaper::get().medium_session().play_preview_ex(
                 register.clone(),
-                BufferingBehavior::BufferSource | BufferingBehavior::VariSpeed,
-                MeasureAlignment::AlignWithMeasureStart,
+                if options.buffered {
+                    BitFlags::from_flag(BufferingBehavior::BufferSource)
+                } else {
+                    BitFlags::empty()
+                },
+                if options.next_bar {
+                    MeasureAlignment::AlignWithMeasureStart
+                } else {
+                    MeasureAlignment::PlayImmediately
+                },
             )
         };
         match result {
@@ -101,7 +119,19 @@ impl StoppedState {
                 };
                 Ok(State::Playing(next_state))
             }
-            Err(_) => Err((State::Stopped(self), "couldn't play preview")),
+            Err(_) => Err((State::Suspended(self), "couldn't play preview")),
+        }
+    }
+
+    pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
+        let next_state = State::Suspended(self);
+        match lock(reg) {
+            Ok(mut guard) => {
+                // Reset position!
+                guard.set_cur_pos(PositionInSeconds::new(0.0));
+                Ok(next_state)
+            }
+            Err(e) => Err((next_state, e)),
         }
     }
 }
@@ -113,24 +143,53 @@ struct PlayingState {
 }
 
 impl PlayingState {
-    fn play(self, register: &SharedRegister) -> TransitionResult {
-        match register.lock() {
+    pub fn play(self, reg: &SharedRegister) -> TransitionResult {
+        match lock(reg) {
             Ok(mut guard) => {
+                // Retrigger!
                 guard.set_cur_pos(PositionInSeconds::new(0.0));
                 Ok(State::Playing(self))
             }
-            Err(_) => Err((State::Playing(self), "couldn't acquire lock")),
+            Err(e) => Err((State::Playing(self), e)),
         }
     }
 
-    fn stop(self) -> TransitionResult {
-        let next_state = State::Stopped(StoppedState {
+    pub fn fill_with_source(self, source: PcmSource, reg: &SharedRegister) -> TransitionResult {
+        match lock(reg) {
+            Ok(mut g) => {
+                g.set_src(Some(source.raw()));
+                Ok(State::Playing(PlayingState {
+                    source,
+                    handle: self.handle,
+                }))
+            }
+            Err(e) => Err((State::Playing(self), e)),
+        }
+    }
+
+    pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
+        let next_state = self.suspend();
+        match lock(reg) {
+            Ok(mut guard) => {
+                // Reset position!
+                guard.set_cur_pos(PositionInSeconds::new(0.0));
+                Ok(next_state)
+            }
+            Err(e) => Err((next_state, e)),
+        }
+    }
+
+    pub fn pause(self) -> TransitionResult {
+        Ok(self.suspend())
+    }
+
+    fn suspend(self) -> State {
+        let next_state = State::Suspended(SuspendedState {
             source: self.source,
         });
-        match unsafe { Reaper::get().medium_session().stop_preview(self.handle) } {
-            Ok(_) => Ok(next_state),
-            Err(_) => Err((next_state, "couldn't stop, hopefully stopped already")),
-        }
+        // If not successful this probably means it was stopped already, so okay.
+        let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
+        next_state
     }
 }
 
@@ -167,14 +226,30 @@ impl PreviewSlot {
         self.finish_transition(result)
     }
 
-    pub fn play(&mut self, track: Option<&Track>) -> Result<(), &'static str> {
-        let result = self.start_transition().play(&self.register);
+    pub fn play(
+        &mut self,
+        track: Option<&Track>,
+        options: SlotPlayOptions,
+    ) -> Result<(), &'static str> {
+        let result = self.start_transition().play(&self.register, options);
         self.finish_transition(result)
     }
 
     pub fn stop(&mut self) -> Result<(), &'static str> {
-        let result = self.start_transition().stop();
+        let result = self.start_transition().stop(&self.register);
         self.finish_transition(result)
+    }
+
+    pub fn pause(&mut self) -> Result<(), &'static str> {
+        let result = self.start_transition().pause();
+        self.finish_transition(result)
+    }
+
+    pub fn toggle_looped(&mut self) -> Result<(), &'static str> {
+        let mut guard = lock(&self.register)?;
+        let looped = guard.looped();
+        guard.set_looped(!looped);
+        Ok(())
     }
 
     fn start_transition(&mut self) -> State {
@@ -189,6 +264,12 @@ impl PreviewSlot {
         self.state = next_state;
         result
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub struct SlotPlayOptions {
+    pub next_bar: bool,
+    pub buffered: bool,
 }
 
 /// Owned PCM source.
@@ -217,9 +298,6 @@ impl Drop for PcmSource {
     }
 }
 
-fn set_register_source(reg: &SharedRegister, source: &PcmSource) -> Result<(), &'static str> {
-    reg.lock()
-        .map_err(|_| "couldn't acquire lock")?
-        .set_src(Some(source.raw()));
-    Ok(())
+fn lock(reg: &SharedRegister) -> Result<ReaperMutexGuard<OwnedPreviewRegister>, &'static str> {
+    reg.lock().map_err(|_| "couldn't acquire lock")
 }

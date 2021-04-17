@@ -39,6 +39,7 @@ use crate::application::{
 use crate::core::Global;
 use crate::domain::{
     control_element_domains, ControlContext, FeedbackOutput, InstanceState, SendMidiDestination,
+    PREVIEW_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -186,7 +187,7 @@ impl MappingPanel {
                         .set(preset);
                 }
             }
-            ReaperTargetType::PlayPreview => {
+            ReaperTargetType::ClipTransport => {
                 let session = self.session();
                 let session = session.borrow();
                 let item = session
@@ -194,10 +195,11 @@ impl MappingPanel {
                     .project_or_current_project()
                     .first_selected_item()
                     .ok_or("no item selected")?;
+                let slot_index = mapping.borrow().target_model.slot_index.get();
                 session
                     .instance_state()
                     .borrow_mut()
-                    .fill_preview_slot_with_item_source(0, item)?;
+                    .fill_preview_slot_with_item_source(slot_index, item)?;
             }
             _ => {}
         }
@@ -1419,6 +1421,9 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.use_regions.set(is_checked);
                 }
+                ReaperTargetType::ClipTransport => {
+                    self.mapping.target_model.next_bar.set(is_checked);
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -1435,6 +1440,9 @@ impl<'a> MutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.mapping.target_model.use_loop_points.set(is_checked);
+                }
+                ReaperTargetType::ClipTransport => {
+                    self.mapping.target_model.buffered.set(is_checked);
                 }
                 _ => {}
             },
@@ -1531,6 +1539,10 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::ClipTransport => {
+                    let slot_index = combo.selected_combo_box_item_index();
+                    self.mapping.target_model.slot_index.set(slot_index);
+                }
                 t if t.supports_fx() => {
                     let fx_type = combo
                         .selected_combo_box_item_index()
@@ -1734,6 +1746,13 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::ClipTransport => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .transport_action
+                        .set(i.try_into().expect("invalid transport action"));
+                }
                 ReaperTargetType::FxParameter => {
                     if let Ok(fx) = self.target_with_context().fx() {
                         let i = combo.selected_combo_box_item_index();
@@ -2826,7 +2845,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendMidi => Some("Pick!"),
-                ReaperTargetType::PlayPreview => Some("Pick!"),
+                ReaperTargetType::ClipTransport => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -2977,7 +2996,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
-                ReaperTargetType::PlayPreview => Some("Source"),
+                ReaperTargetType::ClipTransport => Some("Slot"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
@@ -2996,6 +3015,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
+                ReaperTargetType::ClipTransport => Some("Action"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_send() => match self.target.route_type.get() {
@@ -3038,6 +3058,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::ClipTransport => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(
+                        (0..PREVIEW_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
+                    );
+                    combo
+                        .select_combo_box_item_by_index(self.target.slot_index.get())
+                        .unwrap();
+                }
                 t if t.supports_fx() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
@@ -3203,6 +3232,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::ClipTransport => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.transport_action.get().into(),
+                        )
+                        .unwrap();
+                }
                 ReaperTargetType::FxParameter
                     if self.target.param_type.get() == VirtualFxParameterType::ByIndex =>
                 {
@@ -3386,6 +3424,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let res = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions.get())),
+                ReaperTargetType::ClipTransport => Some(("Next bar", self.target.next_bar.get())),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -3402,6 +3441,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set loop points", self.target.use_loop_points.get()))
                 }
+                ReaperTargetType::ClipTransport => Some(("Buffered", self.target.buffered.get())),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4444,7 +4484,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.touched_parameter_type.changed())
                 .merge(target.track_automation_mode.changed())
                 .merge(target.automation_mode_override_type.changed())
-                .merge(target.track_area.changed()),
+                .merge(target.track_area.changed())
+                .merge(target.slot_index.changed()),
             |view, _| {
                 view.invalidate_target_line_3(None);
             },
@@ -4502,13 +4543,24 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_target_check_box_3();
             },
         );
-        self.panel.when(target.use_regions.changed(), |view, _| {
-            view.invalidate_target_check_box_4();
-        });
-        self.panel
-            .when(target.use_loop_points.changed(), |view, _| {
+        self.panel.when(
+            target
+                .use_regions
+                .changed()
+                .merge(target.next_bar.changed()),
+            |view, _| {
+                view.invalidate_target_check_box_4();
+            },
+        );
+        self.panel.when(
+            target
+                .use_loop_points
+                .changed()
+                .merge(target.buffered.changed()),
+            |view, _| {
                 view.invalidate_target_check_box_5();
-            });
+            },
+        );
         self.panel
             .when(target.use_time_selection.changed(), |view, _| {
                 view.invalidate_target_check_box_6();
