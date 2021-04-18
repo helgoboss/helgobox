@@ -4,9 +4,9 @@ use reaper_high::{Item, Reaper, Track};
 use reaper_low::raw;
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
-    BufferingBehavior, MeasureAlignment, MediaItem, MidiImportBehavior, OwnedPreviewRegister,
-    PositionInSeconds, ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard,
-    ReaperVolumeValue,
+    BufferingBehavior, DurationInSeconds, MeasureAlignment, MediaItem, MidiImportBehavior,
+    OwnedPreviewRegister, PcmSource, PositionInSeconds, ReaperFunctionError, ReaperLockError,
+    ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use std::mem;
 use std::path::Path;
@@ -80,7 +80,11 @@ impl State {
         }
     }
 
-    pub fn fill_with_source(self, source: PcmSource, reg: &SharedRegister) -> TransitionResult {
+    pub fn fill_with_source(
+        self,
+        source: OwnedPcmSource,
+        reg: &SharedRegister,
+    ) -> TransitionResult {
         use State::*;
         match self {
             Empty | Suspended(_) => match lock(reg) {
@@ -102,7 +106,7 @@ impl State {
 
 #[derive(Debug)]
 struct SuspendedState {
-    source: PcmSource,
+    source: OwnedPcmSource,
     is_paused: bool,
 }
 
@@ -150,7 +154,7 @@ impl SuspendedState {
 
 #[derive(Debug)]
 struct PlayingState {
-    source: PcmSource,
+    source: OwnedPcmSource,
     handle: NonNull<raw::preview_register_t>,
 }
 
@@ -166,7 +170,11 @@ impl PlayingState {
         }
     }
 
-    pub fn fill_with_source(self, source: PcmSource, reg: &SharedRegister) -> TransitionResult {
+    pub fn fill_with_source(
+        self,
+        source: OwnedPcmSource,
+        reg: &SharedRegister,
+    ) -> TransitionResult {
         match lock(reg) {
             Ok(mut g) => {
                 g.set_src(Some(source.raw()));
@@ -214,14 +222,16 @@ impl PreviewSlot {
         }
         let (current_pos, length) = {
             let guard = self.register.lock().ok()?;
-            // TODO-high Determine real length!
-            (guard.cur_pos(), PositionInSeconds::new(5.0))
+            let source = guard.src()?;
+            let length = unsafe { source.get_length() };
+            (guard.cur_pos(), length)
         };
-        if current_pos <= length {
-            Some(ClipChangedEvent::ClipPositionChanged(current_pos))
-        } else {
-            self.stop().ok()?;
-            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
+        match length {
+            Some(l) if current_pos.get() > l.get() => {
+                self.stop().ok()?;
+                Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
+            }
+            _ => Some(ClipChangedEvent::ClipPositionChanged(current_pos)),
         }
     }
 
@@ -231,7 +241,7 @@ impl PreviewSlot {
             .ok_or("item has no active take")?
             .source()
             .ok_or("take has no source")?;
-        let owned_source = PcmSource::new(source.raw());
+        let owned_source = OwnedPcmSource::new(source.raw());
         self.fill_with_source(owned_source)
     }
 
@@ -242,7 +252,7 @@ impl PreviewSlot {
                 .pcm_source_create_from_file_ex(file, MidiImportBehavior::UsePreference)
                 .map_err(|_| "couldn't create PCM source")?
         };
-        let owned_source = PcmSource::new(raw_source);
+        let owned_source = OwnedPcmSource::new(raw_source);
         self.fill_with_source(owned_source)
     }
 
@@ -266,7 +276,7 @@ impl PreviewSlot {
         }
     }
 
-    pub fn fill_with_source(&mut self, source: PcmSource) -> Result<(), &'static str> {
+    pub fn fill_with_source(&mut self, source: OwnedPcmSource) -> Result<(), &'static str> {
         let result = self
             .start_transition()
             .fill_with_source(source, &self.register);
@@ -334,21 +344,21 @@ pub struct SlotPlayOptions {
 
 /// Owned PCM source.
 #[derive(Debug)]
-pub struct PcmSource {
-    raw: NonNull<raw::PCM_source>,
+pub struct OwnedPcmSource {
+    raw: PcmSource,
 }
 
-impl PcmSource {
-    pub fn new(raw: NonNull<raw::PCM_source>) -> Self {
+impl OwnedPcmSource {
+    pub fn new(raw: PcmSource) -> Self {
         Self { raw }
     }
 
-    pub fn raw(&self) -> NonNull<raw::PCM_source> {
+    pub fn raw(&self) -> PcmSource {
         self.raw
     }
 }
 
-impl Drop for PcmSource {
+impl Drop for OwnedPcmSource {
     fn drop(&mut self) {
         // TODO-high Attention! To make this work, we need to duplicate an item source to make it
         // owned!!!
