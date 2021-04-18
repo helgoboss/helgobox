@@ -32,9 +32,9 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ClipPlayState, ControlContext,
-    FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider, InstanceState,
-    MidiDestination, OscDeviceId, OscFeedbackTask, RealearnTarget, SharedInstanceState,
-    SlotPlayOptions,
+    FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider,
+    InstanceFeedbackEvent, InstanceState, MidiDestination, OscDeviceId, OscFeedbackTask,
+    RealearnTarget, SharedInstanceState, SlotPlayOptions,
 };
 use reaper_low::raw;
 use rosc::OscMessage;
@@ -2145,6 +2145,38 @@ impl ReaperTarget {
         }
     }
 
+    pub fn value_changed_from_instance_feedback_event(
+        &self,
+        evt: &InstanceFeedbackEvent,
+    ) -> (bool, Option<UnitValue>) {
+        use InstanceFeedbackEvent::*;
+        use ReaperTarget::*;
+        match self {
+            ClipTransport {
+                slot_index, action, ..
+            } => {
+                use TransportAction::*;
+                match *action {
+                    PlayStop | PlayPause | Stop | Pause => match evt {
+                        ClipPlayStateChanged(e) if e.slot_index == *slot_index => {
+                            (true, Some(clip_play_state_unit_value(*action, e.new_value)))
+                        }
+                        _ => (false, None),
+                    },
+                    // Not supported at the moment.
+                    Record => (false, None),
+                    Repeat => match evt {
+                        ClipRepeatChanged(e) if e.slot_index == *slot_index => {
+                            (true, Some(transport_is_enabled_unit_value(e.new_value)))
+                        }
+                        _ => (false, None),
+                    },
+                }
+            }
+            _ => (false, None),
+        }
+    }
+
     /// Might return the new value if changed.
     pub fn value_changed_from_change_event(&self, evt: &ChangeEvent) -> (bool, Option<UnitValue>) {
         use ChangeEvent::*;
@@ -2327,36 +2359,37 @@ impl ReaperTarget {
                 }
             }
             Transport { project, action, .. } => {
+                use TransportAction::*;
                 match *action {
-                    TransportAction::PlayStop | TransportAction::PlayPause => match evt {
+                    PlayStop | PlayPause => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value.is_playing))
                         ),
                         _ => (false, None)
                     }
-                    TransportAction::Stop => match evt {
+                    Stop => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(!e.new_value.is_playing && !e.new_value.is_paused))
                         ),
                         _ => (false, None)
                     }
-                    TransportAction::Pause => match evt {
+                    Pause => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value.is_paused))
                         ),
                         _ => (false, None)
                     }
-                    TransportAction::Record => match evt {
+                    Record => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value.is_recording))
                         ),
                         _ => (false, None)
                     }
-                    TransportAction::Repeat => match evt {
+                    Repeat => match evt {
                         RepeatStateChanged(e) if e.project == *project => (
                             true,
                             Some(transport_is_enabled_unit_value(e.new_value))
@@ -2389,7 +2422,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
-            // TODO-high
+            // Handled from instance-scoped feedback events.
             | ClipTransport { .. }
             // No value change notification available.
             | TrackShow { .. }
@@ -2549,18 +2582,7 @@ impl<'a> Target<'a> for ReaperTarget {
                 match action {
                     PlayStop | PlayPause | Stop | Pause => {
                         let play_state = instance_state.get_play_state(*slot_index).ok()?;
-                        match action {
-                            PlayStop | PlayPause => transport_is_enabled_unit_value(
-                                play_state == ClipPlayState::Playing,
-                            ),
-                            Stop => transport_is_enabled_unit_value(
-                                play_state == ClipPlayState::Stopped,
-                            ),
-                            Pause => {
-                                transport_is_enabled_unit_value(play_state == ClipPlayState::Paused)
-                            }
-                            _ => unreachable!(),
-                        }
+                        clip_play_state_unit_value(*action, play_state)
                     }
                     Repeat => {
                         let is_looped = instance_state.get_is_looped(*slot_index).ok()?;
@@ -2575,6 +2597,22 @@ impl<'a> Target<'a> for ReaperTarget {
 
     fn control_type(&self) -> ControlType {
         self.control_type_and_character().0
+    }
+}
+
+// Panics if called with repeat or record.
+fn clip_play_state_unit_value(action: TransportAction, play_state: ClipPlayState) -> UnitValue {
+    use TransportAction::*;
+    match action {
+        PlayStop | PlayPause | Stop | Pause => match action {
+            PlayStop | PlayPause => {
+                transport_is_enabled_unit_value(play_state == ClipPlayState::Playing)
+            }
+            Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
+            Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
+            _ => unreachable!(),
+        },
+        _ => panic!("wrong argument"),
     }
 }
 

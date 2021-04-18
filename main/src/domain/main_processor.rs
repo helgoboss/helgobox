@@ -818,6 +818,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+        // Process instance-state feedback events
+        for event in self
+            .instance_feedback_event_receiver
+            .try_iter()
+            .take(FEEDBACK_TASK_BULK_SIZE)
+        {
+            use InstanceFeedbackEvent::*;
+            self.process_feedback_related_reaper_event(|target| {
+                target.value_changed_from_instance_feedback_event(&event)
+            });
+        }
         // Process high-resolution playback-position dependent feedback
         for compartment in MappingCompartment::enum_iter() {
             for mapping_id in self.milli_dependent_feedback_mappings[compartment].iter() {
