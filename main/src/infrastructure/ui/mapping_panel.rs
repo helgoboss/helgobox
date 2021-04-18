@@ -39,7 +39,7 @@ use crate::application::{
 use crate::core::Global;
 use crate::domain::{
     control_element_domains, ControlContext, FeedbackOutput, InstanceState, SendMidiDestination,
-    PREVIEW_SLOT_COUNT,
+    SharedInstanceState, PREVIEW_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -174,12 +174,12 @@ impl MappingPanel {
 
     fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        match mapping.borrow().target_model.r#type.get() {
+        let target_type = mapping.borrow().target_model.r#type.get();
+        match target_type {
             ReaperTargetType::SendMidi => {
                 if let Some(preset) =
                     prompt_for_predefined_raw_midi_pattern(self.view.require_window())
                 {
-                    let mapping = self.mapping();
                     mapping
                         .borrow_mut()
                         .target_model
@@ -3485,7 +3485,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         //  first resolved target into account.
         let error = if let Some(t) = self.first_resolved_target() {
             if t.can_report_current_value() {
-                let value = t.current_value().unwrap_or(UnitValue::MIN);
+                let control_context = create_control_context(
+                    self.session.feedback_output(),
+                    self.session.instance_state(),
+                );
+                let value = t
+                    .current_value(Some(control_context))
+                    .unwrap_or(UnitValue::MIN);
                 self.invalidate_target_value_controls_with_value(value);
                 None
             } else {
@@ -5157,22 +5163,29 @@ fn update_target_value(
     targets: &[CompoundMappingTarget],
     value: UnitValue,
     feedback_output: Option<FeedbackOutput>,
-    instance_state: &Rc<RefCell<InstanceState>>,
+    instance_state: &SharedInstanceState,
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
         let res = target.control(
             ControlValue::Absolute(value),
-            ControlContext {
-                feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
-                osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
-                feedback_output,
-                instance_state,
-            },
+            create_control_context(feedback_output, instance_state),
         );
         if let Err(msg) = res {
             slog::debug!(App::logger(), "Control failed: {}", msg);
         }
+    }
+}
+
+fn create_control_context(
+    feedback_output: Option<FeedbackOutput>,
+    instance_state: &SharedInstanceState,
+) -> ControlContext {
+    ControlContext {
+        feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
+        osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
+        feedback_output,
+        instance_state,
     }
 }
 

@@ -31,12 +31,14 @@ use crate::domain::ui_util::{
     parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ControlContext,
-    FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider, MidiDestination,
-    OscDeviceId, OscFeedbackTask, RealearnTarget, SlotPlayOptions,
+    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ClipPlayState, ControlContext,
+    FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider, InstanceState,
+    MidiDestination, OscDeviceId, OscFeedbackTask, RealearnTarget, SharedInstanceState,
+    SlotPlayOptions,
 };
 use reaper_low::raw;
 use rosc::OscMessage;
+use std::cell::RefCell;
 use std::convert::TryInto;
 use std::num::NonZeroU32;
 use std::ptr::NonNull;
@@ -1186,37 +1188,36 @@ impl RealearnTarget for ReaperTarget {
                 use TransportAction::*;
                 let on = !value.as_absolute()?.is_zero();
                 let mut instance_state = context.instance_state.borrow_mut();
-                let slot = instance_state.get_slot_mut(*slot_index)?;
                 match action {
                     PlayStop => {
                         if on {
-                            slot.play(track.as_ref(), *play_options)?;
+                            instance_state.play(*slot_index, track.as_ref(), *play_options)?;
                         } else {
-                            slot.stop()?;
+                            instance_state.stop(*slot_index)?;
                         }
                     }
                     PlayPause => {
                         if on {
-                            slot.play(track.as_ref(), *play_options)?;
+                            instance_state.play(*slot_index, track.as_ref(), *play_options)?;
                         } else {
-                            slot.pause()?;
+                            instance_state.pause(*slot_index)?;
                         }
                     }
                     Stop => {
                         if on {
-                            slot.stop()?;
+                            instance_state.stop(*slot_index)?;
                         }
                     }
                     Pause => {
                         if on {
-                            slot.pause()?;
+                            instance_state.pause(*slot_index)?;
                         }
                     }
                     Record => {
                         return Err("not supported at the moment");
                     }
                     Repeat => {
-                        slot.toggle_looped()?;
+                        instance_state.toggle_looped(*slot_index)?;
                     }
                 };
             }
@@ -2401,8 +2402,12 @@ impl ReaperTarget {
     }
 }
 
-impl Target for ReaperTarget {
-    fn current_value(&self) -> Option<UnitValue> {
+impl<'a> Target<'a> for ReaperTarget {
+    // An option because we don't have the context available e.g. if some target variants are
+    // controlled from real-time processor.
+    type Context = Option<ControlContext<'a>>;
+
+    fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
         use ReaperTarget::*;
         let result = match self {
             Action { action, .. } => {
@@ -2535,8 +2540,35 @@ impl Target for ReaperTarget {
                 current_value_of_seek(*project, *options, project.play_or_edit_cursor_position())
             }
             SendMidi { .. } | SendOsc { .. } => return None,
-            // TODO-high
-            ClipTransport { .. } => return None,
+            ClipTransport {
+                slot_index, action, ..
+            } => {
+                let context = context.as_ref()?;
+                let instance_state = context.instance_state.borrow();
+                use TransportAction::*;
+                match action {
+                    PlayStop | PlayPause | Stop | Pause => {
+                        let play_state = instance_state.get_play_state(*slot_index).ok()?;
+                        match action {
+                            PlayStop | PlayPause => transport_is_enabled_unit_value(
+                                play_state == ClipPlayState::Playing,
+                            ),
+                            Stop => transport_is_enabled_unit_value(
+                                play_state == ClipPlayState::Stopped,
+                            ),
+                            Pause => {
+                                transport_is_enabled_unit_value(play_state == ClipPlayState::Paused)
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    Repeat => {
+                        let is_looped = instance_state.get_is_looped(*slot_index).ok()?;
+                        transport_is_enabled_unit_value(is_looped)
+                    }
+                    Record => return None,
+                }
+            }
         };
         Some(result)
     }

@@ -2,12 +2,13 @@ use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
     CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
     DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent, InstanceState,
-    IoUpdatedEvent, MainMapping, MappingActivationEffect, MappingCompartment, MappingId,
-    MidiDestination, MidiSource, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
-    PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext, QualifiedSource,
-    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    ReaperTarget, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceFeedbackEvent,
+    InstanceOrchestrationEvent, InstanceState, IoUpdatedEvent, MainMapping,
+    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
+    PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
     VirtualSourceValue,
 };
 use enum_map::EnumMap;
@@ -60,6 +61,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+    instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
@@ -74,7 +76,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     control_is_globally_enabled: bool,
     control_input: ControlInput,
     feedback_output: Option<FeedbackOutput>,
-    instance_state: Rc<RefCell<InstanceState>>,
+    instance_state: SharedInstanceState,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -86,6 +88,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
@@ -94,7 +97,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
-        instance_state: Rc<RefCell<InstanceState>>,
+        instance_state: SharedInstanceState,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
@@ -129,6 +132,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             instance_orchestration_event_sender,
             feedback_audio_hook_task_sender,
             instance_state,
+            instance_feedback_event_receiver,
         }
     }
 
@@ -149,7 +153,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.feedback_is_effectively_enabled() {
                     debug!(self.logger, "Taking over source {:?}...", source);
-                    let feedback = followed_mapping.feedback(true);
+                    let feedback = followed_mapping.feedback(true, self.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
@@ -164,6 +168,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             false
+        }
+    }
+
+    fn control_context(&self) -> ControlContext {
+        ControlContext {
+            feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+            osc_feedback_task_sender: &self.osc_feedback_task_sender,
+            feedback_output: self.feedback_output,
+            instance_state: &self.instance_state,
         }
     }
 
@@ -779,7 +792,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     ));
                                     if m.has_reaper_target() && m.has_resolved_successfully() {
                                         if m.feedback_is_effectively_on() {
-                                            m.feedback(true)
+                                            m.feedback(
+                                                true,
+                                                ControlContext {
+                                                    feedback_audio_hook_task_sender: &self
+                                                        .feedback_audio_hook_task_sender,
+                                                    osc_feedback_task_sender: &self
+                                                        .osc_feedback_task_sender,
+                                                    feedback_output: self.feedback_output,
+                                                    instance_state: &self.instance_state,
+                                                },
+                                            )
                                         } else {
                                             None
                                         }
@@ -999,7 +1022,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let new_target_value = new_values
             .into_iter()
             .map(|(target, new_value)| {
-                m.given_or_current_value(new_value, target)
+                m.given_or_current_value(new_value, target, self.control_context())
                     .unwrap_or(UnitValue::MIN)
             })
             .max();
@@ -1242,7 +1265,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.all_mappings_without_virtual_targets()
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
-                    m.feedback(true)
+                    m.feedback(true, self.control_context())
                 } else {
                     None
                 }
@@ -1281,7 +1304,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
         let followed_mapping = self.follow_maybe_virtual_mapping(m)?;
-        followed_mapping.feedback(true)
+        followed_mapping.feedback(true, self.control_context())
     }
 
     fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
@@ -1590,7 +1613,7 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     event_handler: &'a EH,
     feedback_output: Option<FeedbackOutput>,
     logger: &'a slog::Logger,
-    instance_state: &'a Rc<RefCell<InstanceState>>,
+    instance_state: &'a SharedInstanceState,
 }
 
 impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {

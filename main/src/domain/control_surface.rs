@@ -1,8 +1,8 @@
 use crate::core::Global;
 use crate::domain::{
-    BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput,
-    MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget, SourceFeedbackValue,
-    TouchedParameterType,
+    BackboneState, ClipPlayState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
+    FeedbackOutput, MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget,
+    SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::OscSource;
@@ -15,7 +15,7 @@ use rosc::{OscMessage, OscPacket};
 
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, PositionInSeconds,
-    ReaProject, ReaperNormalizedFxParamValue,
+    ReaProject, ReaperNormalizedFxParamValue, ReaperVolumeValue,
 };
 use rxrust::prelude::*;
 use slog::debug;

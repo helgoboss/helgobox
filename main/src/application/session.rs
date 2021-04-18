@@ -10,8 +10,8 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackOutput, InstanceState, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, ReaperTarget, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    RealTimeSender, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
@@ -91,7 +91,7 @@ pub struct Session {
     main_preset_link_manager: Box<dyn PresetLinkManager>,
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
-    instance_state: Rc<RefCell<InstanceState>>,
+    instance_state: SharedInstanceState,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -160,7 +160,7 @@ impl Session {
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
-        instance_state: Rc<RefCell<InstanceState>>,
+        instance_state: SharedInstanceState,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -1774,7 +1774,7 @@ impl Session {
         }
     }
 
-    pub fn instance_state(&self) -> &Rc<RefCell<InstanceState>> {
+    pub fn instance_state(&self) -> &SharedInstanceState {
         &self.instance_state
     }
 

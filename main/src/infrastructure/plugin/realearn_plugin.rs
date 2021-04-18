@@ -47,6 +47,7 @@ const FEEDBACK_REAL_TIME_TASK_QUEUE_SIZE: usize = 2000;
 const NORMAL_MAIN_TASK_QUEUE_SIZE: usize = 10_000;
 const CONTROL_MAIN_TASK_QUEUE_SIZE: usize = 5000;
 const PARAMETER_MAIN_TASK_QUEUE_SIZE: usize = 5000;
+const INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE: usize = 10_000;
 
 reaper_vst_plugin!();
 
@@ -354,8 +355,13 @@ impl RealearnPlugin {
                         return;
                     }
                 };
-                let instance_state = Rc::new(RefCell::new(InstanceState::default()));
-                // Session
+                // Instance state (domain - shared)
+                let (instance_feedback_event_sender, instance_feedback_event_receiver) =
+                    crossbeam_channel::bounded(INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE);
+                let instance_state = Rc::new(RefCell::new(InstanceState::new(
+                    instance_feedback_event_sender,
+                )));
+                // Session (application - shared)
                 let session = Session::new(
                     instance_id.clone(),
                     &logger,
@@ -377,6 +383,7 @@ impl RealearnPlugin {
                 let weak_session = Rc::downgrade(&shared_session);
                 server::keep_informing_clients_about_session_events(&shared_session);
                 App::get().register_session(weak_session.clone());
+                // Main processor - (domain, owned by REAPER control surface)
                 // Register the main processor with the global ReaLearn control surface. We let it
                 // call by the control surface because it must be called regularly,
                 // even when the ReaLearn UI is closed. That means, the VST GUI idle
@@ -388,6 +395,7 @@ impl RealearnPlugin {
                     normal_main_task_channel.1,
                     parameter_main_task_receiver,
                     control_main_task_receiver,
+                    instance_feedback_event_receiver,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
                     App::get().feedback_audio_hook_task_sender().clone(),

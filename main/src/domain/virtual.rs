@@ -1,5 +1,5 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
-use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
+use crate::domain::{ExtendedSourceCharacter, SharedInstanceState, TargetCharacter};
 use ascii::{AsciiStr, AsciiString, ToAsciiChar};
 use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, Target, UnitValue};
 use smallvec::alloc::fmt::Formatter;
@@ -31,8 +31,10 @@ impl VirtualTarget {
     }
 }
 
-impl Target for VirtualTarget {
-    fn current_value(&self) -> Option<UnitValue> {
+impl<'a> Target<'a> for VirtualTarget {
+    type Context = ();
+
+    fn current_value(&self, _: ()) -> Option<UnitValue> {
         None
     }
 

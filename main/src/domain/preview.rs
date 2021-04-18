@@ -32,6 +32,13 @@ impl Default for PreviewSlot {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum ClipPlayState {
+    Stopped,
+    Playing,
+    Paused,
+}
+
 type TransitionResult = Result<State, (State, &'static str)>;
 
 #[derive(Debug)]
@@ -79,7 +86,10 @@ impl State {
                 Ok(mut g) => {
                     g.set_src(Some(source.raw()));
                     g.set_cur_pos(PositionInSeconds::new(0.0));
-                    Ok(Suspended(SuspendedState { source }))
+                    Ok(Suspended(SuspendedState {
+                        source,
+                        is_paused: false,
+                    }))
                 }
                 Err(e) => Err((Empty, e)),
             },
@@ -92,6 +102,7 @@ impl State {
 #[derive(Debug)]
 struct SuspendedState {
     source: PcmSource,
+    is_paused: bool,
 }
 
 impl SuspendedState {
@@ -168,7 +179,7 @@ impl PlayingState {
     }
 
     pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
-        let next_state = self.suspend();
+        let next_state = self.suspend(false);
         match lock(reg) {
             Ok(mut guard) => {
                 // Reset position!
@@ -180,12 +191,13 @@ impl PlayingState {
     }
 
     pub fn pause(self) -> TransitionResult {
-        Ok(self.suspend())
+        Ok(self.suspend(true))
     }
 
-    fn suspend(self) -> State {
+    fn suspend(self, pause: bool) -> State {
         let next_state = State::Suspended(SuspendedState {
             source: self.source,
+            is_paused: pause,
         });
         // If not successful this probably means it was stopped already, so okay.
         let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
@@ -219,6 +231,22 @@ impl PreviewSlot {
         !matches!(self.state, State::Empty)
     }
 
+    pub fn play_state(&self) -> ClipPlayState {
+        use State::*;
+        match &self.state {
+            Empty => ClipPlayState::Stopped,
+            Suspended(s) => {
+                if s.is_paused {
+                    ClipPlayState::Paused
+                } else {
+                    ClipPlayState::Stopped
+                }
+            }
+            Playing(_) => ClipPlayState::Playing,
+            Transitioning => unreachable!(),
+        }
+    }
+
     pub fn fill_with_source(&mut self, source: PcmSource) -> Result<(), &'static str> {
         let result = self
             .start_transition()
@@ -245,10 +273,23 @@ impl PreviewSlot {
         self.finish_transition(result)
     }
 
-    pub fn toggle_looped(&mut self) -> Result<(), &'static str> {
+    pub fn is_looped(&self) -> Result<bool, &'static str> {
+        Ok(lock(&self.register)?.is_looped())
+    }
+
+    pub fn toggle_looped(&mut self) -> Result<bool, &'static str> {
         let mut guard = lock(&self.register)?;
-        let looped = guard.looped();
-        guard.set_looped(!looped);
+        let new_value = !guard.is_looped();
+        guard.set_looped(new_value);
+        Ok(new_value)
+    }
+
+    pub fn volume(&self) -> Result<ReaperVolumeValue, &'static str> {
+        Ok(lock(&self.register)?.volume())
+    }
+
+    pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> Result<(), &'static str> {
+        lock(&self.register)?.set_volume(volume);
         Ok(())
     }
 
