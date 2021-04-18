@@ -31,8 +31,8 @@ use crate::domain::ui_util::{
     parse_from_symmetric_percentage, parse_unit_value_from_percentage,
 };
 use crate::domain::{
-    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ClipPlayState, ControlContext,
-    FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider,
+    handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent, ClipPlayState,
+    ControlContext, FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider,
     InstanceFeedbackEvent, InstanceState, MidiDestination, OscDeviceId, OscFeedbackTask,
     RealearnTarget, SharedInstanceState, SlotPlayOptions,
 };
@@ -2117,7 +2117,7 @@ impl ReaperTarget {
                 index,
                 ..
             } => match evt {
-                PlayPositionChanged(e) if e.project == *project => {
+                BeatChanged(e) if e.project == *project => {
                     let v =
                         current_value_of_bookmark(*project, *bookmark_type, *index, e.new_value);
                     (true, Some(v))
@@ -2125,7 +2125,7 @@ impl ReaperTarget {
                 _ => (false, None),
             },
             Seek { project, options } => match evt {
-                PlayPositionChanged(e) if e.project == *project => {
+                BeatChanged(e) if e.project == *project => {
                     let v = current_value_of_seek(*project, *options, e.new_value);
                     (true, Some(v))
                 }
@@ -2134,7 +2134,7 @@ impl ReaperTarget {
             // This is necessary at the moment because control surface SetPlayState callback works
             // for currently active project tab already.
             Transport { project, action } if *action != TransportAction::Repeat => match evt {
-                PlayPositionChanged(e)
+                BeatChanged(e)
                     if e.project == *project && e.project != Reaper::get().current_project() =>
                 {
                     (true, None)
@@ -2155,22 +2155,30 @@ impl ReaperTarget {
             ClipTransport {
                 slot_index, action, ..
             } => {
-                use TransportAction::*;
-                match *action {
-                    PlayStop | PlayPause | Stop | Pause => match evt {
-                        ClipPlayStateChanged(e) if e.slot_index == *slot_index => {
-                            (true, Some(clip_play_state_unit_value(*action, e.new_value)))
+                match evt {
+                    ClipChanged {
+                        slot_index: si,
+                        event,
+                    } if si == slot_index => {
+                        use TransportAction::*;
+                        match *action {
+                            PlayStop | PlayPause | Stop | Pause => match event {
+                                ClipChangedEvent::PlayStateChanged(new_state) => {
+                                    (true, Some(clip_play_state_unit_value(*action, *new_state)))
+                                }
+                                _ => (false, None),
+                            },
+                            // Not supported at the moment.
+                            Record => (false, None),
+                            Repeat => match event {
+                                ClipChangedEvent::ClipRepeatChanged(new_state) => {
+                                    (true, Some(transport_is_enabled_unit_value(*new_state)))
+                                }
+                                _ => (false, None),
+                            },
                         }
-                        _ => (false, None),
-                    },
-                    // Not supported at the moment.
-                    Record => (false, None),
-                    Repeat => match evt {
-                        ClipRepeatChanged(e) if e.slot_index == *slot_index => {
-                            (true, Some(transport_is_enabled_unit_value(e.new_value)))
-                        }
-                        _ => (false, None),
-                    },
+                    }
+                    _ => (false, None),
                 }
             }
             _ => (false, None),

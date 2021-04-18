@@ -1,15 +1,15 @@
 use crate::domain::{
-    ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
-    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
-    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceFeedbackEvent,
-    InstanceOrchestrationEvent, InstanceState, IoUpdatedEvent, MainMapping,
+    ActivationChange, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent,
+    CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
+    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackValue,
+    InstanceFeedbackEvent, InstanceOrchestrationEvent, InstanceState, IoUpdatedEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
     RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
     SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
-    VirtualSourceValue,
+    VirtualSourceValue, PREVIEW_SLOT_COUNT,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
@@ -50,6 +50,9 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
     beat_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings whose feedback might change depending on the current milli.
+    /// TODO-low The mappings in there are polled regularly (even if main timeline is not playing).
+    ///  could be optimized. However, this is what makes the seek target work currently when
+    ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
     poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
@@ -818,13 +821,32 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+        // TODO-high This is polled on each main loop cycle. We could introduce a set that contains
+        //  the currently filled or playing slot numbers and just iterate over them.
+        {
+            let mut instance_state = self.instance_state.borrow_mut();
+            for i in (0..PREVIEW_SLOT_COUNT) {
+                if let Some(event) = instance_state.poll_slot(i) {
+                    if !matches!(&event, ClipChangedEvent::PlayStateChanged(_)) {
+                        // TODO-high As soon as we have seek feedback, handle it here!
+                        continue;
+                    }
+                    let instance_event = InstanceFeedbackEvent::ClipChanged {
+                        slot_index: i,
+                        event,
+                    };
+                    self.process_feedback_related_reaper_event(|target| {
+                        target.value_changed_from_instance_feedback_event(&instance_event)
+                    });
+                }
+            }
+        }
         // Process instance-state feedback events
         for event in self
             .instance_feedback_event_receiver
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
-            use InstanceFeedbackEvent::*;
             self.process_feedback_related_reaper_event(|target| {
                 target.value_changed_from_instance_feedback_event(&event)
             });
@@ -920,7 +942,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
-        if let AdditionalFeedbackEvent::PlayPositionChanged(_) = event {
+        if let AdditionalFeedbackEvent::BeatChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
             for compartment in MappingCompartment::enum_iter() {

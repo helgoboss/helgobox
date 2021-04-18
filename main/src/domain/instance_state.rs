@@ -3,7 +3,7 @@ use crate::domain::{
     PreviewSlot, RealearnTargetContext, ReaperTarget, SlotPlayOptions,
 };
 use reaper_high::{Item, Reaper, Track};
-use reaper_medium::{MediaItem, ReaperVolumeValue};
+use reaper_medium::{MediaItem, PositionInSeconds, ReaperVolumeValue};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -28,6 +28,11 @@ impl InstanceState {
             preview_slots: Default::default(),
             instance_feedback_event_sender,
         }
+    }
+
+    /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
+    pub fn poll_slot(&mut self, slot_index: usize) -> Option<ClipChangedEvent> {
+        self.preview_slots.get_mut(slot_index)?.poll()
     }
 
     pub fn fill_preview_slot_with_file(
@@ -72,13 +77,12 @@ impl InstanceState {
     }
 
     pub fn toggle_looped(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let new_value = self.get_slot_mut(slot_index)?.toggle_looped()?;
-        self.send_feedback_event(InstanceFeedbackEvent::ClipRepeatChanged(
-            ClipRepeatChangedEvent {
-                slot_index,
-                new_value,
-            },
-        ));
+        let is_looped = self.get_slot_mut(slot_index)?.toggle_looped()?;
+        let event = InstanceFeedbackEvent::ClipChanged {
+            slot_index,
+            event: ClipChangedEvent::ClipRepeatChanged(is_looped),
+        };
+        self.send_feedback_event(event);
         Ok(())
     }
 
@@ -88,12 +92,11 @@ impl InstanceState {
         volume: ReaperVolumeValue,
     ) -> Result<(), &'static str> {
         self.get_slot_mut(slot_index)?.set_volume(volume)?;
-        self.send_feedback_event(InstanceFeedbackEvent::ClipVolumeChanged(
-            ClipVolumeChangedEvent {
-                slot_index,
-                new_value: volume,
-            },
-        ));
+        let event = InstanceFeedbackEvent::ClipChanged {
+            slot_index,
+            event: ClipChangedEvent::ClipVolumeChanged(volume),
+        };
+        self.send_feedback_event(event);
         Ok(())
     }
 
@@ -118,16 +121,16 @@ impl InstanceState {
     }
 
     fn send_clip_play_state_feedback_event(&self, slot_index: usize) {
-        self.send_feedback_event(InstanceFeedbackEvent::ClipPlayStateChanged(
-            ClipPlayStateChangedEvent {
-                slot_index,
-                new_value: self
-                    .preview_slots
+        let event = InstanceFeedbackEvent::ClipChanged {
+            slot_index,
+            event: ClipChangedEvent::PlayStateChanged(
+                self.preview_slots
                     .get(slot_index)
                     .expect("impossible")
                     .play_state(),
-            },
-        ));
+            ),
+        };
+        self.send_feedback_event(event);
     }
 
     fn send_feedback_event(&self, event: InstanceFeedbackEvent) {
@@ -137,25 +140,16 @@ impl InstanceState {
 
 #[derive(Debug)]
 pub enum InstanceFeedbackEvent {
-    ClipPlayStateChanged(ClipPlayStateChangedEvent),
-    ClipVolumeChanged(ClipVolumeChangedEvent),
-    ClipRepeatChanged(ClipRepeatChangedEvent),
+    ClipChanged {
+        slot_index: usize,
+        event: ClipChangedEvent,
+    },
 }
 
 #[derive(Debug)]
-pub struct ClipPlayStateChangedEvent {
-    pub slot_index: usize,
-    pub new_value: ClipPlayState,
-}
-
-#[derive(Debug)]
-pub struct ClipVolumeChangedEvent {
-    pub slot_index: usize,
-    pub new_value: ReaperVolumeValue,
-}
-
-#[derive(Debug)]
-pub struct ClipRepeatChangedEvent {
-    pub slot_index: usize,
-    pub new_value: bool,
+pub enum ClipChangedEvent {
+    PlayStateChanged(ClipPlayState),
+    ClipVolumeChanged(ReaperVolumeValue),
+    ClipRepeatChanged(bool),
+    ClipPositionChanged(PositionInSeconds),
 }

@@ -1,3 +1,4 @@
+use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use reaper_high::{Item, Reaper, Track};
 use reaper_low::raw;
@@ -206,6 +207,24 @@ impl PlayingState {
 }
 
 impl PreviewSlot {
+    /// Should be called regularly to detect stops.
+    pub fn poll(&mut self) -> Option<ClipChangedEvent> {
+        if self.play_state() != ClipPlayState::Playing {
+            return None;
+        }
+        let (current_pos, length) = {
+            let guard = self.register.lock().ok()?;
+            // TODO-high Determine real length!
+            (guard.cur_pos(), PositionInSeconds::new(5.0))
+        };
+        if current_pos <= length {
+            Some(ClipChangedEvent::ClipPositionChanged(current_pos))
+        } else {
+            self.stop().ok()?;
+            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
+        }
+    }
+
     pub fn fill_with_source_from_item(&mut self, item: Item) -> Result<(), &'static str> {
         let source = item
             .active_take()
