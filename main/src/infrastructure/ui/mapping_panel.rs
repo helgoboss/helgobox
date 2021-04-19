@@ -187,7 +187,7 @@ impl MappingPanel {
                         .set(preset);
                 }
             }
-            ReaperTargetType::ClipTransport => {
+            t if t.supports_slot() => {
                 if let Some(action) = self.prompt_for_slot_action() {
                     self.invoke_slot_menu_action(action)?;
                 }
@@ -1601,7 +1601,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .bookmark_anchor_type
                         .set(bookmark_anchor_type);
                 }
-                ReaperTargetType::Seek => {
+                t if t.supports_feedback_resolution() => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
                         .target_model
@@ -1627,7 +1627,7 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::ClipTransport => {
+                t if t.supports_slot() => {
                     let slot_index = combo.selected_combo_box_item_index();
                     self.mapping.target_model.slot_index.set(slot_index);
                 }
@@ -2706,7 +2706,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
-                ReaperTargetType::Seek => {
+                t if t.supports_feedback_resolution() => {
                     combo.show();
                     combo.fill_combo_box_indexed(PlayPosFeedbackResolution::into_enum_iter());
                     combo
@@ -2933,8 +2933,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_slot() => Some("Pick!"),
                 ReaperTargetType::SendMidi => Some("Pick!"),
-                ReaperTargetType::ClipTransport => Some("Pick!"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -3085,8 +3085,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::AutomationTouchState => Some("Type"),
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
-                ReaperTargetType::ClipTransport => Some("Slot"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
+                t if t.supports_slot() => Some("Slot"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
@@ -3124,7 +3124,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_label_2(&self) {
         let state = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::ClipTransport => {
+                t if t.supports_slot() => {
                     let instance_state = self.session.instance_state().borrow();
                     let slot = instance_state.get_slot(self.target.slot_index.get()).ok();
                     let (label, enabled) = if let Some(slot) = slot {
@@ -3183,7 +3183,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                ReaperTargetType::ClipTransport => {
+                t if t.supports_slot() => {
                     combo.show();
                     combo.fill_combo_box_indexed(
                         (0..CLIP_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),

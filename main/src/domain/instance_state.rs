@@ -4,6 +4,7 @@ use crate::domain::{
     FeedbackOutput, RealearnTargetContext, ReaperTarget, SlotContent, SlotDescriptor,
     SlotPlayOptions,
 };
+use helgoboss_learn::UnitValue;
 use reaper_high::{Item, Project, Reaper, Track};
 use reaper_medium::{MediaItem, PositionInSeconds, ReaperVolumeValue};
 use rx_util::{Notifier, UnitEvent};
@@ -131,6 +132,16 @@ impl InstanceState {
         Ok(())
     }
 
+    pub fn seek_slot(
+        &mut self,
+        slot_index: usize,
+        position: UnitValue,
+    ) -> Result<(), &'static str> {
+        let event = self.get_slot_mut(slot_index)?.set_position(position)?;
+        self.send_clip_changed_event(slot_index, event);
+        Ok(())
+    }
+
     pub fn set_volume(
         &mut self,
         slot_index: usize,
@@ -183,5 +194,5 @@ pub enum ClipChangedEvent {
     PlayStateChanged(ClipPlayState),
     ClipVolumeChanged(ReaperVolumeValue),
     ClipRepeatChanged(bool),
-    ClipPositionChanged(PositionInSeconds),
+    ClipPositionChanged(UnitValue),
 }

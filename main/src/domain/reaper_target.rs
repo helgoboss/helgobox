@@ -204,6 +204,10 @@ pub enum ReaperTarget {
         action: TransportAction,
         play_options: SlotPlayOptions,
     },
+    ClipSeek {
+        slot_index: usize,
+        feedback_resolution: PlayPosFeedbackResolution,
+    },
 }
 
 #[derive(
@@ -379,6 +383,7 @@ impl RealearnTarget for ReaperTarget {
             | Transport { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
+            | ClipSeek { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
         }
@@ -418,6 +423,7 @@ impl RealearnTarget for ReaperTarget {
             | Transport { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
+            | ClipSeek { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
         }
@@ -478,6 +484,7 @@ impl RealearnTarget for ReaperTarget {
             | Seek { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
+            | ClipSeek { .. }
             | Transport { .. } => return Err("not supported"),
         };
         Ok(result)
@@ -517,6 +524,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => format_as_percentage_without_unit(value),
@@ -560,6 +568,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => format_as_percentage_without_unit(step_size),
@@ -626,6 +635,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => "%",
@@ -661,6 +671,7 @@ impl RealearnTarget for ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => "%",
@@ -710,6 +721,7 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { .. }
             | Transport { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendMidi { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
@@ -1221,6 +1233,11 @@ impl RealearnTarget for ReaperTarget {
                     }
                 };
             }
+            ClipSeek { slot_index, .. } => {
+                let value = value.as_absolute()?;
+                let mut instance_state = context.instance_state.borrow_mut();
+                instance_state.seek_slot(*slot_index, value)?;
+            }
         };
         Ok(())
     }
@@ -1314,18 +1331,17 @@ impl ReaperTarget {
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
                 fx.is_available()
             }
-            ClipTransport {
-                track, slot_index, ..
-            } => {
+            // TODO-medium With clip targets we should check the control context (instance state) if
+            //  slot filled.
+            ClipTransport { track, .. } => {
                 if let Some(t) = track {
                     if !t.is_available() {
                         return false;
                     }
                 }
-                // TODO-medium We should check the control context (instance state) if slot filled.
-                // BackboneState::get().preview_slot_is_filled(*slot_index)
                 true
             }
+            ClipSeek { .. } => true,
             AutomationModeOverride { .. } | SendMidi { .. } | SendOsc { .. } => true,
         }
     }
@@ -1464,6 +1480,7 @@ impl ReaperTarget {
             | TrackWidth { .. }
             // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
             | Seek { .. }
+            | ClipSeek { .. }
             | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
@@ -1838,6 +1855,7 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => return Err("not supported"),
@@ -1856,6 +1874,7 @@ impl ReaperTarget {
             | Transport { .. }
             | AutomationModeOverride { .. }
             | SendMidi { .. }
+            | ClipSeek { .. }
             | SendOsc { .. } => {
                 return None;
             }
@@ -1916,6 +1935,7 @@ impl ReaperTarget {
             | SelectedTrack { .. }
             | GoToBookmark { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | AutomationModeOverride { .. }
             | Transport { .. }
             | SendMidi { .. }
@@ -1951,6 +1971,7 @@ impl ReaperTarget {
             | AllTrackFxEnable { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | FxNavigate { .. }
             | Transport { .. }
             | SendMidi { .. }
@@ -1990,6 +2011,7 @@ impl ReaperTarget {
             | AutomationTouchState { .. }
             | LoadFxSnapshot { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | Transport { .. }
             | SendMidi { .. }
             | ClipTransport { .. }
@@ -2029,6 +2051,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationModeOverride { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | SendMidi { .. }
             | ClipTransport { .. }
             | SendOsc { .. } => None,
@@ -2060,6 +2083,7 @@ impl ReaperTarget {
             | LoadFxSnapshot { .. }
             | AutomationTouchState { .. }
             | Seek { .. }
+            | ClipSeek { .. }
             | AutomationModeOverride { .. }
             | TrackAutomationMode { .. }
             | ClipTransport { .. }
@@ -2131,6 +2155,15 @@ impl ReaperTarget {
                 }
                 _ => (false, None),
             },
+            // If feedback resolution is high, we use the special ClipChangedEvent to do our job
+            // (in order to not lock mutex of playing clips more than once per main loop cycle).
+            ClipSeek {
+                feedback_resolution,
+                ..
+            } if *feedback_resolution == PlayPosFeedbackResolution::Beat => match evt {
+                BeatChanged(e) => (true, None),
+                _ => (false, None),
+            },
             // This is necessary at the moment because control surface SetPlayState callback works
             // for currently active project tab already.
             Transport { project, action } if *action != TransportAction::Repeat => match evt {
@@ -2181,6 +2214,26 @@ impl ReaperTarget {
                     _ => (false, None),
                 }
             }
+            // When feedback resolution is beat, we only react to the main timeline beat changes.
+            ClipSeek {
+                slot_index,
+                feedback_resolution,
+                ..
+            } if *feedback_resolution == PlayPosFeedbackResolution::High => match evt {
+                ClipChanged {
+                    slot_index: si,
+                    event,
+                } if si == slot_index => match event {
+                    ClipChangedEvent::ClipPositionChanged(new_position) => {
+                        (true, Some(*new_position))
+                    }
+                    ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
+                        (true, Some(UnitValue::MIN))
+                    }
+                    _ => (false, None),
+                },
+                _ => (false, None),
+            },
             _ => (false, None),
         }
     }
@@ -2432,6 +2485,7 @@ impl ReaperTarget {
             | Seek { .. }
             // Handled from instance-scoped feedback events.
             | ClipTransport { .. }
+            | ClipSeek { .. }
             // No value change notification available.
             | TrackShow { .. }
             | TrackRouteMute { .. }
@@ -2601,6 +2655,11 @@ impl<'a> Target<'a> for ReaperTarget {
                     }
                     Record => return None,
                 }
+            }
+            ClipSeek { slot_index, .. } => {
+                let context = context.as_ref()?;
+                let instance_state = context.instance_state.borrow();
+                instance_state.get_slot(*slot_index).ok()?.position().ok()?
             }
         };
         Some(result)

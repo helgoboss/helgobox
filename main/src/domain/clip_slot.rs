@@ -1,6 +1,7 @@
 use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
+use helgoboss_learn::UnitValue;
 use reaper_high::{Item, OwnedSource, Project, Reaper, Source, Track};
 use reaper_low::raw;
 use reaper_low::raw::preview_register_t;
@@ -206,11 +207,14 @@ impl ClipSlot {
             (guard.cur_pos(), length)
         };
         match length {
-            Some(l) if current_pos.get() > l.get() => {
+            Some(l) if current_pos.get() >= l.get() => {
                 self.stop(true).ok()?;
                 Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
             }
-            _ => Some(ClipChangedEvent::ClipPositionChanged(current_pos)),
+            _ => {
+                let position = calculate_proportional_position(current_pos, length);
+                Some(ClipChangedEvent::ClipPositionChanged(position))
+            }
         }
     }
 
@@ -307,6 +311,23 @@ impl ClipSlot {
         self.descriptor.volume = volume;
         lock(&self.register).set_volume(volume);
         self.volume_changed_event()
+    }
+
+    pub fn position(&self) -> Result<UnitValue, &'static str> {
+        let mut guard = lock(&self.register);
+        let source = guard.src().ok_or("no source loaded")?;
+        let length = unsafe { source.get_length() };
+        let position = calculate_proportional_position(guard.cur_pos(), length);
+        Ok(position)
+    }
+
+    pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
+        let mut guard = lock(&self.register);
+        let source = guard.src().ok_or("no source loaded")?;
+        let length = unsafe { source.get_length().ok_or("source has no length")? };
+        let real_pos = PositionInSeconds::new(position.get() * length.get());
+        guard.set_cur_pos(real_pos);
+        Ok(ClipChangedEvent::ClipPositionChanged(position))
     }
 
     fn start_transition(&mut self) -> State {
@@ -583,4 +604,19 @@ impl SlotPlayOptions {
 
 fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
     reg.lock().expect("couldn't acquire lock")
+}
+
+fn calculate_proportional_position(
+    position: PositionInSeconds,
+    length: Option<DurationInSeconds>,
+) -> UnitValue {
+    if let Some(l) = length {
+        if l.get() == 0.0 {
+            UnitValue::MIN
+        } else {
+            UnitValue::new_clamped(position.get() / l.get())
+        }
+    } else {
+        UnitValue::MIN
+    }
 }

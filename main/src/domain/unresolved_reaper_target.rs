@@ -145,11 +145,15 @@ pub enum UnresolvedReaperTarget {
         arg_descriptor: Option<OscArgDescriptor>,
         device_id: Option<OscDeviceId>,
     },
-    PlayPreview {
+    ClipTransport {
         track_descriptor: Option<TrackDescriptor>,
         slot_index: usize,
         action: TransportAction,
         play_options: SlotPlayOptions,
+    },
+    ClipSeek {
+        slot_index: usize,
+        feedback_resolution: PlayPosFeedbackResolution,
     },
 }
 
@@ -405,7 +409,7 @@ impl UnresolvedReaperTarget {
                 arg_descriptor: *arg_descriptor,
                 device_id: *device_id,
             }],
-            PlayPreview {
+            ClipTransport {
                 track_descriptor,
                 slot_index,
                 action,
@@ -430,6 +434,13 @@ impl UnresolvedReaperTarget {
                     }]
                 }
             }
+            ClipSeek {
+                slot_index,
+                feedback_resolution,
+            } => vec![ReaperTarget::ClipSeek {
+                slot_index: *slot_index,
+                feedback_resolution: *feedback_resolution,
+            }],
         };
         Ok(resolved_targets)
     }
@@ -478,6 +489,7 @@ impl UnresolvedReaperTarget {
             | Transport { .. }
             | LastTouched
             | Seek { .. }
+            | ClipSeek { .. }
             | AutomationModeOverride { .. }
             | SendMidi { .. }
             | SendOsc { .. }
@@ -527,7 +539,7 @@ impl UnresolvedReaperTarget {
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
             | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
-            PlayPreview {
+            ClipTransport {
                 track_descriptor, ..
             } => (track_descriptor.as_ref(), None),
         }
@@ -563,10 +575,11 @@ impl UnresolvedReaperTarget {
             | LastTouched
             | SendMidi { .. }
             | SendOsc { .. }
-            // TODO-high Have a look what we need
-            | PlayPreview { ..}
+            | ClipTransport { .. }
             | AutomationTouchState { .. } => return None,
-            Transport { .. } | GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
+            Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => {
+                PlayPosFeedbackResolution::Beat
+            }
             Seek { options, .. } => options.feedback_resolution,
         };
         Some(res)

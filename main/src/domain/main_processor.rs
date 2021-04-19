@@ -821,23 +821,49 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
-        // TODO-high This is polled on each main loop cycle. We could introduce a set that contains
-        //  the currently filled or playing slot numbers and just iterate over them.
+        // TODO-medium This is polled on each main loop cycle. As soon as we have more than 8 slots,
+        //  We should introduce a set that contains the currently filled or playing slot numbers
+        //  iterate over them only instead of all slots.
         {
             let mut instance_state = self.instance_state.borrow_mut();
             for i in (0..CLIP_SLOT_COUNT) {
                 if let Some(event) = instance_state.poll_slot(i) {
-                    if !matches!(&event, ClipChangedEvent::PlayStateChanged(_)) {
-                        // TODO-high As soon as we have seek feedback, handle it here!
-                        continue;
+                    if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
+                        // Position changed. This happens very frequently when a clip is playing.
+                        // Mappings with slot seek targets are in the beat-dependent feedback
+                        // mapping set, not in the milli-dependent one (because we don't want to
+                        // query their feedback value more than once in one main loop cycle).
+                        let instance_event = InstanceFeedbackEvent::ClipChanged {
+                            slot_index: i,
+                            event,
+                        };
+                        for compartment in MappingCompartment::enum_iter() {
+                            for mapping_id in
+                                self.beat_dependent_feedback_mappings[compartment].iter()
+                            {
+                                if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                                    self.process_feedback_related_reaper_event_for_mapping(
+                                        compartment,
+                                        m,
+                                        &|target| {
+                                            target.value_changed_from_instance_feedback_event(
+                                                &instance_event,
+                                            )
+                                        },
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        // Other property of clip changed.
+                        let instance_event = InstanceFeedbackEvent::ClipChanged {
+                            slot_index: i,
+                            event,
+                        };
+                        self.process_feedback_related_reaper_event(|target| {
+                            target.value_changed_from_instance_feedback_event(&instance_event)
+                        });
                     }
-                    let instance_event = InstanceFeedbackEvent::ClipChanged {
-                        slot_index: i,
-                        event,
-                    };
-                    self.process_feedback_related_reaper_event(|target| {
-                        target.value_changed_from_instance_feedback_event(&instance_event)
-                    });
                 }
             }
         }
