@@ -1193,7 +1193,7 @@ impl RealearnTarget for ReaperTarget {
                         if on {
                             instance_state.play(*slot_index, track.as_ref(), *play_options)?;
                         } else {
-                            instance_state.stop(*slot_index)?;
+                            instance_state.stop(*slot_index, !play_options.next_bar)?;
                         }
                     }
                     PlayPause => {
@@ -1205,7 +1205,7 @@ impl RealearnTarget for ReaperTarget {
                     }
                     Stop => {
                         if on {
-                            instance_state.stop(*slot_index)?;
+                            instance_state.stop(*slot_index, !play_options.next_bar)?;
                         }
                     }
                     Pause => {
@@ -2171,7 +2171,7 @@ impl ReaperTarget {
                             // Not supported at the moment.
                             Record => (false, None),
                             Repeat => match event {
-                                ClipChangedEvent::ClipRepeatedChanged(new_state) => {
+                                ClipChangedEvent::ClipRepeatChanged(new_state) => {
                                     (true, Some(transport_is_enabled_unit_value(*new_state)))
                                 }
                                 _ => (false, None),
@@ -2593,7 +2593,10 @@ impl<'a> Target<'a> for ReaperTarget {
                         clip_play_state_unit_value(*action, play_state)
                     }
                     Repeat => {
-                        let is_looped = instance_state.get_slot(*slot_index).ok()?.is_repeated();
+                        let is_looped = instance_state
+                            .get_slot(*slot_index)
+                            .ok()?
+                            .repeat_is_enabled();
                         transport_is_enabled_unit_value(is_looped)
                     }
                     Record => return None,

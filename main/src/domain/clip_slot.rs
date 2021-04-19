@@ -54,6 +54,12 @@ pub enum SlotContent {
 }
 
 impl SlotContent {
+    pub fn file(&self) -> &Path {
+        match self {
+            SlotContent::File { file } => file,
+        }
+    }
+
     pub fn create_source(&self, project: Option<Project>) -> Result<OwnedSource, &'static str> {
         match self {
             SlotContent::File { file } => {
@@ -201,7 +207,7 @@ impl ClipSlot {
         };
         match length {
             Some(l) if current_pos.get() > l.get() => {
-                self.stop().ok()?;
+                self.stop(true).ok()?;
                 Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
             }
             _ => Some(ClipChangedEvent::ClipPositionChanged(current_pos)),
@@ -248,7 +254,9 @@ impl ClipSlot {
         track: Option<&Track>,
         options: SlotPlayOptions,
     ) -> Result<ClipChangedEvent, &'static str> {
-        let result = self.start_transition().play(&self.register, options, track);
+        let result =
+            self.start_transition()
+                .play(&self.register, options, track, self.descriptor.repeat);
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
@@ -260,8 +268,8 @@ impl ClipSlot {
         self.finish_transition(result)
     }
 
-    pub fn stop(&mut self) -> Result<ClipChangedEvent, &'static str> {
-        let result = self.start_transition().stop(&self.register);
+    pub fn stop(&mut self, immediately: bool) -> Result<ClipChangedEvent, &'static str> {
+        let result = self.start_transition().stop(&self.register, immediately);
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
@@ -272,12 +280,12 @@ impl ClipSlot {
         Ok(self.play_state_changed_event())
     }
 
-    pub fn is_repeated(&self) -> bool {
+    pub fn repeat_is_enabled(&self) -> bool {
         self.descriptor.repeat
     }
 
     pub fn repeat_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipRepeatedChanged(self.descriptor.repeat)
+        ClipChangedEvent::ClipRepeatChanged(self.descriptor.repeat)
     }
 
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
@@ -347,22 +355,23 @@ impl State {
         reg: &SharedRegister,
         options: SlotPlayOptions,
         track: Option<&Track>,
+        repeat: bool,
     ) -> TransitionResult {
         use State::*;
         match self {
             Empty => Err((Empty, "slot is empty")),
-            Suspended(s) => s.play(reg, options, track),
-            Playing(s) => s.play(reg, options, track),
+            Suspended(s) => s.play(reg, options, track, repeat),
+            Playing(s) => s.play(reg, options, track, repeat),
             Transitioning => unreachable!(),
         }
     }
 
-    pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
+    pub fn stop(self, reg: &SharedRegister, immediately: bool) -> TransitionResult {
         use State::*;
         match self {
             Empty => Ok(Empty),
             Suspended(s) => s.stop(reg),
-            Playing(s) => s.stop(reg),
+            Playing(s) => s.stop(reg, immediately),
             Transitioning => unreachable!(),
         }
     }
@@ -416,9 +425,15 @@ impl SuspendedState {
         reg: &SharedRegister,
         options: SlotPlayOptions,
         track: Option<&Track>,
+        repeat: bool,
     ) -> TransitionResult {
-        lock(reg).set_preview_track(track.map(|t| t.raw()));
-        let buffering_behavior = if options.buffered {
+        {
+            let mut guard = lock(reg);
+            guard.set_preview_track(track.map(|t| t.raw()));
+            // The looped field might have been reset on non-immediate stop. Set it again.
+            guard.set_looped(repeat);
+        }
+        let buffering_behavior = if options.is_effectively_buffered() {
             BitFlags::from_flag(BufferingBehavior::BufferSource)
         } else {
             BitFlags::empty()
@@ -484,10 +499,11 @@ impl PlayingState {
         reg: &SharedRegister,
         options: SlotPlayOptions,
         track: Option<&Track>,
+        repeat: bool,
     ) -> TransitionResult {
         if self.track.as_ref() != track {
             // Track change!
-            self.suspend(true).play(reg, options, track)
+            self.suspend(true).play(reg, options, track, repeat)
         } else {
             let mut g = lock(reg);
             // Retrigger!
@@ -506,12 +522,17 @@ impl PlayingState {
         }))
     }
 
-    pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
-        let next_state = State::Suspended(self.suspend(false));
-        let mut g = lock(reg);
-        // Reset position!
-        g.set_cur_pos(PositionInSeconds::new(0.0));
-        Ok(next_state)
+    pub fn stop(self, reg: &SharedRegister, immediately: bool) -> TransitionResult {
+        if immediately {
+            let suspended = self.suspend(false);
+            let mut g = lock(reg);
+            // Reset position!
+            g.set_cur_pos(PositionInSeconds::new(0.0));
+            Ok(State::Suspended(suspended))
+        } else {
+            lock(reg).set_looped(false);
+            Ok(State::Playing(self))
+        }
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
@@ -551,6 +572,13 @@ pub struct ClipInfo {
 pub struct SlotPlayOptions {
     pub next_bar: bool,
     pub buffered: bool,
+}
+
+impl SlotPlayOptions {
+    pub fn is_effectively_buffered(&self) -> bool {
+        // Observation: buffered must be on if next bar is enabled.
+        self.buffered || self.next_bar
+    }
 }
 
 fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {

@@ -209,4 +209,5 @@ pub mod root {
     pub const ID_MODE_KNOB_FADER_GROUP_BOX: u32 = 40124;
     pub const ID_MODE_ALL_GROUP_BOX: u32 = 40125;
     pub const ID_MODE_BUTTON_GROUP_BOX: u32 = 40126;
+    pub const ID_TARGET_LINE_3_LABEL_2: u32 = 40127;
 }

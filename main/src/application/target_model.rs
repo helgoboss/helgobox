@@ -841,10 +841,7 @@ impl TargetModel {
                         track_descriptor: Some(self.track_descriptor()?),
                         slot_index: self.slot_index.get(),
                         action: self.transport_action.get(),
-                        play_options: SlotPlayOptions {
-                            next_bar: self.next_bar.get(),
-                            buffered: self.buffered.get(),
-                        },
+                        play_options: self.slot_play_options(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -853,6 +850,13 @@ impl TargetModel {
                 let virtual_target = VirtualTarget::new(self.create_control_element());
                 Ok(UnresolvedCompoundMappingTarget::Virtual(virtual_target))
             }
+        }
+    }
+
+    pub fn slot_play_options(&self) -> SlotPlayOptions {
+        SlotPlayOptions {
+            next_bar: self.next_bar.get(),
+            buffered: self.buffered.get(),
         }
     }
 

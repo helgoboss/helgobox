@@ -1,3 +1,4 @@
+use crate::core::AsyncNotifier;
 use crate::domain::{
     ClipPlayState, ClipSlot, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
     FeedbackOutput, RealearnTargetContext, ReaperTarget, SlotContent, SlotDescriptor,
@@ -5,6 +6,8 @@ use crate::domain::{
 };
 use reaper_high::{Item, Project, Reaper, Track};
 use reaper_medium::{MediaItem, PositionInSeconds, ReaperVolumeValue};
+use rx_util::{Notifier, UnitEvent};
+use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -20,6 +23,7 @@ pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
+    slot_contents_changed_subject: LocalSubject<'static, (), ()>,
 }
 
 impl InstanceState {
@@ -29,7 +33,12 @@ impl InstanceState {
         Self {
             clip_slots: Default::default(),
             instance_feedback_event_sender,
+            slot_contents_changed_subject: Default::default(),
         }
+    }
+
+    pub fn slot_contents_changed(&self) -> impl UnitEvent {
+        self.slot_contents_changed_subject.clone()
     }
 
     /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
@@ -66,6 +75,7 @@ impl InstanceState {
                 self.send_clip_changed_event(desc.index, e);
             }
         }
+        self.notify_slot_contents_changed();
         Ok(())
     }
 
@@ -75,7 +85,9 @@ impl InstanceState {
         content: SlotContent,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.fill(content, project)
+        self.get_slot_mut(slot_index)?.fill(content, project);
+        self.notify_slot_contents_changed();
+        Ok(())
     }
 
     pub fn fill_slot_with_item_source(
@@ -84,7 +96,9 @@ impl InstanceState {
         item: Item,
     ) -> Result<(), &'static str> {
         self.get_slot_mut(slot_index)?
-            .fill_with_source_from_item(item)
+            .fill_with_source_from_item(item);
+        self.notify_slot_contents_changed();
+        Ok(())
     }
 
     pub fn play(
@@ -98,8 +112,9 @@ impl InstanceState {
         Ok(())
     }
 
-    pub fn stop(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.stop()?;
+    /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
+    pub fn stop(&mut self, slot_index: usize, immediately: bool) -> Result<(), &'static str> {
+        let event = self.get_slot_mut(slot_index)?.stop(immediately)?;
         self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
@@ -141,6 +156,10 @@ impl InstanceState {
     fn send_feedback_event(&self, event: InstanceFeedbackEvent) {
         self.instance_feedback_event_sender.send(event).unwrap();
     }
+
+    fn notify_slot_contents_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -163,6 +182,6 @@ pub enum InstanceFeedbackEvent {
 pub enum ClipChangedEvent {
     PlayStateChanged(ClipPlayState),
     ClipVolumeChanged(ReaperVolumeValue),
-    ClipRepeatedChanged(bool),
+    ClipRepeatChanged(bool),
     ClipPositionChanged(PositionInSeconds),
 }
