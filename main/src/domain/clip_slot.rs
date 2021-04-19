@@ -6,8 +6,8 @@ use reaper_low::raw;
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     BufferingBehavior, DurationInSeconds, MeasureAlignment, MediaItem, MidiImportBehavior,
-    OwnedPreviewRegister, PcmSource, PositionInSeconds, ReaperFunctionError, ReaperLockError,
-    ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
+    OwnedPreviewRegister, PcmSource, PositionInSeconds, ProjectContext, ReaperFunctionError,
+    ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use serde::{Deserialize, Serialize};
 use std::mem;
@@ -93,6 +93,7 @@ impl Default for ClipSlot {
 fn create_shared_register(descriptor: &SlotDescriptor) -> SharedRegister {
     let mut register = OwnedPreviewRegister::default();
     register.set_volume(descriptor.volume);
+    register.set_out_chan(-1);
     Arc::new(ReaperMutex::new(register))
 }
 
@@ -247,7 +248,7 @@ impl ClipSlot {
         track: Option<&Track>,
         options: SlotPlayOptions,
     ) -> Result<ClipChangedEvent, &'static str> {
-        let result = self.start_transition().play(&self.register, options);
+        let result = self.start_transition().play(&self.register, options, track);
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
@@ -341,12 +342,17 @@ impl State {
         }
     }
 
-    pub fn play(self, reg: &SharedRegister, options: SlotPlayOptions) -> TransitionResult {
+    pub fn play(
+        self,
+        reg: &SharedRegister,
+        options: SlotPlayOptions,
+        track: Option<&Track>,
+    ) -> TransitionResult {
         use State::*;
         match self {
             Empty => Err((Empty, "slot is empty")),
-            Suspended(s) => s.play(reg, options),
-            Playing(s) => s.play(reg),
+            Suspended(s) => s.play(reg, options, track),
+            Playing(s) => s.play(reg, options, track),
             Transitioning => unreachable!(),
         }
     }
@@ -405,20 +411,35 @@ struct SuspendedState {
 }
 
 impl SuspendedState {
-    pub fn play(self, register: &SharedRegister, options: SlotPlayOptions) -> TransitionResult {
-        let result = unsafe {
+    pub fn play(
+        self,
+        reg: &SharedRegister,
+        options: SlotPlayOptions,
+        track: Option<&Track>,
+    ) -> TransitionResult {
+        lock(reg).set_preview_track(track.map(|t| t.raw()));
+        let buffering_behavior = if options.buffered {
+            BitFlags::from_flag(BufferingBehavior::BufferSource)
+        } else {
+            BitFlags::empty()
+        };
+        let measure_alignment = if options.next_bar {
+            MeasureAlignment::AlignWithMeasureStart
+        } else {
+            MeasureAlignment::PlayImmediately
+        };
+        let result = if let Some(track) = track {
+            Reaper::get().medium_session().play_track_preview_2_ex(
+                track.project().context(),
+                reg.clone(),
+                buffering_behavior,
+                measure_alignment,
+            )
+        } else {
             Reaper::get().medium_session().play_preview_ex(
-                register.clone(),
-                if options.buffered {
-                    BitFlags::from_flag(BufferingBehavior::BufferSource)
-                } else {
-                    BitFlags::empty()
-                },
-                if options.next_bar {
-                    MeasureAlignment::AlignWithMeasureStart
-                } else {
-                    MeasureAlignment::PlayImmediately
-                },
+                reg.clone(),
+                buffering_behavior,
+                measure_alignment,
             )
         };
         match result {
@@ -426,6 +447,7 @@ impl SuspendedState {
                 let next_state = PlayingState {
                     source: self.source,
                     handle,
+                    track: track.cloned(),
                 };
                 Ok(State::Playing(next_state))
             }
@@ -453,14 +475,25 @@ impl SuspendedState {
 struct PlayingState {
     source: OwnedSource,
     handle: NonNull<raw::preview_register_t>,
+    track: Option<Track>,
 }
 
 impl PlayingState {
-    pub fn play(self, reg: &SharedRegister) -> TransitionResult {
-        let mut g = lock(reg);
-        // Retrigger!
-        g.set_cur_pos(PositionInSeconds::new(0.0));
-        Ok(State::Playing(self))
+    pub fn play(
+        self,
+        reg: &SharedRegister,
+        options: SlotPlayOptions,
+        track: Option<&Track>,
+    ) -> TransitionResult {
+        if self.track.as_ref() != track {
+            // Track change!
+            self.suspend(true).play(reg, options, track)
+        } else {
+            let mut g = lock(reg);
+            // Retrigger!
+            g.set_cur_pos(PositionInSeconds::new(0.0));
+            Ok(State::Playing(self))
+        }
     }
 
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
@@ -469,6 +502,7 @@ impl PlayingState {
         Ok(State::Playing(PlayingState {
             source,
             handle: self.handle,
+            track: self.track,
         }))
     }
 
@@ -494,7 +528,15 @@ impl PlayingState {
             is_paused: pause,
         };
         // If not successful this probably means it was stopped already, so okay.
-        let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
+        if let Some(track) = self.track {
+            let _ = unsafe {
+                Reaper::get()
+                    .medium_session()
+                    .stop_track_preview_2(track.project().context(), self.handle)
+            };
+        } else {
+            let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
+        };
         next_state
     }
 }
