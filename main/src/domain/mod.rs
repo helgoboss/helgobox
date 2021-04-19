@@ -75,5 +75,5 @@ pub use exclusivity::*;
 mod io;
 pub use io::*;
 
-mod preview;
-pub use preview::*;
+mod clip_slot;
+pub use clip_slot::*;

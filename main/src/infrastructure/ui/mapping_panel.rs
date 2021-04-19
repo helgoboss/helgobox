@@ -39,7 +39,7 @@ use crate::application::{
 use crate::core::Global;
 use crate::domain::{
     control_element_domains, ControlContext, FeedbackOutput, InstanceState, SendMidiDestination,
-    SharedInstanceState, PREVIEW_SLOT_COUNT,
+    SharedInstanceState, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -196,10 +196,23 @@ impl MappingPanel {
                     .first_selected_item()
                     .ok_or("no item selected")?;
                 let slot_index = mapping.borrow().target_model.slot_index.get();
-                session
-                    .instance_state()
-                    .borrow_mut()
-                    .fill_preview_slot_with_item_source(slot_index, item)?;
+                let info = {
+                    let mut instance_state = session.instance_state().borrow_mut();
+                    instance_state.fill_slot_with_item_source(slot_index, item)?;
+                    instance_state
+                        .get_slot(slot_index)
+                        .ok()
+                        .and_then(|s| s.clip_info())
+                };
+                if let Some(info) = info {
+                    self.view.require_window().alert(
+                        "ReaLearn",
+                        format!(
+                            "Type: {} | Name: {:?} | Length: {:?}",
+                            info.r#type, info.file_name, info.length
+                        ),
+                    )
+                }
             }
             _ => {}
         }
@@ -3061,7 +3074,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::ClipTransport => {
                     combo.show();
                     combo.fill_combo_box_indexed(
-                        (0..PREVIEW_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
+                        (0..CLIP_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
                     );
                     combo
                         .select_combo_box_item_by_index(self.target.slot_index.get())

@@ -9,7 +9,7 @@ use crate::domain::{
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
     RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
     SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
-    VirtualSourceValue, PREVIEW_SLOT_COUNT,
+    VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
@@ -825,7 +825,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         //  the currently filled or playing slot numbers and just iterate over them.
         {
             let mut instance_state = self.instance_state.borrow_mut();
-            for i in (0..PREVIEW_SLOT_COUNT) {
+            for i in (0..CLIP_SLOT_COUNT) {
                 if let Some(event) = instance_state.poll_slot(i) {
                     if !matches!(&event, ClipChangedEvent::PlayStateChanged(_)) {
                         // TODO-high As soon as we have seek feedback, handle it here!

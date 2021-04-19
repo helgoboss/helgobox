@@ -1,5 +1,5 @@
 use crate::domain::{
-    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, PreviewSlot,
+    ClipSlot, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
     RealearnTargetContext, ReaperTarget,
 };
 use reaper_high::{Reaper, Track};

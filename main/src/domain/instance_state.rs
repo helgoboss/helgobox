@@ -1,22 +1,24 @@
 use crate::domain::{
-    ClipPlayState, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
-    PreviewSlot, RealearnTargetContext, ReaperTarget, SlotPlayOptions,
+    ClipPlayState, ClipSlot, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
+    FeedbackOutput, RealearnTargetContext, ReaperTarget, SlotContent, SlotDescriptor,
+    SlotPlayOptions,
 };
-use reaper_high::{Item, Reaper, Track};
+use reaper_high::{Item, Project, Reaper, Track};
 use reaper_medium::{MediaItem, PositionInSeconds, ReaperVolumeValue};
+use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub const PREVIEW_SLOT_COUNT: usize = 20;
+pub const CLIP_SLOT_COUNT: usize = 8;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 
 #[derive(Debug)]
 pub struct InstanceState {
-    preview_slots: [PreviewSlot; PREVIEW_SLOT_COUNT],
+    clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
 }
 
@@ -25,26 +27,58 @@ impl InstanceState {
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
     ) -> Self {
         Self {
-            preview_slots: Default::default(),
+            clip_slots: Default::default(),
             instance_feedback_event_sender,
         }
     }
 
     /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
     pub fn poll_slot(&mut self, slot_index: usize) -> Option<ClipChangedEvent> {
-        self.preview_slots.get_mut(slot_index)?.poll()
+        self.clip_slots.get_mut(slot_index)?.poll()
     }
 
-    pub fn fill_preview_slot_with_file(
+    pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {
+        self.clip_slots
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.is_filled())
+            .map(|(i, s)| QualifiedSlotDescriptor {
+                index: i,
+                descriptor: s.descriptor().clone(),
+            })
+            .collect()
+    }
+
+    pub fn load_slots(
+        &mut self,
+        descriptors: Vec<QualifiedSlotDescriptor>,
+        project: Option<Project>,
+    ) -> Result<(), &'static str> {
+        for slot in &mut self.clip_slots {
+            let _ = slot.reset();
+        }
+        for desc in descriptors {
+            let events = {
+                let mut slot = self.get_slot_mut(desc.index)?;
+                slot.load(desc.descriptor, project)?
+            };
+            for e in events {
+                self.send_clip_changed_event(desc.index, e);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn fill_slot(
         &mut self,
         slot_index: usize,
-        file: &Path,
+        content: SlotContent,
+        project: Option<Project>,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .fill_with_source_from_file(file)
+        self.get_slot_mut(slot_index)?.fill(content, project)
     }
 
-    pub fn fill_preview_slot_with_item_source(
+    pub fn fill_slot_with_item_source(
         &mut self,
         slot_index: usize,
         item: Item,
@@ -59,30 +93,26 @@ impl InstanceState {
         track: Option<&Track>,
         options: SlotPlayOptions,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.play(track, options)?;
-        self.send_clip_play_state_feedback_event(slot_index);
+        let event = self.get_slot_mut(slot_index)?.play(track, options)?;
+        self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
 
     pub fn stop(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.stop()?;
-        self.send_clip_play_state_feedback_event(slot_index);
+        let event = self.get_slot_mut(slot_index)?.stop()?;
+        self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
 
     pub fn pause(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.pause()?;
-        self.send_clip_play_state_feedback_event(slot_index);
+        let event = self.get_slot_mut(slot_index)?.pause()?;
+        self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
 
-    pub fn toggle_looped(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let is_looped = self.get_slot_mut(slot_index)?.toggle_looped()?;
-        let event = InstanceFeedbackEvent::ClipChanged {
-            slot_index,
-            event: ClipChangedEvent::ClipRepeatChanged(is_looped),
-        };
-        self.send_feedback_event(event);
+    pub fn toggle_repeat(&mut self, slot_index: usize) -> Result<(), &'static str> {
+        let event = self.get_slot_mut(slot_index)?.toggle_repeat();
+        self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
 
@@ -91,51 +121,34 @@ impl InstanceState {
         slot_index: usize,
         volume: ReaperVolumeValue,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.set_volume(volume)?;
-        let event = InstanceFeedbackEvent::ClipChanged {
-            slot_index,
-            event: ClipChangedEvent::ClipVolumeChanged(volume),
-        };
-        self.send_feedback_event(event);
+        let event = self.get_slot_mut(slot_index)?.set_volume(volume);
+        self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
 
-    pub fn get_play_state(&self, slot_index: usize) -> Result<ClipPlayState, &'static str> {
-        Ok(self.get_slot(slot_index)?.play_state())
+    pub fn get_slot(&self, slot_index: usize) -> Result<&ClipSlot, &'static str> {
+        self.clip_slots.get(slot_index).ok_or("no such slot")
     }
 
-    pub fn get_volume(&self, slot_index: usize) -> Result<ReaperVolumeValue, &'static str> {
-        self.get_slot(slot_index)?.volume()
+    fn get_slot_mut(&mut self, slot_index: usize) -> Result<&mut ClipSlot, &'static str> {
+        self.clip_slots.get_mut(slot_index).ok_or("no such slot")
     }
 
-    pub fn get_is_looped(&self, slot_index: usize) -> Result<bool, &'static str> {
-        self.get_slot(slot_index)?.is_looped()
-    }
-
-    fn get_slot(&self, slot_index: usize) -> Result<&PreviewSlot, &'static str> {
-        self.preview_slots.get(slot_index).ok_or("no such slot")
-    }
-
-    fn get_slot_mut(&mut self, slot_index: usize) -> Result<&mut PreviewSlot, &'static str> {
-        self.preview_slots.get_mut(slot_index).ok_or("no such slot")
-    }
-
-    fn send_clip_play_state_feedback_event(&self, slot_index: usize) {
-        let event = InstanceFeedbackEvent::ClipChanged {
-            slot_index,
-            event: ClipChangedEvent::PlayStateChanged(
-                self.preview_slots
-                    .get(slot_index)
-                    .expect("impossible")
-                    .play_state(),
-            ),
-        };
-        self.send_feedback_event(event);
+    fn send_clip_changed_event(&self, slot_index: usize, event: ClipChangedEvent) {
+        self.send_feedback_event(InstanceFeedbackEvent::ClipChanged { slot_index, event });
     }
 
     fn send_feedback_event(&self, event: InstanceFeedbackEvent) {
         self.instance_feedback_event_sender.send(event).unwrap();
     }
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct QualifiedSlotDescriptor {
+    #[serde(rename = "index")]
+    pub index: usize,
+    #[serde(flatten)]
+    pub descriptor: SlotDescriptor,
 }
 
 #[derive(Debug)]
@@ -150,6 +163,6 @@ pub enum InstanceFeedbackEvent {
 pub enum ClipChangedEvent {
     PlayStateChanged(ClipPlayState),
     ClipVolumeChanged(ReaperVolumeValue),
-    ClipRepeatChanged(bool),
+    ClipRepeatedChanged(bool),
     ClipPositionChanged(PositionInSeconds),
 }
