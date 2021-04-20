@@ -12,6 +12,7 @@ use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -80,13 +81,14 @@ impl InstanceState {
         Ok(())
     }
 
-    pub fn fill_slot(
+    pub fn fill_slot_by_user(
         &mut self,
         slot_index: usize,
         content: SlotContent,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.fill(content, project);
+        self.get_slot_mut(slot_index)?
+            .fill_by_user(content, project);
         self.notify_slot_contents_changed();
         Ok(())
     }
@@ -95,9 +97,9 @@ impl InstanceState {
         &mut self,
         slot_index: usize,
         item: Item,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), Box<dyn Error>> {
         self.get_slot_mut(slot_index)?
-            .fill_with_source_from_item(item);
+            .fill_with_source_from_item(item)?;
         self.notify_slot_contents_changed();
         Ok(())
     }

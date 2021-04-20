@@ -2,15 +2,16 @@ use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
-use reaper_high::{Item, OwnedSource, Project, Reaper, Source, Track};
+use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, Source, Take, Track};
 use reaper_low::raw;
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
-    BufferingBehavior, DurationInSeconds, MeasureAlignment, MediaItem, MidiImportBehavior,
-    OwnedPreviewRegister, PcmSource, PositionInSeconds, ProjectContext, ReaperFunctionError,
-    ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
+    BufferingBehavior, DurationInSeconds, ExtGetPooledMidiIdResult, MeasureAlignment, MediaItem,
+    MidiImportBehavior, OwnedPreviewRegister, PcmSource, PositionInSeconds, ProjectContext,
+    ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::mem;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -55,9 +56,10 @@ pub enum SlotContent {
 }
 
 impl SlotContent {
-    pub fn file(&self) -> &Path {
+    pub fn file(&self) -> Option<&Path> {
+        use SlotContent::*;
         match self {
-            SlotContent::File { file } => file,
+            File { file } => Some(file),
         }
     }
 
@@ -150,25 +152,41 @@ impl ClipSlot {
         Ok(())
     }
 
-    pub fn fill_with_source_from_item(&mut self, item: Item) -> Result<(), &'static str> {
-        let source_file = item
-            .active_take()
-            .ok_or("item has no active take")?
+    pub fn fill_with_source_from_item(&mut self, item: Item) -> Result<(), Box<dyn Error>> {
+        let active_take = item.active_take().ok_or("item has no active take")?;
+        let root_source = active_take
             .source()
             .ok_or("take has no source")?
-            .root_source()
-            .file_name()
-            .ok_or("root source doesn't have a file name")?;
-        let project = item.project();
-        let content = SlotContent::File {
-            file: project
-                .and_then(|p| p.make_path_relative_if_in_project_directory(&source_file))
-                .unwrap_or(source_file),
+            .root_source();
+        let source_type = root_source.r#type();
+        let item_project = item.project();
+        let file = if let Some(source_file) = root_source.file_name() {
+            source_file
+        } else if source_type == "MIDI" {
+            let project = item_project.unwrap_or_else(|| Reaper::get().current_project());
+            let recording_path = project.recording_path();
+            let take_name = active_take.name();
+            let take_name_slug = slug::slugify(take_name);
+            let unique_id = nanoid::nanoid!(8);
+            let file_name = format!("{}-{}.mid", take_name_slug, unique_id);
+            let source_file = recording_path.join(file_name);
+            root_source
+                .export_to_file(&source_file)
+                .map_err(|_| "couldn't export MIDI source to file");
+            source_file
+        } else {
+            Err(format!("item source incompatible (type {})", source_type))?
         };
-        self.fill(content, project)
+        let content = SlotContent::File {
+            file: item_project
+                .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
+                .unwrap_or(file),
+        };
+        self.fill_by_user(content, item_project)?;
+        Ok(())
     }
 
-    pub fn fill(
+    pub fn fill_by_user(
         &mut self,
         content: SlotContent,
         project: Option<Project>,

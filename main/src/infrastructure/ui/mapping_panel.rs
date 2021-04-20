@@ -247,7 +247,10 @@ impl MappingPanel {
                     if let Some(slot) = instance_state.get_slot(slot_index).ok() {
                         if let Some(content) = &slot.descriptor().content {
                             let info = SlotInfo {
-                                file_name: content.file().to_string_lossy().to_string(),
+                                file_name: content
+                                    .file()
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_default(),
                                 clip_info: slot.clip_info(),
                             };
                             Some(info)
@@ -279,16 +282,21 @@ impl MappingPanel {
                 Ok(())
             }
             SlotMenuAction::FillWithItemSource => {
-                let session = self.session();
-                let session = session.borrow();
-                let item = session
-                    .context()
-                    .project_or_current_project()
-                    .first_selected_item()
-                    .ok_or("no item selected")?;
-                let slot_index = self.mapping().borrow().target_model.slot_index.get();
-                let mut instance_state = session.instance_state().borrow_mut();
-                instance_state.fill_slot_with_item_source(slot_index, item)?;
+                let result = {
+                    let session = self.session();
+                    let session = session.borrow();
+                    let item = session
+                        .context()
+                        .project_or_current_project()
+                        .first_selected_item()
+                        .ok_or("no item selected")?;
+                    let slot_index = self.mapping().borrow().target_model.slot_index.get();
+                    let mut instance_state = session.instance_state().borrow_mut();
+                    instance_state.fill_slot_with_item_source(slot_index, item)
+                };
+                if let Err(e) = result {
+                    self.view.require_window().alert("ReaLearn", e.to_string());
+                }
                 Ok(())
             }
         }
@@ -2594,14 +2602,18 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_2(initiator);
         self.invalidate_target_line_3(initiator);
         self.invalidate_target_line_4(initiator);
+        self.invalidate_target_value_controls();
+        self.invalidate_target_learn_button();
+        self.invalidate_target_check_boxes();
+    }
+
+    fn invalidate_target_check_boxes(&self) {
         self.invalidate_target_check_box_1();
         self.invalidate_target_check_box_2();
         self.invalidate_target_check_box_3();
         self.invalidate_target_check_box_4();
         self.invalidate_target_check_box_5();
         self.invalidate_target_check_box_6();
-        self.invalidate_target_value_controls();
-        self.invalidate_target_learn_button();
     }
 
     fn invalidate_target_type_combo_box(&self) {
@@ -3134,6 +3146,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                     file.to_string_lossy().to_string(),
                                     slot.clip_info().is_some(),
                                 ),
+                                SlotContent::Midi { id } => (id.clone(), true),
                             }
                         } else {
                             ("<Slot empty>".to_owned(), false)
@@ -4670,7 +4683,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.seek_play.changed()),
             |view, _| {
                 view.invalidate_window_title();
-                view.invalidate_target_check_box_1();
+                view.invalidate_target_check_boxes();
                 view.invalidate_target_value_controls();
             },
         );
@@ -4681,7 +4694,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.scroll_mixer.changed())
                 .merge(target.move_view.changed()),
             |view, _| {
-                view.invalidate_target_check_box_2();
+                view.invalidate_target_check_boxes();
             },
         );
         self.panel.when(
@@ -4690,7 +4703,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .changed()
                 .merge(target.use_project.changed()),
             |view, _| {
-                view.invalidate_target_check_box_3();
+                view.invalidate_target_check_boxes();
             },
         );
         self.panel.when(
@@ -4699,7 +4712,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .changed()
                 .merge(target.next_bar.changed()),
             |view, _| {
-                view.invalidate_target_check_box_4();
+                view.invalidate_target_check_boxes();
             },
         );
         self.panel.when(
@@ -4708,12 +4721,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .changed()
                 .merge(target.buffered.changed()),
             |view, _| {
-                view.invalidate_target_check_box_5();
+                view.invalidate_target_check_boxes();
             },
         );
         self.panel
             .when(target.use_time_selection.changed(), |view, _| {
-                view.invalidate_target_check_box_6();
+                view.invalidate_target_check_boxes();
             });
         self.panel
             .when(target.feedback_resolution.changed(), |view, _| {
