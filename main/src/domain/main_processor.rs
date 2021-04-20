@@ -827,7 +827,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         {
             let mut instance_state = self.instance_state.borrow_mut();
             for i in (0..CLIP_SLOT_COUNT) {
-                if let Some(event) = instance_state.poll_slot(i) {
+                for event in instance_state.poll_slot(i).into_iter() {
                     if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
                         // Position changed. This happens very frequently when a clip is playing.
                         // Mappings with slot seek targets are in the beat-dependent feedback

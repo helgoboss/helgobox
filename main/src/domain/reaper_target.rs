@@ -2685,9 +2685,7 @@ fn clip_play_state_unit_value(action: TransportAction, play_state: ClipPlayState
     use TransportAction::*;
     match action {
         PlayStop | PlayPause | Stop | Pause => match action {
-            PlayStop | PlayPause => {
-                transport_is_enabled_unit_value(play_state == ClipPlayState::Playing)
-            }
+            PlayStop | PlayPause => play_state.feedback_value(),
             Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
             Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
             _ => unreachable!(),

@@ -56,7 +56,10 @@ impl InstanceState {
 
     /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
     pub fn poll_slot(&mut self, slot_index: usize) -> Option<ClipChangedEvent> {
-        self.clip_slots.get_mut(slot_index)?.poll()
+        self.clip_slots
+            .get_mut(slot_index)
+            .expect("no such slot")
+            .poll()
     }
 
     pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {

@@ -216,25 +216,9 @@ impl ClipSlot {
 
     /// Should be called regularly to detect stops.
     pub fn poll(&mut self) -> Option<ClipChangedEvent> {
-        if self.play_state() != ClipPlayState::Playing {
-            return None;
-        }
-        let (current_pos, length, is_looped) = {
-            let guard = self.register.lock().ok()?;
-            let source = guard.src()?;
-            let length = unsafe { source.get_length() };
-            (guard.cur_pos(), length, guard.is_looped())
-        };
-        match length {
-            Some(l) if !is_looped && current_pos.get() >= l.get() => {
-                self.stop(true).ok()?;
-                Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
-            }
-            _ => {
-                let position = calculate_proportional_position(current_pos, length);
-                Some(ClipChangedEvent::ClipPositionChanged(position))
-            }
-        }
+        let (result, change_events) = self.start_transition().poll(&self.register);
+        self.finish_transition(result);
+        change_events
     }
 
     pub fn is_filled(&self) -> bool {
@@ -256,7 +240,11 @@ impl ClipSlot {
                     ClipPlayState::Stopped
                 }
             }
-            Playing(_) => ClipPlayState::Playing,
+            Playing(s) => match s.scheduled_for {
+                None => ClipPlayState::Playing,
+                Some(ScheduledFor::Play) => ClipPlayState::ScheduledForPlay,
+                Some(ScheduledFor::Stop) => ClipPlayState::ScheduledForStop,
+            },
             Transitioning => unreachable!(),
         }
     }
@@ -386,8 +374,23 @@ impl ClipSlot {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ClipPlayState {
     Stopped,
+    ScheduledForPlay,
     Playing,
     Paused,
+    ScheduledForStop,
+}
+
+impl ClipPlayState {
+    pub fn feedback_value(self) -> UnitValue {
+        use ClipPlayState::*;
+        match self {
+            Stopped => UnitValue::MIN,
+            ScheduledForPlay => UnitValue::new(0.25),
+            Playing => UnitValue::MAX,
+            Paused => UnitValue::new(0.5),
+            ScheduledForStop => UnitValue::new(0.75),
+        }
+    }
 }
 
 type TransitionResult = Result<State, (State, &'static str)>;
@@ -417,7 +420,7 @@ impl State {
     ) -> TransitionResult {
         use State::*;
         match self {
-            Suspended(s) if s.caused_by_transport_change => {
+            Suspended(s) if s.was_caused_by_transport_change => {
                 if new_play_state.is_playing && !new_play_state.is_paused {
                     if let Some(play_args) = s.last_play_args.clone() {
                         if play_args.options.next_bar {
@@ -484,6 +487,64 @@ impl State {
         }
     }
 
+    pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
+        use State::*;
+        match self {
+            Playing(s) => {
+                let (current_pos, length, is_looped) = {
+                    // React gracefully even in weird situations (because we are in poll).
+                    let guard = match reg.lock() {
+                        Ok(g) => g,
+                        Err(_) => return (Ok(Playing(s)), None),
+                    };
+                    let source = match guard.src() {
+                        Some(s) => s,
+                        None => return (Ok(Playing(s)), None),
+                    };
+                    let length = unsafe { source.get_length() };
+                    (guard.cur_pos(), length, guard.is_looped())
+                };
+                let (next_state, event) = match s.scheduled_for {
+                    None | Some(ScheduledFor::Stop) if !is_looped => {
+                        if let Some(l) = length {
+                            if current_pos.get() >= l.get() {
+                                // Stop detected. Make it official.
+                                (
+                                    s.stop(reg, true, false),
+                                    Some(ClipChangedEvent::PlayStateChanged(
+                                        ClipPlayState::Stopped,
+                                    )),
+                                )
+                            } else {
+                                (Ok(Playing(s)), None)
+                            }
+                        } else {
+                            (Ok(Playing(s)), None)
+                        }
+                    }
+                    Some(ScheduledFor::Play) if current_pos.get() > 0.0 => {
+                        // Actual play detected. Make it official.
+                        let next_playing_state = PlayingState {
+                            scheduled_for: None,
+                            ..s
+                        };
+                        (
+                            Ok(Playing(next_playing_state)),
+                            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
+                        )
+                    }
+                    _ => (Ok(Playing(s)), None),
+                };
+                let final_event = event.unwrap_or_else(|| {
+                    let position = calculate_proportional_position(current_pos, length);
+                    ClipChangedEvent::ClipPositionChanged(position)
+                });
+                (next_state, Some(final_event))
+            }
+            _ => (Ok(self), None),
+        }
+    }
+
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
         use State::*;
         match self {
@@ -495,7 +556,7 @@ impl State {
                     source,
                     is_paused: false,
                     last_play_args: None,
-                    caused_by_transport_change: false,
+                    was_caused_by_transport_change: false,
                 }))
             }
             Playing(s) => s.fill_with_source(source, reg),
@@ -509,7 +570,7 @@ struct SuspendedState {
     source: OwnedSource,
     is_paused: bool,
     last_play_args: Option<ClipPlayArgs>,
-    caused_by_transport_change: bool,
+    was_caused_by_transport_change: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -553,10 +614,16 @@ impl SuspendedState {
         };
         match result {
             Ok(handle) => {
+                let scheduling_state = if args.options.next_bar {
+                    Some(ScheduledFor::Play)
+                } else {
+                    None
+                };
                 let next_state = PlayingState {
                     source: self.source,
                     handle,
                     args,
+                    scheduled_for: scheduling_state,
                 };
                 Ok(State::Playing(next_state))
             }
@@ -585,6 +652,15 @@ struct PlayingState {
     source: OwnedSource,
     handle: NonNull<raw::preview_register_t>,
     args: ClipPlayArgs,
+    scheduled_for: Option<ScheduledFor>,
+}
+
+#[derive(Debug)]
+enum ScheduledFor {
+    /// Not yet playing but will soon. Final play detection done by polling.
+    Play,
+    /// Still playing but will stop soon. Final stop detection done by polling.
+    Stop,
 }
 
 impl PlayingState {
@@ -603,11 +679,7 @@ impl PlayingState {
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
         let mut g = lock(reg);
         g.set_src(Some(source.raw()));
-        Ok(State::Playing(PlayingState {
-            source,
-            handle: self.handle,
-            args: self.args,
-        }))
+        Ok(State::Playing(PlayingState { source, ..self }))
     }
 
     pub fn stop(
@@ -624,7 +696,11 @@ impl PlayingState {
             Ok(State::Suspended(suspended))
         } else {
             lock(reg).set_looped(false);
-            Ok(State::Playing(self))
+            let next_state = PlayingState {
+                scheduled_for: Some(ScheduledFor::Stop),
+                ..self
+            };
+            Ok(State::Playing(next_state))
         }
     }
 
@@ -653,7 +729,7 @@ impl PlayingState {
             source: self.source,
             is_paused: pause,
             last_play_args: Some(self.args),
-            caused_by_transport_change,
+            was_caused_by_transport_change: caused_by_transport_change,
         }
     }
 }
