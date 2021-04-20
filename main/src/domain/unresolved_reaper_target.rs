@@ -155,6 +155,9 @@ pub enum UnresolvedReaperTarget {
         slot_index: usize,
         feedback_resolution: PlayPosFeedbackResolution,
     },
+    ClipVolume {
+        slot_index: usize,
+    },
 }
 
 impl UnresolvedReaperTarget {
@@ -441,6 +444,9 @@ impl UnresolvedReaperTarget {
                 slot_index: *slot_index,
                 feedback_resolution: *feedback_resolution,
             }],
+            ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume {
+                slot_index: *slot_index,
+            }],
         };
         Ok(resolved_targets)
     }
@@ -490,6 +496,7 @@ impl UnresolvedReaperTarget {
             | LastTouched
             | Seek { .. }
             | ClipSeek { .. }
+            | ClipVolume { .. }
             | AutomationModeOverride { .. }
             | SendMidi { .. }
             | SendOsc { .. }
@@ -576,6 +583,7 @@ impl UnresolvedReaperTarget {
             | SendMidi { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
+            | ClipVolume { .. }
             | AutomationTouchState { .. } => return None,
             Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => {
                 PlayPosFeedbackResolution::Beat

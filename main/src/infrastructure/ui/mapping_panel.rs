@@ -1616,7 +1616,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .feedback_resolution
                         .set(i.try_into().expect("invalid feedback resolution"));
                 }
-                t if t.supports_track() => {
+                _ if self.mapping.target_model.supports_track() => {
                     let track_type = combo
                         .selected_combo_box_item_index()
                         .try_into()
@@ -1740,7 +1740,7 @@ impl<'a> MutableMappingPanel<'a> {
                     };
                     self.mapping.target_model.osc_dev_id.set(dev_id);
                 }
-                t if t.supports_track() => {
+                _ if self.mapping.target_model.supports_track() => {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
                     if let Some(track) = project.track_by_index(i as _) {
@@ -1920,30 +1920,32 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track() => match self.mapping.target_model.track_type.get() {
-                    VirtualTrackType::Dynamic => {
-                        let expression = control.text().unwrap_or_default();
-                        self.mapping
-                            .target_model
-                            .track_expression
-                            .set_with_initiator(expression, Some(edit_control_id));
+                _ if self.mapping.target_model.supports_track() => {
+                    match self.mapping.target_model.track_type.get() {
+                        VirtualTrackType::Dynamic => {
+                            let expression = control.text().unwrap_or_default();
+                            self.mapping
+                                .target_model
+                                .track_expression
+                                .set_with_initiator(expression, Some(edit_control_id));
+                        }
+                        VirtualTrackType::ByName => {
+                            let name = control.text().unwrap_or_default();
+                            self.mapping
+                                .target_model
+                                .track_name
+                                .set_with_initiator(name, Some(edit_control_id));
+                        }
+                        VirtualTrackType::ByIndex => {
+                            let index = parse_position_as_index(control);
+                            self.mapping
+                                .target_model
+                                .track_index
+                                .set_with_initiator(index, Some(edit_control_id));
+                        }
+                        _ => {}
                     }
-                    VirtualTrackType::ByName => {
-                        let name = control.text().unwrap_or_default();
-                        self.mapping
-                            .target_model
-                            .track_name
-                            .set_with_initiator(name, Some(edit_control_id));
-                    }
-                    VirtualTrackType::ByIndex => {
-                        let index = parse_position_as_index(control);
-                        self.mapping
-                            .target_model
-                            .track_index
-                            .set_with_initiator(index, Some(edit_control_id));
-                    }
-                    _ => {}
-                },
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {
@@ -2661,10 +2663,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     BookmarkType::Marker => Some("Marker"),
                     BookmarkType::Region => Some("Region"),
                 },
-                ReaperTargetType::Seek => Some("Feedback"),
+                t if t.supports_feedback_resolution() => Some("Feedback"),
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
-                t if t.supports_track() => Some("Track"),
+                _ if self.target.supports_track() => Some("Track"),
                 _ => None,
             },
             TargetCategory::Virtual => Some("ID"),
@@ -2702,7 +2704,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                t if t.supports_track() => {
+                _ if self.target.supports_track() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualTrackType::into_enum_iter());
                     combo
@@ -2814,7 +2816,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.select_combo_box_item_by_data(-1).unwrap();
                     };
                 }
-                t if t.supports_track() => {
+                _ if self.target.supports_track() => {
                     if matches!(
                         self.target.track_type.get(),
                         VirtualTrackType::ById | VirtualTrackType::ByIdOrName
@@ -2864,7 +2866,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track() => {
+                _ if self.target.supports_track() => {
                     control.show();
                     let text = match self.target.track_type.get() {
                         VirtualTrackType::Dynamic => self.target.track_expression.get_ref().clone(),
@@ -2945,7 +2947,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => Some("Pick!"),
+                t if t.supports_slot() => Some("..."),
                 ReaperTargetType::SendMidi => Some("Pick!"),
                 _ => None,
             },
@@ -3146,7 +3148,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                                     file.to_string_lossy().to_string(),
                                     slot.clip_info().is_some(),
                                 ),
-                                SlotContent::Midi { id } => (id.clone(), true),
                             }
                         } else {
                             ("<Slot empty>".to_owned(), false)
@@ -3562,7 +3563,16 @@ impl<'a> ImmutableMappingPanel<'a> {
         let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions.get())),
-                ReaperTargetType::ClipTransport => Some(("Next bar", self.target.next_bar.get())),
+                ReaperTargetType::ClipTransport
+                    if matches!(
+                        self.target.transport_action.get(),
+                        TransportAction::PlayStop
+                            | TransportAction::PlayPause
+                            | TransportAction::Stop
+                    ) =>
+                {
+                    Some(("Next bar", self.target.next_bar.get()))
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -3580,7 +3590,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set loop points", self.target.use_loop_points.get()))
                 }
-                ReaperTargetType::ClipTransport => {
+                ReaperTargetType::ClipTransport
+                    if matches!(
+                        self.target.transport_action.get(),
+                        TransportAction::PlayStop | TransportAction::PlayPause
+                    ) =>
+                {
                     let is_enabled = !self.target.next_bar.get();
                     self.view
                         .require_control(checkbox_id)

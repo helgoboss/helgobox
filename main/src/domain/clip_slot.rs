@@ -172,7 +172,7 @@ impl ClipSlot {
             let source_file = recording_path.join(file_name);
             root_source
                 .export_to_file(&source_file)
-                .map_err(|_| "couldn't export MIDI source to file");
+                .map_err(|_| "couldn't export MIDI source to file")?;
             source_file
         } else {
             Err(format!("item source incompatible (type {})", source_type))?
@@ -218,14 +218,14 @@ impl ClipSlot {
         if self.play_state() != ClipPlayState::Playing {
             return None;
         }
-        let (current_pos, length) = {
+        let (current_pos, length, is_looped) = {
             let guard = self.register.lock().ok()?;
             let source = guard.src()?;
             let length = unsafe { source.get_length() };
-            (guard.cur_pos(), length)
+            (guard.cur_pos(), length, guard.is_looped())
         };
         match length {
-            Some(l) if current_pos.get() >= l.get() => {
+            Some(l) if !is_looped && current_pos.get() >= l.get() => {
                 self.stop(true).ok()?;
                 Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped))
             }

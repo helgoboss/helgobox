@@ -14,8 +14,8 @@ use reaper_medium::{
     AutoSeekBehavior, AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility,
     FxPresetRef, GetLoopTimeRange2Result, GetParameterStepSizesResult,
     GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
-    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperWidthValue,
-    SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
+    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperVolumeValue,
+    ReaperWidthValue, SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
@@ -208,6 +208,9 @@ pub enum ReaperTarget {
         slot_index: usize,
         feedback_resolution: PlayPosFeedbackResolution,
     },
+    ClipVolume {
+        slot_index: usize,
+    },
 }
 
 #[derive(
@@ -354,7 +357,9 @@ impl RealearnTarget for ReaperTarget {
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackRouteVolume { .. } => parse_value_from_db(text),
+            TrackVolume { .. } | TrackRouteVolume { .. } | ClipVolume { .. } => {
+                parse_value_from_db(text)
+            }
             TrackPan { .. } | TrackRoutePan { .. } => parse_value_from_pan(text),
             Playrate { .. } => parse_value_from_playback_speed_factor(text),
             Tempo { .. } => parse_value_from_bpm(text),
@@ -404,6 +409,7 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
+            | ClipVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackArm { .. }
@@ -462,6 +468,7 @@ impl RealearnTarget for ReaperTarget {
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
+            | ClipVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
@@ -493,7 +500,9 @@ impl RealearnTarget for ReaperTarget {
     fn format_value_without_unit(&self, value: UnitValue) -> String {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackRouteVolume { .. } => format_value_as_db_without_unit(value),
+            TrackVolume { .. } | TrackRouteVolume { .. } | ClipVolume { .. } => {
+                format_value_as_db_without_unit(value)
+            }
             TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
@@ -548,6 +557,7 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
+            | ClipVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackArm { .. }
@@ -611,7 +621,7 @@ impl RealearnTarget for ReaperTarget {
     fn value_unit(&self) -> &'static str {
         use ReaperTarget::*;
         match self {
-            TrackVolume { .. } | TrackRouteVolume { .. } => "dB",
+            TrackVolume { .. } | TrackRouteVolume { .. } | ClipVolume { .. } => "dB",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
             Action { .. }
@@ -652,6 +662,7 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
             | TrackVolume { .. }
+            | ClipVolume { .. }
             | TrackWidth { .. }
             | TrackRouteVolume { .. }
             | TrackArm { .. }
@@ -688,7 +699,9 @@ impl RealearnTarget for ReaperTarget {
                 .format_reaper_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
                 .map(|s| s.into_string())
                 .unwrap_or_else(|_| self.format_value_generic(value)),
-            TrackVolume { .. } | TrackRouteVolume { .. } => format_value_as_db(value),
+            TrackVolume { .. } | TrackRouteVolume { .. } | ClipVolume { .. } => {
+                format_value_as_db(value)
+            }
             TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             FxEnable { .. }
             | TrackArm { .. }
@@ -1238,6 +1251,12 @@ impl RealearnTarget for ReaperTarget {
                 let mut instance_state = context.instance_state.borrow_mut();
                 instance_state.seek_slot(*slot_index, value)?;
             }
+            ClipVolume { slot_index } => {
+                let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
+                let mut instance_state = context.instance_state.borrow_mut();
+                instance_state
+                    .set_volume(*slot_index, volume.unwrap_or(Volume::MIN).reaper_value())?;
+            }
         };
         Ok(())
     }
@@ -1302,6 +1321,7 @@ fn get_seek_info(project: Project, options: SeekOptions) -> Option<SeekInfo> {
 }
 
 impl ReaperTarget {
+    /// Used for "Last touched" target only at the moment.
     pub fn is_available(&self) -> bool {
         use ReaperTarget::*;
         match self {
@@ -1341,7 +1361,7 @@ impl ReaperTarget {
                 }
                 true
             }
-            ClipSeek { .. } => true,
+            ClipSeek { .. } | ClipVolume { .. } => true,
             AutomationModeOverride { .. } | SendMidi { .. } | SendOsc { .. } => true,
         }
     }
@@ -1480,7 +1500,7 @@ impl ReaperTarget {
             | TrackWidth { .. }
             // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
             | Seek { .. }
-            | ClipSeek { .. }
+            | ClipSeek { .. }| ClipVolume { .. }
             | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
@@ -1835,6 +1855,7 @@ impl ReaperTarget {
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
+            | ClipVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
             | TrackArm { .. }
@@ -1875,6 +1896,7 @@ impl ReaperTarget {
             | AutomationModeOverride { .. }
             | SendMidi { .. }
             | ClipSeek { .. }
+            | ClipVolume { .. }
             | SendOsc { .. } => {
                 return None;
             }
@@ -1936,6 +1958,7 @@ impl ReaperTarget {
             | GoToBookmark { .. }
             | Seek { .. }
             | ClipSeek { .. }
+            | ClipVolume { .. }
             | AutomationModeOverride { .. }
             | Transport { .. }
             | SendMidi { .. }
@@ -1976,6 +1999,7 @@ impl ReaperTarget {
             | Transport { .. }
             | SendMidi { .. }
             | ClipTransport { .. }
+            | ClipVolume { .. }
             | SendOsc { .. } => return None,
         };
         Some(fx)
@@ -2015,6 +2039,7 @@ impl ReaperTarget {
             | Transport { .. }
             | SendMidi { .. }
             | ClipTransport { .. }
+            | ClipVolume { .. }
             | SendOsc { .. } => return None,
         };
         Some(route)
@@ -2054,6 +2079,7 @@ impl ReaperTarget {
             | ClipSeek { .. }
             | SendMidi { .. }
             | ClipTransport { .. }
+            | ClipVolume { .. }
             | SendOsc { .. } => None,
         }
     }
@@ -2087,6 +2113,7 @@ impl ReaperTarget {
             | AutomationModeOverride { .. }
             | TrackAutomationMode { .. }
             | ClipTransport { .. }
+            | ClipVolume { .. }
             | Transport { .. } => true,
             TrackShow { .. }
             | AllTrackFxEnable { .. }
@@ -2161,7 +2188,7 @@ impl ReaperTarget {
                 feedback_resolution,
                 ..
             } if *feedback_resolution == PlayPosFeedbackResolution::Beat => match evt {
-                BeatChanged(e) => (true, None),
+                BeatChanged(_) => (true, None),
                 _ => (false, None),
             },
             // This is necessary at the moment because control surface SetPlayState callback works
@@ -2229,6 +2256,18 @@ impl ReaperTarget {
                     }
                     ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
                         (true, Some(UnitValue::MIN))
+                    }
+                    _ => (false, None),
+                },
+                _ => (false, None),
+            },
+            ClipVolume { slot_index } => match evt {
+                ClipChanged {
+                    slot_index: si,
+                    event,
+                } if si == slot_index => match event {
+                    ClipChangedEvent::ClipVolumeChanged(new_value) => {
+                        (true, Some(reaper_volume_unit_value(*new_value)))
                     }
                     _ => (false, None),
                 },
@@ -2485,7 +2524,7 @@ impl ReaperTarget {
             | Seek { .. }
             // Handled from instance-scoped feedback events.
             | ClipTransport { .. }
-            | ClipSeek { .. }
+            | ClipSeek { .. }| ClipVolume { .. }
             // No value change notification available.
             | TrackShow { .. }
             | TrackRouteMute { .. }
@@ -2660,6 +2699,12 @@ impl<'a> Target<'a> for ReaperTarget {
                 let context = context.as_ref()?;
                 let instance_state = context.instance_state.borrow();
                 instance_state.get_slot(*slot_index).ok()?.position().ok()?
+            }
+            ClipVolume { slot_index } => {
+                let context = context.as_ref()?;
+                let instance_state = context.instance_state.borrow();
+                let volume = instance_state.get_slot(*slot_index).ok()?.volume();
+                reaper_volume_unit_value(volume)
             }
         };
         Some(result)
@@ -3077,6 +3122,10 @@ fn volume_unit_value(volume: Volume) -> UnitValue {
     // lower the volume fader limit to a lower value. In that case we just report the
     // highest possible value ... not much else we can do.
     UnitValue::new_clamped(volume.soft_normalized_value())
+}
+
+fn reaper_volume_unit_value(volume: ReaperVolumeValue) -> UnitValue {
+    volume_unit_value(Volume::from_reaper_value(volume))
 }
 
 fn pan_unit_value(pan: Pan) -> UnitValue {
