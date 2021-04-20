@@ -13,9 +13,9 @@ use reaper_high::{
 use reaper_medium::{
     AutoSeekBehavior, AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility,
     FxPresetRef, GetLoopTimeRange2Result, GetParameterStepSizesResult,
-    GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
-    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperVolumeValue,
-    ReaperWidthValue, SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
+    GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlayState,
+    PlaybackSpeedFactor, PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue,
+    ReaperVolumeValue, ReaperWidthValue, SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
@@ -1216,14 +1216,14 @@ impl RealearnTarget for ReaperTarget {
                 match action {
                     PlayStop => {
                         if on {
-                            instance_state.play(*slot_index, track.as_ref(), *play_options)?;
+                            instance_state.play(*slot_index, track.clone(), *play_options)?;
                         } else {
                             instance_state.stop(*slot_index, !play_options.next_bar)?;
                         }
                     }
                     PlayPause => {
                         if on {
-                            instance_state.play(*slot_index, track.as_ref(), *play_options)?;
+                            instance_state.play(*slot_index, track.clone(), *play_options)?;
                         } else {
                             instance_state.pause(*slot_index)?;
                         }
@@ -2278,260 +2278,225 @@ impl ReaperTarget {
     }
 
     /// Might return the new value if changed.
-    pub fn value_changed_from_change_event(&self, evt: &ChangeEvent) -> (bool, Option<UnitValue>) {
+    ///
+    /// Is called in any case (even if feedback not enabled). So we can use it for general-purpose
+    /// change event reactions such as reacting to transport stop.
+    pub fn process_change_event(
+        &self,
+        evt: &ChangeEvent,
+        control_context: ControlContext,
+    ) -> (bool, Option<UnitValue>) {
         use ChangeEvent::*;
         use ReaperTarget::*;
         match self {
-            FxParameter { param } => {
-                match evt {
-                    FxParameterValueChanged(e) if &e.parameter == param => (
-                        true,
-                        Some(fx_parameter_unit_value(&e.parameter, e.new_value))
-                    ),
-                    _ => (false, None)
-                }
-            }
-            TrackVolume { track } => {
-                match evt {
-                    TrackVolumeChanged(e) if &e.track == track => (
-                        true,
-                        Some(volume_unit_value(Volume::from_reaper_value(e.new_value)))
-                    ),
-                    _ => (false, None)
-                }
-            }
-            TrackRouteVolume { route } => {
-                match evt {
-                    TrackRouteVolumeChanged(e) if &e.route == route => (
-                        true,
-                        Some(volume_unit_value(Volume::from_reaper_value(e.new_value)))
-                    ),
-                    _ => (false, None)
-                }
-            }
-            TrackPan { track } => {
-                match evt {
-                    TrackPanChanged(e) if &e.track == track => (
-                        true,
-                        {
-                            let pan = match e.new_value {
-                                AvailablePanValue::Complete(v) => v.main_pan(),
-                                AvailablePanValue::Incomplete(pan) => pan
-                            };
-                            Some(pan_unit_value(Pan::from_reaper_value(pan)))
-                        }
-                    ),
-                    _ => (false, None)
-                }
-            }
-            TrackWidth { track } => {
-                match evt {
-                    TrackPanChanged(e) if &e.track == track => (
-                        true,
-                        match e.new_value {
-                            AvailablePanValue::Complete(v) => if let Some(width) = v.width() {
+            FxParameter { param } => match evt {
+                FxParameterValueChanged(e) if &e.parameter == param => (
+                    true,
+                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                ),
+                _ => (false, None),
+            },
+            TrackVolume { track } => match evt {
+                TrackVolumeChanged(e) if &e.track == track => (
+                    true,
+                    Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
+                ),
+                _ => (false, None),
+            },
+            TrackRouteVolume { route } => match evt {
+                TrackRouteVolumeChanged(e) if &e.route == route => (
+                    true,
+                    Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
+                ),
+                _ => (false, None),
+            },
+            TrackPan { track } => match evt {
+                TrackPanChanged(e) if &e.track == track => (true, {
+                    let pan = match e.new_value {
+                        AvailablePanValue::Complete(v) => v.main_pan(),
+                        AvailablePanValue::Incomplete(pan) => pan,
+                    };
+                    Some(pan_unit_value(Pan::from_reaper_value(pan)))
+                }),
+                _ => (false, None),
+            },
+            TrackWidth { track } => match evt {
+                TrackPanChanged(e) if &e.track == track => (
+                    true,
+                    match e.new_value {
+                        AvailablePanValue::Complete(v) => {
+                            if let Some(width) = v.width() {
                                 Some(width_unit_value(Width::from_reaper_value(width)))
                             } else {
                                 None
                             }
-                            AvailablePanValue::Incomplete(_) => None
                         }
-                    ),
-                    _ => (false, None)
+                        AvailablePanValue::Incomplete(_) => None,
+                    },
+                ),
+                _ => (false, None),
+            },
+            TrackArm { track, .. } => match evt {
+                TrackArmChanged(e) if &e.track == track => {
+                    (true, Some(track_arm_unit_value(e.new_value)))
                 }
-            }
-            TrackArm { track, .. } => {
-                match evt {
-                    TrackArmChanged(e) if &e.track == track => (
-                        true,
-                        Some(track_arm_unit_value(e.new_value))
-                    ),
-                    _ => (false, None)
+                _ => (false, None),
+            },
+            TrackSelection { track, .. } => match evt {
+                TrackSelectedChanged(e) if &e.track == track => {
+                    (true, Some(track_selected_unit_value(e.new_value)))
                 }
-            }
-            TrackSelection { track, .. } => {
-                match evt {
-                    TrackSelectedChanged(e) if &e.track == track => (
-                        true,
-                        Some(track_selected_unit_value(e.new_value))
-                    ),
-                    _ => (false, None)
+                _ => (false, None),
+            },
+            TrackMute { track, .. } => match evt {
+                TrackMuteChanged(e) if &e.track == track => {
+                    (true, Some(mute_unit_value(e.new_value)))
                 }
-            }
-            TrackMute { track, .. } => {
-                match evt {
-                    TrackMuteChanged(e) if &e.track == track => (
-                        true,
-                        Some(mute_unit_value(e.new_value))
-                    ),
-                    _ => (false, None)
+                _ => (false, None),
+            },
+            TrackAutomationMode { track, mode, .. } => match evt {
+                TrackAutomationModeChanged(e) if &e.track == track => (
+                    true,
+                    Some(track_automation_mode_unit_value(*mode, e.new_value)),
+                ),
+                _ => (false, None),
+            },
+            TrackSolo { track, .. } => match evt {
+                TrackSoloChanged(e) if &e.track == track => {
+                    (true, Some(track_solo_unit_value(e.new_value)))
                 }
-            }
-            TrackAutomationMode { track, mode, .. } => {
-                match evt {
-                    TrackAutomationModeChanged(e) if &e.track == track => (
-                        true,
-                        Some(track_automation_mode_unit_value(*mode, e.new_value))
-                    ),
-                    _ => (false, None)
-                }
-            }
-            TrackSolo { track, .. } => {
-                match evt {
-                    TrackSoloChanged(e) if &e.track == track => (
-                        true,
-                        Some(track_solo_unit_value(e.new_value))
-                    ),
-                    _ => (false, None)
-                }
-            }
-            TrackRoutePan { route } => {
-                match evt {
-                    TrackRoutePanChanged(e) if &e.route == route => (
-                        true,
-                        Some(pan_unit_value(Pan::from_reaper_value(e.new_value)))
-                    ),
-                    _ => (false, None)
-                }
-            }
+                _ => (false, None),
+            },
+            TrackRoutePan { route } => match evt {
+                TrackRoutePanChanged(e) if &e.route == route => (
+                    true,
+                    Some(pan_unit_value(Pan::from_reaper_value(e.new_value))),
+                ),
+                _ => (false, None),
+            },
             Tempo { project } => match evt {
                 MasterTempoChanged(e) if e.project == *project => (
                     true,
-                    Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value)))
+                    Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value))),
                 ),
-                _ => (false, None)
+                _ => (false, None),
             },
             Playrate { project } => match evt {
                 MasterPlayrateChanged(e) if e.project == *project => (
                     true,
-                    Some(playrate_unit_value(PlayRate::from_playback_speed_factor(e.new_value)))
+                    Some(playrate_unit_value(PlayRate::from_playback_speed_factor(
+                        e.new_value,
+                    ))),
                 ),
-                _ => (false, None)
+                _ => (false, None),
             },
-            FxEnable { fx } => {
-                match evt {
-                    FxEnabledChanged(e) if &e.fx == fx => (
-                        true,
-                        Some(fx_enable_unit_value(e.new_value))
-                    ),
-                    _ => (false, None)
+            FxEnable { fx } => match evt {
+                FxEnabledChanged(e) if &e.fx == fx => {
+                    (true, Some(fx_enable_unit_value(e.new_value)))
                 }
-            }
-            FxOpen { fx, .. } => {
-                match evt {
-                    FxOpened(e) if &e.fx == fx => (
-                        true,
-                        None
-                    ),
-                    FxClosed(e) if &e.fx == fx => (
-                        true,
-                        None
-                    ),
-                    _ => (false, None)
-                }
-            }
-            FxNavigate { fx_chain, .. } => {
-                match evt {
-                    FxOpened(e) if e.fx.chain() == fx_chain => (
-                        true,
-                        None
-                    ),
-                    FxClosed(e) if e.fx.chain() == fx_chain => (
-                        true,
-                        None
-                    ),
-                    _ => (false, None)
-                }
-            }
-            FxPreset { fx } => {
-                match evt {
-                    FxPresetChanged(e) if &e.fx == fx => (true, None),
-                    _ => (false, None)
-                }
-            }
-            SelectedTrack { project, .. } => {
-                match evt {
-                    TrackSelectedChanged(e) if e.new_value && &e.track.project() == project => (
-                        true,
-                        Some(selected_track_unit_value(*project, e.track.index()))
-                    ),
-                    _ => (false, None)
-                }
-            }
-            Transport { project, action, .. } => {
+                _ => (false, None),
+            },
+            FxOpen { fx, .. } => match evt {
+                FxOpened(e) if &e.fx == fx => (true, None),
+                FxClosed(e) if &e.fx == fx => (true, None),
+                _ => (false, None),
+            },
+            FxNavigate { fx_chain, .. } => match evt {
+                FxOpened(e) if e.fx.chain() == fx_chain => (true, None),
+                FxClosed(e) if e.fx.chain() == fx_chain => (true, None),
+                _ => (false, None),
+            },
+            FxPreset { fx } => match evt {
+                FxPresetChanged(e) if &e.fx == fx => (true, None),
+                _ => (false, None),
+            },
+            SelectedTrack { project, .. } => match evt {
+                TrackSelectedChanged(e) if e.new_value && &e.track.project() == project => (
+                    true,
+                    Some(selected_track_unit_value(*project, e.track.index())),
+                ),
+                _ => (false, None),
+            },
+            Transport {
+                project, action, ..
+            } => {
                 use TransportAction::*;
                 match *action {
                     PlayStop | PlayPause => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
-                            Some(transport_is_enabled_unit_value(e.new_value.is_playing))
+                            Some(transport_is_enabled_unit_value(e.new_value.is_playing)),
                         ),
-                        _ => (false, None)
-                    }
+                        _ => (false, None),
+                    },
                     Stop => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
-                            Some(transport_is_enabled_unit_value(!e.new_value.is_playing && !e.new_value.is_paused))
+                            Some(transport_is_enabled_unit_value(
+                                !e.new_value.is_playing && !e.new_value.is_paused,
+                            )),
                         ),
-                        _ => (false, None)
-                    }
+                        _ => (false, None),
+                    },
                     Pause => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
-                            Some(transport_is_enabled_unit_value(e.new_value.is_paused))
+                            Some(transport_is_enabled_unit_value(e.new_value.is_paused)),
                         ),
-                        _ => (false, None)
-                    }
+                        _ => (false, None),
+                    },
                     Record => match evt {
                         PlayStateChanged(e) if e.project == *project => (
                             true,
-                            Some(transport_is_enabled_unit_value(e.new_value.is_recording))
+                            Some(transport_is_enabled_unit_value(e.new_value.is_recording)),
                         ),
-                        _ => (false, None)
-                    }
+                        _ => (false, None),
+                    },
                     Repeat => match evt {
-                        RepeatStateChanged(e) if e.project == *project => (
-                            true,
-                            Some(transport_is_enabled_unit_value(e.new_value))
-                        ),
-                        _ => (false, None)
-                    }
+                        RepeatStateChanged(e) if e.project == *project => {
+                            (true, Some(transport_is_enabled_unit_value(e.new_value)))
+                        }
+                        _ => (false, None),
+                    },
                 }
             }
             // Handled both from control-surface and non-control-surface callbacks.
-            GoToBookmark { project, .. } => {
-                match evt {
-                    BookmarksChanged(e) if e.project == *project => (
-                        true,
-                        None
-                    ),
-                    _ => (false, None)
-                }
-            }
-            AutomationModeOverride { mode_override } => {
-                match evt {
-                    GlobalAutomationOverrideChanged(e) => (
-                        true,
-                        Some(global_automation_mode_override_unit_value(*mode_override, e.new_value))
-                    ),
-                    _ => (false, None)
-                }
-            }
+            GoToBookmark { project, .. } => match evt {
+                BookmarksChanged(e) if e.project == *project => (true, None),
+                _ => (false, None),
+            },
+            AutomationModeOverride { mode_override } => match evt {
+                GlobalAutomationOverrideChanged(e) => (
+                    true,
+                    Some(global_automation_mode_override_unit_value(
+                        *mode_override,
+                        e.new_value,
+                    )),
+                ),
+                _ => (false, None),
+            },
             // Handled from non-control-surface callbacks only.
-            Action { .. }
-            | LoadFxSnapshot { .. }
-            | AutomationTouchState { .. }
-            | Seek { .. }
-            // Handled from instance-scoped feedback events.
-            | ClipTransport { .. }
-            | ClipSeek { .. }| ClipVolume { .. }
+            Action { .. } | LoadFxSnapshot { .. } | AutomationTouchState { .. } | Seek { .. } => {
+                (false, None)
+            }
+            // Feedback handled from instance-scoped feedback events.
+            ClipTransport { .. } => {
+                match evt {
+                    PlayStateChanged(e) => {
+                        let mut instance_state = control_context.instance_state.borrow_mut();
+                        instance_state.process_transport_change(e.new_value);
+                    }
+                    _ => {}
+                };
+                (false, None)
+            }
+            ClipSeek { .. } | ClipVolume { .. } => (false, None),
             // No value change notification available.
-            | TrackShow { .. }
+            TrackShow { .. }
             | TrackRouteMute { .. }
             | AllTrackFxEnable { .. }
             | SendMidi { .. }
-            | SendOsc { .. }
-             => (false, None),
+            | SendOsc { .. } => (false, None),
         }
     }
 }

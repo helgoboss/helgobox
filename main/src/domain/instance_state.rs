@@ -6,7 +6,7 @@ use crate::domain::{
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{Item, Project, Reaper, Track};
-use reaper_medium::{MediaItem, PositionInSeconds, ReaperVolumeValue};
+use reaper_medium::{MediaItem, PlayState, PositionInSeconds, ReaperVolumeValue};
 use rx_util::{Notifier, UnitEvent};
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,17 @@ impl InstanceState {
             clip_slots: Default::default(),
             instance_feedback_event_sender,
             slot_contents_changed_subject: Default::default(),
+        }
+    }
+
+    pub fn process_transport_change(&mut self, new_play_state: PlayState) {
+        for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
+            if let Ok(Some(event)) = slot.process_transport_change(new_play_state) {
+                let instance_event = InstanceFeedbackEvent::ClipChanged { slot_index, event };
+                self.instance_feedback_event_sender
+                    .send(instance_event)
+                    .unwrap();
+            }
         }
     }
 
@@ -107,7 +118,7 @@ impl InstanceState {
     pub fn play(
         &mut self,
         slot_index: usize,
-        track: Option<&Track>,
+        track: Option<Track>,
         options: SlotPlayOptions,
     ) -> Result<(), &'static str> {
         let event = self.get_slot_mut(slot_index)?.play(track, options)?;

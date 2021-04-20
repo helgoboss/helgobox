@@ -7,8 +7,9 @@ use reaper_low::raw;
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     BufferingBehavior, DurationInSeconds, ExtGetPooledMidiIdResult, MeasureAlignment, MediaItem,
-    MidiImportBehavior, OwnedPreviewRegister, PcmSource, PositionInSeconds, ProjectContext,
-    ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
+    MidiImportBehavior, OwnedPreviewRegister, PcmSource, PlayState, PositionInSeconds,
+    ProjectContext, ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard,
+    ReaperVolumeValue,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -273,12 +274,17 @@ impl ClipSlot {
 
     pub fn play(
         &mut self,
-        track: Option<&Track>,
+        track: Option<Track>,
         options: SlotPlayOptions,
     ) -> Result<ClipChangedEvent, &'static str> {
-        let result =
-            self.start_transition()
-                .play(&self.register, options, track, self.descriptor.repeat);
+        let result = self.start_transition().play(
+            &self.register,
+            ClipPlayArgs {
+                options,
+                track,
+                repeat: self.descriptor.repeat,
+            },
+        );
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
@@ -288,6 +294,21 @@ impl ClipSlot {
     pub fn clear(&mut self) -> Result<(), &'static str> {
         let result = self.start_transition().clear(&self.register);
         self.finish_transition(result)
+    }
+
+    pub fn process_transport_change(
+        &mut self,
+        new_play_state: PlayState,
+    ) -> Result<Option<ClipChangedEvent>, &'static str> {
+        if !self.descriptor.repeat {
+            // One-shots should not be synchronized with main timeline.
+            return Ok(None);
+        }
+        let result = self
+            .start_transition()
+            .process_transport_change(&self.register, new_play_state);
+        self.finish_transition(result)?;
+        Ok(Some(self.play_state_changed_event()))
     }
 
     pub fn stop(&mut self, immediately: bool) -> Result<ClipChangedEvent, &'static str> {
@@ -389,18 +410,47 @@ impl State {
         }
     }
 
-    pub fn play(
+    pub fn process_transport_change(
         self,
         reg: &SharedRegister,
-        options: SlotPlayOptions,
-        track: Option<&Track>,
-        repeat: bool,
+        new_play_state: PlayState,
     ) -> TransitionResult {
         use State::*;
         match self {
+            Suspended(s) if s.caused_by_transport_change => {
+                if new_play_state.is_playing && !new_play_state.is_paused {
+                    if let Some(play_args) = s.last_play_args.clone() {
+                        if play_args.options.next_bar {
+                            s.play(reg, play_args)
+                        } else {
+                            Ok(Suspended(s))
+                        }
+                    } else {
+                        Ok(Suspended(s))
+                    }
+                } else {
+                    Ok(Suspended(s))
+                }
+            }
+            Playing(s) if s.args.options.next_bar => {
+                if new_play_state.is_playing {
+                    Ok(Playing(s))
+                } else if new_play_state.is_paused {
+                    s.pause(true)
+                } else {
+                    s.stop(reg, true, true)
+                }
+            }
+            s => Ok(s),
+        }
+    }
+
+    pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
+        use State::*;
+        match self {
             Empty => Err((Empty, "slot is empty")),
-            Suspended(s) => s.play(reg, options, track, repeat),
-            Playing(s) => s.play(reg, options, track, repeat),
+            Suspended(s) => s.play(reg, args),
+            Playing(s) => s.play(reg, args),
             Transitioning => unreachable!(),
         }
     }
@@ -410,7 +460,7 @@ impl State {
         match self {
             Empty => Ok(Empty),
             Suspended(s) => s.stop(reg),
-            Playing(s) => s.stop(reg, immediately),
+            Playing(s) => s.stop(reg, immediately, false),
             Transitioning => unreachable!(),
         }
     }
@@ -419,7 +469,7 @@ impl State {
         use State::*;
         match self {
             s @ Empty | s @ Suspended(_) => Ok(s),
-            Playing(s) => s.pause(),
+            Playing(s) => s.pause(false),
             Transitioning => unreachable!(),
         }
     }
@@ -444,6 +494,8 @@ impl State {
                 Ok(Suspended(SuspendedState {
                     source,
                     is_paused: false,
+                    last_play_args: None,
+                    caused_by_transport_change: false,
                 }))
             }
             Playing(s) => s.fill_with_source(source, reg),
@@ -456,33 +508,36 @@ impl State {
 struct SuspendedState {
     source: OwnedSource,
     is_paused: bool,
+    last_play_args: Option<ClipPlayArgs>,
+    caused_by_transport_change: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ClipPlayArgs {
+    options: SlotPlayOptions,
+    track: Option<Track>,
+    repeat: bool,
 }
 
 impl SuspendedState {
-    pub fn play(
-        self,
-        reg: &SharedRegister,
-        options: SlotPlayOptions,
-        track: Option<&Track>,
-        repeat: bool,
-    ) -> TransitionResult {
+    pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
         {
             let mut guard = lock(reg);
-            guard.set_preview_track(track.map(|t| t.raw()));
+            guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
             // The looped field might have been reset on non-immediate stop. Set it again.
-            guard.set_looped(repeat);
+            guard.set_looped(args.repeat);
         }
-        let buffering_behavior = if options.is_effectively_buffered() {
+        let buffering_behavior = if args.options.is_effectively_buffered() {
             BitFlags::from_flag(BufferingBehavior::BufferSource)
         } else {
             BitFlags::empty()
         };
-        let measure_alignment = if options.next_bar {
+        let measure_alignment = if args.options.next_bar {
             MeasureAlignment::AlignWithMeasureStart
         } else {
             MeasureAlignment::PlayImmediately
         };
-        let result = if let Some(track) = track {
+        let result = if let Some(track) = args.track.as_ref() {
             Reaper::get().medium_session().play_track_preview_2_ex(
                 track.project().context(),
                 reg.clone(),
@@ -501,7 +556,7 @@ impl SuspendedState {
                 let next_state = PlayingState {
                     source: self.source,
                     handle,
-                    track: track.cloned(),
+                    args,
                 };
                 Ok(State::Playing(next_state))
             }
@@ -529,20 +584,14 @@ impl SuspendedState {
 struct PlayingState {
     source: OwnedSource,
     handle: NonNull<raw::preview_register_t>,
-    track: Option<Track>,
+    args: ClipPlayArgs,
 }
 
 impl PlayingState {
-    pub fn play(
-        self,
-        reg: &SharedRegister,
-        options: SlotPlayOptions,
-        track: Option<&Track>,
-        repeat: bool,
-    ) -> TransitionResult {
-        if self.track.as_ref() != track {
+    pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
+        if self.args.track.as_ref() != args.track.as_ref() {
             // Track change!
-            self.suspend(true).play(reg, options, track, repeat)
+            self.suspend(true, false).play(reg, args)
         } else {
             let mut g = lock(reg);
             // Retrigger!
@@ -557,13 +606,18 @@ impl PlayingState {
         Ok(State::Playing(PlayingState {
             source,
             handle: self.handle,
-            track: self.track,
+            args: self.args,
         }))
     }
 
-    pub fn stop(self, reg: &SharedRegister, immediately: bool) -> TransitionResult {
+    pub fn stop(
+        self,
+        reg: &SharedRegister,
+        immediately: bool,
+        caused_by_transport_change: bool,
+    ) -> TransitionResult {
         if immediately {
-            let suspended = self.suspend(false);
+            let suspended = self.suspend(false, caused_by_transport_change);
             let mut g = lock(reg);
             // Reset position!
             g.set_cur_pos(PositionInSeconds::new(0.0));
@@ -575,20 +629,18 @@ impl PlayingState {
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
-        self.suspend(false).clear(reg)
+        self.suspend(false, false).clear(reg)
     }
 
-    pub fn pause(self) -> TransitionResult {
-        Ok(State::Suspended(self.suspend(true)))
+    pub fn pause(self, caused_by_transport_change: bool) -> TransitionResult {
+        Ok(State::Suspended(
+            self.suspend(true, caused_by_transport_change),
+        ))
     }
 
-    fn suspend(self, pause: bool) -> SuspendedState {
-        let next_state = SuspendedState {
-            source: self.source,
-            is_paused: pause,
-        };
+    fn suspend(self, pause: bool, caused_by_transport_change: bool) -> SuspendedState {
         // If not successful this probably means it was stopped already, so okay.
-        if let Some(track) = self.track {
+        if let Some(track) = self.args.track.as_ref() {
             let _ = unsafe {
                 Reaper::get()
                     .medium_session()
@@ -597,7 +649,12 @@ impl PlayingState {
         } else {
             let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
         };
-        next_state
+        SuspendedState {
+            source: self.source,
+            is_paused: pause,
+            last_play_args: Some(self.args),
+            caused_by_transport_change,
+        }
     }
 }
 
@@ -609,6 +666,7 @@ pub struct ClipInfo {
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct SlotPlayOptions {
+    /// Syncs with timeline.
     pub next_bar: bool,
     pub buffered: bool,
 }

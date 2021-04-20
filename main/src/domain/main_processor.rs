@@ -1016,7 +1016,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .unwrap();
         }
         self.process_feedback_related_reaper_event(|target| {
-            target.value_changed_from_change_event(event)
+            target.process_change_event(event, self.control_context())
         });
     }
 
