@@ -2,22 +2,26 @@ use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
-use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, Source, Take, Track};
-use reaper_low::raw;
+use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, ReaperSource, Take, Track};
 use reaper_low::raw::preview_register_t;
+use reaper_low::{add_cpp_pcm_source, raw};
 use reaper_medium::{
-    BufferingBehavior, DurationInSeconds, ExtGetPooledMidiIdResult, MeasureAlignment, MediaItem,
-    MidiImportBehavior, OwnedPreviewRegister, PcmSource, PlayState, PositionInSeconds,
-    ProjectContext, ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard,
-    ReaperVolumeValue,
+    create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
+    DurationInSeconds, ExtGetPooledMidiIdResult, ExtendedArgs, FlexibleOwnedPcmSource,
+    GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MediaItem,
+    MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState,
+    PositionInSeconds, ProjectContext, ProjectStateContext, PropertiesWindowArgs,
+    ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperStr,
+    ReaperVolumeValue, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::mem;
+use std::fmt::Formatter;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
 use std::sync::Arc;
+use std::{fmt, mem};
 
 type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
@@ -159,6 +163,7 @@ impl ClipSlot {
             .source()
             .ok_or("take has no source")?
             .root_source();
+        let root_source = ReaperSource::new(root_source);
         let source_type = root_source.r#type();
         let item_project = item.project();
         let file = if let Some(source_file) = root_source.file_name() {
@@ -200,12 +205,13 @@ impl ClipSlot {
     }
 
     pub fn clip_info(&self) -> Option<ClipInfo> {
-        let source = self.state.source()?;
         let guard = self.register.lock().ok()?;
+        let source = guard.src()?;
+        let source = source.as_ref();
         let info = ClipInfo {
-            r#type: source.r#type(),
-            file_name: source.file_name(),
-            length: source.length(),
+            r#type: source.get_type(|t| t.to_string()),
+            file_name: source.get_file_name(|p| Some(p?.to_owned())),
+            length: source.get_length().ok(),
         };
         // TODO-medium This is probably necessary to make sure the mutex is not unlocked before the
         //  PCM source operations are done. How can we solve this in a better way API-wise? On the
@@ -343,7 +349,7 @@ impl ClipSlot {
     pub fn position(&self) -> Result<UnitValue, &'static str> {
         let mut guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
-        let length = unsafe { source.get_length() };
+        let length = unsafe { source.as_ref().get_length().ok() };
         let position = calculate_proportional_position(guard.cur_pos(), length);
         Ok(position)
     }
@@ -351,7 +357,12 @@ impl ClipSlot {
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
-        let length = unsafe { source.get_length().ok_or("source has no length")? };
+        let length = unsafe {
+            source
+                .as_ref()
+                .get_length()
+                .map_err(|_| "source has no length")?
+        };
         let real_pos = PositionInSeconds::new(position.get() * length.get());
         guard.set_cur_pos(real_pos);
         Ok(ClipChangedEvent::ClipPositionChanged(position))
@@ -404,15 +415,6 @@ enum State {
 }
 
 impl State {
-    pub fn source(&self) -> Option<&OwnedSource> {
-        use State::*;
-        match self {
-            Suspended(s) => Some(&s.source),
-            Playing(s) => Some(&s.source),
-            _ => None,
-        }
-    }
-
     pub fn process_transport_change(
         self,
         reg: &SharedRegister,
@@ -501,7 +503,7 @@ impl State {
                         Some(s) => s,
                         None => return (Ok(Playing(s)), None),
                     };
-                    let length = unsafe { source.get_length() };
+                    let length = unsafe { source.as_ref().get_length().ok() };
                     (guard.cur_pos(), length, guard.is_looped())
                 };
                 let (next_state, event) = match s.scheduled_for {
@@ -546,28 +548,61 @@ impl State {
     }
 
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
+        let source = DecoratingPcmSource {
+            inner: source.into_raw(),
+        };
+        let source = create_custom_owned_pcm_source(source);
+        let source = FlexibleOwnedPcmSource::Custom(source);
+        let source_keeper = SourceKeeper { rust_source: None };
+        // let source_keeper = SourceKeeper { rust_source: None };
+        // let owned_cpp_decorating_source = source.into_raw();
+
+        // TODO-high Mmh, we need to keep both now, the C++ side (as before) and the Rust
+        //  side. In control surface scenario, ReaperSession takes care of both by fully owning.
+        //  For PCM sources we need however at least access to the C++ side to be able to pass it
+        //  to e.g. preview register functions. That
+        //  means it would probably make sense if reaper-medium takes care of holding the Rust Box.
+        //  This in turn means that the signature of the ReaperSession method should look like:
+        //
+        //  INPUT: Box
+        //  OUTPUT: OwnedPcmSource
+        //
+        //  Maybe the best would be if reaper-medium would utilize Arc reference counting to
+        //  decide when destroying both sources is okay. We should design the API that way. It
+        //  makes sense. As soon as we pass something to REAPER, we can't do what we want anymore
+        //  and NEED to leave memory management to reaper-rs, give it at least shared ownership.
         use State::*;
         match self {
             Empty | Suspended(_) => {
                 let mut g = lock(reg);
-                g.set_src(Some(source.raw()));
+                g.set_src(Some(source));
                 g.set_cur_pos(PositionInSeconds::new(0.0));
                 Ok(Suspended(SuspendedState {
-                    source,
+                    source_keeper,
                     is_paused: false,
                     last_play_args: None,
                     was_caused_by_transport_change: false,
                 }))
             }
-            Playing(s) => s.fill_with_source(source, reg),
+            Playing(s) => s.fill_with_source(source, source_keeper, reg),
             Transitioning => unreachable!(),
         }
     }
 }
 
+struct SourceKeeper {
+    rust_source: Option<Box<Box<dyn reaper_low::PCM_source>>>,
+}
+
+impl fmt::Debug for SourceKeeper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SourceKeeper").finish()
+    }
+}
+
 #[derive(Debug)]
 struct SuspendedState {
-    source: OwnedSource,
+    source_keeper: SourceKeeper,
     is_paused: bool,
     last_play_args: Option<ClipPlayArgs>,
     was_caused_by_transport_change: bool,
@@ -620,7 +655,7 @@ impl SuspendedState {
                     None
                 };
                 let next_state = PlayingState {
-                    source: self.source,
+                    source_keeper: self.source_keeper,
                     handle,
                     args,
                     scheduled_for: scheduling_state,
@@ -649,7 +684,7 @@ impl SuspendedState {
 
 #[derive(Debug)]
 struct PlayingState {
-    source: OwnedSource,
+    source_keeper: SourceKeeper,
     handle: NonNull<raw::preview_register_t>,
     args: ClipPlayArgs,
     scheduled_for: Option<ScheduledFor>,
@@ -676,10 +711,18 @@ impl PlayingState {
         }
     }
 
-    pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
+    pub fn fill_with_source(
+        self,
+        source: FlexibleOwnedPcmSource,
+        source_keeper: SourceKeeper,
+        reg: &SharedRegister,
+    ) -> TransitionResult {
         let mut g = lock(reg);
-        g.set_src(Some(source.raw()));
-        Ok(State::Playing(PlayingState { source, ..self }))
+        g.set_src(Some(source));
+        Ok(State::Playing(PlayingState {
+            source_keeper,
+            ..self
+        }))
     }
 
     pub fn stop(
@@ -717,16 +760,20 @@ impl PlayingState {
     fn suspend(self, pause: bool, caused_by_transport_change: bool) -> SuspendedState {
         // If not successful this probably means it was stopped already, so okay.
         if let Some(track) = self.args.track.as_ref() {
-            let _ = unsafe {
-                Reaper::get()
-                    .medium_session()
-                    .stop_track_preview_2(track.project().context(), self.handle)
-            };
+            let project = track.project();
+            // Check prevents error message on project close.
+            if project.is_available() {
+                let _ = unsafe {
+                    Reaper::get()
+                        .medium_session()
+                        .stop_track_preview_2(project.context(), self.handle)
+                };
+            }
         } else {
             let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
         };
         SuspendedState {
-            source: self.source,
+            source_keeper: self.source_keeper,
             is_paused: pause,
             last_play_args: Some(self.args),
             was_caused_by_transport_change: caused_by_transport_change,
@@ -770,5 +817,116 @@ fn calculate_proportional_position(
         }
     } else {
         UnitValue::MIN
+    }
+}
+
+struct DecoratingPcmSource {
+    inner: OwnedPcmSource,
+}
+
+impl CustomPcmSource for DecoratingPcmSource {
+    fn duplicate(&mut self) -> Option<OwnedPcmSource> {
+        self.inner.duplicate()
+    }
+
+    fn is_available(&mut self) -> bool {
+        self.inner.is_available()
+    }
+
+    fn set_available(&mut self, args: SetAvailableArgs) {
+        self.inner.set_available(args.is_available);
+    }
+
+    fn get_type(&mut self) -> &ReaperStr {
+        unsafe { self.inner.get_type_unchecked() }
+    }
+
+    fn get_file_name(&mut self) -> Option<&ReaperStr> {
+        unsafe { self.inner.get_file_name_unchecked() }
+    }
+
+    fn set_file_name(&mut self, args: SetFileNameArgs) -> bool {
+        self.inner.set_file_name(args.new_file_name)
+    }
+
+    fn get_source(&mut self) -> Option<PcmSource> {
+        self.inner.get_source()
+    }
+
+    fn set_source(&mut self, args: SetSourceArgs) {
+        self.inner.set_source(args.source);
+    }
+
+    fn get_num_channels(&mut self) -> Option<u32> {
+        self.inner.get_num_channels()
+    }
+
+    fn get_sample_rate(&mut self) -> Option<Hz> {
+        self.inner.get_sample_rate()
+    }
+
+    fn get_length(&mut self) -> DurationInSeconds {
+        self.inner.get_length().unwrap_or_default()
+    }
+
+    fn get_length_beats(&mut self) -> Option<DurationInBeats> {
+        self.inner.get_length_beats()
+    }
+
+    fn get_bits_per_sample(&mut self) -> u32 {
+        self.inner.get_bits_per_sample()
+    }
+
+    fn get_preferred_position(&mut self) -> Option<PositionInSeconds> {
+        self.inner.get_preferred_position()
+    }
+
+    fn properties_window(&mut self, args: PropertiesWindowArgs) -> i32 {
+        unsafe { self.inner.properties_window(args.parent_window) }
+    }
+
+    fn get_samples(&mut self, args: GetSamplesArgs) {
+        unsafe {
+            self.inner.get_samples(args.block);
+        }
+    }
+
+    fn get_peak_info(&mut self, args: GetPeakInfoArgs) {
+        unsafe {
+            self.inner.get_peak_info(args.block);
+        }
+    }
+
+    fn save_state(&mut self, args: SaveStateArgs) {
+        unsafe {
+            self.inner.save_state(args.context);
+        }
+    }
+
+    fn load_state(&mut self, args: LoadStateArgs) -> Result<(), Box<dyn Error>> {
+        unsafe { self.inner.load_state(args.first_line, args.context) }
+    }
+
+    fn peaks_clear(&mut self, args: PeaksClearArgs) {
+        self.inner.peaks_clear(args.delete_file);
+    }
+
+    fn peaks_build_begin(&mut self) -> bool {
+        self.inner.peaks_build_begin()
+    }
+
+    fn peaks_build_run(&mut self) -> bool {
+        self.inner.peaks_build_run()
+    }
+
+    fn peaks_build_finish(&mut self) {
+        self.inner.peaks_build_finish();
+    }
+
+    unsafe fn extended(&self, args: ExtendedArgs) -> i32 {
+        unsafe {
+            self.inner
+                .extended(args.call, args.parm_1, args.parm_2, args.parm_3)
+        }
     }
 }
