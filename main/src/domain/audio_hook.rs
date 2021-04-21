@@ -6,7 +6,7 @@ use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
 use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{
-    MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
+    BorrowedMidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
     SendMidiTime,
 };
 use smallvec::SmallVec;
@@ -208,7 +208,7 @@ impl OnAudioBuffer for RealearnAudioHook {
 
 fn process_midi_event(
     dev_id: MidiInputDeviceId,
-    evt: MidiEvent,
+    evt: BorrowedMidiEvent,
     midi_source_scanner: &mut MidiSourceScanner,
 ) -> Option<MidiSource> {
     let raw_msg = evt.message().to_other();
