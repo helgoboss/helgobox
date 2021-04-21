@@ -20,6 +20,7 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::{fmt, mem};
 
@@ -548,29 +549,12 @@ impl State {
     }
 
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
-        let source = DecoratingPcmSource {
+        let source = DecoratedPcmSource {
             inner: source.into_raw(),
+            state: DecoratedPcmSourceState::Normal,
         };
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
-        let source_keeper = SourceKeeper { rust_source: None };
-        // let source_keeper = SourceKeeper { rust_source: None };
-        // let owned_cpp_decorating_source = source.into_raw();
-
-        // TODO-high Mmh, we need to keep both now, the C++ side (as before) and the Rust
-        //  side. In control surface scenario, ReaperSession takes care of both by fully owning.
-        //  For PCM sources we need however at least access to the C++ side to be able to pass it
-        //  to e.g. preview register functions. That
-        //  means it would probably make sense if reaper-medium takes care of holding the Rust Box.
-        //  This in turn means that the signature of the ReaperSession method should look like:
-        //
-        //  INPUT: Box
-        //  OUTPUT: OwnedPcmSource
-        //
-        //  Maybe the best would be if reaper-medium would utilize Arc reference counting to
-        //  decide when destroying both sources is okay. We should design the API that way. It
-        //  makes sense. As soon as we pass something to REAPER, we can't do what we want anymore
-        //  and NEED to leave memory management to reaper-rs, give it at least shared ownership.
         use State::*;
         match self {
             Empty | Suspended(_) => {
@@ -578,31 +562,19 @@ impl State {
                 g.set_src(Some(source));
                 g.set_cur_pos(PositionInSeconds::new(0.0));
                 Ok(Suspended(SuspendedState {
-                    source_keeper,
                     is_paused: false,
                     last_play_args: None,
                     was_caused_by_transport_change: false,
                 }))
             }
-            Playing(s) => s.fill_with_source(source, source_keeper, reg),
+            Playing(s) => s.fill_with_source(source, reg),
             Transitioning => unreachable!(),
         }
     }
 }
 
-struct SourceKeeper {
-    rust_source: Option<Box<Box<dyn reaper_low::PCM_source>>>,
-}
-
-impl fmt::Debug for SourceKeeper {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SourceKeeper").finish()
-    }
-}
-
 #[derive(Debug)]
 struct SuspendedState {
-    source_keeper: SourceKeeper,
     is_paused: bool,
     last_play_args: Option<ClipPlayArgs>,
     was_caused_by_transport_change: bool,
@@ -655,7 +627,6 @@ impl SuspendedState {
                     None
                 };
                 let next_state = PlayingState {
-                    source_keeper: self.source_keeper,
                     handle,
                     args,
                     scheduled_for: scheduling_state,
@@ -684,7 +655,6 @@ impl SuspendedState {
 
 #[derive(Debug)]
 struct PlayingState {
-    source_keeper: SourceKeeper,
     handle: NonNull<raw::preview_register_t>,
     args: ClipPlayArgs,
     scheduled_for: Option<ScheduledFor>,
@@ -714,15 +684,11 @@ impl PlayingState {
     pub fn fill_with_source(
         self,
         source: FlexibleOwnedPcmSource,
-        source_keeper: SourceKeeper,
         reg: &SharedRegister,
     ) -> TransitionResult {
         let mut g = lock(reg);
         g.set_src(Some(source));
-        Ok(State::Playing(PlayingState {
-            source_keeper,
-            ..self
-        }))
+        Ok(State::Playing(self))
     }
 
     pub fn stop(
@@ -773,7 +739,6 @@ impl PlayingState {
             let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
         };
         SuspendedState {
-            source_keeper: self.source_keeper,
             is_paused: pause,
             last_play_args: Some(self.args),
             was_caused_by_transport_change: caused_by_transport_change,
@@ -820,11 +785,22 @@ fn calculate_proportional_position(
     }
 }
 
-struct DecoratingPcmSource {
-    inner: OwnedPcmSource,
+const EXT_REQUEST_MIDI_STOP: i32 = 2359767;
+const EXT_RESET: i32 = 2359768;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum DecoratedPcmSourceState {
+    Normal,
+    MidiStopRequested,
+    AllNotesOffSent,
 }
 
-impl CustomPcmSource for DecoratingPcmSource {
+struct DecoratedPcmSource {
+    inner: OwnedPcmSource,
+    state: DecoratedPcmSourceState,
+}
+
+impl CustomPcmSource for DecoratedPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         self.inner.duplicate()
     }
@@ -886,8 +862,17 @@ impl CustomPcmSource for DecoratingPcmSource {
     }
 
     fn get_samples(&mut self, args: GetSamplesArgs) {
-        unsafe {
-            self.inner.get_samples(args.block);
+        use DecoratedPcmSourceState::*;
+        match self.state {
+            Normal => unsafe {
+                self.inner.get_samples(args.block);
+            },
+            MidiStopRequested => unsafe {
+                self.inner.get_samples(args.block);
+                // let mut block = unsafe { args.block.into_inner().as_ref() };
+                // self.state = AllNotesOffSent;
+            },
+            AllNotesOffSent => {}
         }
     }
 
@@ -923,10 +908,19 @@ impl CustomPcmSource for DecoratingPcmSource {
         self.inner.peaks_build_finish();
     }
 
-    unsafe fn extended(&self, args: ExtendedArgs) -> i32 {
-        unsafe {
-            self.inner
-                .extended(args.call, args.parm_1, args.parm_2, args.parm_3)
+    unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
+        match args.call {
+            EXT_REQUEST_MIDI_STOP => {
+                self.state = DecoratedPcmSourceState::MidiStopRequested;
+                1
+            }
+            EXT_RESET => {
+                self.state = DecoratedPcmSourceState::Normal;
+                1
+            }
+            _ => self
+                .inner
+                .extended(args.call, args.parm_1, args.parm_2, args.parm_3),
         }
     }
 }
