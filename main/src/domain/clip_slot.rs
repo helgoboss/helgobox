@@ -1,18 +1,18 @@
 use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
-use helgoboss_learn::UnitValue;
+use helgoboss_learn::{RawMidiEvent, UnitValue};
 use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, ReaperSource, Take, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_low::{add_cpp_pcm_source, raw};
 use reaper_medium::{
-    create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
-    DurationInSeconds, ExtGetPooledMidiIdResult, ExtendedArgs, FlexibleOwnedPcmSource,
-    GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MediaItem,
-    MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState,
-    PositionInSeconds, ProjectContext, ProjectStateContext, PropertiesWindowArgs,
-    ReaperFunctionError, ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperStr,
-    ReaperVolumeValue, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    create_custom_owned_pcm_source, BorrowedMidiEvent, BufferingBehavior, CustomPcmSource,
+    DurationInBeats, DurationInSeconds, ExtGetPooledMidiIdResult, ExtendedArgs,
+    FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment,
+    MediaItem, MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs,
+    PlayState, PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperFunctionError,
+    ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue, SaveStateArgs,
+    SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -313,7 +313,7 @@ impl ClipSlot {
     }
 
     pub fn pause(&mut self) -> Result<ClipChangedEvent, &'static str> {
-        let result = self.start_transition().pause();
+        let result = self.start_transition().pause(&self.register);
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
@@ -442,7 +442,7 @@ impl State {
                 if new_play_state.is_playing {
                     Ok(Playing(s))
                 } else if new_play_state.is_paused {
-                    s.pause(true)
+                    s.pause(reg, true)
                 } else {
                     s.stop(reg, true, true)
                 }
@@ -471,11 +471,11 @@ impl State {
         }
     }
 
-    pub fn pause(self) -> TransitionResult {
+    pub fn pause(self, reg: &SharedRegister) -> TransitionResult {
         use State::*;
         match self {
             s @ Empty | s @ Suspended(_) => Ok(s),
-            Playing(s) => s.pause(false),
+            Playing(s) => s.pause(reg, false),
             Transitioning => unreachable!(),
         }
     }
@@ -672,7 +672,7 @@ impl PlayingState {
     pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
         if self.args.track.as_ref() != args.track.as_ref() {
             // Track change!
-            self.suspend(true, false).play(reg, args)
+            self.suspend(reg, true, false).play(reg, args)
         } else {
             let mut g = lock(reg);
             // Retrigger!
@@ -698,7 +698,7 @@ impl PlayingState {
         caused_by_transport_change: bool,
     ) -> TransitionResult {
         if immediately {
-            let suspended = self.suspend(false, caused_by_transport_change);
+            let suspended = self.suspend(reg, false, caused_by_transport_change);
             let mut g = lock(reg);
             // Reset position!
             g.set_cur_pos(PositionInSeconds::new(0.0));
@@ -714,27 +714,46 @@ impl PlayingState {
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
-        self.suspend(false, false).clear(reg)
+        self.suspend(reg, false, false).clear(reg)
     }
 
-    pub fn pause(self, caused_by_transport_change: bool) -> TransitionResult {
-        Ok(State::Suspended(
-            self.suspend(true, caused_by_transport_change),
-        ))
+    pub fn pause(self, reg: &SharedRegister, caused_by_transport_change: bool) -> TransitionResult {
+        Ok(State::Suspended(self.suspend(
+            reg,
+            true,
+            caused_by_transport_change,
+        )))
     }
 
-    fn suspend(self, pause: bool, caused_by_transport_change: bool) -> SuspendedState {
+    fn suspend(
+        self,
+        reg: &SharedRegister,
+        pause: bool,
+        caused_by_transport_change: bool,
+    ) -> SuspendedState {
         // If not successful this probably means it was stopped already, so okay.
         if let Some(track) = self.args.track.as_ref() {
             let project = track.project();
             // Check prevents error message on project close.
-            if project.is_available() {
-                let _ = unsafe {
-                    Reaper::get()
-                        .medium_session()
-                        .stop_track_preview_2(project.context(), self.handle)
-                };
+            let mut guard = lock(reg);
+            if let Some(src) = guard.src() {
+                unsafe {
+                    src.as_ref().extended(
+                        EXT_REQUEST_MIDI_STOP,
+                        null_mut(),
+                        null_mut(),
+                        null_mut(),
+                    );
+                }
             }
+            // TODO-high
+            // if project.is_available() {
+            //     let _ = unsafe {
+            //         Reaper::get()
+            //             .medium_session()
+            //             .stop_track_preview_2(project.context(), self.handle)
+            //     };
+            // }
         } else {
             let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
         };
@@ -868,7 +887,11 @@ impl CustomPcmSource for DecoratedPcmSource {
                 self.inner.get_samples(args.block);
             },
             MidiStopRequested => unsafe {
-                self.inner.get_samples(args.block);
+                if let Ok(raw_midi_event) = RawMidiEvent::try_from_slice(0, &[0x90, 100, 100]) {
+                    let raw_midi_event = BorrowedMidiEvent::new(raw_midi_event.as_ref());
+                    args.block.midi_event_list().add_item(raw_midi_event);
+                }
+                // self.inner.get_samples(args.block);
                 // let mut block = unsafe { args.block.into_inner().as_ref() };
                 // self.state = AllNotesOffSent;
             },
