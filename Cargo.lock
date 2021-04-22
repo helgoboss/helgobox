@@ -2177,6 +2177,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pathdiff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877630b3de15c0b64cc52f659345724fbf6bdad9bd9566699fc53688f3c34a34"
+
+[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2678,7 +2684,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1ce5ba43a8be2881e6435ade72ee5d32fd851ff3"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1fd5a9e94024b9624d2cc78a12bd4a21fafebf92"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2688,8 +2694,10 @@ dependencies = [
  "metered",
  "num_enum 0.4.3",
  "once_cell",
+ "pathdiff",
  "reaper-low",
  "reaper-medium",
+ "ref-cast",
  "regex",
  "serde",
  "serde_yaml",
@@ -2702,7 +2710,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1ce5ba43a8be2881e6435ade72ee5d32fd851ff3"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1fd5a9e94024b9624d2cc78a12bd4a21fafebf92"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2715,7 +2723,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1ce5ba43a8be2881e6435ade72ee5d32fd851ff3"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1fd5a9e94024b9624d2cc78a12bd4a21fafebf92"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.7",
@@ -2725,22 +2733,25 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1ce5ba43a8be2881e6435ade72ee5d32fd851ff3"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1fd5a9e94024b9624d2cc78a12bd4a21fafebf92"
 dependencies = [
  "c_str_macro",
  "derive_more",
  "enumflags2",
  "helgoboss-midi",
+ "libc",
  "reaper-low",
  "reaper-macros",
+ "ref-cast",
  "serde",
  "vst",
+ "winapi 0.3.9",
 ]
 
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1ce5ba43a8be2881e6435ade72ee5d32fd851ff3"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1fd5a9e94024b9624d2cc78a12bd4a21fafebf92"
 dependencies = [
  "crossbeam-channel 0.4.4",
  "helgoboss-midi",
@@ -2765,6 +2776,26 @@ dependencies = [
  "getrandom",
  "redox_syscall",
  "rust-argon2",
+]
+
+[[package]]
+name = "ref-cast"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300f2a835d808734ee295d45007adacb9ebb29dd3ae2424acfa17930cae541da"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c38e3aecd2b21cb3959637b883bb3714bc7e43f0268b9a29d3743ee3e55cdd2"
+dependencies = [
+ "proc-macro2 1.0.26",
+ "quote 1.0.7",
+ "syn 1.0.69",
 ]
 
 [[package]]
