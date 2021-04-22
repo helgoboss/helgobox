@@ -5267,6 +5267,9 @@ impl View for MappingPanel {
     // or is done two times if SWELL supports focus kill notification at some point on Linux.
     #[cfg(not(target_os = "linux"))]
     fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        if self.is_invoked_programmatically() {
+            return false;
+        }
         let view = self.clone();
         self.handle_potential_min_max_edit_control_change(resource_id);
         // This is also called when the window is hidden.
