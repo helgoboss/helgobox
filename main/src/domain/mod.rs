@@ -63,6 +63,9 @@ pub use realearn_target_context::*;
 mod backbone_state;
 pub use backbone_state::*;
 
+mod instance_state;
+pub use instance_state::*;
+
 mod osc;
 pub use osc::*;
 
@@ -71,3 +74,6 @@ pub use exclusivity::*;
 
 mod io;
 pub use io::*;
+
+mod clip_slot;
+pub use clip_slot::*;

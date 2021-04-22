@@ -37,7 +37,10 @@ use crate::application::{
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::core::Global;
-use crate::domain::{control_element_domains, ControlContext, FeedbackOutput, SendMidiDestination};
+use crate::domain::{
+    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, SendMidiDestination,
+    SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
+};
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
@@ -169,14 +172,133 @@ impl MappingPanel {
         Ok(())
     }
 
-    fn handle_target_line_3_button_press(&self) {
-        if let Some(preset) = prompt_for_predefined_raw_midi_pattern(self.view.require_window()) {
-            let mapping = self.mapping();
-            mapping
-                .borrow_mut()
-                .target_model
-                .raw_midi_pattern
-                .set(preset);
+    fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+        let target_type = mapping.borrow().target_model.r#type.get();
+        match target_type {
+            ReaperTargetType::SendMidi => {
+                if let Some(preset) =
+                    prompt_for_predefined_raw_midi_pattern(self.view.require_window())
+                {
+                    mapping
+                        .borrow_mut()
+                        .target_model
+                        .raw_midi_pattern
+                        .set(preset);
+                }
+            }
+            t if t.supports_slot() => {
+                if let Some(action) = self.prompt_for_slot_action() {
+                    self.invoke_slot_menu_action(action)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn prompt_for_slot_action(&self) -> Option<SlotMenuAction> {
+        let menu_bar = MenuBar::new_popup_menu();
+        let pure_menu = {
+            use swell_ui::menu_tree::*;
+            let session = self.session();
+            let session = session.borrow();
+            let entries = vec![
+                item("Show slot info", || SlotMenuAction::ShowSlotInfo),
+                item_with_opts(
+                    "Fill with selected item source",
+                    ItemOpts {
+                        enabled: session
+                            .context()
+                            .project_or_current_project()
+                            .first_selected_item()
+                            .is_some(),
+                        checked: false,
+                    },
+                    || SlotMenuAction::FillWithItemSource,
+                ),
+            ];
+            let mut root_menu = root_menu(entries);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
+        };
+        let result_index = self
+            .view
+            .require_window()
+            .open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
+        let item = pure_menu.find_item_by_id(result_index)?;
+        Some(item.invoke_handler())
+    }
+
+    fn invoke_slot_menu_action(&self, action: SlotMenuAction) -> Result<(), &'static str> {
+        match action {
+            SlotMenuAction::ShowSlotInfo => {
+                struct SlotInfo {
+                    file_name: String,
+                    clip_info: Option<ClipInfo>,
+                }
+                let info = {
+                    let instance_state = self.session().borrow().instance_state().clone();
+                    let instance_state = instance_state.borrow();
+                    let mapping = self.mapping();
+                    let mapping = mapping.borrow();
+                    let slot_index = mapping.target_model.slot_index.get();
+                    if let Ok(slot) = instance_state.get_slot(slot_index) {
+                        if let Some(content) = &slot.descriptor().content {
+                            let info = SlotInfo {
+                                file_name: content
+                                    .file()
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_default(),
+                                clip_info: slot.clip_info(),
+                            };
+                            Some(info)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                };
+                let msg = if let Some(info) = info {
+                    let suffix = if let Some(clip_info) = info.clip_info {
+                        format!(
+                            "Type: {}\n\nLength: {}",
+                            clip_info.r#type,
+                            clip_info
+                                .length
+                                .map(|l| format!("{} secs", l))
+                                .unwrap_or_default()
+                        )
+                    } else {
+                        "<offline>".to_owned()
+                    };
+                    format!("Source: {}\n\n{}", info.file_name, suffix)
+                } else {
+                    "Slot is empty".to_owned()
+                };
+                self.view.require_window().alert("ReaLearn", msg);
+                Ok(())
+            }
+            SlotMenuAction::FillWithItemSource => {
+                let result = {
+                    let session = self.session();
+                    let session = session.borrow();
+                    let item = session
+                        .context()
+                        .project_or_current_project()
+                        .first_selected_item()
+                        .ok_or("no item selected")?;
+                    let slot_index = self.mapping().borrow().target_model.slot_index.get();
+                    let mut instance_state = session.instance_state().borrow_mut();
+                    instance_state.fill_slot_with_item_source(slot_index, item)
+                };
+                if let Err(e) = result {
+                    self.view.require_window().alert("ReaLearn", e.to_string());
+                }
+                Ok(())
+            }
         }
     }
 
@@ -1344,7 +1466,7 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track_must_be_selected() => {
+                _ if self.mapping.target_model.supports_track_must_be_selected() => {
                     self.mapping
                         .target_model
                         .enable_only_if_track_selected
@@ -1395,6 +1517,9 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.use_regions.set(is_checked);
                 }
+                ReaperTargetType::ClipTransport => {
+                    self.mapping.target_model.next_bar.set(is_checked);
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -1411,6 +1536,9 @@ impl<'a> MutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Seek | ReaperTargetType::GoToBookmark => {
                     self.mapping.target_model.use_loop_points.set(is_checked);
+                }
+                ReaperTargetType::ClipTransport => {
+                    self.mapping.target_model.buffered.set(is_checked);
                 }
                 _ => {}
             },
@@ -1481,14 +1609,14 @@ impl<'a> MutableMappingPanel<'a> {
                         .bookmark_anchor_type
                         .set(bookmark_anchor_type);
                 }
-                ReaperTargetType::Seek => {
+                t if t.supports_feedback_resolution() => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
                         .target_model
                         .feedback_resolution
                         .set(i.try_into().expect("invalid feedback resolution"));
                 }
-                t if t.supports_track() => {
+                _ if self.mapping.target_model.supports_track() => {
                     let track_type = combo
                         .selected_combo_box_item_index()
                         .try_into()
@@ -1507,6 +1635,10 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_slot() => {
+                    let slot_index = combo.selected_combo_box_item_index();
+                    self.mapping.target_model.slot_index.set(slot_index);
+                }
                 t if t.supports_fx() => {
                     let fx_type = combo
                         .selected_combo_box_item_index()
@@ -1608,7 +1740,7 @@ impl<'a> MutableMappingPanel<'a> {
                     };
                     self.mapping.target_model.osc_dev_id.set(dev_id);
                 }
-                t if t.supports_track() => {
+                _ if self.mapping.target_model.supports_track() => {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
                     if let Some(track) = project.track_by_index(i as _) {
@@ -1710,6 +1842,13 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::ClipTransport => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .transport_action
+                        .set(i.try_into().expect("invalid transport action"));
+                }
                 ReaperTargetType::FxParameter => {
                     if let Ok(fx) = self.target_with_context().fx() {
                         let i = combo.selected_combo_box_item_index();
@@ -1781,30 +1920,32 @@ impl<'a> MutableMappingPanel<'a> {
         let control = self.view.require_control(edit_control_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track() => match self.mapping.target_model.track_type.get() {
-                    VirtualTrackType::Dynamic => {
-                        let expression = control.text().unwrap_or_default();
-                        self.mapping
-                            .target_model
-                            .track_expression
-                            .set_with_initiator(expression, Some(edit_control_id));
+                _ if self.mapping.target_model.supports_track() => {
+                    match self.mapping.target_model.track_type.get() {
+                        VirtualTrackType::Dynamic => {
+                            let expression = control.text().unwrap_or_default();
+                            self.mapping
+                                .target_model
+                                .track_expression
+                                .set_with_initiator(expression, Some(edit_control_id));
+                        }
+                        VirtualTrackType::ByName => {
+                            let name = control.text().unwrap_or_default();
+                            self.mapping
+                                .target_model
+                                .track_name
+                                .set_with_initiator(name, Some(edit_control_id));
+                        }
+                        VirtualTrackType::ByIndex => {
+                            let index = parse_position_as_index(control);
+                            self.mapping
+                                .target_model
+                                .track_index
+                                .set_with_initiator(index, Some(edit_control_id));
+                        }
+                        _ => {}
                     }
-                    VirtualTrackType::ByName => {
-                        let name = control.text().unwrap_or_default();
-                        self.mapping
-                            .target_model
-                            .track_name
-                            .set_with_initiator(name, Some(edit_control_id));
-                    }
-                    VirtualTrackType::ByIndex => {
-                        let index = parse_position_as_index(control);
-                        self.mapping
-                            .target_model
-                            .track_index
-                            .set_with_initiator(index, Some(edit_control_id));
-                    }
-                    _ => {}
-                },
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {
@@ -2463,14 +2604,18 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_target_line_2(initiator);
         self.invalidate_target_line_3(initiator);
         self.invalidate_target_line_4(initiator);
+        self.invalidate_target_value_controls();
+        self.invalidate_target_learn_button();
+        self.invalidate_target_check_boxes();
+    }
+
+    fn invalidate_target_check_boxes(&self) {
         self.invalidate_target_check_box_1();
         self.invalidate_target_check_box_2();
         self.invalidate_target_check_box_3();
         self.invalidate_target_check_box_4();
         self.invalidate_target_check_box_5();
         self.invalidate_target_check_box_6();
-        self.invalidate_target_value_controls();
-        self.invalidate_target_learn_button();
     }
 
     fn invalidate_target_type_combo_box(&self) {
@@ -2518,10 +2663,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     BookmarkType::Marker => Some("Marker"),
                     BookmarkType::Region => Some("Region"),
                 },
-                ReaperTargetType::Seek => Some("Feedback"),
+                t if t.supports_feedback_resolution() => Some("Feedback"),
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
-                t if t.supports_track() => Some("Track"),
+                _ if self.target.supports_track() => Some("Track"),
                 _ => None,
             },
             TargetCategory::Virtual => Some("ID"),
@@ -2559,7 +2704,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                t if t.supports_track() => {
+                _ if self.target.supports_track() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualTrackType::into_enum_iter());
                     combo
@@ -2575,7 +2720,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
-                ReaperTargetType::Seek => {
+                t if t.supports_feedback_resolution() => {
                     combo.show();
                     combo.fill_combo_box_indexed(PlayPosFeedbackResolution::into_enum_iter());
                     combo
@@ -2671,7 +2816,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         combo.select_combo_box_item_by_data(-1).unwrap();
                     };
                 }
-                t if t.supports_track() => {
+                _ if self.target.supports_track() => {
                     if matches!(
                         self.target.track_type.get(),
                         VirtualTrackType::ById | VirtualTrackType::ByIdOrName
@@ -2721,7 +2866,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_2_EDIT_CONTROL);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track() => {
+                _ if self.target.supports_track() => {
                     control.show();
                     let text = match self.target.track_type.get() {
                         VirtualTrackType::Dynamic => self.target.track_expression.get_ref().clone(),
@@ -2781,6 +2926,7 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_line_3(&self, initiator: Option<u32>) {
         self.invalidate_target_line_3_label_1();
+        self.invalidate_target_line_3_label_2();
         self.invalidate_target_line_3_label_3();
         self.invalidate_target_line_3_combo_box_1();
         self.invalidate_target_line_3_combo_box_2();
@@ -2801,6 +2947,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_slot() => Some("..."),
                 ReaperTargetType::SendMidi => Some("Pick!"),
                 _ => None,
             },
@@ -2953,6 +3100,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
+                t if t.supports_slot() => Some("Slot"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
@@ -2970,6 +3118,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
+                ReaperTargetType::ClipTransport => Some("Action"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_send() => match self.target.route_type.get() {
@@ -2984,6 +3133,42 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_TARGET_LINE_4_LABEL_1)
             .set_text_or_hide(text);
+    }
+
+    fn invalidate_target_line_3_label_2(&self) {
+        let state = match self.target_category() {
+            TargetCategory::Reaper => match self.reaper_target_type() {
+                t if t.supports_slot() => {
+                    let instance_state = self.session.instance_state().borrow();
+                    let slot = instance_state.get_slot(self.target.slot_index.get()).ok();
+                    let (label, enabled) = if let Some(slot) = slot {
+                        if let Some(content) = &slot.descriptor().content {
+                            match content {
+                                SlotContent::File { file } => (
+                                    file.to_string_lossy().to_string(),
+                                    slot.clip_info().is_some(),
+                                ),
+                            }
+                        } else {
+                            ("<Slot empty>".to_owned(), false)
+                        }
+                    } else {
+                        ("<Invalid slot>".to_owned(), false)
+                    };
+                    Some((label, enabled))
+                }
+                _ => None,
+            },
+            TargetCategory::Virtual => None,
+        };
+        let label = self.view.require_control(root::ID_TARGET_LINE_3_LABEL_2);
+        if let Some((text, enabled)) = state {
+            label.show();
+            label.set_enabled(enabled);
+            label.set_text(text);
+        } else {
+            label.hide();
+        }
     }
 
     fn invalidate_target_line_4_label_2(&self) {
@@ -3012,6 +3197,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.r#type.get() {
+                t if t.supports_slot() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(
+                        (0..CLIP_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
+                    );
+                    combo
+                        .select_combo_box_item_by_index(self.target.slot_index.get())
+                        .unwrap();
+                }
                 t if t.supports_fx() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
@@ -3177,6 +3371,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::ClipTransport => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.transport_action.get().into(),
+                        )
+                        .unwrap();
+                }
                 ReaperTargetType::FxParameter
                     if self.target.param_type.get() == VirtualFxParameterType::ByIndex =>
                 {
@@ -3273,7 +3476,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_check_box_1(&self) {
-        let res = match self.target.category.get() {
+        let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 t if t.supports_fx_chain() => {
                     if matches!(
@@ -3303,13 +3506,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => None,
         };
-        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_1, res);
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_1, state);
     }
 
     fn invalidate_target_check_box_2(&self) {
-        let res = match self.target.category.get() {
+        let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                t if t.supports_track_must_be_selected() => {
+                _ if self.mapping.target_model.supports_track_must_be_selected() => {
                     if self
                         .target
                         .track_type
@@ -3332,11 +3535,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => None,
         };
-        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_2, res);
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_2, state);
     }
 
     fn invalidate_target_check_box_3(&self) {
-        let res = match self.target.category.get() {
+        let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 t if t.supports_fx() => {
                     if self.target.fx_type.get() == VirtualFxType::Focused {
@@ -3353,22 +3556,33 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => None,
         };
-        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_3, res);
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_3, state);
     }
 
     fn invalidate_target_check_box_4(&self) {
-        let res = match self.target.category.get() {
+        let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions.get())),
+                ReaperTargetType::ClipTransport
+                    if matches!(
+                        self.target.transport_action.get(),
+                        TransportAction::PlayStop
+                            | TransportAction::PlayPause
+                            | TransportAction::Stop
+                    ) =>
+                {
+                    Some(("Next bar", self.target.next_bar.get()))
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
         };
-        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_4, res);
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_4, state);
     }
 
     fn invalidate_target_check_box_5(&self) {
-        let res = match self.target.category.get() {
+        let checkbox_id = root::ID_TARGET_CHECK_BOX_5;
+        let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 ReaperTargetType::Seek => {
                     Some(("Use loop points", self.target.use_loop_points.get()))
@@ -3376,15 +3590,30 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set loop points", self.target.use_loop_points.get()))
                 }
+                ReaperTargetType::ClipTransport
+                    if matches!(
+                        self.target.transport_action.get(),
+                        TransportAction::PlayStop | TransportAction::PlayPause
+                    ) =>
+                {
+                    let is_enabled = !self.target.next_bar.get();
+                    self.view
+                        .require_control(checkbox_id)
+                        .set_enabled(is_enabled);
+                    Some((
+                        "Buffered",
+                        self.target.slot_play_options().is_effectively_buffered(),
+                    ))
+                }
                 _ => None,
             },
             TargetCategory::Virtual => None,
         };
-        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_5, res);
+        self.invalidate_check_box(checkbox_id, state);
     }
 
     fn invalidate_target_check_box_6(&self) {
-        let res = match self.target.category.get() {
+        let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
                 ReaperTargetType::Seek => {
                     Some(("Use time selection", self.target.use_time_selection.get()))
@@ -3396,7 +3625,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => None,
         };
-        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_6, res);
+        self.invalidate_check_box(root::ID_TARGET_CHECK_BOX_6, state);
     }
 
     fn invalidate_check_box<'b>(
@@ -3419,7 +3648,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         //  first resolved target into account.
         let error = if let Some(t) = self.first_resolved_target() {
             if t.can_report_current_value() {
-                let value = t.current_value().unwrap_or(UnitValue::MIN);
+                let control_context = create_control_context(
+                    self.session.feedback_output(),
+                    self.session.instance_state(),
+                );
+                let value = t
+                    .current_value(Some(control_context))
+                    .unwrap_or(UnitValue::MIN);
                 self.invalidate_target_value_controls_with_value(value);
                 None
             } else {
@@ -3486,6 +3721,15 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn register_session_listeners(&self) {
+        self.panel.when(
+            self.session
+                .instance_state()
+                .borrow()
+                .slot_contents_changed(),
+            |view, _| {
+                view.invalidate_target_line_3_label_2();
+            },
+        );
         self.panel.when(
             self.session.mapping_which_learns_source_changed(),
             |view, _| {
@@ -4418,7 +4662,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.touched_parameter_type.changed())
                 .merge(target.track_automation_mode.changed())
                 .merge(target.automation_mode_override_type.changed())
-                .merge(target.track_area.changed()),
+                .merge(target.track_area.changed())
+                .merge(target.slot_index.changed()),
             |view, _| {
                 view.invalidate_target_line_3(None);
             },
@@ -4453,7 +4698,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.seek_play.changed()),
             |view, _| {
                 view.invalidate_window_title();
-                view.invalidate_target_check_box_1();
+                view.invalidate_target_check_boxes();
                 view.invalidate_target_value_controls();
             },
         );
@@ -4464,7 +4709,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.scroll_mixer.changed())
                 .merge(target.move_view.changed()),
             |view, _| {
-                view.invalidate_target_check_box_2();
+                view.invalidate_target_check_boxes();
             },
         );
         self.panel.when(
@@ -4473,19 +4718,30 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .changed()
                 .merge(target.use_project.changed()),
             |view, _| {
-                view.invalidate_target_check_box_3();
+                view.invalidate_target_check_boxes();
             },
         );
-        self.panel.when(target.use_regions.changed(), |view, _| {
-            view.invalidate_target_check_box_4();
-        });
-        self.panel
-            .when(target.use_loop_points.changed(), |view, _| {
-                view.invalidate_target_check_box_5();
-            });
+        self.panel.when(
+            target
+                .use_regions
+                .changed()
+                .merge(target.next_bar.changed()),
+            |view, _| {
+                view.invalidate_target_check_boxes();
+            },
+        );
+        self.panel.when(
+            target
+                .use_loop_points
+                .changed()
+                .merge(target.buffered.changed()),
+            |view, _| {
+                view.invalidate_target_check_boxes();
+            },
+        );
         self.panel
             .when(target.use_time_selection.changed(), |view, _| {
-                view.invalidate_target_check_box_6();
+                view.invalidate_target_check_boxes();
             });
         self.panel
             .when(target.feedback_resolution.changed(), |view, _| {
@@ -4823,7 +5079,7 @@ impl View for MappingPanel {
                 let _ = self.handle_target_line_2_button_press();
             }
             root::ID_TARGET_LINE_3_BUTTON => {
-                self.handle_target_line_3_button_press();
+                let _ = self.handle_target_line_3_button_press();
             }
             root::ID_TARGET_LINE_4_BUTTON => {
                 let _ = self.handle_target_line_4_button_press();
@@ -4920,10 +5176,19 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok((targets, feedback_output)) =
-                    self.read(|p| (p.resolved_targets(), p.session.feedback_output()))
-                {
-                    update_target_value(&targets, s.slider_unit_value(), feedback_output);
+                if let Ok((targets, feedback_output, instance_state)) = self.read(|p| {
+                    (
+                        p.resolved_targets(),
+                        p.session.feedback_output(),
+                        p.session.instance_state().clone(),
+                    )
+                }) {
+                    update_target_value(
+                        &targets,
+                        s.slider_unit_value(),
+                        feedback_output,
+                        &instance_state,
+                    );
                 }
             }
             _ => unreachable!(),
@@ -4980,13 +5245,18 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (targets, value, feedback_output) = view.write(|p| {
+                let (targets, value, feedback_output, instance_state) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                         .unwrap_or(UnitValue::MIN);
-                    (p.resolved_targets(), value, p.session.feedback_output())
+                    (
+                        p.resolved_targets(),
+                        value,
+                        p.session.feedback_output(),
+                        p.session.instance_state().clone(),
+                    )
                 });
-                update_target_value(&targets, value, feedback_output);
+                update_target_value(&targets, value, feedback_output, &instance_state);
             }
             _ => return false,
         };
@@ -4997,6 +5267,9 @@ impl View for MappingPanel {
     // or is done two times if SWELL supports focus kill notification at some point on Linux.
     #[cfg(not(target_os = "linux"))]
     fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
+        if self.is_invoked_programmatically() {
+            return false;
+        }
         let view = self.clone();
         self.handle_potential_min_max_edit_control_change(resource_id);
         // This is also called when the window is hidden.
@@ -5065,17 +5338,29 @@ fn update_target_value(
     targets: &[CompoundMappingTarget],
     value: UnitValue,
     feedback_output: Option<FeedbackOutput>,
+    instance_state: &SharedInstanceState,
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
-        let _ = target.control(
+        let res = target.control(
             ControlValue::Absolute(value),
-            ControlContext {
-                feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
-                osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
-                feedback_output,
-            },
+            create_control_context(feedback_output, instance_state),
         );
+        if let Err(msg) = res {
+            slog::debug!(App::logger(), "Control failed: {}", msg);
+        }
+    }
+}
+
+fn create_control_context(
+    feedback_output: Option<FeedbackOutput>,
+    instance_state: &SharedInstanceState,
+) -> ControlContext {
+    ControlContext {
+        feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
+        osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
+        feedback_output,
+        instance_state,
     }
 }
 
@@ -5580,4 +5865,9 @@ fn format_osc_arg_index(index: Option<u32>) -> String {
     } else {
         "".to_owned()
     }
+}
+
+enum SlotMenuAction {
+    ShowSlotInfo,
+    FillWithItemSource,
 }

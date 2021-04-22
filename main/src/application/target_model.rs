@@ -17,10 +17,11 @@ use crate::domain::{
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
     FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
     PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SendMidiDestination,
-    SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
-    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
-    VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -117,6 +118,10 @@ pub struct TargetModel {
     pub osc_arg_index: Prop<Option<u32>>,
     pub osc_arg_type_tag: Prop<OscTypeTag>,
     pub osc_dev_id: Prop<Option<OscDeviceId>>,
+    // # For clip targets
+    pub slot_index: Prop<usize>,
+    pub next_bar: Prop<bool>,
+    pub buffered: Prop<bool>,
 }
 
 impl Default for TargetModel {
@@ -178,6 +183,9 @@ impl Default for TargetModel {
             osc_arg_index: prop(Some(0)),
             osc_arg_type_tag: prop(Default::default()),
             osc_dev_id: prop(None),
+            slot_index: prop(0),
+            next_bar: prop(false),
+            buffered: prop(false),
         }
     }
 }
@@ -424,7 +432,6 @@ impl TargetModel {
                         .set(RealearnAutomationMode::from_reaper(*am));
                 }
             },
-
             SendMidi { .. }
             | SendOsc { .. }
             | TrackVolume { .. }
@@ -446,6 +453,9 @@ impl TargetModel {
             | SelectedTrack { .. }
             | AllTrackFxEnable { .. }
             | LoadFxSnapshot { .. }
+            | ClipTransport { .. }
+            | ClipSeek { .. }
+            | ClipVolume { .. }
             | Seek { .. } => {}
         };
     }
@@ -509,6 +519,9 @@ impl TargetModel {
             .merge(self.osc_arg_index.changed())
             .merge(self.osc_arg_type_tag.changed())
             .merge(self.osc_dev_id.changed())
+            .merge(self.slot_index.changed())
+            .merge(self.next_bar.changed())
+            .merge(self.buffered.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -824,6 +837,20 @@ impl TargetModel {
                         arg_descriptor: self.osc_arg_descriptor(),
                         device_id: self.osc_dev_id.get(),
                     },
+                    ClipTransport => UnresolvedReaperTarget::ClipTransport {
+                        // TODO-medium Make it possible to pass direct HW output channel instead
+                        track_descriptor: Some(self.track_descriptor()?),
+                        slot_index: self.slot_index.get(),
+                        action: self.transport_action.get(),
+                        play_options: self.slot_play_options(),
+                    },
+                    ClipSeek => UnresolvedReaperTarget::ClipSeek {
+                        slot_index: self.slot_index.get(),
+                        feedback_resolution: self.feedback_resolution.get(),
+                    },
+                    ClipVolume => UnresolvedReaperTarget::ClipVolume {
+                        slot_index: self.slot_index.get(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -831,6 +858,13 @@ impl TargetModel {
                 let virtual_target = VirtualTarget::new(self.create_control_element());
                 Ok(UnresolvedCompoundMappingTarget::Virtual(virtual_target))
             }
+        }
+    }
+
+    pub fn slot_play_options(&self) -> SlotPlayOptions {
+        SlotPlayOptions {
+            next_bar: self.next_bar.get(),
+            buffered: self.buffered.get(),
         }
     }
 
@@ -854,6 +888,31 @@ impl TargetModel {
             context,
             compartment,
         }
+    }
+
+    pub fn supports_track(&self) -> bool {
+        let target_type = self.r#type.get();
+        if !target_type.supports_track() {
+            return false;
+        }
+        self.supports_track_apart_from_type()
+    }
+
+    pub fn supports_track_must_be_selected(&self) -> bool {
+        if !self.r#type.get().supports_track_must_be_selected() {
+            return false;
+        }
+        self.supports_track_apart_from_type()
+    }
+
+    fn supports_track_apart_from_type(&self) -> bool {
+        if self.r#type.get() == ReaperTargetType::ClipTransport {
+            use TransportAction::*;
+            if !matches!(self.transport_action.get(), PlayStop | PlayPause) {
+                return false;
+            }
+        }
+        true
     }
 
     pub fn supports_fx(&self) -> bool {
@@ -934,6 +993,9 @@ impl fmt::Display for TargetModel {
                     | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset | FxOpen
                     | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
                     | LoadFxSnapshot | SendMidi | SendOsc => f.write_str(tt.short_name()),
+                    ClipTransport | ClipSeek | ClipVolume => {
+                        write!(f, "{}: Slot {}", tt.short_name(), self.slot_index.get() + 1)
+                    }
                     Action => match self.action().ok() {
                         None => write!(f, "Action {}", self.command_id_label()),
                         Some(a) => f.write_str(a.name().to_str()),
@@ -1209,6 +1271,9 @@ impl<'a> Display for TargetModelWithContext<'a> {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc => {
                         write!(f, "{}", tt)
                     }
+                    ClipTransport | ClipSeek | ClipVolume => {
+                        write!(f, "{}", tt)
+                    }
                     Action => write!(
                         f,
                         "{}\n{}\n{}",
@@ -1408,6 +1473,14 @@ pub enum ReaperTargetType {
     #[display(fmt = "Send: Set volume")]
     TrackSendVolume = 3,
 
+    // Clip targets
+    #[display(fmt = "Clip: Invoke transport action")]
+    ClipTransport = 31,
+    #[display(fmt = "Clip: Seek")]
+    ClipSeek = 32,
+    #[display(fmt = "Clip: Volume")]
+    ClipVolume = 33,
+
     // Misc
     #[display(fmt = "MIDI: Send message")]
     SendMidi = 29,
@@ -1455,7 +1528,15 @@ impl ReaperTargetType {
             FxNavigate { .. } => ReaperTargetType::FxNavigate,
             SendMidi { .. } => ReaperTargetType::SendMidi,
             SendOsc { .. } => ReaperTargetType::SendOsc,
+            ClipTransport { .. } => ReaperTargetType::ClipTransport,
+            ClipSeek { .. } => ReaperTargetType::ClipSeek,
+            ClipVolume { .. } => ReaperTargetType::ClipVolume,
         }
+    }
+
+    pub fn supports_feedback_resolution(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, Seek | ClipSeek)
     }
 
     pub fn supports_track(self) -> bool {
@@ -1464,7 +1545,7 @@ impl ReaperTargetType {
             FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
             | TrackSelection | TrackMute | TrackShow | TrackAutomationMode | TrackSolo
             | TrackSendPan | TrackSendMute | FxEnable | FxOpen | FxNavigate | FxPreset
-            | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState => true,
+            | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState | ClipTransport => true,
             Action
             | Tempo
             | Playrate
@@ -1475,7 +1556,9 @@ impl ReaperTargetType {
             | Seek
             | SendMidi
             | SendOsc
-            | AutomationModeOverride => false,
+            | AutomationModeOverride
+            | ClipSeek
+            | ClipVolume => false,
         }
     }
 
@@ -1487,6 +1570,11 @@ impl ReaperTargetType {
     pub fn supports_track_scrolling(self) -> bool {
         use ReaperTargetType::*;
         matches!(self, TrackSelection | SelectedTrack)
+    }
+
+    pub fn supports_slot(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, ClipSeek | ClipTransport | ClipVolume)
     }
 
     pub fn supports_fx(self) -> bool {
@@ -1518,6 +1606,9 @@ impl ReaperTargetType {
             | AutomationModeOverride
             | SendMidi
             | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
             | FxNavigate => false,
         }
     }
@@ -1563,6 +1654,9 @@ impl ReaperTargetType {
             | FxOpen
             | SendMidi
             | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
             | FxNavigate => false,
         }
     }
@@ -1594,6 +1688,9 @@ impl ReaperTargetType {
             | FxOpen
             | SendMidi
             | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
             | FxNavigate => false,
         }
     }
@@ -1614,6 +1711,7 @@ impl ReaperTargetType {
             FxPreset => "Automatic feedback since REAPER v6.13",
             Action => "Limited feedback only",
             Seek => "Experimental target",
+            ClipTransport => "Experimental target, record not supported",
             TrackSendMute | AllTrackFxEnable | TrackShow => "No automatic feedback",
             _ => "",
         }
@@ -1653,6 +1751,9 @@ impl ReaperTargetType {
             TrackSendVolume => "Send volume",
             SendMidi => "Send MIDI",
             SendOsc => "Send OSC",
+            ClipTransport => "Clip transport",
+            ClipSeek => "Clip seek",
+            ClipVolume => "Clip volume",
         }
     }
 }

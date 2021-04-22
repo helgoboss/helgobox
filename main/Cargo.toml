@@ -123,6 +123,8 @@ wildmatch = "2.1.0"
 maplit = "1.0.2"
 # For easier support of named virtual control elements
 ascii = "1.0"
+# For using bit flags in the reaper-rs API.
+enumflags2 = { version = "^0.6", features = ["not_literal"] }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

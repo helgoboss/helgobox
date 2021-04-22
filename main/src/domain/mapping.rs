@@ -374,22 +374,21 @@ impl MainMapping {
             } else {
                 continue;
             };
-            let final_value = if let Some(v) = self.core.mode.poll(target) {
+            let final_value = if let Some(v) = self.core.mode.poll(target, Some(context)) {
                 v
             } else {
                 continue;
             };
             // Echo feedback, send feedback after control ... all of that is not important when
             // firing triggered by a timer.
-            // Be graceful here.
-            // TODO-medium In future we could display some kind of small unintrusive error message.
+            // Be graceful here. Don't debug-log errors for now because this is polled.
             let _ = target.control(final_value, context);
             if self.should_send_non_auto_feedback_after_control(target) {
                 should_send_feedback = true;
             }
         }
         if should_send_feedback {
-            self.feedback(true)
+            self.feedback(true, context)
         } else {
             None
         }
@@ -404,6 +403,7 @@ impl MainMapping {
         value: ControlValue,
         options: ControlOptions,
         context: ControlContext,
+        logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
@@ -416,16 +416,18 @@ impl MainMapping {
             } else {
                 continue;
             };
-            let final_value =
-                self.core
-                    .mode
-                    .control_with_options(value, target, options.mode_control_options);
+            let final_value = self.core.mode.control_with_options(
+                value,
+                target,
+                Some(context),
+                options.mode_control_options,
+            );
             if let Some(v) = final_value {
                 at_least_one_target_val_was_changed = true;
                 // Be graceful here.
-                // TODO-medium In future we could display some kind of small unintrusive error
-                // message.
-                let _ = target.control(v, context);
+                if let Err(msg) = target.control(v, context) {
+                    slog::debug!(logger, "Control failed: {}", msg);
+                }
                 if self.should_send_non_auto_feedback_after_control(target) {
                     send_feedback = true;
                 }
@@ -442,12 +444,12 @@ impl MainMapping {
                 self.core.time_of_last_control = Some(Instant::now());
             }
             if send_feedback {
-                self.feedback(true)
+                self.feedback(true, context)
             } else {
                 None
             }
         } else if send_feedback {
-            self.feedback_after_control_if_enabled(options)
+            self.feedback_after_control_if_enabled(options, context)
         } else {
             None
         }
@@ -489,13 +491,17 @@ impl MainMapping {
     }
 
     /// Returns `None` when used on mappings with virtual targets.
-    pub fn feedback(&self, with_projection_feedback: bool) -> Option<FeedbackValue> {
+    pub fn feedback(
+        &self,
+        with_projection_feedback: bool,
+        context: ControlContext,
+    ) -> Option<FeedbackValue> {
         let combined_target_value = self
             .core
             .targets
             .iter()
             .filter_map(|target| match target {
-                CompoundMappingTarget::Reaper(t) => t.current_value(),
+                CompoundMappingTarget::Reaper(t) => t.current_value(Some(context)),
                 _ => None,
             })
             .max()?;
@@ -514,8 +520,9 @@ impl MainMapping {
         &self,
         target_value: Option<UnitValue>,
         target: &ReaperTarget,
+        context: ControlContext,
     ) -> Option<UnitValue> {
-        target_value.or_else(|| target.current_value())
+        target_value.or_else(|| target.current_value(Some(context)))
     }
 
     pub fn feedback_given_target_value(
@@ -550,13 +557,17 @@ impl MainMapping {
         self.feedback_given_mode_value(UnitValue::MIN, true, true)
     }
 
-    fn feedback_after_control_if_enabled(&self, options: ControlOptions) -> Option<FeedbackValue> {
+    fn feedback_after_control_if_enabled(
+        &self,
+        options: ControlOptions,
+        context: ControlContext,
+    ) -> Option<FeedbackValue> {
         if self.core.options.send_feedback_after_control
             || options.enforce_send_feedback_after_control
         {
             if self.feedback_is_effectively_on() {
                 // No projection feedback in this case! Just the source controller needs this hack.
-                self.feedback(false)
+                self.feedback(false, context)
             } else {
                 None
             }
@@ -669,7 +680,7 @@ impl RealTimeMapping {
         control_value: ControlValue,
     ) -> Option<ControlValue> {
         let target = self.core.targets.first()?;
-        self.core.mode.control(control_value, target)
+        self.core.mode.control(control_value, target, None)
     }
 
     pub fn needs_to_be_processed_in_real_time(&self) -> bool {
@@ -1073,12 +1084,14 @@ impl RealearnTarget for CompoundMappingTarget {
     }
 }
 
-impl Target for CompoundMappingTarget {
-    fn current_value(&self) -> Option<UnitValue> {
+impl<'a> Target<'a> for CompoundMappingTarget {
+    type Context = Option<ControlContext<'a>>;
+
+    fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.current_value(),
-            Virtual(t) => t.current_value(),
+            Reaper(t) => t.current_value(context),
+            Virtual(t) => t.current_value(()),
         }
     }
 
@@ -1183,7 +1196,7 @@ fn match_partially(
             // TODO-medium If we want to support fire after timeout and turbo for mappings with
             //  virtual targets one day, we need to poll this in real-time processor and OSC
             //  processing, too!
-            let transformed_control_value = core.mode.control(control_value, t)?;
+            let transformed_control_value = core.mode.control(control_value, t, ())?;
             if core.options.prevent_echo_feedback {
                 core.time_of_last_control = Some(Instant::now());
             }

@@ -31,8 +31,10 @@ impl VirtualTarget {
     }
 }
 
-impl Target for VirtualTarget {
-    fn current_value(&self) -> Option<UnitValue> {
+impl<'a> Target<'a> for VirtualTarget {
+    type Context = ();
+
+    fn current_value(&self, _: ()) -> Option<UnitValue> {
         None
     }
 

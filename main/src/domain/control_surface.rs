@@ -80,7 +80,7 @@ pub enum AdditionalFeedbackEvent {
     /// useful for conditional activation.
     RealearnMonitoringFxParameterValueChanged(RealearnMonitoringFxParameterValueChangedEvent),
     ParameterAutomationTouchStateChanged(ParameterAutomationTouchStateChangedEvent),
-    PlayPositionChanged(PlayPositionChangedEvent),
+    BeatChanged(BeatChangedEvent),
 }
 
 #[derive(Debug)]
@@ -114,7 +114,7 @@ pub struct SourceReleasedEvent {
 }
 
 #[derive(Debug)]
-pub struct PlayPositionChangedEvent {
+pub struct BeatChangedEvent {
     pub project: Project,
     pub new_value: PositionInSeconds,
 }
@@ -365,11 +365,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 project.edit_cursor_position()
             };
             if self.record_possible_beat_change(project, reference_pos) {
-                let event =
-                    AdditionalFeedbackEvent::PlayPositionChanged(PlayPositionChangedEvent {
-                        project,
-                        new_value: reference_pos,
-                    });
+                let event = AdditionalFeedbackEvent::BeatChanged(BeatChangedEvent {
+                    project,
+                    new_value: reference_pos,
+                });
                 for p in &mut self.main_processors {
                     p.process_additional_feedback_event(&event);
                 }

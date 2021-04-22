@@ -111,6 +111,12 @@ pub struct TargetModelData {
     pub osc_arg_type: OscTypeTag,
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_dev_id: Option<OscDeviceId>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub slot_index: usize,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub next_bar: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub buffered: bool,
 }
 
 impl TargetModelData {
@@ -166,6 +172,9 @@ impl TargetModelData {
             osc_arg_index: model.osc_arg_index.get(),
             osc_arg_type: model.osc_arg_type_tag.get(),
             osc_dev_id: model.osc_dev_id.get(),
+            slot_index: model.slot_index.get(),
+            next_bar: model.next_bar.get(),
+            buffered: model.buffered.get(),
         }
     }
 
@@ -350,6 +359,15 @@ impl TargetModelData {
         model
             .osc_dev_id
             .set_with_optional_notification(self.osc_dev_id, with_notification);
+        model
+            .slot_index
+            .set_with_optional_notification(self.slot_index, with_notification);
+        model
+            .next_bar
+            .set_with_optional_notification(self.next_bar, with_notification);
+        model
+            .buffered
+            .set_with_optional_notification(self.buffered, with_notification);
     }
 }
 

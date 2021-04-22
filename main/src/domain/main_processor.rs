@@ -1,14 +1,15 @@
 use crate::domain::{
-    ActivationChange, AdditionalFeedbackEvent, BackboneState, CompoundMappingSource,
-    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
-    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackValue, InstanceOrchestrationEvent,
-    IoUpdatedEvent, MainMapping, MappingActivationEffect, MappingCompartment, MappingId,
-    MidiDestination, MidiSource, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
-    PartialControlMatch, PlayPosFeedbackResolution, ProcessorContext, QualifiedSource,
-    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    ReaperTarget, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
-    VirtualSourceValue,
+    ActivationChange, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent,
+    CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
+    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackValue,
+    InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
+    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
+    PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
+    VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
@@ -16,7 +17,7 @@ use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
-use slog::debug;
+use slog::{debug, trace};
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 
@@ -47,6 +48,9 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
     beat_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings whose feedback might change depending on the current milli.
+    /// TODO-low The mappings in there are polled regularly (even if main timeline is not playing).
+    ///  could be optimized. However, this is what makes the seek target work currently when
+    ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
     poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
@@ -58,6 +62,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
+    instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
@@ -72,6 +77,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     control_is_globally_enabled: bool,
     control_input: ControlInput,
     feedback_output: Option<FeedbackOutput>,
+    instance_state: SharedInstanceState,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -83,6 +89,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
+        instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
@@ -91,6 +98,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
         event_handler: EH,
         context: ProcessorContext,
+        instance_state: SharedInstanceState,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
@@ -124,6 +132,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             additional_feedback_event_sender,
             instance_orchestration_event_sender,
             feedback_audio_hook_task_sender,
+            instance_state,
+            instance_feedback_event_receiver,
         }
     }
 
@@ -144,7 +154,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.feedback_is_effectively_enabled() {
                     debug!(self.logger, "Taking over source {:?}...", source);
-                    let feedback = followed_mapping.feedback(true);
+                    let feedback = followed_mapping.feedback(true, self.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
@@ -159,6 +169,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             false
+        }
+    }
+
+    fn control_context(&self) -> ControlContext {
+        ControlContext {
+            feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+            osc_feedback_task_sender: &self.osc_feedback_task_sender,
+            feedback_output: self.feedback_output,
+            instance_state: &self.instance_state,
         }
     }
 
@@ -234,7 +253,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                         .feedback_audio_hook_task_sender,
                                     osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                     feedback_output: self.feedback_output,
+                                    instance_state: &self.instance_state,
                                 },
+                                &self.logger,
                             );
                             self.send_feedback(FeedbackReason::Normal, feedback);
                         };
@@ -248,6 +269,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
                             osc_feedback_task_sender: &self.osc_feedback_task_sender,
                             feedback_output: self.feedback_output,
+                            instance_state: &self.instance_state,
                         });
                         self.send_feedback(FeedbackReason::Normal, feedback);
                     }
@@ -771,7 +793,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     ));
                                     if m.has_reaper_target() && m.has_resolved_successfully() {
                                         if m.feedback_is_effectively_on() {
-                                            m.feedback(true)
+                                            m.feedback(
+                                                true,
+                                                ControlContext {
+                                                    feedback_audio_hook_task_sender: &self
+                                                        .feedback_audio_hook_task_sender,
+                                                    osc_feedback_task_sender: &self
+                                                        .osc_feedback_task_sender,
+                                                    feedback_output: self.feedback_output,
+                                                    instance_state: &self.instance_state,
+                                                },
+                                            )
                                         } else {
                                             None
                                         }
@@ -786,6 +818,62 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 }
             }
+        }
+        // TODO-medium This is polled on each main loop cycle. As soon as we have more than 8 slots,
+        //  We should introduce a set that contains the currently filled or playing slot numbers
+        //  iterate over them only instead of all slots.
+        {
+            let mut instance_state = self.instance_state.borrow_mut();
+            for i in 0..CLIP_SLOT_COUNT {
+                for event in instance_state.poll_slot(i).into_iter() {
+                    if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
+                        // Position changed. This happens very frequently when a clip is playing.
+                        // Mappings with slot seek targets are in the beat-dependent feedback
+                        // mapping set, not in the milli-dependent one (because we don't want to
+                        // query their feedback value more than once in one main loop cycle).
+                        let instance_event = InstanceFeedbackEvent::ClipChanged {
+                            slot_index: i,
+                            event,
+                        };
+                        for compartment in MappingCompartment::enum_iter() {
+                            for mapping_id in
+                                self.beat_dependent_feedback_mappings[compartment].iter()
+                            {
+                                if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                                    self.process_feedback_related_reaper_event_for_mapping(
+                                        compartment,
+                                        m,
+                                        &|target| {
+                                            target.value_changed_from_instance_feedback_event(
+                                                &instance_event,
+                                            )
+                                        },
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        // Other property of clip changed.
+                        let instance_event = InstanceFeedbackEvent::ClipChanged {
+                            slot_index: i,
+                            event,
+                        };
+                        self.process_feedback_related_reaper_event(|target| {
+                            target.value_changed_from_instance_feedback_event(&instance_event)
+                        });
+                    }
+                }
+            }
+        }
+        // Process instance-state feedback events
+        for event in self
+            .instance_feedback_event_receiver
+            .try_iter()
+            .take(FEEDBACK_TASK_BULK_SIZE)
+        {
+            self.process_feedback_related_reaper_event(|target| {
+                target.value_changed_from_instance_feedback_event(&event)
+            });
         }
         // Process high-resolution playback-position dependent feedback
         for compartment in MappingCompartment::enum_iter() {
@@ -878,7 +966,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
-        if let AdditionalFeedbackEvent::PlayPositionChanged(_) = event {
+        if let AdditionalFeedbackEvent::BeatChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
             for compartment in MappingCompartment::enum_iter() {
@@ -926,7 +1014,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .unwrap();
         }
         self.process_feedback_related_reaper_event(|target| {
-            target.value_changed_from_change_event(event)
+            target.process_change_event(event, self.control_context())
         });
     }
 
@@ -991,7 +1079,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let new_target_value = new_values
             .into_iter()
             .map(|(target, new_value)| {
-                m.given_or_current_value(new_value, target)
+                m.given_or_current_value(new_value, target, self.control_context())
                     .unwrap_or(UnitValue::MIN)
             })
             .max();
@@ -1056,6 +1144,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             event_handler: &self.event_handler,
                             feedback_output: self.feedback_output,
                             logger: &self.logger,
+                            instance_state: &self.instance_state,
                         },
                         &mut self.mappings_with_virtual_targets,
                         &mut self.mappings[MappingCompartment::MainMappings],
@@ -1094,7 +1183,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     .feedback_audio_hook_task_sender,
                                 osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                 feedback_output: self.feedback_output,
+                                instance_state: &self.instance_state,
                             },
+                            &self.logger,
                         );
                         send_direct_and_virtual_feedback(
                             &InstanceProps {
@@ -1108,6 +1199,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 event_handler: &self.event_handler,
                                 feedback_output: self.feedback_output,
                                 logger: &self.logger,
+                                instance_state: &self.instance_state,
                             },
                             &self.mappings_with_virtual_targets,
                             FeedbackReason::Normal,
@@ -1193,6 +1285,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             event_handler: &self.event_handler,
             feedback_output: self.feedback_output,
             logger: &self.logger,
+            instance_state: &self.instance_state,
         }
     }
 
@@ -1229,7 +1322,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.all_mappings_without_virtual_targets()
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
-                    m.feedback(true)
+                    m.feedback(true, self.control_context())
                 } else {
                     None
                 }
@@ -1268,7 +1361,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
         let followed_mapping = self.follow_maybe_virtual_mapping(m)?;
-        followed_mapping.feedback(true)
+        followed_mapping.feedback(true, self.control_context())
     }
 
     fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
@@ -1577,6 +1670,7 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     event_handler: &'a EH,
     feedback_output: Option<FeedbackOutput>,
     logger: &'a slog::Logger,
+    instance_state: &'a SharedInstanceState,
 }
 
 impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {
@@ -1680,9 +1774,11 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
     source_feedback_value: SourceFeedbackValue,
 ) {
     // No interference with other instances.
-    debug!(
+    trace!(
         instance.logger,
-        "Schedule sending feedback because {:?}: {:?}", feedback_reason, source_feedback_value
+        "Schedule sending feedback because {:?}: {:?}",
+        feedback_reason,
+        source_feedback_value
     );
     match source_feedback_value {
         SourceFeedbackValue::Midi(v) => {
@@ -1763,7 +1859,9 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                                 feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
                                 osc_feedback_task_sender: instance.osc_feedback_task_sender,
                                 feedback_output: instance.feedback_output,
+                                instance_state: instance.instance_state,
                             },
+                            &instance.logger,
                         )
                     }
                     ProcessDirect(_) => {
@@ -1789,6 +1887,7 @@ fn control_main_mappings_virtual(
     value: VirtualSourceValue,
     options: ControlOptions,
     context: ControlContext,
+    logger: &slog::Logger,
 ) -> Vec<FeedbackValue> {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1798,7 +1897,7 @@ fn control_main_mappings_virtual(
         .filter_map(|m| {
             if let CompoundMappingSource::Virtual(s) = &m.source() {
                 let control_value = s.control(&value)?;
-                m.control_if_enabled(control_value, options, context)
+                m.control_if_enabled(control_value, options, context, logger)
             } else {
                 None
             }

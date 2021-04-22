@@ -4,7 +4,7 @@ use crate::application::{
 use crate::core::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId,
-    ParameterArray, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -76,6 +76,8 @@ pub struct SessionData {
     parameters: HashMap<u32, ParameterData>,
     #[serde(default, skip_serializing_if = "is_default")]
     controller_parameters: HashMap<u32, ParameterData>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    clip_slots: Vec<QualifiedSlotDescriptor>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -116,6 +118,7 @@ impl Default for SessionData {
             main_preset_auto_load_mode: session_defaults::MAIN_PRESET_AUTO_LOAD_MODE,
             parameters: Default::default(),
             controller_parameters: Default::default(),
+            clip_slots: vec![],
         }
     }
 }
@@ -190,6 +193,7 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
+            clip_slots: { session.instance_state().borrow().filled_slot_descriptors() },
         }
     }
 
@@ -339,6 +343,14 @@ impl SessionData {
             MappingCompartment::ControllerMappings,
             get_parameter_settings(&self.controller_parameters),
         );
+        // Clip slots
+        {
+            let mut instance_state = session.instance_state().borrow_mut();
+            instance_state.load_slots(
+                self.clip_slots.clone(),
+                Some(session.context().project_or_current_project()),
+            )?;
+        }
         Ok(())
     }
 

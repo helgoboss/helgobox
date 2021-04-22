@@ -3,8 +3,8 @@ use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
     MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget,
-    SeekOptions, SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity,
-    TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType,
+    TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -144,6 +144,19 @@ pub enum UnresolvedReaperTarget {
         address_pattern: String,
         arg_descriptor: Option<OscArgDescriptor>,
         device_id: Option<OscDeviceId>,
+    },
+    ClipTransport {
+        track_descriptor: Option<TrackDescriptor>,
+        slot_index: usize,
+        action: TransportAction,
+        play_options: SlotPlayOptions,
+    },
+    ClipSeek {
+        slot_index: usize,
+        feedback_resolution: PlayPosFeedbackResolution,
+    },
+    ClipVolume {
+        slot_index: usize,
     },
 }
 
@@ -399,6 +412,41 @@ impl UnresolvedReaperTarget {
                 arg_descriptor: *arg_descriptor,
                 device_id: *device_id,
             }],
+            ClipTransport {
+                track_descriptor,
+                slot_index,
+                action,
+                play_options,
+            } => {
+                if let Some(desc) = track_descriptor.as_ref() {
+                    get_effective_tracks(context, &desc.track, compartment)?
+                        .into_iter()
+                        .map(|track| ReaperTarget::ClipTransport {
+                            track: Some(track),
+                            slot_index: *slot_index,
+                            action: *action,
+                            play_options: *play_options,
+                        })
+                        .collect()
+                } else {
+                    vec![ReaperTarget::ClipTransport {
+                        track: None,
+                        slot_index: *slot_index,
+                        action: *action,
+                        play_options: *play_options,
+                    }]
+                }
+            }
+            ClipSeek {
+                slot_index,
+                feedback_resolution,
+            } => vec![ReaperTarget::ClipSeek {
+                slot_index: *slot_index,
+                feedback_resolution: *feedback_resolution,
+            }],
+            ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume {
+                slot_index: *slot_index,
+            }],
         };
         Ok(resolved_targets)
     }
@@ -447,6 +495,8 @@ impl UnresolvedReaperTarget {
             | Transport { .. }
             | LastTouched
             | Seek { .. }
+            | ClipSeek { .. }
+            | ClipVolume { .. }
             | AutomationModeOverride { .. }
             | SendMidi { .. }
             | SendOsc { .. }
@@ -496,6 +546,9 @@ impl UnresolvedReaperTarget {
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
             | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
+            ClipTransport {
+                track_descriptor, ..
+            } => (track_descriptor.as_ref(), None),
         }
     }
 
@@ -529,8 +582,12 @@ impl UnresolvedReaperTarget {
             | LastTouched
             | SendMidi { .. }
             | SendOsc { .. }
+            | ClipTransport { .. }
+            | ClipVolume { .. }
             | AutomationTouchState { .. } => return None,
-            Transport { .. } | GoToBookmark { .. } => PlayPosFeedbackResolution::Beat,
+            Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => {
+                PlayPosFeedbackResolution::Beat
+            }
             Seek { options, .. } => options.feedback_resolution,
         };
         Some(res)
