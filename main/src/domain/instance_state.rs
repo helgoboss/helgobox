@@ -1,20 +1,13 @@
 use crate::core::AsyncNotifier;
-use crate::domain::{
-    ClipPlayState, ClipSlot, ControlInput, DeviceControlInput, DeviceFeedbackOutput,
-    FeedbackOutput, RealearnTargetContext, ReaperTarget, SlotContent, SlotDescriptor,
-    SlotPlayOptions,
-};
+use crate::domain::{ClipPlayState, ClipSlot, SlotContent, SlotDescriptor, SlotPlayOptions};
 use helgoboss_learn::UnitValue;
-use reaper_high::{Item, Project, Reaper, Track};
-use reaper_medium::{MediaItem, PlayState, PositionInSeconds, ReaperVolumeValue};
+use reaper_high::{Item, Project, Track};
+use reaper_medium::{PlayState, ReaperVolumeValue};
 use rx_util::{Notifier, UnitEvent};
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::hash::Hash;
-use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 pub const CLIP_SLOT_COUNT: usize = 8;
@@ -84,7 +77,7 @@ impl InstanceState {
         }
         for desc in descriptors {
             let events = {
-                let mut slot = self.get_slot_mut(desc.index)?;
+                let slot = self.get_slot_mut(desc.index)?;
                 slot.load(desc.descriptor, project)?
             };
             for e in events {
@@ -102,7 +95,7 @@ impl InstanceState {
         project: Option<Project>,
     ) -> Result<(), &'static str> {
         self.get_slot_mut(slot_index)?
-            .fill_by_user(content, project);
+            .fill_by_user(content, project)?;
         self.notify_slot_contents_changed();
         Ok(())
     }

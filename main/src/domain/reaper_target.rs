@@ -13,9 +13,9 @@ use reaper_high::{
 use reaper_medium::{
     AutoSeekBehavior, AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility,
     FxPresetRef, GetLoopTimeRange2Result, GetParameterStepSizesResult,
-    GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlayState,
-    PlaybackSpeedFactor, PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue,
-    ReaperVolumeValue, ReaperWidthValue, SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
+    GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
+    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperVolumeValue,
+    ReaperWidthValue, SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
@@ -33,15 +33,12 @@ use crate::domain::ui_util::{
 use crate::domain::{
     handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent, ClipPlayState,
     ControlContext, FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider,
-    InstanceFeedbackEvent, InstanceState, MidiDestination, OscDeviceId, OscFeedbackTask,
-    RealearnTarget, SharedInstanceState, SlotPlayOptions,
+    InstanceFeedbackEvent, MidiDestination, OscDeviceId, OscFeedbackTask, RealearnTarget,
+    SlotPlayOptions,
 };
-use reaper_low::raw;
 use rosc::OscMessage;
-use std::cell::RefCell;
 use std::convert::TryInto;
 use std::num::NonZeroU32;
-use std::ptr::NonNull;
 use std::rc::Rc;
 
 /// This target character is just used for auto-correct settings! It doesn't have influence
@@ -2205,6 +2202,7 @@ impl ReaperTarget {
         }
     }
 
+    #[allow(clippy::collapsible_match)]
     pub fn value_changed_from_instance_feedback_event(
         &self,
         evt: &InstanceFeedbackEvent,
@@ -2281,6 +2279,7 @@ impl ReaperTarget {
     ///
     /// Is called in any case (even if feedback not enabled). So we can use it for general-purpose
     /// change event reactions such as reacting to transport stop.
+    #[allow(clippy::single_match)]
     pub fn process_change_event(
         &self,
         evt: &ChangeEvent,

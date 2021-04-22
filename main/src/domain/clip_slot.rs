@@ -1,31 +1,26 @@
 use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
-use helgoboss_learn::{RawMidiEvent, UnitValue};
-use helgoboss_midi::{
-    controller_numbers, Channel, RawShortMessage, ShortMessage, ShortMessageFactory, U7,
-};
-use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, ReaperSource, Take, Track};
-use reaper_low::raw::preview_register_t;
-use reaper_low::{add_cpp_pcm_source, raw};
+use helgoboss_learn::UnitValue;
+use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Track};
+use reaper_low::raw;
 use reaper_medium::{
     create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
-    DurationInSeconds, ExtGetPooledMidiIdResult, ExtendedArgs, FlexibleOwnedPcmSource,
-    GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MediaItem, MidiEvent,
-    MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState,
-    PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperFunctionError, ReaperLockError,
-    ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs,
-    SetFileNameArgs, SetSourceArgs,
+    DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz,
+    LoadStateArgs, MeasureAlignment, MidiEvent, MidiImportBehavior, OwnedPcmSource,
+    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInSeconds,
+    PropertiesWindowArgs, ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue,
+    SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 use std::error::Error;
-use std::fmt::Formatter;
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::ptr::{null_mut, NonNull};
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::{fmt, mem};
+use std::time::Duration;
 
 type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
@@ -185,7 +180,7 @@ impl ClipSlot {
                 .map_err(|_| "couldn't export MIDI source to file")?;
             source_file
         } else {
-            Err(format!("item source incompatible (type {})", source_type))?
+            return Err(format!("item source incompatible (type {})", source_type).into());
         };
         let content = SlotContent::File {
             file: item_project
@@ -227,7 +222,7 @@ impl ClipSlot {
     /// Should be called regularly to detect stops.
     pub fn poll(&mut self) -> Option<ClipChangedEvent> {
         let (result, change_events) = self.start_transition().poll(&self.register);
-        self.finish_transition(result);
+        self.finish_transition(result).ok()?;
         change_events
     }
 
@@ -351,9 +346,9 @@ impl ClipSlot {
     }
 
     pub fn position(&self) -> Result<UnitValue, &'static str> {
-        let mut guard = lock(&self.register);
+        let guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
-        let length = unsafe { source.as_ref().get_length().ok() };
+        let length = source.as_ref().get_length().ok();
         let position = calculate_proportional_position(guard.cur_pos(), length);
         Ok(position)
     }
@@ -361,12 +356,10 @@ impl ClipSlot {
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
-        let length = unsafe {
-            source
-                .as_ref()
-                .get_length()
-                .map_err(|_| "source has no length")?
-        };
+        let length = source
+            .as_ref()
+            .get_length()
+            .map_err(|_| "source has no length")?;
         let real_pos = PositionInSeconds::new(position.get() * length.get());
         guard.set_cur_pos(real_pos);
         Ok(ClipChangedEvent::ClipPositionChanged(position))
@@ -507,7 +500,7 @@ impl State {
                         Some(s) => s,
                         None => return (Ok(Playing(s)), None),
                     };
-                    let length = unsafe { source.as_ref().get_length().ok() };
+                    let length = source.as_ref().get_length().ok();
                     (guard.cur_pos(), length, guard.is_looped())
                 };
                 let (next_state, event) = match s.scheduled_for {
@@ -555,6 +548,7 @@ impl State {
         let source = DecoratedPcmSource {
             inner: source.into_raw(),
             state: DecoratedPcmSourceState::Normal,
+            send_all_notes_off: false,
         };
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
@@ -679,6 +673,19 @@ impl PlayingState {
         } else {
             let mut g = lock(reg);
             // Retrigger!
+            if let Some(src) = g.src() {
+                let src = src.as_ref();
+                if src.get_type(|t| t.to_str() == "MIDI") {
+                    unsafe {
+                        src.extended(
+                            EXT_SEND_ALL_NOTES_OFF_ONCE,
+                            null_mut(),
+                            null_mut(),
+                            null_mut(),
+                        );
+                    }
+                }
+            };
             g.set_cur_pos(PositionInSeconds::new(0.0));
             Ok(State::Playing(self))
         }
@@ -734,31 +741,18 @@ impl PlayingState {
         pause: bool,
         caused_by_transport_change: bool,
     ) -> SuspendedState {
+        prepare_suspension_request(reg);
         // If not successful this probably means it was stopped already, so okay.
         if let Some(track) = self.args.track.as_ref() {
-            let project = track.project();
             // Check prevents error message on project close.
-            let mut guard = lock(reg);
-            if let Some(src) = guard.src() {
-                unsafe {
-                    src.as_ref().extended(
-                        EXT_REQUEST_MIDI_STOP,
-                        null_mut(),
-                        null_mut(),
-                        null_mut(),
-                    );
-                }
+            let project = track.project();
+            if project.is_available() {
+                let _ = Reaper::get()
+                    .medium_session()
+                    .stop_track_preview_2(project.context(), self.handle);
             }
-            // TODO-high
-            // if project.is_available() {
-            //     let _ = unsafe {
-            //         Reaper::get()
-            //             .medium_session()
-            //             .stop_track_preview_2(project.context(), self.handle)
-            //     };
-            // }
         } else {
-            let _ = unsafe { Reaper::get().medium_session().stop_preview(self.handle) };
+            let _ = Reaper::get().medium_session().stop_preview(self.handle);
         };
         SuspendedState {
             is_paused: pause,
@@ -808,18 +802,22 @@ fn calculate_proportional_position(
 }
 
 const EXT_REQUEST_MIDI_STOP: i32 = 2359767;
-const EXT_RESET: i32 = 2359768;
+const EXT_QUERY_STATE: i32 = 2359769;
+const EXT_RESET: i32 = 2359770;
+const EXT_SEND_ALL_NOTES_OFF_ONCE: i32 = 2359771;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
+#[repr(i32)]
 enum DecoratedPcmSourceState {
-    Normal,
-    MidiStopRequested,
-    AllNotesOffSent,
+    Normal = 10,
+    PrepareMidiStopRequested = 11,
+    PrepareMidiStopDone = 12,
 }
 
 struct DecoratedPcmSource {
     inner: OwnedPcmSource,
     state: DecoratedPcmSourceState,
+    send_all_notes_off: bool,
 }
 
 impl CustomPcmSource for DecoratedPcmSource {
@@ -884,25 +882,20 @@ impl CustomPcmSource for DecoratedPcmSource {
     }
 
     fn get_samples(&mut self, args: GetSamplesArgs) {
+        if self.send_all_notes_off {
+            send_all_notes_off(args);
+            self.send_all_notes_off = false;
+        }
         use DecoratedPcmSourceState::*;
         match self.state {
             Normal => unsafe {
                 self.inner.get_samples(args.block);
             },
-            MidiStopRequested => unsafe {
-                for ch in 0..16 {
-                    let msg = RawShortMessage::control_change(
-                        Channel::new(ch),
-                        controller_numbers::ALL_NOTES_OFF,
-                        U7::MIN,
-                    );
-                    let mut event = MidiEvent::default();
-                    event.set_message(msg);
-                    args.block.midi_event_list().add_item(&event);
-                }
-                self.state = AllNotesOffSent;
-            },
-            AllNotesOffSent => {}
+            PrepareMidiStopRequested => {
+                send_all_notes_off(args);
+                self.state = PrepareMidiStopDone;
+            }
+            PrepareMidiStopDone => {}
         }
     }
 
@@ -940,10 +933,15 @@ impl CustomPcmSource for DecoratedPcmSource {
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
-            EXT_REQUEST_MIDI_STOP => {
-                self.state = DecoratedPcmSourceState::MidiStopRequested;
+            EXT_SEND_ALL_NOTES_OFF_ONCE => {
+                self.send_all_notes_off = true;
                 1
             }
+            EXT_REQUEST_MIDI_STOP => {
+                self.state = DecoratedPcmSourceState::PrepareMidiStopRequested;
+                1
+            }
+            EXT_QUERY_STATE => self.state.into(),
             EXT_RESET => {
                 self.state = DecoratedPcmSourceState::Normal;
                 1
@@ -952,5 +950,73 @@ impl CustomPcmSource for DecoratedPcmSource {
                 .inner
                 .extended(args.call, args.parm_1, args.parm_2, args.parm_3),
         }
+    }
+}
+
+/// Prepares the preview suspension request, e.g. waits until "all-notes-off" is sent for MIDI
+/// clips.
+fn prepare_suspension_request(reg: &SharedRegister) {
+    // Try 10 times
+    for _ in 0..10 {
+        if attempt_prepare_suspension_request(reg) {
+            // Preparation finished.
+            return;
+        }
+        // Wait a tiny bit until the next try
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    // If we make it until here, we tried multiple times without success.
+    // Make sure source gets reset to normal.
+    let guard = lock(reg);
+    let src = match guard.src() {
+        None => return,
+        Some(s) => s.as_ref(),
+    };
+    unsafe {
+        src.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
+    }
+}
+
+/// Returns `true` if preparation finished.
+fn attempt_prepare_suspension_request(reg: &SharedRegister) -> bool {
+    let guard = lock(reg);
+    let src = match guard.src() {
+        None => return true,
+        Some(s) => s,
+    };
+    let src = src.as_ref();
+    if src.get_type(|t| t.to_str() != "MIDI") {
+        return true;
+    }
+    // Don't just stop MIDI! Send all-notes-off first to prevent hanging notes.
+    let state = unsafe { src.extended(EXT_QUERY_STATE, null_mut(), null_mut(), null_mut()) };
+    let state: DecoratedPcmSourceState = state.try_into().expect("invalid state");
+    use DecoratedPcmSourceState::*;
+    match state {
+        Normal => unsafe {
+            src.extended(EXT_REQUEST_MIDI_STOP, null_mut(), null_mut(), null_mut());
+            false
+        },
+        PrepareMidiStopRequested => {
+            // Wait
+            false
+        }
+        PrepareMidiStopDone => unsafe {
+            src.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
+            true
+        },
+    }
+}
+
+fn send_all_notes_off(args: GetSamplesArgs) {
+    for ch in 0..16 {
+        let msg = RawShortMessage::control_change(
+            Channel::new(ch),
+            controller_numbers::ALL_NOTES_OFF,
+            U7::MIN,
+        );
+        let mut event = MidiEvent::default();
+        event.set_message(msg);
+        args.block.midi_event_list().add_item(&event);
     }
 }

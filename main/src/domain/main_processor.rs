@@ -3,7 +3,7 @@ use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
     DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackValue,
-    InstanceFeedbackEvent, InstanceOrchestrationEvent, InstanceState, IoUpdatedEvent, MainMapping,
+    InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
@@ -17,11 +17,9 @@ use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
-use slog::debug;
+use slog::{debug, trace};
 use smallvec::SmallVec;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -826,7 +824,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         //  iterate over them only instead of all slots.
         {
             let mut instance_state = self.instance_state.borrow_mut();
-            for i in (0..CLIP_SLOT_COUNT) {
+            for i in 0..CLIP_SLOT_COUNT {
                 for event in instance_state.poll_slot(i).into_iter() {
                     if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
                         // Position changed. This happens very frequently when a clip is playing.
@@ -1776,9 +1774,11 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
     source_feedback_value: SourceFeedbackValue,
 ) {
     // No interference with other instances.
-    debug!(
+    trace!(
         instance.logger,
-        "Schedule sending feedback because {:?}: {:?}", feedback_reason, source_feedback_value
+        "Schedule sending feedback because {:?}: {:?}",
+        feedback_reason,
+        source_feedback_value
     );
     match source_feedback_value {
         SourceFeedbackValue::Midi(v) => {

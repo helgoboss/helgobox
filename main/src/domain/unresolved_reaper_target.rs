@@ -1,4 +1,4 @@
-use crate::application::{BookmarkAnchorType, ReaperTargetType};
+use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,

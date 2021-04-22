@@ -38,8 +38,8 @@ use crate::application::{
 };
 use crate::core::Global;
 use crate::domain::{
-    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, InstanceState,
-    SendMidiDestination, SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
+    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, SendMidiDestination,
+    SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -244,7 +244,7 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index.get();
-                    if let Some(slot) = instance_state.get_slot(slot_index).ok() {
+                    if let Ok(slot) = instance_state.get_slot(slot_index) {
                         if let Some(content) = &slot.descriptor().content {
                             let info = SlotInfo {
                                 file_name: content
@@ -1466,7 +1466,7 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_track_must_be_selected() => {
+                _ if self.mapping.target_model.supports_track_must_be_selected() => {
                     self.mapping
                         .target_model
                         .enable_only_if_track_selected
@@ -3512,7 +3512,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_check_box_2(&self) {
         let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
-                t if t.supports_track_must_be_selected() => {
+                _ if self.mapping.target_model.supports_track_must_be_selected() => {
                     if self
                         .target
                         .track_type

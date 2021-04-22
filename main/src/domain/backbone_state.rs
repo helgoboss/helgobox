@@ -1,12 +1,10 @@
 use crate::domain::{
-    ClipSlot, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
-    RealearnTargetContext, ReaperTarget,
+    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, RealearnTargetContext,
+    ReaperTarget,
 };
-use reaper_high::{Reaper, Track};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use std::path::{Path, PathBuf};
 
 make_available_globally_in_main_thread_on_demand!(BackboneState);
 

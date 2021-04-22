@@ -2,8 +2,8 @@ use crate::domain::{
     ActivationChange, ActivationCondition, ControlContext, ControlOptions,
     ExtendedProcessorContext, MappingActivationEffect, MidiSource, Mode, ParameterArray,
     ParameterSlice, PlayPosFeedbackResolution, RealSource, RealearnTarget, ReaperTarget,
-    SharedInstanceState, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
+    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;

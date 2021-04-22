@@ -898,7 +898,7 @@ impl TargetModel {
         self.supports_track_apart_from_type()
     }
 
-    pub fn supports_track_must_be_selected(self) -> bool {
+    pub fn supports_track_must_be_selected(&self) -> bool {
         if !self.r#type.get().supports_track_must_be_selected() {
             return false;
         }
@@ -912,7 +912,7 @@ impl TargetModel {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     pub fn supports_fx(&self) -> bool {
