@@ -887,10 +887,11 @@ impl CustomPcmSource for DecoratedPcmSource {
                 self.inner.get_samples(args.block);
             },
             MidiStopRequested => unsafe {
-                if let Ok(raw_midi_event) = RawMidiEvent::try_from_slice(0, &[0x90, 100, 100]) {
-                    let raw_midi_event = BorrowedMidiEvent::new(raw_midi_event.as_ref());
-                    args.block.midi_event_list().add_item(raw_midi_event);
-                }
+                self.inner.get_samples(args.block);
+                // if let Ok(raw_midi_event) = RawMidiEvent::try_from_slice(0, &[0x90, 100, 100]) {
+                //     let borrowed_midi_event = BorrowedMidiEvent::new(raw_midi_event.as_ref());
+                //     args.block.midi_event_list().add_item(borrowed_midi_event);
+                // }
                 // self.inner.get_samples(args.block);
                 // let mut block = unsafe { args.block.into_inner().as_ref() };
                 // self.state = AllNotesOffSent;

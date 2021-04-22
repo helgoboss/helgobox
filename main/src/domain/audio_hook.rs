@@ -208,7 +208,7 @@ impl OnAudioBuffer for RealearnAudioHook {
 
 fn process_midi_event(
     dev_id: MidiInputDeviceId,
-    evt: BorrowedMidiEvent,
+    evt: &BorrowedMidiEvent,
     midi_source_scanner: &mut MidiSourceScanner,
 ) -> Option<MidiSource> {
     let raw_msg = evt.message().to_other();
