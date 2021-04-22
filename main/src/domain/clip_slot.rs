@@ -2,17 +2,20 @@ use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use helgoboss_learn::{RawMidiEvent, UnitValue};
+use helgoboss_midi::{
+    controller_numbers, Channel, RawShortMessage, ShortMessage, ShortMessageFactory, U7,
+};
 use reaper_high::{Guid, Item, OwnedSource, Project, Reaper, ReaperSource, Take, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_low::{add_cpp_pcm_source, raw};
 use reaper_medium::{
-    create_custom_owned_pcm_source, BorrowedMidiEvent, BufferingBehavior, CustomPcmSource,
-    DurationInBeats, DurationInSeconds, ExtGetPooledMidiIdResult, ExtendedArgs,
-    FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment,
-    MediaItem, MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs,
-    PlayState, PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperFunctionError,
-    ReaperLockError, ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue, SaveStateArgs,
-    SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
+    DurationInSeconds, ExtGetPooledMidiIdResult, ExtendedArgs, FlexibleOwnedPcmSource,
+    GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MediaItem, MidiEvent,
+    MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState,
+    PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperFunctionError, ReaperLockError,
+    ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs,
+    SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -887,14 +890,17 @@ impl CustomPcmSource for DecoratedPcmSource {
                 self.inner.get_samples(args.block);
             },
             MidiStopRequested => unsafe {
-                self.inner.get_samples(args.block);
-                // if let Ok(raw_midi_event) = RawMidiEvent::try_from_slice(0, &[0x90, 100, 100]) {
-                //     let borrowed_midi_event = BorrowedMidiEvent::new(raw_midi_event.as_ref());
-                //     args.block.midi_event_list().add_item(borrowed_midi_event);
-                // }
-                // self.inner.get_samples(args.block);
-                // let mut block = unsafe { args.block.into_inner().as_ref() };
-                // self.state = AllNotesOffSent;
+                for ch in 0..16 {
+                    let msg = RawShortMessage::control_change(
+                        Channel::new(ch),
+                        controller_numbers::ALL_NOTES_OFF,
+                        U7::MIN,
+                    );
+                    let mut event = MidiEvent::default();
+                    event.set_message(msg);
+                    args.block.midi_event_list().add_item(&event);
+                }
+                self.state = AllNotesOffSent;
             },
             AllNotesOffSent => {}
         }
