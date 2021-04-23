@@ -260,7 +260,11 @@ impl Session {
         let actual_virt_source = self.virtualize_if_possible(actual_real_source);
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
-            let mapping_source = m.borrow().source_model.create_source();
+            let m = m.borrow();
+            if !self.on_mappings.get_ref().contains(&m.id()) {
+                return false;
+            }
+            let mapping_source = m.source_model.create_source();
             match (mapping_source, actual_virt_source, actual_real_source) {
                 (Virtual(map_source), Some(act_source), _) => map_source == act_source,
                 (Midi(map_source), _, RealSource::Midi(act_source)) => map_source == *act_source,
