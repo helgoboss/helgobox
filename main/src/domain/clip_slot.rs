@@ -1,7 +1,7 @@
 use crate::core::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
-use helgoboss_learn::UnitValue;
+use helgoboss_learn::{UnitValue, BASE_EPSILON};
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Track};
@@ -348,7 +348,7 @@ impl ClipSlot {
     pub fn position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
-        let length = source.as_ref().get_length().ok();
+        let length = source.as_ref().get_length().unwrap_or_default();
         let position = calculate_proportional_position(guard.cur_pos(), length);
         Ok(position)
     }
@@ -692,27 +692,24 @@ impl PlayingState {
                 Ok(g) => g,
                 Err(_) => return (Ok(State::Playing(self)), None),
             };
-            let source = match guard.src() {
-                Some(s) => s,
-                None => return (Ok(State::Playing(self)), None),
-            };
-            let length = source.as_ref().get_length().ok();
+            let length = guard
+                .src()
+                .and_then(|s| s.as_ref().get_length().ok())
+                .unwrap_or_default();
             (guard.cur_pos(), length, guard.is_looped())
         };
         let (next_state, event) = match self.scheduled_for {
             None | Some(ScheduledFor::Stop) if !is_looped => {
-                if let Some(l) = length {
-                    if current_pos.get() >= l.get() {
-                        // Stop detected. Make it official! If we let the preview running, nothing
-                        // will happen because it's not looped but the preview will still be
-                        // active (e.g. respond to position changes) - which can't be good.
-                        (
-                            self.stop(reg, true, false),
-                            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
-                        )
-                    } else {
-                        (Ok(State::Playing(self)), None)
-                    }
+                if current_pos.get() > length.get()
+                    || (length.get() - current_pos.get()) < BASE_EPSILON
+                {
+                    // Stop detected. Make it official! If we let the preview running, nothing
+                    // will happen because it's not looped but the preview will still be
+                    // active (e.g. respond to position changes) - which can't be good.
+                    (
+                        self.stop(reg, true, false),
+                        Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
+                    )
                 } else {
                     (Ok(State::Playing(self)), None)
                 }
@@ -790,16 +787,12 @@ fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
 
 fn calculate_proportional_position(
     position: PositionInSeconds,
-    length: Option<DurationInSeconds>,
+    length: DurationInSeconds,
 ) -> UnitValue {
-    if let Some(l) = length {
-        if l.get() == 0.0 {
-            UnitValue::MIN
-        } else {
-            UnitValue::new_clamped(position.get() / l.get())
-        }
-    } else {
+    if length.get() == 0.0 {
         UnitValue::MIN
+    } else {
+        UnitValue::new_clamped(position.get() / length.get())
     }
 }
 
