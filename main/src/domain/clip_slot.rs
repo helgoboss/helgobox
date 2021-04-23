@@ -489,57 +489,7 @@ impl State {
     pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
         use State::*;
         match self {
-            Playing(s) => {
-                let (current_pos, length, is_looped) = {
-                    // React gracefully even in weird situations (because we are in poll).
-                    let guard = match reg.lock() {
-                        Ok(g) => g,
-                        Err(_) => return (Ok(Playing(s)), None),
-                    };
-                    let source = match guard.src() {
-                        Some(s) => s,
-                        None => return (Ok(Playing(s)), None),
-                    };
-                    let length = source.as_ref().get_length().ok();
-                    (guard.cur_pos(), length, guard.is_looped())
-                };
-                let (next_state, event) = match s.scheduled_for {
-                    None | Some(ScheduledFor::Stop) if !is_looped => {
-                        if let Some(l) = length {
-                            if current_pos.get() >= l.get() {
-                                // Stop detected. Make it official.
-                                (
-                                    s.stop(reg, true, false),
-                                    Some(ClipChangedEvent::PlayStateChanged(
-                                        ClipPlayState::Stopped,
-                                    )),
-                                )
-                            } else {
-                                (Ok(Playing(s)), None)
-                            }
-                        } else {
-                            (Ok(Playing(s)), None)
-                        }
-                    }
-                    Some(ScheduledFor::Play) if current_pos.get() > 0.0 => {
-                        // Actual play detected. Make it official.
-                        let next_playing_state = PlayingState {
-                            scheduled_for: None,
-                            ..s
-                        };
-                        (
-                            Ok(Playing(next_playing_state)),
-                            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
-                        )
-                    }
-                    _ => (Ok(Playing(s)), None),
-                };
-                let final_event = event.unwrap_or_else(|| {
-                    let position = calculate_proportional_position(current_pos, length);
-                    ClipChangedEvent::ClipPositionChanged(position)
-                });
-                (next_state, Some(final_event))
-            }
+            Playing(s) => s.poll(reg),
             _ => (Ok(self), None),
         }
     }
@@ -733,6 +683,58 @@ impl PlayingState {
             true,
             caused_by_transport_change,
         )))
+    }
+
+    pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
+        let (current_pos, length, is_looped) = {
+            // React gracefully even in weird situations (because we are in poll).
+            let guard = match reg.lock() {
+                Ok(g) => g,
+                Err(_) => return (Ok(State::Playing(self)), None),
+            };
+            let source = match guard.src() {
+                Some(s) => s,
+                None => return (Ok(State::Playing(self)), None),
+            };
+            let length = source.as_ref().get_length().ok();
+            (guard.cur_pos(), length, guard.is_looped())
+        };
+        let (next_state, event) = match self.scheduled_for {
+            None | Some(ScheduledFor::Stop) if !is_looped => {
+                if let Some(l) = length {
+                    if current_pos.get() >= l.get() {
+                        // Stop detected. Make it official! If we let the preview running, nothing
+                        // will happen because it's not looped but the preview will still be
+                        // active (e.g. respond to position changes) - which can't be good.
+                        (
+                            self.stop(reg, true, false),
+                            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
+                        )
+                    } else {
+                        (Ok(State::Playing(self)), None)
+                    }
+                } else {
+                    (Ok(State::Playing(self)), None)
+                }
+            }
+            Some(ScheduledFor::Play) if current_pos.get() > 0.0 => {
+                // Actual play detected. Make it official.
+                let next_playing_state = PlayingState {
+                    scheduled_for: None,
+                    ..self
+                };
+                (
+                    Ok(State::Playing(next_playing_state)),
+                    Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
+                )
+            }
+            _ => (Ok(State::Playing(self)), None),
+        };
+        let final_event = event.unwrap_or_else(|| {
+            let position = calculate_proportional_position(current_pos, length);
+            ClipChangedEvent::ClipPositionChanged(position)
+        });
+        (next_state, Some(final_event))
     }
 
     fn suspend(
