@@ -1479,6 +1479,7 @@ impl Session {
             // <None> preset
             self.clear_compartment_data(compartment);
         };
+        self.reset_parameters(compartment);
         self.notify_everything_has_changed(weak_session);
         Ok(())
     }
@@ -1504,8 +1505,16 @@ impl Session {
             // <None> preset
             self.clear_compartment_data(compartment);
         }
+        self.reset_parameters(compartment);
         self.notify_everything_has_changed(weak_session);
         Ok(())
+    }
+
+    fn reset_parameters(&self, compartment: MappingCompartment) {
+        let fx = self.context.containing_fx();
+        for i in compartment.param_range() {
+            let _ = fx.parameter_by_index(i).set_reaper_normalized_value(0.0);
+        }
     }
 
     fn clear_compartment_data(&mut self, compartment: MappingCompartment) {

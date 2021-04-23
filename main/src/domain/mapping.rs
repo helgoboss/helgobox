@@ -1186,7 +1186,7 @@ impl MappingCompartment {
         }
     }
 
-    const fn param_range(self) -> Range<u32> {
+    pub const fn param_range(self) -> Range<u32> {
         let offset = self.param_offset();
         offset..(offset + COMPARTMENT_PARAMETER_COUNT)
     }
