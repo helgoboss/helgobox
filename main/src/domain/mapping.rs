@@ -26,6 +26,9 @@ use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ProcessorMappingOptions {
+    /// In the main processor mapping this might be overridden by the unresolved target's
+    /// is_always_active() result. The real-time processor always gets the effective result of the
+    /// main processor mapping.
     pub target_is_active: bool,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
@@ -149,7 +152,13 @@ impl MainMapping {
 
     pub fn splinter_real_time_mapping(&mut self) -> RealTimeMapping {
         RealTimeMapping {
-            core: self.core.clone(),
+            core: MappingCore {
+                options: ProcessorMappingOptions {
+                    target_is_active: self.target_is_effectively_active(),
+                    ..self.core.options
+                },
+                ..self.core.clone()
+            },
             is_active: self.is_active(),
             target_type: self.unresolved_target.as_ref().map(|t| match t {
                 UnresolvedCompoundMappingTarget::Reaper(_) => UnresolvedTargetType::Reaper,
@@ -281,7 +290,7 @@ impl MainMapping {
         &mut self,
         context: ExtendedProcessorContext,
     ) -> (bool, Option<ActivationChange>) {
-        let was_active_before = self.core.options.target_is_active;
+        let was_effectively_active_before = self.target_is_effectively_active();
         let (targets, is_active) = match self.unresolved_target.as_ref() {
             None => (vec![], false),
             Some(t) => match t.resolve(context, self.core.compartment).ok() {
@@ -295,7 +304,7 @@ impl MainMapping {
         let target_changed = targets != self.core.targets;
         self.core.targets = targets;
         self.core.options.target_is_active = is_active;
-        if is_active == was_active_before {
+        if self.target_is_effectively_active() == was_effectively_active_before {
             return (target_changed, None);
         }
         let update = ActivationChange {
@@ -326,7 +335,18 @@ impl MainMapping {
     }
 
     fn is_effectively_active(&self) -> bool {
-        self.is_active() && self.core.options.target_is_active
+        self.is_active() && self.target_is_effectively_active()
+    }
+
+    fn target_is_effectively_active(&self) -> bool {
+        if self.core.options.target_is_active {
+            return true;
+        }
+        if let Some(t) = self.unresolved_reaper_target() {
+            t.is_always_active()
+        } else {
+            false
+        }
     }
 
     pub fn is_effectively_on(&self) -> bool {

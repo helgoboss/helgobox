@@ -161,6 +161,10 @@ pub enum UnresolvedReaperTarget {
 }
 
 impl UnresolvedReaperTarget {
+    pub fn is_always_active(&self) -> bool {
+        matches!(self, Self::LastTouched)
+    }
+
     pub fn resolve(
         &self,
         context: ExtendedProcessorContext,
