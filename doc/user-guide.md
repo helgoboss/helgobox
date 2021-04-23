@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-04-15 (v2.8.0-rc.5)</code></td>
+  <td><code>2021-04-23 (v2.8.0-rc.6)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -605,7 +605,8 @@ on macOS) with the following entries:
 - **Compartment parameters:** This shows all parameters of the current compartment (you know, the ones that can be used
   for conditional activation and `<Dynamic>` selector expressions) and makes it possible to customize their names.
   This is practical because it's completely up to you how to put these parameters to use. Perfect for preset authors:
-  The parameters are saved together with the compartment preset.
+  The parameter names are saved together with the compartment preset. Parameter values will be reset whenever you load
+  a preset (just the ones in that compartment).
 - **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
   investigating bugs or understanding how this plug-in works.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
@@ -1864,6 +1865,92 @@ Sets the track send's pan value.
 
 Sets the track send's volume.
 
+###### Clip: Invoke transport action
+
+**Clips are a highly experimental feature of ReaLearn and still subject to many changes! Better don't rely on it at 
+the moment!**
+
+Each ReaLearn provides 8 slots which you can fill with MIDI or audio clips. You can use this target to play/pause/stop
+them and invoke other clip-related transport actions.
+
+- **Track:** Defines on which track the clip will be auditioned.
+    - Changing the track during playing will not have an effect at the moment. You have to stop the clip first and play
+      it again.
+- **Slot:** The dropdown allows you to select the slot that you want to control. Next to it you will see the file name 
+  of the clip with which this slot is currently filled. The **...** button will offer you further slot-related actions.
+  They affect the selected slot, not just this mapping!
+    - **Show slot info:** Opens a small window which tells you about the precise file name, type and length of the
+      current clip in that slot.
+    - **Fill with selected item source:** Fills this slot with a new clip based on the source of the currently selected
+      REAPER item.
+        - Please note that item-related settings will not be taken into account! Just the item source. So you
+          might want to glue the item first before importing it into the slot.
+        - The resulting clip is completely independent from the original item.
+        - In-project MIDI sources will automatically be converted to files in the same project directory.
+- **Action:** Specifies which transport action should be invoked.
+    - **Play/stop:** Starts playing the contained clip if the incoming absolute control value is greater than 0%,
+      otherwise stops it.
+    - **Play/pause:** Starts playing the contained clip if the incoming absolute control value is greater than 0%,
+      otherwise pauses it.
+    - **Stop:** Stops the contained clip if the incoming absolute control value is greater than 0%. Useful for
+      distinguishing feedback between *paused* and *stopped* state.
+    - **Pause:** Pauses the contained project if the incoming absolute control value is greater than 0%. Useful for
+      distinguishing feedback between *paused* and *stopped* state.
+    - **Record:** Currently has no effect!
+    - **Repeat:** Enables repeat for the contained clip if the incoming absolute control value is greater than 0%,
+      otherwise disables it.
+- **Next bar:** Makes the clip start synchronized with REAPER's main timeline. On the next bar to be precise. Of course
+  this only works if the REAPER project is playing.
+    - When you stop the clip, it will not stop immediately but wait until the clip has finished playing.
+    - Nice: If you stop playback in REAPER while a clip is still playing and then start playback in REAPER again, the
+      clip will automatically start playing as well. Same with *pause* but currently this results in behavior that
+      doesn't make too much sense from a musical perspective.
+- **Buffered:** This should have an effect on audio clips only, not MIDI. It makes REAPER attempt to buffer the clip
+  *right before playing it* in order to prevent crackling and audio dropouts. This sometimes introduces a notable
+  delay - which is often okay for "Next bar" but not for immediate playing. In future this will very likely be improved
+  by pre-buffering the complete clip on load.
+
+**Some notes on feedback**
+
+This target emits the following feedback values:
+
+- Clip stopped: 0%
+- Clip scheduled to play but not yet playing: 25%
+- Clip paused: 50%
+- Clip scheduled to stop but still playing: 75%
+- Clip playing: 100%
+
+You can use a feedback formula and/or [MIDI script source](#script-source) to map this to button LED colors.
+
+**Slots vs. mappings:**
+
+As pointed out above, slots are independent from mappings. They are part of the ReaLearn instance and 
+therefore become part of ...
+
+- the current project,
+- the VST instrument preset (if you create one) 
+- ReaLearn's clipboard export.
+
+They will **not** be saved within ReaLearn's compartment presets.
+
+The following properties belong to the slot, not the mapping:
+
+- Slot content (path to the media file, saved as path relative to the current REAPER project path whenever possible)
+- Slot repeat on/off
+- Slot volume
+
+... and therefore also will be saved as part of the ReaLearn instance.
+
+###### Clip: Seek
+
+Allows you to use faders, knobs, encoders or incremental buttons to seek within this clip while playing or paused.
+Plus, it provides feedback about the clip's current position! Map the current position to a motor fader and fun is
+guaranteed :) But of course it's not only about fun, it can also be very useful from a performance perspective.
+
+- **Feedback:** Determines how frequently ReaLearn sends feedback to your feedback output.
+    - **Beat:** Every beat. Only works if REAPER's main timeline is playing.
+    - **Fast:** As fast as possible.
+
 ###### MIDI: Send message
 
 Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages. This target turns ReaLearn into
@@ -1887,6 +1974,9 @@ Remarks:
 - The incoming value *must* be absolute. If you use a relative encoder, you need to use *Make absolute* to turn it into
   an absolute value.
 
+###### Clip: Volume
+
+Lets you set the slot's volume.
 
 ###### OSC: Send message
 
