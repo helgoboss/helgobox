@@ -625,21 +625,11 @@ impl PlayingState {
             let next_state = match self.scheduled_for {
                 None => {
                     // Retrigger!
-                    let mut g = lock(reg);
-                    if let Some(src) = g.src() {
-                        let src = src.as_ref();
-                        if src.get_type(|t| t.to_str() == "MIDI") {
-                            unsafe {
-                                src.extended(
-                                    EXT_SEND_ALL_NOTES_OFF_ONCE,
-                                    null_mut(),
-                                    null_mut(),
-                                    null_mut(),
-                                );
-                            }
-                        }
-                    };
-                    g.set_cur_pos(PositionInSeconds::new(0.0));
+                    // Previously we just simply enqueued an "All notes off" sequence here and
+                    // reset the position to zero. But with "Next bar" this would send "All notes
+                    // off" not before starting playing again - causing some hanging notes in the
+                    // meantime.
+                    wait_until_all_notes_off_sent(reg, true);
                     State::Playing(self)
                 }
                 Some(ScheduledFor::Play) => {
@@ -775,7 +765,7 @@ impl PlayingState {
         pause: bool,
         caused_by_transport_change: bool,
     ) -> SuspendedState {
-        prepare_suspension_request(reg);
+        wait_until_all_notes_off_sent(reg, false);
         // If not successful this probably means it was stopped already, so okay.
         if let Some(track) = self.args.track.as_ref() {
             // Check prevents error message on project close.
@@ -831,17 +821,16 @@ fn calculate_proportional_position(
     }
 }
 
-const EXT_REQUEST_MIDI_STOP: i32 = 2359767;
+const EXT_REQUEST_ALL_NOTES_OFF: i32 = 2359767;
 const EXT_QUERY_STATE: i32 = 2359769;
 const EXT_RESET: i32 = 2359770;
-const EXT_SEND_ALL_NOTES_OFF_ONCE: i32 = 2359771;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
 enum DecoratedPcmSourceState {
     Normal = 10,
-    PrepareMidiStopRequested = 11,
-    PrepareMidiStopDone = 12,
+    AllNotesOffRequested = 11,
+    AllNotesOffSent = 12,
 }
 
 struct DecoratedPcmSource {
@@ -921,11 +910,11 @@ impl CustomPcmSource for DecoratedPcmSource {
             Normal => unsafe {
                 self.inner.get_samples(args.block);
             },
-            PrepareMidiStopRequested => {
+            AllNotesOffRequested => {
                 send_all_notes_off(args);
-                self.state = PrepareMidiStopDone;
+                self.state = AllNotesOffSent;
             }
-            PrepareMidiStopDone => {}
+            AllNotesOffSent => {}
         }
     }
 
@@ -963,12 +952,8 @@ impl CustomPcmSource for DecoratedPcmSource {
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
-            EXT_SEND_ALL_NOTES_OFF_ONCE => {
-                self.send_all_notes_off = true;
-                1
-            }
-            EXT_REQUEST_MIDI_STOP => {
-                self.state = DecoratedPcmSourceState::PrepareMidiStopRequested;
+            EXT_REQUEST_ALL_NOTES_OFF => {
+                self.state = DecoratedPcmSourceState::AllNotesOffRequested;
                 1
             }
             EXT_QUERY_STATE => self.state.into(),
@@ -983,12 +968,12 @@ impl CustomPcmSource for DecoratedPcmSource {
     }
 }
 
-/// Prepares the preview suspension request, e.g. waits until "all-notes-off" is sent for MIDI
-/// clips.
-fn prepare_suspension_request(reg: &SharedRegister) {
+/// Waits until "all-notes-off" is sent for MIDI clips, e.g. as preparation for a suspension
+/// request.
+fn wait_until_all_notes_off_sent(reg: &SharedRegister, reset_position: bool) {
     // Try 10 times
     for _ in 0..10 {
-        if attempt_prepare_suspension_request(reg) {
+        if attempt_to_send_all_notes_off(reg, reset_position) {
             // Preparation finished.
             return;
         }
@@ -997,7 +982,10 @@ fn prepare_suspension_request(reg: &SharedRegister) {
     }
     // If we make it until here, we tried multiple times without success.
     // Make sure source gets reset to normal.
-    let guard = lock(reg);
+    let mut guard = lock(reg);
+    if reset_position {
+        guard.set_cur_pos(PositionInSeconds::new(0.0));
+    }
     let src = match guard.src() {
         None => return,
         Some(s) => s.as_ref(),
@@ -1007,9 +995,20 @@ fn prepare_suspension_request(reg: &SharedRegister) {
     }
 }
 
-/// Returns `true` if preparation finished.
-fn attempt_prepare_suspension_request(reg: &SharedRegister) -> bool {
-    let guard = lock(reg);
+/// Returns `true` as soon as "All notes off" sent.
+fn attempt_to_send_all_notes_off(reg: &SharedRegister, reset_position: bool) -> bool {
+    let mut guard = lock(reg);
+    let successfully_sent = attempt_to_send_all_notes_off_with_guard(&guard);
+    if successfully_sent && reset_position {
+        guard.set_cur_pos(PositionInSeconds::new(0.0));
+    };
+    successfully_sent
+}
+
+/// Returns `true` as soon as "All notes off" sent.
+fn attempt_to_send_all_notes_off_with_guard(
+    guard: &ReaperMutexGuard<OwnedPreviewRegister>,
+) -> bool {
     let src = match guard.src() {
         None => return true,
         Some(s) => s,
@@ -1024,14 +1023,19 @@ fn attempt_prepare_suspension_request(reg: &SharedRegister) -> bool {
     use DecoratedPcmSourceState::*;
     match state {
         Normal => unsafe {
-            src.extended(EXT_REQUEST_MIDI_STOP, null_mut(), null_mut(), null_mut());
+            src.extended(
+                EXT_REQUEST_ALL_NOTES_OFF,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            );
             false
         },
-        PrepareMidiStopRequested => {
+        AllNotesOffRequested => {
             // Wait
             false
         }
-        PrepareMidiStopDone => unsafe {
+        AllNotesOffSent => unsafe {
             src.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
             true
         },
