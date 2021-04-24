@@ -393,10 +393,10 @@ impl ClipPlayState {
         use ClipPlayState::*;
         match self {
             Stopped => UnitValue::MIN,
-            ScheduledForPlay => UnitValue::new(0.25),
+            ScheduledForPlay => UnitValue::new(0.75),
             Playing => UnitValue::MAX,
             Paused => UnitValue::new(0.5),
-            ScheduledForStop => UnitValue::new(0.75),
+            ScheduledForStop => UnitValue::new(0.25),
         }
     }
 }
