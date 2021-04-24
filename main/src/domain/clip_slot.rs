@@ -666,20 +666,17 @@ impl PlayingState {
         caused_by_transport_change: bool,
     ) -> TransitionResult {
         if immediately {
-            let suspended = self.suspend(reg, false, caused_by_transport_change);
-            let mut g = lock(reg);
-            // Reset position!
-            g.set_cur_pos(PositionInSeconds::new(0.0));
-            Ok(State::Suspended(suspended))
+            self.stop_immediately(reg, caused_by_transport_change)
         } else {
-            let next_state = match self.scheduled_for {
+            match self.scheduled_for {
                 None => {
                     // Schedule stop.
                     lock(reg).set_looped(false);
-                    State::Playing(PlayingState {
+                    let playing = PlayingState {
                         scheduled_for: Some(ScheduledFor::Stop),
                         ..self
-                    })
+                    };
+                    Ok(State::Playing(playing))
                 }
                 Some(ScheduledFor::Play) => {
                     // We haven't even started playing yet! Okay, let's backpedal.
@@ -687,15 +684,23 @@ impl PlayingState {
                     // "Scheduled for play" as 25% which is from the perspective of toggle mode
                     // still "off". So it will only send an "on" signal.
                     let suspended = self.suspend(reg, false, caused_by_transport_change);
-                    State::Suspended(suspended)
+                    Ok(State::Suspended(suspended))
                 }
-                Some(ScheduledFor::Stop) => {
-                    // Nothing to do.
-                    State::Playing(self)
-                }
-            };
-            Ok(next_state)
+                Some(ScheduledFor::Stop) => self.stop_immediately(reg, caused_by_transport_change),
+            }
         }
+    }
+
+    fn stop_immediately(
+        self,
+        reg: &SharedRegister,
+        caused_by_transport_change: bool,
+    ) -> TransitionResult {
+        let suspended = self.suspend(reg, false, caused_by_transport_change);
+        let mut g = lock(reg);
+        // Reset position!
+        g.set_cur_pos(PositionInSeconds::new(0.0));
+        Ok(State::Suspended(suspended))
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
