@@ -621,23 +621,41 @@ impl PlayingState {
             // Track change!
             self.suspend(reg, true, false).play(reg, args)
         } else {
-            let mut g = lock(reg);
-            // Retrigger!
-            if let Some(src) = g.src() {
-                let src = src.as_ref();
-                if src.get_type(|t| t.to_str() == "MIDI") {
-                    unsafe {
-                        src.extended(
-                            EXT_SEND_ALL_NOTES_OFF_ONCE,
-                            null_mut(),
-                            null_mut(),
-                            null_mut(),
-                        );
-                    }
+            // No track change.
+            let next_state = match self.scheduled_for {
+                None => {
+                    // Retrigger!
+                    let mut g = lock(reg);
+                    if let Some(src) = g.src() {
+                        let src = src.as_ref();
+                        if src.get_type(|t| t.to_str() == "MIDI") {
+                            unsafe {
+                                src.extended(
+                                    EXT_SEND_ALL_NOTES_OFF_ONCE,
+                                    null_mut(),
+                                    null_mut(),
+                                    null_mut(),
+                                );
+                            }
+                        }
+                    };
+                    g.set_cur_pos(PositionInSeconds::new(0.0));
+                    State::Playing(self)
+                }
+                Some(ScheduledFor::Play) => {
+                    // Nothing to do.
+                    State::Playing(self)
+                }
+                Some(ScheduledFor::Stop) => {
+                    // Backpedal (undo schedule for stop)!
+                    lock(reg).set_looped(self.args.repeat);
+                    State::Playing(PlayingState {
+                        scheduled_for: None,
+                        ..self
+                    })
                 }
             };
-            g.set_cur_pos(PositionInSeconds::new(0.0));
-            Ok(State::Playing(self))
+            Ok(next_state)
         }
     }
 
@@ -664,12 +682,29 @@ impl PlayingState {
             g.set_cur_pos(PositionInSeconds::new(0.0));
             Ok(State::Suspended(suspended))
         } else {
-            lock(reg).set_looped(false);
-            let next_state = PlayingState {
-                scheduled_for: Some(ScheduledFor::Stop),
-                ..self
+            let next_state = match self.scheduled_for {
+                None => {
+                    // Schedule stop.
+                    lock(reg).set_looped(false);
+                    State::Playing(PlayingState {
+                        scheduled_for: Some(ScheduledFor::Stop),
+                        ..self
+                    })
+                }
+                Some(ScheduledFor::Play) => {
+                    // We haven't even started playing yet! Okay, let's backpedal.
+                    // This is currently not reachable in "Toggle buttons" mode because we consider
+                    // "Scheduled for play" as 25% which is from the perspective of toggle mode
+                    // still "off". So it will only send an "on" signal.
+                    let suspended = self.suspend(reg, false, caused_by_transport_change);
+                    State::Suspended(suspended)
+                }
+                Some(ScheduledFor::Stop) => {
+                    // Nothing to do.
+                    State::Playing(self)
+                }
             };
-            Ok(State::Playing(next_state))
+            Ok(next_state)
         }
     }
 
