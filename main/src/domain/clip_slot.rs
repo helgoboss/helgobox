@@ -625,12 +625,21 @@ impl PlayingState {
             let next_state = match self.scheduled_for {
                 None => {
                     // Retrigger!
-                    // Previously we just simply enqueued an "All notes off" sequence here and
+                    // Previously we simply enqueued an "All notes off" sequence here and
                     // reset the position to zero. But with "Next bar" this would send "All notes
                     // off" not before starting playing again - causing some hanging notes in the
                     // meantime.
                     wait_until_all_notes_off_sent(reg, true);
-                    State::Playing(self)
+                    let playing = PlayingState {
+                        scheduled_for: if self.args.options.next_bar {
+                            // REAPER won't start playing until the next bar starts.
+                            Some(ScheduledFor::Play)
+                        } else {
+                            None
+                        },
+                        ..self
+                    };
+                    State::Playing(playing)
                 }
                 Some(ScheduledFor::Play) => {
                     // Nothing to do.
