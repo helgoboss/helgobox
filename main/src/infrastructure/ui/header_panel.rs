@@ -2290,14 +2290,15 @@ fn edit_compartment_parameter(
     let batch_index = rel_index / PARAM_BATCH_SIZE;
     let offset = batch_index * PARAM_BATCH_SIZE;
     let range = offset..(offset + PARAM_BATCH_SIZE);
-    let modified_settings = {
+    let current_settings: Vec<_> = {
         let session = session.borrow();
-        let settings: Vec<_> = range
+        range
             .clone()
             .map(|i| session.get_parameter_settings(compartment, i))
-            .collect();
-        edit_compartment_parameter_internal(offset, &settings)?
+            .cloned()
+            .collect()
     };
+    let modified_settings = edit_compartment_parameter_internal(offset, &current_settings)?;
     session
         .borrow_mut()
         .set_parameter_settings(compartment, range.zip(modified_settings));
@@ -2313,7 +2314,7 @@ enum EditOscDevError {
 /// Max 5 settings.
 fn edit_compartment_parameter_internal(
     offset: u32,
-    settings: &[&ParameterSetting],
+    settings: &[ParameterSetting],
 ) -> Result<Vec<ParameterSetting>, &'static str> {
     let mut captions_csv = (offset..)
         .zip(settings)
