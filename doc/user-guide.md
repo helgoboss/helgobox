@@ -530,7 +530,7 @@ on macOS) with the following entries:
       it can only be unchecked if ReaLearn is on the normal FX chain. If it's on the input FX chain, unarming
       naturally disables feedback because REAPER generally excludes input FX from audio/MIDI processing while a
       track is unarmed (*this is subject to change in future!*).
-    - **Make instance superior:** If ticked, this instance is allowed to cancel other instances which share the same
+    - **Make instance superior:** If ticked, this instance is allowed to suspend other instances which share the same
       input and/or output device (hardware devices only, not FX input or output!). With this you can easily let your 
       controller control the currently focused FX but fall back to your usual controls when it's closed. It's intended
       to be used primarily on instances that use \"Auto-load: Depending on focused FX\". 
@@ -541,9 +541,9 @@ on macOS) with the following entries:
           fine with it. The same control element will control 2 mappings, why not!
         - Things start to get hairy as soon as 2 instances want to send *feedback* to the same control elements at the
           same time. You should avoid this. You should not even do this within one ReaLearn instance. This can't work.
-        - Sometimes you want one instance to cover/cancel/mute another one! You can do this by making this instance 
-          *superior*. Then, whenever this instance has at least one active mapping, all non-superior instances with
-          the same control and/or feedback device will be disabled for control and/or feedback.
+        - Sometimes you want one instance to suspend/cover/cancel/mute another one! You can do this by making this 
+          instance *superior*. Then, whenever this instance has at least one active mapping, all non-superior instances
+          with the same control and/or feedback device will be disabled for control and/or feedback.
         - You can have multiple superior instances. Make sure they get along with each other :)
 - **Server**
     - **Enabled:** This enables/disables the built-in server for allowing the ReaLearn Companion app to
