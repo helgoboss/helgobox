@@ -5,7 +5,7 @@
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
-  <td><code>2021-02-09 (v2.0.0)</code></td>
+  <td><code>2021-04-23 (v2.8.0-rc.6)</code></td>
 </tr>
 </table>
 
@@ -2532,6 +2532,9 @@ top-left control element to the bottom-right control element!
 
 ## Tutorials
 
+The screenshots in this section are slightly out of date. If you feel like contributing to the project, this is an
+area where you could help.
+
 ### 1. Using conditional activation to implement banks/pages
 
 Users often ask if it's possible to do control surface bank-style mapping in order to switch to a completely
@@ -2759,12 +2762,16 @@ you should know:
     - Depending on the nature of the particular problem, it might be possible to fix it in future ReaLearn versions.
       Therefore, if you encounter a problem in this area, feel free to 
       [raise an issue](https://github.com/helgoboss/realearn/issues).
-3. Some controllers have unique features that might not be directly usable within ReaLearn.
-    - Example: Some controllers have a very particular way of customizing the visual feedback (e.g. blinking LEDs).
-    - You might be able to get those features to work in combination with other MIDI FX because
-      mostly it's just a matter of sending some specific MIDI messages to the controller.
-    - Future versions of ReaLearn hopefully improve on that situation. There's a 
-      [GitHub issue](https://github.com/helgoboss/realearn/issues/113) discussing exactly this topic.
+3. Some controllers might have unique features that you can only use if you bring a bit of MIDI know-how and are ready
+   to use advanced ReaLearn features.
+    - Example: A controller might offer a way to change the appearance of an LED ring, but only via system-exclusive
+      MIDI messages.
+    - First, have a look if there's a controller preset already. Maybe it supports those advanced features already.
+    - If not, ReaLearn offers the following features for such scenarios:
+        - [Mapping lifecycle actions](#mapping-lifecycle-actions) (e.g. for sending MIDI sys-ex data on mapping 
+          activation)
+        - [Raw MIDI source](#raw-midi-source) (for sending MIDI sys-ex data in response to target value changes)
+        - [MIDI script source](#script-source) (same but for more complex scenarios)
 
 The purpose of this section is to write about experiences with specific controllers that have been tested in
 combination with ReaLearn. There's a broad variety of general-purpose MIDI controllers out there and there will be
@@ -2899,8 +2906,8 @@ All MiniLab mkII controller presets assume relative values.
 
 #### Hints
 
-- Visual feedback for the pad LEDs works thanks to ReaLearn's "Raw MIDI" source which uses system-exclusive MIDI
-  messages to control the LEDs. 
+- Visual feedback for the pad LEDs works thanks to ReaLearn's [Raw MIDI source](#raw-midi-source) which uses 
+  system-exclusive MIDI messages to control the LEDs. 
 - LED color depends on the target value and is adjustable via "Source Min/Max".
 - This is one of the devices which needs the "Send feedback after control" workaround for the "Toggle buttons" mode,
   so the pad LEDs might flicker a bit when using it.
