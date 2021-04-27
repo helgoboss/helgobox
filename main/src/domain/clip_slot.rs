@@ -675,7 +675,8 @@ impl PlayingState {
         caused_by_transport_change: bool,
     ) -> TransitionResult {
         if immediately {
-            self.stop_immediately(reg, caused_by_transport_change)
+            let suspended = self.stop_immediately(reg, caused_by_transport_change);
+            Ok(State::Suspended(suspended))
         } else {
             match self.scheduled_for {
                 None => {
@@ -695,7 +696,10 @@ impl PlayingState {
                     let suspended = self.suspend(reg, false, caused_by_transport_change);
                     Ok(State::Suspended(suspended))
                 }
-                Some(ScheduledFor::Stop) => self.stop_immediately(reg, caused_by_transport_change),
+                Some(ScheduledFor::Stop) => {
+                    let suspended = self.stop_immediately(reg, caused_by_transport_change);
+                    Ok(State::Suspended(suspended))
+                }
             }
         }
     }
@@ -704,12 +708,12 @@ impl PlayingState {
         self,
         reg: &SharedRegister,
         caused_by_transport_change: bool,
-    ) -> TransitionResult {
+    ) -> SuspendedState {
         let suspended = self.suspend(reg, false, caused_by_transport_change);
         let mut g = lock(reg);
         // Reset position!
         g.set_cur_pos(PositionInSeconds::new(0.0));
-        Ok(State::Suspended(suspended))
+        suspended
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {

@@ -1915,9 +1915,9 @@ them and invoke other clip-related transport actions.
 This target emits the following feedback values:
 
 - Clip stopped: 0%
-- Clip scheduled to play but not yet playing: 25%
+- Clip scheduled to play but not yet playing: 75%
 - Clip paused: 50%
-- Clip scheduled to stop but still playing: 75%
+- Clip scheduled to stop but still playing: 25%
 - Clip playing: 100%
 
 You can use a feedback formula and/or [MIDI script source](#script-source) to map this to button LED colors.
