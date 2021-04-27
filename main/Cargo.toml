@@ -1,10 +1,10 @@
 [package]
 name = "realearn"
-version = "2.8.0"
+version = "2.9.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
-license = "LGPL-3.0"
+license = "GPL-3.0"
 
 [features]
 default = ["prometheus"]

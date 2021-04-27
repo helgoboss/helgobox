@@ -3,7 +3,7 @@
 [![Continuous integration](https://github.com/helgoboss/realearn/workflows/Windows/badge.svg)](https://github.com/helgoboss/realearn/actions)
 [![Continuous integration](https://github.com/helgoboss/realearn/workflows/macOS/badge.svg)](https://github.com/helgoboss/realearn/actions)
 [![Continuous integration](https://github.com/helgoboss/realearn/workflows/Linux/badge.svg)](https://github.com/helgoboss/realearn/actions)
-[![GitHub license](https://img.shields.io/badge/license-LGPL-blue.svg)](https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE)
+[![GitHub license](https://img.shields.io/badge/license-GPL-blue.svg)](https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-orange.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9CTAK2KKA8Z2S&source=url)
 
 [REAPER](https://www.reaper.fm/) VSTi plug-in that provides REAPER users with sophisticated MIDI learn functionality.
