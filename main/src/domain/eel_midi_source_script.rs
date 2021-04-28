@@ -1,7 +1,7 @@
 use crate::core::eel;
 use helgoboss_learn::{MidiSourceScript, RawMidiEvent, UnitValue};
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct EelUnit {
@@ -14,8 +14,8 @@ struct EelUnit {
 
 #[derive(Clone, Debug)]
 pub struct EelMidiSourceScript {
-    // Rc because EelUnit is not cloneable
-    eel_unit: Rc<EelUnit>,
+    // Arc because EelUnit is not cloneable
+    eel_unit: Arc<EelUnit>,
 }
 
 impl EelMidiSourceScript {
@@ -34,7 +34,7 @@ impl EelMidiSourceScript {
             msg_size,
         };
         Ok(Self {
-            eel_unit: Rc::new(eel_unit),
+            eel_unit: Arc::new(eel_unit),
         })
     }
 }

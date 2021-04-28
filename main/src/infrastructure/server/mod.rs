@@ -397,7 +397,7 @@ async fn handle_metrics_route(
     {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         control_surface_task_sender
-            .send(RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(
+            .try_send(RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(
                 sender,
             ))
             .unwrap();

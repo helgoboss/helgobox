@@ -5,11 +5,12 @@ use crate::application::{
 use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask,
-    InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MidiSource, NormalAudioHookTask,
-    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource, RealTimeSender,
-    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
-    RealearnControlSurfaceServerTask, RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask, Garbage,
+    GarbageBin, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
+    MidiSource, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
+    RealSource, RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTargetContext,
+    ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
@@ -51,6 +52,7 @@ const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 // instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
 // and yet it's only around 1 MB memory usage (globally). We are on the safe side!
 const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
+const GARBAGE_QUEUE_SIZE: usize = 100_000;
 const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
@@ -298,11 +300,13 @@ impl App {
             uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
+            Self::garbage_channel().1.clone(),
             std::env::var("REALEARN_METER").is_ok(),
         ));
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
             uninit_state.feedback_audio_hook_task_receiver,
+            Self::garbage_bin().clone(),
         );
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
@@ -442,7 +446,7 @@ impl App {
 
     pub fn register_processor_couple(
         &self,
-        instance_id: String,
+        instance_id: InstanceId,
         real_time_processor: SharedRealTimeProcessor,
         main_processor: MainProcessor<WeakSession>,
     ) {
@@ -459,9 +463,9 @@ impl App {
             .unwrap();
     }
 
-    pub fn unregister_processor_couple(&self, instance_id: &str) {
-        self.unregister_main_processor(instance_id);
-        self.unregister_real_time_processor(instance_id.to_string());
+    pub fn unregister_processor_couple(&self, instance_id: InstanceId) {
+        self.unregister_main_processor(&instance_id);
+        self.unregister_real_time_processor(instance_id);
     }
 
     /// Attention: The real-time processor is removed *async*! That means it can still be called
@@ -515,7 +519,7 @@ impl App {
     ///     - Solution: Drive the real-time processor from both plug-in `process()` method **and**
     ///       audio hook and make sure that only the call from the plug-in ever sends MIDI to FX
     ///       output.
-    fn unregister_real_time_processor(&self, instance_id: String) {
+    fn unregister_real_time_processor(&self, instance_id: InstanceId) {
         self.audio_hook_task_sender
             .try_send(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id))
             .unwrap();
@@ -526,7 +530,7 @@ impl App {
     /// receivers are gone because we know it's not supposed to happen. Also, unlike with
     /// real-time processor, whatever cleanup work is necessary, we can do right here because we
     /// are in main thread already.
-    fn unregister_main_processor(&self, instance_id: &str) {
+    fn unregister_main_processor(&self, instance_id: &InstanceId) {
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             // Remove main processor.
             control_surface
@@ -717,6 +721,21 @@ impl App {
             slog::Logger::root(slog_stdlog::StdLog.fuse(), slog::o!("app" => "ReaLearn"))
         });
         &APP_LOGGER
+    }
+
+    // We need this to be static because we need it at plugin construction time, so we don't have
+    // REAPER API access yet.
+    pub fn garbage_bin() -> &'static GarbageBin {
+        &Self::garbage_channel().0
+    }
+
+    fn garbage_channel() -> &'static (GarbageBin, crossbeam_channel::Receiver<Garbage>) {
+        static CHANNEL: once_cell::sync::Lazy<(GarbageBin, crossbeam_channel::Receiver<Garbage>)> =
+            once_cell::sync::Lazy::new(|| {
+                let (sender, receiver) = crossbeam_channel::bounded(GARBAGE_QUEUE_SIZE);
+                (GarbageBin::new(sender), receiver)
+            });
+        &CHANNEL
     }
 
     pub fn sessions_changed(&self) -> impl UnitEvent {

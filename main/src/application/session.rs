@@ -7,8 +7,8 @@ use crate::core::default_util::is_default;
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackOutput, MainMapping, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    ExtendedProcessorContext, FeedbackOutput, InstanceId, MainMapping, MappingCompartment,
+    MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
     RealTimeSender, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
     VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
@@ -42,7 +42,7 @@ pub trait SessionUi {
 /// It's ReaLearn's main object which keeps everything together.
 #[derive(Debug)]
 pub struct Session {
-    instance_id: String,
+    instance_id: InstanceId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
@@ -151,7 +151,7 @@ pub mod session_defaults {
 impl Session {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: String,
+        instance_id: InstanceId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
@@ -165,7 +165,7 @@ impl Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
             // session ID is equal to the instance ID.
-            id: prop(instance_id.clone()),
+            id: prop(instance_id.to_string()),
             instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
@@ -1150,7 +1150,7 @@ impl Session {
 
     /// Resets the session ID to the (hopefully) always unique instance ID.
     pub fn reset_id(&mut self) {
-        self.id.set(self.instance_id.clone());
+        self.id.set(self.instance_id.to_string());
     }
 
     pub fn mapping_which_learns_source_changed(&self) -> impl UnitEvent {
@@ -1767,7 +1767,7 @@ impl Session {
     fn sync_upper_floor_membership(&self) {
         let backbone_state = BackboneState::get();
         if self.lives_on_upper_floor.get() {
-            backbone_state.add_to_upper_floor(self.instance_id.clone());
+            backbone_state.add_to_upper_floor(self.instance_id);
         } else {
             backbone_state.remove_from_upper_floor(&self.instance_id);
         }
@@ -1813,7 +1813,7 @@ impl Session {
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
             .unwrap_or_default();
-        let main_mapping = m.create_main_mapping(group_data, &self.logger);
+        let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateSingleMapping(
                 compartment,
@@ -1914,7 +1914,7 @@ impl Session {
                     .get(mapping.group_id.get_ref())
                     .map(|g| g.create_data())
                     .unwrap_or_default();
-                mapping.create_main_mapping(group_data, &self.logger)
+                mapping.create_main_mapping(group_data)
             })
             .collect()
     }

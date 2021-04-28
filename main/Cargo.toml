@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.8.2"
+version = "2.9.0-pre.1"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -125,6 +125,8 @@ maplit = "1.0.2"
 ascii = "1.0"
 # For using bit flags in the reaper-rs API.
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
+# For detecting undesired deallocation in real-time threads.
+assert_no_alloc = "1.1.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

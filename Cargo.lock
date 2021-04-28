@@ -145,6 +145,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assert_no_alloc"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2798d8eed2385fe2570f8a0daf377d2ca54d662fa012c28dfbaabc05a80f957d"
+
+[[package]]
 name = "async-channel"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2603,10 +2609,11 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.8.2"
+version = "2.9.0-pre.1"
 dependencies = [
  "ascii",
  "askama",
+ "assert_no_alloc",
  "async-channel",
  "backtrace",
  "bindgen",

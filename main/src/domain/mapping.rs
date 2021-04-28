@@ -1,8 +1,8 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, ControlContext, ControlOptions,
     ExtendedProcessorContext, MappingActivationEffect, MidiSource, Mode, ParameterArray,
-    ParameterSlice, PlayPosFeedbackResolution, RealSource, RealearnTarget, ReaperTarget,
-    TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
+    ParameterSlice, PlayPosFeedbackResolution, RealSource, RealTimeReaperTarget, RealearnTarget,
+    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
     VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
@@ -90,7 +90,10 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    /// Is `Some` if the user-provided target data is complete.
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
+    /// Is non-empty if the target resolved successfully.
+    targets: Vec<CompoundMappingTarget>,
     activation_condition_1: ActivationCondition,
     activation_condition_2: ActivationCondition,
     is_active_1: bool,
@@ -117,11 +120,11 @@ impl MainMapping {
                 id,
                 source,
                 mode,
-                targets: vec![],
                 options,
                 time_of_last_control: None,
             },
             unresolved_target,
+            targets: vec![],
             activation_condition_1,
             activation_condition_2,
             is_active_1: false,
@@ -160,10 +163,15 @@ impl MainMapping {
                 ..self.core.clone()
             },
             is_active: self.is_active(),
-            target_type: self.unresolved_target.as_ref().map(|t| match t {
-                UnresolvedCompoundMappingTarget::Reaper(_) => UnresolvedTargetType::Reaper,
-                UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetType::Virtual,
+            target_category: self.unresolved_target.as_ref().map(|t| match t {
+                UnresolvedCompoundMappingTarget::Reaper(_) => UnresolvedTargetCategory::Reaper,
+                UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetCategory::Virtual,
             }),
+            target_is_resolved: !self.targets.is_empty(),
+            resolved_target: self
+                .targets
+                .first()
+                .and_then(|t| t.splinter_real_time_target()),
             lifecycle_midi_data: self
                 .extension
                 .lifecycle_midi_data
@@ -189,7 +197,7 @@ impl MainMapping {
     }
 
     pub fn has_resolved_successfully(&self) -> bool {
-        !self.core.targets.is_empty()
+        !self.targets.is_empty()
     }
 
     pub fn unresolved_reaper_target(&self) -> Option<&UnresolvedReaperTarget> {
@@ -301,8 +309,8 @@ impl MainMapping {
                 }
             },
         };
-        let target_changed = targets != self.core.targets;
-        self.core.targets = targets;
+        let target_changed = targets != self.targets;
+        self.targets = targets;
         self.core.options.target_is_active = is_active;
         if self.target_is_effectively_active() == was_effectively_active_before {
             return (target_changed, None);
@@ -379,7 +387,7 @@ impl MainMapping {
     }
 
     pub fn targets(&self) -> &[CompoundMappingTarget] {
-        &self.core.targets
+        &self.targets
     }
 
     /// This is for timer-triggered control and works like `control_if_enabled`.
@@ -388,7 +396,7 @@ impl MainMapping {
             return None;
         }
         let mut should_send_feedback = false;
-        for target in &self.core.targets {
+        for target in &self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
@@ -430,7 +438,7 @@ impl MainMapping {
         }
         let mut send_feedback = false;
         let mut at_least_one_target_val_was_changed = false;
-        for target in &self.core.targets {
+        for target in &self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
@@ -517,7 +525,6 @@ impl MainMapping {
         context: ControlContext,
     ) -> Option<FeedbackValue> {
         let combined_target_value = self
-            .core
             .targets
             .iter()
             .filter_map(|target| match target {
@@ -597,7 +604,7 @@ impl MainMapping {
     }
 
     pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
-        if self.core.targets.is_empty() {
+        if self.targets.is_empty() {
             return None;
         }
         let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
@@ -605,20 +612,30 @@ impl MainMapping {
         } else {
             return None;
         };
-        match_partially(&mut self.core, control_value)
+        // First target is enough because this does nothing yet.
+        match self.targets.first()? {
+            CompoundMappingTarget::Reaper(_) => {
+                Some(PartialControlMatch::ProcessDirect(control_value))
+            }
+            CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct RealTimeMapping {
-    core: MappingCore,
+    pub core: MappingCore,
     is_active: bool,
-    target_type: Option<UnresolvedTargetType>,
-    lifecycle_midi_data: LifecycleMidiData,
+    /// Is `Some` if user-provided target data is complete.
+    target_category: Option<UnresolvedTargetCategory>,
+    target_is_resolved: bool,
+    /// Is `Some` if this target needs to be processed in real-time.
+    pub resolved_target: Option<RealTimeCompoundMappingTarget>,
+    pub lifecycle_midi_data: LifecycleMidiData,
 }
 
 #[derive(Debug)]
-pub enum UnresolvedTargetType {
+pub enum UnresolvedTargetCategory {
     Reaper,
     Virtual,
 }
@@ -692,26 +709,7 @@ impl RealTimeMapping {
     }
 
     pub fn has_reaper_target(&self) -> bool {
-        matches!(self.target_type, Some(UnresolvedTargetType::Reaper))
-    }
-
-    pub fn control_first_target_from_mode(
-        &mut self,
-        control_value: ControlValue,
-    ) -> Option<ControlValue> {
-        let target = self.core.targets.first()?;
-        self.core.mode.control(control_value, target, None)
-    }
-
-    pub fn needs_to_be_processed_in_real_time(&self) -> bool {
-        matches!(
-            self.core.targets.first(),
-            Some(CompoundMappingTarget::Reaper(ReaperTarget::SendMidi { .. }))
-        )
-    }
-
-    pub fn first_target(&self) -> Option<&CompoundMappingTarget> {
-        self.core.targets.first()
+        matches!(self.target_category, Some(UnresolvedTargetCategory::Reaper))
     }
 
     pub fn consumes(&self, msg: RawShortMessage) -> bool {
@@ -730,7 +728,7 @@ impl RealTimeMapping {
         &mut self,
         source_value: &MidiSourceValue<RawShortMessage>,
     ) -> Option<PartialControlMatch> {
-        if self.core.targets.is_empty() {
+        if !self.target_is_resolved {
             return None;
         }
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
@@ -738,7 +736,14 @@ impl RealTimeMapping {
         } else {
             return None;
         };
-        match_partially(&mut self.core, control_value)
+        match self.resolved_target.as_ref()? {
+            RealTimeCompoundMappingTarget::Reaper(_) => {
+                Some(PartialControlMatch::ProcessDirect(control_value))
+            }
+            RealTimeCompoundMappingTarget::Virtual(t) => {
+                match_partially(&mut self.core, t, control_value)
+            }
+        }
     }
 }
 
@@ -751,9 +756,8 @@ pub enum PartialControlMatch {
 pub struct MappingCore {
     compartment: MappingCompartment,
     id: MappingId,
-    source: CompoundMappingSource,
-    mode: Mode,
-    targets: Vec<CompoundMappingTarget>,
+    pub source: CompoundMappingSource,
+    pub mode: Mode,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
 }
@@ -990,6 +994,23 @@ pub enum CompoundMappingTarget {
     Virtual(VirtualTarget),
 }
 
+impl CompoundMappingTarget {
+    pub fn splinter_real_time_target(&self) -> Option<RealTimeCompoundMappingTarget> {
+        match self {
+            CompoundMappingTarget::Reaper(t) => t
+                .splinter_real_time_target()
+                .map(RealTimeCompoundMappingTarget::Reaper),
+            CompoundMappingTarget::Virtual(t) => Some(RealTimeCompoundMappingTarget::Virtual(*t)),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum RealTimeCompoundMappingTarget {
+    Reaper(RealTimeReaperTarget),
+    Virtual(VirtualTarget),
+}
+
 impl RealearnTarget for CompoundMappingTarget {
     fn character(&self) -> TargetCharacter {
         use CompoundMappingTarget::*;
@@ -1199,34 +1220,25 @@ pub enum ExtendedSourceCharacter {
 
 fn match_partially(
     core: &mut MappingCore,
+    target: &VirtualTarget,
     control_value: ControlValue,
 ) -> Option<PartialControlMatch> {
-    use CompoundMappingTarget::*;
-    // First target is enough because this does nothing yet for REAPER targets.
-    let result = match core.targets.first()? {
-        Reaper(_) => {
-            // Send to main processor because this needs to be done in main thread.
-            PartialControlMatch::ProcessDirect(control_value)
-        }
-        Virtual(t) => {
-            // Determine resulting virtual control value in real-time processor.
-            // It's important to do that here. We need to know the result in order to
-            // return if there was actually a match of *real* non-virtual mappings.
-            // Unlike with REAPER targets, we also don't have threading issues here :)
-            // TODO-medium If we want to support fire after timeout and turbo for mappings with
-            //  virtual targets one day, we need to poll this in real-time processor and OSC
-            //  processing, too!
-            let transformed_control_value = core.mode.control(control_value, t, ())?;
-            if core.options.prevent_echo_feedback {
-                core.time_of_last_control = Some(Instant::now());
-            }
-            PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
-                t.control_element(),
-                transformed_control_value,
-            ))
-        }
-    };
-    Some(result)
+    // Determine resulting virtual control value in real-time processor.
+    // It's important to do that here. We need to know the result in order to
+    // return if there was actually a match of *real* non-virtual mappings.
+    // Unlike with REAPER targets, we also don't have threading issues here :)
+    // TODO-medium If we want to support fire after timeout and turbo for mappings with
+    //  virtual targets one day, we need to poll this in real-time processor and OSC
+    //  processing, too!
+    let transformed_control_value = core.mode.control(control_value, target, ())?;
+    if core.options.prevent_echo_feedback {
+        core.time_of_last_control = Some(Instant::now());
+    }
+    let res = PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
+        target.control_element(),
+        transformed_control_value,
+    ));
+    Some(res)
 }
 
 #[derive(PartialEq, Debug)]

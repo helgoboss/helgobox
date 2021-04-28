@@ -1,11 +1,13 @@
 use crate::core::Global;
 use crate::domain::{
-    BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput,
-    MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget, SourceFeedbackValue,
-    TouchedParameterType,
+    ActivationChange, BackboneState, CompoundMappingSource, DeviceControlInput,
+    DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput, InstanceId,
+    LifecycleMidiData, MainProcessor, OscDeviceId, OscInputDevice, RealSource,
+    RealTimeCompoundMappingTarget, RealTimeMapping, ReaperTarget, SharedRealTimeProcessor,
+    SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::OscSource;
+use helgoboss_learn::{OscSource, RawMidiEvent};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
     FxParameter, MainTaskMiddleware, MeterMiddleware, Project, Reaper,
@@ -29,6 +31,7 @@ const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
+const GARBAGE_BULK_SIZE: usize = 100;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -48,6 +51,20 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
+    garbage_receiver: crossbeam_channel::Receiver<Garbage>,
+}
+
+#[derive(Debug)]
+pub enum Garbage {
+    RawMidiEvent(Box<RawMidiEvent>),
+    RealTimeProcessor(SharedRealTimeProcessor),
+    LifecycleMidiData(LifecycleMidiData),
+    ResolvedTarget(Option<RealTimeCompoundMappingTarget>),
+    EelTransformation(Option<EelTransformation>),
+    MappingSource(CompoundMappingSource),
+    RealTimeMappings(Vec<RealTimeMapping>),
+    BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
+    ActivationChanges(Vec<ActivationChange>),
 }
 
 #[derive(Debug)]
@@ -98,7 +115,7 @@ pub enum InstanceOrchestrationEvent {
 /// Communicates changes in which input and output device a ReaLearn instance uses or used.
 #[derive(Debug)]
 pub struct IoUpdatedEvent {
-    pub instance_id: String,
+    pub instance_id: InstanceId,
     pub control_input: Option<DeviceControlInput>,
     pub control_input_used: bool,
     pub feedback_output: Option<DeviceFeedbackOutput>,
@@ -108,7 +125,7 @@ pub struct IoUpdatedEvent {
 
 #[derive(Debug)]
 pub struct SourceReleasedEvent {
-    pub instance_id: String,
+    pub instance_id: InstanceId,
     pub feedback_output: FeedbackOutput,
     pub feedback_value: SourceFeedbackValue,
 }
@@ -153,6 +170,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
+        garbage_receiver: crossbeam_channel::Receiver<Garbage>,
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
@@ -181,10 +199,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
+            garbage_receiver,
         }
     }
 
-    pub fn remove_main_processor(&mut self, id: &str) {
+    pub fn remove_main_processor(&mut self, id: &InstanceId) {
         self.main_processors.retain(|p| p.instance_id() != id);
     }
 
@@ -227,6 +246,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     self.main_processors.push(p);
                 }
                 LogDebugInfo => {
+                    self.log_debug_info();
                     self.meter_middleware.log_metrics();
                 }
                 StartLearningTargets(sender) => {
@@ -309,7 +329,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         if let Some(p) = self
                             .main_processors
                             .iter()
-                            .find(|p| p.instance_id() == e.instance_id)
+                            .find(|p| p.instance_id() == &e.instance_id)
                         {
                             // Finally safe to switch off lights!
                             p.finally_switch_off_source(e.feedback_output, e.feedback_value);
@@ -348,7 +368,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                             // Give lower-floor instances the chance to cancel or reactivate.
                             self.main_processors
                                 .iter()
-                                .filter(|p| p.instance_id() != e.instance_id)
+                                .filter(|p| p.instance_id() != &e.instance_id)
                                 .for_each(|p| {
                                     p.handle_change_of_some_upper_floor_instance(feedback_output)
                                 });
@@ -399,6 +419,23 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 self.counter += 1;
             }
         }
+        // Garbage drop
+        for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
+            let _ = garbage;
+        }
+    }
+
+    fn log_debug_info(&self) {
+        // Summary
+        let msg = format!(
+            "\n\
+            # Backbone control surface\n\
+            \n\
+            - Garbage count: {} \n\
+            ",
+            self.garbage_receiver.len(),
+        );
+        Reaper::get().show_console_msg(msg);
     }
 
     fn process_incoming_osc_messages(&mut self) {
@@ -543,4 +580,41 @@ fn process_incoming_osc_message_for_learning(
 ) {
     let source = OscSource::from_source_value(msg, Some(0));
     let _ = sender.try_send((dev_id, source));
+}
+
+impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
+    fn drop(&mut self) {
+        for garbage in self.garbage_receiver.try_iter() {
+            let _ = garbage;
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GarbageBin {
+    sender: crossbeam_channel::Sender<Garbage>,
+}
+impl GarbageBin {
+    pub fn new(sender: crossbeam_channel::Sender<Garbage>) -> Self {
+        assert!(
+            sender.capacity().is_some(),
+            "garbage bin sender channel must be bounded!"
+        );
+        Self { sender }
+    }
+
+    pub fn dispose(&self, garbage: Garbage) {
+        self.sender.try_send(garbage).unwrap();
+    }
+
+    pub fn dispose_real_time_mapping(&self, m: RealTimeMapping) {
+        // Dispose bits that contain heap-allocated stuff. Do it separately to not let the garbage
+        // enum size get too large.
+        self.dispose(Garbage::LifecycleMidiData(m.lifecycle_midi_data));
+        self.dispose(Garbage::ResolvedTarget(m.resolved_target));
+        self.dispose(Garbage::EelTransformation(
+            m.core.mode.control_transformation,
+        ));
+        self.dispose(Garbage::MappingSource(m.core.source));
+    }
 }

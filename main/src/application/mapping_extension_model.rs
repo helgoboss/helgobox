@@ -57,35 +57,32 @@ impl TryFrom<String> for RawHexStringMidiMessage {
     }
 }
 
-impl TryFrom<LifecycleMidiMessageModel> for LifecycleMidiMessage {
-    type Error = &'static str;
-
-    fn try_from(value: LifecycleMidiMessageModel) -> Result<Self, Self::Error> {
+impl LifecycleMidiMessageModel {
+    pub fn create_lifecycle_midi_message(&self) -> Result<LifecycleMidiMessage, &'static str> {
         use LifecycleMidiMessageModel::*;
-        let message = match value {
+        let message = match self {
             Raw(msg) => {
-                LifecycleMidiMessage::Raw(Box::new(RawMidiEvent::try_from_slice(0, msg.bytes())?))
+                let event = RawMidiEvent::try_from_slice(0, msg.bytes())?;
+                LifecycleMidiMessage::Raw(Box::new(event))
             }
         };
         Ok(message)
     }
 }
 
-impl TryFrom<MappingExtensionModel> for MappingExtension {
-    type Error = &'static str;
-
-    fn try_from(value: MappingExtensionModel) -> Result<Self, Self::Error> {
+impl MappingExtensionModel {
+    pub fn create_mapping_extension(&self) -> Result<MappingExtension, &'static str> {
         fn convert_messages(
-            model: Vec<LifecycleMidiMessageModel>,
+            model: &[LifecycleMidiMessageModel],
         ) -> Result<Vec<LifecycleMidiMessage>, &'static str> {
             model
-                .into_iter()
-                .map(LifecycleMidiMessage::try_from)
+                .iter()
+                .map(|m| m.create_lifecycle_midi_message())
                 .collect()
         }
         let ext = MappingExtension::new(LifecycleMidiData {
-            activation_midi_messages: convert_messages(value.on_activate.send_midi_feedback)?,
-            deactivation_midi_messages: convert_messages(value.on_deactivate.send_midi_feedback)?,
+            activation_midi_messages: convert_messages(&self.on_activate.send_midi_feedback)?,
+            deactivation_midi_messages: convert_messages(&self.on_deactivate.send_midi_feedback)?,
         });
         Ok(ext)
     }

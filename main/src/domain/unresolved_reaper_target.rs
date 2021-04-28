@@ -3,8 +3,8 @@ use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
     MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget,
-    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType,
-    TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    SeekOptions, SendMidiDestination, SendMidiTarget, SlotPlayOptions, SoloBehavior,
+    TouchedParameterType, TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -403,10 +403,10 @@ impl UnresolvedReaperTarget {
             SendMidi {
                 pattern,
                 destination,
-            } => vec![ReaperTarget::SendMidi {
+            } => vec![ReaperTarget::SendMidi(SendMidiTarget {
                 pattern: pattern.clone(),
                 destination: *destination,
-            }],
+            })],
             SendOsc {
                 address_pattern,
                 arg_descriptor,

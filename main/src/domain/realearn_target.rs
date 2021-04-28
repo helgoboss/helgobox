@@ -6,7 +6,7 @@ use helgoboss_learn::{ControlValue, UnitValue};
 
 pub trait RealearnTarget {
     fn character(&self) -> TargetCharacter;
-    fn open(&self);
+    fn open(&self) {}
     /// Parses the given text as a target value and returns it as unit value.
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str>;
     /// Parses the given text as a target step size and returns it as unit value.
@@ -39,7 +39,13 @@ pub trait RealearnTarget {
     fn value_unit(&self) -> &'static str;
     fn step_size_unit(&self) -> &'static str;
     /// Formats the value completely (including a possible unit).
-    fn format_value(&self, value: UnitValue) -> String;
+    fn format_value(&self, value: UnitValue) -> String {
+        format!(
+            "{} {}",
+            self.format_value_without_unit(value),
+            self.value_unit()
+        )
+    }
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str>;
     fn can_report_current_value(&self) -> bool;
 }

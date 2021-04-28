@@ -2,7 +2,7 @@ use crate::core::eel;
 use helgoboss_learn::{Transformation, UnitValue};
 use std::convert::TryInto;
 
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug)]
 struct EelUnit {
@@ -22,8 +22,8 @@ pub enum OutputVariable {
 /// Represents a value transformation done via EEL scripting language.
 #[derive(Clone, Debug)]
 pub struct EelTransformation {
-    // Rc because EelUnit is not cloneable
-    eel_unit: Rc<EelUnit>,
+    // Arc because EelUnit is not cloneable
+    eel_unit: Arc<EelUnit>,
     output_var: OutputVariable,
 }
 
@@ -42,7 +42,7 @@ impl EelTransformation {
         let y = vm.register_variable("y");
         let eel_unit = EelUnit { vm, program, x, y };
         Ok(EelTransformation {
-            eel_unit: Rc::new(eel_unit),
+            eel_unit: Arc::new(eel_unit),
             output_var: result_var,
         })
     }
