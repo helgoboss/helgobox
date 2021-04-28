@@ -137,7 +137,7 @@ impl RealTimeProcessor {
     fn request_full_sync_and_discard_tasks_if_successful(&mut self) {
         if self
             .normal_main_task_sender
-            .send(NormalRealTimeToMainThreadTask::FullResyncToRealTimeProcessorPlease)
+            .try_send(NormalRealTimeToMainThreadTask::FullResyncToRealTimeProcessorPlease)
             .is_ok()
         {
             // Requesting a full resync was successful so we can safely discard accumulated tasks.
@@ -208,7 +208,11 @@ impl RealTimeProcessor {
                         );
                     }
                     // Set
-                    self.mappings[compartment].clear();
+                    for (_, m) in self.mappings[compartment].drain() {
+                        self.garbage_sender
+                            .try_send(Garbage::RealTimeMapping(m))
+                            .unwrap()
+                    }
                     self.mappings[compartment].extend(mappings.drain(..).map(|m| (m.id(), m)));
                     // Handle activation MIDI
                     if self.processor_feedback_is_effectively_on() {
@@ -499,8 +503,9 @@ impl RealTimeProcessor {
 
     fn log_debug_info(&self, task_count: usize) {
         // Summary
-        let msg = format!(
-            "\n\
+        permit_alloc(|| {
+            let msg = format!(
+                "\n\
             # Real-time processor\n\
             \n\
             - State: {:?} \n\
@@ -511,34 +516,35 @@ impl RealTimeProcessor {
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
-            self.control_mode,
-            self.mappings[MappingCompartment::MainMappings].len(),
-            self.mappings[MappingCompartment::MainMappings]
-                .values()
-                .filter(|m| m.control_is_effectively_on())
-                .count(),
-            self.mappings[MappingCompartment::ControllerMappings].len(),
-            self.mappings[MappingCompartment::ControllerMappings]
-                .values()
-                .filter(|m| m.control_is_effectively_on())
-                .count(),
-            task_count,
-            self.feedback_task_receiver.len(),
-        );
-        Global::task_support()
-            .do_in_main_thread_asap(move || {
-                Reaper::get().show_console_msg(msg);
-            })
-            .unwrap();
-        // Detailled
-        println!(
-            "\n\
+                self.control_mode,
+                self.mappings[MappingCompartment::MainMappings].len(),
+                self.mappings[MappingCompartment::MainMappings]
+                    .values()
+                    .filter(|m| m.control_is_effectively_on())
+                    .count(),
+                self.mappings[MappingCompartment::ControllerMappings].len(),
+                self.mappings[MappingCompartment::ControllerMappings]
+                    .values()
+                    .filter(|m| m.control_is_effectively_on())
+                    .count(),
+                task_count,
+                self.feedback_task_receiver.len(),
+            );
+            Global::task_support()
+                .do_in_main_thread_asap(move || {
+                    Reaper::get().show_console_msg(msg);
+                })
+                .unwrap();
+            // Detailled
+            println!(
+                "\n\
             # Real-time processor\n\
             \n\
             {:#?}
             ",
-            self
-        );
+                self
+            );
+        });
     }
 
     fn process_incoming_midi(

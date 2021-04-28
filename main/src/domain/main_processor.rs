@@ -971,9 +971,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn send_io_update(
         &self,
         event: IoUpdatedEvent,
-    ) -> Result<(), crossbeam_channel::SendError<InstanceOrchestrationEvent>> {
+    ) -> Result<(), crossbeam_channel::TrySendError<InstanceOrchestrationEvent>> {
         self.instance_orchestration_event_sender
-            .send(InstanceOrchestrationEvent::IoUpdated(event))
+            .try_send(InstanceOrchestrationEvent::IoUpdated(event))
     }
 
     fn get_normal_or_virtual_target_mapping(
@@ -1778,7 +1778,10 @@ fn send_direct_feedback<EH: DomainEventHandler>(
                         feedback_output,
                         feedback_value: source_feedback_value,
                     });
-                    instance.instance_orchestration_sender.send(event).unwrap();
+                    instance
+                        .instance_orchestration_sender
+                        .try_send(event)
+                        .unwrap();
                 } else {
                     // Send feedback right now.
                     send_direct_source_feedback(

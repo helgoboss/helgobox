@@ -1,8 +1,8 @@
 use crate::core::Global;
 use crate::domain::{
     BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput,
-    InstanceId, MainProcessor, OscDeviceId, OscInputDevice, RealSource, ReaperTarget,
-    SourceFeedbackValue, TouchedParameterType,
+    InstanceId, MainProcessor, OscDeviceId, OscInputDevice, RealSource, RealTimeMapping,
+    ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{OscSource, RawMidiEvent};
@@ -30,7 +30,7 @@ const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
-const GARBAGE_BULK_SIZE: usize = 10;
+const GARBAGE_BULK_SIZE: usize = 100;
 
 #[derive(Debug)]
 pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
@@ -63,6 +63,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 #[derive(Debug)]
 pub enum Garbage {
     RawMidiEvent(Box<RawMidiEvent>),
+    RealTimeProcessor(SharedRealTimeProcessor),
+    RealTimeMapping(RealTimeMapping),
 }
 
 #[derive(Debug)]

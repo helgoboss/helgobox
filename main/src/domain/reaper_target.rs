@@ -1157,7 +1157,7 @@ impl RealearnTarget for ReaperTarget {
                     .ok_or("no destination device for sending OSC")?;
                 context
                     .osc_feedback_task_sender
-                    .send(OscFeedbackTask::new(effective_dev_id, msg))
+                    .try_send(OscFeedbackTask::new(effective_dev_id, msg))
                     .unwrap();
             }
             ClipTransport {

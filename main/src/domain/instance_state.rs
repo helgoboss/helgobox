@@ -37,7 +37,7 @@ impl InstanceState {
             if let Ok(Some(event)) = slot.process_transport_change(new_play_state) {
                 let instance_event = InstanceFeedbackEvent::ClipChanged { slot_index, event };
                 self.instance_feedback_event_sender
-                    .send(instance_event)
+                    .try_send(instance_event)
                     .unwrap();
             }
         }
@@ -174,7 +174,7 @@ impl InstanceState {
     }
 
     fn send_feedback_event(&self, event: InstanceFeedbackEvent) {
-        self.instance_feedback_event_sender.send(event).unwrap();
+        self.instance_feedback_event_sender.try_send(event).unwrap();
     }
 
     fn notify_slot_contents_changed(&mut self) {

@@ -23,7 +23,6 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 use helgoboss_learn::OscSource;
 
-use basedrop::Owned;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
@@ -458,7 +457,7 @@ impl App {
         self.audio_hook_task_sender
             .try_send(NormalAudioHookTask::AddRealTimeProcessor(
                 instance_id,
-                WrapDebug(Owned::new(&self.collector_handle(), real_time_processor)),
+                real_time_processor,
             ))
             .unwrap();
         self.control_surface_main_task_sender

@@ -3,7 +3,6 @@ use crate::domain::{
     MidiSourceScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
-use basedrop::Owned;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
 use reaper_high::{MidiOutputDevice, Reaper};
@@ -14,7 +13,6 @@ use reaper_medium::{
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-use wrap_debug::WrapDebug;
 
 const AUDIO_HOOK_TASK_BULK_SIZE: usize = 1;
 const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
@@ -35,7 +33,7 @@ pub enum NormalAudioHookTask {
     //
     // Having the ID saves us from unnecessarily blocking the audio thread by looking into the
     // processor.
-    AddRealTimeProcessor(InstanceId, WrapDebug<Owned<SharedRealTimeProcessor>>),
+    AddRealTimeProcessor(InstanceId, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(InstanceId),
     StartLearningSources(LearnSourceSender),
     StopLearningSources,
@@ -51,7 +49,7 @@ pub enum FeedbackAudioHookTask {
 #[derive(Debug)]
 pub struct RealearnAudioHook {
     state: AudioHookState,
-    real_time_processors: SmallVec<[(InstanceId, WrapDebug<Owned<SharedRealTimeProcessor>>); 256]>,
+    real_time_processors: SmallVec<[(InstanceId, SharedRealTimeProcessor); 256]>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
@@ -203,7 +201,14 @@ impl OnAudioBuffer for RealearnAudioHook {
                         self.real_time_processors.push((id, p));
                     }
                     RemoveRealTimeProcessor(id) => {
-                        self.real_time_processors.retain(|(i, _)| i != &id);
+                        if let Some(pos) =
+                            self.real_time_processors.iter().position(|(i, _)| i == &id)
+                        {
+                            let (_, proc) = self.real_time_processors.swap_remove(pos);
+                            self.garbage_sender
+                                .try_send(Garbage::RealTimeProcessor(proc))
+                                .unwrap();
+                        }
                     }
                     StartLearningSources(sender) => {
                         self.state = AudioHookState::LearningSource {
