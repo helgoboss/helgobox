@@ -379,7 +379,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.wants_to_be_polled_for_control() {
                                 self.poll_control_mappings[compartment].insert(m.id());
                             }
-                            m.splinter_real_time_mapping(collector_handle)
+                            m.splinter_real_time_mapping()
                         })
                         .collect();
                     // Put into hash map in order to quickly look up mappings by ID
@@ -475,7 +475,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             compartment,
                             WrapDebug(Owned::new(
                                 collector_handle,
-                                Some(mapping.splinter_real_time_mapping(collector_handle)),
+                                Some(mapping.splinter_real_time_mapping()),
                             )),
                         ))
                         .unwrap();

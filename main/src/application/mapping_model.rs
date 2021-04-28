@@ -252,11 +252,7 @@ impl MappingModel {
 
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
-    pub fn create_main_mapping(
-        &self,
-        group_data: GroupData,
-        collector_handle: &basedrop::Handle,
-    ) -> MainMapping {
+    pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
         let possible_source_characters = self.source_model.possible_detailed_characters();
@@ -286,7 +282,7 @@ impl MappingModel {
             activation_condition,
             options,
             self.extension_model
-                .create_mapping_extension(collector_handle)
+                .create_mapping_extension()
                 .unwrap_or_default(),
         )
     }

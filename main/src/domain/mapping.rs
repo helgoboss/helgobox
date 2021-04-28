@@ -15,7 +15,6 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use basedrop::Owned;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
@@ -24,7 +23,6 @@ use std::fmt::Display;
 use std::ops::Range;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
-use wrap_debug::WrapDebug;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ProcessorMappingOptions {
@@ -64,30 +62,13 @@ const MAX_ECHO_FEEDBACK_DELAY: Duration = Duration::from_millis(100);
 pub enum LifecycleMidiMessage {
     #[allow(unused)]
     Short(RawShortMessage),
-    Raw(WrapDebug<Owned<RawMidiEvent>>),
+    Raw(Box<RawMidiEvent>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LifecycleMidiData {
-    pub activation_midi_messages: WrapDebug<Owned<Vec<LifecycleMidiMessage>>>,
-    pub deactivation_midi_messages: WrapDebug<Owned<Vec<LifecycleMidiMessage>>>,
-}
-
-impl LifecycleMidiData {
-    pub fn empty(collector_handle: &basedrop::Handle) -> Self {
-        Self::new(collector_handle, vec![], vec![])
-    }
-
-    pub fn new(
-        collector_handle: &basedrop::Handle,
-        activation: Vec<LifecycleMidiMessage>,
-        deactivation: Vec<LifecycleMidiMessage>,
-    ) -> Self {
-        Self {
-            activation_midi_messages: WrapDebug(Owned::new(collector_handle, activation)),
-            deactivation_midi_messages: WrapDebug(Owned::new(collector_handle, deactivation)),
-        }
-    }
+    pub activation_midi_messages: Vec<LifecycleMidiMessage>,
+    pub deactivation_midi_messages: Vec<LifecycleMidiMessage>,
 }
 
 #[derive(Debug, Default)]
@@ -172,10 +153,7 @@ impl MainMapping {
         self.core.mode_control_options()
     }
 
-    pub fn splinter_real_time_mapping(
-        &mut self,
-        collector_handle: &basedrop::Handle,
-    ) -> RealTimeMapping {
+    pub fn splinter_real_time_mapping(&mut self) -> RealTimeMapping {
         RealTimeMapping {
             core: MappingCore {
                 options: ProcessorMappingOptions {
@@ -198,7 +176,7 @@ impl MainMapping {
                 .extension
                 .lifecycle_midi_data
                 .take()
-                .unwrap_or_else(|| LifecycleMidiData::empty(collector_handle)),
+                .unwrap_or_default(),
         }
     }
 

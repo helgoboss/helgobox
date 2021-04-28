@@ -804,7 +804,7 @@ impl RealTimeProcessor {
                                         mo.send(*msg, SendMidiTime::Instantly);
                                     }
                                     LifecycleMidiMessage::Raw(data) => {
-                                        mo.send_msg(&***data, SendMidiTime::Instantly);
+                                        mo.send_msg(&**data, SendMidiTime::Instantly);
                                     }
                                 }
                             }
