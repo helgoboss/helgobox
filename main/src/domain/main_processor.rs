@@ -8,18 +8,21 @@ use crate::domain::{
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
     RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
-    VirtualSourceValue, CLIP_SLOT_COUNT,
+    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
+    TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
 
+use basedrop::Owned;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
 use slog::{debug, trace};
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
+use wrap_debug::WrapDebug;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -36,7 +39,7 @@ pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_C
 
 #[derive(Debug)]
 pub struct MainProcessor<EH: DomainEventHandler> {
-    instance_id: String,
+    instance_id: InstanceId,
     logger: slog::Logger,
     /// Contains mappings without virtual targets.
     mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
@@ -60,6 +63,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     self_feedback_sender: crossbeam_channel::Sender<FeedbackMainTask>,
     self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+    normal_real_time_to_main_thread_task_receiver:
+        crossbeam_channel::Receiver<NormalRealTimeToMainThreadTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
     instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
@@ -83,10 +88,13 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 impl<EH: DomainEventHandler> MainProcessor<EH> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: String,
+        instance_id: InstanceId,
         parent_logger: &slog::Logger,
         self_normal_sender: crossbeam_channel::Sender<NormalMainTask>,
         normal_task_receiver: crossbeam_channel::Receiver<NormalMainTask>,
+        normal_real_time_to_main_thread_task_receiver: crossbeam_channel::Receiver<
+            NormalRealTimeToMainThreadTask,
+        >,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
         instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
@@ -109,6 +117,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self_normal_sender,
             self_feedback_sender,
             normal_task_receiver,
+            normal_real_time_to_main_thread_task_receiver,
             feedback_task_receiver,
             control_task_receiver,
             parameter_task_receiver,
@@ -137,7 +146,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    pub fn instance_id(&self) -> &str {
+    pub fn instance_id(&self) -> &InstanceId {
         &self.instance_id
     }
 
@@ -202,8 +211,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// This should be regularly called by the control surface in normal mode.
-    pub fn run_all(&mut self) {
-        self.run_essential();
+    pub fn run_all(&mut self, collector_handle: &basedrop::Handle) {
+        self.run_essential(collector_handle);
         self.run_control();
     }
 
@@ -279,7 +288,35 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// This should be regularly called by the control surface, even during global target learning.
-    pub fn run_essential(&mut self) {
+    pub fn run_essential(&mut self, collector_handle: &basedrop::Handle) {
+        // Process normal tasks from real-time- processor
+        for task in self
+            .normal_real_time_to_main_thread_task_receiver
+            .try_iter()
+            .take(NORMAL_TASK_BULK_SIZE)
+        {
+            use NormalRealTimeToMainThreadTask::*;
+            match task {
+                LearnMidiSource {
+                    source,
+                    allow_virtual_sources,
+                } => {
+                    self.event_handler.handle_event(DomainEvent::LearnedSource {
+                        source: RealSource::Midi(source),
+                        allow_virtual_sources,
+                    });
+                }
+                FullResyncToRealTimeProcessorPlease => {
+                    // We cannot provide everything that the real-time processor needs so we need
+                    // to delegate to the session in order to let it do the resync (could be
+                    // changed by also holding unnecessary things but for now, why not taking the
+                    // session detour).
+                    self.event_handler
+                        .handle_event(DomainEvent::FullResyncRequested);
+                }
+            }
+        }
+
         // Process normal tasks
         // We could also iterate directly while keeping the receiver open. But that would (for
         // good reason) prevent us from calling other methods that mutably borrow
@@ -342,7 +379,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.wants_to_be_polled_for_control() {
                                 self.poll_control_mappings[compartment].insert(m.id());
                             }
-                            m.splinter_real_time_mapping()
+                            m.splinter_real_time_mapping(collector_handle)
                         })
                         .collect();
                     // Put into hash map in order to quickly look up mappings by ID
@@ -359,7 +396,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateAllMappings(
                             compartment,
-                            real_time_mappings,
+                            WrapDebug(basedrop::Owned::new(&collector_handle, real_time_mappings)),
                         ))
                         .unwrap();
                     // Important to send IO event first ...
@@ -406,7 +443,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             let _ = self.normal_real_time_task_sender.send(
                                 NormalRealTimeTask::UpdateTargetActivations(
                                     compartment,
-                                    activation_updates,
+                                    WrapDebug(Owned::new(collector_handle, activation_updates)),
                                 ),
                             );
                         }
@@ -436,7 +473,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateSingleMapping(
                             compartment,
-                            Box::new(mapping.splinter_real_time_mapping()),
+                            WrapDebug(Owned::new(
+                                collector_handle,
+                                Some(mapping.splinter_real_time_mapping(collector_handle)),
+                            )),
                         ))
                         .unwrap();
                     // Collect feedback (important to send later as soon as mappings updated)
@@ -556,15 +596,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
-                LearnMidiSource {
-                    source,
-                    allow_virtual_sources,
-                } => {
-                    self.event_handler.handle_event(DomainEvent::LearnedSource {
-                        source: RealSource::Midi(source),
-                        allow_virtual_sources,
-                    });
-                }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     debug!(
                         self.logger,
@@ -610,14 +641,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ..self.basic_io_changed_event()
                     };
                     self.send_io_update(event).unwrap();
-                }
-                FullResyncToRealTimeProcessorPlease => {
-                    // We cannot provide everything that the real-time processor needs so we need
-                    // to delegate to the session in order to let it do the resync (could be
-                    // changed by also holding unnecessary things but for now, why not taking the
-                    // session detour).
-                    self.event_handler
-                        .handle_event(DomainEvent::FullResyncRequested);
                 }
             }
         }
@@ -673,6 +696,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             target_activation_changes,
                             &unused_sources,
                             changed_mappings.into_iter(),
+                            collector_handle,
                         );
                     }
                 }
@@ -761,6 +785,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             target_activation_changes,
                             &unused_sources,
                             changed_mappings.into_iter(),
+                            collector_handle,
                         )
                     }
                 }
@@ -1218,6 +1243,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         target_activation_updates: Vec<ActivationChange>,
         unused_sources: &HashSet<QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
+        collector_handle: &basedrop::Handle,
     ) {
         // Send feedback
         self.handle_feedback_after_having_updated_particular_mappings(
@@ -1230,7 +1256,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateMappingActivations(
                     compartment,
-                    mapping_activation_updates,
+                    WrapDebug(Owned::new(collector_handle, mapping_activation_updates)),
                 ))
                 .unwrap();
         }
@@ -1238,7 +1264,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateTargetActivations(
                     compartment,
-                    target_activation_updates,
+                    WrapDebug(Owned::new(collector_handle, target_activation_updates)),
                 ))
                 .unwrap();
         }
@@ -1551,16 +1577,21 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     SendAllFeedback,
     LogDebugInfo,
-    LearnMidiSource {
-        source: MidiSource,
-        allow_virtual_sources: bool,
-    },
     StartLearnSource {
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
     },
     DisableControl,
     ReturnToControlMode,
+}
+
+/// A task which is sent from time to time from real-time to main processor.
+#[derive(Debug)]
+pub enum NormalRealTimeToMainThreadTask {
+    LearnMidiSource {
+        source: MidiSource,
+        allow_virtual_sources: bool,
+    },
     /// This is sent by the real-time processor after it has not been called for a while because
     /// the audio device was closed. It wants everything resynced:
     ///
@@ -1665,7 +1696,7 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     fb_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
     osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
     instance_orchestration_sender: &'a crossbeam_channel::Sender<InstanceOrchestrationEvent>,
-    instance_id: &'a str,
+    instance_id: &'a InstanceId,
     feedback_is_globally_enabled: bool,
     event_handler: &'a EH,
     feedback_output: Option<FeedbackOutput>,
@@ -1936,7 +1967,7 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
 
 fn feedback_is_effectively_enabled(
     feedback_is_globally_enabled: bool,
-    instance_id: &str,
+    instance_id: &InstanceId,
     feedback_output: Option<FeedbackOutput>,
 ) -> bool {
     if let Some(fo) = feedback_output {
@@ -1944,5 +1975,26 @@ fn feedback_is_effectively_enabled(
     } else {
         // Pointless but allowed
         true
+    }
+}
+
+// At the moment based on a SmallAsciiString. When changing this in future, e.g. to UUID, take care
+// of implementing Display in a way that outputs something like nanoid! because this will be used
+// as the initial session ID - which should be a bit more human-friendly than UUIDs.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
+pub struct InstanceId(SmallAsciiString);
+
+impl fmt::Display for InstanceId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl InstanceId {
+    pub fn random() -> Self {
+        let instance_id = nanoid::nanoid!(8);
+        let ascii = SmallAsciiString::create_compatible_ascii_string(&instance_id);
+        let small_ascii = SmallAsciiString::from_ascii_str(&ascii).expect("impossible");
+        Self(small_ascii)
     }
 }

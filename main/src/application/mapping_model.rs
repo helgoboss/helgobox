@@ -16,7 +16,6 @@ use crate::domain::{
 };
 
 use std::cell::RefCell;
-use std::convert::TryInto;
 use std::rc::Rc;
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -256,7 +255,7 @@ impl MappingModel {
     pub fn create_main_mapping(
         &self,
         group_data: GroupData,
-        _logger: &slog::Logger,
+        collector_handle: &basedrop::Handle,
     ) -> MainMapping {
         let id = self.id;
         let source = self.source_model.create_source();
@@ -286,7 +285,9 @@ impl MappingModel {
             group_data.activation_condition,
             activation_condition,
             options,
-            self.extension_model.clone().try_into().unwrap_or_default(),
+            self.extension_model
+                .create_mapping_extension(collector_handle)
+                .unwrap_or_default(),
         )
     }
 }

@@ -7,8 +7,8 @@ use crate::core::default_util::is_default;
 use crate::core::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackOutput, MainMapping, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    ExtendedProcessorContext, FeedbackOutput, InstanceId, MainMapping, MappingCompartment,
+    MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
     RealTimeSender, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
     VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
@@ -42,7 +42,7 @@ pub trait SessionUi {
 /// It's ReaLearn's main object which keeps everything together.
 #[derive(Debug)]
 pub struct Session {
-    instance_id: String,
+    instance_id: InstanceId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
     /// unique but if not it's not a big deal, then it won't crash but the user can't be sure which
     /// session will be picked. Most relevant for HTTP/WS API.
@@ -92,6 +92,7 @@ pub struct Session {
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
     instance_state: SharedInstanceState,
+    collector_handle: WrapDebug<basedrop::Handle>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -151,7 +152,7 @@ pub mod session_defaults {
 impl Session {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        instance_id: String,
+        instance_id: InstanceId,
         parent_logger: &slog::Logger,
         context: ProcessorContext,
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
@@ -161,11 +162,12 @@ impl Session {
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
+        collector_handle: basedrop::Handle,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
             // session ID is equal to the instance ID.
-            id: prop(instance_id.clone()),
+            id: prop(instance_id.to_string()),
             instance_id,
             logger: parent_logger.clone(),
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
@@ -215,6 +217,7 @@ impl Session {
             main_preset_link_manager: Box::new(preset_link_manager),
             on_mappings: Default::default(),
             instance_state,
+            collector_handle: WrapDebug(collector_handle),
         }
     }
 
@@ -1150,7 +1153,7 @@ impl Session {
 
     /// Resets the session ID to the (hopefully) always unique instance ID.
     pub fn reset_id(&mut self) {
-        self.id.set(self.instance_id.clone());
+        self.id.set(self.instance_id.to_string());
     }
 
     pub fn mapping_which_learns_source_changed(&self) -> impl UnitEvent {
@@ -1813,7 +1816,7 @@ impl Session {
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
             .unwrap_or_default();
-        let main_mapping = m.create_main_mapping(group_data, &self.logger);
+        let main_mapping = m.create_main_mapping(group_data, &self.collector_handle.0);
         self.normal_main_task_sender
             .try_send(NormalMainTask::UpdateSingleMapping(
                 compartment,
@@ -1914,7 +1917,7 @@ impl Session {
                     .get(mapping.group_id.get_ref())
                     .map(|g| g.create_data())
                     .unwrap_or_default();
-                mapping.create_main_mapping(group_data, &self.logger)
+                mapping.create_main_mapping(group_data, &self.collector_handle.0)
             })
             .collect()
     }

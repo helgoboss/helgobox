@@ -5,11 +5,23 @@ use std::mem::MaybeUninit;
 #[derive(Debug)]
 pub struct Vm(root::NSEEL_VMCTX);
 
+unsafe impl Send for Vm {}
+
 #[derive(Debug)]
 pub struct Program(root::NSEEL_CODEHANDLE);
 
+unsafe impl Send for Program {}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Variable(*mut f64);
+
+unsafe impl Send for Variable {}
+
+// TODO-medium It's actually not Sync. It's safe in our case because we know that we never use an
+//  EEL program at the same time in 2 threads.
+unsafe impl Sync for Vm {}
+unsafe impl Sync for Program {}
+unsafe impl Sync for Variable {}
 
 impl Vm {
     pub fn new() -> Vm {

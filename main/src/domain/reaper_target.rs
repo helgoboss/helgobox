@@ -67,6 +67,8 @@ pub enum TargetCharacter {
 // 2. One situation where this doesn't work is when we use `matches!`. So after that, just search
 //    for occurrences of `matches!` in this file and do what needs to be done!
 // 3. To not miss anything, look for occurrences of `TrackVolume` (as a good example).
+// TODO-high The Clone can probably be removed now!
+// TODO-medium We should introduce enum_dispatch
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
     Action {
@@ -186,10 +188,7 @@ pub enum ReaperTarget {
         project: Project,
         options: SeekOptions,
     },
-    SendMidi {
-        pattern: RawMidiPattern,
-        destination: SendMidiDestination,
-    },
+    SendMidi(SendMidiTarget),
     SendOsc {
         address_pattern: String,
         arg_descriptor: Option<OscArgDescriptor>,
@@ -360,9 +359,10 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => parse_value_from_pan(text),
             Playrate { .. } => parse_value_from_playback_speed_factor(text),
             Tempo { .. } => parse_value_from_bpm(text),
-            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } | SendMidi { .. } => {
+            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
                 self.parse_value_from_discrete_value(text)
             }
+            SendMidi(t) => t.parse_as_value(text),
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
@@ -396,9 +396,10 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Playrate { .. } => parse_step_size_from_playback_speed_factor(text),
             Tempo { .. } => parse_step_size_from_bpm(text),
-            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } | SendMidi { .. } => {
+            FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
                 self.parse_value_from_discrete_value(text)
             }
+            SendMidi(t) => t.parse_as_step_size(text),
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
@@ -458,10 +459,7 @@ impl RealearnTarget for ReaperTarget {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (input.get() / step_size).round() as _
             }
-            SendMidi { pattern, .. } => {
-                let step_size = pattern.step_size().ok_or("not supported")?;
-                (input.get() / step_size.get()).round() as _
-            }
+            SendMidi(t) => return t.convert_unit_value_to_discrete_value(input),
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
@@ -503,13 +501,7 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
-            SendMidi { .. } => {
-                if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(value) {
-                    discrete_value.to_string()
-                } else {
-                    "0".to_owned()
-                }
-            }
+            SendMidi(t) => t.format_value_without_unit(value),
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -543,13 +535,7 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
             Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
-            SendMidi { .. } => {
-                if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(step_size) {
-                    discrete_value.to_string()
-                } else {
-                    "0".to_owned()
-                }
-            }
+            SendMidi(t) => t.format_step_size_without_unit(step_size),
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -646,7 +632,8 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => "%",
-            TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
+            TrackPan { .. } | TrackRoutePan { .. } => "",
+            SendMidi(t) => t.value_unit(),
         }
     }
 
@@ -683,7 +670,8 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => "%",
-            TrackPan { .. } | TrackRoutePan { .. } | SendMidi { .. } => "",
+            TrackPan { .. } | TrackRoutePan { .. } => "",
+            SendMidi(t) => t.step_size_unit(),
         }
     }
 
@@ -732,11 +720,11 @@ impl RealearnTarget for ReaperTarget {
             | Transport { .. }
             | Seek { .. }
             | ClipSeek { .. }
-            | SendMidi { .. }
             | SendOsc { .. }
             | ClipTransport { .. }
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
+            SendMidi(t) => t.format_value(value),
         }
     }
 
@@ -1143,36 +1131,7 @@ impl RealearnTarget for ReaperTarget {
                     },
                 );
             }
-            SendMidi {
-                pattern,
-                destination,
-            } => {
-                // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
-                // MIDI messages is handled directly in the real-time processor.
-                let raw_midi_event = pattern.to_concrete_midi_event(value.as_absolute()?);
-                match *destination {
-                    SendMidiDestination::FxOutput => {
-                        return Err("OSC => MIDI FX output not supported");
-                    }
-                    SendMidiDestination::FeedbackOutput => {
-                        let feedback_output =
-                            context.feedback_output.ok_or("no feedback output set")?;
-                        if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) =
-                            feedback_output
-                        {
-                            let _ = context
-                                .feedback_audio_hook_task_sender
-                                .send(FeedbackAudioHookTask::SendMidi(
-                                    dev_id,
-                                    Box::new(raw_midi_event),
-                                ))
-                                .unwrap();
-                        } else {
-                            return Err("feedback output is not a MIDI device");
-                        }
-                    }
-                }
-            }
+            SendMidi(t) => return t.control(value, context),
             SendOsc {
                 address_pattern,
                 arg_descriptor,
@@ -1502,14 +1461,7 @@ impl ReaperTarget {
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
-            SendMidi { pattern, .. } => match pattern.step_size() {
-                None => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
-                Some(step_size) => if pattern.resolution() == 1 {
-                    (ControlType::AbsoluteContinuousRetriggerable, Switch)
-                } else {
-                    (ControlType::AbsoluteDiscrete { atomic_step_size: step_size }, Discrete)
-                }
-            }
+            SendMidi(t) => t.control_type_and_character(),
             SendOsc { arg_descriptor, .. }  => if let Some(desc) = arg_descriptor {
                 use OscTypeTag::*;
                 match desc.type_tag() {
@@ -1842,13 +1794,7 @@ impl ReaperTarget {
                 let step_size = param.step_size().ok_or("not supported")?;
                 (value as f64 * step_size).try_into()?
             }
-            SendMidi { pattern, .. } => {
-                if let Some(step_size) = pattern.step_size() {
-                    (value as f64 * step_size.get()).try_into()?
-                } else {
-                    UnitValue::MIN
-                }
-            }
+            SendMidi(t) => return t.convert_discrete_value_to_unit_value(value),
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
@@ -2498,11 +2444,20 @@ impl ReaperTarget {
             | SendOsc { .. } => (false, None),
         }
     }
+
+    pub fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        if let ReaperTarget::SendMidi(t) = self {
+            Some(RealTimeReaperTarget::SendMidi(t.clone()))
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a> Target<'a> for ReaperTarget {
     // An option because we don't have the context available e.g. if some target variants are
     // controlled from real-time processor.
+    // TODO-high This can be changed now!!!
     type Context = Option<ControlContext<'a>>;
 
     fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
@@ -2637,7 +2592,8 @@ impl<'a> Target<'a> for ReaperTarget {
             Seek { project, options } => {
                 current_value_of_seek(*project, *options, project.play_or_edit_cursor_position())
             }
-            SendMidi { .. } | SendOsc { .. } => return None,
+            SendOsc { .. } => return None,
+            SendMidi(t) => return t.current_value(()),
             ClipTransport {
                 slot_index, action, ..
             } => {
@@ -2676,6 +2632,23 @@ impl<'a> Target<'a> for ReaperTarget {
 
     fn control_type(&self) -> ControlType {
         self.control_type_and_character().0
+    }
+}
+impl<'a> Target<'a> for RealTimeReaperTarget {
+    type Context = ();
+
+    fn current_value(&self, context: ()) -> Option<UnitValue> {
+        use RealTimeReaperTarget::*;
+        match self {
+            SendMidi(t) => t.current_value(context),
+        }
+    }
+
+    fn control_type(&self) -> ControlType {
+        use RealTimeReaperTarget::*;
+        match self {
+            SendMidi(t) => t.control_type(),
+        }
     }
 }
 
@@ -3319,4 +3292,151 @@ fn handle_track_exclusivity(
         track,
         |_, track| f(track),
     );
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum RealTimeReaperTarget {
+    SendMidi(SendMidiTarget),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SendMidiTarget {
+    pub pattern: RawMidiPattern,
+    pub destination: SendMidiDestination,
+}
+
+impl SendMidiTarget {
+    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+        match self.pattern.step_size() {
+            None => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Trigger,
+            ),
+            Some(step_size) => {
+                if self.pattern.resolution() == 1 {
+                    (
+                        ControlType::AbsoluteContinuousRetriggerable,
+                        TargetCharacter::Switch,
+                    )
+                } else {
+                    (
+                        ControlType::AbsoluteDiscrete {
+                            atomic_step_size: step_size,
+                        },
+                        TargetCharacter::Discrete,
+                    )
+                }
+            }
+        }
+    }
+
+    pub fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+    ) -> Result<UnitValue, &'static str> {
+        let unit_value = if let Some(step_size) = self.pattern.step_size() {
+            (value as f64 * step_size.get()).try_into()?
+        } else {
+            UnitValue::MIN
+        };
+        Ok(unit_value)
+    }
+
+    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
+    }
+}
+
+impl<'a> Target<'a> for SendMidiTarget {
+    type Context = ();
+
+    fn current_value(&self, _context: ()) -> Option<UnitValue> {
+        None
+    }
+
+    fn control_type(&self) -> ControlType {
+        self.control_type_and_character().0
+    }
+}
+
+impl RealearnTarget for SendMidiTarget {
+    fn character(&self) -> TargetCharacter {
+        self.control_type_and_character().1
+    }
+
+    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text)
+    }
+
+    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text)
+    }
+
+    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+        let step_size = self.pattern.step_size().ok_or("not supported")?;
+        let discrete_value = (input.get() / step_size.get()).round() as _;
+        Ok(discrete_value)
+    }
+
+    fn format_value_without_unit(&self, value: UnitValue) -> String {
+        if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(value) {
+            discrete_value.to_string()
+        } else {
+            "0".to_owned()
+        }
+    }
+
+    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+        if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(step_size) {
+            discrete_value.to_string()
+        } else {
+            "0".to_owned()
+        }
+    }
+
+    fn hide_formatted_value(&self) -> bool {
+        false
+    }
+
+    fn hide_formatted_step_size(&self) -> bool {
+        false
+    }
+
+    fn value_unit(&self) -> &'static str {
+        ""
+    }
+
+    fn step_size_unit(&self) -> &'static str {
+        ""
+    }
+
+    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+        // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
+        // MIDI messages is handled directly in the real-time processor.
+        let raw_midi_event = self.pattern.to_concrete_midi_event(value.as_absolute()?);
+        match self.destination {
+            SendMidiDestination::FxOutput => {
+                return Err("OSC => MIDI FX output not supported");
+            }
+            SendMidiDestination::FeedbackOutput => {
+                let feedback_output = context.feedback_output.ok_or("no feedback output set")?;
+                if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) = feedback_output {
+                    let _ = context
+                        .feedback_audio_hook_task_sender
+                        .send(FeedbackAudioHookTask::SendMidi(
+                            dev_id,
+                            Box::new(raw_midi_event),
+                        ))
+                        .unwrap();
+                    Ok(())
+                } else {
+                    return Err("feedback output is not a MIDI device");
+                }
+            }
+        }
+    }
+
+    fn can_report_current_value(&self) -> bool {
+        false
+    }
 }

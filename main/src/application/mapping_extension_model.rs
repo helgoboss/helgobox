@@ -1,9 +1,11 @@
 use crate::domain::{LifecycleMidiData, LifecycleMidiMessage, MappingExtension};
 
 use crate::application::parse_hex_string;
+use basedrop::Owned;
 use helgoboss_learn::RawMidiEvent;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
+use wrap_debug::WrapDebug;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -57,36 +59,41 @@ impl TryFrom<String> for RawHexStringMidiMessage {
     }
 }
 
-impl TryFrom<LifecycleMidiMessageModel> for LifecycleMidiMessage {
-    type Error = &'static str;
-
-    fn try_from(value: LifecycleMidiMessageModel) -> Result<Self, Self::Error> {
+impl LifecycleMidiMessageModel {
+    pub fn create_lifecycle_midi_message(
+        &self,
+        collector_handle: &basedrop::Handle,
+    ) -> Result<LifecycleMidiMessage, &'static str> {
         use LifecycleMidiMessageModel::*;
-        let message = match value {
+        let message = match self {
             Raw(msg) => {
-                LifecycleMidiMessage::Raw(Box::new(RawMidiEvent::try_from_slice(0, msg.bytes())?))
+                let event = RawMidiEvent::try_from_slice(0, msg.bytes())?;
+                LifecycleMidiMessage::Raw(WrapDebug(Owned::new(collector_handle, event)))
             }
         };
         Ok(message)
     }
 }
 
-impl TryFrom<MappingExtensionModel> for MappingExtension {
-    type Error = &'static str;
-
-    fn try_from(value: MappingExtensionModel) -> Result<Self, Self::Error> {
+impl MappingExtensionModel {
+    pub fn create_mapping_extension(
+        &self,
+        collector_handle: &basedrop::Handle,
+    ) -> Result<MappingExtension, &'static str> {
         fn convert_messages(
-            model: Vec<LifecycleMidiMessageModel>,
+            model: &[LifecycleMidiMessageModel],
+            collector_handle: &basedrop::Handle,
         ) -> Result<Vec<LifecycleMidiMessage>, &'static str> {
             model
-                .into_iter()
-                .map(LifecycleMidiMessage::try_from)
+                .iter()
+                .map(|m| m.create_lifecycle_midi_message(collector_handle))
                 .collect()
         }
-        let ext = MappingExtension::new(LifecycleMidiData {
-            activation_midi_messages: convert_messages(value.on_activate.send_midi_feedback)?,
-            deactivation_midi_messages: convert_messages(value.on_deactivate.send_midi_feedback)?,
-        });
+        let ext = MappingExtension::new(LifecycleMidiData::new(
+            collector_handle,
+            convert_messages(&self.on_activate.send_midi_feedback, collector_handle)?,
+            convert_messages(&self.on_deactivate.send_midi_feedback, collector_handle)?,
+        ));
         Ok(ext)
     }
 }
