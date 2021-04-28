@@ -1515,10 +1515,12 @@ impl Session {
     }
 
     fn reset_parameters(&self, compartment: MappingCompartment) {
-        let fx = self.context.containing_fx();
-        for i in compartment.param_range() {
-            let _ = fx.parameter_by_index(i).set_reaper_normalized_value(0.0);
-        }
+        let fx = self.context.containing_fx().clone();
+        let _ = Global::task_support().do_later_in_main_thread_from_main_thread_asap(move || {
+            for i in compartment.param_range() {
+                let _ = fx.parameter_by_index(i).set_reaper_normalized_value(0.0);
+            }
+        });
     }
 
     fn clear_compartment_data(&mut self, compartment: MappingCompartment) {
