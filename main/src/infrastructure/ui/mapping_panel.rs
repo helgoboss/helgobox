@@ -4838,14 +4838,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when(mode.rotate.changed(), |view, _| {
             view.invalidate_mode_rotate_check_box();
         });
-        self.panel.when(
-            mode.make_absolute.changed_with_initiator(),
-            |view, initiator| {
-                view.invalidate_mode_make_absolute_check_box();
-                view.invalidate_mode_step_controls(initiator);
-                view.invalidate_help();
-            },
-        );
+        self.panel.when(mode.make_absolute.changed(), |view, _| {
+            view.invalidate_mode_controls();
+            view.invalidate_help();
+        });
         self.panel.when(mode.reverse.changed(), |view, _| {
             view.invalidate_mode_reverse_check_box();
         });
