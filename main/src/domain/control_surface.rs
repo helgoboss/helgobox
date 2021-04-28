@@ -1,9 +1,10 @@
 use crate::core::Global;
 use crate::domain::{
-    ActivationChange, BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
-    FeedbackOutput, InstanceId, MainProcessor, OscDeviceId, OscInputDevice, RealSource,
-    RealTimeMapping, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue,
-    TouchedParameterType,
+    ActivationChange, BackboneState, CompoundMappingSource, DeviceControlInput,
+    DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput, InstanceId,
+    LifecycleMidiData, MainProcessor, OscDeviceId, OscInputDevice, RealSource,
+    RealTimeCompoundMappingTarget, RealTimeMapping, ReaperTarget, SharedRealTimeProcessor,
+    SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{OscSource, RawMidiEvent};
@@ -57,7 +58,10 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 pub enum Garbage {
     RawMidiEvent(Box<RawMidiEvent>),
     RealTimeProcessor(SharedRealTimeProcessor),
-    RealTimeMapping(RealTimeMapping),
+    LifecycleMidiData(LifecycleMidiData),
+    ResolvedTarget(Option<RealTimeCompoundMappingTarget>),
+    EelTransformation(Option<EelTransformation>),
+    MappingSource(CompoundMappingSource),
     RealTimeMappings(Vec<RealTimeMapping>),
     BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
     ActivationChanges(Vec<ActivationChange>),
@@ -583,5 +587,34 @@ impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
         for garbage in self.garbage_receiver.try_iter() {
             let _ = garbage;
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GarbageBin {
+    sender: crossbeam_channel::Sender<Garbage>,
+}
+impl GarbageBin {
+    pub fn new(sender: crossbeam_channel::Sender<Garbage>) -> Self {
+        assert!(
+            sender.capacity().is_some(),
+            "garbage bin sender channel must be bounded!"
+        );
+        Self { sender }
+    }
+
+    pub fn dispose(&self, garbage: Garbage) {
+        self.sender.try_send(garbage).unwrap();
+    }
+
+    pub fn dispose_real_time_mapping(&self, m: RealTimeMapping) {
+        // Dispose bits that contain heap-allocated stuff. Do it separately to not let the garbage
+        // enum size get too large.
+        self.dispose(Garbage::LifecycleMidiData(m.lifecycle_midi_data));
+        self.dispose(Garbage::ResolvedTarget(m.resolved_target));
+        self.dispose(Garbage::EelTransformation(
+            m.core.mode.control_transformation,
+        ));
+        self.dispose(Garbage::MappingSource(m.core.source));
     }
 }

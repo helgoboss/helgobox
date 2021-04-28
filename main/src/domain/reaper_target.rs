@@ -3415,9 +3415,7 @@ impl RealearnTarget for SendMidiTarget {
         // MIDI messages is handled directly in the real-time processor.
         let raw_midi_event = self.pattern.to_concrete_midi_event(value.as_absolute()?);
         match self.destination {
-            SendMidiDestination::FxOutput => {
-                return Err("OSC => MIDI FX output not supported");
-            }
+            SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
             SendMidiDestination::FeedbackOutput => {
                 let feedback_output = context.feedback_output.ok_or("no feedback output set")?;
                 if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) = feedback_output {
@@ -3430,7 +3428,7 @@ impl RealearnTarget for SendMidiTarget {
                         .unwrap();
                     Ok(())
                 } else {
-                    return Err("feedback output is not a MIDI device");
+                    Err("feedback output is not a MIDI device")
                 }
             }
         }

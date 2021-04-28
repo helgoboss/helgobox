@@ -6,9 +6,9 @@ use crate::core::default_util::is_default;
 use crate::core::{notification, Global};
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask, Garbage,
-    InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MidiSource,
-    NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource,
-    RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
+    GarbageBin, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
+    MidiSource, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
+    RealSource, RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTargetContext,
     ReaperTarget, SharedRealTimeProcessor,
 };
@@ -306,7 +306,7 @@ impl App {
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
             uninit_state.feedback_audio_hook_task_receiver,
-            Self::garbage_sender().clone(),
+            Self::garbage_bin().clone(),
         );
         let sleeping_state = SleepingState {
             control_surface: Box::new(control_surface),
@@ -725,18 +725,16 @@ impl App {
 
     // We need this to be static because we need it at plugin construction time, so we don't have
     // REAPER API access yet.
-    pub fn garbage_sender() -> &'static crossbeam_channel::Sender<Garbage> {
+    pub fn garbage_bin() -> &'static GarbageBin {
         &Self::garbage_channel().0
     }
 
-    fn garbage_channel() -> &'static (
-        crossbeam_channel::Sender<Garbage>,
-        crossbeam_channel::Receiver<Garbage>,
-    ) {
-        static CHANNEL: once_cell::sync::Lazy<(
-            crossbeam_channel::Sender<Garbage>,
-            crossbeam_channel::Receiver<Garbage>,
-        )> = once_cell::sync::Lazy::new(|| crossbeam_channel::bounded(GARBAGE_QUEUE_SIZE));
+    fn garbage_channel() -> &'static (GarbageBin, crossbeam_channel::Receiver<Garbage>) {
+        static CHANNEL: once_cell::sync::Lazy<(GarbageBin, crossbeam_channel::Receiver<Garbage>)> =
+            once_cell::sync::Lazy::new(|| {
+                let (sender, receiver) = crossbeam_channel::bounded(GARBAGE_QUEUE_SIZE);
+                (GarbageBin::new(sender), receiver)
+            });
         &CHANNEL
     }
 

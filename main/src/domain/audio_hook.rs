@@ -1,5 +1,5 @@
 use crate::domain::{
-    classify_midi_message, Garbage, InstanceId, MidiMessageClassification, MidiSource,
+    classify_midi_message, Garbage, GarbageBin, InstanceId, MidiMessageClassification, MidiSource,
     MidiSourceScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
@@ -53,7 +53,7 @@ pub struct RealearnAudioHook {
     normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
-    garbage_sender: crossbeam_channel::Sender<Garbage>,
+    garbage_bin: GarbageBin,
 }
 
 #[derive(Debug)]
@@ -71,7 +71,7 @@ impl RealearnAudioHook {
     pub fn new(
         normal_task_receiver: crossbeam_channel::Receiver<NormalAudioHookTask>,
         feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
-        garbage_sender: crossbeam_channel::Sender<Garbage>,
+        garbage_bin: GarbageBin,
     ) -> RealearnAudioHook {
         Self {
             state: AudioHookState::Normal,
@@ -79,7 +79,7 @@ impl RealearnAudioHook {
             normal_task_receiver,
             feedback_task_receiver,
             time_of_last_run: None,
-            garbage_sender,
+            garbage_bin,
         }
     }
 }
@@ -114,9 +114,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                                     mo.send_msg(&*msg, SendMidiTime::Instantly);
                                 }
                             });
-                            self.garbage_sender
-                                .try_send(Garbage::RawMidiEvent(msg))
-                                .unwrap();
+                            self.garbage_bin.dispose(Garbage::RawMidiEvent(msg));
                         } else {
                             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
                             if shorts[0].is_none() {
@@ -205,9 +203,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                             self.real_time_processors.iter().position(|(i, _)| i == &id)
                         {
                             let (_, proc) = self.real_time_processors.swap_remove(pos);
-                            self.garbage_sender
-                                .try_send(Garbage::RealTimeProcessor(proc))
-                                .unwrap();
+                            self.garbage_bin.dispose(Garbage::RealTimeProcessor(proc));
                         }
                     }
                     StartLearningSources(sender) => {

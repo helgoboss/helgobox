@@ -126,7 +126,7 @@ impl Plugin for RealearnPlugin {
                 feedback_real_time_task_sender.clone(),
                 normal_rt_to_main_task_sender,
                 control_main_task_sender,
-                App::garbage_sender().clone(),
+                App::garbage_bin().clone(),
             );
             Self {
                 instance_id,

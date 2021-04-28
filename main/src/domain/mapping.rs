@@ -631,7 +631,7 @@ pub struct RealTimeMapping {
     target_is_resolved: bool,
     /// Is `Some` if this target needs to be processed in real-time.
     pub resolved_target: Option<RealTimeCompoundMappingTarget>,
-    lifecycle_midi_data: LifecycleMidiData,
+    pub lifecycle_midi_data: LifecycleMidiData,
 }
 
 #[derive(Debug)]
@@ -756,7 +756,7 @@ pub enum PartialControlMatch {
 pub struct MappingCore {
     compartment: MappingCompartment,
     id: MappingId,
-    source: CompoundMappingSource,
+    pub source: CompoundMappingSource,
     pub mode: Mode,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,

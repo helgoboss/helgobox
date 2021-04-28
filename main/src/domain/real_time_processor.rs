@@ -1,7 +1,7 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    Garbage, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId,
-    MidiClockCalculator, MidiMessageClassification, MidiSource, MidiSourceScanner,
+    Garbage, GarbageBin, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
+    MappingId, MidiClockCalculator, MidiMessageClassification, MidiSource, MidiSourceScanner,
     NormalRealTimeToMainThreadTask, PartialControlMatch, RealTimeCompoundMappingTarget,
     RealTimeMapping, RealTimeReaperTarget, SendMidiDestination, VirtualSourceValue,
 };
@@ -47,7 +47,7 @@ pub struct RealTimeProcessor {
     feedback_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalRealTimeToMainThreadTask>,
     control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
-    garbage_sender: crossbeam_channel::Sender<Garbage>,
+    garbage_bin: GarbageBin,
     // Scanners for more complex MIDI message types
     nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
@@ -67,7 +67,7 @@ impl RealTimeProcessor {
         feedback_task_sender: crossbeam_channel::Sender<FeedbackRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalRealTimeToMainThreadTask>,
         control_main_task_sender: crossbeam_channel::Sender<ControlMainTask>,
-        garbage_sender: crossbeam_channel::Sender<Garbage>,
+        garbage_bin: GarbageBin,
     ) -> RealTimeProcessor {
         use MappingCompartment::*;
         RealTimeProcessor {
@@ -93,7 +93,7 @@ impl RealTimeProcessor {
             midi_clock_calculator: Default::default(),
             control_is_globally_enabled: true,
             feedback_is_globally_enabled: true,
-            garbage_sender,
+            garbage_bin,
         }
     }
 
@@ -206,16 +206,14 @@ impl RealTimeProcessor {
                             LifecyclePhase::Deactivation,
                         );
                     }
-                    // Set
+                    // Clear existing mappings (without deallocating)
                     for (_, m) in self.mappings[compartment].drain() {
-                        self.garbage_sender
-                            .try_send(Garbage::RealTimeMapping(m))
-                            .unwrap()
+                        self.garbage_bin.dispose_real_time_mapping(m);
                     }
+                    // Set
                     self.mappings[compartment].extend(mappings.drain(..).map(|m| (m.id(), m)));
-                    self.garbage_sender
-                        .try_send(Garbage::RealTimeMappings(mappings))
-                        .unwrap();
+                    self.garbage_bin
+                        .dispose(Garbage::RealTimeMappings(mappings));
                     // Handle activation MIDI
                     if self.processor_feedback_is_effectively_on() {
                         self.send_lifecycle_midi_for_all_mappings_in(
@@ -227,9 +225,8 @@ impl RealTimeProcessor {
                 UpdateSingleMapping(compartment, mut mapping) => {
                     let m = std::mem::replace(&mut *mapping, None)
                         .expect("must send a mapping when updating single mapping");
-                    self.garbage_sender
-                        .try_send(Garbage::BoxedRealTimeMapping(mapping))
-                        .unwrap();
+                    self.garbage_bin
+                        .dispose(Garbage::BoxedRealTimeMapping(mapping));
                     permit_alloc(|| {
                         debug!(
                             self.logger,
@@ -261,9 +258,7 @@ impl RealTimeProcessor {
                     // Insert
                     let old_mapping = self.mappings[compartment].insert(m.id(), m);
                     if let Some(m) = old_mapping {
-                        self.garbage_sender
-                            .try_send(Garbage::RealTimeMapping(m))
-                            .unwrap();
+                        self.garbage_bin.dispose_real_time_mapping(m);
                     }
                 }
                 UpdateTargetActivations(compartment, activation_updates) => {
@@ -299,9 +294,8 @@ impl RealTimeProcessor {
                             }
                         }
                     }
-                    self.garbage_sender
-                        .try_send(Garbage::ActivationChanges(activation_updates))
-                        .unwrap();
+                    self.garbage_bin
+                        .dispose(Garbage::ActivationChanges(activation_updates));
                 }
                 UpdateSettings {
                     let_matched_events_through,
@@ -387,9 +381,8 @@ impl RealTimeProcessor {
                             }
                         }
                     }
-                    self.garbage_sender
-                        .try_send(Garbage::ActivationChanges(activation_updates))
-                        .unwrap();
+                    self.garbage_bin
+                        .dispose(Garbage::ActivationChanges(activation_updates));
                 }
             }
         }
@@ -782,9 +775,7 @@ impl RealTimeProcessor {
     fn send_midi_feedback(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
         if let MidiSourceValue::Raw(msg) = value {
             send_raw_midi_to_fx_output(&msg, caller);
-            self.garbage_sender
-                .try_send(Garbage::RawMidiEvent(msg))
-                .unwrap();
+            self.garbage_bin.dispose(Garbage::RawMidiEvent(msg));
         } else {
             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
