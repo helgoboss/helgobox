@@ -17,14 +17,12 @@ use std::collections::HashMap;
 
 use crate::core::Global;
 use assert_no_alloc::permit_alloc;
-use basedrop::Owned;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;
 use std::time::Duration;
 use vst::api::{EventType, Events, MidiEvent, SysExEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
-use wrap_debug::WrapDebug;
 
 const NORMAL_BULK_SIZE: usize = 100;
 const FEEDBACK_BULK_SIZE: usize = 100;
@@ -60,6 +58,7 @@ pub struct RealTimeProcessor {
 }
 
 impl RealTimeProcessor {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         instance_id: InstanceId,
         parent_logger: &slog::Logger,
@@ -214,6 +213,9 @@ impl RealTimeProcessor {
                             .unwrap()
                     }
                     self.mappings[compartment].extend(mappings.drain(..).map(|m| (m.id(), m)));
+                    self.garbage_sender
+                        .try_send(Garbage::RealTimeMappings(mappings))
+                        .unwrap();
                     // Handle activation MIDI
                     if self.processor_feedback_is_effectively_on() {
                         self.send_lifecycle_midi_for_all_mappings_in(
@@ -222,9 +224,12 @@ impl RealTimeProcessor {
                         );
                     }
                 }
-                UpdateSingleMapping(compartment, mut m) => {
-                    let m = std::mem::replace(&mut **m, None)
+                UpdateSingleMapping(compartment, mut mapping) => {
+                    let m = std::mem::replace(&mut *mapping, None)
                         .expect("must send a mapping when updating single mapping");
+                    self.garbage_sender
+                        .try_send(Garbage::BoxedRealTimeMapping(mapping))
+                        .unwrap();
                     permit_alloc(|| {
                         debug!(
                             self.logger,
@@ -254,7 +259,12 @@ impl RealTimeProcessor {
                         }
                     }
                     // Insert
-                    self.mappings[compartment].insert(m.id(), m);
+                    let old_mapping = self.mappings[compartment].insert(m.id(), m);
+                    if let Some(m) = old_mapping {
+                        self.garbage_sender
+                            .try_send(Garbage::RealTimeMapping(m))
+                            .unwrap();
+                    }
                 }
                 UpdateTargetActivations(compartment, activation_updates) => {
                     // Also log sample count in order to be sure about invocation order
@@ -289,6 +299,9 @@ impl RealTimeProcessor {
                             }
                         }
                     }
+                    self.garbage_sender
+                        .try_send(Garbage::ActivationChanges(activation_updates))
+                        .unwrap();
                 }
                 UpdateSettings {
                     let_matched_events_through,
@@ -374,6 +387,9 @@ impl RealTimeProcessor {
                             }
                         }
                     }
+                    self.garbage_sender
+                        .try_send(Garbage::ActivationChanges(activation_updates))
+                        .unwrap();
                 }
             }
         }
@@ -948,15 +964,8 @@ impl<T> RealTimeSender<T> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    UpdateAllMappings(MappingCompartment, WrapDebug<Owned<Vec<RealTimeMapping>>>),
-    UpdateSingleMapping(
-        MappingCompartment,
-        //
-        // - WrapDebug because Owned doesn't implement Debug
-        // - Owned because we want to defer Box deallocation to the main thread
-        // - Option because we need to be capable of emptying the Owned
-        WrapDebug<Owned<Option<RealTimeMapping>>>,
-    ),
+    UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
+    UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
@@ -964,12 +973,12 @@ pub enum NormalRealTimeTask {
         midi_feedback_output: Option<MidiDestination>,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
-    UpdateTargetActivations(MappingCompartment, WrapDebug<Owned<Vec<ActivationChange>>>),
+    UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
     /// Updates the activation state of multiple mappings.
     ///
     /// The given vector contains updates just for affected mappings. This is because when a
     /// parameter update occurs we can determine in a very granular way which targets are affected.
-    UpdateMappingActivations(MappingCompartment, WrapDebug<Owned<Vec<ActivationChange>>>),
+    UpdateMappingActivations(MappingCompartment, Vec<ActivationChange>),
     LogDebugInfo,
     UpdateSampleRate(Hz),
     StartLearnSource {

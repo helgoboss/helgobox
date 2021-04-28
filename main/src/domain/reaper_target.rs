@@ -2637,10 +2637,10 @@ impl<'a> Target<'a> for ReaperTarget {
 impl<'a> Target<'a> for RealTimeReaperTarget {
     type Context = ();
 
-    fn current_value(&self, context: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<UnitValue> {
         use RealTimeReaperTarget::*;
         match self {
-            SendMidi(t) => t.current_value(context),
+            SendMidi(t) => t.current_value(()),
         }
     }
 

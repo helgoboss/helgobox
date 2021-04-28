@@ -1,8 +1,9 @@
 use crate::core::Global;
 use crate::domain::{
-    BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, FeedbackOutput,
-    InstanceId, MainProcessor, OscDeviceId, OscInputDevice, RealSource, RealTimeMapping,
-    ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
+    ActivationChange, BackboneState, DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler,
+    FeedbackOutput, InstanceId, MainProcessor, OscDeviceId, OscInputDevice, RealSource,
+    RealTimeMapping, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue,
+    TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{OscSource, RawMidiEvent};
@@ -21,7 +22,6 @@ use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use wrap_debug::WrapDebug;
 
 type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
 
@@ -50,13 +50,6 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     metrics_enabled: bool,
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
-    collector_handle: WrapDebug<basedrop::Handle>,
-    // TODO-medium At some point throw out basedrop or the garbage receiver. For now, the advantage
-    //  of basedrop is that we don't need to know the garbage type and that the channel can't run
-    //  full (could be improved by using ring buffer). The advantage of our custom garbage receiver
-    //  is that we don't have to pollute the API (by wrapping things with Owned<...>).
-    // TODO-medium We could drop stuff in a dedicated thread.
-    collector: WrapDebug<basedrop::Collector>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
 }
 
@@ -65,6 +58,9 @@ pub enum Garbage {
     RawMidiEvent(Box<RawMidiEvent>),
     RealTimeProcessor(SharedRealTimeProcessor),
     RealTimeMapping(RealTimeMapping),
+    RealTimeMappings(Vec<RealTimeMapping>),
+    BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
+    ActivationChanges(Vec<ActivationChange>),
 }
 
 #[derive(Debug)]
@@ -174,7 +170,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
-        let collector = basedrop::Collector::new();
         Self {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
@@ -200,14 +195,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
-            collector_handle: WrapDebug(collector.handle()),
-            collector: WrapDebug(collector),
             garbage_receiver,
         }
-    }
-
-    pub fn collector_handle(&self) -> basedrop::Handle {
-        self.collector.handle()
     }
 
     pub fn remove_main_processor(&mut self, id: &InstanceId) {
@@ -407,12 +396,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         match &self.state {
             State::Normal => {
                 for p in &mut self.main_processors {
-                    p.run_all(&*self.collector_handle);
+                    p.run_all();
                 }
             }
             State::LearningSource(_) | State::LearningTarget(_) => {
                 for p in &mut self.main_processors {
-                    p.run_essential(&*self.collector_handle);
+                    p.run_essential();
                 }
             }
         }
@@ -427,7 +416,6 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
         }
         // Garbage drop
-        self.collector.collect();
         for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
             let _ = garbage;
         }
@@ -439,12 +427,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             "\n\
             # Backbone control surface\n\
             \n\
-            - Collector allocation count: {} \n\
-            - Collector handle count: {} \n\
             - Garbage count: {} \n\
             ",
-            self.collector.alloc_count(),
-            self.collector.handle_count(),
             self.garbage_receiver.len(),
         );
         Reaper::get().show_console_msg(msg);
@@ -596,12 +580,8 @@ fn process_incoming_osc_message_for_learning(
 
 impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
     fn drop(&mut self) {
-        let mut freed_collector =
-            std::mem::replace(&mut self.collector, WrapDebug(basedrop::Collector::new()));
-        freed_collector.collect();
-        if freed_collector.into_inner().try_cleanup().is_err() {
-            // TODO-high Fail more gracefully
-            panic!("basedrop collector couldn't be cleaned up");
+        for garbage in self.garbage_receiver.try_iter() {
+            let _ = garbage;
         }
     }
 }

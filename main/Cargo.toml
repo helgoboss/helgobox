@@ -127,8 +127,6 @@ ascii = "1.0"
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
 # For detecting undesired deallocation in real-time threads.
 assert_no_alloc = "1.1.0"
-# For deferring deallocation to main thread.
-basedrop = "0.1.1"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

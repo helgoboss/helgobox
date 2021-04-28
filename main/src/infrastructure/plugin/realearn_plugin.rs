@@ -392,7 +392,6 @@ impl RealearnPlugin {
                     App::get().main_preset_manager(),
                     App::get().preset_link_manager(),
                     instance_state.clone(),
-                    App::get().collector_handle(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);

@@ -14,7 +14,6 @@ use crate::domain::{
 use enum_map::EnumMap;
 use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
 
-use basedrop::Owned;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
@@ -22,7 +21,6 @@ use slog::{debug, trace};
 use smallvec::SmallVec;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use wrap_debug::WrapDebug;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -211,8 +209,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// This should be regularly called by the control surface in normal mode.
-    pub fn run_all(&mut self, collector_handle: &basedrop::Handle) {
-        self.run_essential(collector_handle);
+    pub fn run_all(&mut self) {
+        self.run_essential();
         self.run_control();
     }
 
@@ -288,7 +286,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// This should be regularly called by the control surface, even during global target learning.
-    pub fn run_essential(&mut self, collector_handle: &basedrop::Handle) {
+    pub fn run_essential(&mut self) {
         // Process normal tasks from real-time- processor
         for task in self
             .normal_real_time_to_main_thread_task_receiver
@@ -396,7 +394,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateAllMappings(
                             compartment,
-                            WrapDebug(basedrop::Owned::new(&collector_handle, real_time_mappings)),
+                            real_time_mappings,
                         ))
                         .unwrap();
                     // Important to send IO event first ...
@@ -443,7 +441,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             let _ = self.normal_real_time_task_sender.send(
                                 NormalRealTimeTask::UpdateTargetActivations(
                                     compartment,
-                                    WrapDebug(Owned::new(collector_handle, activation_updates)),
+                                    activation_updates,
                                 ),
                             );
                         }
@@ -473,10 +471,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.normal_real_time_task_sender
                         .send(NormalRealTimeTask::UpdateSingleMapping(
                             compartment,
-                            WrapDebug(Owned::new(
-                                collector_handle,
-                                Some(mapping.splinter_real_time_mapping()),
-                            )),
+                            Box::new(Some(mapping.splinter_real_time_mapping())),
                         ))
                         .unwrap();
                     // Collect feedback (important to send later as soon as mappings updated)
@@ -696,7 +691,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             target_activation_changes,
                             &unused_sources,
                             changed_mappings.into_iter(),
-                            collector_handle,
                         );
                     }
                 }
@@ -785,7 +779,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             target_activation_changes,
                             &unused_sources,
                             changed_mappings.into_iter(),
-                            collector_handle,
                         )
                     }
                 }
@@ -917,7 +910,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .values()
             .any(|m| m.is_effectively_on());
         IoUpdatedEvent {
-            instance_id: self.instance_id.clone(),
+            instance_id: self.instance_id,
             control_input: self.control_input.device_input(),
             control_input_used: self.control_is_globally_enabled && active,
             feedback_output: self.feedback_output.and_then(|o| o.device_output()),
@@ -1243,7 +1236,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         target_activation_updates: Vec<ActivationChange>,
         unused_sources: &HashSet<QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
-        collector_handle: &basedrop::Handle,
     ) {
         // Send feedback
         self.handle_feedback_after_having_updated_particular_mappings(
@@ -1256,7 +1248,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateMappingActivations(
                     compartment,
-                    WrapDebug(Owned::new(collector_handle, mapping_activation_updates)),
+                    mapping_activation_updates,
                 ))
                 .unwrap();
         }
@@ -1264,7 +1256,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateTargetActivations(
                     compartment,
-                    WrapDebug(Owned::new(collector_handle, target_activation_updates)),
+                    target_activation_updates,
                 ))
                 .unwrap();
         }

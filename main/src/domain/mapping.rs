@@ -1000,9 +1000,7 @@ impl CompoundMappingTarget {
             CompoundMappingTarget::Reaper(t) => t
                 .splinter_real_time_target()
                 .map(RealTimeCompoundMappingTarget::Reaper),
-            CompoundMappingTarget::Virtual(t) => {
-                Some(RealTimeCompoundMappingTarget::Virtual(t.clone()))
-            }
+            CompoundMappingTarget::Virtual(t) => Some(RealTimeCompoundMappingTarget::Virtual(*t)),
         }
     }
 }

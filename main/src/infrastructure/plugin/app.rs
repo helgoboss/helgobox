@@ -41,7 +41,6 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use swell_ui::{SharedView, View};
 use url::Url;
-use wrap_debug::WrapDebug;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
@@ -140,7 +139,6 @@ struct SleepingState {
 struct AwakeState {
     control_surface_handle: RegistrationHandle<RealearnControlSurface>,
     audio_hook_handle: RegistrationHandle<RealearnAudioHook>,
-    collector_handle: WrapDebug<basedrop::Handle>,
 }
 
 impl Default for App {
@@ -394,7 +392,6 @@ impl App {
         // Control surface
         let middleware = sleeping_state.control_surface.middleware_mut();
         middleware.set_osc_input_devices(osc_input_devices);
-        let collector_handle = middleware.collector_handle();
         sleeping_state.control_surface.middleware().wake_up();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
@@ -403,7 +400,6 @@ impl App {
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle,
-            collector_handle: WrapDebug(collector_handle),
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -589,7 +585,6 @@ impl App {
         let awake_state = AwakeState {
             control_surface_handle,
             audio_hook_handle: awake_state.audio_hook_handle,
-            collector_handle: awake_state.collector_handle,
         };
         self.state.replace(AppState::Awake(awake_state));
     }
@@ -613,15 +608,6 @@ impl App {
 
     pub fn preset_link_manager(&self) -> SharedPresetLinkManager {
         self.preset_link_manager.clone()
-    }
-
-    pub fn collector_handle(&self) -> basedrop::Handle {
-        let state = self.state.borrow();
-        if let AppState::Awake(s) = &*state {
-            s.collector_handle.0.clone()
-        } else {
-            panic!("attempted to get collector handle while not being awake")
-        }
     }
 
     pub fn osc_device_manager(&self) -> SharedOscDeviceManager {

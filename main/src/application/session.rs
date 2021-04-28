@@ -92,7 +92,6 @@ pub struct Session {
     /// The mappings which are on (control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<MappingId>>,
     instance_state: SharedInstanceState,
-    collector_handle: WrapDebug<basedrop::Handle>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -162,7 +161,6 @@ impl Session {
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
-        collector_handle: basedrop::Handle,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -217,7 +215,6 @@ impl Session {
             main_preset_link_manager: Box::new(preset_link_manager),
             on_mappings: Default::default(),
             instance_state,
-            collector_handle: WrapDebug(collector_handle),
         }
     }
 
@@ -1770,7 +1767,7 @@ impl Session {
     fn sync_upper_floor_membership(&self) {
         let backbone_state = BackboneState::get();
         if self.lives_on_upper_floor.get() {
-            backbone_state.add_to_upper_floor(self.instance_id.clone());
+            backbone_state.add_to_upper_floor(self.instance_id);
         } else {
             backbone_state.remove_from_upper_floor(&self.instance_id);
         }

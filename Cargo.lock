@@ -254,12 +254,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
-name = "basedrop"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e80d37a08696e321155da2faed6008661811fac02bf977afbc2fbefaffcb730"
-
-[[package]]
 name = "beef"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2622,7 +2616,6 @@ dependencies = [
  "assert_no_alloc",
  "async-channel",
  "backtrace",
- "basedrop",
  "bindgen",
  "built",
  "bytesize",
