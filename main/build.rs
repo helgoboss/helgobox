@@ -25,7 +25,9 @@ fn compile_eel() {
         }
     } else if cfg!(target_os = "macos") {
         if cfg!(target_arch = "x86_64") {
-            Some("lib/WDL/WDL/eel2/asm-nseel-x64-macho.o")
+            // TODO-high TEMPORARY FIX
+            None
+            // Some("lib/WDL/WDL/eel2/asm-nseel-x64-macho.o")
         } else {
             None
         }
