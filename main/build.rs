@@ -17,20 +17,21 @@ fn main() {
 }
 
 fn compile_eel() {
+    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let asm_object_file = if cfg!(target_os = "windows") {
-        if cfg!(target_arch = "x86_64") {
+        if target_arch == "x86_64" {
             Some("lib/WDL/WDL/eel2/asm-nseel-x64.obj")
         } else {
             None
         }
     } else if cfg!(target_os = "macos") {
-        if cfg!(target_arch = "x86_64") {
+        if target_arch == "x86_64" {
             Some("lib/WDL/WDL/eel2/asm-nseel-x64-macho.o")
         } else {
             None
         }
     } else if cfg!(target_os = "linux") {
-        if cfg!(target_arch = "x86_64") {
+        if target_arch == "x86_64" {
             // Generate asm-nseel-x64.o
             std::process::Command::new("make")
                 .current_dir(
