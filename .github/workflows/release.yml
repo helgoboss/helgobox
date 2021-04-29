@@ -49,7 +49,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-03-10-${{ matrix.toolchain-suffix }}
+          toolchain: nightly-2020-12-10-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
       - name: Install native Linux dependencies

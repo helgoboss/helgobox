@@ -9,7 +9,7 @@ members = [
 
 [profile.release]
 # This is important for having line numbers in bug reports.
-debug = true
+debug = 2
 
 [patch.crates-io]
 # TODO-low-wait

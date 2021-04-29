@@ -23,7 +23,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2021-03-10
+          toolchain: nightly-2020-12-10
           target: aarch64-apple-darwin
           override: true
       - name: Set SDKROOT
