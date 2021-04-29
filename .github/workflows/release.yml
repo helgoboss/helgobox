@@ -71,31 +71,31 @@ jobs:
       - name: Strip debug symbols from Linux binary
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cp target/release/librealearn.so target/release/librealearn-debug.so
+          cp target/${{ matrix.target }}/release/librealearn.so target/${{ matrix.target }}/release/librealearn-debug.so
           strip target/release/librealearn.so
       - name: Upload plug-in to artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/release/${{ matrix.lib-file-name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
       - name: Upload Windows debug symbols to artifact
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/release/realearn.pdb
+          path: target/${{ matrix.target }}/release/realearn.pdb
       - name: Upload macOS debug symbols to artifact
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/release/deps/librealearn.dylib.dSYM/
+          path: target/${{ matrix.target }}/release/deps/librealearn.dylib.dSYM/
       - name: Upload Linux debug symbols to artifact
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
-          path: target/release/librealearn-debug.so
+          path: target/${{ matrix.target }}/release/librealearn-debug.so
 
   create-release:
     name: Publish release
