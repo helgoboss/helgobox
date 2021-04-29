@@ -16,14 +16,14 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
-# reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-# reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-# reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-# reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-rx = { path = "../../reaper-rs/main/rx" }
-reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-reaper-low = { path = "../../reaper-rs/main/low" }
+ reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+ reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+ reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+ reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+#reaper-rx = { path = "../../reaper-rs/main/rx" }
+#reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
+#reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
+#reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 helgoboss-midi = { version = "0.2", features = ["serde", "serde_repr"] }
@@ -106,7 +106,7 @@ bytesize = "1.0.1"
 # For checking if an FX has loaded a specific chunk
 seahash = "4.1.0"
 # For OSC
-rosc = "0.4.2"
+rosc = "0.5.1"
 # For being able to (de)serialize using FromStr
 serde_with = "1.6.4"
 # For letting the user edit advanced mapping settings
@@ -127,6 +127,10 @@ ascii = "1.0"
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
 # For detecting undesired deallocation in real-time threads.
 assert_no_alloc = "1.1.0"
+# For making the patch in the root Cargo.toml work also after running `cargo update`.
+webpki = "= 0.21.3"
+# For making the patch in the root Cargo.toml work also after running `cargo update`.
+hyper = "= 0.13.9"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

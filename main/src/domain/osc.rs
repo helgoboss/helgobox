@@ -242,7 +242,7 @@ impl OscOutputDevice {
     ) -> Result<(), &'static str> {
         let bundle = OscBundle {
             // That should be "immediately" according to the OSC Time Tag spec.
-            timetag: (0, 1),
+            timetag: (0, 1).into(),
             content: messages.map(OscPacket::Message).collect(),
         };
         let packet = OscPacket::Bundle(bundle);
