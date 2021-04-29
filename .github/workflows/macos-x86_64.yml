@@ -10,12 +10,12 @@ on:
   schedule:
     - cron: '0 5 * * MON'
 
-name: Windows
+name: macOS x86_64
 
 jobs:
   check:
     name: Check
-    runs-on: windows-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
         with:
@@ -32,7 +32,9 @@ jobs:
 
   test:
     name: Test
-    runs-on: windows-latest
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 10.7
     steps:
       - uses: actions/checkout@v2
         with:
@@ -46,6 +48,8 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
+#      - name: Setup tmate session
+#        uses: mxschmitt/action-tmate@v2
       - name: cargo test
         uses: actions-rs/cargo@v1
         with:
