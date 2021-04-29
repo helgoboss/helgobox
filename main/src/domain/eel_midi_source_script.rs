@@ -28,8 +28,8 @@ impl EelMidiSourceScript {
         let y = vm.register_variable("y");
         let msg_size = vm.register_variable("msg_size");
         let eel_unit = EelUnit {
-            vm,
             program,
+            vm,
             y,
             msg_size,
         };

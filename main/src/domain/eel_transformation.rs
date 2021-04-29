@@ -40,7 +40,7 @@ impl EelTransformation {
         let program = vm.compile(eel_script)?;
         let x = vm.register_variable("x");
         let y = vm.register_variable("y");
-        let eel_unit = EelUnit { vm, program, x, y };
+        let eel_unit = EelUnit { program, vm, x, y };
         Ok(EelTransformation {
             eel_unit: Arc::new(eel_unit),
             output_var: result_var,

@@ -95,11 +95,7 @@ fn make_mapping_project_independent(mapping: &mut MappingModel, context: Extende
                     .with_context(context, compartment)
                     .first_effective_track()
                 {
-                    if let Some(i) = t.index() {
-                        Some(VirtualTrack::ByIndex(i))
-                    } else {
-                        None
-                    }
+                    t.index().map(VirtualTrack::ByIndex)
                 } else {
                     None
                 };

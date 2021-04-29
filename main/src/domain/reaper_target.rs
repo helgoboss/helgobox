@@ -2269,13 +2269,9 @@ impl ReaperTarget {
                 TrackPanChanged(e) if &e.track == track => (
                     true,
                     match e.new_value {
-                        AvailablePanValue::Complete(v) => {
-                            if let Some(width) = v.width() {
-                                Some(width_unit_value(Width::from_reaper_value(width)))
-                            } else {
-                                None
-                            }
-                        }
+                        AvailablePanValue::Complete(v) => v
+                            .width()
+                            .map(|width| width_unit_value(Width::from_reaper_value(width))),
                         AvailablePanValue::Incomplete(_) => None,
                     },
                 ),
