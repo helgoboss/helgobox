@@ -16,10 +16,10 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
- reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
- reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
- reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
- reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
 #reaper-rx = { path = "../../reaper-rs/main/rx" }
 #reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
 #reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
@@ -60,7 +60,11 @@ slug = "0.1.4"
 nanoid = "0.3.0"
 # For web server (e.g. for projection)
 futures = { version = "0.3", default-features = false }
-tokio = { version = "0.2", features = ["rt-core", "rt-threaded", "sync", "macros"] }
+# Locked to 0.2.22. Did "cargo update" once and a minor update caused server issues. Switching projects (causing removal
+# of last ReaLearn instance and immediate adding of a new one) made the server complain about occupied ports. I think
+# this only happened when "Allow complete unload of VST plug-ins" was NOT ticket in the REAPER preferences.
+# So maybe this can be fixed at our side by forcing a server stop even when just going to sleep (no unload).
+tokio = { version = "= 0.2.22", features = ["rt-core", "rt-threaded", "sync", "macros"] }
 warp = { version = "0.2", features = ["tls"] }
 # For generating projection QR code
 qrcode = { version = "0.11" }
@@ -98,7 +102,7 @@ serde_prometheus = { version = "0.1.5", optional = true }
 # In projection server, we must be able to handle controller IDs with special characters
 percent-encoding = "2.1.0"
 # For comparing ReaLearn versions in order to determine if preset migration is necessary
-semver = "0.9.0"
+semver = { version = "0.9.0", features = ["serde"] }
 # Maybe better asynchronous channel than in futures or tokio (basically the async version of crossbeam)
 async-channel = "1.5.1"
 # For displaying snapshot sizes
@@ -138,7 +142,7 @@ sys-info = "0.7"
 
 [build-dependencies]
 # For making Git commit hash available to code
-built = { version = "0.4.3", features = ["git2", "chrono"] }
+built = { git = "https://github.com/helgoboss/built", branch = "bugfix/issue-36-cfg-wrong", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
 bindgen = "0.52.0"
 # For compiling EEL and SWELL dialog resources
