@@ -615,6 +615,9 @@ impl GarbageBin {
         self.dispose(Garbage::EelTransformation(
             m.core.mode.control_transformation,
         ));
+        self.dispose(Garbage::EelTransformation(
+            m.core.mode.feedback_transformation,
+        ));
         self.dispose(Garbage::MappingSource(m.core.source));
     }
 }

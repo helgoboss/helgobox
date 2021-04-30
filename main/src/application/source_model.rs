@@ -12,10 +12,10 @@ use helgoboss_learn::{
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rx_util::UnitEvent;
-use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
+use std::fmt;
 use std::fmt::Display;
 
 /// A model for creating sources
@@ -432,7 +432,7 @@ impl SourceModel {
 }
 
 impl Display for SourceModel {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use SourceCategory::*;
         let lines: Vec<Cow<str>> = match self.category.get() {
             Midi => {

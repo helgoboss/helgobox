@@ -464,14 +464,14 @@ mod tests {
     fn update_other_member_on_change_fail() {
         struct Combination<'a> {
             value: TestProp<'a, i32>,
-            derived_value: i32,
+            _derived_value: i32,
         }
 
         impl<'a> Combination<'a> {
             fn new(initial_value: i32) -> Combination<'a> {
                 let mut c = Combination {
                     value: prop(initial_value),
-                    derived_value: initial_value,
+                    _derived_value: initial_value,
                 };
                 let c_ptr = to_ptr(&mut c);
                 c.value.changed().subscribe(move |_| {
@@ -481,7 +481,7 @@ mod tests {
                     // was called whenever this value was moved.
                     // Related to discussion here: https://internals.rust-lang.org/t/idea-limited-custom-move-semantics-through-explicitly-specified-relocations/6704/12
                     let c = unsafe { &mut *c_ptr };
-                    c.derived_value = c.value.get() * 2;
+                    c._derived_value = c.value.get() * 2;
                 });
                 c
             }

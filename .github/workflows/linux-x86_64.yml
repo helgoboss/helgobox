@@ -10,7 +10,7 @@ on:
   schedule:
     - cron: '0 5 * * MON'
 
-name: Linux
+name: Linux x86_64
 
 jobs:
   check:

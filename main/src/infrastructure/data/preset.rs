@@ -8,11 +8,11 @@ use reaper_high::Reaper;
 use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::de::DeserializeOwned;
-use serde::export::PhantomData;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs;
+use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]

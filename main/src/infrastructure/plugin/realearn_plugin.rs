@@ -67,7 +67,7 @@ pub struct RealearnPlugin {
     // We need to keep that here in order to notify it as soon as the session becomes available.
     plugin_parameters: Arc<RealearnPluginParameters>,
     // This will be set on `init()`.
-    reaper_guard: Option<Arc<ReaperGuard>>,
+    _reaper_guard: Option<Arc<ReaperGuard>>,
     // Will be cloned to session as soon as it gets created.
     normal_main_task_channel: (
         crossbeam_channel::Sender<NormalMainTask>,
@@ -134,7 +134,7 @@ impl Plugin for RealearnPlugin {
                 host,
                 session: Rc::new(LazyCell::new()),
                 main_panel: SharedView::new(MainPanel::new(Arc::downgrade(&plugin_parameters))),
-                reaper_guard: None,
+                _reaper_guard: None,
                 plugin_parameters,
                 normal_real_time_task_sender: RealTimeSender::new(normal_real_time_task_sender),
                 feedback_real_time_task_sender: RealTimeSender::new(feedback_real_time_task_sender),
@@ -167,7 +167,7 @@ impl Plugin for RealearnPlugin {
 
     fn init(&mut self) {
         firewall(|| {
-            self.reaper_guard = Some(self.ensure_reaper_setup());
+            self._reaper_guard = Some(self.ensure_reaper_setup());
             self.schedule_session_creation();
         });
     }
