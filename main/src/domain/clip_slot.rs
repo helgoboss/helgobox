@@ -9,10 +9,10 @@ use reaper_low::raw;
 use reaper_medium::{
     create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz,
-    LoadStateArgs, MeasureAlignment, MidiEvent, MidiImportBehavior, OwnedPcmSource,
-    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInSeconds,
-    PropertiesWindowArgs, ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue,
-    SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    LoadStateArgs, MeasureAlignment, MeasureMode, MidiEvent, MidiImportBehavior, OwnedPcmSource,
+    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInBeats, PositionInSeconds,
+    ProjectContext, PropertiesWindowArgs, ReaperMutex, ReaperMutexGuard, ReaperStr,
+    ReaperVolumeValue, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -210,6 +210,7 @@ impl ClipSlot {
         let info = ClipInfo {
             r#type: source.get_type(|t| t.to_string()),
             file_name: source.get_file_name(|p| Some(p?.to_owned())),
+            // TODO-high Query inner length
             length: source.get_length().ok(),
         };
         // TODO-medium This is probably necessary to make sure the mutex is not unlocked before the
@@ -226,10 +227,12 @@ impl ClipSlot {
         change_events
     }
 
+    /// Is there anything at all in this slot?
     pub fn is_filled(&self) -> bool {
         self.descriptor.is_filled()
     }
 
+    /// A slot can be filled but the source might not be loaded.
     pub fn source_is_loaded(&self) -> bool {
         !matches!(self.state, State::Empty)
     }
@@ -327,6 +330,7 @@ impl ClipSlot {
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
         let new_value = !self.descriptor.repeat;
         self.descriptor.repeat = new_value;
+        // TODO-high Change PCM source instead
         lock(&self.register).set_looped(new_value);
         self.repeat_changed_event()
     }
@@ -348,6 +352,9 @@ impl ClipSlot {
     pub fn position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
+        // TODO-high In main-timeline-synced (scheduled) mode this depends on the start pos + play
+        // pos.  Therefore we should query the source instead via new ext call, it knows its
+        // relative  position best! In free mode this depends on cur_pos - as always.
         let length = source.as_ref().get_length().unwrap_or_default();
         let position = calculate_proportional_position(guard.cur_pos(), length);
         Ok(position)
@@ -356,6 +363,7 @@ impl ClipSlot {
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;
+        // TODO-high In scheduled mode, set on the source instead via new ext call.
         let length = source
             .as_ref()
             .get_length()
@@ -495,11 +503,7 @@ impl State {
     }
 
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
-        let source = DecoratedPcmSource {
-            inner: source.into_raw(),
-            state: DecoratedPcmSourceState::Normal,
-            send_all_notes_off: false,
-        };
+        let source = DecoratedPcmSource::new(source.into_raw());
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
         use State::*;
@@ -539,19 +543,41 @@ impl SuspendedState {
         {
             let mut guard = lock(reg);
             guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
-            // The looped field might have been reset on non-immediate stop. Set it again.
-            guard.set_looped(args.repeat);
+            if let Some(src) = guard.src() {
+                let mut scheduled_pos = if args.options.next_bar {
+                    // TODO-high Use actual project.
+                    let reaper = Reaper::get().medium_reaper();
+                    let proj_context = ProjectContext::CurrentProject;
+                    let current_pos = reaper.get_play_position_2_ex(proj_context);
+                    let res = reaper.time_map_2_time_to_beats(proj_context, current_pos);
+                    let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
+                        res.measure_index
+                    } else {
+                        res.measure_index + 1
+                    };
+                    let scheduled_pos = reaper.time_map_2_beats_to_time(
+                        proj_context,
+                        MeasureMode::FromMeasureAtIndex(next_measure_index),
+                        PositionInBeats::ZERO,
+                    );
+                    scheduled_pos.get()
+                } else {
+                    -1.0
+                };
+                let mut repeated = args.repeat;
+                unsafe {
+                    src.as_ref().extended(
+                        EXT_SCHEDULE_START,
+                        &mut scheduled_pos as *mut _ as _,
+                        &mut repeated as *mut _ as _,
+                        null_mut(),
+                    );
+                }
+            }
         }
-        let buffering_behavior = if args.options.is_effectively_buffered() {
-            BitFlags::from_flag(BufferingBehavior::BufferSource)
-        } else {
-            BitFlags::empty()
-        };
-        let measure_alignment = if args.options.next_bar {
-            MeasureAlignment::AlignWithMeasureStart
-        } else {
-            MeasureAlignment::PlayImmediately
-        };
+        // TODO-high
+        let buffering_behavior = BitFlags::empty();
+        let measure_alignment = MeasureAlignment::PlayImmediately;
         let result = if let Some(track) = args.track.as_ref() {
             Reaper::get().medium_session().play_track_preview_2_ex(
                 track.project().context(),
@@ -729,6 +755,8 @@ impl PlayingState {
     }
 
     pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
+        // TODO-high Start/stop detection must be handled differently!
+        return (Ok(State::Playing(self)), None);
         let (current_pos, length, is_looped) = {
             // React gracefully even in weird situations (because we are in poll).
             let guard = match reg.lock() {
@@ -842,6 +870,7 @@ fn calculate_proportional_position(
 const EXT_REQUEST_ALL_NOTES_OFF: i32 = 2359767;
 const EXT_QUERY_STATE: i32 = 2359769;
 const EXT_RESET: i32 = 2359770;
+const EXT_SCHEDULE_START: i32 = 2359771;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
@@ -854,7 +883,25 @@ enum DecoratedPcmSourceState {
 struct DecoratedPcmSource {
     inner: OwnedPcmSource,
     state: DecoratedPcmSourceState,
-    send_all_notes_off: bool,
+    counter: u64,
+    scheduled_start_pos: Option<PositionInSeconds>,
+    repeated: bool,
+}
+
+impl DecoratedPcmSource {
+    pub fn new(inner: OwnedPcmSource) -> Self {
+        Self {
+            inner,
+            state: DecoratedPcmSourceState::Normal,
+            counter: 0,
+            scheduled_start_pos: None,
+            repeated: false,
+        }
+    }
+
+    fn inner_length(&self) -> DurationInSeconds {
+        self.inner.get_length().unwrap_or_default()
+    }
 }
 
 impl CustomPcmSource for DecoratedPcmSource {
@@ -899,7 +946,7 @@ impl CustomPcmSource for DecoratedPcmSource {
     }
 
     fn get_length(&mut self) -> DurationInSeconds {
-        self.inner.get_length().unwrap_or_default()
+        DurationInSeconds::MAX
     }
 
     fn get_length_beats(&mut self) -> Option<DurationInBeats> {
@@ -919,14 +966,38 @@ impl CustomPcmSource for DecoratedPcmSource {
     }
 
     fn get_samples(&mut self, args: GetSamplesArgs) {
-        if self.send_all_notes_off {
-            send_all_notes_off(args);
-            self.send_all_notes_off = false;
+        // Debugging
+        if self.counter % 500 == 0 {
+            let ptr = args.block.as_ptr();
+            let raw = unsafe { ptr.as_ref() };
+            dbg!(raw);
         }
+        self.counter += 1;
+        // Actual stuff
         use DecoratedPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                self.inner.get_samples(args.block);
+                let pos_from_start = if let Some(start_pos) = self.scheduled_start_pos {
+                    // Position in clip is synced to project position.
+                    let project_pos = Reaper::get()
+                        .medium_reaper()
+                        // TODO-high Save actual project in source.
+                        .get_play_position_2_ex(ProjectContext::CurrentProject);
+                    // TODO-high Take block end into account!
+                    project_pos - start_pos
+                } else {
+                    // Position in clip follows a completely free preview-register-driven timeline.
+                    args.block.time_s()
+                };
+                if pos_from_start >= PositionInSeconds::ZERO {
+                    let pos_within_clip = if self.repeated {
+                        pos_from_start % self.inner_length()
+                    } else {
+                        Some(pos_from_start)
+                    };
+                    args.block.set_time_s(pos_within_clip.unwrap_or_default());
+                    self.inner.get_samples(args.block);
+                }
             },
             AllNotesOffRequested => {
                 send_all_notes_off(args);
@@ -977,6 +1048,13 @@ impl CustomPcmSource for DecoratedPcmSource {
             EXT_QUERY_STATE => self.state.into(),
             EXT_RESET => {
                 self.state = DecoratedPcmSourceState::Normal;
+                1
+            }
+            EXT_SCHEDULE_START => {
+                let pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let repeated: bool = *(args.parm_2 as *mut _);
+                self.scheduled_start_pos = if pos.get() < 0.0 { None } else { Some(pos) };
+                self.repeated = repeated;
                 1
             }
             _ => self
