@@ -2190,12 +2190,14 @@ impl ReaperTarget {
                 slot_index,
                 feedback_resolution,
                 ..
-            } if *feedback_resolution == PlayPosFeedbackResolution::High => match evt {
+            } => match evt {
                 ClipChanged {
                     slot_index: si,
                     event,
                 } if si == slot_index => match event {
-                    ClipChangedEvent::ClipPositionChanged(new_position) => {
+                    ClipChangedEvent::ClipPositionChanged(new_position)
+                        if *feedback_resolution == PlayPosFeedbackResolution::High =>
+                    {
                         (true, Some(*new_position))
                     }
                     ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {

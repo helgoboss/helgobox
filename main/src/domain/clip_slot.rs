@@ -7,12 +7,13 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Track};
 use reaper_low::raw;
 use reaper_medium::{
-    create_custom_owned_pcm_source, BufferingBehavior, CustomPcmSource, DurationInBeats,
-    DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz,
-    LoadStateArgs, MeasureAlignment, MeasureMode, MidiEvent, MidiImportBehavior, OwnedPcmSource,
-    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInBeats, PositionInSeconds,
-    ProjectContext, PropertiesWindowArgs, ReaperMutex, ReaperMutexGuard, ReaperStr,
-    ReaperVolumeValue, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    create_custom_owned_pcm_source, BorrowedPcmSource, BufferingBehavior, CustomPcmSource,
+    DurationInBeats, DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs,
+    GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MeasureMode, MidiEvent,
+    MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState,
+    PositionInBeats, PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperMutex,
+    ReaperMutexGuard, ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs,
+    SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -210,8 +211,10 @@ impl ClipSlot {
         let info = ClipInfo {
             r#type: source.get_type(|t| t.to_string()),
             file_name: source.get_file_name(|p| Some(p?.to_owned())),
-            // TODO-high Query inner length
-            length: source.get_length().ok(),
+            length: {
+                // TODO-low Doesn't need to be optional
+                Some(source.query_inner_length())
+            },
         };
         // TODO-medium This is probably necessary to make sure the mutex is not unlocked before the
         //  PCM source operations are done. How can we solve this in a better way API-wise? On the
@@ -330,8 +333,10 @@ impl ClipSlot {
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
         let new_value = !self.descriptor.repeat;
         self.descriptor.repeat = new_value;
-        // TODO-high Change PCM source instead
-        lock(&self.register).set_looped(new_value);
+        let mut guard = lock(&self.register);
+        if let Some(src) = guard.src_mut() {
+            src.as_mut().set_repeated(new_value);
+        }
         self.repeat_changed_event()
     }
 
@@ -351,23 +356,23 @@ impl ClipSlot {
 
     pub fn position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
-        let source = guard.src().ok_or("no source loaded")?;
-        // TODO-high In main-timeline-synced (scheduled) mode this depends on the start pos + play
-        // pos.  Therefore we should query the source instead via new ext call, it knows its
-        // relative  position best! In free mode this depends on cur_pos - as always.
-        let length = source.as_ref().get_length().unwrap_or_default();
-        let position = calculate_proportional_position(guard.cur_pos(), length);
-        Ok(position)
+        let src = guard.src().ok_or("no source loaded")?;
+        if !matches!(self.state, State::Playing(_)) {
+            return Ok(UnitValue::MIN);
+        }
+        let src = src.as_ref();
+        // TODO-high Return based on guard.cur_pos() if slot is not synced (make this a slot prop!).
+        let pos_within_clip = src.pos_within_clip_scheduled();
+        let length = src.query_inner_length();
+        let percentage_pos = calculate_proportional_position(pos_within_clip, length);
+        Ok(percentage_pos)
     }
 
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
-        let source = guard.src().ok_or("no source loaded")?;
-        // TODO-high In scheduled mode, set on the source instead via new ext call.
-        let length = source
-            .as_ref()
-            .get_length()
-            .map_err(|_| "source has no length")?;
+        let mut source = guard.src_mut().ok_or("no source loaded")?;
+        let source = source.as_mut();
+        let length = source.query_inner_length();
         let real_pos = PositionInSeconds::new(position.get() * length.get());
         guard.set_cur_pos(real_pos);
         Ok(ClipChangedEvent::ClipPositionChanged(position))
@@ -503,7 +508,7 @@ impl State {
     }
 
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
-        let source = DecoratedPcmSource::new(source.into_raw());
+        let source = WrapperPcmSource::new(source.into_raw());
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
         use State::*;
@@ -511,6 +516,7 @@ impl State {
             Empty | Suspended(_) => {
                 let mut g = lock(reg);
                 g.set_src(Some(source));
+                // This only has an effect if "Next bar" disabled.
                 g.set_cur_pos(PositionInSeconds::new(0.0));
                 Ok(Suspended(SuspendedState {
                     is_paused: false,
@@ -543,39 +549,16 @@ impl SuspendedState {
         {
             let mut guard = lock(reg);
             guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
-            if let Some(src) = guard.src() {
+            if let Some(src) = guard.src_mut() {
                 let mut scheduled_pos = if args.options.next_bar {
-                    // TODO-high Use actual project.
-                    let reaper = Reaper::get().medium_reaper();
-                    let proj_context = ProjectContext::CurrentProject;
-                    let current_pos = reaper.get_play_position_2_ex(proj_context);
-                    let res = reaper.time_map_2_time_to_beats(proj_context, current_pos);
-                    let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
-                        res.measure_index
-                    } else {
-                        res.measure_index + 1
-                    };
-                    let scheduled_pos = reaper.time_map_2_beats_to_time(
-                        proj_context,
-                        MeasureMode::FromMeasureAtIndex(next_measure_index),
-                        PositionInBeats::ZERO,
-                    );
-                    scheduled_pos.get()
+                    let scheduled_pos = get_next_bar_pos();
+                    Some(scheduled_pos)
                 } else {
-                    -1.0
+                    None
                 };
-                let mut repeated = args.repeat;
-                unsafe {
-                    src.as_ref().extended(
-                        EXT_SCHEDULE_START,
-                        &mut scheduled_pos as *mut _ as _,
-                        &mut repeated as *mut _ as _,
-                        null_mut(),
-                    );
-                }
+                src.as_mut().schedule_start(scheduled_pos, args.repeat);
             }
         }
-        // TODO-high
         let buffering_behavior = BitFlags::empty();
         let measure_alignment = MeasureAlignment::PlayImmediately;
         let result = if let Some(track) = args.track.as_ref() {
@@ -613,7 +596,7 @@ impl SuspendedState {
     pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
         let next_state = State::Suspended(self);
         let mut g = lock(reg);
-        // Reset position!
+        // Reset position. Only has an effect if "Next bar" disabled.
         g.set_cur_pos(PositionInSeconds::new(0.0));
         Ok(next_state)
     }
@@ -621,6 +604,7 @@ impl SuspendedState {
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
         let mut g = lock(reg);
         g.set_src(None);
+        // Reset position. Only has an effect if "Next bar" disabled.
         g.set_cur_pos(PositionInSeconds::new(0.0));
         Ok(State::Empty)
     }
@@ -673,7 +657,10 @@ impl PlayingState {
                 }
                 Some(ScheduledFor::Stop) => {
                     // Backpedal (undo schedule for stop)!
-                    lock(reg).set_looped(self.args.repeat);
+                    let mut guard = lock(reg);
+                    if let Some(src) = guard.src_mut() {
+                        src.as_mut().backpedal_from_scheduled_stop();
+                    }
                     State::Playing(PlayingState {
                         scheduled_for: None,
                         ..self
@@ -707,7 +694,11 @@ impl PlayingState {
             match self.scheduled_for {
                 None => {
                     // Schedule stop.
-                    lock(reg).set_looped(false);
+                    let mut guard = lock(reg);
+                    if let Some(src) = guard.src_mut() {
+                        let scheduled_pos = get_next_bar_pos();
+                        src.as_mut().schedule_stop(scheduled_pos)
+                    }
                     let playing = PlayingState {
                         scheduled_for: Some(ScheduledFor::Stop),
                         ..self
@@ -737,7 +728,7 @@ impl PlayingState {
     ) -> SuspendedState {
         let suspended = self.suspend(reg, false, caused_by_transport_change);
         let mut g = lock(reg);
-        // Reset position!
+        // Reset position! Only has an effect if "Next bar" disabled.
         g.set_cur_pos(PositionInSeconds::new(0.0));
         suspended
     }
@@ -755,51 +746,66 @@ impl PlayingState {
     }
 
     pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
-        // TODO-high Start/stop detection must be handled differently!
-        return (Ok(State::Playing(self)), None);
-        let (current_pos, length, is_looped) = {
+        let (pos_within_clip, length) = {
             // React gracefully even in weird situations (because we are in poll).
             let guard = match reg.lock() {
                 Ok(g) => g,
                 Err(_) => return (Ok(State::Playing(self)), None),
             };
-            let length = guard
-                .src()
-                .and_then(|s| s.as_ref().get_length().ok())
-                .unwrap_or_default();
-            (guard.cur_pos(), length, guard.is_looped())
+            let src = match guard.src() {
+                Some(s) => s,
+                None => return (Ok(State::Playing(self)), None),
+            };
+            let src = src.as_ref();
+            // TODO-high Return based on guard.cur_pos() if slot is not synced (make this a slot
+            // prop!).
+            let pos_within_clip = src.pos_within_clip_scheduled();
+            let length = src.query_inner_length();
+            (pos_within_clip, length)
         };
         let (next_state, event) = match self.scheduled_for {
-            None | Some(ScheduledFor::Stop) if !is_looped => {
-                if current_pos.get() > length.get()
-                    || (length.get() - current_pos.get()) < BASE_EPSILON
-                {
-                    // Stop detected. Make it official! If we let the preview running, nothing
-                    // will happen because it's not looped but the preview will still be
+            None | Some(ScheduledFor::Stop) => {
+                // Playing normally or scheduled for stop.
+                if pos_within_clip.is_some() {
+                    // Still playing
+                    (Ok(State::Playing(self)), None)
+                } else {
+                    // Not playing anymore. Make it official! If we let the preview running,
+                    // nothing will happen because it's not looped but the preview will still be
                     // active (e.g. respond to position changes) - which can't be good.
                     (
                         self.stop(reg, true, false),
                         Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
                     )
-                } else {
-                    (Ok(State::Playing(self)), None)
                 }
             }
-            Some(ScheduledFor::Play) if current_pos.get() > 0.0 => {
-                // Actual play detected. Make it official.
-                let next_playing_state = PlayingState {
-                    scheduled_for: None,
-                    ..self
-                };
-                (
-                    Ok(State::Playing(next_playing_state)),
-                    Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
-                )
+            Some(ScheduledFor::Play) => {
+                if let Some(p) = pos_within_clip {
+                    if p < PositionInSeconds::ZERO {
+                        // Still counting in.
+                        (Ok(State::Playing(self)), None)
+                    } else {
+                        // Actual play detected. Make it official.
+                        let next_playing_state = PlayingState {
+                            scheduled_for: None,
+                            ..self
+                        };
+                        (
+                            Ok(State::Playing(next_playing_state)),
+                            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
+                        )
+                    }
+                } else {
+                    // Probably length zero.
+                    (
+                        self.stop(reg, true, false),
+                        Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
+                    )
+                }
             }
-            _ => (Ok(State::Playing(self)), None),
         };
         let final_event = event.unwrap_or_else(|| {
-            let position = calculate_proportional_position(current_pos, length);
+            let position = calculate_proportional_position(pos_within_clip, length);
             ClipChangedEvent::ClipPositionChanged(position)
         });
         (next_state, Some(final_event))
@@ -812,7 +818,6 @@ impl PlayingState {
         caused_by_transport_change: bool,
     ) -> SuspendedState {
         wait_until_all_notes_off_sent(reg, false);
-        // If not successful this probably means it was stopped already, so okay.
         if let Some(track) = self.args.track.as_ref() {
             // Check prevents error message on project close.
             let project = track.project();
@@ -822,6 +827,7 @@ impl PlayingState {
                     .stop_track_preview_2(project.context(), self.handle);
             }
         } else {
+            // If not successful this probably means it was stopped already, so okay.
             let _ = Reaper::get().medium_session().stop_preview(self.handle);
         };
         SuspendedState {
@@ -857,54 +863,102 @@ fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
 }
 
 fn calculate_proportional_position(
-    position: PositionInSeconds,
+    position: Option<PositionInSeconds>,
     length: DurationInSeconds,
 ) -> UnitValue {
     if length.get() == 0.0 {
-        UnitValue::MIN
-    } else {
-        UnitValue::new_clamped(position.get() / length.get())
+        return UnitValue::MIN;
     }
+    position
+        .map(|p| UnitValue::new_clamped(p.get() / length.get()))
+        .unwrap_or_default()
 }
 
 const EXT_REQUEST_ALL_NOTES_OFF: i32 = 2359767;
 const EXT_QUERY_STATE: i32 = 2359769;
 const EXT_RESET: i32 = 2359770;
 const EXT_SCHEDULE_START: i32 = 2359771;
+const EXT_QUERY_INNER_LENGTH: i32 = 2359772;
+const EXT_ENABLE_REPEAT: i32 = 2359773;
+const EXT_DISABLE_REPEAT: i32 = 2359774;
+const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
+const EXT_SCHEDULE_STOP: i32 = 2359776;
+const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
-enum DecoratedPcmSourceState {
+enum WrapperPcmSourceState {
     Normal = 10,
     AllNotesOffRequested = 11,
     AllNotesOffSent = 12,
 }
 
-struct DecoratedPcmSource {
+struct WrapperPcmSource {
     inner: OwnedPcmSource,
-    state: DecoratedPcmSourceState,
+    state: WrapperPcmSourceState,
     counter: u64,
     scheduled_start_pos: Option<PositionInSeconds>,
+    scheduled_stop_pos: Option<PositionInSeconds>,
     repeated: bool,
 }
 
-impl DecoratedPcmSource {
+impl WrapperPcmSource {
     pub fn new(inner: OwnedPcmSource) -> Self {
         Self {
             inner,
-            state: DecoratedPcmSourceState::Normal,
+            state: WrapperPcmSourceState::Normal,
             counter: 0,
             scheduled_start_pos: None,
+            scheduled_stop_pos: None,
             repeated: false,
         }
     }
 
-    fn inner_length(&self) -> DurationInSeconds {
-        self.inner.get_length().unwrap_or_default()
+    /// Returns the position starting from the time that this source was scheduled for start.
+    ///
+    /// Returns `None` if not scheduled or if beyond scheduled
+    /// stop. Returns negative position if clip not yet playing.
+    fn pos_from_start_scheduled(&self) -> Option<PositionInSeconds> {
+        let scheduled_start_pos = self.scheduled_start_pos?;
+        // Position in clip is synced to project position.
+        let project_pos = Reaper::get()
+            .medium_reaper()
+            // TODO-high Save actual project in source.
+            .get_play_position_2_ex(ProjectContext::CurrentProject);
+        // TODO-high Take block end into account!
+        // Return `None` if scheduled stop position is reached.
+        if let Some(scheduled_stop_pos) = self.scheduled_stop_pos {
+            if project_pos.has_reached(scheduled_stop_pos) {
+                return None;
+            }
+        }
+        Some(project_pos - scheduled_start_pos)
+    }
+
+    /// Calculates the current position within the clip considering the *repeated* setting.
+    ///
+    /// Returns negative position if clip not yet playing. Returns `None` if clip length is zero.
+    fn calculate_pos_within_clip(
+        &self,
+        pos_from_start: PositionInSeconds,
+    ) -> Option<PositionInSeconds> {
+        if pos_from_start < PositionInSeconds::ZERO {
+            // Count-in phase. Report negative position.
+            Some(pos_from_start)
+        } else if self.repeated {
+            // Playing and repeating. Report repeated position.
+            pos_from_start % self.query_inner_length()
+        } else if pos_from_start.get() < self.query_inner_length().get() {
+            // Not repeating and still within clip bounds. Just report position.
+            Some(pos_from_start)
+        } else {
+            // Not repeating and clip length exceeded.
+            None
+        }
     }
 }
 
-impl CustomPcmSource for DecoratedPcmSource {
+impl CustomPcmSource for WrapperPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         self.inner.duplicate()
     }
@@ -974,29 +1028,18 @@ impl CustomPcmSource for DecoratedPcmSource {
         }
         self.counter += 1;
         // Actual stuff
-        use DecoratedPcmSourceState::*;
+        use WrapperPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                let pos_from_start = if let Some(start_pos) = self.scheduled_start_pos {
-                    // Position in clip is synced to project position.
-                    let project_pos = Reaper::get()
-                        .medium_reaper()
-                        // TODO-high Save actual project in source.
-                        .get_play_position_2_ex(ProjectContext::CurrentProject);
-                    // TODO-high Take block end into account!
-                    project_pos - start_pos
-                } else {
-                    // Position in clip follows a completely free preview-register-driven timeline.
-                    args.block.time_s()
-                };
-                if pos_from_start >= PositionInSeconds::ZERO {
-                    let pos_within_clip = if self.repeated {
-                        pos_from_start % self.inner_length()
-                    } else {
-                        Some(pos_from_start)
-                    };
-                    args.block.set_time_s(pos_within_clip.unwrap_or_default());
-                    self.inner.get_samples(args.block);
+                let pos_within_clip = self.pos_within_clip_scheduled().or_else(|| {
+                    let pos_from_start = args.block.time_s();
+                    self.calculate_pos_within_clip(pos_from_start)
+                });
+                if let Some(pos) = pos_within_clip {
+                    if pos >= PositionInSeconds::ZERO {
+                        args.block.set_time_s(pos);
+                        self.inner.get_samples(args.block);
+                    }
                 }
             },
             AllNotesOffRequested => {
@@ -1042,19 +1085,48 @@ impl CustomPcmSource for DecoratedPcmSource {
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
             EXT_REQUEST_ALL_NOTES_OFF => {
-                self.state = DecoratedPcmSourceState::AllNotesOffRequested;
+                self.request_all_notes_off();
                 1
             }
-            EXT_QUERY_STATE => self.state.into(),
+            EXT_QUERY_STATE => self.query_state().into(),
             EXT_RESET => {
-                self.state = DecoratedPcmSourceState::Normal;
+                self.reset();
                 1
             }
             EXT_SCHEDULE_START => {
                 let pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let pos = if pos.get() < 0.0 { None } else { Some(pos) };
                 let repeated: bool = *(args.parm_2 as *mut _);
-                self.scheduled_start_pos = if pos.get() < 0.0 { None } else { Some(pos) };
-                self.repeated = repeated;
+                self.schedule_start(pos, repeated);
+                1
+            }
+            EXT_SCHEDULE_STOP => {
+                let pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                self.schedule_stop(pos);
+                1
+            }
+            EXT_BACKPEDAL_FROM_SCHEDULED_STOP => {
+                self.backpedal_from_scheduled_stop();
+                1
+            }
+            EXT_QUERY_INNER_LENGTH => {
+                *(args.parm_1 as *mut f64) = self.query_inner_length().get();
+                1
+            }
+            EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED => {
+                *(args.parm_1 as *mut f64) = if let Some(pos) = self.pos_within_clip_scheduled() {
+                    pos.get()
+                } else {
+                    f64::NAN
+                };
+                1
+            }
+            EXT_ENABLE_REPEAT => {
+                self.set_repeated(true);
+                1
+            }
+            EXT_DISABLE_REPEAT => {
+                self.set_repeated(false);
                 1
             }
             _ => self
@@ -1082,19 +1154,17 @@ fn wait_until_all_notes_off_sent(reg: &SharedRegister, reset_position: bool) {
     if reset_position {
         guard.set_cur_pos(PositionInSeconds::new(0.0));
     }
-    let src = match guard.src() {
+    let src = match guard.src_mut() {
         None => return,
-        Some(s) => s.as_ref(),
+        Some(s) => s.as_mut(),
     };
-    unsafe {
-        src.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
-    }
+    src.reset();
 }
 
 /// Returns `true` as soon as "All notes off" sent.
 fn attempt_to_send_all_notes_off(reg: &SharedRegister, reset_position: bool) -> bool {
     let mut guard = lock(reg);
-    let successfully_sent = attempt_to_send_all_notes_off_with_guard(&guard);
+    let successfully_sent = attempt_to_send_all_notes_off_with_guard(&mut guard);
     if successfully_sent && reset_position {
         guard.set_cur_pos(PositionInSeconds::new(0.0));
     };
@@ -1103,28 +1173,21 @@ fn attempt_to_send_all_notes_off(reg: &SharedRegister, reset_position: bool) -> 
 
 /// Returns `true` as soon as "All notes off" sent.
 fn attempt_to_send_all_notes_off_with_guard(
-    guard: &ReaperMutexGuard<OwnedPreviewRegister>,
+    mut guard: &mut ReaperMutexGuard<OwnedPreviewRegister>,
 ) -> bool {
-    let src = match guard.src() {
+    let src = match guard.src_mut() {
         None => return true,
         Some(s) => s,
     };
-    let src = src.as_ref();
+    let src = src.as_mut();
     if src.get_type(|t| t.to_str() != "MIDI") {
         return true;
     }
     // Don't just stop MIDI! Send all-notes-off first to prevent hanging notes.
-    let state = unsafe { src.extended(EXT_QUERY_STATE, null_mut(), null_mut(), null_mut()) };
-    let state: DecoratedPcmSourceState = state.try_into().expect("invalid state");
-    use DecoratedPcmSourceState::*;
-    match state {
+    use WrapperPcmSourceState::*;
+    match src.query_state() {
         Normal => unsafe {
-            src.extended(
-                EXT_REQUEST_ALL_NOTES_OFF,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-            );
+            src.request_all_notes_off();
             false
         },
         AllNotesOffRequested => {
@@ -1132,7 +1195,7 @@ fn attempt_to_send_all_notes_off_with_guard(
             false
         }
         AllNotesOffSent => unsafe {
-            src.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
+            src.reset();
             true
         },
     }
@@ -1149,4 +1212,189 @@ fn send_all_notes_off(args: GetSamplesArgs) {
         event.set_message(msg);
         args.block.midi_event_list().add_item(&event);
     }
+}
+
+trait WrapperPcmSourceSkills {
+    fn request_all_notes_off(&mut self);
+    fn query_state(&self) -> WrapperPcmSourceState;
+    fn reset(&mut self);
+    fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool);
+    fn schedule_stop(&mut self, pos: PositionInSeconds);
+    fn backpedal_from_scheduled_stop(&mut self);
+    fn query_inner_length(&self) -> DurationInSeconds;
+    fn set_repeated(&mut self, repeated: bool);
+    /// 
+    /// - Considers repeat.
+    /// - Returns negative position if clip not yet playing.
+    /// - Returns `None` if not scheduled, if beyond scheduled stop or if clip length is zero.
+    /// - Returns (hypothetical) position even if not playing!
+    fn pos_within_clip_scheduled(&self) -> Option<PositionInSeconds>;
+}
+
+impl WrapperPcmSourceSkills for WrapperPcmSource {
+    fn request_all_notes_off(&mut self) {
+        self.state = WrapperPcmSourceState::AllNotesOffRequested;
+    }
+
+    fn query_state(&self) -> WrapperPcmSourceState {
+        self.state
+    }
+
+    fn reset(&mut self) {
+        self.state = WrapperPcmSourceState::Normal;
+    }
+
+    fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool) {
+        self.scheduled_start_pos = pos;
+        self.scheduled_stop_pos = None;
+        self.repeated = repeated;
+    }
+
+    fn schedule_stop(&mut self, pos: PositionInSeconds) {
+        self.scheduled_stop_pos = Some(pos);
+    }
+
+    fn backpedal_from_scheduled_stop(&mut self) {
+        self.scheduled_stop_pos = None;
+    }
+
+    fn query_inner_length(&self) -> DurationInSeconds {
+        self.inner.get_length().unwrap_or_default()
+    }
+
+    fn set_repeated(&mut self, repeated: bool) {
+        self.repeated = repeated;
+    }
+
+    fn pos_within_clip_scheduled(&self) -> Option<PositionInSeconds> {
+        let pos_from_start = self.pos_from_start_scheduled()?;
+        self.calculate_pos_within_clip(pos_from_start)
+    }
+}
+
+impl WrapperPcmSourceSkills for BorrowedPcmSource {
+    fn request_all_notes_off(&mut self) {
+        unsafe {
+            self.extended(
+                EXT_REQUEST_ALL_NOTES_OFF,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
+
+    fn query_state(&self) -> WrapperPcmSourceState {
+        let state = unsafe { self.extended(EXT_QUERY_STATE, null_mut(), null_mut(), null_mut()) };
+        state.try_into().expect("invalid state")
+    }
+
+    fn reset(&mut self) {
+        unsafe {
+            self.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
+        }
+    }
+
+    fn schedule_start(&mut self, pos: Option<PositionInSeconds>, mut repeated: bool) {
+        let mut raw_pos = if let Some(p) = pos { p.get() } else { -1.0 };
+        unsafe {
+            self.extended(
+                EXT_SCHEDULE_START,
+                &mut raw_pos as *mut _ as _,
+                &mut repeated as *mut _ as _,
+                null_mut(),
+            );
+        }
+    }
+
+    fn schedule_stop(&mut self, pos: PositionInSeconds) {
+        let mut raw_pos = pos.get();
+        unsafe {
+            self.extended(
+                EXT_SCHEDULE_STOP,
+                &mut raw_pos as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
+
+    fn backpedal_from_scheduled_stop(&mut self) {
+        unsafe {
+            self.extended(
+                EXT_BACKPEDAL_FROM_SCHEDULED_STOP,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
+
+    fn query_inner_length(&self) -> DurationInSeconds {
+        let mut l = 0.0;
+        unsafe {
+            self.extended(
+                EXT_QUERY_INNER_LENGTH,
+                &mut l as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+        DurationInSeconds::new(l)
+    }
+
+    fn set_repeated(&mut self, repeated: bool) {
+        let request = if repeated {
+            EXT_ENABLE_REPEAT
+        } else {
+            EXT_DISABLE_REPEAT
+        };
+        unsafe {
+            self.extended(request, null_mut(), null_mut(), null_mut());
+        }
+    }
+
+    fn pos_within_clip_scheduled(&self) -> Option<PositionInSeconds> {
+        let mut p = f64::NAN;
+        unsafe {
+            self.extended(
+                EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED,
+                &mut p as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+        if p.is_nan() {
+            return None;
+        }
+        Some(PositionInSeconds::new(p))
+    }
+}
+
+trait PositionInSecondsExt {
+    fn has_reached(self, stop_pos: PositionInSeconds) -> bool;
+}
+
+impl PositionInSecondsExt for PositionInSeconds {
+    fn has_reached(self, stop_pos: PositionInSeconds) -> bool {
+        self > stop_pos || (stop_pos - self).get() < BASE_EPSILON
+    }
+}
+
+fn get_next_bar_pos() -> PositionInSeconds {
+    // TODO-high Use actual project.
+    let reaper = Reaper::get().medium_reaper();
+    let proj_context = ProjectContext::CurrentProject;
+    let current_pos = reaper.get_play_position_2_ex(proj_context);
+    let res = reaper.time_map_2_time_to_beats(proj_context, current_pos);
+    let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
+        res.measure_index
+    } else {
+        res.measure_index + 1
+    };
+    reaper.time_map_2_beats_to_time(
+        proj_context,
+        MeasureMode::FromMeasureAtIndex(next_measure_index),
+        PositionInBeats::ZERO,
+    )
 }
