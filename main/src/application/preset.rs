@@ -8,6 +8,7 @@ use std::fmt::Debug;
 
 pub trait Preset: Clone + Debug {
     fn id(&self) -> &str;
+    fn name(&self) -> &str;
     fn default_group(&self) -> &GroupModel;
     fn groups(&self) -> &Vec<GroupModel>;
     fn mappings(&self) -> &Vec<MappingModel>;

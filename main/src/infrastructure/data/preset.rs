@@ -65,6 +65,8 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.presets = preset_file_paths
             .filter_map(|p| Self::load_preset(p).ok())
             .collect();
+        self.presets
+            .sort_unstable_by(|p1, p2| p1.name().to_lowercase().cmp(&p2.name().to_lowercase()));
         Ok(())
     }
 

@@ -33,9 +33,6 @@ impl ControllerPreset {
             custom_data,
         }
     }
-    pub fn name(&self) -> &str {
-        &self.name
-    }
 
     pub fn custom_data(&self) -> &HashMap<String, serde_json::Value> {
         &self.custom_data
@@ -62,6 +59,10 @@ impl ControllerPreset {
 impl Preset for ControllerPreset {
     fn id(&self) -> &str {
         &self.id
+    }
+
+    fn name(&self) -> &str {
+        &self.name
     }
 
     fn default_group(&self) -> &GroupModel {

@@ -31,10 +31,6 @@ impl MainPreset {
         }
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
     pub fn update_data(
         &mut self,
         default_group: GroupModel,
@@ -52,6 +48,10 @@ impl MainPreset {
 impl Preset for MainPreset {
     fn id(&self) -> &str {
         &self.id
+    }
+
+    fn name(&self) -> &str {
+        &self.name
     }
 
     fn default_group(&self) -> &GroupModel {
