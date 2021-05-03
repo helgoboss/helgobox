@@ -1,4 +1,5 @@
 use crate::core::default_util::is_default;
+use crate::core::Global;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
@@ -916,8 +917,8 @@ impl WrapperPcmSource {
 
     /// Returns the position starting from the time that this source was scheduled for start.
     ///
-    /// Returns `None` if not scheduled or if beyond scheduled
-    /// stop. Returns negative position if clip not yet playing.
+    /// Returns `None` if not scheduled or if beyond scheduled stop. Returns negative position if
+    /// clip not yet playing.
     fn pos_from_start_scheduled(&self) -> Option<PositionInSeconds> {
         let scheduled_start_pos = self.scheduled_start_pos?;
         // Position in clip is synced to project position.
@@ -925,7 +926,6 @@ impl WrapperPcmSource {
             .medium_reaper()
             // TODO-high Save actual project in source.
             .get_play_position_2_ex(ProjectContext::CurrentProject);
-        // TODO-high Take block end into account!
         // Return `None` if scheduled stop position is reached.
         if let Some(scheduled_stop_pos) = self.scheduled_stop_pos {
             if project_pos.has_reached(scheduled_stop_pos) {
@@ -960,6 +960,7 @@ impl WrapperPcmSource {
 
 impl CustomPcmSource for WrapperPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
+        // Not correct but probably never used.
         self.inner.duplicate()
     }
 
@@ -1004,7 +1005,8 @@ impl CustomPcmSource for WrapperPcmSource {
     }
 
     fn get_length_beats(&mut self) -> Option<DurationInBeats> {
-        self.inner.get_length_beats()
+        let _ = self.inner.get_length_beats()?;
+        Some(DurationInBeats::MAX)
     }
 
     fn get_bits_per_sample(&mut self) -> u32 {
@@ -1021,24 +1023,37 @@ impl CustomPcmSource for WrapperPcmSource {
 
     fn get_samples(&mut self, args: GetSamplesArgs) {
         // Debugging
-        if self.counter % 500 == 0 {
-            let ptr = args.block.as_ptr();
-            let raw = unsafe { ptr.as_ref() };
-            dbg!(raw);
-        }
+        // if self.counter % 500 == 0 {
+        //     let ptr = args.block.as_ptr();
+        //     let raw = unsafe { ptr.as_ref() };
+        //     dbg!(raw);
+        // }
         self.counter += 1;
         // Actual stuff
         use WrapperPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                let pos_within_clip = self.pos_within_clip_scheduled().or_else(|| {
-                    let pos_from_start = args.block.time_s();
-                    self.calculate_pos_within_clip(pos_from_start)
-                });
+                let pos_within_clip = self.pos_within_clip_scheduled();
+                // TODO-high If not synced, do something like this:
+                // let pos_from_start = args.block.time_s();
+                // self.calculate_pos_within_clip(pos_from_start)
+                // TODO-high Take block end into account!
+                let TODO_POS_FROM_START = self.pos_from_start_scheduled();
+                let project_pos = Reaper::get()
+                    .medium_reaper()
+                    // TODO-high Save actual project in source.
+                    .get_play_position_2_ex(ProjectContext::CurrentProject);
                 if let Some(pos) = pos_within_clip {
                     if pos >= PositionInSeconds::ZERO {
                         args.block.set_time_s(pos);
                         self.inner.get_samples(args.block);
+                        let samples_out = args.block.samples_out();
+                        Global::task_support().do_later_in_main_thread_asap(move || {
+                            println!(
+                                "PLAY POS: {:?}; SAMPLES OUT: {}; {:?} % LENGTH = {:?}",
+                                project_pos, samples_out, TODO_POS_FROM_START, pos_within_clip
+                            );
+                        });
                     }
                 }
             },
@@ -1223,7 +1238,7 @@ trait WrapperPcmSourceSkills {
     fn backpedal_from_scheduled_stop(&mut self);
     fn query_inner_length(&self) -> DurationInSeconds;
     fn set_repeated(&mut self, repeated: bool);
-    /// 
+    ///
     /// - Considers repeat.
     /// - Returns negative position if clip not yet playing.
     /// - Returns `None` if not scheduled, if beyond scheduled stop or if clip length is zero.
