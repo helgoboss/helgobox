@@ -1273,7 +1273,11 @@ fn get_seek_info(project: Project, options: SeekOptions) -> Option<SeekInfo> {
             ));
         }
     }
-    None
+    // Last fallback: Viewport seeking. We always have a viewport
+    let result = Reaper::get()
+        .medium_reaper()
+        .get_set_arrange_view_2_get(project.context(), 0, 0);
+    Some(SeekInfo::new(result.start_time, result.end_time))
 }
 
 impl ReaperTarget {

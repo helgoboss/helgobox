@@ -920,16 +920,16 @@ impl CustomPcmSource for DecoratedPcmSource {
 
     fn get_samples(&mut self, args: GetSamplesArgs) {
         if self.send_all_notes_off {
-            send_all_notes_off(args);
+            send_all_notes_off(&args);
             self.send_all_notes_off = false;
         }
         use DecoratedPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                self.inner.get_samples(args.block);
+                self.inner.get_samples(&args.block);
             },
             AllNotesOffRequested => {
-                send_all_notes_off(args);
+                send_all_notes_off(&args);
                 self.state = AllNotesOffSent;
             }
             AllNotesOffSent => {}
@@ -1060,7 +1060,7 @@ fn attempt_to_send_all_notes_off_with_guard(
     }
 }
 
-fn send_all_notes_off(args: GetSamplesArgs) {
+fn send_all_notes_off(args: &GetSamplesArgs) {
     for ch in 0..16 {
         let msg = RawShortMessage::control_change(
             Channel::new(ch),
