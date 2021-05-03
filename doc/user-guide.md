@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-04-27 (v2.8.0)</code></td>
+  <td><code>2021-05-03 (v2.9.0-pre7)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1651,19 +1651,24 @@ with feedback that indicates the current position!
       resources. No idea how far you can go with that. Try yourself.
 - **Seek play:** Doesn't just change the edit cursor but also changes the play position when the project is currently
   being played.
-- **Move view:** Also scrolls to the seeked position (even when not playing).
+- **Move view:** Allow to scroll / change viewport when seeking.
 
 The following options determine which time ranges will be taken into consideration as reference for seeking (control)
 and feedback.
 
-1. **Time selection:** Can use the currently set time selection as reference.
+1. **Use time selection:** Can use the currently set time selection as reference.
 2. **Use loop points:** Can use the currently set loop points as reference.
 3. **Use regions:** Can use the current region as reference.
 4. **Use project:** Can use the complete project as reference, from start to end.
 
-If you tick multiple options, this is the order of fallbacks: If there's no time selection, the loop points will
-be used. If there are no loop points, the current region is used. And if there's no current region, the project
-will be used.
+If you don't tick any "Use" checkbox, ReaLearn will seek within the currently visible viewport.
+
+If you tick multiple options, this is the order of fallbacks:
+
+- If there's no time selection, the loop points will be used.
+- If there are no loop points, the current region is used.
+- If there's no current region, the project will be used.
+- If the project is empty, the viewport will be used. 
 
 ###### Project: Set playrate
 
