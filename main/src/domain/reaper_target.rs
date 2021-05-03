@@ -1120,7 +1120,7 @@ impl RealearnTarget for ReaperTarget {
             }
             Seek { project, options } => {
                 let value = value.as_absolute()?;
-                let info = get_seek_info(*project, *options).ok_or("nothing to seek")?;
+                let info = get_seek_info(*project, *options);
                 let desired_pos_within_range = value.get() * info.length();
                 let desired_pos = info.start_pos.get() + desired_pos_within_range;
                 project.set_edit_cursor_position(
@@ -1242,15 +1242,15 @@ impl SeekInfo {
     }
 }
 
-fn get_seek_info(project: Project, options: SeekOptions) -> Option<SeekInfo> {
+fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
     if options.use_time_selection {
         if let Some(r) = project.time_selection() {
-            return Some(SeekInfo::from_time_range(r));
+            return SeekInfo::from_time_range(r);
         }
     }
     if options.use_loop_points {
         if let Some(r) = project.loop_points() {
-            return Some(SeekInfo::from_time_range(r));
+            return SeekInfo::from_time_range(r);
         }
     }
     if options.use_regions {
@@ -1259,7 +1259,7 @@ fn get_seek_info(project: Project, options: SeekOptions) -> Option<SeekInfo> {
             if let Some(bm) = project.find_bookmark_by_index(i) {
                 let info = bm.basic_info();
                 if let Some(end_pos) = info.region_end_position {
-                    return Some(SeekInfo::new(info.position, end_pos));
+                    return SeekInfo::new(info.position, end_pos);
                 }
             }
         }
@@ -1267,17 +1267,17 @@ fn get_seek_info(project: Project, options: SeekOptions) -> Option<SeekInfo> {
     if options.use_project {
         let length = project.length();
         if length.get() > 0.0 {
-            return Some(SeekInfo::new(
+            return SeekInfo::new(
                 PositionInSeconds::new(0.0),
                 PositionInSeconds::new(length.get()),
-            ));
+            );
         }
     }
     // Last fallback: Viewport seeking. We always have a viewport
     let result = Reaper::get()
         .medium_reaper()
         .get_set_arrange_view_2_get(project.context(), 0, 0);
-    Some(SeekInfo::new(result.start_time, result.end_time))
+    SeekInfo::new(result.start_time, result.end_time)
 }
 
 impl ReaperTarget {
@@ -2686,10 +2686,7 @@ fn current_value_of_seek(
     options: SeekOptions,
     pos: PositionInSeconds,
 ) -> UnitValue {
-    let info = match get_seek_info(project, options) {
-        None => return UnitValue::MIN,
-        Some(i) => i,
-    };
+    let info = get_seek_info(project, options);
     if pos < info.start_pos {
         UnitValue::MIN
     } else {
