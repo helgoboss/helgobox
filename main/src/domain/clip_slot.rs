@@ -8,13 +8,13 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource, Track};
 use reaper_low::raw;
 use reaper_medium::{
-    create_custom_owned_pcm_source, BorrowedPcmSource, BufferingBehavior, CustomPcmSource,
-    DurationInBeats, DurationInSeconds, ExtendedArgs, FlexibleOwnedPcmSource, GetPeakInfoArgs,
-    GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment, MeasureMode, MidiEvent,
-    MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState,
-    PositionInBeats, PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperMutex,
-    ReaperMutexGuard, ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs,
-    SetFileNameArgs, SetSourceArgs,
+    create_custom_owned_pcm_source, reaper_str, BorrowedPcmSource, BorrowedPcmSourceTransfer,
+    BufferingBehavior, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs,
+    FlexibleOwnedPcmSource, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MeasureAlignment,
+    MeasureMode, MidiEvent, MidiImportBehavior, OwnedPcmSource, OwnedPreviewRegister, PcmSource,
+    PeaksClearArgs, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
+    PropertiesWindowArgs, ReaperMutex, ReaperMutexGuard, ReaperStr, ReaperVolumeValue,
+    SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
@@ -901,10 +901,12 @@ struct WrapperPcmSource {
     scheduled_start_pos: Option<PositionInSeconds>,
     scheduled_stop_pos: Option<PositionInSeconds>,
     repeated: bool,
+    is_midi: bool,
 }
 
 impl WrapperPcmSource {
     pub fn new(inner: OwnedPcmSource) -> Self {
+        let is_midi = pcm_source_is_midi(&inner);
         Self {
             inner,
             state: WrapperPcmSourceState::Normal,
@@ -912,6 +914,7 @@ impl WrapperPcmSource {
             scheduled_start_pos: None,
             scheduled_stop_pos: None,
             repeated: false,
+            is_midi,
         }
     }
 
@@ -1033,27 +1036,93 @@ impl CustomPcmSource for WrapperPcmSource {
         use WrapperPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                let pos_within_clip = self.pos_within_clip_scheduled();
                 // TODO-high If not synced, do something like this:
                 // let pos_from_start = args.block.time_s();
                 // self.calculate_pos_within_clip(pos_from_start)
-                // TODO-high Take block end into account!
-                let TODO_POS_FROM_START = self.pos_from_start_scheduled();
-                let project_pos = Reaper::get()
-                    .medium_reaper()
-                    // TODO-high Save actual project in source.
-                    .get_play_position_2_ex(ProjectContext::CurrentProject);
-                if let Some(pos) = pos_within_clip {
-                    if pos >= PositionInSeconds::ZERO {
+                if let Some(pos) = self.pos_within_clip_scheduled() {
+                    // We want to start playing as soon as we reach the scheduled start position,
+                    // that means pos == 0.0. In order to do that, we need to take into account that
+                    // the audio buffer start point is not necessarily equal to the measure start
+                    // point. If we would naively start playing as soon as pos >= 0.0, we might skip
+                    // the first samples/messages! We need to start playing as soon as the end of
+                    // the audio block is located on or right to the scheduled start point
+                    // (end_pos >= 0.0).
+                    let desired_sample_count = args.block.length();
+                    let sample_rate = args.block.sample_rate().get();
+                    let block_duration = desired_sample_count as f64 / sample_rate;
+                    let end_pos =
+                        unsafe { PositionInSeconds::new_unchecked(pos.get() + block_duration) };
+                    if end_pos < PositionInSeconds::ZERO {
+                        return;
+                    }
+                    if self.is_midi {
+                        // MIDI.
+                        // For MIDI it seems to be okay to start at a negative position. The source
+                        // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
+                        // offset.
                         args.block.set_time_s(pos);
                         self.inner.get_samples(args.block);
-                        let samples_out = args.block.samples_out();
-                        Global::task_support().do_later_in_main_thread_asap(move || {
-                            println!(
-                                "PLAY POS: {:?}; SAMPLES OUT: {}; {:?} % LENGTH = {:?}",
-                                project_pos, samples_out, TODO_POS_FROM_START, pos_within_clip
-                            );
-                        });
+                        let written_sample_count = args.block.samples_out();
+                        if written_sample_count < desired_sample_count {
+                            // We have reached the end of the clip and it doesn't fill the
+                            // complete block.
+                            if self.repeated {
+                                // Repeat. Fill rest of buffer with beginning of source.
+                                // We need to start from negative position so the frame
+                                // offset of the *added* MIDI events is correctly written.
+                                // The negative position should be as long as the duration of
+                                // samples already written.
+                                let written_duration = written_sample_count as f64 / sample_rate;
+                                let negative_pos =
+                                    unsafe { PositionInSeconds::new_unchecked(-written_duration) };
+                                args.block.set_time_s(negative_pos);
+                                args.block.set_length(desired_sample_count);
+                                self.inner.get_samples(args.block);
+                            } else {
+                                // Let preview register know that complete buffer has been
+                                // filled as desired in order to prevent retry (?) queries that
+                                // lead to double events.
+                                args.block.set_samples_out(desired_sample_count);
+                            }
+                        }
+                    } else {
+                        // Audio.
+                        if pos < PositionInSeconds::ZERO {
+                            // For audio, starting at a negative position leads to weird sounds.
+                            // That's why we need to query from 0.0 and
+                            // offset the provided sample buffer by that
+                            // amount.
+                            let sample_offset = (-pos.get() * sample_rate) as i32;
+                            args.block.set_time_s(PositionInSeconds::ZERO);
+                            with_shifted_samples(args.block, sample_offset, |b| {
+                                self.inner.get_samples(b);
+                            });
+                        } else {
+                            args.block.set_time_s(pos);
+                            self.inner.get_samples(args.block);
+                        }
+                        let written_sample_count = args.block.samples_out();
+                        if written_sample_count < desired_sample_count {
+                            // We have reached the end of the clip and it doesn't fill the
+                            // complete block.
+                            if self.repeated {
+                                // Repeat. Because we assume that the user cuts sources
+                                // sample-perfect, we must immediately fill the rest of the
+                                // buffer with the very
+                                // beginning of the source.
+                                // Audio. Start from zero and write just remaining samples.
+                                args.block.set_time_s(PositionInSeconds::ZERO);
+                                with_shifted_samples(args.block, written_sample_count, |b| {
+                                    self.inner.get_samples(b);
+                                });
+                                // Let preview register know that complete buffer has been filled.
+                                args.block.set_samples_out(desired_sample_count);
+                            } else {
+                                // Let preview register know that complete buffer has been
+                                // filled as desired in order to prevent retry (?) queries.
+                                args.block.set_samples_out(desired_sample_count);
+                            }
+                        }
                     }
                 }
             },
@@ -1195,7 +1264,7 @@ fn attempt_to_send_all_notes_off_with_guard(
         Some(s) => s,
     };
     let src = src.as_mut();
-    if src.get_type(|t| t.to_str() != "MIDI") {
+    if !pcm_source_is_midi(src) {
         return true;
     }
     // Don't just stop MIDI! Send all-notes-off first to prevent hanging notes.
@@ -1412,4 +1481,26 @@ fn get_next_bar_pos() -> PositionInSeconds {
         MeasureMode::FromMeasureAtIndex(next_measure_index),
         PositionInBeats::ZERO,
     )
+}
+
+fn pcm_source_is_midi(src: &BorrowedPcmSource) -> bool {
+    src.get_type(|t| t == reaper_str!("MIDI"))
+}
+
+unsafe fn with_shifted_samples(
+    block: &mut BorrowedPcmSourceTransfer,
+    offset: i32,
+    f: impl FnOnce(&mut BorrowedPcmSourceTransfer),
+) {
+    // Shift samples.
+    let original_length = block.length();
+    let original_samples = block.samples();
+    let shifted_samples = original_samples.offset((offset * block.nch()) as _);
+    block.set_length(block.length() - offset);
+    block.set_samples(shifted_samples);
+    // Query inner source.
+    f(block);
+    // Unshift samples.
+    block.set_length(original_length);
+    block.set_samples(original_samples);
 }
