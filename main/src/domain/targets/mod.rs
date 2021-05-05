@@ -15,3 +15,6 @@ pub use track_volume_target::*;
 
 mod track_pan_target;
 pub use track_pan_target::*;
+
+mod track_width_target;
+pub use track_width_target::*;
