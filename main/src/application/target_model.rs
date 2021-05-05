@@ -1724,6 +1724,7 @@ impl ReaperTargetType {
             Seek => "Experimental target",
             ClipTransport => "Experimental target, record not supported",
             TrackSendMute | AllTrackFxEnable | TrackShow => "No automatic feedback",
+            TrackPeak => "Feedback only, no control",
             _ => "",
         }
     }
