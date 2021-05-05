@@ -1,5 +1,8 @@
-mod send_midi;
-pub use send_midi::*;
+mod midi_send_target;
+pub use midi_send_target::*;
 
-mod track_peak;
-pub use track_peak::*;
+mod track_peak_target;
+pub use track_peak_target::*;
+
+mod action_target;
+pub use action_target::*;

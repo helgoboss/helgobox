@@ -38,7 +38,6 @@ impl<'a> Target<'a> for TrackPeakTarget {
     }
 
     fn control_type(&self) -> ControlType {
-        // TODO-high Improve this by automatically deriving from ReaLearn target.
         self.control_type_and_character().0
     }
 }

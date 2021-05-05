@@ -60,3 +60,7 @@ pub fn volume_unit_value(volume: Volume) -> UnitValue {
     // highest possible value ... not much else we can do.
     UnitValue::new_clamped(volume.soft_normalized_value())
 }
+
+pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
+    if on { UnitValue::MAX } else { UnitValue::MIN }
+}

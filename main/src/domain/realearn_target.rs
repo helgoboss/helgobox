@@ -36,6 +36,7 @@ pub trait RealearnTarget {
     ///
     /// Returns an error if this target doesn't report a step size.
     fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+        let _ = input;
         Err("not supported")
     }
     /// Formats the given value without unit.
@@ -71,6 +72,7 @@ pub trait RealearnTarget {
         )
     }
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+        let (_, _) = (value, context);
         Err("not supported")
     }
     fn can_report_current_value(&self) -> bool {
@@ -102,7 +104,7 @@ pub trait RealearnTarget {
         evt: &ChangeEvent,
         control_context: ControlContext,
     ) -> (bool, Option<UnitValue>) {
-        let _ = evt;
+        let (_, _) = (evt, control_context);
         (false, None)
     }
 
@@ -131,6 +133,7 @@ pub trait RealearnTarget {
     /// Used for parsing discrete values of discrete targets that can't do real parsing according to
     /// `can_parse_values()`.
     fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+        let _ = value;
         Err("not supported")
     }
 }

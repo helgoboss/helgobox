@@ -383,13 +383,9 @@ impl TargetModel {
             self.track_exclusivity.set(track_exclusivity);
         }
         match target {
-            Action {
-                action,
-                invocation_type,
-                ..
-            } => {
-                self.action.set(Some(action.clone()));
-                self.action_invocation_type.set(*invocation_type);
+            Action(t) => {
+                self.action.set(Some(t.action.clone()));
+                self.action_invocation_type.set(t.invocation_type);
             }
             FxParameter { param } => {
                 self.param_type.set(VirtualFxParameterType::ByIndex);

@@ -8,18 +8,18 @@ use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct SendMidiTarget {
+pub struct MidiSendTarget {
     pub pattern: RawMidiPattern,
     pub destination: SendMidiDestination,
 }
 
-impl SendMidiTarget {
+impl MidiSendTarget {
     fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
     }
 }
 
-impl<'a> Target<'a> for SendMidiTarget {
+impl<'a> Target<'a> for MidiSendTarget {
     type Context = ();
 
     fn current_value(&self, _context: ()) -> Option<UnitValue> {
@@ -31,7 +31,7 @@ impl<'a> Target<'a> for SendMidiTarget {
     }
 }
 
-impl RealearnTarget for SendMidiTarget {
+impl RealearnTarget for MidiSendTarget {
     fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
         match self.pattern.step_size() {
             None => (

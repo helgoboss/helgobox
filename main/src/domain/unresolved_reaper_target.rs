@@ -1,9 +1,9 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, RealearnTarget,
-    ReaperTarget, SeekOptions, SendMidiDestination, SendMidiTarget, SlotPlayOptions, SoloBehavior,
+    ActionInvocationType, ActionTarget, BackboneState, ExtendedProcessorContext, FxDisplayType,
+    MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution,
+    RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior,
     TouchedParameterType, TrackExclusivity, TrackPeakTarget, TransportAction,
     COMPARTMENT_PARAMETER_COUNT,
 };
@@ -179,11 +179,11 @@ impl UnresolvedReaperTarget {
             Action {
                 action,
                 invocation_type,
-            } => vec![ReaperTarget::Action {
+            } => vec![ReaperTarget::Action(ActionTarget {
                 action: action.clone(),
                 invocation_type: *invocation_type,
                 project: context.context().project_or_current_project(),
-            }],
+            })],
             FxParameter {
                 fx_parameter_descriptor,
             } => vec![ReaperTarget::FxParameter {
@@ -413,7 +413,7 @@ impl UnresolvedReaperTarget {
             SendMidi {
                 pattern,
                 destination,
-            } => vec![ReaperTarget::SendMidi(SendMidiTarget {
+            } => vec![ReaperTarget::SendMidi(MidiSendTarget {
                 pattern: pattern.clone(),
                 destination: *destination,
             })],
