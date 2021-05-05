@@ -12,3 +12,6 @@ pub use fx_parameter_target::*;
 
 mod track_volume_target;
 pub use track_volume_target::*;
+
+mod track_pan_target;
+pub use track_pan_target::*;
