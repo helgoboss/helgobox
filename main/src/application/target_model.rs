@@ -16,9 +16,9 @@ use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
     FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
-    PlayPosFeedbackResolution, ProcessorContext, ReaperTarget, SeekOptions, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    PlayPosFeedbackResolution, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
+    SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor,
+    TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
     VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
     VirtualTrackRoute,
@@ -435,6 +435,7 @@ impl TargetModel {
             SendMidi { .. }
             | SendOsc { .. }
             | TrackVolume { .. }
+            | TrackPeak { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
@@ -714,6 +715,9 @@ impl TargetModel {
                     TrackVolume => UnresolvedReaperTarget::TrackVolume {
                         track_descriptor: self.track_descriptor()?,
                     },
+                    TrackPeak => UnresolvedReaperTarget::TrackPeak {
+                        track_descriptor: self.track_descriptor()?,
+                    },
                     TrackSendVolume => UnresolvedReaperTarget::TrackSendVolume {
                         descriptor: self.track_route_descriptor()?,
                     },
@@ -989,9 +993,9 @@ impl fmt::Display for TargetModel {
                 let tt = self.r#type.get();
                 match tt {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | TrackArm | TrackPan
-                    | TrackWidth | TrackVolume | TrackShow | TrackSolo | FxNavigate | FxEnable
-                    | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset | FxOpen
-                    | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
+                    | TrackWidth | TrackVolume | TrackPeak | TrackShow | TrackSolo | FxNavigate
+                    | FxEnable | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset
+                    | FxOpen | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
                     | LoadFxSnapshot | SendMidi | SendOsc => f.write_str(tt.short_name()),
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(f, "{}: Slot {}", tt.short_name(), self.slot_index.get() + 1)
@@ -1289,8 +1293,8 @@ impl<'a> Display for TargetModelWithContext<'a> {
                         self.fx_label(),
                         self.fx_param_label()
                     ),
-                    TrackVolume | TrackPan | TrackWidth | TrackArm | TrackSelection | TrackMute
-                    | TrackSolo | TrackShow | FxNavigate | AllTrackFxEnable => {
+                    TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm | TrackSelection
+                    | TrackMute | TrackSolo | TrackShow | FxNavigate | AllTrackFxEnable => {
                         write!(f, "{}\nTrack {}", tt, self.track_label())
                     }
                     TrackAutomationMode => {
@@ -1433,6 +1437,8 @@ pub enum ReaperTargetType {
     AllTrackFxEnable = 15,
     #[display(fmt = "Track: Mute/unmute")]
     TrackMute = 7,
+    #[display(fmt = "Track: Peak")]
+    TrackPeak = 34,
     #[display(fmt = "Track: Select/unselect")]
     TrackSelection = 6,
     #[display(fmt = "Track: Set automation mode")]
@@ -1501,6 +1507,7 @@ impl ReaperTargetType {
             Action { .. } => ReaperTargetType::Action,
             FxParameter { .. } => ReaperTargetType::FxParameter,
             TrackVolume { .. } => ReaperTargetType::TrackVolume,
+            TrackPeak { .. } => ReaperTargetType::TrackPeak,
             TrackRouteVolume { .. } => ReaperTargetType::TrackSendVolume,
             TrackPan { .. } => ReaperTargetType::TrackPan,
             TrackWidth { .. } => ReaperTargetType::TrackWidth,
@@ -1542,10 +1549,11 @@ impl ReaperTargetType {
     pub fn supports_track(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            FxParameter | TrackVolume | TrackSendVolume | TrackPan | TrackWidth | TrackArm
-            | TrackSelection | TrackMute | TrackShow | TrackAutomationMode | TrackSolo
-            | TrackSendPan | TrackSendMute | FxEnable | FxOpen | FxNavigate | FxPreset
-            | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState | ClipTransport => true,
+            FxParameter | TrackVolume | TrackPeak | TrackSendVolume | TrackPan | TrackWidth
+            | TrackArm | TrackSelection | TrackMute | TrackShow | TrackAutomationMode
+            | TrackSolo | TrackSendPan | TrackSendMute | FxEnable | FxOpen | FxNavigate
+            | FxPreset | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState
+            | ClipTransport => true,
             Action
             | Tempo
             | Playrate
@@ -1585,6 +1593,7 @@ impl ReaperTargetType {
             | TrackSendPan
             | TrackSendMute
             | TrackVolume
+            | TrackPeak
             | TrackPan
             | TrackWidth
             | TrackArm
@@ -1629,6 +1638,7 @@ impl ReaperTargetType {
             TrackSendVolume | TrackSendPan | TrackSendMute => true,
             FxParameter
             | TrackVolume
+            | TrackPeak
             | TrackPan
             | TrackWidth
             | TrackArm
@@ -1671,6 +1681,7 @@ impl ReaperTargetType {
             | TrackSendMute
             | FxParameter
             | TrackVolume
+            | TrackPeak
             | TrackPan
             | TrackWidth
             | FxEnable
@@ -1738,6 +1749,7 @@ impl ReaperTargetType {
             TrackPan => "Track pan",
             TrackWidth => "Track pan width",
             TrackVolume => "Track volume",
+            TrackPeak => "Track peak",
             TrackShow => "Show/hide track",
             TrackSolo => "(Un)solo track",
             FxNavigate => "Navigate FXs",

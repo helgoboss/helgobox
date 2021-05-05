@@ -2,9 +2,10 @@ use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget,
-    SeekOptions, SendMidiDestination, SendMidiTarget, SlotPlayOptions, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, RealearnTarget,
+    ReaperTarget, SeekOptions, SendMidiDestination, SendMidiTarget, SlotPlayOptions, SoloBehavior,
+    TouchedParameterType, TrackExclusivity, TrackPeakTarget, TransportAction,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -39,6 +40,9 @@ pub enum UnresolvedReaperTarget {
         fx_parameter_descriptor: FxParameterDescriptor,
     },
     TrackVolume {
+        track_descriptor: TrackDescriptor,
+    },
+    TrackPeak {
         track_descriptor: TrackDescriptor,
     },
     TrackSendVolume {
@@ -189,6 +193,12 @@ impl UnresolvedReaperTarget {
                 get_effective_tracks(context, &track_descriptor.track, compartment)?
                     .into_iter()
                     .map(|track| ReaperTarget::TrackVolume { track })
+                    .collect()
+            }
+            TrackPeak { track_descriptor } => {
+                get_effective_tracks(context, &track_descriptor.track, compartment)?
+                    .into_iter()
+                    .map(|track| ReaperTarget::TrackPeak(TrackPeakTarget { track }))
                     .collect()
             }
             TrackSendVolume { descriptor } => vec![ReaperTarget::TrackRouteVolume {
@@ -518,6 +528,7 @@ impl UnresolvedReaperTarget {
                 Some(&fx_parameter_descriptor.fx_descriptor),
             ),
             TrackVolume { track_descriptor }
+            | TrackPeak { track_descriptor }
             | TrackPan { track_descriptor }
             | TrackWidth { track_descriptor }
             | TrackArm {
@@ -593,6 +604,7 @@ impl UnresolvedReaperTarget {
                 PlayPosFeedbackResolution::Beat
             }
             Seek { options, .. } => options.feedback_resolution,
+            TrackPeak { .. } => PlayPosFeedbackResolution::High,
         };
         Some(res)
     }

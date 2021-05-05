@@ -27,14 +27,16 @@ use slog::warn;
 use crate::core::Global;
 use crate::domain::ui_util::{
     format_as_double_percentage_without_unit, format_as_percentage_without_unit,
-    format_as_symmetric_percentage_without_unit, parse_from_double_percentage,
-    parse_from_symmetric_percentage, parse_unit_value_from_percentage,
+    format_as_symmetric_percentage_without_unit, format_value_as_db_without_unit,
+    parse_from_double_percentage, parse_from_symmetric_percentage,
+    parse_unit_value_from_percentage, parse_value_from_db, reaper_volume_unit_value,
+    volume_unit_value,
 };
 use crate::domain::{
     handle_exclusivity, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent, ClipPlayState,
     ControlContext, FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry, HierarchyEntryProvider,
     InstanceFeedbackEvent, MidiDestination, OscDeviceId, OscFeedbackTask, RealearnTarget,
-    SlotPlayOptions,
+    SendMidiTarget, SlotPlayOptions, TrackPeakTarget,
 };
 use rosc::OscMessage;
 use std::convert::TryInto;
@@ -82,6 +84,7 @@ pub enum ReaperTarget {
     TrackVolume {
         track: Track,
     },
+    TrackPeak(TrackPeakTarget),
     TrackRouteVolume {
         route: TrackRoute,
     },
@@ -319,8 +322,160 @@ impl Default for FxDisplayType {
 }
 
 impl RealearnTarget for ReaperTarget {
-    fn character(&self) -> TargetCharacter {
-        self.control_type_and_character().1
+    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+        use ReaperTarget::*;
+        use TargetCharacter::*;
+        match self {
+            Action {
+                invocation_type,
+                action,
+                ..
+            } => match *invocation_type {
+                ActionInvocationType::Trigger => {
+                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+                }
+                ActionInvocationType::Absolute => match action.character() {
+                    ActionCharacter::Toggle => (ControlType::AbsoluteContinuous, Switch),
+                    ActionCharacter::Trigger => (ControlType::AbsoluteContinuous, Continuous),
+                },
+                ActionInvocationType::Relative => (ControlType::Relative, Discrete),
+            },
+            FxParameter { param } => {
+                use GetParameterStepSizesResult::*;
+                match param.step_sizes() {
+                    None => (ControlType::AbsoluteContinuous, Continuous),
+                    Some(Normal {
+                             normal_step,
+                             small_step,
+                             ..
+                         }) => {
+                        // The reported step sizes relate to the reported value range, which is not
+                        // always the unit interval! Easy to test with JS
+                        // FX.
+                        let range = param.value_range();
+                        // We are primarily interested in the smallest step size that makes sense.
+                        // We can always create multiples of it.
+                        let span = (range.max_val - range.min_val).abs();
+                        if span == 0.0 {
+                            return (ControlType::AbsoluteContinuous, Continuous);
+                        }
+                        let pref_step_size = small_step.unwrap_or(normal_step);
+                        let step_size = pref_step_size / span;
+                        (
+                            ControlType::AbsoluteDiscrete {
+                                atomic_step_size: UnitValue::new(step_size),
+                            },
+                            Discrete,
+                        )
+                    }
+                    Some(Toggle) => (ControlType::AbsoluteContinuous, Switch),
+                }
+            }
+            Tempo { .. } => (
+                ControlType::AbsoluteContinuousRoundable {
+                    rounding_step_size: UnitValue::new(1.0 / bpm_span()),
+                },
+                Continuous,
+            ),
+            Playrate { .. } => (
+                ControlType::AbsoluteContinuousRoundable {
+                    rounding_step_size: UnitValue::new(
+                        1.0 / (playback_speed_factor_span() * 100.0),
+                    ),
+                },
+                Continuous,
+            ),
+            // `+ 1` because "<no preset>" is also a possible value.
+            FxPreset { fx } => {
+                let preset_count = fx.preset_count().unwrap_or(0);
+                (
+                    ControlType::AbsoluteDiscrete {
+                        atomic_step_size: convert_count_to_step_size(preset_count + 1),
+                    },
+                    Discrete,
+                )
+            }
+            // `+ 1` because "<Master track>" is also a possible value.
+            SelectedTrack { project, .. } => (
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
+                },
+                Discrete,
+            ),
+            // `+ 1` because "<No FX>" is also a possible value.
+            FxNavigate { fx_chain, .. } => (
+                ControlType::AbsoluteDiscrete {
+                    atomic_step_size: convert_count_to_step_size(fx_chain.fx_count() + 1),
+                },
+                Discrete,
+            ),
+            TrackRouteMute { .. } | FxEnable { .. }
+            | FxOpen { .. } => {
+                (ControlType::AbsoluteContinuous, Switch)
+            }
+            // Retriggerable because of #277
+            AutomationModeOverride { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+            // Retriggerable because of #277
+            TrackAutomationMode { exclusivity, ..} => {
+                if *exclusivity == TrackExclusivity::NonExclusive {
+                    (ControlType::AbsoluteContinuousRetriggerable, Switch)
+                } else {
+                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+                }
+            }
+            Transport { action, .. } => {
+                use TransportAction::*;
+                match action {
+                    // Retriggerable because we want to be able to retrigger play!
+                    PlayStop|
+                    PlayPause => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+                    Stop |
+                    Pause |
+                    Record |
+                    Repeat => {
+                        (ControlType::AbsoluteContinuous, Switch)
+                    }
+                }
+            }
+            TrackSolo { exclusivity, .. }
+            | AllTrackFxEnable { exclusivity, .. }
+            | AutomationTouchState { exclusivity, .. }
+            | TrackArm { exclusivity, .. }
+            | TrackSelection { exclusivity, .. }
+            | TrackShow { exclusivity, .. }
+            | TrackMute { exclusivity, .. } => {
+                if *exclusivity == TrackExclusivity::NonExclusive {
+                    (ControlType::AbsoluteContinuous, Switch)
+                } else {
+                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+                }
+            }
+            TrackVolume { .. }
+            | TrackRouteVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
+            | Seek { .. }
+            | ClipSeek { .. }| ClipVolume { .. }
+            | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
+            LoadFxSnapshot { .. } | GoToBookmark { .. } => {
+                (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+            }
+            SendMidi(t) => t.control_type_and_character(),
+            TrackPeak(t) => t.control_type_and_character(),
+            SendOsc { arg_descriptor, .. }  => if let Some(desc) = arg_descriptor {
+                use OscTypeTag::*;
+                match desc.type_tag() {
+                    Float | Double => (ControlType::AbsoluteContinuousRetriggerable, Continuous),
+                    Bool => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+                    Nil | Inf => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+                    _ => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
+                }
+            } else {
+                (ControlType::AbsoluteContinuousRetriggerable, Trigger)
+            }
+            ClipTransport { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch)
+        }
     }
 
     fn open(&self) {
@@ -363,9 +518,11 @@ impl RealearnTarget for ReaperTarget {
                 self.parse_value_from_discrete_value(text)
             }
             SendMidi(t) => t.parse_as_value(text),
+            TrackPeak(t) => t.parse_as_value(text),
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
+            // Default: Percentage
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -400,9 +557,11 @@ impl RealearnTarget for ReaperTarget {
                 self.parse_value_from_discrete_value(text)
             }
             SendMidi(t) => t.parse_as_step_size(text),
+            TrackPeak(t) => t.parse_as_step_size(text),
             FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
                 self.parse_value_from_discrete_value(text)
             }
+            // Default: Percentage
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -460,6 +619,8 @@ impl RealearnTarget for ReaperTarget {
                 (input.get() / step_size).round() as _
             }
             SendMidi(t) => return t.convert_unit_value_to_discrete_value(input),
+            TrackPeak(t) => return t.convert_unit_value_to_discrete_value(input),
+            // Default: Not supported
             Action { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
@@ -502,6 +663,8 @@ impl RealearnTarget for ReaperTarget {
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
             SendMidi(t) => t.format_value_without_unit(value),
+            TrackPeak(t) => t.format_value_without_unit(value),
+            // Default: Percentage
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -536,6 +699,8 @@ impl RealearnTarget for ReaperTarget {
             Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
             Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
             SendMidi(t) => t.format_step_size_without_unit(step_size),
+            TrackPeak(t) => t.format_step_size_without_unit(step_size),
+            // Default: Percentage
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -607,6 +772,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume { .. } | TrackRouteVolume { .. } | ClipVolume { .. } => "dB",
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
+            // Default: percentage
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -634,6 +800,7 @@ impl RealearnTarget for ReaperTarget {
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } => "",
             SendMidi(t) => t.value_unit(),
+            TrackPeak(t) => t.value_unit(),
         }
     }
 
@@ -642,6 +809,7 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Tempo { .. } => "bpm",
             Playrate { .. } => "x",
+            // Default: Percentage
             Action { .. }
             | LoadFxSnapshot { .. }
             | FxParameter { .. }
@@ -672,6 +840,7 @@ impl RealearnTarget for ReaperTarget {
             | Transport { .. } => "%",
             TrackPan { .. } | TrackRoutePan { .. } => "",
             SendMidi(t) => t.step_size_unit(),
+            TrackPeak(t) => t.step_size_unit(),
         }
     }
 
@@ -725,6 +894,7 @@ impl RealearnTarget for ReaperTarget {
             | TrackWidth { .. } => self.format_value_generic(value),
             Action { .. } | LoadFxSnapshot { .. } => "".to_owned(),
             SendMidi(t) => t.format_value(value),
+            TrackPeak(t) => t.format_value(value),
         }
     }
 
@@ -1132,6 +1302,7 @@ impl RealearnTarget for ReaperTarget {
                 );
             }
             SendMidi(t) => return t.control(value, context),
+            TrackPeak(t) => return t.control(value, context),
             SendOsc {
                 address_pattern,
                 arg_descriptor,
@@ -1221,6 +1392,737 @@ impl RealearnTarget for ReaperTarget {
         use ReaperTarget::*;
         !matches!(self, SendMidi { .. } | SendOsc { .. })
     }
+
+    /// Used for "Last touched" target only at the moment.
+    fn is_available(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            Action { action, .. } => action.is_available(),
+            FxParameter { param } => param.is_available(),
+            TrackArm { track, .. }
+            | TrackSelection { track, .. }
+            | TrackMute { track, .. }
+            | TrackShow { track, .. }
+            | TrackAutomationMode { track, .. }
+            | TrackSolo { track, .. }
+            | AllTrackFxEnable { track, .. }
+            | AutomationTouchState { track, .. }
+            | TrackVolume { track }
+            | TrackPan { track }
+            | TrackWidth { track } => track.is_available(),
+            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
+                route.is_available()
+            }
+            Tempo { project }
+            | Playrate { project }
+            | Transport { project, .. }
+            | SelectedTrack { project, .. }
+            | GoToBookmark { project, .. }
+            | Seek { project, .. } => project.is_available(),
+            FxNavigate { fx_chain, .. } => fx_chain.is_available(),
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
+                fx.is_available()
+            }
+            // TODO-medium With clip targets we should check the control context (instance state) if
+            //  slot filled.
+            ClipTransport { track, .. } => {
+                if let Some(t) = track {
+                    if !t.is_available() {
+                        return false;
+                    }
+                }
+                true
+            }
+            ClipSeek { .. } | ClipVolume { .. } => true,
+            AutomationModeOverride { .. } | SendOsc { .. } => true,
+            SendMidi(t) => t.is_available(),
+            TrackPeak(t) => t.is_available(),
+        }
+    }
+
+    fn project(&self) -> Option<Project> {
+        use ReaperTarget::*;
+        let project = match self {
+            Action { .. }
+            | Transport { .. }
+            | AutomationModeOverride { .. }
+            | ClipSeek { .. }
+            | ClipVolume { .. }
+            | SendOsc { .. } => {
+                return None;
+            }
+            FxParameter { param } => param.fx().project()?,
+            TrackVolume { track }
+            | TrackPan { track }
+            | TrackWidth { track }
+            | TrackArm { track, .. }
+            | TrackSelection { track, .. }
+            | TrackMute { track, .. }
+            | TrackShow { track, .. }
+            | TrackAutomationMode { track, .. }
+            | TrackSolo { track, .. }
+            | AutomationTouchState { track, .. }
+            | AllTrackFxEnable { track, .. } => track.project(),
+            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
+                route.track().project()
+            }
+            GoToBookmark { project, .. }
+            | Tempo { project }
+            | Playrate { project }
+            | SelectedTrack { project, .. }
+            | Seek { project, .. } => *project,
+            ClipTransport { track, .. } => return track.as_ref().map(|t| t.project()),
+            FxNavigate { fx_chain, .. } => fx_chain.project()?,
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
+                fx.project()?
+            }
+            SendMidi(t) => return t.project(),
+            TrackPeak(t) => return t.project(),
+        };
+        Some(project)
+    }
+
+    fn track(&self) -> Option<&Track> {
+        use ReaperTarget::*;
+        let track = match self {
+            FxParameter { param } => param.fx().track()?,
+            TrackVolume { track }
+            | TrackPan { track }
+            | TrackWidth { track }
+            | TrackArm { track, .. }
+            | TrackSelection { track, .. }
+            | TrackMute { track, .. }
+            | TrackShow { track, .. }
+            | TrackAutomationMode { track, .. }
+            | AutomationTouchState { track, .. }
+            | TrackSolo { track, .. } => track,
+            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
+                route.track()
+            }
+            FxNavigate { fx_chain, .. } => fx_chain.track()?,
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
+                fx.track()?
+            }
+            AllTrackFxEnable { track, .. } => track,
+            Action { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | GoToBookmark { .. }
+            | Seek { .. }
+            | ClipSeek { .. }
+            | ClipVolume { .. }
+            | AutomationModeOverride { .. }
+            | Transport { .. }
+            | SendOsc { .. } => return None,
+            ClipTransport { track, .. } => return track.as_ref(),
+            SendMidi(t) => return t.track(),
+            TrackPeak(t) => return t.track(),
+        };
+        Some(track)
+    }
+
+    fn fx(&self) -> Option<&Fx> {
+        use ReaperTarget::*;
+        let fx = match self {
+            FxParameter { param } => param.fx(),
+            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
+            Action { .. }
+            | TrackVolume { .. }
+            | TrackRouteVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | GoToBookmark { .. }
+            | TrackSolo { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
+            | Tempo { .. }
+            | AutomationModeOverride { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
+            | Seek { .. }
+            | ClipSeek { .. }
+            | FxNavigate { .. }
+            | Transport { .. }
+            | ClipTransport { .. }
+            | ClipVolume { .. }
+            | SendOsc { .. } => return None,
+            SendMidi(t) => return t.fx(),
+            TrackPeak(t) => return t.fx(),
+        };
+        Some(fx)
+    }
+
+    fn route(&self) -> Option<&TrackRoute> {
+        use ReaperTarget::*;
+        let route = match self {
+            TrackRoutePan { route } | TrackRouteVolume { route } | TrackRouteMute { route } => {
+                route
+            }
+            FxParameter { .. }
+            | FxEnable { .. }
+            | FxPreset { .. }
+            | Action { .. }
+            | TrackVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
+            | FxNavigate { .. }
+            | GoToBookmark { .. }
+            | TrackSolo { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | SelectedTrack { .. }
+            | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
+            | LoadFxSnapshot { .. }
+            | Seek { .. }
+            | ClipSeek { .. }
+            | Transport { .. }
+            | ClipTransport { .. }
+            | ClipVolume { .. }
+            | SendOsc { .. } => return None,
+            SendMidi(t) => return t.route(),
+            TrackPeak(t) => return t.route(),
+        };
+        Some(route)
+    }
+
+    fn track_exclusivity(&self) -> Option<TrackExclusivity> {
+        use ReaperTarget::*;
+        match self {
+            TrackSolo { exclusivity, .. }
+            | TrackArm { exclusivity, .. }
+            | TrackSelection { exclusivity, .. }
+            | TrackMute { exclusivity, .. }
+            | TrackShow { exclusivity, .. }
+            | TrackAutomationMode { exclusivity, .. }
+            | AllTrackFxEnable { exclusivity, .. }
+            | AutomationTouchState { exclusivity, .. } => Some(*exclusivity),
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackRouteVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
+            | Tempo { .. }
+            | GoToBookmark { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | FxOpen { .. }
+            | FxPreset { .. }
+            | SelectedTrack { .. }
+            | FxNavigate { .. }
+            | Transport { .. }
+            | LoadFxSnapshot { .. }
+            | AutomationModeOverride { .. }
+            | Seek { .. }
+            | ClipSeek { .. }
+            | ClipTransport { .. }
+            | ClipVolume { .. }
+            | SendOsc { .. } => None,
+            SendMidi(t) => t.track_exclusivity(),
+            TrackPeak(t) => t.track_exclusivity(),
+        }
+    }
+
+    fn supports_automatic_feedback(&self) -> bool {
+        use ReaperTarget::*;
+        match self {
+            Action { .. }
+            | FxParameter { .. }
+            | TrackVolume { .. }
+            | TrackRouteVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackSolo { .. }
+            | TrackRoutePan { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | FxOpen { .. }
+            | FxPreset { .. }
+            | GoToBookmark { .. }
+            | SelectedTrack { .. }
+            | FxNavigate { .. }
+            | LoadFxSnapshot { .. }
+            | AutomationTouchState { .. }
+            | Seek { .. }
+            | ClipSeek { .. }
+            | AutomationModeOverride { .. }
+            | TrackAutomationMode { .. }
+            | ClipTransport { .. }
+            | ClipVolume { .. }
+            | Transport { .. } => true,
+            TrackShow { .. } | AllTrackFxEnable { .. } | TrackRouteMute { .. } | SendOsc { .. } => {
+                false
+            }
+            SendMidi(t) => t.supports_automatic_feedback(),
+            TrackPeak(t) => t.supports_automatic_feedback(),
+        }
+    }
+
+    /// Might return the new value if changed.
+    ///
+    /// Is called in any case (even if feedback not enabled). So we can use it for general-purpose
+    /// change event reactions such as reacting to transport stop.
+    #[allow(clippy::single_match)]
+    fn process_change_event(
+        &self,
+        evt: &ChangeEvent,
+        control_context: ControlContext,
+    ) -> (bool, Option<UnitValue>) {
+        use ChangeEvent::*;
+        use ReaperTarget::*;
+        match self {
+            FxParameter { param } => match evt {
+                FxParameterValueChanged(e) if &e.parameter == param => (
+                    true,
+                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                ),
+                _ => (false, None),
+            },
+            TrackVolume { track } => match evt {
+                TrackVolumeChanged(e) if &e.track == track => (
+                    true,
+                    Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
+                ),
+                _ => (false, None),
+            },
+            TrackRouteVolume { route } => match evt {
+                TrackRouteVolumeChanged(e) if &e.route == route => (
+                    true,
+                    Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
+                ),
+                _ => (false, None),
+            },
+            TrackPan { track } => match evt {
+                TrackPanChanged(e) if &e.track == track => (true, {
+                    let pan = match e.new_value {
+                        AvailablePanValue::Complete(v) => v.main_pan(),
+                        AvailablePanValue::Incomplete(pan) => pan,
+                    };
+                    Some(pan_unit_value(Pan::from_reaper_value(pan)))
+                }),
+                _ => (false, None),
+            },
+            TrackWidth { track } => match evt {
+                TrackPanChanged(e) if &e.track == track => (
+                    true,
+                    match e.new_value {
+                        AvailablePanValue::Complete(v) => v
+                            .width()
+                            .map(|width| width_unit_value(Width::from_reaper_value(width))),
+                        AvailablePanValue::Incomplete(_) => None,
+                    },
+                ),
+                _ => (false, None),
+            },
+            TrackArm { track, .. } => match evt {
+                TrackArmChanged(e) if &e.track == track => {
+                    (true, Some(track_arm_unit_value(e.new_value)))
+                }
+                _ => (false, None),
+            },
+            TrackSelection { track, .. } => match evt {
+                TrackSelectedChanged(e) if &e.track == track => {
+                    (true, Some(track_selected_unit_value(e.new_value)))
+                }
+                _ => (false, None),
+            },
+            TrackMute { track, .. } => match evt {
+                TrackMuteChanged(e) if &e.track == track => {
+                    (true, Some(mute_unit_value(e.new_value)))
+                }
+                _ => (false, None),
+            },
+            TrackAutomationMode { track, mode, .. } => match evt {
+                TrackAutomationModeChanged(e) if &e.track == track => (
+                    true,
+                    Some(track_automation_mode_unit_value(*mode, e.new_value)),
+                ),
+                _ => (false, None),
+            },
+            TrackSolo { track, .. } => match evt {
+                TrackSoloChanged(e) if &e.track == track => {
+                    (true, Some(track_solo_unit_value(e.new_value)))
+                }
+                _ => (false, None),
+            },
+            TrackRoutePan { route } => match evt {
+                TrackRoutePanChanged(e) if &e.route == route => (
+                    true,
+                    Some(pan_unit_value(Pan::from_reaper_value(e.new_value))),
+                ),
+                _ => (false, None),
+            },
+            Tempo { project } => match evt {
+                MasterTempoChanged(e) if e.project == *project => (
+                    true,
+                    Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value))),
+                ),
+                _ => (false, None),
+            },
+            Playrate { project } => match evt {
+                MasterPlayrateChanged(e) if e.project == *project => (
+                    true,
+                    Some(playrate_unit_value(PlayRate::from_playback_speed_factor(
+                        e.new_value,
+                    ))),
+                ),
+                _ => (false, None),
+            },
+            FxEnable { fx } => match evt {
+                FxEnabledChanged(e) if &e.fx == fx => {
+                    (true, Some(fx_enable_unit_value(e.new_value)))
+                }
+                _ => (false, None),
+            },
+            FxOpen { fx, .. } => match evt {
+                FxOpened(e) if &e.fx == fx => (true, None),
+                FxClosed(e) if &e.fx == fx => (true, None),
+                _ => (false, None),
+            },
+            FxNavigate { fx_chain, .. } => match evt {
+                FxOpened(e) if e.fx.chain() == fx_chain => (true, None),
+                FxClosed(e) if e.fx.chain() == fx_chain => (true, None),
+                _ => (false, None),
+            },
+            FxPreset { fx } => match evt {
+                FxPresetChanged(e) if &e.fx == fx => (true, None),
+                _ => (false, None),
+            },
+            SelectedTrack { project, .. } => match evt {
+                TrackSelectedChanged(e) if e.new_value && &e.track.project() == project => (
+                    true,
+                    Some(selected_track_unit_value(*project, e.track.index())),
+                ),
+                _ => (false, None),
+            },
+            Transport {
+                project, action, ..
+            } => {
+                use TransportAction::*;
+                match *action {
+                    PlayStop | PlayPause => match evt {
+                        PlayStateChanged(e) if e.project == *project => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value.is_playing)),
+                        ),
+                        _ => (false, None),
+                    },
+                    Stop => match evt {
+                        PlayStateChanged(e) if e.project == *project => (
+                            true,
+                            Some(transport_is_enabled_unit_value(
+                                !e.new_value.is_playing && !e.new_value.is_paused,
+                            )),
+                        ),
+                        _ => (false, None),
+                    },
+                    Pause => match evt {
+                        PlayStateChanged(e) if e.project == *project => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value.is_paused)),
+                        ),
+                        _ => (false, None),
+                    },
+                    Record => match evt {
+                        PlayStateChanged(e) if e.project == *project => (
+                            true,
+                            Some(transport_is_enabled_unit_value(e.new_value.is_recording)),
+                        ),
+                        _ => (false, None),
+                    },
+                    Repeat => match evt {
+                        RepeatStateChanged(e) if e.project == *project => {
+                            (true, Some(transport_is_enabled_unit_value(e.new_value)))
+                        }
+                        _ => (false, None),
+                    },
+                }
+            }
+            // Handled both from control-surface and non-control-surface callbacks.
+            GoToBookmark { project, .. } => match evt {
+                BookmarksChanged(e) if e.project == *project => (true, None),
+                _ => (false, None),
+            },
+            AutomationModeOverride { mode_override } => match evt {
+                GlobalAutomationOverrideChanged(e) => (
+                    true,
+                    Some(global_automation_mode_override_unit_value(
+                        *mode_override,
+                        e.new_value,
+                    )),
+                ),
+                _ => (false, None),
+            },
+            // Handled from non-control-surface callbacks only.
+            Action { .. } | LoadFxSnapshot { .. } | AutomationTouchState { .. } | Seek { .. } => {
+                (false, None)
+            }
+            // Feedback handled from instance-scoped feedback events.
+            ClipTransport { .. } => {
+                match evt {
+                    PlayStateChanged(e) => {
+                        let mut instance_state = control_context.instance_state.borrow_mut();
+                        instance_state.process_transport_change(e.new_value);
+                    }
+                    _ => {}
+                };
+                (false, None)
+            }
+            ClipSeek { .. } | ClipVolume { .. } => (false, None),
+            // No value change notification available.
+            TrackShow { .. } | TrackRouteMute { .. } | AllTrackFxEnable { .. } | SendOsc { .. } => {
+                (false, None)
+            }
+            SendMidi(t) => t.process_change_event(evt, control_context),
+            TrackPeak(t) => t.process_change_event(evt, control_context),
+        }
+    }
+
+    /// Like `convert_unit_value_to_discrete_value()` but in the other direction.
+    ///
+    /// Used for parsing discrete values of discrete targets that can't do real parsing according to
+    /// `can_parse_values()`.
+    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+        if self.control_type().is_relative() {
+            return (value as f64 / 63.0).try_into();
+        }
+        use ReaperTarget::*;
+        let result = match self {
+            FxPreset { fx } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                fx_preset_unit_value(fx, index)
+            }
+            SelectedTrack { project, .. } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                selected_track_unit_value(*project, index)
+            }
+            FxNavigate { fx_chain, .. } => {
+                let index = if value == 0 { None } else { Some(value - 1) };
+                shown_fx_unit_value(fx_chain, index)
+            }
+            FxParameter { param } => {
+                let step_size = param.step_size().ok_or("not supported")?;
+                (value as f64 * step_size).try_into()?
+            }
+            SendMidi(t) => return t.convert_discrete_value_to_unit_value(value),
+            TrackPeak(t) => return t.convert_discrete_value_to_unit_value(value),
+            // Default: Percentage
+            Action { .. }
+            | TrackVolume { .. }
+            | TrackRouteVolume { .. }
+            | ClipVolume { .. }
+            | TrackPan { .. }
+            | TrackWidth { .. }
+            | TrackArm { .. }
+            | TrackSelection { .. }
+            | TrackMute { .. }
+            | TrackShow { .. }
+            | TrackAutomationMode { .. }
+            | AutomationModeOverride { .. }
+            | FxOpen { .. }
+            | GoToBookmark { .. }
+            | TrackSolo { .. }
+            | TrackRoutePan { .. }
+            | TrackRouteMute { .. }
+            | Tempo { .. }
+            | Playrate { .. }
+            | FxEnable { .. }
+            | AllTrackFxEnable { .. }
+            | AutomationTouchState { .. }
+            | LoadFxSnapshot { .. }
+            | Seek { .. }
+            | ClipSeek { .. }
+            | SendOsc { .. }
+            | ClipTransport { .. }
+            | Transport { .. } => return Err("not supported"),
+        };
+        Ok(result)
+    }
+
+    fn value_changed_from_additional_feedback_event(
+        &self,
+        evt: &AdditionalFeedbackEvent,
+    ) -> (bool, Option<UnitValue>) {
+        use AdditionalFeedbackEvent::*;
+        use ReaperTarget::*;
+        match self {
+            Action { action, .. } => match evt {
+                // We can't provide a value from the event itself because the action hooks don't
+                // pass values.
+                ActionInvoked(e) if e.command_id == action.command_id() => (true, None),
+                _ => (false, None),
+            },
+            LoadFxSnapshot { fx, .. } => match evt {
+                // We can't provide a value from the event itself because it's on/off depending on
+                // the mappings which use the FX snapshot target with that FX and which chunk (hash)
+                // their snapshot has.
+                FxSnapshotLoaded(e) if &e.fx == fx => (true, None),
+                _ => (false, None),
+            },
+            FxParameter { param } => match evt {
+                RealearnMonitoringFxParameterValueChanged(e) if &e.parameter == param => (
+                    true,
+                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                ),
+                _ => (false, None),
+            },
+            AutomationTouchState {
+                track,
+                parameter_type,
+                ..
+            } => match evt {
+                ParameterAutomationTouchStateChanged(e)
+                    if e.track == track.raw() && e.parameter_type == *parameter_type =>
+                {
+                    (true, Some(touched_unit_value(e.new_value)))
+                }
+                _ => (false, None),
+            },
+            GoToBookmark {
+                project,
+                bookmark_type,
+                index,
+                ..
+            } => match evt {
+                BeatChanged(e) if e.project == *project => {
+                    let v =
+                        current_value_of_bookmark(*project, *bookmark_type, *index, e.new_value);
+                    (true, Some(v))
+                }
+                _ => (false, None),
+            },
+            Seek { project, options } => match evt {
+                BeatChanged(e) if e.project == *project => {
+                    let v = current_value_of_seek(*project, *options, e.new_value);
+                    (true, Some(v))
+                }
+                _ => (false, None),
+            },
+            // If feedback resolution is high, we use the special ClipChangedEvent to do our job
+            // (in order to not lock mutex of playing clips more than once per main loop cycle).
+            ClipSeek {
+                feedback_resolution,
+                ..
+            } if *feedback_resolution == PlayPosFeedbackResolution::Beat => match evt {
+                BeatChanged(_) => (true, None),
+                _ => (false, None),
+            },
+            // This is necessary at the moment because control surface SetPlayState callback works
+            // for currently active project tab already.
+            Transport { project, action } if *action != TransportAction::Repeat => match evt {
+                BeatChanged(e)
+                    if e.project == *project && e.project != Reaper::get().current_project() =>
+                {
+                    (true, None)
+                }
+                _ => (false, None),
+            },
+            _ => (false, None),
+        }
+    }
+
+    #[allow(clippy::collapsible_match)]
+    fn value_changed_from_instance_feedback_event(
+        &self,
+        evt: &InstanceFeedbackEvent,
+    ) -> (bool, Option<UnitValue>) {
+        use InstanceFeedbackEvent::*;
+        use ReaperTarget::*;
+        match self {
+            ClipTransport {
+                slot_index, action, ..
+            } => {
+                match evt {
+                    ClipChanged {
+                        slot_index: si,
+                        event,
+                    } if si == slot_index => {
+                        use TransportAction::*;
+                        match *action {
+                            PlayStop | PlayPause | Stop | Pause => match event {
+                                ClipChangedEvent::PlayStateChanged(new_state) => {
+                                    (true, Some(clip_play_state_unit_value(*action, *new_state)))
+                                }
+                                _ => (false, None),
+                            },
+                            // Not supported at the moment.
+                            Record => (false, None),
+                            Repeat => match event {
+                                ClipChangedEvent::ClipRepeatChanged(new_state) => {
+                                    (true, Some(transport_is_enabled_unit_value(*new_state)))
+                                }
+                                _ => (false, None),
+                            },
+                        }
+                    }
+                    _ => (false, None),
+                }
+            }
+            // When feedback resolution is beat, we only react to the main timeline beat changes.
+            ClipSeek {
+                slot_index,
+                feedback_resolution,
+                ..
+            } if *feedback_resolution == PlayPosFeedbackResolution::High => match evt {
+                ClipChanged {
+                    slot_index: si,
+                    event,
+                } if si == slot_index => match event {
+                    ClipChangedEvent::ClipPositionChanged(new_position) => {
+                        (true, Some(*new_position))
+                    }
+                    ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
+                        (true, Some(UnitValue::MIN))
+                    }
+                    _ => (false, None),
+                },
+                _ => (false, None),
+            },
+            ClipVolume { slot_index } => match evt {
+                ClipChanged {
+                    slot_index: si,
+                    event,
+                } if si == slot_index => match event {
+                    ClipChangedEvent::ClipVolumeChanged(new_value) => {
+                        (true, Some(reaper_volume_unit_value(*new_value)))
+                    }
+                    _ => (false, None),
+                },
+                _ => (false, None),
+            },
+            _ => (false, None),
+        }
+    }
+
+    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        if let ReaperTarget::SendMidi(t) = self {
+            t.splinter_real_time_target()
+        } else {
+            None
+        }
+    }
 }
 
 struct SeekInfo {
@@ -1281,205 +2183,6 @@ fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
 }
 
 impl ReaperTarget {
-    /// Used for "Last touched" target only at the moment.
-    pub fn is_available(&self) -> bool {
-        use ReaperTarget::*;
-        match self {
-            Action { action, .. } => action.is_available(),
-            FxParameter { param } => param.is_available(),
-            TrackArm { track, .. }
-            | TrackSelection { track, .. }
-            | TrackMute { track, .. }
-            | TrackShow { track, .. }
-            | TrackAutomationMode { track, .. }
-            | TrackSolo { track, .. }
-            | AllTrackFxEnable { track, .. }
-            | AutomationTouchState { track, .. }
-            | TrackVolume { track }
-            | TrackPan { track }
-            | TrackWidth { track } => track.is_available(),
-            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
-                route.is_available()
-            }
-            Tempo { project }
-            | Playrate { project }
-            | Transport { project, .. }
-            | SelectedTrack { project, .. }
-            | GoToBookmark { project, .. }
-            | Seek { project, .. } => project.is_available(),
-            FxNavigate { fx_chain, .. } => fx_chain.is_available(),
-            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
-                fx.is_available()
-            }
-            // TODO-medium With clip targets we should check the control context (instance state) if
-            //  slot filled.
-            ClipTransport { track, .. } => {
-                if let Some(t) = track {
-                    if !t.is_available() {
-                        return false;
-                    }
-                }
-                true
-            }
-            ClipSeek { .. } | ClipVolume { .. } => true,
-            AutomationModeOverride { .. } | SendMidi { .. } | SendOsc { .. } => true,
-        }
-    }
-
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
-        use ReaperTarget::*;
-        use TargetCharacter::*;
-        match self {
-            Action {
-                invocation_type,
-                action,
-                ..
-            } => match *invocation_type {
-                ActionInvocationType::Trigger => {
-                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-                }
-                ActionInvocationType::Absolute => match action.character() {
-                    ActionCharacter::Toggle => (ControlType::AbsoluteContinuous, Switch),
-                    ActionCharacter::Trigger => (ControlType::AbsoluteContinuous, Continuous),
-                },
-                ActionInvocationType::Relative => (ControlType::Relative, Discrete),
-            },
-            FxParameter { param } => {
-                use GetParameterStepSizesResult::*;
-                match param.step_sizes() {
-                    None => (ControlType::AbsoluteContinuous, Continuous),
-                    Some(Normal {
-                        normal_step,
-                        small_step,
-                        ..
-                    }) => {
-                        // The reported step sizes relate to the reported value range, which is not
-                        // always the unit interval! Easy to test with JS
-                        // FX.
-                        let range = param.value_range();
-                        // We are primarily interested in the smallest step size that makes sense.
-                        // We can always create multiples of it.
-                        let span = (range.max_val - range.min_val).abs();
-                        if span == 0.0 {
-                            return (ControlType::AbsoluteContinuous, Continuous);
-                        }
-                        let pref_step_size = small_step.unwrap_or(normal_step);
-                        let step_size = pref_step_size / span;
-                        (
-                            ControlType::AbsoluteDiscrete {
-                                atomic_step_size: UnitValue::new(step_size),
-                            },
-                            Discrete,
-                        )
-                    }
-                    Some(Toggle) => (ControlType::AbsoluteContinuous, Switch),
-                }
-            }
-            Tempo { .. } => (
-                ControlType::AbsoluteContinuousRoundable {
-                    rounding_step_size: UnitValue::new(1.0 / bpm_span()),
-                },
-                Continuous,
-            ),
-            Playrate { .. } => (
-                ControlType::AbsoluteContinuousRoundable {
-                    rounding_step_size: UnitValue::new(
-                        1.0 / (playback_speed_factor_span() * 100.0),
-                    ),
-                },
-                Continuous,
-            ),
-            // `+ 1` because "<no preset>" is also a possible value.
-            FxPreset { fx } => {
-                let preset_count = fx.preset_count().unwrap_or(0);
-                (
-                    ControlType::AbsoluteDiscrete {
-                        atomic_step_size: convert_count_to_step_size(preset_count + 1),
-                    },
-                    Discrete,
-                )
-            }
-            // `+ 1` because "<Master track>" is also a possible value.
-            SelectedTrack { project, .. } => (
-                ControlType::AbsoluteDiscrete {
-                    atomic_step_size: convert_count_to_step_size(project.track_count() + 1),
-                },
-                Discrete,
-            ),
-            // `+ 1` because "<No FX>" is also a possible value.
-            FxNavigate { fx_chain, .. } => (
-                ControlType::AbsoluteDiscrete {
-                    atomic_step_size: convert_count_to_step_size(fx_chain.fx_count() + 1),
-                },
-                Discrete,
-            ),
-            TrackRouteMute { .. } | FxEnable { .. }
-            | FxOpen { .. } => {
-                (ControlType::AbsoluteContinuous, Switch)
-            }
-            // Retriggerable because of #277
-            AutomationModeOverride { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch),
-            // Retriggerable because of #277
-            TrackAutomationMode { exclusivity, ..} => {
-                if *exclusivity == TrackExclusivity::NonExclusive {
-                    (ControlType::AbsoluteContinuousRetriggerable, Switch)
-                } else {
-                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-                }
-            }
-            Transport { action, .. } => {
-                use TransportAction::*;
-                match action {
-                    // Retriggerable because we want to be able to retrigger play!
-                    PlayStop|
-                    PlayPause => (ControlType::AbsoluteContinuousRetriggerable, Switch),
-                    Stop |
-                    Pause |
-                    Record |
-                    Repeat => {
-                        (ControlType::AbsoluteContinuous, Switch)
-                    }
-                }
-            }
-                TrackSolo { exclusivity, .. }
-            | AllTrackFxEnable { exclusivity, .. }
-            | AutomationTouchState { exclusivity, .. }
-            | TrackArm { exclusivity, .. }
-            | TrackSelection { exclusivity, .. }
-            | TrackShow { exclusivity, .. }
-            | TrackMute { exclusivity, .. } => {
-                if *exclusivity == TrackExclusivity::NonExclusive {
-                    (ControlType::AbsoluteContinuous, Switch)
-                } else {
-                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-                }
-            }
-            TrackVolume { .. }
-            | TrackRouteVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
-            | Seek { .. }
-            | ClipSeek { .. }| ClipVolume { .. }
-            | TrackRoutePan { .. } => (ControlType::AbsoluteContinuous, Continuous),
-            LoadFxSnapshot { .. } | GoToBookmark { .. } => {
-                (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-            }
-            SendMidi(t) => t.control_type_and_character(),
-            SendOsc { arg_descriptor, .. }  => if let Some(desc) = arg_descriptor {
-                use OscTypeTag::*;
-                match desc.type_tag() {
-                    Float | Double => (ControlType::AbsoluteContinuousRetriggerable, Continuous),
-                    Bool => (ControlType::AbsoluteContinuousRetriggerable, Switch),
-                    Nil | Inf => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
-                    _ => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
-                }
-            } else {
-                (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-            }
-            ClipTransport { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch)
-        }
-    }
     /// Notifies about other events which can affect the resulting `ReaperTarget`.
     ///
     /// The resulting `ReaperTarget` doesn't change only if one of our the model properties changes.
@@ -1769,688 +2472,8 @@ impl ReaperTarget {
         )
     }
 
-    /// Like `convert_unit_value_to_discrete_value()` but in the other direction.
-    ///
-    /// Used for parsing discrete values of discrete targets that can't do real parsing according to
-    /// `can_parse_values()`.
-    pub fn convert_discrete_value_to_unit_value(
-        &self,
-        value: u32,
-    ) -> Result<UnitValue, &'static str> {
-        if self.control_type().is_relative() {
-            return (value as f64 / 63.0).try_into();
-        }
-        use ReaperTarget::*;
-        let result = match self {
-            FxPreset { fx } => {
-                let index = if value == 0 { None } else { Some(value - 1) };
-                fx_preset_unit_value(fx, index)
-            }
-            SelectedTrack { project, .. } => {
-                let index = if value == 0 { None } else { Some(value - 1) };
-                selected_track_unit_value(*project, index)
-            }
-            FxNavigate { fx_chain, .. } => {
-                let index = if value == 0 { None } else { Some(value - 1) };
-                shown_fx_unit_value(fx_chain, index)
-            }
-            FxParameter { param } => {
-                let step_size = param.step_size().ok_or("not supported")?;
-                (value as f64 * step_size).try_into()?
-            }
-            SendMidi(t) => return t.convert_discrete_value_to_unit_value(value),
-            Action { .. }
-            | TrackVolume { .. }
-            | TrackRouteVolume { .. }
-            | ClipVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackShow { .. }
-            | TrackAutomationMode { .. }
-            | AutomationModeOverride { .. }
-            | FxOpen { .. }
-            | GoToBookmark { .. }
-            | TrackSolo { .. }
-            | TrackRoutePan { .. }
-            | TrackRouteMute { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | FxEnable { .. }
-            | AllTrackFxEnable { .. }
-            | AutomationTouchState { .. }
-            | LoadFxSnapshot { .. }
-            | Seek { .. }
-            | ClipSeek { .. }
-            | SendOsc { .. }
-            | ClipTransport { .. }
-            | Transport { .. } => return Err("not supported"),
-        };
-        Ok(result)
-    }
-
     fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
-    }
-
-    pub fn project(&self) -> Option<Project> {
-        use ReaperTarget::*;
-        let project = match self {
-            Action { .. }
-            | Transport { .. }
-            | AutomationModeOverride { .. }
-            | SendMidi { .. }
-            | ClipSeek { .. }
-            | ClipVolume { .. }
-            | SendOsc { .. } => {
-                return None;
-            }
-            FxParameter { param } => param.fx().project()?,
-            TrackVolume { track }
-            | TrackPan { track }
-            | TrackWidth { track }
-            | TrackArm { track, .. }
-            | TrackSelection { track, .. }
-            | TrackMute { track, .. }
-            | TrackShow { track, .. }
-            | TrackAutomationMode { track, .. }
-            | TrackSolo { track, .. }
-            | AutomationTouchState { track, .. }
-            | AllTrackFxEnable { track, .. } => track.project(),
-            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
-                route.track().project()
-            }
-            GoToBookmark { project, .. }
-            | Tempo { project }
-            | Playrate { project }
-            | SelectedTrack { project, .. }
-            | Seek { project, .. } => *project,
-            ClipTransport { track, .. } => return track.as_ref().map(|t| t.project()),
-            FxNavigate { fx_chain, .. } => fx_chain.project()?,
-            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
-                fx.project()?
-            }
-        };
-        Some(project)
-    }
-
-    pub fn track(&self) -> Option<&Track> {
-        use ReaperTarget::*;
-        let track = match self {
-            FxParameter { param } => param.fx().track()?,
-            TrackVolume { track }
-            | TrackPan { track }
-            | TrackWidth { track }
-            | TrackArm { track, .. }
-            | TrackSelection { track, .. }
-            | TrackMute { track, .. }
-            | TrackShow { track, .. }
-            | TrackAutomationMode { track, .. }
-            | AutomationTouchState { track, .. }
-            | TrackSolo { track, .. } => track,
-            TrackRoutePan { route } | TrackRouteMute { route } | TrackRouteVolume { route } => {
-                route.track()
-            }
-            FxNavigate { fx_chain, .. } => fx_chain.track()?,
-            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => {
-                fx.track()?
-            }
-            AllTrackFxEnable { track, .. } => track,
-            Action { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | SelectedTrack { .. }
-            | GoToBookmark { .. }
-            | Seek { .. }
-            | ClipSeek { .. }
-            | ClipVolume { .. }
-            | AutomationModeOverride { .. }
-            | Transport { .. }
-            | SendMidi { .. }
-            | SendOsc { .. } => return None,
-            ClipTransport { track, .. } => return track.as_ref(),
-        };
-        Some(track)
-    }
-
-    pub fn fx(&self) -> Option<&Fx> {
-        use ReaperTarget::*;
-        let fx = match self {
-            FxParameter { param } => param.fx(),
-            FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
-            Action { .. }
-            | TrackVolume { .. }
-            | TrackRouteVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackShow { .. }
-            | TrackAutomationMode { .. }
-            | GoToBookmark { .. }
-            | TrackSolo { .. }
-            | TrackRoutePan { .. }
-            | TrackRouteMute { .. }
-            | Tempo { .. }
-            | AutomationModeOverride { .. }
-            | Playrate { .. }
-            | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
-            | AutomationTouchState { .. }
-            | Seek { .. }
-            | ClipSeek { .. }
-            | FxNavigate { .. }
-            | Transport { .. }
-            | SendMidi { .. }
-            | ClipTransport { .. }
-            | ClipVolume { .. }
-            | SendOsc { .. } => return None,
-        };
-        Some(fx)
-    }
-
-    pub fn route(&self) -> Option<&TrackRoute> {
-        use ReaperTarget::*;
-        let route = match self {
-            TrackRoutePan { route } | TrackRouteVolume { route } | TrackRouteMute { route } => {
-                route
-            }
-            FxParameter { .. }
-            | FxEnable { .. }
-            | FxPreset { .. }
-            | Action { .. }
-            | TrackVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackShow { .. }
-            | TrackAutomationMode { .. }
-            | AutomationModeOverride { .. }
-            | FxOpen { .. }
-            | FxNavigate { .. }
-            | GoToBookmark { .. }
-            | TrackSolo { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
-            | AutomationTouchState { .. }
-            | LoadFxSnapshot { .. }
-            | Seek { .. }
-            | ClipSeek { .. }
-            | Transport { .. }
-            | SendMidi { .. }
-            | ClipTransport { .. }
-            | ClipVolume { .. }
-            | SendOsc { .. } => return None,
-        };
-        Some(route)
-    }
-
-    pub fn track_exclusivity(&self) -> Option<TrackExclusivity> {
-        use ReaperTarget::*;
-        match self {
-            TrackSolo { exclusivity, .. }
-            | TrackArm { exclusivity, .. }
-            | TrackSelection { exclusivity, .. }
-            | TrackMute { exclusivity, .. }
-            | TrackShow { exclusivity, .. }
-            | TrackAutomationMode { exclusivity, .. }
-            | AllTrackFxEnable { exclusivity, .. }
-            | AutomationTouchState { exclusivity, .. } => Some(*exclusivity),
-            Action { .. }
-            | FxParameter { .. }
-            | TrackVolume { .. }
-            | TrackRouteVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackRoutePan { .. }
-            | TrackRouteMute { .. }
-            | Tempo { .. }
-            | GoToBookmark { .. }
-            | Playrate { .. }
-            | FxEnable { .. }
-            | FxOpen { .. }
-            | FxPreset { .. }
-            | SelectedTrack { .. }
-            | FxNavigate { .. }
-            | Transport { .. }
-            | LoadFxSnapshot { .. }
-            | AutomationModeOverride { .. }
-            | Seek { .. }
-            | ClipSeek { .. }
-            | SendMidi { .. }
-            | ClipTransport { .. }
-            | ClipVolume { .. }
-            | SendOsc { .. } => None,
-        }
-    }
-
-    pub fn supports_automatic_feedback(&self) -> bool {
-        use ReaperTarget::*;
-        match self {
-            Action { .. }
-            | FxParameter { .. }
-            | TrackVolume { .. }
-            | TrackRouteVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackSolo { .. }
-            | TrackRoutePan { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | FxEnable { .. }
-            | FxOpen { .. }
-            | FxPreset { .. }
-            | GoToBookmark { .. }
-            | SelectedTrack { .. }
-            | FxNavigate { .. }
-            | LoadFxSnapshot { .. }
-            | AutomationTouchState { .. }
-            | Seek { .. }
-            | ClipSeek { .. }
-            | AutomationModeOverride { .. }
-            | TrackAutomationMode { .. }
-            | ClipTransport { .. }
-            | ClipVolume { .. }
-            | Transport { .. } => true,
-            TrackShow { .. }
-            | AllTrackFxEnable { .. }
-            | TrackRouteMute { .. }
-            | SendMidi { .. }
-            | SendOsc { .. } => false,
-        }
-    }
-
-    pub fn value_changed_from_additional_feedback_event(
-        &self,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
-        use AdditionalFeedbackEvent::*;
-        use ReaperTarget::*;
-        match self {
-            Action { action, .. } => match evt {
-                // We can't provide a value from the event itself because the action hooks don't
-                // pass values.
-                ActionInvoked(e) if e.command_id == action.command_id() => (true, None),
-                _ => (false, None),
-            },
-            LoadFxSnapshot { fx, .. } => match evt {
-                // We can't provide a value from the event itself because it's on/off depending on
-                // the mappings which use the FX snapshot target with that FX and which chunk (hash)
-                // their snapshot has.
-                FxSnapshotLoaded(e) if &e.fx == fx => (true, None),
-                _ => (false, None),
-            },
-            FxParameter { param } => match evt {
-                RealearnMonitoringFxParameterValueChanged(e) if &e.parameter == param => (
-                    true,
-                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
-                ),
-                _ => (false, None),
-            },
-            AutomationTouchState {
-                track,
-                parameter_type,
-                ..
-            } => match evt {
-                ParameterAutomationTouchStateChanged(e)
-                    if e.track == track.raw() && e.parameter_type == *parameter_type =>
-                {
-                    (true, Some(touched_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            GoToBookmark {
-                project,
-                bookmark_type,
-                index,
-                ..
-            } => match evt {
-                BeatChanged(e) if e.project == *project => {
-                    let v =
-                        current_value_of_bookmark(*project, *bookmark_type, *index, e.new_value);
-                    (true, Some(v))
-                }
-                _ => (false, None),
-            },
-            Seek { project, options } => match evt {
-                BeatChanged(e) if e.project == *project => {
-                    let v = current_value_of_seek(*project, *options, e.new_value);
-                    (true, Some(v))
-                }
-                _ => (false, None),
-            },
-            // If feedback resolution is high, we use the special ClipChangedEvent to do our job
-            // (in order to not lock mutex of playing clips more than once per main loop cycle).
-            ClipSeek {
-                feedback_resolution,
-                ..
-            } if *feedback_resolution == PlayPosFeedbackResolution::Beat => match evt {
-                BeatChanged(_) => (true, None),
-                _ => (false, None),
-            },
-            // This is necessary at the moment because control surface SetPlayState callback works
-            // for currently active project tab already.
-            Transport { project, action } if *action != TransportAction::Repeat => match evt {
-                BeatChanged(e)
-                    if e.project == *project && e.project != Reaper::get().current_project() =>
-                {
-                    (true, None)
-                }
-                _ => (false, None),
-            },
-            _ => (false, None),
-        }
-    }
-
-    #[allow(clippy::collapsible_match)]
-    pub fn value_changed_from_instance_feedback_event(
-        &self,
-        evt: &InstanceFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
-        use InstanceFeedbackEvent::*;
-        use ReaperTarget::*;
-        match self {
-            ClipTransport {
-                slot_index, action, ..
-            } => {
-                match evt {
-                    ClipChanged {
-                        slot_index: si,
-                        event,
-                    } if si == slot_index => {
-                        use TransportAction::*;
-                        match *action {
-                            PlayStop | PlayPause | Stop | Pause => match event {
-                                ClipChangedEvent::PlayStateChanged(new_state) => {
-                                    (true, Some(clip_play_state_unit_value(*action, *new_state)))
-                                }
-                                _ => (false, None),
-                            },
-                            // Not supported at the moment.
-                            Record => (false, None),
-                            Repeat => match event {
-                                ClipChangedEvent::ClipRepeatChanged(new_state) => {
-                                    (true, Some(transport_is_enabled_unit_value(*new_state)))
-                                }
-                                _ => (false, None),
-                            },
-                        }
-                    }
-                    _ => (false, None),
-                }
-            }
-            // When feedback resolution is beat, we only react to the main timeline beat changes.
-            ClipSeek {
-                slot_index,
-                feedback_resolution,
-                ..
-            } if *feedback_resolution == PlayPosFeedbackResolution::High => match evt {
-                ClipChanged {
-                    slot_index: si,
-                    event,
-                } if si == slot_index => match event {
-                    ClipChangedEvent::ClipPositionChanged(new_position) => {
-                        (true, Some(*new_position))
-                    }
-                    ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
-                        (true, Some(UnitValue::MIN))
-                    }
-                    _ => (false, None),
-                },
-                _ => (false, None),
-            },
-            ClipVolume { slot_index } => match evt {
-                ClipChanged {
-                    slot_index: si,
-                    event,
-                } if si == slot_index => match event {
-                    ClipChangedEvent::ClipVolumeChanged(new_value) => {
-                        (true, Some(reaper_volume_unit_value(*new_value)))
-                    }
-                    _ => (false, None),
-                },
-                _ => (false, None),
-            },
-            _ => (false, None),
-        }
-    }
-
-    /// Might return the new value if changed.
-    ///
-    /// Is called in any case (even if feedback not enabled). So we can use it for general-purpose
-    /// change event reactions such as reacting to transport stop.
-    #[allow(clippy::single_match)]
-    pub fn process_change_event(
-        &self,
-        evt: &ChangeEvent,
-        control_context: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
-        use ChangeEvent::*;
-        use ReaperTarget::*;
-        match self {
-            FxParameter { param } => match evt {
-                FxParameterValueChanged(e) if &e.parameter == param => (
-                    true,
-                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
-                ),
-                _ => (false, None),
-            },
-            TrackVolume { track } => match evt {
-                TrackVolumeChanged(e) if &e.track == track => (
-                    true,
-                    Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
-                ),
-                _ => (false, None),
-            },
-            TrackRouteVolume { route } => match evt {
-                TrackRouteVolumeChanged(e) if &e.route == route => (
-                    true,
-                    Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
-                ),
-                _ => (false, None),
-            },
-            TrackPan { track } => match evt {
-                TrackPanChanged(e) if &e.track == track => (true, {
-                    let pan = match e.new_value {
-                        AvailablePanValue::Complete(v) => v.main_pan(),
-                        AvailablePanValue::Incomplete(pan) => pan,
-                    };
-                    Some(pan_unit_value(Pan::from_reaper_value(pan)))
-                }),
-                _ => (false, None),
-            },
-            TrackWidth { track } => match evt {
-                TrackPanChanged(e) if &e.track == track => (
-                    true,
-                    match e.new_value {
-                        AvailablePanValue::Complete(v) => v
-                            .width()
-                            .map(|width| width_unit_value(Width::from_reaper_value(width))),
-                        AvailablePanValue::Incomplete(_) => None,
-                    },
-                ),
-                _ => (false, None),
-            },
-            TrackArm { track, .. } => match evt {
-                TrackArmChanged(e) if &e.track == track => {
-                    (true, Some(track_arm_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            TrackSelection { track, .. } => match evt {
-                TrackSelectedChanged(e) if &e.track == track => {
-                    (true, Some(track_selected_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            TrackMute { track, .. } => match evt {
-                TrackMuteChanged(e) if &e.track == track => {
-                    (true, Some(mute_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            TrackAutomationMode { track, mode, .. } => match evt {
-                TrackAutomationModeChanged(e) if &e.track == track => (
-                    true,
-                    Some(track_automation_mode_unit_value(*mode, e.new_value)),
-                ),
-                _ => (false, None),
-            },
-            TrackSolo { track, .. } => match evt {
-                TrackSoloChanged(e) if &e.track == track => {
-                    (true, Some(track_solo_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            TrackRoutePan { route } => match evt {
-                TrackRoutePanChanged(e) if &e.route == route => (
-                    true,
-                    Some(pan_unit_value(Pan::from_reaper_value(e.new_value))),
-                ),
-                _ => (false, None),
-            },
-            Tempo { project } => match evt {
-                MasterTempoChanged(e) if e.project == *project => (
-                    true,
-                    Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value))),
-                ),
-                _ => (false, None),
-            },
-            Playrate { project } => match evt {
-                MasterPlayrateChanged(e) if e.project == *project => (
-                    true,
-                    Some(playrate_unit_value(PlayRate::from_playback_speed_factor(
-                        e.new_value,
-                    ))),
-                ),
-                _ => (false, None),
-            },
-            FxEnable { fx } => match evt {
-                FxEnabledChanged(e) if &e.fx == fx => {
-                    (true, Some(fx_enable_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            FxOpen { fx, .. } => match evt {
-                FxOpened(e) if &e.fx == fx => (true, None),
-                FxClosed(e) if &e.fx == fx => (true, None),
-                _ => (false, None),
-            },
-            FxNavigate { fx_chain, .. } => match evt {
-                FxOpened(e) if e.fx.chain() == fx_chain => (true, None),
-                FxClosed(e) if e.fx.chain() == fx_chain => (true, None),
-                _ => (false, None),
-            },
-            FxPreset { fx } => match evt {
-                FxPresetChanged(e) if &e.fx == fx => (true, None),
-                _ => (false, None),
-            },
-            SelectedTrack { project, .. } => match evt {
-                TrackSelectedChanged(e) if e.new_value && &e.track.project() == project => (
-                    true,
-                    Some(selected_track_unit_value(*project, e.track.index())),
-                ),
-                _ => (false, None),
-            },
-            Transport {
-                project, action, ..
-            } => {
-                use TransportAction::*;
-                match *action {
-                    PlayStop | PlayPause => match evt {
-                        PlayStateChanged(e) if e.project == *project => (
-                            true,
-                            Some(transport_is_enabled_unit_value(e.new_value.is_playing)),
-                        ),
-                        _ => (false, None),
-                    },
-                    Stop => match evt {
-                        PlayStateChanged(e) if e.project == *project => (
-                            true,
-                            Some(transport_is_enabled_unit_value(
-                                !e.new_value.is_playing && !e.new_value.is_paused,
-                            )),
-                        ),
-                        _ => (false, None),
-                    },
-                    Pause => match evt {
-                        PlayStateChanged(e) if e.project == *project => (
-                            true,
-                            Some(transport_is_enabled_unit_value(e.new_value.is_paused)),
-                        ),
-                        _ => (false, None),
-                    },
-                    Record => match evt {
-                        PlayStateChanged(e) if e.project == *project => (
-                            true,
-                            Some(transport_is_enabled_unit_value(e.new_value.is_recording)),
-                        ),
-                        _ => (false, None),
-                    },
-                    Repeat => match evt {
-                        RepeatStateChanged(e) if e.project == *project => {
-                            (true, Some(transport_is_enabled_unit_value(e.new_value)))
-                        }
-                        _ => (false, None),
-                    },
-                }
-            }
-            // Handled both from control-surface and non-control-surface callbacks.
-            GoToBookmark { project, .. } => match evt {
-                BookmarksChanged(e) if e.project == *project => (true, None),
-                _ => (false, None),
-            },
-            AutomationModeOverride { mode_override } => match evt {
-                GlobalAutomationOverrideChanged(e) => (
-                    true,
-                    Some(global_automation_mode_override_unit_value(
-                        *mode_override,
-                        e.new_value,
-                    )),
-                ),
-                _ => (false, None),
-            },
-            // Handled from non-control-surface callbacks only.
-            Action { .. } | LoadFxSnapshot { .. } | AutomationTouchState { .. } | Seek { .. } => {
-                (false, None)
-            }
-            // Feedback handled from instance-scoped feedback events.
-            ClipTransport { .. } => {
-                match evt {
-                    PlayStateChanged(e) => {
-                        let mut instance_state = control_context.instance_state.borrow_mut();
-                        instance_state.process_transport_change(e.new_value);
-                    }
-                    _ => {}
-                };
-                (false, None)
-            }
-            ClipSeek { .. } | ClipVolume { .. } => (false, None),
-            // No value change notification available.
-            TrackShow { .. }
-            | TrackRouteMute { .. }
-            | AllTrackFxEnable { .. }
-            | SendMidi { .. }
-            | SendOsc { .. } => (false, None),
-        }
-    }
-
-    pub fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
-        if let ReaperTarget::SendMidi(t) = self {
-            Some(RealTimeReaperTarget::SendMidi(t.clone()))
-        } else {
-            None
-        }
     }
 }
 
@@ -2594,6 +2617,7 @@ impl<'a> Target<'a> for ReaperTarget {
             }
             SendOsc { .. } => return None,
             SendMidi(t) => return t.current_value(()),
+            TrackPeak(t) => return t.current_value(context),
             ClipTransport {
                 slot_index, action, ..
             } => {
@@ -2743,17 +2767,6 @@ fn format_bpm(bpm: f64) -> String {
     format!("{:.4}", bpm)
 }
 
-fn format_value_as_db_without_unit(value: UnitValue) -> String {
-    let db = Volume::try_from_soft_normalized_value(value.get())
-        .unwrap_or(Volume::MIN)
-        .db();
-    if db == Db::MINUS_INF {
-        "-inf".to_string()
-    } else {
-        format!("{:.2}", db.get())
-    }
-}
-
 fn format_value_as_db(value: UnitValue) -> String {
     Volume::try_from_soft_normalized_value(value.get())
         .unwrap_or(Volume::MIN)
@@ -2834,12 +2847,6 @@ fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> U
             UnitValue::new(value)
         }
     }
-}
-
-fn parse_value_from_db(text: &str) -> Result<UnitValue, &'static str> {
-    let decimal: f64 = text.parse().map_err(|_| "not a decimal value")?;
-    let db: Db = decimal.try_into().map_err(|_| "not in dB range")?;
-    Volume::from_db(db).soft_normalized_value().try_into()
 }
 
 fn parse_value_from_pan(text: &str) -> Result<UnitValue, &'static str> {
@@ -3047,17 +3054,6 @@ fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamVa
         return UnitValue::new_clamped(v);
     }
     UnitValue::new(v)
-}
-
-fn volume_unit_value(volume: Volume) -> UnitValue {
-    // The soft-normalized value can be > 1.0, e.g. when we have a volume of 12 dB and then
-    // lower the volume fader limit to a lower value. In that case we just report the
-    // highest possible value ... not much else we can do.
-    UnitValue::new_clamped(volume.soft_normalized_value())
-}
-
-fn reaper_volume_unit_value(volume: ReaperVolumeValue) -> UnitValue {
-    volume_unit_value(Volume::from_reaper_value(volume))
 }
 
 fn pan_unit_value(pan: Pan) -> UnitValue {
@@ -3294,144 +3290,4 @@ fn handle_track_exclusivity(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(SendMidiTarget),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct SendMidiTarget {
-    pub pattern: RawMidiPattern,
-    pub destination: SendMidiDestination,
-}
-
-impl SendMidiTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
-        match self.pattern.step_size() {
-            None => (
-                ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Trigger,
-            ),
-            Some(step_size) => {
-                if self.pattern.resolution() == 1 {
-                    (
-                        ControlType::AbsoluteContinuousRetriggerable,
-                        TargetCharacter::Switch,
-                    )
-                } else {
-                    (
-                        ControlType::AbsoluteDiscrete {
-                            atomic_step_size: step_size,
-                        },
-                        TargetCharacter::Discrete,
-                    )
-                }
-            }
-        }
-    }
-
-    pub fn convert_discrete_value_to_unit_value(
-        &self,
-        value: u32,
-    ) -> Result<UnitValue, &'static str> {
-        let unit_value = if let Some(step_size) = self.pattern.step_size() {
-            (value as f64 * step_size.get()).try_into()?
-        } else {
-            UnitValue::MIN
-        };
-        Ok(unit_value)
-    }
-
-    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
-    }
-}
-
-impl<'a> Target<'a> for SendMidiTarget {
-    type Context = ();
-
-    fn current_value(&self, _context: ()) -> Option<UnitValue> {
-        None
-    }
-
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
-    }
-}
-
-impl RealearnTarget for SendMidiTarget {
-    fn character(&self) -> TargetCharacter {
-        self.control_type_and_character().1
-    }
-
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
-    }
-
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
-    }
-
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
-        let step_size = self.pattern.step_size().ok_or("not supported")?;
-        let discrete_value = (input.get() / step_size.get()).round() as _;
-        Ok(discrete_value)
-    }
-
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
-        if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(value) {
-            discrete_value.to_string()
-        } else {
-            "0".to_owned()
-        }
-    }
-
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
-        if let Ok(discrete_value) = self.convert_unit_value_to_discrete_value(step_size) {
-            discrete_value.to_string()
-        } else {
-            "0".to_owned()
-        }
-    }
-
-    fn hide_formatted_value(&self) -> bool {
-        false
-    }
-
-    fn hide_formatted_step_size(&self) -> bool {
-        false
-    }
-
-    fn value_unit(&self) -> &'static str {
-        ""
-    }
-
-    fn step_size_unit(&self) -> &'static str {
-        ""
-    }
-
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
-        // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
-        // MIDI messages is handled directly in the real-time processor.
-        let raw_midi_event = self.pattern.to_concrete_midi_event(value.as_absolute()?);
-        match self.destination {
-            SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
-            SendMidiDestination::FeedbackOutput => {
-                let feedback_output = context.feedback_output.ok_or("no feedback output set")?;
-                if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) = feedback_output {
-                    let _ = context
-                        .feedback_audio_hook_task_sender
-                        .send(FeedbackAudioHookTask::SendMidi(
-                            dev_id,
-                            Box::new(raw_midi_event),
-                        ))
-                        .unwrap();
-                    Ok(())
-                } else {
-                    Err("feedback output is not a MIDI device")
-                }
-            }
-        }
-    }
-
-    fn can_report_current_value(&self) -> bool {
-        false
-    }
 }

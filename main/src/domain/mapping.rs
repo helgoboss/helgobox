@@ -1,9 +1,10 @@
 use crate::domain::{
-    ActivationChange, ActivationCondition, ControlContext, ControlOptions,
-    ExtendedProcessorContext, MappingActivationEffect, MidiSource, Mode, ParameterArray,
-    ParameterSlice, PlayPosFeedbackResolution, RealSource, RealTimeReaperTarget, RealearnTarget,
-    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
-    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
+    ExtendedProcessorContext, InstanceFeedbackEvent, MappingActivationEffect, MidiSource, Mode,
+    ParameterArray, ParameterSlice, PlayPosFeedbackResolution, RealSource, RealTimeReaperTarget,
+    RealearnTarget, ReaperTarget, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -15,6 +16,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
@@ -1020,6 +1022,14 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
+    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.control_type_and_character(),
+            Virtual(t) => (t.control_type(), t.character()),
+        }
+    }
+
     fn open(&self) {
         use CompoundMappingTarget::*;
         match self {
@@ -1121,6 +1131,112 @@ impl RealearnTarget for CompoundMappingTarget {
         match self {
             Reaper(t) => t.can_report_current_value(),
             Virtual(_) => false,
+        }
+    }
+
+    fn is_available(&self) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.is_available(),
+            Virtual(_) => true,
+        }
+    }
+
+    fn project(&self) -> Option<Project> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.project(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn track(&self) -> Option<&Track> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.track(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn fx(&self) -> Option<&Fx> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.fx(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn route(&self) -> Option<&TrackRoute> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.route(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn track_exclusivity(&self) -> Option<TrackExclusivity> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.track_exclusivity(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn supports_automatic_feedback(&self) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.supports_automatic_feedback(),
+            Virtual(_) => false,
+        }
+    }
+
+    fn process_change_event(
+        &self,
+        evt: &ChangeEvent,
+        control_context: ControlContext,
+    ) -> (bool, Option<UnitValue>) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.process_change_event(evt, control_context),
+            Virtual(_) => (false, None),
+        }
+    }
+
+    fn value_changed_from_additional_feedback_event(
+        &self,
+        evt: &AdditionalFeedbackEvent,
+    ) -> (bool, Option<UnitValue>) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.value_changed_from_additional_feedback_event(evt),
+            Virtual(_) => (false, None),
+        }
+    }
+
+    fn value_changed_from_instance_feedback_event(
+        &self,
+        evt: &InstanceFeedbackEvent,
+    ) -> (bool, Option<UnitValue>) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.value_changed_from_instance_feedback_event(evt),
+            Virtual(_) => (false, None),
+        }
+    }
+
+    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.splinter_real_time_target(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.convert_discrete_value_to_unit_value(value),
+            Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 }

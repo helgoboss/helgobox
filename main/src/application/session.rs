@@ -10,7 +10,7 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackOutput, InstanceId, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
+    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
     VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use enum_map::{enum_map, EnumMap};

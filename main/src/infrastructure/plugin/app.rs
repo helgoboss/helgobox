@@ -9,8 +9,8 @@ use crate::domain::{
     GarbageBin, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
     MidiSource, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
     RealSource, RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTargetContext,
-    ReaperTarget, SharedRealTimeProcessor,
+    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTarget,
+    RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,

@@ -7,7 +7,7 @@ use crate::domain::{
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
     PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
-    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, ReaperTarget,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperTarget,
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
