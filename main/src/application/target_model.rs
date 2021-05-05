@@ -15,13 +15,13 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
-    PlayPosFeedbackResolution, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
-    SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor,
-    TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
-    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    FxDescriptor, FxDisplayType, FxParameterDescriptor, FxParameterTarget, MappingCompartment,
+    OscDeviceId, PlayPosFeedbackResolution, ProcessorContext, RealearnTarget, ReaperTarget,
+    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType,
+    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
+    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
+    VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -387,9 +387,9 @@ impl TargetModel {
                 self.action.set(Some(t.action.clone()));
                 self.action_invocation_type.set(t.invocation_type);
             }
-            FxParameter { param } => {
+            FxParameter(t) => {
                 self.param_type.set(VirtualFxParameterType::ByIndex);
-                self.param_index.set(param.index());
+                self.param_index.set(t.param.index());
             }
             Transport { action, .. } => {
                 self.transport_action.set(*action);

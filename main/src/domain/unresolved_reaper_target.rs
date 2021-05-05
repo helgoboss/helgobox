@@ -2,10 +2,10 @@ use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, BackboneState, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution,
-    RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TrackPeakTarget, TransportAction,
-    COMPARTMENT_PARAMETER_COUNT,
+    FxParameterTarget, MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice,
+    PlayPosFeedbackResolution, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
+    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackExclusivity, TrackPeakTarget,
+    TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -186,9 +186,9 @@ impl UnresolvedReaperTarget {
             })],
             FxParameter {
                 fx_parameter_descriptor,
-            } => vec![ReaperTarget::FxParameter {
+            } => vec![ReaperTarget::FxParameter(FxParameterTarget {
                 param: get_fx_param(context, fx_parameter_descriptor, compartment)?,
-            }],
+            })],
             TrackVolume { track_descriptor } => {
                 get_effective_tracks(context, &track_descriptor.track, compartment)?
                     .into_iter()

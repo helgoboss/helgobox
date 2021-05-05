@@ -28,15 +28,15 @@ use crate::core::Global;
 use crate::domain::ui_util::{
     convert_bool_to_unit_value, format_as_double_percentage_without_unit,
     format_as_percentage_without_unit, format_as_symmetric_percentage_without_unit,
-    format_value_as_db_without_unit, parse_from_double_percentage, parse_from_symmetric_percentage,
-    parse_unit_value_from_percentage, parse_value_from_db, reaper_volume_unit_value,
-    volume_unit_value,
+    format_value_as_db_without_unit, fx_parameter_unit_value, parse_from_double_percentage,
+    parse_from_symmetric_percentage, parse_unit_value_from_percentage, parse_value_from_db,
+    reaper_volume_unit_value, volume_unit_value,
 };
 use crate::domain::{
     handle_exclusivity, ActionTarget, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent,
-    ClipPlayState, ControlContext, FeedbackAudioHookTask, FeedbackOutput, HierarchyEntry,
-    HierarchyEntryProvider, InstanceFeedbackEvent, MidiDestination, MidiSendTarget, OscDeviceId,
-    OscFeedbackTask, RealearnTarget, SlotPlayOptions, TrackPeakTarget,
+    ClipPlayState, ControlContext, FeedbackAudioHookTask, FeedbackOutput, FxParameterTarget,
+    HierarchyEntry, HierarchyEntryProvider, InstanceFeedbackEvent, MidiDestination, MidiSendTarget,
+    OscDeviceId, OscFeedbackTask, RealearnTarget, SlotPlayOptions, TrackPeakTarget,
 };
 use rosc::OscMessage;
 use std::convert::TryInto;
@@ -74,9 +74,7 @@ pub enum TargetCharacter {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
     Action(ActionTarget),
-    FxParameter {
-        param: FxParameter,
-    },
+    FxParameter(FxParameterTarget),
     TrackVolume {
         track: Track,
     },
@@ -322,38 +320,6 @@ impl RealearnTarget for ReaperTarget {
         use ReaperTarget::*;
         use TargetCharacter::*;
         match self {
-            Action(t) => t.control_type_and_character(),
-            FxParameter { param } => {
-                use GetParameterStepSizesResult::*;
-                match param.step_sizes() {
-                    None => (ControlType::AbsoluteContinuous, Continuous),
-                    Some(Normal {
-                             normal_step,
-                             small_step,
-                             ..
-                         }) => {
-                        // The reported step sizes relate to the reported value range, which is not
-                        // always the unit interval! Easy to test with JS
-                        // FX.
-                        let range = param.value_range();
-                        // We are primarily interested in the smallest step size that makes sense.
-                        // We can always create multiples of it.
-                        let span = (range.max_val - range.min_val).abs();
-                        if span == 0.0 {
-                            return (ControlType::AbsoluteContinuous, Continuous);
-                        }
-                        let pref_step_size = small_step.unwrap_or(normal_step);
-                        let step_size = pref_step_size / span;
-                        (
-                            ControlType::AbsoluteDiscrete {
-                                atomic_step_size: UnitValue::new(step_size),
-                            },
-                            Discrete,
-                        )
-                    }
-                    Some(Toggle) => (ControlType::AbsoluteContinuous, Switch),
-                }
-            }
             Tempo { .. } => (
                 ControlType::AbsoluteContinuousRoundable {
                     rounding_step_size: UnitValue::new(1.0 / bpm_span()),
@@ -444,8 +410,6 @@ impl RealearnTarget for ReaperTarget {
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
-            SendMidi(t) => t.control_type_and_character(),
-            TrackPeak(t) => t.control_type_and_character(),
             SendOsc { arg_descriptor, .. }  => if let Some(desc) = arg_descriptor {
                 use OscTypeTag::*;
                 match desc.type_tag() {
@@ -457,7 +421,11 @@ impl RealearnTarget for ReaperTarget {
             } else {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
-            ClipTransport { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch)
+            ClipTransport { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch),
+            SendMidi(t) => t.control_type_and_character(),
+            TrackPeak(t) => t.control_type_and_character(),
+            Action(t) => t.control_type_and_character(),
+            FxParameter(t) => t.control_type_and_character(),
         }
     }
 
@@ -493,15 +461,9 @@ impl RealearnTarget for ReaperTarget {
             FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
                 self.parse_value_from_discrete_value(text)
             }
-            SendMidi(t) => t.parse_as_value(text),
-            TrackPeak(t) => t.parse_as_value(text),
-            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
-                self.parse_value_from_discrete_value(text)
-            }
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | FxParameter { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
@@ -521,6 +483,9 @@ impl RealearnTarget for ReaperTarget {
             | ClipSeek { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_symmetric_percentage(text),
+            SendMidi(t) => t.parse_as_value(text),
+            TrackPeak(t) => t.parse_as_value(text),
+            FxParameter(t) => t.parse_as_value(text),
         }
     }
 
@@ -532,15 +497,9 @@ impl RealearnTarget for ReaperTarget {
             FxPreset { .. } | FxNavigate { .. } | SelectedTrack { .. } => {
                 self.parse_value_from_discrete_value(text)
             }
-            SendMidi(t) => t.parse_as_step_size(text),
-            TrackPeak(t) => t.parse_as_step_size(text),
-            FxParameter { param } if param.character() == FxParameterCharacter::Discrete => {
-                self.parse_value_from_discrete_value(text)
-            }
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | FxParameter { .. }
             | TrackVolume { .. }
             | ClipVolume { .. }
             | TrackRouteVolume { .. }
@@ -565,6 +524,9 @@ impl RealearnTarget for ReaperTarget {
             | ClipSeek { .. }
             | Seek { .. } => parse_unit_value_from_percentage(text),
             TrackWidth { .. } => parse_from_double_percentage(text),
+            SendMidi(t) => t.parse_as_step_size(text),
+            TrackPeak(t) => t.parse_as_step_size(text),
+            FxParameter(t) => t.parse_as_step_size(text),
         }
     }
 
@@ -584,18 +546,6 @@ impl RealearnTarget for ReaperTarget {
             FxNavigate { fx_chain, .. } => convert_unit_value_to_fx_index(fx_chain, input)
                 .map(|i| i + 1)
                 .unwrap_or(0),
-            FxParameter { param } => {
-                // Example (target step size = 0.10):
-                // - 0    => 0
-                // - 0.05 => 1
-                // - 0.10 => 1
-                // - 0.15 => 2
-                // - 0.20 => 2
-                let step_size = param.step_size().ok_or("not supported")?;
-                (input.get() / step_size).round() as _
-            }
-            SendMidi(t) => return t.convert_unit_value_to_discrete_value(input),
-            TrackPeak(t) => return t.convert_unit_value_to_discrete_value(input),
             // Default: Not supported
             Action(_)
             | TrackVolume { .. }
@@ -625,6 +575,9 @@ impl RealearnTarget for ReaperTarget {
             | ClipTransport { .. }
             | ClipSeek { .. }
             | Transport { .. } => return Err("not supported"),
+            SendMidi(t) => return t.convert_unit_value_to_discrete_value(input),
+            TrackPeak(t) => return t.convert_unit_value_to_discrete_value(input),
+            FxParameter(t) => return t.convert_unit_value_to_discrete_value(input),
         };
         Ok(result)
     }
@@ -638,12 +591,9 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => format_value_as_pan(value),
             Tempo { .. } => format_value_as_bpm_without_unit(value),
             Playrate { .. } => format_value_as_playback_speed_factor_without_unit(value),
-            SendMidi(t) => t.format_value_without_unit(value),
-            TrackPeak(t) => t.format_value_without_unit(value),
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | FxParameter { .. }
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
@@ -666,6 +616,9 @@ impl RealearnTarget for ReaperTarget {
             | ClipTransport { .. }
             | Transport { .. } => format_as_percentage_without_unit(value),
             TrackWidth { .. } => format_as_symmetric_percentage_without_unit(value),
+            SendMidi(t) => t.format_value_without_unit(value),
+            TrackPeak(t) => t.format_value_without_unit(value),
+            FxParameter(t) => t.format_value_without_unit(value),
         }
     }
 
@@ -674,12 +627,9 @@ impl RealearnTarget for ReaperTarget {
         match self {
             Tempo { .. } => format_step_size_as_bpm_without_unit(step_size),
             Playrate { .. } => format_step_size_as_playback_speed_factor_without_unit(step_size),
-            SendMidi(t) => t.format_step_size_without_unit(step_size),
-            TrackPeak(t) => t.format_step_size_without_unit(step_size),
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | FxParameter { .. }
             | TrackVolume { .. }
             | ClipVolume { .. }
             | TrackRouteVolume { .. }
@@ -707,6 +657,9 @@ impl RealearnTarget for ReaperTarget {
             | ClipTransport { .. }
             | Transport { .. } => format_as_percentage_without_unit(step_size),
             TrackWidth { .. } => format_as_double_percentage_without_unit(step_size),
+            SendMidi(t) => t.format_step_size_without_unit(step_size),
+            TrackPeak(t) => t.format_step_size_without_unit(step_size),
+            FxParameter(t) => t.format_step_size_without_unit(step_size),
         }
     }
 
@@ -751,7 +704,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | FxParameter { .. }
             | TrackArm { .. }
             | TrackWidth { .. }
             | TrackSelection { .. }
@@ -777,6 +729,7 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => "",
             SendMidi(t) => t.value_unit(),
             TrackPeak(t) => t.value_unit(),
+            FxParameter(t) => t.value_unit(),
         }
     }
 
@@ -788,7 +741,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | FxParameter { .. }
             | TrackVolume { .. }
             | ClipVolume { .. }
             | TrackWidth { .. }
@@ -817,18 +769,13 @@ impl RealearnTarget for ReaperTarget {
             TrackPan { .. } | TrackRoutePan { .. } => "",
             SendMidi(t) => t.step_size_unit(),
             TrackPeak(t) => t.step_size_unit(),
+            FxParameter(t) => t.step_size_unit(),
         }
     }
 
     fn format_value(&self, value: UnitValue) -> String {
         use ReaperTarget::*;
         match self {
-            FxParameter { param } => param
-                // Even if a REAPER-normalized value can take numbers > 1.0, the usual value range
-                // is in fact normalized in the classical sense (unit interval).
-                .format_reaper_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
-                .map(|s| s.into_string())
-                .unwrap_or_else(|_| self.format_value_generic(value)),
             TrackVolume { .. } | TrackRouteVolume { .. } | ClipVolume { .. } => {
                 format_value_as_db(value)
             }
@@ -872,6 +819,7 @@ impl RealearnTarget for ReaperTarget {
             SendMidi(t) => t.format_value(value),
             TrackPeak(t) => t.format_value(value),
             Action(t) => t.format_value(value),
+            FxParameter(t) => t.format_value(value),
         }
     }
 
@@ -879,14 +827,6 @@ impl RealearnTarget for ReaperTarget {
         use ControlValue::*;
         use ReaperTarget::*;
         match self {
-            FxParameter { param } => {
-                // It's okay to just convert this to a REAPER-normalized value. We don't support
-                // values above the maximum (or buggy plug-ins).
-                let v = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
-                param
-                    .set_reaper_normalized_value(v)
-                    .map_err(|_| "couldn't set FX parameter value")?;
-            }
             TrackVolume { track } => {
                 let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
                 track.set_volume(volume.unwrap_or(Volume::MIN));
@@ -1254,9 +1194,6 @@ impl RealearnTarget for ReaperTarget {
                     },
                 );
             }
-            SendMidi(t) => return t.control(value, context),
-            TrackPeak(t) => return t.control(value, context),
-            Action(t) => return t.control(value, context),
             SendOsc {
                 address_pattern,
                 arg_descriptor,
@@ -1338,6 +1275,10 @@ impl RealearnTarget for ReaperTarget {
                 instance_state
                     .set_volume(*slot_index, volume.unwrap_or(Volume::MIN).reaper_value())?;
             }
+            SendMidi(t) => return t.control(value, context),
+            TrackPeak(t) => return t.control(value, context),
+            Action(t) => return t.control(value, context),
+            FxParameter(t) => return t.control(value, context),
         };
         Ok(())
     }
@@ -1351,7 +1292,6 @@ impl RealearnTarget for ReaperTarget {
     fn is_available(&self) -> bool {
         use ReaperTarget::*;
         match self {
-            FxParameter { param } => param.is_available(),
             TrackArm { track, .. }
             | TrackSelection { track, .. }
             | TrackMute { track, .. }
@@ -1391,6 +1331,7 @@ impl RealearnTarget for ReaperTarget {
             SendMidi(t) => t.is_available(),
             TrackPeak(t) => t.is_available(),
             Action(t) => t.is_available(),
+            FxParameter(t) => t.is_available(),
         }
     }
 
@@ -1406,7 +1347,6 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. } => {
                 return None;
             }
-            FxParameter { param } => param.fx().project()?,
             TrackVolume { track }
             | TrackPan { track }
             | TrackWidth { track }
@@ -1433,6 +1373,7 @@ impl RealearnTarget for ReaperTarget {
             }
             SendMidi(t) => return t.project(),
             TrackPeak(t) => return t.project(),
+            FxParameter(t) => return t.project(),
         };
         Some(project)
     }
@@ -1440,7 +1381,6 @@ impl RealearnTarget for ReaperTarget {
     fn track(&self) -> Option<&Track> {
         use ReaperTarget::*;
         let track = match self {
-            FxParameter { param } => param.fx().track()?,
             TrackVolume { track }
             | TrackPan { track }
             | TrackWidth { track }
@@ -1474,6 +1414,7 @@ impl RealearnTarget for ReaperTarget {
             ClipTransport { track, .. } => return track.as_ref(),
             SendMidi(t) => return t.track(),
             TrackPeak(t) => return t.track(),
+            FxParameter(t) => return t.track(),
         };
         Some(track)
     }
@@ -1481,7 +1422,6 @@ impl RealearnTarget for ReaperTarget {
     fn fx(&self) -> Option<&Fx> {
         use ReaperTarget::*;
         let fx = match self {
-            FxParameter { param } => param.fx(),
             FxOpen { fx, .. } | FxEnable { fx } | FxPreset { fx } | LoadFxSnapshot { fx, .. } => fx,
             // Default: None
             Action(_)
@@ -1513,6 +1453,7 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. } => return None,
             SendMidi(t) => return t.fx(),
             TrackPeak(t) => return t.fx(),
+            FxParameter(t) => return t.fx(),
         };
         Some(fx)
     }
@@ -1524,10 +1465,9 @@ impl RealearnTarget for ReaperTarget {
                 route
             }
             // Default: None
-            FxParameter { .. }
+            Action(_)
             | FxEnable { .. }
             | FxPreset { .. }
-            | Action(_)
             | TrackVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }
@@ -1555,6 +1495,7 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. } => return None,
             SendMidi(t) => return t.route(),
             TrackPeak(t) => return t.route(),
+            FxParameter(t) => return t.route(),
         };
         Some(route)
     }
@@ -1572,7 +1513,6 @@ impl RealearnTarget for ReaperTarget {
             | AutomationTouchState { exclusivity, .. } => Some(*exclusivity),
             // Default: None
             Action(_)
-            | FxParameter { .. }
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
@@ -1597,6 +1537,7 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. } => None,
             SendMidi(t) => t.track_exclusivity(),
             TrackPeak(t) => t.track_exclusivity(),
+            FxParameter(t) => t.track_exclusivity(),
         }
     }
 
@@ -1604,8 +1545,7 @@ impl RealearnTarget for ReaperTarget {
         use ReaperTarget::*;
         match self {
             // Default: true
-            Action { .. }
-            | FxParameter { .. }
+            Action(_)
             | TrackVolume { .. }
             | TrackRouteVolume { .. }
             | TrackPan { .. }
@@ -1637,6 +1577,7 @@ impl RealearnTarget for ReaperTarget {
             }
             SendMidi(t) => t.supports_automatic_feedback(),
             TrackPeak(t) => t.supports_automatic_feedback(),
+            FxParameter(t) => t.supports_automatic_feedback(),
         }
     }
 
@@ -1653,13 +1594,6 @@ impl RealearnTarget for ReaperTarget {
         use ChangeEvent::*;
         use ReaperTarget::*;
         match self {
-            FxParameter { param } => match evt {
-                FxParameterValueChanged(e) if &e.parameter == param => (
-                    true,
-                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
-                ),
-                _ => (false, None),
-            },
             TrackVolume { track } => match evt {
                 TrackVolumeChanged(e) if &e.track == track => (
                     true,
@@ -1856,6 +1790,7 @@ impl RealearnTarget for ReaperTarget {
             SendMidi(t) => t.process_change_event(evt, control_context),
             TrackPeak(t) => t.process_change_event(evt, control_context),
             Action(t) => t.process_change_event(evt, control_context),
+            FxParameter(t) => t.process_change_event(evt, control_context),
         }
     }
 
@@ -1881,12 +1816,6 @@ impl RealearnTarget for ReaperTarget {
                 let index = if value == 0 { None } else { Some(value - 1) };
                 shown_fx_unit_value(fx_chain, index)
             }
-            FxParameter { param } => {
-                let step_size = param.step_size().ok_or("not supported")?;
-                (value as f64 * step_size).try_into()?
-            }
-            SendMidi(t) => return t.convert_discrete_value_to_unit_value(value),
-            TrackPeak(t) => return t.convert_discrete_value_to_unit_value(value),
             // Default: Percentage
             Action(_)
             | TrackVolume { .. }
@@ -1916,6 +1845,9 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. }
             | ClipTransport { .. }
             | Transport { .. } => return Err("not supported"),
+            SendMidi(t) => return t.convert_discrete_value_to_unit_value(value),
+            TrackPeak(t) => return t.convert_discrete_value_to_unit_value(value),
+            FxParameter(t) => return t.convert_discrete_value_to_unit_value(value),
         };
         Ok(result)
     }
@@ -1932,13 +1864,6 @@ impl RealearnTarget for ReaperTarget {
                 // the mappings which use the FX snapshot target with that FX and which chunk (hash)
                 // their snapshot has.
                 FxSnapshotLoaded(e) if &e.fx == fx => (true, None),
-                _ => (false, None),
-            },
-            FxParameter { param } => match evt {
-                RealearnMonitoringFxParameterValueChanged(e) if &e.parameter == param => (
-                    true,
-                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
-                ),
                 _ => (false, None),
             },
             AutomationTouchState {
@@ -1993,6 +1918,7 @@ impl RealearnTarget for ReaperTarget {
                 _ => (false, None),
             },
             Action(t) => t.value_changed_from_additional_feedback_event(evt),
+            FxParameter(t) => t.value_changed_from_additional_feedback_event(evt),
             _ => (false, None),
         }
     }
@@ -2261,7 +2187,9 @@ impl ReaperTarget {
                 }
             }
             FxEnabledChanged(e) => FxEnable { fx: e.fx },
-            FxParameterValueChanged(e) if e.touched => FxParameter { param: e.parameter },
+            FxParameterValueChanged(e) if e.touched => {
+                FxParameter(FxParameterTarget { param: e.parameter })
+            }
             FxPresetChanged(e) => FxPreset { fx: e.fx },
             MasterTempoChanged(e) if e.touched => Tempo {
                 // TODO-low In future this might come from a certain project
@@ -2295,7 +2223,7 @@ impl ReaperTarget {
             .merge(
                 csurf_rx
                     .fx_parameter_touched()
-                    .map(move |param| FxParameter { param }.into()),
+                    .map(move |param| FxParameter(FxParameterTarget { param }).into()),
             )
             .merge(
                 csurf_rx
@@ -2417,18 +2345,6 @@ impl ReaperTarget {
                 .into()
             }))
     }
-
-    fn format_value_generic(&self, value: UnitValue) -> String {
-        format!(
-            "{} {}",
-            self.format_value_without_unit(value),
-            self.value_unit()
-        )
-    }
-
-    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
-    }
 }
 
 impl<'a> Target<'a> for ReaperTarget {
@@ -2440,9 +2356,6 @@ impl<'a> Target<'a> for ReaperTarget {
     fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
         use ReaperTarget::*;
         let result = match self {
-            FxParameter { param } => {
-                fx_parameter_unit_value(param, param.reaper_normalized_value())
-            }
             TrackVolume { track } => volume_unit_value(track.volume()),
             TrackRouteVolume { route } => volume_unit_value(route.volume()),
             TrackPan { track } => pan_unit_value(track.pan()),
@@ -2591,6 +2504,7 @@ impl<'a> Target<'a> for ReaperTarget {
             SendMidi(t) => return t.current_value(()),
             TrackPeak(t) => return t.current_value(context),
             Action(t) => return t.current_value(()),
+            FxParameter(t) => return t.current_value(()),
         };
         Some(result)
     }
@@ -2973,24 +2887,6 @@ fn figure_out_touched_pan_component(
     } else {
         ReaperTarget::TrackPan { track }
     }
-}
-
-fn fx_parameter_unit_value(param: &FxParameter, value: ReaperNormalizedFxParamValue) -> UnitValue {
-    let v = value.get();
-    if !UnitValue::is_valid(v) {
-        // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
-        // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
-        // know. In future, we might offer further customization possibilities here.
-        // For now, we just report it as 0.0 or 1.0 and log a warning.
-        warn!(
-            Reaper::get().logger(),
-            "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
-            v,
-            param
-        );
-        return UnitValue::new_clamped(v);
-    }
-    UnitValue::new(v)
 }
 
 fn pan_unit_value(pan: Pan) -> UnitValue {

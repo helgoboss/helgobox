@@ -6,3 +6,6 @@ pub use track_peak_target::*;
 
 mod action_target;
 pub use action_target::*;
+
+mod fx_parameter_target;
+pub use fx_parameter_target::*;

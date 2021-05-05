@@ -1,6 +1,7 @@
 use helgoboss_learn::{format_percentage_without_unit, parse_percentage_without_unit, UnitValue};
-use reaper_high::Volume;
-use reaper_medium::{Db, ReaperVolumeValue};
+use reaper_high::{FxParameter, Reaper, Volume};
+use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use slog::warn;
 use std::convert::TryInto;
 
 pub fn format_as_percentage_without_unit(value: UnitValue) -> String {
@@ -63,4 +64,25 @@ pub fn volume_unit_value(volume: Volume) -> UnitValue {
 
 pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
     if on { UnitValue::MAX } else { UnitValue::MIN }
+}
+
+pub fn fx_parameter_unit_value(
+    param: &FxParameter,
+    value: ReaperNormalizedFxParamValue,
+) -> UnitValue {
+    let v = value.get();
+    if !UnitValue::is_valid(v) {
+        // Either the FX reports a wrong value range (e.g. TAL Flanger Sync Speed)
+        // or the value range exceeded a "normal" range (e.g. ReaPitch Wet). We can't
+        // know. In future, we might offer further customization possibilities here.
+        // For now, we just report it as 0.0 or 1.0 and log a warning.
+        warn!(
+            Reaper::get().logger(),
+            "FX parameter reported normalized value {:?} which is not in unit interval: {:?}",
+            v,
+            param
+        );
+        return UnitValue::new_clamped(v);
+    }
+    UnitValue::new(v)
 }

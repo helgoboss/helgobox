@@ -6,6 +6,7 @@ use crate::domain::{
 };
 use helgoboss_learn::{ControlType, ControlValue, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
+use std::convert::TryInto;
 
 pub trait RealearnTarget {
     fn character(&self) -> TargetCharacter {
@@ -65,6 +66,10 @@ pub trait RealearnTarget {
     }
     /// Formats the value completely (including a possible unit).
     fn format_value(&self, value: UnitValue) -> String {
+        self.format_value_generic(value)
+    }
+
+    fn format_value_generic(&self, value: UnitValue) -> String {
         format!(
             "{} {}",
             self.format_value_without_unit(value),
@@ -133,8 +138,15 @@ pub trait RealearnTarget {
     /// Used for parsing discrete values of discrete targets that can't do real parsing according to
     /// `can_parse_values()`.
     fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+        if self.control_type_and_character().0.is_relative() {
+            return (value as f64 / 63.0).try_into();
+        }
         let _ = value;
         Err("not supported")
+    }
+
+    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
     }
 }
 
