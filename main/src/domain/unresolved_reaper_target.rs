@@ -4,8 +4,8 @@ use crate::domain::{
     ActionInvocationType, ActionTarget, BackboneState, ExtendedProcessorContext, FxDisplayType,
     FxParameterTarget, MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice,
     PlayPosFeedbackResolution, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackExclusivity, TrackPanTarget,
-    TrackPeakTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction,
+    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackArmTarget, TrackExclusivity,
+    TrackPanTarget, TrackPeakTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
@@ -222,9 +222,11 @@ impl UnresolvedReaperTarget {
                 exclusivity,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackArm {
-                    track,
-                    exclusivity: *exclusivity,
+                .map(|track| {
+                    ReaperTarget::TrackArm(TrackArmTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                    })
                 })
                 .collect(),
             TrackSelection {

@@ -37,8 +37,8 @@ use crate::domain::{
     handle_exclusivity, ActionTarget, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent,
     ClipPlayState, ControlContext, FeedbackAudioHookTask, FeedbackOutput, FxParameterTarget,
     HierarchyEntry, HierarchyEntryProvider, InstanceFeedbackEvent, MidiDestination, MidiSendTarget,
-    OscDeviceId, OscFeedbackTask, RealearnTarget, SlotPlayOptions, TrackPanTarget, TrackPeakTarget,
-    TrackVolumeTarget, TrackWidthTarget,
+    OscDeviceId, OscFeedbackTask, RealearnTarget, SlotPlayOptions, TrackArmTarget, TrackPanTarget,
+    TrackPeakTarget, TrackVolumeTarget, TrackWidthTarget,
 };
 use rosc::OscMessage;
 use std::convert::TryInto;
@@ -84,10 +84,7 @@ pub enum ReaperTarget {
     },
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
-    TrackArm {
-        track: Track,
-        exclusivity: TrackExclusivity,
-    },
+    TrackArm(TrackArmTarget),
     TrackSelection {
         track: Track,
         exclusivity: TrackExclusivity,
@@ -385,15 +382,10 @@ impl RealearnTarget for ReaperTarget {
             TrackSolo { exclusivity, .. }
             | AllTrackFxEnable { exclusivity, .. }
             | AutomationTouchState { exclusivity, .. }
-            | TrackArm { exclusivity, .. }
             | TrackSelection { exclusivity, .. }
             | TrackShow { exclusivity, .. }
             | TrackMute { exclusivity, .. } => {
-                if *exclusivity == TrackExclusivity::NonExclusive {
-                    (ControlType::AbsoluteContinuous, Switch)
-                } else {
-                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-                }
+                get_control_type_and_character_for_track_exclusivity(*exclusivity)
             }
             TrackRouteVolume { .. }
             // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
@@ -422,6 +414,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.control_type_and_character(),
             TrackPan(t) => t.control_type_and_character(),
             TrackWidth(t) => t.control_type_and_character(),
+            TrackArm(t) => t.control_type_and_character(),
         }
     }
 
@@ -458,7 +451,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -482,6 +474,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.parse_as_value(text),
             TrackPan(t) => t.parse_as_value(text),
             TrackWidth(t) => t.parse_as_value(text),
+            TrackArm(t) => t.parse_as_value(text),
         }
     }
 
@@ -498,7 +491,6 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | ClipVolume { .. }
             | TrackRouteVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -523,6 +515,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.parse_as_step_size(text),
             TrackPan(t) => t.parse_as_step_size(text),
             TrackWidth(t) => t.parse_as_step_size(text),
+            TrackArm(t) => t.parse_as_step_size(text),
         }
     }
 
@@ -546,7 +539,6 @@ impl RealearnTarget for ReaperTarget {
             Action(_)
             | TrackRouteVolume { .. }
             | ClipVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -574,6 +566,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.convert_unit_value_to_discrete_value(input),
             TrackPan(t) => return t.convert_unit_value_to_discrete_value(input),
             TrackWidth(t) => return t.convert_unit_value_to_discrete_value(input),
+            TrackArm(t) => return t.convert_unit_value_to_discrete_value(input),
         };
         Ok(result)
     }
@@ -588,7 +581,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: Percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -615,6 +607,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.format_value_without_unit(value),
             TrackPan(t) => t.format_value_without_unit(value),
             TrackWidth(t) => t.format_value_without_unit(value),
+            TrackArm(t) => t.format_value_without_unit(value),
         }
     }
 
@@ -628,7 +621,6 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | ClipVolume { .. }
             | TrackRouteVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -656,6 +648,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.format_step_size_without_unit(step_size),
             TrackPan(t) => t.format_step_size_without_unit(step_size),
             TrackWidth(t) => t.format_step_size_without_unit(step_size),
+            TrackArm(t) => t.format_step_size_without_unit(step_size),
         }
     }
 
@@ -700,7 +693,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: percentage
             Action(_)
             | LoadFxSnapshot { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -728,6 +720,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.value_unit(),
             TrackPan(t) => t.value_unit(),
             TrackWidth(t) => t.value_unit(),
+            TrackArm(t) => t.value_unit(),
         }
     }
 
@@ -741,7 +734,6 @@ impl RealearnTarget for ReaperTarget {
             | LoadFxSnapshot { .. }
             | ClipVolume { .. }
             | TrackRouteVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -769,6 +761,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.step_size_unit(),
             TrackPan(t) => t.step_size_unit(),
             TrackWidth(t) => t.step_size_unit(),
+            TrackArm(t) => t.step_size_unit(),
         }
     }
 
@@ -778,7 +771,6 @@ impl RealearnTarget for ReaperTarget {
             TrackRouteVolume { .. } | ClipVolume { .. } => format_value_as_db(value),
             TrackRoutePan { .. } => format_value_as_pan(value),
             FxEnable { .. }
-            | TrackArm { .. }
             | TrackMute { .. }
             | TrackShow { .. }
             | TrackAutomationMode { .. }
@@ -819,6 +811,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.format_value(value),
             TrackPan(t) => t.format_value(value),
             TrackWidth(t) => t.format_value(value),
+            TrackArm(t) => t.format_value(value),
         }
     }
 
@@ -831,15 +824,6 @@ impl RealearnTarget for ReaperTarget {
                 route
                     .set_volume(volume.unwrap_or(Volume::MIN))
                     .map_err(|_| "couldn't set route volume")?;
-            }
-            TrackArm { track, exclusivity } => {
-                if value.as_absolute()?.is_zero() {
-                    handle_track_exclusivity(track, *exclusivity, |t| t.arm(false));
-                    track.disarm(false);
-                } else {
-                    handle_track_exclusivity(track, *exclusivity, |t| t.disarm(false));
-                    track.arm(false);
-                }
             }
             TrackSelection {
                 track,
@@ -1269,6 +1253,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.control(value, context),
             TrackPan(t) => return t.control(value, context),
             TrackWidth(t) => return t.control(value, context),
+            TrackArm(t) => return t.control(value, context),
         };
         Ok(())
     }
@@ -1282,8 +1267,7 @@ impl RealearnTarget for ReaperTarget {
     fn is_available(&self) -> bool {
         use ReaperTarget::*;
         match self {
-            TrackArm { track, .. }
-            | TrackSelection { track, .. }
+            TrackSelection { track, .. }
             | TrackMute { track, .. }
             | TrackShow { track, .. }
             | TrackAutomationMode { track, .. }
@@ -1322,6 +1306,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.is_available(),
             TrackPan(t) => t.is_available(),
             TrackWidth(t) => t.is_available(),
+            TrackArm(t) => t.is_available(),
         }
     }
 
@@ -1337,8 +1322,7 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. } => {
                 return None;
             }
-            TrackArm { track, .. }
-            | TrackSelection { track, .. }
+            TrackSelection { track, .. }
             | TrackMute { track, .. }
             | TrackShow { track, .. }
             | TrackAutomationMode { track, .. }
@@ -1364,6 +1348,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.project(),
             TrackPan(t) => return t.project(),
             TrackWidth(t) => return t.project(),
+            TrackArm(t) => return t.project(),
         };
         Some(project)
     }
@@ -1371,8 +1356,7 @@ impl RealearnTarget for ReaperTarget {
     fn track(&self) -> Option<&Track> {
         use ReaperTarget::*;
         let track = match self {
-            TrackArm { track, .. }
-            | TrackSelection { track, .. }
+            TrackSelection { track, .. }
             | TrackMute { track, .. }
             | TrackShow { track, .. }
             | TrackAutomationMode { track, .. }
@@ -1405,6 +1389,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.track(),
             TrackPan(t) => return t.track(),
             TrackWidth(t) => return t.track(),
+            TrackArm(t) => return t.track(),
         };
         Some(track)
     }
@@ -1416,7 +1401,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: None
             Action(_)
             | TrackRouteVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -1444,6 +1428,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.fx(),
             TrackPan(t) => return t.fx(),
             TrackWidth(t) => return t.fx(),
+            TrackArm(t) => return t.fx(),
         };
         Some(fx)
     }
@@ -1458,7 +1443,6 @@ impl RealearnTarget for ReaperTarget {
             Action(_)
             | FxEnable { .. }
             | FxPreset { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -1486,6 +1470,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.route(),
             TrackPan(t) => return t.route(),
             TrackWidth(t) => return t.route(),
+            TrackArm(t) => return t.route(),
         };
         Some(route)
     }
@@ -1494,7 +1479,6 @@ impl RealearnTarget for ReaperTarget {
         use ReaperTarget::*;
         match self {
             TrackSolo { exclusivity, .. }
-            | TrackArm { exclusivity, .. }
             | TrackSelection { exclusivity, .. }
             | TrackMute { exclusivity, .. }
             | TrackShow { exclusivity, .. }
@@ -1528,6 +1512,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.track_exclusivity(),
             TrackPan(t) => t.track_exclusivity(),
             TrackWidth(t) => t.track_exclusivity(),
+            TrackArm(t) => t.track_exclusivity(),
         }
     }
 
@@ -1537,7 +1522,6 @@ impl RealearnTarget for ReaperTarget {
             // Default: true
             Action(_)
             | TrackRouteVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackSolo { .. }
@@ -1568,6 +1552,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.supports_automatic_feedback(),
             TrackPan(t) => t.supports_automatic_feedback(),
             TrackWidth(t) => t.supports_automatic_feedback(),
+            TrackArm(t) => t.supports_automatic_feedback(),
         }
     }
 
@@ -1589,12 +1574,6 @@ impl RealearnTarget for ReaperTarget {
                     true,
                     Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
                 ),
-                _ => (false, None),
-            },
-            TrackArm { track, .. } => match evt {
-                TrackArmChanged(e) if &e.track == track => {
-                    (true, Some(track_arm_unit_value(e.new_value)))
-                }
                 _ => (false, None),
             },
             TrackSelection { track, .. } => match evt {
@@ -1755,6 +1734,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => t.process_change_event(evt, control_context),
             TrackPan(t) => t.process_change_event(evt, control_context),
             TrackWidth(t) => t.process_change_event(evt, control_context),
+            TrackArm(t) => t.process_change_event(evt, control_context),
         }
     }
 
@@ -1784,7 +1764,6 @@ impl RealearnTarget for ReaperTarget {
             Action(_)
             | TrackRouteVolume { .. }
             | ClipVolume { .. }
-            | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
             | TrackShow { .. }
@@ -1812,6 +1791,7 @@ impl RealearnTarget for ReaperTarget {
             TrackVolume(t) => return t.convert_discrete_value_to_unit_value(value),
             TrackPan(t) => return t.convert_discrete_value_to_unit_value(value),
             TrackWidth(t) => return t.convert_discrete_value_to_unit_value(value),
+            TrackArm(t) => return t.convert_discrete_value_to_unit_value(value),
         };
         Ok(result)
     }
@@ -2115,10 +2095,10 @@ impl ReaperTarget {
             }
             TrackRouteVolumeChanged(e) if e.touched => TrackRouteVolume { route: e.route },
             TrackRoutePanChanged(e) if e.touched => TrackRoutePan { route: e.route },
-            TrackArmChanged(e) => TrackArm {
+            TrackArmChanged(e) => TrackArm(TrackArmTarget {
                 track: e.track,
                 exclusivity: Default::default(),
-            },
+            }),
             TrackMuteChanged(e) if e.touched => TrackMute {
                 track: e.track,
                 exclusivity: Default::default(),
@@ -2208,10 +2188,10 @@ impl ReaperTarget {
                 figure_out_touched_pan_component(track, old, new).into()
             }))
             .merge(csurf_rx.track_arm_changed().map(move |track| {
-                TrackArm {
+                TrackArm(TrackArmTarget {
                     track,
                     exclusivity: Default::default(),
-                }
+                })
                 .into()
             }))
             .merge(
@@ -2321,7 +2301,6 @@ impl<'a> Target<'a> for ReaperTarget {
         use ReaperTarget::*;
         let result = match self {
             TrackRouteVolume { route } => volume_unit_value(route.volume()),
-            TrackArm { track, .. } => track_arm_unit_value(track.is_armed(false)),
             TrackSelection { track, .. } => track_selected_unit_value(track.is_selected()),
             TrackMute { track, .. } => mute_unit_value(track.is_muted()),
             TrackShow { track, area, .. } => {
@@ -2469,6 +2448,7 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackVolume(t) => return t.current_value(()),
             TrackPan(t) => return t.current_value(()),
             TrackWidth(t) => return t.current_value(()),
+            TrackArm(t) => return t.current_value(()),
         };
         Some(result)
     }
@@ -2590,7 +2570,7 @@ pub fn format_value_as_pan(value: UnitValue) -> String {
     Pan::from_normalized_value(value.get()).to_string()
 }
 
-fn format_value_as_on_off(value: UnitValue) -> &'static str {
+pub fn format_value_as_on_off(value: UnitValue) -> &'static str {
     if value.is_zero() { "Off" } else { "On" }
 }
 
@@ -2855,7 +2835,7 @@ pub fn width_unit_value(width: Width) -> UnitValue {
     UnitValue::new(width.normalized_value())
 }
 
-fn track_arm_unit_value(is_armed: bool) -> UnitValue {
+pub fn track_arm_unit_value(is_armed: bool) -> UnitValue {
     convert_bool_to_unit_value(is_armed)
 }
 
@@ -3059,7 +3039,7 @@ impl HierarchyEntry for Track {
     }
 }
 
-fn handle_track_exclusivity(
+pub fn handle_track_exclusivity(
     track: &Track,
     exclusivity: TrackExclusivity,
     mut f: impl FnMut(&Track),
@@ -3081,4 +3061,17 @@ fn handle_track_exclusivity(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
+}
+
+pub fn get_control_type_and_character_for_track_exclusivity(
+    exclusivity: TrackExclusivity,
+) -> (ControlType, TargetCharacter) {
+    if exclusivity == TrackExclusivity::NonExclusive {
+        (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+    } else {
+        (
+            ControlType::AbsoluteContinuousRetriggerable,
+            TargetCharacter::Trigger,
+        )
+    }
 }
