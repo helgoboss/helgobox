@@ -86,3 +86,9 @@ pub fn fx_parameter_unit_value(
     }
     UnitValue::new(v)
 }
+
+pub fn format_value_as_db(value: UnitValue) -> String {
+    Volume::try_from_soft_normalized_value(value.get())
+        .unwrap_or(Volume::MIN)
+        .to_string()
+}

@@ -5,7 +5,7 @@ use crate::domain::{
     FxParameterTarget, MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice,
     PlayPosFeedbackResolution, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
     SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackExclusivity, TrackPeakTarget,
-    TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    TrackVolumeTarget, TransportAction, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -192,7 +192,7 @@ impl UnresolvedReaperTarget {
             TrackVolume { track_descriptor } => {
                 get_effective_tracks(context, &track_descriptor.track, compartment)?
                     .into_iter()
-                    .map(|track| ReaperTarget::TrackVolume { track })
+                    .map(|track| ReaperTarget::TrackVolume(TrackVolumeTarget { track }))
                     .collect()
             }
             TrackPeak { track_descriptor } => {

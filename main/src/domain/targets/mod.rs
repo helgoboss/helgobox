@@ -9,3 +9,6 @@ pub use action_target::*;
 
 mod fx_parameter_target;
 pub use fx_parameter_target::*;
+
+mod track_volume_target;
+pub use track_volume_target::*;
