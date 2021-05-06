@@ -1,19 +1,36 @@
+use super::ReaperTarget;
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
     AdditionalFeedbackEvent, FeedbackAudioHookTask, FeedbackOutput, InstanceFeedbackEvent,
     OscFeedbackTask, RealTimeReaperTarget, RealTimeSender, SharedInstanceState, TargetCharacter,
     TrackExclusivity,
 };
+use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{ControlType, ControlValue, UnitValue};
-use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
+use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
+use reaper_medium::CommandId;
 use std::convert::TryInto;
 
+#[enum_dispatch(ReaperTarget)]
 pub trait RealearnTarget {
     fn character(&self) -> TargetCharacter {
         self.control_type_and_character().1
     }
     fn control_type_and_character(&self) -> (ControlType, TargetCharacter);
-    fn open(&self) {}
+    fn open(&self) {
+        if let Some(fx) = self.fx() {
+            fx.show_in_floating_window();
+            return;
+        }
+        if let Some(track) = self.track() {
+            track.select_exclusively();
+            // Scroll to track
+            Reaper::get()
+                .main_section()
+                .action_by_command_id(CommandId::new(40913))
+                .invoke_as_trigger(Some(track.project()));
+        }
+    }
     /// Parses the given text as a target value and returns it as unit value.
     fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
         parse_unit_value_from_percentage(text)
@@ -37,6 +54,10 @@ pub trait RealearnTarget {
     ///
     /// Returns an error if this target doesn't report a step size.
     fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+        if self.control_type_and_character().0.is_relative() {
+            // Relative MIDI controllers support a maximum of 63 steps.
+            return Ok((input.get() * 63.0).round() as _);
+        }
         let _ = input;
         Err("not supported")
     }
@@ -104,6 +125,11 @@ pub trait RealearnTarget {
         // Usually yes. We will quickly realize if not.
         true
     }
+
+    /// Might return the new value if changed.
+    ///
+    /// Is called in any case (even if feedback not enabled). So we can use it for general-purpose
+    /// change event reactions such as reacting to transport stop.
     fn process_change_event(
         &self,
         evt: &ChangeEvent,
