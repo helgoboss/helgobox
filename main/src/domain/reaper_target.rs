@@ -35,15 +35,16 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     handle_exclusivity, ActionTarget, AdditionalFeedbackEvent, AllTrackFxEnableTarget,
-    AutomationModeOverrideTarget, BackboneState, ClipChangedEvent, ClipPlayState, ControlContext,
+    AutomationModeOverrideTarget, AutomationTouchStateTarget, BackboneState, ClipChangedEvent,
+    ClipPlayState, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget, ControlContext,
     FeedbackAudioHookTask, FeedbackOutput, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
-    FxParameterTarget, FxPresetTarget, HierarchyEntry, HierarchyEntryProvider,
+    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
     InstanceFeedbackEvent, LoadFxSnapshotTarget, MidiDestination, MidiSendTarget, OscDeviceId,
-    OscFeedbackTask, PlayrateTarget, RealearnTarget, RouteMuteTarget, RoutePanTarget,
-    RouteVolumeTarget, SelectedTrackTarget, SlotPlayOptions, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    OscFeedbackTask, OscSendTarget, PlayrateTarget, RealearnTarget, RouteMuteTarget,
+    RoutePanTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget, SlotPlayOptions,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportTarget,
 };
 use rosc::OscMessage;
 use std::convert::TryInto;
@@ -106,46 +107,14 @@ pub enum ReaperTarget {
     AllTrackFxEnable(AllTrackFxEnableTarget),
     Transport(TransportTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
-    AutomationTouchState {
-        track: Track,
-        parameter_type: TouchedParameterType,
-        exclusivity: TrackExclusivity,
-    },
-    GoToBookmark {
-        project: Project,
-        bookmark_type: BookmarkType,
-        // This counts both markers and regions. We need it for getting the current value.
-        index: u32,
-        // This counts either only markers or only regions. We need it for control. The alternative
-        // would be an ID but unfortunately, marker IDs are not unique which means we would
-        // unnecessarily lack reliability to go to markers in a position-based way.
-        position: NonZeroU32,
-        set_time_selection: bool,
-        set_loop_points: bool,
-    },
-    Seek {
-        project: Project,
-        options: SeekOptions,
-    },
+    AutomationTouchState(AutomationTouchStateTarget),
+    GoToBookmark(GoToBookmarkTarget),
+    Seek(SeekTarget),
     SendMidi(MidiSendTarget),
-    SendOsc {
-        address_pattern: String,
-        arg_descriptor: Option<OscArgDescriptor>,
-        device_id: Option<OscDeviceId>,
-    },
-    ClipTransport {
-        track: Option<Track>,
-        slot_index: usize,
-        action: TransportAction,
-        play_options: SlotPlayOptions,
-    },
-    ClipSeek {
-        slot_index: usize,
-        feedback_resolution: PlayPosFeedbackResolution,
-    },
-    ClipVolume {
-        slot_index: usize,
-    },
+    SendOsc(OscSendTarget),
+    ClipTransport(ClipTransportTarget),
+    ClipSeek(ClipSeekTarget),
+    ClipVolume(ClipVolumeTarget),
 }
 
 #[derive(
@@ -262,32 +231,12 @@ impl RealearnTarget for ReaperTarget {
         use ReaperTarget::*;
         use TargetCharacter::*;
         match self {
-            AutomationTouchState { exclusivity, .. } => {
-                get_control_type_and_character_for_track_exclusivity(*exclusivity)
-            }
-            // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
             Seek { .. } | ClipSeek { .. } | ClipVolume { .. } => {
                 (ControlType::AbsoluteContinuous, Continuous)
             }
             LoadFxSnapshot { .. } | GoToBookmark { .. } => {
                 (ControlType::AbsoluteContinuousRetriggerable, Trigger)
             }
-            SendOsc { arg_descriptor, .. } => {
-                if let Some(desc) = arg_descriptor {
-                    use OscTypeTag::*;
-                    match desc.type_tag() {
-                        Float | Double => {
-                            (ControlType::AbsoluteContinuousRetriggerable, Continuous)
-                        }
-                        Bool => (ControlType::AbsoluteContinuousRetriggerable, Switch),
-                        Nil | Inf => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
-                        _ => (ControlType::AbsoluteContinuousRetriggerable, Trigger),
-                    }
-                } else {
-                    (ControlType::AbsoluteContinuousRetriggerable, Trigger)
-                }
-            }
-            ClipTransport { .. } => (ControlType::AbsoluteContinuousRetriggerable, Switch),
             SendMidi(t) => t.control_type_and_character(),
             TrackPeak(t) => t.control_type_and_character(),
             Action(t) => t.control_type_and_character(),
@@ -314,6 +263,9 @@ impl RealearnTarget for ReaperTarget {
             FxNavigate(t) => t.control_type_and_character(),
             AllTrackFxEnable(t) => t.control_type_and_character(),
             Transport(t) => t.control_type_and_character(),
+            AutomationTouchState(t) => t.control_type_and_character(),
+            SendOsc(t) => t.control_type_and_character(),
+            ClipTransport(t) => t.control_type_and_character(),
         }
     }
 
@@ -704,159 +656,6 @@ impl RealearnTarget for ReaperTarget {
         use ControlValue::*;
         use ReaperTarget::*;
         match self {
-            AutomationTouchState {
-                track,
-                parameter_type,
-                exclusivity,
-            } => {
-                let mut ctx = BackboneState::target_context().borrow_mut();
-                if value.as_absolute()?.is_zero() {
-                    handle_track_exclusivity(track, *exclusivity, |t| {
-                        ctx.touch_automation_parameter(t.raw(), *parameter_type)
-                    });
-                    ctx.untouch_automation_parameter(track.raw(), *parameter_type);
-                } else {
-                    handle_track_exclusivity(track, *exclusivity, |t| {
-                        ctx.untouch_automation_parameter(t.raw(), *parameter_type)
-                    });
-                    ctx.touch_automation_parameter(track.raw(), *parameter_type);
-                }
-            }
-            GoToBookmark {
-                project,
-                bookmark_type,
-                position,
-                set_loop_points,
-                set_time_selection,
-                ..
-            } => {
-                if !value.as_absolute()?.is_zero() {
-                    match *bookmark_type {
-                        BookmarkType::Marker => {
-                            project.go_to_marker(BookmarkRef::Position(*position))
-                        }
-                        BookmarkType::Region => {
-                            project.go_to_region_with_smooth_seek(BookmarkRef::Position(*position));
-                            if *set_loop_points || *set_time_selection {
-                                if let Some(bookmark) = project.find_bookmark_by_type_and_index(
-                                    BookmarkType::Region,
-                                    position.get() - 1,
-                                ) {
-                                    if let Some(end_pos) = bookmark.basic_info.region_end_position {
-                                        if *set_loop_points {
-                                            project.set_loop_points(
-                                                bookmark.basic_info.position,
-                                                end_pos,
-                                                AutoSeekBehavior::DenyAutoSeek,
-                                            );
-                                        }
-                                        if *set_time_selection {
-                                            project.set_time_selection(
-                                                bookmark.basic_info.position,
-                                                end_pos,
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Seek { project, options } => {
-                let value = value.as_absolute()?;
-                let info = get_seek_info(*project, *options);
-                let desired_pos_within_range = value.get() * info.length();
-                let desired_pos = info.start_pos.get() + desired_pos_within_range;
-                project.set_edit_cursor_position(
-                    PositionInSeconds::new(desired_pos),
-                    SetEditCurPosOptions {
-                        move_view: options.move_view,
-                        seek_play: options.seek_play,
-                    },
-                );
-            }
-            SendOsc {
-                address_pattern,
-                arg_descriptor,
-                device_id,
-            } => {
-                let msg = OscMessage {
-                    addr: address_pattern.clone(),
-                    args: if let Some(desc) = *arg_descriptor {
-                        desc.to_concrete_args(value.as_absolute()?)
-                            .ok_or("sending of this OSC type not supported")?
-                    } else {
-                        vec![]
-                    },
-                };
-                let effective_dev_id = device_id
-                    .or_else(|| {
-                        if let FeedbackOutput::Osc(dev_id) = context.feedback_output? {
-                            Some(dev_id)
-                        } else {
-                            None
-                        }
-                    })
-                    .ok_or("no destination device for sending OSC")?;
-                context
-                    .osc_feedback_task_sender
-                    .try_send(OscFeedbackTask::new(effective_dev_id, msg))
-                    .unwrap();
-            }
-            ClipTransport {
-                track,
-                slot_index,
-                action,
-                play_options,
-            } => {
-                use TransportAction::*;
-                let on = !value.as_absolute()?.is_zero();
-                let mut instance_state = context.instance_state.borrow_mut();
-                match action {
-                    PlayStop => {
-                        if on {
-                            instance_state.play(*slot_index, track.clone(), *play_options)?;
-                        } else {
-                            instance_state.stop(*slot_index, !play_options.next_bar)?;
-                        }
-                    }
-                    PlayPause => {
-                        if on {
-                            instance_state.play(*slot_index, track.clone(), *play_options)?;
-                        } else {
-                            instance_state.pause(*slot_index)?;
-                        }
-                    }
-                    Stop => {
-                        if on {
-                            instance_state.stop(*slot_index, !play_options.next_bar)?;
-                        }
-                    }
-                    Pause => {
-                        if on {
-                            instance_state.pause(*slot_index)?;
-                        }
-                    }
-                    Record => {
-                        return Err("not supported at the moment");
-                    }
-                    Repeat => {
-                        instance_state.toggle_repeat(*slot_index)?;
-                    }
-                };
-            }
-            ClipSeek { slot_index, .. } => {
-                let value = value.as_absolute()?;
-                let mut instance_state = context.instance_state.borrow_mut();
-                instance_state.seek_slot(*slot_index, value)?;
-            }
-            ClipVolume { slot_index } => {
-                let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
-                let mut instance_state = context.instance_state.borrow_mut();
-                instance_state
-                    .set_volume(*slot_index, volume.unwrap_or(Volume::MIN).reaper_value())?;
-            }
             SendMidi(t) => return t.control(value, context),
             TrackPeak(t) => return t.control(value, context),
             Action(t) => return t.control(value, context),
@@ -884,6 +683,13 @@ impl RealearnTarget for ReaperTarget {
             FxNavigate(t) => return t.control(value, context),
             AllTrackFxEnable(t) => return t.control(value, context),
             Transport(t) => return t.control(value, context),
+            AutomationTouchState(t) => return t.control(value, context),
+            GoToBookmark(t) => return t.control(value, context),
+            Seek(t) => return t.control(value, context),
+            SendOsc(t) => return t.control(value, context),
+            ClipTransport(t) => return t.control(value, context),
+            ClipSeek(t) => return t.control(value, context),
+            ClipVolume(t) => return t.control(value, context),
         };
         Ok(())
     }
@@ -897,18 +703,6 @@ impl RealearnTarget for ReaperTarget {
     fn is_available(&self) -> bool {
         use ReaperTarget::*;
         match self {
-            AutomationTouchState { track, .. } => track.is_available(),
-            GoToBookmark { project, .. } | Seek { project, .. } => project.is_available(),
-            // TODO-medium With clip targets we should check the control context (instance state) if
-            //  slot filled.
-            ClipTransport { track, .. } => {
-                if let Some(t) = track {
-                    if !t.is_available() {
-                        return false;
-                    }
-                }
-                true
-            }
             ClipSeek { .. } | ClipVolume { .. } => true,
             SendOsc { .. } => true,
             SendMidi(t) => t.is_available(),
@@ -938,6 +732,10 @@ impl RealearnTarget for ReaperTarget {
             FxNavigate(t) => t.is_available(),
             AllTrackFxEnable(t) => t.is_available(),
             Transport(t) => t.is_available(),
+            AutomationTouchState(t) => t.is_available(),
+            GoToBookmark(t) => t.is_available(),
+            Seek(t) => t.is_available(),
+            ClipTransport(t) => t.is_available(),
         }
     }
 
@@ -953,9 +751,6 @@ impl RealearnTarget for ReaperTarget {
             | SendOsc { .. } => {
                 return None;
             }
-            AutomationTouchState { track, .. } => track.project(),
-            GoToBookmark { project, .. } | Seek { project, .. } => *project,
-            ClipTransport { track, .. } => return track.as_ref().map(|t| t.project()),
             SendMidi(t) => return t.project(),
             TrackPeak(t) => return t.project(),
             FxParameter(t) => return t.project(),
@@ -980,6 +775,10 @@ impl RealearnTarget for ReaperTarget {
             SelectedTrack(t) => return t.project(),
             FxNavigate(t) => return t.project(),
             AllTrackFxEnable(t) => return t.project(),
+            AutomationTouchState(t) => return t.project(),
+            GoToBookmark(t) => return t.project(),
+            Seek(t) => return t.project(),
+            ClipTransport(t) => return t.project(),
         };
         Some(project)
     }
@@ -987,7 +786,6 @@ impl RealearnTarget for ReaperTarget {
     fn track(&self) -> Option<&Track> {
         use ReaperTarget::*;
         let track = match self {
-            AutomationTouchState { track, .. } => track,
             // Default: None
             Action(_)
             | Tempo(_)
@@ -1000,7 +798,6 @@ impl RealearnTarget for ReaperTarget {
             | AutomationModeOverride(_)
             | Transport { .. }
             | SendOsc { .. } => return None,
-            ClipTransport { track, .. } => return track.as_ref(),
             SendMidi(t) => return t.track(),
             TrackPeak(t) => return t.track(),
             FxParameter(t) => return t.track(),
@@ -1022,6 +819,8 @@ impl RealearnTarget for ReaperTarget {
             LoadFxSnapshot(t) => return t.track(),
             FxNavigate(t) => return t.track(),
             AllTrackFxEnable(t) => return t.track(),
+            AutomationTouchState(t) => return t.track(),
+            ClipTransport(t) => return t.track(),
         };
         Some(track)
     }
@@ -1113,7 +912,6 @@ impl RealearnTarget for ReaperTarget {
     fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         use ReaperTarget::*;
         match self {
-            AutomationTouchState { exclusivity, .. } => Some(*exclusivity),
             // Default: None
             Action(_)
             | TrackRouteVolume(_)
@@ -1148,6 +946,7 @@ impl RealearnTarget for ReaperTarget {
             TrackSolo(t) => t.track_exclusivity(),
             TrackAutomationMode(t) => t.track_exclusivity(),
             AllTrackFxEnable(t) => t.track_exclusivity(),
+            AutomationTouchState(t) => t.track_exclusivity(),
         }
     }
 
@@ -1204,24 +1003,9 @@ impl RealearnTarget for ReaperTarget {
         use ChangeEvent::*;
         use ReaperTarget::*;
         match self {
-            // Handled both from control-surface and non-control-surface callbacks.
-            GoToBookmark { project, .. } => match evt {
-                BookmarksChanged(e) if e.project == *project => (true, None),
-                _ => (false, None),
-            },
             // Handled from non-control-surface callbacks only.
             LoadFxSnapshot { .. } | AutomationTouchState { .. } | Seek { .. } => (false, None),
             // Feedback handled from instance-scoped feedback events.
-            ClipTransport { .. } => {
-                match evt {
-                    PlayStateChanged(e) => {
-                        let mut instance_state = control_context.instance_state.borrow_mut();
-                        instance_state.process_transport_change(e.new_value);
-                    }
-                    _ => {}
-                };
-                (false, None)
-            }
             ClipSeek { .. } | ClipVolume { .. } => (false, None),
             // No value change notification available.
             TrackShow { .. } | TrackRouteMute { .. } | AllTrackFxEnable(_) | SendOsc { .. } => {
@@ -1250,6 +1034,8 @@ impl RealearnTarget for ReaperTarget {
             SelectedTrack(t) => t.process_change_event(evt, control_context),
             FxNavigate(t) => t.process_change_event(evt, control_context),
             Transport(t) => t.process_change_event(evt, control_context),
+            GoToBookmark(t) => t.process_change_event(evt, control_context),
+            ClipTransport(t) => t.process_change_event(evt, control_context),
         }
     }
 
@@ -1309,53 +1095,16 @@ impl RealearnTarget for ReaperTarget {
         use AdditionalFeedbackEvent::*;
         use ReaperTarget::*;
         match self {
-            AutomationTouchState {
-                track,
-                parameter_type,
-                ..
-            } => match evt {
-                ParameterAutomationTouchStateChanged(e)
-                    if e.track == track.raw() && e.parameter_type == *parameter_type =>
-                {
-                    (true, Some(touched_unit_value(e.new_value)))
-                }
-                _ => (false, None),
-            },
-            GoToBookmark {
-                project,
-                bookmark_type,
-                index,
-                ..
-            } => match evt {
-                BeatChanged(e) if e.project == *project => {
-                    let v =
-                        current_value_of_bookmark(*project, *bookmark_type, *index, e.new_value);
-                    (true, Some(v))
-                }
-                _ => (false, None),
-            },
-            Seek { project, options } => match evt {
-                BeatChanged(e) if e.project == *project => {
-                    let v = current_value_of_seek(*project, *options, e.new_value);
-                    (true, Some(v))
-                }
-                _ => (false, None),
-            },
-            // If feedback resolution is high, we use the special ClipChangedEvent to do our job
-            // (in order to not lock mutex of playing clips more than once per main loop cycle).
-            ClipSeek {
-                feedback_resolution,
-                ..
-            } if *feedback_resolution == PlayPosFeedbackResolution::Beat => match evt {
-                BeatChanged(_) => (true, None),
-                _ => (false, None),
-            },
             // This is necessary at the moment because control surface SetPlayState callback works
             // for currently active project tab already.
             Action(t) => t.value_changed_from_additional_feedback_event(evt),
             FxParameter(t) => t.value_changed_from_additional_feedback_event(evt),
             LoadFxSnapshot(t) => t.value_changed_from_additional_feedback_event(evt),
             Transport(t) => t.value_changed_from_additional_feedback_event(evt),
+            AutomationTouchState(t) => t.value_changed_from_additional_feedback_event(evt),
+            GoToBookmark(t) => t.value_changed_from_additional_feedback_event(evt),
+            Seek(t) => t.value_changed_from_additional_feedback_event(evt),
+            ClipSeek(t) => t.value_changed_from_additional_feedback_event(evt),
             _ => (false, None),
         }
     }
@@ -1368,67 +1117,9 @@ impl RealearnTarget for ReaperTarget {
         use InstanceFeedbackEvent::*;
         use ReaperTarget::*;
         match self {
-            ClipTransport {
-                slot_index, action, ..
-            } => {
-                match evt {
-                    ClipChanged {
-                        slot_index: si,
-                        event,
-                    } if si == slot_index => {
-                        use TransportAction::*;
-                        match *action {
-                            PlayStop | PlayPause | Stop | Pause => match event {
-                                ClipChangedEvent::PlayStateChanged(new_state) => {
-                                    (true, Some(clip_play_state_unit_value(*action, *new_state)))
-                                }
-                                _ => (false, None),
-                            },
-                            // Not supported at the moment.
-                            Record => (false, None),
-                            Repeat => match event {
-                                ClipChangedEvent::ClipRepeatChanged(new_state) => {
-                                    (true, Some(transport_is_enabled_unit_value(*new_state)))
-                                }
-                                _ => (false, None),
-                            },
-                        }
-                    }
-                    _ => (false, None),
-                }
-            }
-            // When feedback resolution is beat, we only react to the main timeline beat changes.
-            ClipSeek {
-                slot_index,
-                feedback_resolution,
-                ..
-            } if *feedback_resolution == PlayPosFeedbackResolution::High => match evt {
-                ClipChanged {
-                    slot_index: si,
-                    event,
-                } if si == slot_index => match event {
-                    ClipChangedEvent::ClipPositionChanged(new_position) => {
-                        (true, Some(*new_position))
-                    }
-                    ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
-                        (true, Some(UnitValue::MIN))
-                    }
-                    _ => (false, None),
-                },
-                _ => (false, None),
-            },
-            ClipVolume { slot_index } => match evt {
-                ClipChanged {
-                    slot_index: si,
-                    event,
-                } if si == slot_index => match event {
-                    ClipChangedEvent::ClipVolumeChanged(new_value) => {
-                        (true, Some(reaper_volume_unit_value(*new_value)))
-                    }
-                    _ => (false, None),
-                },
-                _ => (false, None),
-            },
+            ClipTransport(t) => t.value_changed_from_instance_feedback_event(evt),
+            ClipSeek(t) => t.value_changed_from_instance_feedback_event(evt),
+            ClipVolume(t) => t.value_changed_from_instance_feedback_event(evt),
             _ => (false, None),
         }
     }
@@ -1442,7 +1133,7 @@ impl RealearnTarget for ReaperTarget {
     }
 }
 
-struct SeekInfo {
+pub struct SeekInfo {
     pub start_pos: PositionInSeconds,
     pub end_pos: PositionInSeconds,
 }
@@ -1461,7 +1152,7 @@ impl SeekInfo {
     }
 }
 
-fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
+pub(crate) fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
     if options.use_time_selection {
         if let Some(r) = project.time_selection() {
             return SeekInfo::from_time_range(r);
@@ -1799,63 +1490,7 @@ impl<'a> Target<'a> for ReaperTarget {
     fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
         use ReaperTarget::*;
         let result = match self {
-            AutomationTouchState {
-                track,
-                parameter_type,
-                ..
-            } => {
-                let is_touched = BackboneState::target_context()
-                    .borrow()
-                    .automation_parameter_is_touched(track.raw(), *parameter_type);
-                touched_unit_value(is_touched)
-            }
-            GoToBookmark {
-                project,
-                bookmark_type,
-                index,
-                ..
-            } => current_value_of_bookmark(
-                *project,
-                *bookmark_type,
-                *index,
-                project.play_or_edit_cursor_position(),
-            ),
-            Seek { project, options } => {
-                current_value_of_seek(*project, *options, project.play_or_edit_cursor_position())
-            }
             SendOsc { .. } => return None,
-            ClipTransport {
-                slot_index, action, ..
-            } => {
-                let context = context.as_ref()?;
-                let instance_state = context.instance_state.borrow();
-                use TransportAction::*;
-                match action {
-                    PlayStop | PlayPause | Stop | Pause => {
-                        let play_state = instance_state.get_slot(*slot_index).ok()?.play_state();
-                        clip_play_state_unit_value(*action, play_state)
-                    }
-                    Repeat => {
-                        let is_looped = instance_state
-                            .get_slot(*slot_index)
-                            .ok()?
-                            .repeat_is_enabled();
-                        transport_is_enabled_unit_value(is_looped)
-                    }
-                    Record => return None,
-                }
-            }
-            ClipSeek { slot_index, .. } => {
-                let context = context.as_ref()?;
-                let instance_state = context.instance_state.borrow();
-                instance_state.get_slot(*slot_index).ok()?.position().ok()?
-            }
-            ClipVolume { slot_index } => {
-                let context = context.as_ref()?;
-                let instance_state = context.instance_state.borrow();
-                let volume = instance_state.get_slot(*slot_index).ok()?.volume();
-                reaper_volume_unit_value(volume)
-            }
             SendMidi(t) => return t.current_value(()),
             TrackPeak(t) => return t.current_value(context),
             Action(t) => return t.current_value(()),
@@ -1883,6 +1518,12 @@ impl<'a> Target<'a> for ReaperTarget {
             FxNavigate(t) => return t.current_value(()),
             AllTrackFxEnable(t) => return t.current_value(()),
             Transport(t) => return t.current_value(()),
+            AutomationTouchState(t) => return t.current_value(()),
+            GoToBookmark(t) => return t.current_value(()),
+            Seek(t) => return t.current_value(()),
+            ClipTransport(t) => return t.current_value(context),
+            ClipSeek(t) => return t.current_value(context),
+            ClipVolume(t) => return t.current_value(context),
         };
         Some(result)
     }
@@ -1910,7 +1551,10 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
 }
 
 // Panics if called with repeat or record.
-fn clip_play_state_unit_value(action: TransportAction, play_state: ClipPlayState) -> UnitValue {
+pub(crate) fn clip_play_state_unit_value(
+    action: TransportAction,
+    play_state: ClipPlayState,
+) -> UnitValue {
     use TransportAction::*;
     match action {
         PlayStop | PlayPause | Stop | Pause => match action {
@@ -1923,7 +1567,7 @@ fn clip_play_state_unit_value(action: TransportAction, play_state: ClipPlayState
     }
 }
 
-fn current_value_of_bookmark(
+pub fn current_value_of_bookmark(
     project: Project,
     bookmark_type: BookmarkType,
     index: u32,
@@ -1938,7 +1582,7 @@ fn current_value_of_bookmark(
     convert_bool_to_unit_value(is_current)
 }
 
-fn current_value_of_seek(
+pub(crate) fn current_value_of_seek(
     project: Project,
     options: SeekOptions,
     pos: PositionInSeconds,
@@ -2281,7 +1925,7 @@ pub fn mute_unit_value(is_mute: bool) -> UnitValue {
     convert_bool_to_unit_value(is_mute)
 }
 
-fn touched_unit_value(is_touched: bool) -> UnitValue {
+pub fn touched_unit_value(is_touched: bool) -> UnitValue {
     convert_bool_to_unit_value(is_touched)
 }
 

@@ -2,15 +2,16 @@ use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    BackboneState, ExtendedProcessorContext, FxDisplayType, FxEnableTarget, FxNavigateTarget,
-    FxOpenTarget, FxParameterTarget, FxPresetTarget, LoadFxSnapshotTarget, MappingCompartment,
-    MidiSendTarget, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, PlayrateTarget,
-    RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions,
-    SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget,
-    TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
-    TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
-    TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
+    ClipVolumeTarget, ExtendedProcessorContext, FxDisplayType, FxEnableTarget, FxNavigateTarget,
+    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, LoadFxSnapshotTarget,
+    MappingCompartment, MidiSendTarget, OscDeviceId, OscSendTarget, ParameterSlice,
+    PlayPosFeedbackResolution, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget,
+    RoutePanTarget, RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget,
+    SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType,
+    TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -397,10 +398,12 @@ impl UnresolvedReaperTarget {
                 exclusivity,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::AutomationTouchState {
-                    track,
-                    parameter_type: *parameter_type,
-                    exclusivity: *exclusivity,
+                .map(|track| {
+                    ReaperTarget::AutomationTouchState(AutomationTouchStateTarget {
+                        track,
+                        parameter_type: *parameter_type,
+                        exclusivity: *exclusivity,
+                    })
                 })
                 .collect(),
             GoToBookmark {
@@ -417,21 +420,21 @@ impl UnresolvedReaperTarget {
                     *bookmark_anchor_type,
                     *bookmark_ref,
                 )?;
-                vec![ReaperTarget::GoToBookmark {
+                vec![ReaperTarget::GoToBookmark(GoToBookmarkTarget {
                     project,
                     bookmark_type: *bookmark_type,
                     index: res.index,
                     position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
                     set_time_selection: *set_time_selection,
                     set_loop_points: *set_loop_points,
-                }]
+                })]
             }
             Seek { options } => {
                 let project = context.context().project_or_current_project();
-                vec![ReaperTarget::Seek {
+                vec![ReaperTarget::Seek(SeekTarget {
                     project,
                     options: *options,
-                }]
+                })]
             }
             SendMidi {
                 pattern,
@@ -444,11 +447,11 @@ impl UnresolvedReaperTarget {
                 address_pattern,
                 arg_descriptor,
                 device_id,
-            } => vec![ReaperTarget::SendOsc {
+            } => vec![ReaperTarget::SendOsc(OscSendTarget {
                 address_pattern: address_pattern.clone(),
                 arg_descriptor: *arg_descriptor,
                 device_id: *device_id,
-            }],
+            })],
             ClipTransport {
                 track_descriptor,
                 slot_index,
@@ -458,32 +461,34 @@ impl UnresolvedReaperTarget {
                 if let Some(desc) = track_descriptor.as_ref() {
                     get_effective_tracks(context, &desc.track, compartment)?
                         .into_iter()
-                        .map(|track| ReaperTarget::ClipTransport {
-                            track: Some(track),
-                            slot_index: *slot_index,
-                            action: *action,
-                            play_options: *play_options,
+                        .map(|track| {
+                            ReaperTarget::ClipTransport(ClipTransportTarget {
+                                track: Some(track),
+                                slot_index: *slot_index,
+                                action: *action,
+                                play_options: *play_options,
+                            })
                         })
                         .collect()
                 } else {
-                    vec![ReaperTarget::ClipTransport {
+                    vec![ReaperTarget::ClipTransport(ClipTransportTarget {
                         track: None,
                         slot_index: *slot_index,
                         action: *action,
                         play_options: *play_options,
-                    }]
+                    })]
                 }
             }
             ClipSeek {
                 slot_index,
                 feedback_resolution,
-            } => vec![ReaperTarget::ClipSeek {
+            } => vec![ReaperTarget::ClipSeek(ClipSeekTarget {
                 slot_index: *slot_index,
                 feedback_resolution: *feedback_resolution,
-            }],
-            ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume {
+            })],
+            ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
                 slot_index: *slot_index,
-            }],
+            })],
         };
         Ok(resolved_targets)
     }

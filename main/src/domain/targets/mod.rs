@@ -1,6 +1,18 @@
 mod midi_send_target;
 pub use midi_send_target::*;
 
+mod osc_send_target;
+pub use osc_send_target::*;
+
+mod clip_transport_target;
+pub use clip_transport_target::*;
+
+mod clip_seek_target;
+pub use clip_seek_target::*;
+
+mod clip_volume_target;
+pub use clip_volume_target::*;
+
 mod track_peak_target;
 pub use track_peak_target::*;
 
@@ -42,6 +54,15 @@ pub use all_track_fx_enable_target::*;
 
 mod transport_target;
 pub use transport_target::*;
+
+mod automation_touch_state_target;
+pub use automation_touch_state_target::*;
+
+mod go_to_bookmark_target;
+pub use go_to_bookmark_target::*;
+
+mod seek_target;
+pub use seek_target::*;
 
 mod track_volume_target;
 pub use track_volume_target::*;

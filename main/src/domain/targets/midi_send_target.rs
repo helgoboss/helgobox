@@ -13,24 +13,6 @@ pub struct MidiSendTarget {
     pub destination: SendMidiDestination,
 }
 
-impl MidiSendTarget {
-    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
-    }
-}
-
-impl<'a> Target<'a> for MidiSendTarget {
-    type Context = ();
-
-    fn current_value(&self, _context: ()) -> Option<UnitValue> {
-        None
-    }
-
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
-    }
-}
-
 impl RealearnTarget for MidiSendTarget {
     fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
         match self.pattern.step_size() {
@@ -141,5 +123,21 @@ impl RealearnTarget for MidiSendTarget {
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
         Some(RealTimeReaperTarget::SendMidi(self.clone()))
+    }
+
+    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
+    }
+}
+
+impl<'a> Target<'a> for MidiSendTarget {
+    type Context = ();
+
+    fn current_value(&self, _context: ()) -> Option<UnitValue> {
+        None
+    }
+
+    fn control_type(&self) -> ControlType {
+        self.control_type_and_character().0
     }
 }

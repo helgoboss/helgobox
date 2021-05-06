@@ -15,13 +15,13 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxDisplayType, FxParameterDescriptor, FxParameterTarget, MappingCompartment,
-    OscDeviceId, PlayPosFeedbackResolution, ProcessorContext, RealearnTarget, ReaperTarget,
-    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType,
-    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
-    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
-    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
-    VirtualTrack, VirtualTrackRoute,
+    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
+    PlayPosFeedbackResolution, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
+    SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor,
+    TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -394,19 +394,15 @@ impl TargetModel {
             Transport(t) => {
                 self.transport_action.set(t.action);
             }
-            AutomationTouchState { parameter_type, .. } => {
-                self.touched_parameter_type.set(*parameter_type);
+            AutomationTouchState(t) => {
+                self.touched_parameter_type.set(t.parameter_type);
             }
             TrackSolo(t) => {
                 self.solo_behavior.set(t.behavior);
             }
-            GoToBookmark {
-                index,
-                bookmark_type,
-                ..
-            } => {
-                self.bookmark_ref.set(*index);
-                self.bookmark_type.set(*bookmark_type);
+            GoToBookmark(t) => {
+                self.bookmark_ref.set(t.index);
+                self.bookmark_type.set(t.bookmark_type);
             }
             TrackAutomationMode(t) => {
                 self.track_automation_mode
