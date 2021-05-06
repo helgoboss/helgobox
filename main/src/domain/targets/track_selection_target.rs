@@ -1,14 +1,10 @@
-use crate::domain::ui_util::{
-    format_as_percentage_without_unit, format_value_as_db, format_value_as_db_without_unit,
-    parse_unit_value_from_percentage, parse_value_from_db, volume_unit_value,
-};
 use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
     handle_track_exclusivity, track_selected_unit_value, ControlContext, RealearnTarget,
     TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Reaper, Track, Volume};
+use reaper_high::{ChangeEvent, Project, Reaper, Track};
 use reaper_medium::CommandId;
 
 #[derive(Clone, Debug, PartialEq)]

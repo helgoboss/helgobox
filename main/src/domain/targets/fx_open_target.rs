@@ -1,14 +1,10 @@
-use crate::domain::ui_util::{
-    convert_bool_to_unit_value, fx_parameter_unit_value, parse_unit_value_from_percentage,
-};
+use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, fx_enable_unit_value, AdditionalFeedbackEvent, ControlContext,
-    FxDisplayType, RealearnTarget, TargetCharacter,
+    format_value_as_on_off, ControlContext, FxDisplayType, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
-use reaper_medium::{FxChainVisibility, GetParameterStepSizesResult, ReaperNormalizedFxParamValue};
-use std::convert::TryInto;
+use reaper_high::{ChangeEvent, Fx, Project, Track};
+use reaper_medium::FxChainVisibility;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxOpenTarget {

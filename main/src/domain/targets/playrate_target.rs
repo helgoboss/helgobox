@@ -1,18 +1,12 @@
-use crate::domain::ui_util::{
-    convert_bool_to_unit_value, format_as_percentage_without_unit, parse_unit_value_from_percentage,
-};
 use crate::domain::{
-    bpm_span, format_step_size_as_bpm_without_unit,
-    format_step_size_as_playback_speed_factor_without_unit, format_value_as_bpm_without_unit,
-    format_value_as_playback_speed_factor_without_unit, parse_step_size_from_bpm,
-    parse_step_size_from_playback_speed_factor, parse_value_from_bpm,
+    format_step_size_as_playback_speed_factor_without_unit,
+    format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
-    tempo_unit_value, ActionInvocationType, AdditionalFeedbackEvent, ControlContext,
-    RealearnTarget, TargetCharacter,
+    ControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, ChangeEvent, PlayRate, Project, Reaper};
-use reaper_medium::{CommandId, NormalizedPlayRate, UndoBehavior};
+use reaper_high::{ChangeEvent, PlayRate, Project};
+use reaper_medium::NormalizedPlayRate;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlayrateTarget {

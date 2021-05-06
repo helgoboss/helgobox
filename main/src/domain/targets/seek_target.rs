@@ -1,11 +1,10 @@
-use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    current_value_of_seek, get_seek_info, ActionInvocationType, AdditionalFeedbackEvent,
-    ControlContext, RealearnTarget, SeekOptions, TargetCharacter,
+    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext, RealearnTarget,
+    SeekOptions, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, Project, Reaper};
-use reaper_medium::{CommandId, PositionInSeconds, SetEditCurPosOptions};
+use reaper_high::Project;
+use reaper_medium::{PositionInSeconds, SetEditCurPosOptions};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeekTarget {

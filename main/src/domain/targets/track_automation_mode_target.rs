@@ -1,12 +1,10 @@
 use crate::domain::{
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, mute_unit_value, track_arm_unit_value,
-    track_automation_mode_unit_value, track_solo_unit_value, ControlContext, RealearnTarget,
-    SoloBehavior, TargetCharacter, TrackExclusivity,
+    format_value_as_on_off, handle_track_exclusivity, track_automation_mode_unit_value,
+    ControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
-use reaper_medium::{AutomationMode, SoloMode};
+use reaper_medium::AutomationMode;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackAutomationModeTarget {

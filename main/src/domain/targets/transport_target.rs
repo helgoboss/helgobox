@@ -1,11 +1,9 @@
-use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, transport_is_enabled_unit_value, ActionInvocationType,
-    AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter, TransportAction,
+    format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent,
+    ControlContext, RealearnTarget, TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, ChangeEvent, Project, Reaper};
-use reaper_medium::CommandId;
+use reaper_high::{ChangeEvent, Project, Reaper};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransportTarget {

@@ -1,11 +1,10 @@
 use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, touched_unit_value, track_arm_unit_value, AdditionalFeedbackEvent,
-    BackboneState, ControlContext, RealearnTarget, TargetCharacter, TouchedParameterType,
-    TrackExclusivity,
+    handle_track_exclusivity, touched_unit_value, AdditionalFeedbackEvent, BackboneState,
+    ControlContext, RealearnTarget, TargetCharacter, TouchedParameterType, TrackExclusivity,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Track};
+use reaper_high::{Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AutomationTouchStateTarget {

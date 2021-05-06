@@ -1,10 +1,8 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, ControlContext, FeedbackAudioHookTask, FeedbackOutput,
-    InstanceFeedbackEvent, MidiDestination, RealTimeReaperTarget, RealearnTarget, ReaperTarget,
-    SendMidiDestination, TargetCharacter, TrackExclusivity,
+    ControlContext, FeedbackAudioHookTask, FeedbackOutput, MidiDestination, RealTimeReaperTarget,
+    RealearnTarget, SendMidiDestination, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, RawMidiPattern, Target, UnitValue};
-use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]

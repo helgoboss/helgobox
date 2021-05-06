@@ -1,11 +1,10 @@
 use crate::domain::{
     all_track_fx_enable_unit_value, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity,
-    mute_unit_value, track_arm_unit_value, ControlContext, RealearnTarget, TargetCharacter,
-    TrackExclusivity,
+    get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity, ControlContext,
+    RealearnTarget, TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Track};
+use reaper_high::{Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AllTrackFxEnableTarget {

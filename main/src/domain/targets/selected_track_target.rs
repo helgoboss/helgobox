@@ -1,10 +1,9 @@
-use crate::domain::ui_util::{convert_bool_to_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, selected_track_unit_value,
-    ActionInvocationType, AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
+    ControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, ChangeEvent, Project, Reaper};
+use reaper_high::{ChangeEvent, Project, Reaper};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 
 #[derive(Clone, Debug, PartialEq)]

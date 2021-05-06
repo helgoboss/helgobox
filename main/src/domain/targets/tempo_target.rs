@@ -1,14 +1,11 @@
-use crate::domain::ui_util::{
-    convert_bool_to_unit_value, format_as_percentage_without_unit, parse_unit_value_from_percentage,
-};
 use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
-    parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ActionInvocationType,
-    AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
+    parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ControlContext,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, ChangeEvent, Project, Reaper};
-use reaper_medium::{CommandId, UndoBehavior};
+use reaper_high::{ChangeEvent, Project};
+use reaper_medium::UndoBehavior;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TempoTarget {

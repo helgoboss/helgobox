@@ -1,11 +1,10 @@
-use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, global_automation_mode_override_unit_value, ActionInvocationType,
-    AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
+    format_value_as_on_off, global_automation_mode_override_unit_value, ControlContext,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, ChangeEvent, Project, Reaper};
-use reaper_medium::{CommandId, GlobalAutomationModeOverride};
+use reaper_high::{ChangeEvent, Reaper};
+use reaper_medium::GlobalAutomationModeOverride;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AutomationModeOverrideTarget {

@@ -1,15 +1,10 @@
 use crate::domain::ui_util::{
-    format_as_double_percentage_without_unit, format_as_percentage_without_unit,
-    format_as_symmetric_percentage_without_unit, format_value_as_db,
-    format_value_as_db_without_unit, parse_from_double_percentage, parse_from_symmetric_percentage,
-    parse_unit_value_from_percentage, parse_value_from_db, volume_unit_value,
+    format_as_double_percentage_without_unit, format_as_symmetric_percentage_without_unit,
+    parse_from_double_percentage, parse_from_symmetric_percentage,
 };
-use crate::domain::{
-    format_value_as_pan, pan_unit_value, parse_value_from_pan, width_unit_value, ControlContext,
-    PanExt, RealearnTarget, TargetCharacter,
-};
+use crate::domain::{width_unit_value, ControlContext, PanExt, RealearnTarget, TargetCharacter};
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track, Volume, Width};
+use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackWidthTarget {

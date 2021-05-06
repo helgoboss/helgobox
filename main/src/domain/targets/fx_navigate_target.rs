@@ -1,13 +1,9 @@
-use crate::domain::ui_util::{
-    format_as_percentage_without_unit, format_value_as_db, format_value_as_db_without_unit,
-    parse_unit_value_from_percentage, parse_value_from_db, volume_unit_value,
-};
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
     ControlContext, FxDisplayType, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, FxChain, Project, Track, Volume};
+use reaper_high::{ChangeEvent, FxChain, Project, Track};
 use reaper_medium::FxChainVisibility;
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,55 +1,38 @@
 use crate::core::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{
-    ControlType, ControlValue, OscArgDescriptor, OscTypeTag, RawMidiPattern, Target, UnitValue,
-};
+use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, ActionCharacter, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain,
-    FxParameter, FxParameterCharacter, Pan, PlayRate, Project, Reaper, Tempo, Track, TrackRoute,
-    Volume, Width,
+    Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, Pan, PlayRate, Project,
+    Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
-    AutoSeekBehavior, AutomationMode, BookmarkRef, Bpm, CommandId, Db, FxChainVisibility,
-    FxPresetRef, GetLoopTimeRange2Result, GetParameterStepSizesResult,
-    GlobalAutomationModeOverride, MasterTrackBehavior, NormalizedPlayRate, PlaybackSpeedFactor,
-    PositionInSeconds, ReaperNormalizedFxParamValue, ReaperPanValue, ReaperVolumeValue,
-    ReaperWidthValue, SetEditCurPosOptions, SoloMode, TrackArea, UndoBehavior,
+    AutomationMode, Bpm, GetLoopTimeRange2Result, GlobalAutomationModeOverride, NormalizedPlayRate,
+    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue,
 };
 use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
 
+use crate::domain::RealearnTarget;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use slog::warn;
 
 use crate::core::Global;
-use crate::domain::ui_util::{
-    convert_bool_to_unit_value, format_as_double_percentage_without_unit,
-    format_as_percentage_without_unit, format_as_symmetric_percentage_without_unit,
-    format_value_as_db, format_value_as_db_without_unit, fx_parameter_unit_value,
-    parse_from_double_percentage, parse_from_symmetric_percentage,
-    parse_unit_value_from_percentage, parse_value_from_db, reaper_volume_unit_value,
-    volume_unit_value,
-};
+use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AdditionalFeedbackEvent, AllTrackFxEnableTarget,
-    AutomationModeOverrideTarget, AutomationTouchStateTarget, BackboneState, ClipChangedEvent,
-    ClipPlayState, ClipSeekTarget, ClipTransportTarget, ClipVolumeTarget, ControlContext,
-    FeedbackAudioHookTask, FeedbackOutput, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
-    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
-    InstanceFeedbackEvent, LoadFxSnapshotTarget, MidiDestination, MidiSendTarget, OscDeviceId,
-    OscFeedbackTask, OscSendTarget, PlayrateTarget, RealearnTarget, RouteMuteTarget,
-    RoutePanTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget, SlotPlayOptions,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportTarget,
+    AutomationModeOverrideTarget, AutomationTouchStateTarget, ClipPlayState, ClipSeekTarget,
+    ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
+    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
+    HierarchyEntryProvider, InstanceFeedbackEvent, LoadFxSnapshotTarget, MidiSendTarget,
+    OscSendTarget, PlayrateTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget,
+    SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget,
+    TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
 };
 use enum_dispatch::enum_dispatch;
-use rosc::OscMessage;
 use std::convert::TryInto;
-use std::num::NonZeroU32;
 use std::rc::Rc;
 
 /// This target character is just used for auto-correct settings! It doesn't have influence
@@ -583,43 +566,42 @@ impl<'a> Target<'a> for ReaperTarget {
 
     fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
         use ReaperTarget::*;
-        let result = match self {
-            SendOsc { .. } => return None,
-            SendMidi(t) => return t.current_value(()),
-            TrackPeak(t) => return t.current_value(context),
-            Action(t) => return t.current_value(()),
-            FxParameter(t) => return t.current_value(()),
-            TrackVolume(t) => return t.current_value(()),
-            TrackPan(t) => return t.current_value(()),
-            TrackWidth(t) => return t.current_value(()),
-            TrackArm(t) => return t.current_value(()),
-            TrackRouteVolume(t) => return t.current_value(()),
-            TrackSelection(t) => return t.current_value(()),
-            TrackMute(t) => return t.current_value(()),
-            TrackShow(t) => return t.current_value(()),
-            TrackSolo(t) => return t.current_value(()),
-            TrackAutomationMode(t) => return t.current_value(()),
-            TrackRoutePan(t) => return t.current_value(()),
-            TrackRouteMute(t) => return t.current_value(()),
-            Tempo(t) => return t.current_value(()),
-            Playrate(t) => return t.current_value(()),
-            AutomationModeOverride(t) => return t.current_value(()),
-            FxEnable(t) => return t.current_value(()),
-            FxOpen(t) => return t.current_value(()),
-            FxPreset(t) => return t.current_value(()),
-            LoadFxSnapshot(t) => return t.current_value(()),
-            SelectedTrack(t) => return t.current_value(()),
-            FxNavigate(t) => return t.current_value(()),
-            AllTrackFxEnable(t) => return t.current_value(()),
-            Transport(t) => return t.current_value(()),
-            AutomationTouchState(t) => return t.current_value(()),
-            GoToBookmark(t) => return t.current_value(()),
-            Seek(t) => return t.current_value(()),
-            ClipTransport(t) => return t.current_value(context),
-            ClipSeek(t) => return t.current_value(context),
-            ClipVolume(t) => return t.current_value(context),
-        };
-        Some(result)
+        match self {
+            SendOsc { .. } => None,
+            SendMidi(t) => t.current_value(()),
+            TrackPeak(t) => t.current_value(context),
+            Action(t) => t.current_value(()),
+            FxParameter(t) => t.current_value(()),
+            TrackVolume(t) => t.current_value(()),
+            TrackPan(t) => t.current_value(()),
+            TrackWidth(t) => t.current_value(()),
+            TrackArm(t) => t.current_value(()),
+            TrackRouteVolume(t) => t.current_value(()),
+            TrackSelection(t) => t.current_value(()),
+            TrackMute(t) => t.current_value(()),
+            TrackShow(t) => t.current_value(()),
+            TrackSolo(t) => t.current_value(()),
+            TrackAutomationMode(t) => t.current_value(()),
+            TrackRoutePan(t) => t.current_value(()),
+            TrackRouteMute(t) => t.current_value(()),
+            Tempo(t) => t.current_value(()),
+            Playrate(t) => t.current_value(()),
+            AutomationModeOverride(t) => t.current_value(()),
+            FxEnable(t) => t.current_value(()),
+            FxOpen(t) => t.current_value(()),
+            FxPreset(t) => t.current_value(()),
+            LoadFxSnapshot(t) => t.current_value(()),
+            SelectedTrack(t) => t.current_value(()),
+            FxNavigate(t) => t.current_value(()),
+            AllTrackFxEnable(t) => t.current_value(()),
+            Transport(t) => t.current_value(()),
+            AutomationTouchState(t) => t.current_value(()),
+            GoToBookmark(t) => t.current_value(()),
+            Seek(t) => t.current_value(()),
+            ClipTransport(t) => t.current_value(context),
+            ClipSeek(t) => t.current_value(context),
+            ClipVolume(t) => t.current_value(context),
+        }
     }
 
     fn control_type(&self) -> ControlType {

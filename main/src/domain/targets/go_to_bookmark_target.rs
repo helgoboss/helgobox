@@ -1,11 +1,10 @@
-use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    current_value_of_bookmark, format_value_as_on_off, ActionInvocationType,
-    AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
+    current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent, ControlContext,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{Action, ActionCharacter, BookmarkType, ChangeEvent, Project, Reaper};
-use reaper_medium::{AutoSeekBehavior, BookmarkRef, CommandId};
+use reaper_high::{BookmarkType, ChangeEvent, Project};
+use reaper_medium::{AutoSeekBehavior, BookmarkRef};
 use std::num::NonZeroU32;
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,17 +1,10 @@
-use crate::domain::ui_util::{
-    convert_bool_to_unit_value, fx_parameter_unit_value, parse_unit_value_from_percentage,
-};
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_preset_index, format_value_as_on_off,
-    fx_enable_unit_value, fx_preset_unit_value, AdditionalFeedbackEvent, ControlContext,
-    FxDisplayType, RealearnTarget, TargetCharacter,
+    convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
+    ControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
-use reaper_medium::{
-    FxChainVisibility, FxPresetRef, GetParameterStepSizesResult, ReaperNormalizedFxParamValue,
-};
-use std::convert::TryInto;
+use reaper_high::{ChangeEvent, Fx, Project, Track};
+use reaper_medium::FxPresetRef;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxPresetTarget {

@@ -1,14 +1,8 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, ControlContext, FeedbackAudioHookTask, FeedbackOutput,
-    InstanceFeedbackEvent, MidiDestination, OscDeviceId, OscFeedbackTask, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, SendMidiDestination, TargetCharacter, TrackExclusivity,
+    ControlContext, FeedbackOutput, OscDeviceId, OscFeedbackTask, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{
-    ControlType, ControlValue, OscArgDescriptor, OscTypeTag, RawMidiPattern, Target, UnitValue,
-};
-use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
+use helgoboss_learn::{ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target, UnitValue};
 use rosc::OscMessage;
-use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OscSendTarget {

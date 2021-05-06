@@ -1,9 +1,7 @@
 use crate::domain::{
-    clip_play_state_unit_value, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity,
-    track_arm_unit_value, transport_is_enabled_unit_value, ClipChangedEvent, ControlContext,
-    InstanceFeedbackEvent, RealearnTarget, SlotPlayOptions, TargetCharacter, TrackExclusivity,
-    TransportAction,
+    clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
+    ClipChangedEvent, ControlContext, InstanceFeedbackEvent, RealearnTarget, SlotPlayOptions,
+    TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
