@@ -1,11 +1,14 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, ActionTarget, BackboneState, ExtendedProcessorContext, FxDisplayType,
-    FxParameterTarget, MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice,
-    PlayPosFeedbackResolution, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackArmTarget, TrackExclusivity,
-    TrackPanTarget, TrackPeakTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction,
+    ActionInvocationType, ActionTarget, AutomationModeOverrideTarget, BackboneState,
+    ExtendedProcessorContext, FxDisplayType, FxEnableTarget, FxOpenTarget, FxParameterTarget,
+    FxPresetTarget, MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice,
+    PlayPosFeedbackResolution, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget,
+    RoutePanTarget, RouteVolumeTarget, SeekOptions, SendMidiDestination, SlotPlayOptions,
+    SoloBehavior, TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget,
+    TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget,
+    TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
@@ -202,9 +205,11 @@ impl UnresolvedReaperTarget {
                     .map(|track| ReaperTarget::TrackPeak(TrackPeakTarget { track }))
                     .collect()
             }
-            TrackSendVolume { descriptor } => vec![ReaperTarget::TrackRouteVolume {
-                route: get_track_route(context, descriptor, compartment)?,
-            }],
+            TrackSendVolume { descriptor } => {
+                vec![ReaperTarget::TrackRouteVolume(RouteVolumeTarget {
+                    route: get_track_route(context, descriptor, compartment)?,
+                })]
+            }
             TrackPan { track_descriptor } => {
                 get_effective_tracks(context, &track_descriptor.track, compartment)?
                     .into_iter()
@@ -236,11 +241,13 @@ impl UnresolvedReaperTarget {
                 scroll_mixer,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackSelection {
-                    track,
-                    exclusivity: *exclusivity,
-                    scroll_arrange_view: *scroll_arrange_view,
-                    scroll_mixer: *scroll_mixer,
+                .map(|track| {
+                    ReaperTarget::TrackSelection(TrackSelectionTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                        scroll_arrange_view: *scroll_arrange_view,
+                        scroll_mixer: *scroll_mixer,
+                    })
                 })
                 .collect(),
             TrackMute {
@@ -248,9 +255,11 @@ impl UnresolvedReaperTarget {
                 exclusivity,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackMute {
-                    track,
-                    exclusivity: *exclusivity,
+                .map(|track| {
+                    ReaperTarget::TrackMute(TrackMuteTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                    })
                 })
                 .collect(),
             TrackShow {
@@ -259,10 +268,12 @@ impl UnresolvedReaperTarget {
                 area,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackShow {
-                    track,
-                    exclusivity: *exclusivity,
-                    area: *area,
+                .map(|track| {
+                    ReaperTarget::TrackShow(TrackShowTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                        area: *area,
+                    })
                 })
                 .collect(),
             TrackSolo {
@@ -271,10 +282,12 @@ impl UnresolvedReaperTarget {
                 behavior,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackSolo {
-                    track,
-                    exclusivity: *exclusivity,
-                    behavior: *behavior,
+                .map(|track| {
+                    ReaperTarget::TrackSolo(TrackSoloTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                        behavior: *behavior,
+                    })
                 })
                 .collect(),
             TrackAutomationMode {
@@ -283,42 +296,46 @@ impl UnresolvedReaperTarget {
                 mode,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::TrackAutomationMode {
-                    track,
-                    exclusivity: *exclusivity,
-                    mode: *mode,
+                .map(|track| {
+                    ReaperTarget::TrackAutomationMode(TrackAutomationModeTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                        mode: *mode,
+                    })
                 })
                 .collect(),
-            TrackSendPan { descriptor } => vec![ReaperTarget::TrackRoutePan {
+            TrackSendPan { descriptor } => vec![ReaperTarget::TrackRoutePan(RoutePanTarget {
                 route: get_track_route(context, descriptor, compartment)?,
-            }],
-            TrackSendMute { descriptor } => vec![ReaperTarget::TrackRouteMute {
+            })],
+            TrackSendMute { descriptor } => vec![ReaperTarget::TrackRouteMute(RouteMuteTarget {
                 route: get_track_route(context, descriptor, compartment)?,
-            }],
-            Tempo => vec![ReaperTarget::Tempo {
+            })],
+            Tempo => vec![ReaperTarget::Tempo(TempoTarget {
                 project: context.context().project_or_current_project(),
-            }],
-            Playrate => vec![ReaperTarget::Playrate {
+            })],
+            Playrate => vec![ReaperTarget::Playrate(PlayrateTarget {
                 project: context.context().project_or_current_project(),
-            }],
+            })],
             AutomationModeOverride { mode_override } => {
-                vec![ReaperTarget::AutomationModeOverride {
-                    mode_override: *mode_override,
-                }]
+                vec![ReaperTarget::AutomationModeOverride(
+                    AutomationModeOverrideTarget {
+                        mode_override: *mode_override,
+                    },
+                )]
             }
-            FxEnable { fx_descriptor } => vec![ReaperTarget::FxEnable {
+            FxEnable { fx_descriptor } => vec![ReaperTarget::FxEnable(FxEnableTarget {
                 fx: get_fx(context, fx_descriptor, compartment)?,
-            }],
+            })],
             FxOpen {
                 fx_descriptor,
                 display_type,
-            } => vec![ReaperTarget::FxOpen {
+            } => vec![ReaperTarget::FxOpen(FxOpenTarget {
                 fx: get_fx(context, fx_descriptor, compartment)?,
                 display_type: *display_type,
-            }],
-            FxPreset { fx_descriptor } => vec![ReaperTarget::FxPreset {
+            })],
+            FxPreset { fx_descriptor } => vec![ReaperTarget::FxPreset(FxPresetTarget {
                 fx: get_fx(context, fx_descriptor, compartment)?,
-            }],
+            })],
             SelectedTrack {
                 scroll_arrange_view,
                 scroll_mixer,

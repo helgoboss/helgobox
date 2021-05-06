@@ -397,8 +397,8 @@ impl TargetModel {
             AutomationTouchState { parameter_type, .. } => {
                 self.touched_parameter_type.set(*parameter_type);
             }
-            TrackSolo { behavior, .. } => {
-                self.solo_behavior.set(*behavior);
+            TrackSolo(t) => {
+                self.solo_behavior.set(t.behavior);
             }
             GoToBookmark {
                 index,
@@ -408,11 +408,11 @@ impl TargetModel {
                 self.bookmark_ref.set(*index);
                 self.bookmark_type.set(*bookmark_type);
             }
-            TrackAutomationMode { mode, .. } => {
+            TrackAutomationMode(t) => {
                 self.track_automation_mode
-                    .set(RealearnAutomationMode::from_reaper(*mode));
+                    .set(RealearnAutomationMode::from_reaper(t.mode));
             }
-            AutomationModeOverride { mode_override } => match mode_override {
+            AutomationModeOverride(t) => match t.mode_override {
                 None => {
                     self.automation_mode_override_type
                         .set(AutomationModeOverrideType::None);
@@ -425,7 +425,7 @@ impl TargetModel {
                     self.automation_mode_override_type
                         .set(AutomationModeOverrideType::Override);
                     self.track_automation_mode
-                        .set(RealearnAutomationMode::from_reaper(*am));
+                        .set(RealearnAutomationMode::from_reaper(am));
                 }
             },
             SendMidi { .. }
