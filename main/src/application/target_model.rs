@@ -391,8 +391,8 @@ impl TargetModel {
                 self.param_type.set(VirtualFxParameterType::ByIndex);
                 self.param_index.set(t.param.index());
             }
-            Transport { action, .. } => {
-                self.transport_action.set(*action);
+            Transport(t) => {
+                self.transport_action.set(t.action);
             }
             AutomationTouchState { parameter_type, .. } => {
                 self.touched_parameter_type.set(*parameter_type);

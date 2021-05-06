@@ -28,6 +28,21 @@ pub use fx_open_target::*;
 mod fx_preset_target;
 pub use fx_preset_target::*;
 
+mod load_fx_snapshot_target;
+pub use load_fx_snapshot_target::*;
+
+mod selected_track_target;
+pub use selected_track_target::*;
+
+mod fx_navigate_target;
+pub use fx_navigate_target::*;
+
+mod all_track_fx_enable_target;
+pub use all_track_fx_enable_target::*;
+
+mod transport_target;
+pub use transport_target::*;
+
 mod track_volume_target;
 pub use track_volume_target::*;
 

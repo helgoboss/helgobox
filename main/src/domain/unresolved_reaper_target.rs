@@ -1,14 +1,15 @@
 use crate::application::BookmarkAnchorType;
 use crate::core::hash_util;
 use crate::domain::{
-    ActionInvocationType, ActionTarget, AutomationModeOverrideTarget, BackboneState,
-    ExtendedProcessorContext, FxDisplayType, FxEnableTarget, FxOpenTarget, FxParameterTarget,
-    FxPresetTarget, MappingCompartment, MidiSendTarget, OscDeviceId, ParameterSlice,
-    PlayPosFeedbackResolution, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget,
-    RoutePanTarget, RouteVolumeTarget, SeekOptions, SendMidiDestination, SlotPlayOptions,
-    SoloBehavior, TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget,
-    TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget,
-    TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction,
+    ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
+    BackboneState, ExtendedProcessorContext, FxDisplayType, FxEnableTarget, FxNavigateTarget,
+    FxOpenTarget, FxParameterTarget, FxPresetTarget, LoadFxSnapshotTarget, MappingCompartment,
+    MidiSendTarget, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, PlayrateTarget,
+    RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions,
+    SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget,
+    TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
+    TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
+    TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
@@ -339,16 +340,16 @@ impl UnresolvedReaperTarget {
             SelectedTrack {
                 scroll_arrange_view,
                 scroll_mixer,
-            } => vec![ReaperTarget::SelectedTrack {
+            } => vec![ReaperTarget::SelectedTrack(SelectedTrackTarget {
                 project: context.context().project_or_current_project(),
                 scroll_arrange_view: *scroll_arrange_view,
                 scroll_mixer: *scroll_mixer,
-            }],
+            })],
             FxNavigate {
                 track_descriptor,
                 is_input_fx,
                 display_type,
-            } => vec![ReaperTarget::FxNavigate {
+            } => vec![ReaperTarget::FxNavigate(FxNavigateTarget {
                 fx_chain: get_fx_chain(
                     context,
                     &track_descriptor.track,
@@ -356,29 +357,31 @@ impl UnresolvedReaperTarget {
                     compartment,
                 )?,
                 display_type: *display_type,
-            }],
+            })],
             AllTrackFxEnable {
                 track_descriptor,
                 exclusivity,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
-                .map(|track| ReaperTarget::AllTrackFxEnable {
-                    track,
-                    exclusivity: *exclusivity,
+                .map(|track| {
+                    ReaperTarget::AllTrackFxEnable(AllTrackFxEnableTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                    })
                 })
                 .collect(),
-            Transport { action } => vec![ReaperTarget::Transport {
+            Transport { action } => vec![ReaperTarget::Transport(TransportTarget {
                 project: context.context().project_or_current_project(),
                 action: *action,
-            }],
+            })],
             LoadFxPreset {
                 fx_descriptor,
                 chunk,
-            } => vec![ReaperTarget::LoadFxSnapshot {
+            } => vec![ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
                 fx: get_fx(context, fx_descriptor, compartment)?,
                 chunk: chunk.clone(),
                 chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
-            }],
+            })],
             LastTouched => {
                 let last_touched_target = BackboneState::get()
                     .last_touched_target()
