@@ -90,12 +90,9 @@ impl RealearnTarget for ClipTransportTarget {
         context: ControlContext,
     ) -> (bool, Option<UnitValue>) {
         // Feedback handled from instance-scoped feedback events.
-        match evt {
-            ChangeEvent::PlayStateChanged(e) => {
-                let mut instance_state = context.instance_state.borrow_mut();
-                instance_state.process_transport_change(e.new_value);
-            }
-            _ => {}
+        if let ChangeEvent::PlayStateChanged(e) = evt {
+            let mut instance_state = context.instance_state.borrow_mut();
+            instance_state.process_transport_change(e.new_value);
         };
         (false, None)
     }

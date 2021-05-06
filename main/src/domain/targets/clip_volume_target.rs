@@ -57,13 +57,8 @@ impl RealearnTarget for ClipVolumeTarget {
         match evt {
             InstanceFeedbackEvent::ClipChanged {
                 slot_index: si,
-                event,
-            } if *si == self.slot_index => match event {
-                ClipChangedEvent::ClipVolumeChanged(new_value) => {
-                    (true, Some(reaper_volume_unit_value(*new_value)))
-                }
-                _ => (false, None),
-            },
+                event: ClipChangedEvent::ClipVolumeChanged(new_value),
+            } if *si == self.slot_index => (true, Some(reaper_volume_unit_value(*new_value))),
             _ => (false, None),
         }
     }
