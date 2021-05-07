@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-05-03 (v2.9.0-pre7)</code></td>
+  <td><code>2021-05-07 (v2.9.0-pre8)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1730,6 +1730,22 @@ Enables all the track's FX instances if the incoming absolute control value is g
 
 Mutes the track if the incoming absolute control value is greater than 0%, otherwise unmutes the
 track.
+
+###### Track: Peak
+
+This is a feedback-only target! It turns your feedback-capable controller into a VU meter by constantly reporting the
+current volume of the configured track to it.
+
+In addition to connecting it with a LED ring or motor fader source (which should be obvious), it can also be used with
+a single LED to build a clipping indicator:
+
+1. Set *Target Min* to the minimum dB value that should make your clipping LED turn on. Leave *Target Max* at 12.00 dB.
+2. Make sure the *Out-of-range* behavior is set to "Min or max".
+3. If you have an LED that supports multiple colors, you will probably see a rainbow of colors flashing up which can be
+   quite confusing. Use the feedback transformation formula `x = ceil(y)` to restrict the feedback to just two values:
+   Min (0%) or Max (100%). You can then use *Source Min* and *Max* to adjust the off/on LED colors. 
+
+At the moment this target only reports peak volume, not RMS.
 
 ###### Track: Select/unselect
 
