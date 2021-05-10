@@ -332,9 +332,14 @@ impl TargetModelData {
         let scroll_mixer = if self.category == TargetCategory::Reaper
             && self.r#type == ReaperTargetType::TrackSelection
         {
-            preset_version
+            let is_old_preset = preset_version
                 .map(|v| v < &Version::new(2, 8, 0))
-                .unwrap_or(true)
+                .unwrap_or(true);
+            if is_old_preset {
+                true
+            } else {
+                self.scroll_mixer
+            }
         } else {
             self.scroll_mixer
         };
