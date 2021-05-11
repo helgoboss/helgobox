@@ -454,6 +454,9 @@ impl MainMapping {
             );
             if let Some(v) = final_value {
                 at_least_one_target_val_was_changed = true;
+                if self.core.options.prevent_echo_feedback {
+                    self.core.time_of_last_control = Some(Instant::now());
+                }
                 // Be graceful here.
                 if let Err(msg) = target.control(v, context) {
                     slog::debug!(logger, "Control failed: {}", msg);
@@ -470,9 +473,6 @@ impl MainMapping {
             }
         }
         if at_least_one_target_val_was_changed {
-            if self.core.options.prevent_echo_feedback {
-                self.core.time_of_last_control = Some(Instant::now());
-            }
             if send_feedback {
                 self.feedback(true, context)
             } else {
