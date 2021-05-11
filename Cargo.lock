@@ -2630,7 +2630,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.9.0-pre.9"
+version = "2.9.0"
 dependencies = [
  "ascii",
  "askama",
