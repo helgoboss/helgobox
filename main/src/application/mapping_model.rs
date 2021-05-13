@@ -167,7 +167,7 @@ impl MappingModel {
 
     pub fn adjust_mode_if_necessary(&mut self, context: ExtendedProcessorContext) {
         let with_context = self.with_context(context);
-        if with_context.mode_makes_sense().contains(&false) {
+        if with_context.mode_makes_sense() == Ok(false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
                 self.mode_model.r#type.set(preferred_mode_type);
                 self.set_preferred_mode_values(context);

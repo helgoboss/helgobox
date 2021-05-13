@@ -57,7 +57,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                     return None;
                 }
                 let path = dir_entry.path();
-                if !path.extension().contains(&"json") {
+                if path.extension() != Some(std::ffi::OsStr::new("json")) {
                     return None;
                 };
                 Some(path)

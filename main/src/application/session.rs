@@ -247,7 +247,7 @@ impl Session {
                 MidiControlInput::Device(dev_id) => dev_id == *device_id,
             },
             InputDescriptor::Osc { device_id } => {
-                self.osc_input_device_id.get_ref().contains(device_id)
+                self.osc_input_device_id.get_ref().as_ref() == Some(device_id)
             }
         }
     }

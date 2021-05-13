@@ -1161,7 +1161,7 @@ impl App {
     fn find_first_session_on_track(&self, track: &Track) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().track().contains(&track)
+            session.context().track() == Some(track)
         })
     }
 
@@ -1369,7 +1369,7 @@ impl Default for MainConfig {
 
 fn build_detailed_version() -> String {
     use crate::infrastructure::plugin::built_info::*;
-    let dirty_mark = if GIT_DIRTY.contains(&true) {
+    let dirty_mark = if GIT_DIRTY == Some(true) {
         "-dirty"
     } else {
         ""
