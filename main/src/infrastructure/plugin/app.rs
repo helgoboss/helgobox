@@ -30,7 +30,6 @@ use reaper_medium::{
     RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -673,7 +672,7 @@ impl App {
             .unwrap();
     }
 
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.borrow().clone()
     }
 
@@ -738,7 +737,7 @@ impl App {
         &CHANNEL
     }
 
-    pub fn sessions_changed(&self) -> impl UnitEvent {
+    pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.borrow().clone()
     }
 
@@ -1252,7 +1251,7 @@ impl App {
         self.changed_subject.borrow_mut().next(());
     }
 
-    fn party_is_over(&self) -> impl UnitEvent {
+    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.party_is_over_subject.clone()
     }
 }

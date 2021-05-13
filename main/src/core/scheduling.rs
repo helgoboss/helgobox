@@ -1,5 +1,4 @@
 use reaper_high::Reaper;
-use rx_util::{Event, SharedPayload};
 use rxrust::prelude::*;
 
 use crate::core::Global;
@@ -9,7 +8,7 @@ use std::rc::{Rc, Weak};
 
 pub fn when<Item, Trigger>(trigger: Trigger) -> ReactionBuilderStepOne<Item, Trigger>
 where
-    Trigger: Event<Item>,
+    Trigger: LocalObservable<'static, Item = Item, Err = ()> + 'static,
 {
     ReactionBuilderStepOne {
         trigger,
@@ -24,7 +23,7 @@ pub struct ReactionBuilderStepOne<Item, Trigger> {
 
 impl<Item, Trigger> ReactionBuilderStepOne<Item, Trigger>
 where
-    Trigger: Event<Item>,
+    Trigger: LocalObservable<'static, Item = Item, Err = ()> + 'static,
 {
     pub fn with<Receiver>(
         self,
@@ -47,7 +46,7 @@ pub struct ReactionBuilderStepTwo<Item, Trigger, Receiver> {
 
 impl<Item: 'static, Trigger, Receiver> ReactionBuilderStepTwo<Item, Trigger, Receiver>
 where
-    Trigger: Event<Item>,
+    Trigger: LocalObservable<'static, Item = Item, Err = ()> + 'static,
     Receiver: 'static,
 {
     pub fn finally<Finalizer>(
@@ -93,7 +92,7 @@ where
 
     fn do_sync_internal(
         weak_receiver: Weak<Receiver>,
-        trigger: impl Event<Item>,
+        trigger: impl LocalObservable<'static, Item = Item, Err = ()> + 'static,
         reaction: impl Fn(Rc<Receiver>, Item) + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike> {
         trigger.subscribe(move |item| {
@@ -105,7 +104,7 @@ where
 
     fn do_async_internal(
         weak_receiver: Weak<Receiver>,
-        trigger: impl Event<Item>,
+        trigger: impl LocalObservable<'static, Item = Item, Err = ()> + 'static,
         reaction: impl Fn(Rc<Receiver>, Item) + Clone + 'static,
     ) -> SubscriptionWrapper<impl SubscriptionLike>
     where
@@ -133,7 +132,7 @@ pub struct ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer> {
 impl<Item, Trigger, Receiver, Finalizer>
     ReactionBuilderStepThree<Item, Trigger, Receiver, Finalizer>
 where
-    Trigger: Event<Item>,
+    Trigger: LocalObservable<'static, Item = Item, Err = ()> + 'static,
     Receiver: 'static,
     Finalizer: Fn(Rc<Receiver>) + Clone + 'static,
     Item: 'static,

@@ -5,7 +5,6 @@ use crate::infrastructure::data::{GroupModelData, MappingModelData};
 
 use crate::core::notification;
 use reaper_high::Reaper;
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -95,7 +94,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.add_preset(preset)
     }
 
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.clone()
     }
 

@@ -8,7 +8,7 @@ use reaper_high::{
     Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
 };
 
-use rx_util::{Event, UnitEvent};
+use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
@@ -454,7 +454,7 @@ impl TargetModel {
     }
 
     /// Fires whenever one of the properties of this model has changed
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.category
             .changed()
             .merge(self.r#type.changed())

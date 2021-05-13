@@ -11,7 +11,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
@@ -69,7 +69,7 @@ impl Default for SourceModel {
 
 impl SourceModel {
     /// Fires whenever one of the properties of this model has changed
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.category
             .changed()
             .merge(self.midi_source_type.changed())
@@ -714,7 +714,6 @@ mod tests {
     use super::*;
     use helgoboss_midi::test_util::*;
     use rx_util::create_invocation_mock;
-    use rxrust::prelude::*;
 
     #[test]
     fn changed() {

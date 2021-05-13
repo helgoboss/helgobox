@@ -2,7 +2,7 @@ use crate::application::{ActivationConditionModel, GroupData};
 use crate::core::{prop, Prop};
 use crate::domain::MappingCompartment;
 use core::fmt;
-use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -117,12 +117,16 @@ impl GroupModel {
 
     /// Fires whenever a property has changed that doesn't have an effect on control/feedback
     /// processing.
-    pub fn changed_non_processing_relevant(&self) -> impl UnitEvent {
+    pub fn changed_non_processing_relevant(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.name.changed()
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    pub fn changed_processing_relevant(&self) -> impl UnitEvent {
+    pub fn changed_processing_relevant(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.control_is_enabled
             .changed()
             .merge(self.feedback_is_enabled.changed())

@@ -3,7 +3,7 @@ use crate::core::when;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
 use reaper_low::raw;
-use rx_util::{SharedItemEvent, SharedPayload};
+use rxrust::prelude::*;
 use std::rc::Rc;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
@@ -90,9 +90,9 @@ impl GroupPanel {
         );
     }
 
-    fn when<I: SharedPayload>(
+    fn when<I: Send + Sync + Clone + 'static>(
         self: &Rc<Self>,
-        event: impl SharedItemEvent<I>,
+        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
         reaction: impl Fn(Rc<Self>, I) + 'static + Copy,
     ) {
         when(event.take_until(self.view.closed()))

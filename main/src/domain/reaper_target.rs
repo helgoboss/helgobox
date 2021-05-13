@@ -11,7 +11,6 @@ use reaper_medium::{
     AutomationMode, Bpm, GetLoopTimeRange2Result, GlobalAutomationModeOverride, NormalizedPlayRate,
     PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue,
 };
-use rx_util::{Event, UnitEvent};
 use rxrust::prelude::*;
 
 use crate::domain::RealearnTarget;
@@ -274,7 +273,8 @@ impl ReaperTarget {
     /// It can also change if a track is removed or FX focus changes. We don't include
     /// those in `changed()` because they are global in nature. If we listen to n targets,
     /// we don't want to listen to those global events n times. Just 1 time is enough!
-    pub fn potential_static_change_events() -> impl UnitEvent {
+    pub fn potential_static_change_events()
+    -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let rx = Global::control_surface_rx();
         rx
             // Considering fx_focused() as static event is okay as long as we don't have a target
@@ -325,7 +325,8 @@ impl ReaperTarget {
     /// that navigates between tracks. This in turn renders throttling functionality
     /// useless (because with a resync all runtime mode state is gone). Plus, reentrancy
     /// issues will arise.
-    pub fn potential_dynamic_change_events() -> impl UnitEvent {
+    pub fn potential_dynamic_change_events()
+    -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let rx = Global::control_surface_rx();
         rx.track_selected_changed().map_to(())
     }
@@ -425,7 +426,7 @@ impl ReaperTarget {
 
     // TODO-medium This is the last Rx trace we have in processing logic and we should replace it
     //  in favor of async/await or direct calls. Still used by local learning and "Filter target".
-    pub fn touched() -> impl Event<Rc<ReaperTarget>> {
+    pub fn touched() -> impl LocalObservable<'static, Item = Rc<ReaperTarget>, Err = ()> + 'static {
         use ReaperTarget::*;
         let reaper = Reaper::get();
         let csurf_rx = Global::control_surface_rx();

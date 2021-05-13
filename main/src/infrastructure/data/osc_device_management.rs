@@ -3,7 +3,7 @@ use crate::core::AsyncNotifier;
 use crate::domain::{OscDeviceId, OscInputDevice, OscOutputDevice};
 use crate::infrastructure::plugin::App;
 use derive_more::Display;
-use rx_util::{Notifier, UnitEvent};
+use rx_util::Notifier;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -86,7 +86,7 @@ impl OscDeviceManager {
             .collect()
     }
 
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.clone()
     }
 

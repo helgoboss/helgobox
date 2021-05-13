@@ -14,7 +14,6 @@ use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender}
 use futures::StreamExt;
 use rcgen::{BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, SanType};
 use reaper_high::Reaper;
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -262,7 +261,7 @@ impl RealearnServer {
         Reaper::get().show_console_msg(msg);
     }
 
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.clone()
     }
 }

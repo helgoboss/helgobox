@@ -17,7 +17,6 @@ use reaper_high::{
 };
 use reaper_low::raw;
 use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
-use rx_util::{SharedItemEvent, SharedPayload, UnitEvent};
 use rxrust::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::convert::TryInto;
@@ -630,15 +629,15 @@ impl MappingPanel {
         self.sliders.replace(Some(sliders));
     }
 
-    fn party_is_over(&self) -> impl UnitEvent {
+    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.view
             .closed()
             .merge(self.party_is_over_subject.borrow().clone())
     }
 
-    fn when<I: SharedPayload>(
+    fn when<I: Send + Sync + Clone + 'static>(
         self: &SharedView<Self>,
-        event: impl SharedItemEvent<I>,
+        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
         reaction: impl Fn(&ImmutableMappingPanel, I) + 'static + Copy,
     ) {
         when(event.take_until(self.party_is_over()))
@@ -688,7 +687,7 @@ impl MappingPanel {
     }
 }
 
-fn decorate_reaction<I: SharedPayload>(
+fn decorate_reaction<I: Send + Sync + Clone + 'static>(
     reaction: impl Fn(&ImmutableMappingPanel, I) + 'static + Copy,
 ) -> impl Fn(Rc<MappingPanel>, I) + Copy {
     move |view, item| {

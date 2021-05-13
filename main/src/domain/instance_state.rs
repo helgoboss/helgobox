@@ -3,7 +3,7 @@ use crate::domain::{ClipPlayState, ClipSlot, SlotContent, SlotDescriptor, SlotPl
 use helgoboss_learn::UnitValue;
 use reaper_high::{Item, Project, Track};
 use reaper_medium::{PlayState, ReaperVolumeValue};
-use rx_util::{Notifier, UnitEvent};
+use rx_util::Notifier;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -43,7 +43,9 @@ impl InstanceState {
         }
     }
 
-    pub fn slot_contents_changed(&self) -> impl UnitEvent {
+    pub fn slot_contents_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.slot_contents_changed_subject.clone()
     }
 

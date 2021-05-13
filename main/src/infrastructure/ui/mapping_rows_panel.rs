@@ -10,7 +10,7 @@ use crate::infrastructure::ui::{
     IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,
     SharedMainState,
 };
-use rx_util::{SharedItemEvent, SharedPayload};
+use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
 
@@ -544,9 +544,9 @@ impl MappingRowsPanel {
         Ok(())
     }
 
-    fn when<I: SharedPayload>(
+    fn when<I: Send + Sync + Clone + 'static>(
         self: &SharedView<Self>,
-        event: impl SharedItemEvent<I>,
+        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
         reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))

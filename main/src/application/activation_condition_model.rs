@@ -1,8 +1,7 @@
-use rx_util::UnitEvent;
-
 use crate::application::{ActivationType, BankConditionModel, ModifierConditionModel};
 use crate::core::Prop;
 use crate::domain::{ActivationCondition, EelCondition};
+use rxrust::prelude::*;
 
 #[derive(Clone, Debug, Default)]
 pub struct ActivationConditionModel {
@@ -15,7 +14,9 @@ pub struct ActivationConditionModel {
 
 impl ActivationConditionModel {
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    pub fn changed_processing_relevant(&self) -> impl UnitEvent {
+    pub fn changed_processing_relevant(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.activation_type
             .changed()
             .merge(self.modifier_condition_1.changed())

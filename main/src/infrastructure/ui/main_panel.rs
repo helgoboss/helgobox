@@ -16,7 +16,7 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::send_projection_feedback_to_subscribed_clients;
-use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use std::rc::{Rc, Weak};
 use std::sync;
 use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -162,7 +162,7 @@ impl MainPanel {
 
     fn when(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
+        event: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when(event.take_until(self.view.closed()))

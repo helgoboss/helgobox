@@ -11,7 +11,6 @@ use crate::infrastructure::plugin::App;
 
 use qrcode::QrCode;
 
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 
 use once_cell::unsync::Lazy;
@@ -137,7 +136,7 @@ impl CompanionAppPresenter {
         });
     }
 
-    fn party_is_over(&self) -> impl UnitEvent {
+    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.party_is_over_subject.clone()
     }
 }

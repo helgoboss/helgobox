@@ -17,7 +17,8 @@ use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
 
 use reaper_high::Reaper;
-use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
+use rx_util::Notifier;
+use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
@@ -542,7 +543,7 @@ impl Session {
     }
 
     /// Settings are all the things displayed in the ReaLearn header panel.
-    fn settings_changed(&self) -> impl UnitEvent {
+    fn settings_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.let_matched_events_through
             .changed()
             .merge(self.let_unmatched_events_through.changed())
@@ -605,7 +606,7 @@ impl Session {
         reenable_control_after_touched: bool,
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
-    ) -> impl Event<CompoundMappingSource> {
+    ) -> impl LocalObservable<'static, Item = CompoundMappingSource, Err = ()> + 'static {
         // TODO-low We should migrate this to the nice async-await mechanism that we use for global
         //  learning (via REAPER action). That way we don't need the subject and also don't need
         //  to pass the information through multiple processors whether we allow virtual sources.
@@ -647,7 +648,7 @@ impl Session {
                 // we know the mappings disappear as well.
                 let mapping = shared_mapping.borrow();
                 let shared_mapping_clone = shared_mapping.clone();
-                let mut all_subscriptions = LocalSubscription::default();
+                let all_subscriptions = LocalSubscription::default();
                 // Keep syncing to processors
                 {
                     let subscription = when(mapping.changed_processing_relevant())
@@ -714,7 +715,7 @@ impl Session {
                 // We don't need to take until "party is over" because if the session disappears,
                 // we know the groups disappear as well.
                 let group = shared_group.borrow();
-                let mut all_subscriptions = LocalSubscription::default();
+                let all_subscriptions = LocalSubscription::default();
                 // Keep syncing to processors
                 {
                     let subscription = when(group.changed_processing_relevant())
@@ -1070,7 +1071,9 @@ impl Session {
         }
     }
 
-    pub fn learn_many_state_changed(&self) -> impl UnitEvent {
+    pub fn learn_many_state_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.learn_many_state.changed()
     }
 
@@ -1153,11 +1156,15 @@ impl Session {
         self.id.set(self.instance_id.to_string());
     }
 
-    pub fn mapping_which_learns_source_changed(&self) -> impl UnitEvent {
+    pub fn mapping_which_learns_source_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.mapping_which_learns_source.changed()
     }
 
-    pub fn mapping_which_learns_target_changed(&self) -> impl UnitEvent {
+    pub fn mapping_which_learns_target_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.mapping_which_learns_target.changed()
     }
 
@@ -1531,7 +1538,9 @@ impl Session {
         self.set_parameter_settings_without_notification(compartment, empty_parameter_settings());
     }
 
-    fn containing_fx_enabled_or_disabled(&self) -> impl UnitEvent {
+    fn containing_fx_enabled_or_disabled(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let containing_fx = self.context.containing_fx().clone();
         Global::control_surface_rx()
             .fx_enabled_changed()
@@ -1539,7 +1548,7 @@ impl Session {
             .map_to(())
     }
 
-    fn containing_track_armed_or_disarmed(&self) -> BoxedUnitEvent {
+    fn containing_track_armed_or_disarmed(&self) -> LocalBoxOp<'static, (), ()> {
         if let Some(track) = self.context.containing_fx().track().cloned() {
             Global::control_surface_rx()
                 .track_arm_changed()
@@ -1554,7 +1563,9 @@ impl Session {
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
     ///
     /// The session itself shouldn't subscribe to this.
-    pub fn everything_changed(&self) -> impl UnitEvent {
+    pub fn everything_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.everything_changed_subject.clone()
     }
 
@@ -1563,28 +1574,37 @@ impl Session {
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
     pub fn mapping_list_changed(
         &self,
-    ) -> impl SharedItemEvent<(MappingCompartment, Option<MappingId>)> {
+    ) -> impl LocalObservable<'static, Item = (MappingCompartment, Option<MappingId>), Err = ()> + 'static
+    {
         self.mapping_list_changed_subject.clone()
     }
 
     /// Fires when a group has been added or removed.
     ///
     /// Doesn't fire if a group in the list or if the complete list has changed.
-    pub fn group_list_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    pub fn group_list_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
         self.group_list_changed_subject.clone()
     }
 
-    pub fn parameter_settings_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    pub fn parameter_settings_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
         self.parameter_settings_changed_subject.clone()
     }
 
     /// Fires if a group itself has been changed.
-    pub fn group_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    pub fn group_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
         self.group_changed_subject.clone()
     }
 
     /// Fires if a mapping itself has been changed.
-    pub fn mapping_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    pub fn mapping_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
         self.mapping_changed_subject.clone()
     }
 
@@ -1649,7 +1669,9 @@ impl Session {
         self.on_mappings.get_ref().contains(&id)
     }
 
-    pub fn on_mappings_changed(&self) -> impl UnitEvent {
+    pub fn on_mappings_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.on_mappings.changed()
     }
 
@@ -1923,7 +1945,7 @@ impl Session {
         format!("{}", self.mappings[compartment].len() + 1)
     }
 
-    fn party_is_over(&self) -> impl UnitEvent {
+    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.party_is_over_subject.clone()
     }
 

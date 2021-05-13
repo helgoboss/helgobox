@@ -1,9 +1,3 @@
-use helgoboss_learn::{
-    AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
-    ModeParameter, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
-};
-use rx_util::UnitEvent;
-
 use crate::application::{
     convert_factor_to_unit_value, ActivationConditionModel, GroupId, MappingExtensionModel,
     ModeModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
@@ -14,6 +8,11 @@ use crate::domain::{
     MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, QualifiedMappingId,
     RealearnTarget, ReaperTarget, TargetCharacter,
 };
+use helgoboss_learn::{
+    AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
+    ModeParameter, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
+};
+use rxrust::prelude::*;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -136,7 +135,9 @@ impl MappingModel {
         Ok(())
     }
 
-    pub fn advanced_settings_changed(&self) -> impl UnitEvent {
+    pub fn advanced_settings_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.advanced_settings.changed()
     }
 
@@ -189,12 +190,16 @@ impl MappingModel {
 
     /// Fires whenever a property has changed that doesn't have an effect on control/feedback
     /// processing.
-    pub fn changed_non_processing_relevant(&self) -> impl UnitEvent {
+    pub fn changed_non_processing_relevant(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.name.changed()
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    pub fn changed_processing_relevant(&self) -> impl UnitEvent {
+    pub fn changed_processing_relevant(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.source_model
             .changed()
             .merge(self.mode_model.changed())

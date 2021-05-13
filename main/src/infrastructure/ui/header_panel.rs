@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use derive_more::Display;
 use std::rc::{Rc, Weak};
 
+use rxrust::prelude::*;
 use std::{iter, sync};
 
 use enum_iterator::IntoEnumIterator;
@@ -12,7 +13,6 @@ use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId, ReaperString};
 use slog::debug;
 
-use rx_util::{SharedItemEvent, SharedPayload};
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
@@ -1996,9 +1996,9 @@ impl HeaderPanel {
         });
     }
 
-    fn when<I: SharedPayload>(
+    fn when<I: Send + Sync + Clone + 'static>(
         self: &SharedView<Self>,
-        event: impl SharedItemEvent<I>,
+        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
         reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))

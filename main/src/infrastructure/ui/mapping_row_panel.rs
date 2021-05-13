@@ -19,7 +19,6 @@ use crate::infrastructure::ui::{
 };
 use reaper_high::Reaper;
 use reaper_low::raw;
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
@@ -341,7 +340,9 @@ impl MappingRowPanel {
         }
     }
 
-    fn closed_or_mapping_will_change(&self) -> impl UnitEvent {
+    fn closed_or_mapping_will_change(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.view
             .closed()
             .merge(self.party_is_over_subject.borrow().clone())
@@ -615,7 +616,7 @@ impl MappingRowPanel {
 
     fn when(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
+        event: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when(event.take_until(self.closed_or_mapping_will_change()))

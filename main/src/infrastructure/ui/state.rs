@@ -3,7 +3,7 @@ use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
 
 use crate::application::{GroupId, MappingModel};
 use enum_map::{enum_map, EnumMap};
-use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -62,7 +62,9 @@ impl MainState {
         }
     }
 
-    pub fn displayed_group_for_any_compartment_changed(&self) -> impl UnitEvent {
+    pub fn displayed_group_for_any_compartment_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.displayed_group[MappingCompartment::ControllerMappings]
             .changed()
             .merge(self.displayed_group[MappingCompartment::MainMappings].changed())

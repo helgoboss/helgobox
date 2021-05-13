@@ -1,6 +1,5 @@
 use crate::{create_window, Pixels, Point, SharedView, Window};
 use reaper_low::raw;
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 
 use std::cell::{Cell, RefCell};
@@ -270,7 +269,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl UnitEvent {
+    pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.closed_subject.borrow().clone()
     }
 }

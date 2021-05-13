@@ -1,4 +1,3 @@
-use crate::SharedEvent;
 use rxrust::prelude::*;
 use std::fmt;
 use std::marker::PhantomData;
@@ -233,7 +232,10 @@ where
     N: Notifier<T = Option<I>, Subject = SharedPropSubject<Option<I>>>,
     N2: Notifier<T = T, Subject = SharedPropSubject<T>>,
 {
-    pub fn changed(&self) -> impl SharedEvent<()> {
+    pub fn changed(
+        &self,
+    ) -> impl SharedObservable<Unsub = SharedSubscription, Item = (), Err = ()> + 'static + Send + Sync
+    {
         self.subject.clone().map_to(())
     }
 }

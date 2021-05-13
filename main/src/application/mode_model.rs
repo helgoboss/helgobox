@@ -8,7 +8,7 @@ use helgoboss_learn::{
     SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 
-use rx_util::UnitEvent;
+use rxrust::prelude::*;
 
 use std::time::Duration;
 
@@ -123,7 +123,7 @@ impl ModeModel {
     }
 
     /// Fires whenever one of the properties of this model has changed
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.r#type
             .changed()
             .merge(self.target_value_interval.changed())
