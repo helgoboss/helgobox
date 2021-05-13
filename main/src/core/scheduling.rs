@@ -45,7 +45,7 @@ pub struct ReactionBuilderStepTwo<Item, Trigger, Receiver> {
     weak_receiver: Weak<Receiver>,
 }
 
-impl<Item, Trigger, Receiver> ReactionBuilderStepTwo<Item, Trigger, Receiver>
+impl<Item: 'static, Trigger, Receiver> ReactionBuilderStepTwo<Item, Trigger, Receiver>
 where
     Trigger: Event<Item>,
     Receiver: 'static,
@@ -136,6 +136,7 @@ where
     Trigger: Event<Item>,
     Receiver: 'static,
     Finalizer: Fn(Rc<Receiver>) + Clone + 'static,
+    Item: 'static,
 {
     pub fn do_sync(
         self,

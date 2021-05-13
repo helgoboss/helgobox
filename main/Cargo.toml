@@ -16,14 +16,14 @@ generate = []
 prometheus = ["serde_prometheus"]
 
 [dependencies]
-reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-#reaper-rx = { path = "../../reaper-rs/main/rx" }
-#reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-#reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-#reaper-low = { path = "../../reaper-rs/main/low" }
+#reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+#reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+#reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+#reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-rx = { path = "../../reaper-rs/main/rx" }
+reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
+reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
+reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 helgoboss-midi = { version = "0.2", features = ["serde", "serde_repr"] }
@@ -31,7 +31,7 @@ helgoboss-midi = { version = "0.2", features = ["serde", "serde_repr"] }
 helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "reaper-low"] }
 c_str_macro = "1.0.2"
 vst = "0.2.1"
-rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
+rxrust = { git = "https://github.com/rxRust/rxRust", branch = "master" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 serde_repr = "0.1.5"
@@ -42,7 +42,7 @@ lazycell = "1.2"
 enum-iterator = "0.6.0"
 num_enum = "0.5.0"
 scopeguard = "1.1.0"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 slog = "2.5.2"
 clipboard = "0.5.0"
