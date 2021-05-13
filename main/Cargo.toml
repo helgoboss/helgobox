@@ -47,8 +47,8 @@ uuid = { version = "0.8.1", features = ["v4", "serde"] }
 slog = "2.5.2"
 clipboard = "0.5.0"
 once_cell = "1.4.0"
-# For deriving Debug even HostCallback doesn't implement it
-wrap-debug = "0.1.1"
+# For being able to exclude fields from the derived Debug implementation
+derivative = "2.2.0"
 chrono = "0.4.11"
 smallvec = "1.4.0"
 backtrace = "0.3"
@@ -130,7 +130,7 @@ ascii = "1.0"
 # For using bit flags in the reaper-rs API.
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
 # For detecting undesired deallocation in real-time threads.
-assert_no_alloc = "1.1.0"
+assert_no_alloc = { path = "../../rust-assert-no-alloc" }
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 webpki = "= 0.21.3"
 # For making the patch in the root Cargo.toml work also after running `cargo update`.

@@ -143,8 +143,6 @@ dependencies = [
 [[package]]
 name = "assert_no_alloc"
 version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2798d8eed2385fe2570f8a0daf377d2ca54d662fa012c28dfbaabc05a80f957d"
 
 [[package]]
 name = "async-channel"
@@ -2753,6 +2751,7 @@ dependencies = [
  "chrono",
  "clipboard",
  "crossbeam-channel",
+ "derivative",
  "derive_more",
  "dns-lookup",
  "edit",
@@ -2817,7 +2816,6 @@ dependencies = [
  "webbrowser",
  "webpki",
  "wildmatch",
- "wrap-debug",
 ]
 
 [[package]]
@@ -4187,12 +4185,6 @@ checksum = "d107f8c6e916235c4c01cabb3e8acf7bea8ef6a63ca2e7fa0527c049badfc48c"
 dependencies = [
  "winapi 0.3.9",
 ]
-
-[[package]]
-name = "wrap-debug"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de6d56f36d5e6e6b3b0fb1bb58d48bbfee85f3920285684a56c91e479603225f"
 
 [[package]]
 name = "ws2_32-sys"

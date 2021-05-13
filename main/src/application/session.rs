@@ -13,6 +13,7 @@ use crate::domain::{
     RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
     VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
+use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +30,6 @@ use helgoboss_midi::Channel;
 use itertools::Itertools;
 use reaper_medium::{MidiInputDeviceId, RecordingInput};
 use std::rc::{Rc, Weak};
-use wrap_debug::WrapDebug;
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
@@ -41,7 +41,8 @@ pub trait SessionUi {
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Session {
     instance_id: InstanceId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
@@ -84,7 +85,8 @@ pub struct Session {
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
-    ui: WrapDebug<Box<dyn SessionUi>>,
+    #[derivative(Debug = "ignore")]
+    ui: Box<dyn SessionUi>,
     parameters: ParameterArray,
     parameter_settings: EnumMap<MappingCompartment, Vec<ParameterSetting>>,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
@@ -205,7 +207,7 @@ impl Session {
             normal_main_task_sender,
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
-            ui: WrapDebug(Box::new(ui)),
+            ui: Box::new(ui),
             parameters: ZEROED_PLUGIN_PARAMETERS,
             parameter_settings: enum_map! {
                 MappingCompartment::ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
@@ -497,7 +499,11 @@ impl Session {
         .do_async(move |s, _| {
             if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
                 let currently_focused_fx = if let Some(fx) = Reaper::get().focused_fx() {
-                    if fx.window_is_open() { Some(fx) } else { None }
+                    if fx.window_is_open() {
+                        Some(fx)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 };
