@@ -143,6 +143,7 @@ dependencies = [
 [[package]]
 name = "assert_no_alloc"
 version = "1.1.0"
+source = "git+https://github.com/helgoboss/rust-assert-no-alloc.git?branch=feature/rust-stable#0104f795031ec3f3faf284fb1d30b919cec4435f"
 
 [[package]]
 name = "async-channel"

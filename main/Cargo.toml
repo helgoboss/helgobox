@@ -130,7 +130,7 @@ ascii = "1.0"
 # For using bit flags in the reaper-rs API.
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
 # For detecting undesired deallocation in real-time threads.
-assert_no_alloc = { path = "../../rust-assert-no-alloc" }
+assert_no_alloc = { git = "https://github.com/helgoboss/rust-assert-no-alloc.git", branch = "feature/rust-stable" }
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 webpki = "= 0.21.3"
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
