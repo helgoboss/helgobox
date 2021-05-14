@@ -293,18 +293,6 @@ impl Plugin for RealearnPlugin {
                 .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
         });
     }
-
-    fn resume(&mut self) {
-        firewall(|| {
-            // TODO-high Remove this.
-            // REAPER usually suspends and resumes whenever starting to play.
-            // If task queue is full, don't spam user with error messages.
-            let _ = self
-                .normal_main_task_channel
-                .0
-                .try_send(NormalMainTask::SendAllFeedback);
-        });
-    }
 }
 
 impl RealearnPlugin {
