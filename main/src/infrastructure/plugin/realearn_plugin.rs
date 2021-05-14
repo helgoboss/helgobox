@@ -296,6 +296,7 @@ impl Plugin for RealearnPlugin {
 
     fn resume(&mut self) {
         firewall(|| {
+            // TODO-high Remove this.
             // REAPER usually suspends and resumes whenever starting to play.
             // If task queue is full, don't spam user with error messages.
             let _ = self

@@ -12,7 +12,7 @@ use crate::domain::{
     TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, UnitValue};
+use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, Target, UnitValue};
 
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -81,6 +81,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     control_input: ControlInput,
     feedback_output: Option<FeedbackOutput>,
     instance_state: SharedInstanceState,
+    previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, UnitValue>>,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -141,6 +142,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_audio_hook_task_sender,
             instance_state,
             instance_feedback_event_receiver,
+            previous_target_values: Default::default(),
         }
     }
 
@@ -351,6 +353,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.target_touch_dependent_mappings[compartment].clear();
                     self.beat_dependent_feedback_mappings[compartment].clear();
                     self.milli_dependent_feedback_mappings[compartment].clear();
+                    self.previous_target_values[compartment].clear();
                     self.poll_control_mappings[compartment].clear();
                     // Refresh and splinter real-time mappings
                     let real_time_mappings = mappings
@@ -565,6 +568,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
                     } else {
                         self.milli_dependent_feedback_mappings[compartment].remove(&mapping.id());
+                        self.previous_target_values[compartment].remove(&mapping.id());
                     }
                     if mapping.wants_to_be_polled_for_control() {
                         self.poll_control_mappings[compartment].insert(mapping.id());
@@ -811,6 +815,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     ));
                                     if m.has_reaper_target() && m.has_resolved_successfully() {
                                         if m.feedback_is_effectively_on() {
+                                            // TODO-high Is this executed too frequently and maybe
+                                            // even sends redundant feedback!?
                                             m.feedback(
                                                 true,
                                                 ControlContext {
@@ -861,7 +867,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     self.process_feedback_related_reaper_event_for_mapping(
                                         compartment,
                                         m,
-                                        &|target| {
+                                        &mut |target| {
                                             target.value_changed_from_instance_feedback_event(
                                                 &instance_event,
                                             )
@@ -897,9 +903,52 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for compartment in MappingCompartment::enum_iter() {
             for mapping_id in self.milli_dependent_feedback_mappings[compartment].iter() {
                 if let Some(m) = self.mappings[compartment].get(&mapping_id) {
-                    self.process_feedback_related_reaper_event_for_mapping(compartment, m, &|_| {
-                        (true, None)
-                    });
+                    let previous_target_values = &mut self.previous_target_values;
+                    let instance_props = InstanceProps {
+                        rt_sender: &self.feedback_real_time_task_sender,
+                        fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                        osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                        instance_orchestration_sender: &self.instance_orchestration_event_sender,
+                        instance_id: &self.instance_id,
+                        feedback_is_globally_enabled: self.feedback_is_globally_enabled,
+                        event_handler: &self.event_handler,
+                        feedback_output: self.feedback_output,
+                        logger: &self.logger,
+                        instance_state: &self.instance_state,
+                    };
+                    let control_context = ControlContext {
+                        feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                        osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                        feedback_output: self.feedback_output,
+                        instance_state: &self.instance_state,
+                    };
+                    process_feedback_related_reaper_event_for_mapping(
+                        &instance_props,
+                        compartment,
+                        m,
+                        &self.mappings_with_virtual_targets,
+                        &mut |t| {
+                            if let Some(value) = t.current_value(Some(control_context)) {
+                                if let Some(previous_value) =
+                                    previous_target_values[compartment].insert(*mapping_id, value)
+                                {
+                                    if value == previous_value {
+                                        // Value hasn't changed.
+                                        (false, None)
+                                    } else {
+                                        // Value has changed.
+                                        (true, Some(value))
+                                    }
+                                } else {
+                                    // No feedback sent yet for that milli-dependent mapping.
+                                    (true, Some(value))
+                                }
+                            } else {
+                                // Couldn't determine feedback value.
+                                (false, None)
+                            }
+                        },
+                    );
                 }
             }
         }
@@ -993,7 +1042,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.process_feedback_related_reaper_event_for_mapping(
                             compartment,
                             m,
-                            &|target| target.value_changed_from_additional_feedback_event(event),
+                            &mut |target| {
+                                target.value_changed_from_additional_feedback_event(event)
+                            },
                         );
                     }
                 }
@@ -1045,13 +1096,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// avoid a redundant query.
     fn process_feedback_related_reaper_event(
         &self,
-        f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
+        mut f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
         for compartment in MappingCompartment::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
             for m in self.mappings[compartment].values() {
-                self.process_feedback_related_reaper_event_for_mapping(compartment, m, &f);
+                self.process_feedback_related_reaper_event_for_mapping(compartment, m, &mut f);
             }
         }
     }
@@ -1060,69 +1111,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         m: &MainMapping,
-        f: &impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
+        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
-        // It's enough if one of the resolved targets is affected. Then we are going to need the
-        // values of all of them!
-        let mut at_least_one_target_is_affected = false;
-        let new_values: Vec<(&ReaperTarget, Option<UnitValue>)> = m
-            .targets()
-            .iter()
-            .filter_map(|target| {
-                let target = match target {
-                    CompoundMappingTarget::Reaper(t) => t,
-                    _ => return None,
-                };
-                // Immediate value capturing. Makes OSC feedback *much* smoother in
-                // combination with high-throughput thread. Especially quick pulls
-                // of many faders at once profit from it because intermediate
-                // values are captured and immediately sent so user doesn't see
-                // stuttering faders on their device.
-                // It's important to capture the current value from the event because
-                // querying *at this time* from the target itself might result in
-                // the old value to be returned. This is the case with FX parameter
-                // changes for examples and especially in case of on/off targets this
-                // can lead to horribly wrong feedback. Previously we didn't have this
-                // issue because we always deferred to the next main loop cycle.
-                let (value_changed, new_value) = f(target);
-                if value_changed {
-                    at_least_one_target_is_affected = true;
-                }
-                Some((target, new_value))
-            })
-            .collect();
-        if !at_least_one_target_is_affected {
-            return;
-        }
-        let new_target_value = new_values
-            .into_iter()
-            .map(|(target, new_value)| {
-                m.given_or_current_value(new_value, target, self.control_context())
-                    .unwrap_or(UnitValue::MIN)
-            })
-            .max();
-        if let Some(new_value) = new_target_value {
-            // Feedback
-            let feedback_is_effectively_on = m.feedback_is_effectively_on();
-            let projection_feedback_desired = feedback_is_effectively_on;
-            let source_feedback_desired = self.feedback_is_effectively_enabled()
-                && feedback_is_effectively_on
-                && !m.is_echo();
-            let feedback_value = m.feedback_given_target_value(
-                new_value,
-                projection_feedback_desired,
-                source_feedback_desired,
-            );
-            self.send_feedback(FeedbackReason::Normal, feedback_value);
-            // Inform session, e.g. for UI updates
-            self.event_handler
-                .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
-                    compartment,
-                    mapping_id: m.id(),
-                    targets: m.targets(),
-                    new_value,
-                }));
-        }
+        process_feedback_related_reaper_event_for_mapping(
+            &self.instance_props(),
+            compartment,
+            m,
+            &self.mappings_with_virtual_targets,
+            f,
+        );
     }
 
     pub fn notify_target_touched(&self) {
@@ -1991,5 +1988,90 @@ impl InstanceId {
         let ascii = SmallAsciiString::create_compatible_ascii_string(&instance_id);
         let small_ascii = SmallAsciiString::from_ascii_str(&ascii).expect("impossible");
         Self(small_ascii)
+    }
+}
+
+fn process_feedback_related_reaper_event_for_mapping<EH: DomainEventHandler>(
+    instance: &InstanceProps<EH>,
+    compartment: MappingCompartment,
+    m: &MainMapping,
+    mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
+    f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
+) {
+    // It's enough if one of the resolved targets is affected. Then we are going to need the
+    // values of all of them!
+    let mut at_least_one_target_is_affected = false;
+    let new_values: Vec<(&ReaperTarget, Option<UnitValue>)> = m
+        .targets()
+        .iter()
+        .filter_map(|target| {
+            let target = match target {
+                CompoundMappingTarget::Reaper(t) => t,
+                _ => return None,
+            };
+            // Immediate value capturing. Makes OSC feedback *much* smoother in
+            // combination with high-throughput thread. Especially quick pulls
+            // of many faders at once profit from it because intermediate
+            // values are captured and immediately sent so user doesn't see
+            // stuttering faders on their device.
+            // It's important to capture the current value from the event because
+            // querying *at this time* from the target itself might result in
+            // the old value to be returned. This is the case with FX parameter
+            // changes for examples and especially in case of on/off targets this
+            // can lead to horribly wrong feedback. Previously we didn't have this
+            // issue because we always deferred to the next main loop cycle.
+            let (value_changed, new_value) = f(target);
+            if value_changed {
+                at_least_one_target_is_affected = true;
+            }
+            Some((target, new_value))
+        })
+        .collect();
+    if !at_least_one_target_is_affected {
+        return;
+    }
+    let new_target_value = new_values
+        .into_iter()
+        .map(|(target, new_value)| {
+            let control_context = ControlContext {
+                feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
+                osc_feedback_task_sender: instance.osc_feedback_task_sender,
+                feedback_output: instance.feedback_output,
+                instance_state: instance.instance_state,
+            };
+            m.given_or_current_value(new_value, target, control_context)
+                .unwrap_or(UnitValue::MIN)
+        })
+        .max();
+    if let Some(new_value) = new_target_value {
+        // Feedback
+        let feedback_is_effectively_on = m.feedback_is_effectively_on();
+        let projection_feedback_desired = feedback_is_effectively_on;
+        let source_feedback_desired = feedback_is_effectively_enabled(
+            instance.feedback_is_globally_enabled,
+            instance.instance_id,
+            instance.feedback_output,
+        ) && feedback_is_effectively_on
+            && !m.is_echo();
+        let feedback_value = m.feedback_given_target_value(
+            new_value,
+            projection_feedback_desired,
+            source_feedback_desired,
+        );
+        send_direct_and_virtual_feedback(
+            instance,
+            mappings_with_virtual_targets,
+            FeedbackReason::Normal,
+            feedback_value,
+        );
+        // Inform session, e.g. for UI updates
+        instance
+            .event_handler
+            .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
+                compartment,
+                mapping_id: m.id(),
+                targets: m.targets(),
+                new_value,
+            }));
     }
 }
