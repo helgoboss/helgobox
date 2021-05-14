@@ -1,7 +1,7 @@
 use crate::application::{
     empty_parameter_settings, GroupModel, MainPresetAutoLoadMode, ParameterSetting, Session,
 };
-use crate::core::default_util::{bool_true, is_bool_true, is_default};
+use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId,
     ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,

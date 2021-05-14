@@ -1,4 +1,4 @@
-use crate::core::{prop, Prop};
+use crate::base::{prop, Prop};
 use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
 
 use crate::application::{GroupId, MappingModel};

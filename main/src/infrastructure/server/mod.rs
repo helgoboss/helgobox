@@ -1,13 +1,13 @@
 use crate::application::{
     Preset, PresetManager, Session, SharedSession, SourceCategory, TargetCategory,
 };
-use crate::core::when;
+use crate::base::when;
 use crate::domain::{
     MappingCompartment, MappingId, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
 };
 use maplit::hashmap;
 
-use crate::core::Global;
+use crate::base::Global;
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
 

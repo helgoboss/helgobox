@@ -20,7 +20,7 @@ use crate::application::{
     GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset,
     PresetManager, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
-use crate::core::when;
+use crate::base::when;
 use crate::domain::{
     ControlInput, ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget,
     COMPARTMENT_PARAMETER_COUNT,

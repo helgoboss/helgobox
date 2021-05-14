@@ -651,7 +651,11 @@ pub enum LifecyclePhase {
 impl From<bool> for LifecyclePhase {
     fn from(v: bool) -> Self {
         use LifecyclePhase::*;
-        if v { Activation } else { Deactivation }
+        if v {
+            Activation
+        } else {
+            Deactivation
+        }
     }
 }
 

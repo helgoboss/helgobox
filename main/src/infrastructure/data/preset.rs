@@ -3,7 +3,7 @@ use crate::application::{
 };
 use crate::infrastructure::data::{GroupModelData, MappingModelData};
 
-use crate::core::notification;
+use crate::base::notification;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
 use serde::de::DeserializeOwned;

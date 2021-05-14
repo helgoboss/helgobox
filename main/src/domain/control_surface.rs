@@ -1,4 +1,4 @@
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::{
     ActivationChange, BackboneState, CompoundMappingSource, DeviceControlInput,
     DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput, InstanceId,

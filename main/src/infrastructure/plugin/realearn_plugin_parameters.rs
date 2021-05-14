@@ -1,4 +1,4 @@
-use crate::core::{notification, SendOrSyncWhatever};
+use crate::base::{notification, SendOrSyncWhatever};
 
 use lazycell::AtomicLazyCell;
 use reaper_high::Reaper;

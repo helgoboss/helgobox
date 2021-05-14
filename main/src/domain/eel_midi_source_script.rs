@@ -1,4 +1,4 @@
-use crate::core::eel;
+use crate::base::eel;
 use helgoboss_learn::{MidiSourceScript, RawMidiEvent, UnitValue};
 
 use std::sync::Arc;

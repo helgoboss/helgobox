@@ -1,4 +1,4 @@
-use crate::core::{notification, when, Prop};
+use crate::base::{notification, when, Prop};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
     EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
@@ -35,7 +35,7 @@ use crate::application::{
     TargetModelWithContext, TrackRouteSelectorType, VirtualControlElementType,
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::{
     control_element_domains, ClipInfo, ControlContext, FeedbackOutput, SendMidiDestination,
     SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,

@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use reaper_high::Reaper;
 use reaper_low::raw;
 
-use crate::core::when;
+use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, get_object_from_clipboard, paste_mappings, util, ClipboardObject,
     IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,

@@ -1,5 +1,5 @@
 use crate::application::ModeModel;
-use crate::core::default_util::{is_default, is_unit_value_one, unit_value_one};
+use crate::base::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{

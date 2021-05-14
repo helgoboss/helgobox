@@ -1,4 +1,4 @@
-use crate::core::eel;
+use crate::base::eel;
 use helgoboss_learn::{Transformation, UnitValue};
 use std::convert::TryInto;
 

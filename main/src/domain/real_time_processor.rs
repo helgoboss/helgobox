@@ -15,7 +15,7 @@ use reaper_medium::{Hz, MidiFrameOffset, MidiInputDeviceId, MidiOutputDeviceId, 
 use slog::debug;
 use std::collections::HashMap;
 
-use crate::core::Global;
+use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
 use std::ptr::null_mut;

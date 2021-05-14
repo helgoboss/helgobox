@@ -1,5 +1,5 @@
-use crate::core::default_util::is_default;
-use crate::core::{prop, Prop};
+use crate::base::default_util::is_default;
+use crate::base::{prop, Prop};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, OscArgDescriptor, OscTypeTag, Target};

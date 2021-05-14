@@ -1,4 +1,4 @@
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::PLUGIN_PARAMETER_COUNT;
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use helgoboss_midi::test_util::*;

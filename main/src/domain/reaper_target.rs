@@ -1,4 +1,4 @@
-use crate::core::default_util::is_default;
+use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
@@ -17,7 +17,7 @@ use crate::domain::RealearnTarget;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AdditionalFeedbackEvent, AllTrackFxEnableTarget,
@@ -273,8 +273,8 @@ impl ReaperTarget {
     /// It can also change if a track is removed or FX focus changes. We don't include
     /// those in `changed()` because they are global in nature. If we listen to n targets,
     /// we don't want to listen to those global events n times. Just 1 time is enough!
-    pub fn potential_static_change_events()
-    -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+    pub fn potential_static_change_events(
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let rx = Global::control_surface_rx();
         rx
             // Considering fx_focused() as static event is okay as long as we don't have a target
@@ -325,8 +325,8 @@ impl ReaperTarget {
     /// that navigates between tracks. This in turn renders throttling functionality
     /// useless (because with a resync all runtime mode state is gone). Plus, reentrancy
     /// issues will arise.
-    pub fn potential_dynamic_change_events()
-    -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+    pub fn potential_dynamic_change_events(
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let rx = Global::control_surface_rx();
         rx.track_selected_changed().map_to(())
     }
@@ -726,7 +726,11 @@ pub fn format_value_as_pan(value: UnitValue) -> String {
 }
 
 pub fn format_value_as_on_off(value: UnitValue) -> &'static str {
-    if value.is_zero() { "Off" } else { "On" }
+    if value.is_zero() {
+        "Off"
+    } else {
+        "On"
+    }
 }
 
 pub fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {

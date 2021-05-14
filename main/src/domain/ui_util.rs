@@ -63,7 +63,11 @@ pub fn volume_unit_value(volume: Volume) -> UnitValue {
 }
 
 pub fn convert_bool_to_unit_value(on: bool) -> UnitValue {
-    if on { UnitValue::MAX } else { UnitValue::MIN }
+    if on {
+        UnitValue::MAX
+    } else {
+        UnitValue::MIN
+    }
 }
 
 pub fn fx_parameter_unit_value(

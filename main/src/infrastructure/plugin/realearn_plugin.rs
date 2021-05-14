@@ -3,7 +3,7 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::{
     ControlMainTask, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor,
     NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask, ProcessorContext,
@@ -35,7 +35,7 @@ use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
 use crate::infrastructure::server;
 
-use crate::core::notification;
+use crate::base::notification;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;

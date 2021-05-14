@@ -1,5 +1,5 @@
 use crate::application::{ActivationType, BankConditionModel, ModifierConditionModel};
-use crate::core::Prop;
+use crate::base::Prop;
 use crate::domain::{ActivationCondition, EelCondition};
 use rxrust::prelude::*;
 

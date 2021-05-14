@@ -9,7 +9,11 @@ pub mod symbols {
     pub fn arrow_up_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() { "🡹" } else { "Up" }
+            if arrows_are_supported() {
+                "🡹"
+            } else {
+                "Up"
+            }
         }
         #[cfg(target_os = "macos")]
         {
@@ -43,7 +47,11 @@ pub mod symbols {
     pub fn arrow_left_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() { "🡸" } else { "<=" }
+            if arrows_are_supported() {
+                "🡸"
+            } else {
+                "<="
+            }
         }
         #[cfg(target_os = "macos")]
         {
@@ -58,7 +66,11 @@ pub mod symbols {
     pub fn arrow_right_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() { "🡺" } else { "=>" }
+            if arrows_are_supported() {
+                "🡺"
+            } else {
+                "=>"
+            }
         }
         #[cfg(target_os = "macos")]
         {

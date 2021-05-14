@@ -127,9 +127,9 @@ mod codegen {
     }
 
     fn generate_core_bindings() {
-        println!("cargo:rerun-if-changed=src/core/wrapper.hpp");
+        println!("cargo:rerun-if-changed=src/base/wrapper.hpp");
         let mut builder = bindgen::Builder::default()
-            .header("src/core/wrapper.hpp")
+            .header("src/base/wrapper.hpp")
             .clang_arg("-xc++")
             .enable_cxx_namespaces()
             .raw_line("#![allow(non_upper_case_globals)]")

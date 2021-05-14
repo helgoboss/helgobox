@@ -2,8 +2,8 @@ use crate::application::{
     GroupId, InputDescriptor, Session, SharedMapping, SharedSession, VirtualControlElementType,
     WeakSession,
 };
-use crate::core::default_util::is_default;
-use crate::core::{notification, Global};
+use crate::base::default_util::is_default;
+use crate::base::{notification, Global};
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask, Garbage,
     GarbageBin, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,

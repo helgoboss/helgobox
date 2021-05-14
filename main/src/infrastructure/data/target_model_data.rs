@@ -8,8 +8,8 @@ use crate::application::{
     TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
-use crate::core::default_util::{is_default, is_none_or_some_default};
-use crate::core::notification;
+use crate::base::default_util::{is_default, is_none_or_some_default};
+use crate::base::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
     MappingCompartment, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior,

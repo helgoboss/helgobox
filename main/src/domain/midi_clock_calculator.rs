@@ -1,4 +1,4 @@
-use crate::core::MovingAverageCalculator;
+use crate::base::MovingAverageCalculator;
 use helgoboss_learn::Bpm;
 
 use reaper_medium::{Hz, MidiFrameOffset};

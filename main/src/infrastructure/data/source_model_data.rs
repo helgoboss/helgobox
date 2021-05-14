@@ -1,7 +1,7 @@
 use super::none_if_minus_one;
 use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
-use crate::core::default_util::is_default;
-use crate::core::notification;
+use crate::base::default_util::is_default;
+use crate::base::notification;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::VirtualControlElementIdData;
 use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};

@@ -113,7 +113,7 @@ architecture (REAPER 32-bit vs. 64-bit) are marked with :star:.
    - Accept the defaults
    - Set the correct toolchain default :star:
      ```batch
-     rustup default nightly-2020-12-10-x86_64-pc-windows-msvc
+     rustup default stable-x86_64-pc-windows-msvc
      ```
 3. Download and install [Git for Windows](https://git-scm.com/download/win)
 4. Clone the ReaLearn Git repository
@@ -141,7 +141,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (defau
 source $HOME/.cargo/env
 
 # Set the correct toolchain default
-rustup default nightly-2020-12-10-x86_64-unknown-linux-gnu
+rustup default stable-x86_64-unknown-linux-gnu
 
 # Clone ReaLearn repository (the "--recurse-submodules" is important!)
 git clone --recurse-submodules https://github.com/helgoboss/realearn.git
@@ -178,7 +178,7 @@ should provide you with the necessary instructions if something is missing.
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
 source $HOME/.cargo/env
 # Using nightly is not necessary if you want to build just the low-level or medium-level API!
-rustup default nightly-2020-12-10-x86_64-apple-darwin
+rustup default stable-x86_64-apple-darwin
 
 # Clone ReaLearn
 cd Downloads

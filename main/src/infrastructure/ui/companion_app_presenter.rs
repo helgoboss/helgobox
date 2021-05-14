@@ -6,7 +6,7 @@ use reaper_high::Reaper;
 use slog::debug;
 
 use crate::application::{SharedSession, WeakSession};
-use crate::core::when;
+use crate::base::when;
 use crate::infrastructure::plugin::App;
 
 use qrcode::QrCode;

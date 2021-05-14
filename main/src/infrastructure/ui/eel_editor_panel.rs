@@ -1,4 +1,4 @@
-use crate::core::eel::{Program, Vm};
+use crate::base::eel::{Program, Vm};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
 use derivative::Derivative;

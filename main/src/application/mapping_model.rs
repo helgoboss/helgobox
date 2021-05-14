@@ -2,7 +2,7 @@ use crate::application::{
     convert_factor_to_unit_value, ActivationConditionModel, GroupId, MappingExtensionModel,
     ModeModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
 };
-use crate::core::{prop, Prop};
+use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
     MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, QualifiedMappingId,

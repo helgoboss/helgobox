@@ -2,7 +2,7 @@ use crate::application::{
     ControllerPreset, GroupModel, ParameterSetting, Preset, PresetManager, SharedGroup,
     SharedMapping,
 };
-use crate::core::default_util::is_default;
+use crate::base::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,

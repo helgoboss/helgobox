@@ -3,8 +3,8 @@ use crate::application::{
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
     SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
-use crate::core::default_util::is_default;
-use crate::core::{prop, when, AsyncNotifier, Global, Prop};
+use crate::base::default_util::is_default;
+use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
     ExtendedProcessorContext, FeedbackOutput, InstanceId, MainMapping, MappingCompartment,

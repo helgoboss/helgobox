@@ -1,4 +1,4 @@
-use crate::core::{prop, Prop};
+use crate::base::{prop, Prop};
 use crate::domain::{
     CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
     MidiSource, VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,

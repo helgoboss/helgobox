@@ -1,5 +1,5 @@
 use crate::application::BookmarkAnchorType;
-use crate::core::hash_util;
+use crate::base::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,

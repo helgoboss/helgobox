@@ -1,4 +1,4 @@
-use crate::core::AsyncNotifier;
+use crate::base::AsyncNotifier;
 use crate::domain::{ClipPlayState, ClipSlot, SlotContent, SlotDescriptor, SlotPlayOptions};
 use helgoboss_learn::UnitValue;
 use reaper_high::{Item, Project, Track};

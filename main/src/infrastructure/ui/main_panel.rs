@@ -10,7 +10,7 @@ use slog::debug;
 use std::cell::{Cell, RefCell};
 
 use crate::application::{Session, SessionUi, WeakSession};
-use crate::core::when;
+use crate::base::when;
 use crate::domain::{
     MappingCompartment, MappingId, ProjectionFeedbackValue, TargetValueChangedEvent,
 };

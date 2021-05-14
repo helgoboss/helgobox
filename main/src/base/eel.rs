@@ -1,4 +1,4 @@
-use crate::core::bindings::root;
+use crate::base::bindings::root;
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
 

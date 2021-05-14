@@ -1,4 +1,4 @@
-use crate::core::default_util::is_default;
+use crate::base::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};

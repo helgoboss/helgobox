@@ -1,5 +1,5 @@
 use crate::application::{ActivationConditionModel, GroupData};
-use crate::core::{prop, Prop};
+use crate::base::{prop, Prop};
 use crate::domain::MappingCompartment;
 use core::fmt;
 use rxrust::prelude::*;

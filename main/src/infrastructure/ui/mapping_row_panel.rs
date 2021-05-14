@@ -2,7 +2,7 @@ use crate::application::{
     GroupId, MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
     WeakSession,
 };
-use crate::core::when;
+use crate::base::when;
 use crate::domain::{MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
 
 use crate::infrastructure::data::{

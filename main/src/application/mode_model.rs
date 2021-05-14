@@ -1,4 +1,4 @@
-use crate::core::{prop, Prop};
+use crate::base::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
@@ -319,7 +319,11 @@ pub fn convert_unit_value_to_factor(value: SoftSymmetricUnitValue) -> i32 {
     //  0.01 =>    1
     //  1.00 =>  100
     let tmp = (value.get() * 100.0).round() as i32;
-    if tmp == 0 { 1 } else { tmp }
+    if tmp == 0 {
+        1
+    } else {
+        tmp
+    }
 }
 
 fn convert_to_step_count(value: SoftSymmetricUnitValue) -> DiscreteIncrement {

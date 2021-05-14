@@ -1,4 +1,4 @@
-use crate::core::eel;
+use crate::base::eel;
 use crate::domain::{ParameterSlice, COMPARTMENT_PARAMETER_COUNT};
 use std::collections::HashSet;
 

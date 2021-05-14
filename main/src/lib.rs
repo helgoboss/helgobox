@@ -1,6 +1,6 @@
 #![recursion_limit = "512"]
 #[macro_use]
-mod core;
+mod base;
 mod application;
 mod domain;
 mod infrastructure;

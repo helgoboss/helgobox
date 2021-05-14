@@ -1,5 +1,5 @@
 use crate::application::{GroupId, GroupModel};
-use crate::core::default_util::is_default;
+use crate::base::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
