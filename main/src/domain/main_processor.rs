@@ -11,9 +11,17 @@ use crate::domain::{
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
+use derive_more::Display;
 use enum_map::EnumMap;
-use helgoboss_learn::{ControlValue, ModeControlOptions, OscSource, Target, UnitValue};
+use helgoboss_learn::{
+    ControlValue, MidiSourceValue, ModeControlOptions, OscSource, Target, UnitValue,
+};
 
+use crate::domain::ui_util::{
+    format_midi_source_value, format_short_message, log_control_input, log_feedback_output,
+    log_learn_input, log_lifecycle_output,
+};
+use helgoboss_midi::RawShortMessage;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
@@ -82,6 +90,8 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     feedback_output: Option<FeedbackOutput>,
     instance_state: SharedInstanceState,
     previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, UnitValue>>,
+    input_logging_enabled: bool,
+    output_logging_enabled: bool,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -143,6 +153,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             instance_state,
             instance_feedback_event_receiver,
             previous_target_values: Default::default(),
+            input_logging_enabled: false,
+            output_logging_enabled: false,
         }
     }
 
@@ -269,6 +281,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             self.send_feedback(FeedbackReason::Normal, feedback);
                         };
                     }
+                    LogControlInput {
+                        value,
+                        match_result,
+                    } => {
+                        log_control_input(
+                            self.instance_id(),
+                            format!("{} ({})", format_midi_source_value(&value), match_result),
+                        );
+                    }
+                    LogLearnInput { msg } => {
+                        log_learn_input(
+                            self.instance_id(),
+                            format!("{}", format_short_message(msg)),
+                        );
+                    }
                 }
             }
             for compartment in MappingCompartment::enum_iter() {
@@ -314,6 +341,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.event_handler
                         .handle_event(DomainEvent::FullResyncRequested);
                 }
+                LogLifecycleOutput { value } => {
+                    log_lifecycle_output(&self.instance_id, format_midi_source_value(&value));
+                }
             }
         }
 
@@ -333,7 +363,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateSettings {
                     control_input,
                     feedback_output,
+                    input_logging_enabled,
+                    output_logging_enabled,
                 } => {
+                    self.input_logging_enabled = input_logging_enabled;
+                    self.output_logging_enabled = output_logging_enabled;
                     let released_event = self.io_released_event();
                     self.control_input = control_input;
                     self.feedback_output = feedback_output;
@@ -915,6 +949,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         feedback_output: self.feedback_output,
                         logger: &self.logger,
                         instance_state: &self.instance_state,
+                        output_logging_enabled: self.output_logging_enabled,
                     };
                     let control_context = ControlContext {
                         feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
@@ -1133,6 +1168,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
+        if self.input_logging_enabled {
+            match self.control_mode {
+                ControlMode::Controlling => {
+                    log_control_input(&self.instance_id, format!("{:?}", packet));
+                }
+                ControlMode::LearningSource { .. } => {
+                    log_learn_input(&self.instance_id, format!("{:?}", packet));
+                }
+                ControlMode::Disabled => {}
+            }
+        }
         match packet {
             OscPacket::Message(msg) => self.process_incoming_osc_message(msg),
             OscPacket::Bundle(bundle) => {
@@ -1160,6 +1206,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             feedback_output: self.feedback_output,
                             logger: &self.logger,
                             instance_state: &self.instance_state,
+                            output_logging_enabled: self.output_logging_enabled,
                         },
                         &mut self.mappings_with_virtual_targets,
                         &mut self.mappings[MappingCompartment::MainMappings],
@@ -1215,6 +1262,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 feedback_output: self.feedback_output,
                                 logger: &self.logger,
                                 instance_state: &self.instance_state,
+                                output_logging_enabled: self.output_logging_enabled,
                             },
                             &self.mappings_with_virtual_targets,
                             FeedbackReason::Normal,
@@ -1301,6 +1349,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_output: self.feedback_output,
             logger: &self.logger,
             instance_state: &self.instance_state,
+            output_logging_enabled: self.output_logging_enabled,
         }
     }
 
@@ -1561,6 +1610,8 @@ pub enum NormalMainTask {
     UpdateSettings {
         control_input: ControlInput,
         feedback_output: Option<FeedbackOutput>,
+        input_logging_enabled: bool,
+        output_logging_enabled: bool,
     },
     UpdateControlIsGloballyEnabled(bool),
     UpdateFeedbackIsGloballyEnabled(bool),
@@ -1588,6 +1639,9 @@ pub enum NormalRealTimeToMainThreadTask {
     /// - Instance settings
     /// - Feedback
     FullResyncToRealTimeProcessorPlease,
+    LogLifecycleOutput {
+        value: MidiSourceValue<RawShortMessage>,
+    },
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).
@@ -1612,6 +1666,13 @@ pub enum ControlMainTask {
         mapping_id: MappingId,
         value: ControlValue,
         options: ControlOptions,
+    },
+    LogControlInput {
+        value: MidiSourceValue<RawShortMessage>,
+        match_result: InputMatchResult,
+    },
+    LogLearnInput {
+        msg: RawShortMessage,
     },
 }
 
@@ -1691,6 +1752,7 @@ struct InstanceProps<'a, EH: DomainEventHandler> {
     feedback_output: Option<FeedbackOutput>,
     logger: &'a slog::Logger,
     instance_state: &'a SharedInstanceState,
+    output_logging_enabled: bool,
 }
 
 impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {
@@ -1808,6 +1870,12 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
             if let FeedbackOutput::Midi(midi_output) = feedback_output {
                 match midi_output {
                     MidiDestination::FxOutput => {
+                        if instance.output_logging_enabled {
+                            log_feedback_output(
+                                &instance.instance_id,
+                                format_midi_source_value(&v),
+                            );
+                        }
                         instance
                             .rt_sender
                             .send(FeedbackRealTimeTask::FxOutputFeedback(v))
@@ -1824,6 +1892,12 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
                         // thread, in order to support multiple instances with the same device) ...
                         // it won't be useful at all if the real-time processors send the feedback
                         // in the order of instance instantiation.
+                        if instance.output_logging_enabled {
+                            log_feedback_output(
+                                &instance.instance_id,
+                                format_midi_source_value(&v),
+                            );
+                        }
                         instance
                             .fb_audio_hook_task_sender
                             .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
@@ -1834,6 +1908,9 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
         }
         SourceFeedbackValue::Osc(msg) => {
             if let FeedbackOutput::Osc(dev_id) = feedback_output {
+                if instance.output_logging_enabled {
+                    log_feedback_output(&instance.instance_id, format!("{:?}", msg));
+                }
                 instance
                     .osc_feedback_task_sender
                     .try_send(OscFeedbackTask::new(dev_id, msg))
@@ -2074,4 +2151,14 @@ fn process_feedback_related_reaper_event_for_mapping<EH: DomainEventHandler>(
                 new_value,
             }));
     }
+}
+
+#[derive(Display)]
+pub enum InputMatchResult {
+    #[display(fmt = "consumed")]
+    Consumed,
+    #[display(fmt = "unmatched")]
+    Unmatched,
+    #[display(fmt = "matched")]
+    Matched,
 }

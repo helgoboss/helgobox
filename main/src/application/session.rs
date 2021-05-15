@@ -53,6 +53,8 @@ pub struct Session {
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub auto_correct_settings: Prop<bool>,
+    pub input_logging_enabled: Prop<bool>,
+    pub output_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiDestination>>,
@@ -174,6 +176,8 @@ impl Session {
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
             auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
+            input_logging_enabled: prop(false),
+            output_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
@@ -560,6 +564,8 @@ impl Session {
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
+            .merge(self.input_logging_enabled.changed())
+            .merge(self.output_logging_enabled.changed())
     }
 
     pub fn learn_source(&mut self, source: RealSource, allow_virtual_sources: bool) {
@@ -1825,6 +1831,8 @@ impl Session {
         let task = NormalMainTask::UpdateSettings {
             control_input: self.control_input(),
             feedback_output: self.feedback_output(),
+            input_logging_enabled: self.input_logging_enabled.get(),
+            output_logging_enabled: self.output_logging_enabled.get(),
         };
         self.normal_main_task_sender.try_send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {
@@ -1832,6 +1840,8 @@ impl Session {
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
             midi_control_input: self.midi_control_input.get(),
             midi_feedback_output: self.midi_feedback_output.get(),
+            input_logging_enabled: self.input_logging_enabled.get(),
+            output_logging_enabled: self.output_logging_enabled.get(),
         };
         self.normal_real_time_task_sender.send(task).unwrap();
     }

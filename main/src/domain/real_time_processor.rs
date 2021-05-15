@@ -1,9 +1,10 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    Garbage, GarbageBin, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
-    MappingId, MidiClockCalculator, MidiMessageClassification, MidiSource, MidiSourceScanner,
-    NormalRealTimeToMainThreadTask, PartialControlMatch, RealTimeCompoundMappingTarget,
-    RealTimeMapping, RealTimeReaperTarget, SendMidiDestination, VirtualSourceValue,
+    Garbage, GarbageBin, InputMatchResult, InstanceId, LifecycleMidiMessage, LifecyclePhase,
+    MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification, MidiSource,
+    MidiSourceScanner, NormalRealTimeToMainThreadTask, PartialControlMatch,
+    RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeReaperTarget, SendMidiDestination,
+    VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
@@ -55,6 +56,8 @@ pub struct RealTimeProcessor {
     midi_source_scanner: MidiSourceScanner,
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
+    input_logging_enabled: bool,
+    output_logging_enabled: bool,
 }
 
 impl RealTimeProcessor {
@@ -94,6 +97,8 @@ impl RealTimeProcessor {
             control_is_globally_enabled: true,
             feedback_is_globally_enabled: true,
             garbage_bin,
+            input_logging_enabled: false,
+            output_logging_enabled: false,
         }
     }
 
@@ -302,6 +307,8 @@ impl RealTimeProcessor {
                     let_unmatched_events_through,
                     midi_control_input,
                     midi_feedback_output,
+                    input_logging_enabled,
+                    output_logging_enabled,
                 } => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating settings...");
@@ -317,6 +324,8 @@ impl RealTimeProcessor {
                     self.let_unmatched_events_through = let_unmatched_events_through;
                     self.midi_control_input = midi_control_input;
                     self.midi_feedback_output = midi_feedback_output;
+                    self.input_logging_enabled = input_logging_enabled;
+                    self.output_logging_enabled = output_logging_enabled;
                     // Handle activation
                     if self.processor_feedback_is_effectively_on() && feedback_output_changing {
                         self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);
@@ -591,12 +600,6 @@ impl RealTimeProcessor {
         match self.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
-                    if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
-                        self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
-                    }
-                    if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
-                        self.process_incoming_midi_normal_cc14(cc14_msg, caller);
-                    }
                     // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still
                     // process the plain short MIDI message. This is desired.
                     // Rationale: If there's no mapping with a composite source
@@ -609,12 +612,21 @@ impl RealTimeProcessor {
                     // confusing. They are consumed. That's the reason why
                     // we do the consumption check at a later state.
                     self.process_incoming_midi_normal_plain(msg, caller);
+                    if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
+                        self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
+                    }
+                    if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
+                        self.process_incoming_midi_normal_cc14(cc14_msg, caller);
+                    }
                 }
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
                 ..
             } => {
+                if self.input_logging_enabled {
+                    self.log_learn_input(msg);
+                }
                 if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
                     self.learn_source(source, allow_virtual_sources);
                 }
@@ -626,6 +638,9 @@ impl RealTimeProcessor {
     fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage, caller: Caller) {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
         let matched = self.control_midi(&source_value, caller);
+        if self.input_logging_enabled {
+            self.log_control_input(source_value, false, matched);
+        }
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -640,6 +655,38 @@ impl RealTimeProcessor {
                 self.send_short_midi_to_fx_output(*m, caller);
             }
         }
+    }
+
+    fn log_control_input(
+        &self,
+        msg: MidiSourceValue<RawShortMessage>,
+        consumed: bool,
+        matched: bool,
+    ) {
+        self.control_main_task_sender
+            .try_send(ControlMainTask::LogControlInput {
+                value: msg,
+                match_result: if consumed {
+                    InputMatchResult::Consumed
+                } else if matched {
+                    InputMatchResult::Matched
+                } else {
+                    InputMatchResult::Unmatched
+                },
+            })
+            .unwrap();
+    }
+
+    fn log_learn_input(&self, msg: RawShortMessage) {
+        self.control_main_task_sender
+            .try_send(ControlMainTask::LogLearnInput { msg })
+            .unwrap();
+    }
+
+    fn log_lifecycle_output(&self, value: MidiSourceValue<RawShortMessage>) {
+        self.normal_main_task_sender
+            .try_send(NormalRealTimeToMainThreadTask::LogLifecycleOutput { value })
+            .unwrap();
     }
 
     fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
@@ -660,6 +707,9 @@ impl RealTimeProcessor {
     ) {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
         let matched = self.control_midi(&source_value, caller);
+        if self.input_logging_enabled {
+            self.log_control_input(source_value, false, matched);
+        }
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
@@ -675,6 +725,9 @@ impl RealTimeProcessor {
     fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage, caller: Caller) {
         let source_value = MidiSourceValue::Plain(msg);
         if self.is_consumed_by_at_least_one_source(msg) {
+            if self.input_logging_enabled {
+                self.log_control_input(source_value, true, false);
+            }
             // Some short MIDI messages are just parts of bigger composite MIDI messages,
             // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
             // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
@@ -682,6 +735,9 @@ impl RealTimeProcessor {
             return;
         }
         let matched = self.control_midi(&source_value, caller);
+        if self.input_logging_enabled {
+            self.log_control_input(source_value, false, matched);
+        }
         if matched {
             self.process_matched_short(msg, caller);
         } else {
@@ -808,9 +864,19 @@ impl RealTimeProcessor {
                             for m in m.lifecycle_midi_messages(phase) {
                                 match m {
                                     LifecycleMidiMessage::Short(msg) => {
+                                        if self.output_logging_enabled {
+                                            self.log_lifecycle_output(MidiSourceValue::Plain(*msg));
+                                        }
                                         mo.send(*msg, SendMidiTime::Instantly);
                                     }
                                     LifecycleMidiMessage::Raw(data) => {
+                                        if self.output_logging_enabled {
+                                            permit_alloc(|| {
+                                                self.log_lifecycle_output(MidiSourceValue::Raw(
+                                                    data.clone(),
+                                                ));
+                                            });
+                                        }
                                         mo.send_msg(&**data, SendMidiTime::Instantly);
                                     }
                                 }
@@ -825,8 +891,20 @@ impl RealTimeProcessor {
     fn send_lifecycle_midi_to_fx_output(&self, messages: &[LifecycleMidiMessage], caller: Caller) {
         for m in messages {
             match m {
-                LifecycleMidiMessage::Short(msg) => self.send_short_midi_to_fx_output(*msg, caller),
-                LifecycleMidiMessage::Raw(data) => send_raw_midi_to_fx_output(data, caller),
+                LifecycleMidiMessage::Short(msg) => {
+                    if self.output_logging_enabled {
+                        self.log_lifecycle_output(MidiSourceValue::Plain(*msg));
+                    }
+                    self.send_short_midi_to_fx_output(*msg, caller)
+                }
+                LifecycleMidiMessage::Raw(data) => {
+                    if self.output_logging_enabled {
+                        permit_alloc(|| {
+                            self.log_lifecycle_output(MidiSourceValue::Raw(data.clone()));
+                        });
+                    }
+                    send_raw_midi_to_fx_output(data, caller)
+                }
             }
         }
     }
@@ -962,6 +1040,8 @@ pub enum NormalRealTimeTask {
         let_unmatched_events_through: bool,
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiDestination>,
+        input_logging_enabled: bool,
+        output_logging_enabled: bool,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),

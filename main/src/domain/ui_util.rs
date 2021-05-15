@@ -1,4 +1,9 @@
-use helgoboss_learn::{format_percentage_without_unit, parse_percentage_without_unit, UnitValue};
+use crate::domain::InstanceId;
+use core::fmt;
+use helgoboss_learn::{
+    format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
+};
+use helgoboss_midi::{RawShortMessage, ShortMessage};
 use reaper_high::{FxParameter, Reaper, Volume};
 use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use slog::warn;
@@ -95,4 +100,55 @@ pub fn format_value_as_db(value: UnitValue) -> String {
     Volume::try_from_soft_normalized_value(value.get())
         .unwrap_or(Volume::MIN)
         .to_string()
+}
+
+pub fn log_control_input(instance_id: &InstanceId, msg: String) {
+    log(instance_id, "Control input", &msg);
+}
+
+pub fn log_learn_input(instance_id: &InstanceId, msg: String) {
+    log(instance_id, "Learn input", &msg);
+}
+
+pub fn log_feedback_output(instance_id: &InstanceId, msg: String) {
+    log(instance_id, "Feedback output", &msg);
+}
+
+pub fn log_lifecycle_output(instance_id: &InstanceId, msg: String) {
+    log(instance_id, "Lifecycle output", &msg);
+}
+
+pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> String {
+    use MidiSourceValue::*;
+    match value {
+        Plain(m) => format_short_message(*m),
+        ParameterNumber(m) => serde_json::to_string(&m).unwrap(),
+        ControlChange14Bit(m) => serde_json::to_string(&m).unwrap(),
+        Tempo(bpm) => format!("{:?}", bpm),
+        Raw(evt) => format!("{:02X?}", evt.bytes()),
+    }
+}
+
+pub fn format_short_message(msg: RawShortMessage) -> String {
+    let bytes = msg.to_bytes();
+    let decimal = format!("[{}, {}, {}]", bytes.0, bytes.1, bytes.2);
+    let structured = format!("{:?}", msg.to_structured());
+    let hex = format!(
+        "[{:02X}, {:02X}, {:02X}]",
+        bytes.0,
+        bytes.1.get(),
+        bytes.2.get()
+    );
+    format!("{} = {} = {}", hex, decimal, structured)
+}
+
+fn log(instance_id: &InstanceId, label: &str, msg: &impl fmt::Display) {
+    let reaper = Reaper::get();
+    reaper.show_console_msg(format!(
+        "{:.3} | ReaLearn {} | {:<16} | {}\n",
+        reaper.medium_reaper().low().time_precise(),
+        instance_id,
+        label,
+        msg
+    ));
 }

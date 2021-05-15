@@ -191,6 +191,8 @@ impl HeaderPanel {
             MoveListedMappingsToGroup(GroupId),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             ToggleAutoCorrectSettings,
+            ToggleInputLogging,
+            ToggleOutputLogging,
             ToggleSendFeedbackOnlyIfTrackArmed,
             ToggleUpperFloorMembership,
             ToggleServer,
@@ -468,6 +470,22 @@ impl HeaderPanel {
                 separator(),
                 item("Send feedback now", || MenuAction::SendFeedbackNow),
                 item("Log debug info", || MenuAction::LogDebugInfo),
+                item_with_opts(
+                    "Log incoming messages",
+                    ItemOpts {
+                        enabled: true,
+                        checked: session.input_logging_enabled.get(),
+                    },
+                    || MenuAction::ToggleInputLogging,
+                ),
+                item_with_opts(
+                    "Log outgoing messages",
+                    ItemOpts {
+                        enabled: true,
+                        checked: session.output_logging_enabled.get(),
+                    },
+                    || MenuAction::ToggleOutputLogging,
+                ),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -513,6 +531,8 @@ impl HeaderPanel {
                 let _ = edit_compartment_parameter(self.session(), compartment, rel_index);
             }
             MenuAction::ToggleAutoCorrectSettings => self.toggle_always_auto_detect(),
+            MenuAction::ToggleInputLogging => self.toggle_input_logging(),
+            MenuAction::ToggleOutputLogging => self.toggle_output_logging(),
             MenuAction::ToggleSendFeedbackOnlyIfTrackArmed => {
                 self.toggle_send_feedback_only_if_armed()
             }
@@ -792,6 +812,20 @@ impl HeaderPanel {
         self.session()
             .borrow_mut()
             .auto_correct_settings
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_input_logging(&self) {
+        self.session()
+            .borrow_mut()
+            .input_logging_enabled
+            .set_with(|prev| !*prev);
+    }
+
+    fn toggle_output_logging(&self) {
+        self.session()
+            .borrow_mut()
+            .output_logging_enabled
             .set_with(|prev| !*prev);
     }
 
