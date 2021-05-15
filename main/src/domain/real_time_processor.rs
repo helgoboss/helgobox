@@ -13,7 +13,7 @@ use helgoboss_midi::{
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiFrameOffset, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
-use slog::debug;
+use slog::{debug, trace};
 use std::collections::HashMap;
 
 use crate::base::Global;
@@ -366,6 +366,9 @@ impl RealTimeProcessor {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
+                LogMapping(compartment, mapping_id) => {
+                    self.log_mapping(compartment, mapping_id);
+                }
                 UpdateMappingActivations(compartment, activation_updates) => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating mapping activations...");
@@ -554,7 +557,8 @@ impl RealTimeProcessor {
                 })
                 .unwrap();
             // Detailled
-            println!(
+            trace!(
+                self.logger,
                 "\n\
             # Real-time processor\n\
             \n\
@@ -562,6 +566,26 @@ impl RealTimeProcessor {
             ",
                 self
             );
+        });
+    }
+
+    fn log_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        permit_alloc(|| {
+            let mapping = self.mappings[compartment].get(&mapping_id);
+            let msg = format!(
+                "\n\
+            # Real-time processor\n\
+            \n\
+            Mapping with ID {}:\n\
+            {:#?}
+            ",
+                mapping_id, mapping
+            );
+            Global::task_support()
+                .do_in_main_thread_asap(move || {
+                    Reaper::get().show_console_msg(msg);
+                })
+                .unwrap();
         });
     }
 
@@ -1053,6 +1077,7 @@ pub enum NormalRealTimeTask {
     /// parameter update occurs we can determine in a very granular way which targets are affected.
     UpdateMappingActivations(MappingCompartment, Vec<ActivationChange>),
     LogDebugInfo,
+    LogMapping(MappingCompartment, MappingId),
     UpdateSampleRate(Hz),
     StartLearnSource {
         allow_virtual_sources: bool,

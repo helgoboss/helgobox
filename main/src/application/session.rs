@@ -21,7 +21,7 @@ use reaper_high::Reaper;
 use rx_util::Notifier;
 use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -1681,6 +1681,15 @@ impl Session {
             .unwrap();
     }
 
+    pub fn log_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::LogMapping(compartment, mapping_id))
+            .unwrap();
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::LogMapping(compartment, mapping_id))
+            .unwrap();
+    }
+
     pub fn mapping_is_on(&self, id: MappingId) -> bool {
         self.on_mappings.get_ref().contains(&id)
     }
@@ -1717,7 +1726,8 @@ impl Session {
         );
         Reaper::get().show_console_msg(msg);
         // Detailled
-        println!(
+        trace!(
+            self.logger,
             "\n\
             # Session\n\
             \n\

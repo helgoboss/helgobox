@@ -639,6 +639,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
+                LogMapping(compartment, mapping_id) => {
+                    self.log_mapping(compartment, mapping_id);
+                }
                 UpdateFeedbackIsGloballyEnabled(is_enabled) => {
                     debug!(
                         self.logger,
@@ -1604,7 +1607,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
         Reaper::get().show_console_msg(msg);
         // Detailled
-        println!(
+        trace!(
+            self.logger,
             "\n\
             # Main processor\n\
             \n\
@@ -1612,6 +1616,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ",
             self
         );
+    }
+
+    fn log_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        // Summary
+        let mapping = self
+            .all_mappings_in_compartment(compartment)
+            .find(|m| m.id() == mapping_id);
+        let msg = format!(
+            "\n\
+            # Main processor\n\
+            \n\
+            Mapping with ID {}:\n\
+            {:#?}
+            ",
+            mapping_id, mapping
+        );
+        Reaper::get().show_console_msg(msg);
     }
 }
 
@@ -1634,6 +1655,7 @@ pub enum NormalMainTask {
     UpdateFeedbackIsGloballyEnabled(bool),
     SendAllFeedback,
     LogDebugInfo,
+    LogMapping(MappingCompartment, MappingId),
     StartLearnSource {
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,

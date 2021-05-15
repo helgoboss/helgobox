@@ -468,6 +468,7 @@ impl MappingRowPanel {
             let session_6 = shared_session.clone();
             let session_7 = shared_session.clone();
             let session_8 = shared_session.clone();
+            let session_9 = shared_session.clone();
             let entries = vec![
                 item("Copy", move || {
                     let _ = copy_mapping_object(
@@ -596,6 +597,9 @@ impl MappingRowPanel {
                     }))
                     .collect(),
                 ),
+                item("Log debug info", move || {
+                    session_9.borrow().log_mapping(compartment, mapping_id);
+                }),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
