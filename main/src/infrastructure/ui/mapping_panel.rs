@@ -1931,7 +1931,7 @@ impl<'a> MutableMappingPanel<'a> {
                                 .track_expression
                                 .set_with_initiator(expression, Some(edit_control_id));
                         }
-                        VirtualTrackType::ByName => {
+                        VirtualTrackType::ByName | VirtualTrackType::AllByName => {
                             let name = control.text().unwrap_or_default();
                             self.mapping
                                 .target_model
@@ -2876,7 +2876,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                             let index = self.target.track_index.get();
                             (index + 1).to_string()
                         }
-                        VirtualTrackType::ByName => self.target.track_name.get_ref().clone(),
+                        VirtualTrackType::ByName | VirtualTrackType::AllByName => {
+                            self.target.track_name.get_ref().clone()
+                        }
                         _ => {
                             control.hide();
                             return;

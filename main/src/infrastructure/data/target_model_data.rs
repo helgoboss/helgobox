@@ -397,7 +397,7 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
             index: None,
             expression: None,
         },
-        SelectedMultiple => TrackData {
+        AllSelected => TrackData {
             guid: Some("selected*".to_string()),
             name: None,
             index: None,
@@ -423,6 +423,12 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
         },
         ByName => TrackData {
             guid: None,
+            name: Some(track.name),
+            index: None,
+            expression: None,
+        },
+        AllByName => TrackData {
+            guid: Some("name*".to_string()),
             name: Some(track.name),
             index: None,
             expression: None,
@@ -698,6 +704,15 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
                 allow_multiple: true,
             })
         }
+        TrackData {
+            guid: Some(g),
+            name: Some(n),
+            ..
+        } if g == "name*" => TrackPropValues {
+            r#type: VirtualTrackType::AllByName,
+            name: n.clone(),
+            ..Default::default()
+        },
         TrackData {
             guid: Some(g),
             name,

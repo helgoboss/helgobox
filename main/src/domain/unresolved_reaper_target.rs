@@ -899,7 +899,10 @@ pub enum VirtualTrack {
     /// Particular.
     ById(Guid),
     /// Particular.
-    ByName(WildMatch),
+    ByName {
+        wild_match: WildMatch,
+        allow_multiple: bool,
+    },
     /// Particular.
     ByIndex(u32),
     /// This is the old default for targeting a particular track and it exists solely for backward
@@ -1063,7 +1066,15 @@ impl fmt::Display for VirtualTrack {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
-            ByName(name) => write!(f, "\"{}\"", name),
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => write!(
+                f,
+                "\"{}\"{}",
+                wild_match,
+                if *allow_multiple { " (all)" } else { "" }
+            ),
             ByIndex(i) => write!(f, "{}", i + 1),
         }
     }
@@ -1172,15 +1183,12 @@ impl VirtualTrack {
                 }
                 vec![single]
             }
-            ByName(name) => {
-                let single =
-                    find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                        guid: None,
-                        name: Some(name.clone()),
-                        index: None,
-                    })?;
-                vec![single]
-            }
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => find_tracks_by_name(project, wild_match)
+                .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
+                .collect(),
             ByIndex(index) => {
                 let single = resolve_track_by_index(project, *index)?;
                 vec![single]
@@ -1252,7 +1260,10 @@ impl VirtualTrack {
     pub fn name(&self) -> Option<String> {
         use VirtualTrack::*;
         match self {
-            ByName(name) | ByIdOrName(_, name) => Some(name.to_string()),
+            ByName {
+                wild_match: name, ..
+            }
+            | ByIdOrName(_, name) => Some(name.to_string()),
             _ => None,
         }
     }
@@ -1295,6 +1306,16 @@ impl fmt::Display for VirtualChainFx {
 
 fn find_track_by_name(project: Project, name: &WildMatch) -> Option<Track> {
     project.tracks().find(|t| match t.name() {
+        None => false,
+        Some(n) => name.matches(n.to_str()),
+    })
+}
+
+fn find_tracks_by_name<'a>(
+    project: Project,
+    name: &'a WildMatch,
+) -> impl Iterator<Item = Track> + 'a {
+    project.tracks().filter(move |t| match t.name() {
         None => false,
         Some(n) => name.matches(n.to_str()),
     })
@@ -1463,7 +1484,9 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use VirtualTrack::*;
         match self.virtual_track {
-            This | Selected { .. } | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
+            This | Selected { .. } | Master | ByName { .. } | Dynamic(_) => {
+                write!(f, "{}", self.virtual_track)
+            }
             _ => {
                 if let Some(t) = self
                     .virtual_track

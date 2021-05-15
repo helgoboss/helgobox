@@ -528,12 +528,19 @@ impl TargetModel {
             Selected => VirtualTrack::Selected {
                 allow_multiple: false,
             },
-            SelectedMultiple => VirtualTrack::Selected {
+            AllSelected => VirtualTrack::Selected {
                 allow_multiple: true,
             },
             Master => VirtualTrack::Master,
             ById => VirtualTrack::ById(self.track_id.get()?),
-            ByName => VirtualTrack::ByName(WildMatch::new(self.track_name.get_ref())),
+            ByName => VirtualTrack::ByName {
+                wild_match: WildMatch::new(self.track_name.get_ref()),
+                allow_multiple: false,
+            },
+            AllByName => VirtualTrack::ByName {
+                wild_match: WildMatch::new(self.track_name.get_ref()),
+                allow_multiple: true,
+            },
             ByIndex => VirtualTrack::ByIndex(self.track_index.get()),
             ByIdOrName => VirtualTrack::ByIdOrName(
                 self.track_id.get()?,
@@ -1902,7 +1909,7 @@ pub enum VirtualTrackType {
     #[display(fmt = "<Selected>")]
     Selected,
     #[display(fmt = "<All selected>")]
-    SelectedMultiple,
+    AllSelected,
     #[display(fmt = "<Dynamic>")]
     Dynamic,
     #[display(fmt = "<Master>")]
@@ -1911,6 +1918,8 @@ pub enum VirtualTrackType {
     ById,
     #[display(fmt = "By name")]
     ByName,
+    #[display(fmt = "All by name")]
+    AllByName,
     #[display(fmt = "By position")]
     ByIndex,
     #[display(fmt = "By ID or name")]
@@ -1957,7 +1966,7 @@ impl VirtualTrackType {
             This => Self::This,
             Selected { allow_multiple } => {
                 if *allow_multiple {
-                    Self::SelectedMultiple
+                    Self::AllSelected
                 } else {
                     Self::Selected
                 }
@@ -1966,7 +1975,13 @@ impl VirtualTrackType {
             Master => Self::Master,
             ByIdOrName(_, _) => Self::ByIdOrName,
             ById(_) => Self::ById,
-            ByName(_) => Self::ByName,
+            ByName { allow_multiple, .. } => {
+                if *allow_multiple {
+                    Self::AllByName
+                } else {
+                    Self::ByName
+                }
+            }
             ByIndex(_) => Self::ByIndex,
         }
     }
@@ -1978,7 +1993,7 @@ impl VirtualTrackType {
 
     pub fn track_selected_condition_makes_sense(&self) -> bool {
         use VirtualTrackType::*;
-        !matches!(self, Selected | SelectedMultiple)
+        !matches!(self, Selected | AllSelected)
     }
 }
 
