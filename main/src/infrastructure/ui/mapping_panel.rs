@@ -5748,7 +5748,7 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
                         item(format!("{} {}", label, i), move || {
                             let status_byte: u8 = msg_type.into();
                             MenuAction::Preset(format!(
-                                "{:02X} {:02X} [0nml kjih]",
+                                "{:02X} {:02X} [0gfe dcba]",
                                 status_byte + ch,
                                 i
                             ))
@@ -5771,7 +5771,7 @@ fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {
                 item(fmt_ch(ch), move || {
                     let status_byte: u8 = msg_type.into();
                     MenuAction::Preset(format!(
-                        "{:02X} [0nml kjih] {:02X}",
+                        "{:02X} [0gfe dcba] {:02X}",
                         status_byte + ch,
                         last_byte
                     ))
