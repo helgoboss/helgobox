@@ -1,3 +1,4 @@
+use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     ControlContext, FeedbackOutput, OscDeviceId, OscFeedbackTask, RealearnTarget, TargetCharacter,
 };
@@ -61,6 +62,14 @@ impl RealearnTarget for OscSendTarget {
                 }
             })
             .ok_or("no destination device for sending OSC")?;
+        if context.output_logging_enabled {
+            let text = format!(
+                "Device {} | {}",
+                effective_dev_id.fmt_short(),
+                format_osc_message(&msg)
+            );
+            log_target_output(context.instance_id, text);
+        }
         context
             .osc_feedback_task_sender
             .try_send(OscFeedbackTask::new(effective_dev_id, msg))

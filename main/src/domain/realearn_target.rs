@@ -1,8 +1,8 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
     AdditionalFeedbackEvent, FeedbackAudioHookTask, FeedbackOutput, InstanceFeedbackEvent,
-    OscFeedbackTask, RealTimeReaperTarget, RealTimeSender, SharedInstanceState, TargetCharacter,
-    TrackExclusivity,
+    InstanceId, OscFeedbackTask, RealTimeReaperTarget, RealTimeSender, SharedInstanceState,
+    TargetCharacter, TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{ControlType, ControlValue, UnitValue};
@@ -181,4 +181,6 @@ pub struct ControlContext<'a> {
     pub osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
     pub instance_state: &'a SharedInstanceState,
+    pub instance_id: &'a InstanceId,
+    pub output_logging_enabled: bool,
 }

@@ -764,6 +764,7 @@ impl RealTimeProcessor {
                 value,
                 caller,
                 self.midi_feedback_output,
+                self.output_logging_enabled,
             )
         } else {
             unreachable!()
@@ -795,6 +796,7 @@ impl RealTimeProcessor {
                         ControlOptions::default(),
                         caller,
                         self.midi_feedback_output,
+                        self.output_logging_enabled,
                     );
                     matched = true;
                 }
@@ -1142,6 +1144,7 @@ fn control_controller_mappings_midi(
     value: &MidiSourceValue<RawShortMessage>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
 ) -> bool {
     let mut matched = false;
     for m in controller_mappings
@@ -1169,6 +1172,7 @@ fn control_controller_mappings_midi(
                     },
                     caller,
                     midi_feedback_output,
+                    output_logging_enabled,
                 ),
                 ProcessDirect(control_value) => {
                     let _ = process_real_mapping(
@@ -1179,6 +1183,7 @@ fn control_controller_mappings_midi(
                         ControlOptions::default(),
                         caller,
                         midi_feedback_output,
+                        output_logging_enabled,
                     );
                     true
                 }
@@ -1199,6 +1204,7 @@ fn process_real_mapping(
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_ref()
@@ -1238,6 +1244,15 @@ fn process_real_mapping(
                         }
                     }
                 };
+                if output_logging_enabled && midi_destination.is_some() {
+                    permit_alloc(|| {
+                        sender
+                            .try_send(ControlMainTask::LogTargetOutput {
+                                event: Box::new(raw_midi_event.clone()),
+                            })
+                            .unwrap();
+                    });
+                }
                 match midi_destination {
                     Some(MidiDestination::FxOutput) => {
                         send_raw_midi_to_fx_output(&raw_midi_event, caller);
@@ -1286,6 +1301,7 @@ fn control_main_mappings_virtual(
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1304,6 +1320,7 @@ fn control_main_mappings_virtual(
                     options,
                     caller,
                     midi_feedback_output,
+                    output_logging_enabled,
                 );
                 matched = true;
             }

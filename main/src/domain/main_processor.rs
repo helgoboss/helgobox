@@ -14,12 +14,13 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    ControlValue, MidiSourceValue, ModeControlOptions, OscSource, Target, UnitValue,
+    ControlValue, MidiSourceValue, ModeControlOptions, OscSource, RawMidiEvent, Target, UnitValue,
 };
 
 use crate::domain::ui_util::{
-    format_midi_source_value, format_short_message, log_control_input, log_feedback_output,
-    log_learn_input, log_lifecycle_output,
+    format_midi_source_value, format_osc_message, format_osc_packet, format_raw_midi_event,
+    format_short_midi_message, log_control_input, log_feedback_output, log_learn_input,
+    log_lifecycle_output, log_target_output,
 };
 use helgoboss_midi::RawShortMessage;
 use reaper_high::{ChangeEvent, Reaper};
@@ -199,6 +200,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             osc_feedback_task_sender: &self.osc_feedback_task_sender,
             feedback_output: self.feedback_output,
             instance_state: &self.instance_state,
+            instance_id: &self.instance_id,
+            output_logging_enabled: self.output_logging_enabled,
         }
     }
 
@@ -275,6 +278,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                     feedback_output: self.feedback_output,
                                     instance_state: &self.instance_state,
+                                    instance_id: &self.instance_id,
+                                    output_logging_enabled: self.output_logging_enabled,
                                 },
                                 &self.logger,
                             );
@@ -293,8 +298,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     LogLearnInput { msg } => {
                         log_learn_input(
                             self.instance_id(),
-                            format!("{}", format_short_message(msg)),
+                            format!("{}", format_short_midi_message(msg)),
                         );
+                    }
+                    LogTargetOutput { event } => {
+                        log_target_output(self.instance_id(), format_raw_midi_event(&event));
                     }
                 }
             }
@@ -306,6 +314,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             osc_feedback_task_sender: &self.osc_feedback_task_sender,
                             feedback_output: self.feedback_output,
                             instance_state: &self.instance_state,
+                            instance_id: &self.instance_id,
+                            output_logging_enabled: self.output_logging_enabled,
                         });
                         self.send_feedback(FeedbackReason::Normal, feedback);
                     }
@@ -838,39 +848,42 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
                             // Virtual targets are not candidates for "Last touched" so we don't
                             // need to consider them here.
-                            let fb =
-                                if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                                    // We don't need to track activation updates because this target
-                                    // is always on. Switching off is not necessary since the last
-                                    // touched target can never be "unset".
-                                    m.refresh_target(ExtendedProcessorContext::new(
-                                        &self.context,
-                                        &self.parameters,
-                                    ));
-                                    if m.has_reaper_target() && m.has_resolved_successfully() {
-                                        if m.feedback_is_effectively_on() {
-                                            // TODO-high Is this executed too frequently and maybe
-                                            // even sends redundant feedback!?
-                                            m.feedback(
-                                                true,
-                                                ControlContext {
-                                                    feedback_audio_hook_task_sender: &self
-                                                        .feedback_audio_hook_task_sender,
-                                                    osc_feedback_task_sender: &self
-                                                        .osc_feedback_task_sender,
-                                                    feedback_output: self.feedback_output,
-                                                    instance_state: &self.instance_state,
-                                                },
-                                            )
-                                        } else {
-                                            None
-                                        }
+                            let fb = if let Some(m) =
+                                self.mappings[compartment].get_mut(&mapping_id)
+                            {
+                                // We don't need to track activation updates because this target
+                                // is always on. Switching off is not necessary since the last
+                                // touched target can never be "unset".
+                                m.refresh_target(ExtendedProcessorContext::new(
+                                    &self.context,
+                                    &self.parameters,
+                                ));
+                                if m.has_reaper_target() && m.has_resolved_successfully() {
+                                    if m.feedback_is_effectively_on() {
+                                        // TODO-high Is this executed too frequently and maybe
+                                        // even sends redundant feedback!?
+                                        m.feedback(
+                                            true,
+                                            ControlContext {
+                                                feedback_audio_hook_task_sender: &self
+                                                    .feedback_audio_hook_task_sender,
+                                                osc_feedback_task_sender: &self
+                                                    .osc_feedback_task_sender,
+                                                feedback_output: self.feedback_output,
+                                                instance_state: &self.instance_state,
+                                                instance_id: &self.instance_id,
+                                                output_logging_enabled: self.output_logging_enabled,
+                                            },
+                                        )
                                     } else {
                                         None
                                     }
                                 } else {
                                     None
-                                };
+                                }
+                            } else {
+                                None
+                            };
                             self.send_feedback(FeedbackReason::Normal, fb);
                         }
                     }
@@ -956,6 +969,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         osc_feedback_task_sender: &self.osc_feedback_task_sender,
                         feedback_output: self.feedback_output,
                         instance_state: &self.instance_state,
+                        instance_id: &self.instance_id,
+                        output_logging_enabled: self.output_logging_enabled,
                     };
                     process_feedback_related_reaper_event_for_mapping(
                         &instance_props,
@@ -1171,10 +1186,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if self.input_logging_enabled {
             match self.control_mode {
                 ControlMode::Controlling => {
-                    log_control_input(&self.instance_id, format!("{:?}", packet));
+                    log_control_input(&self.instance_id, format_osc_packet(packet));
                 }
                 ControlMode::LearningSource { .. } => {
-                    log_learn_input(&self.instance_id, format!("{:?}", packet));
+                    log_learn_input(&self.instance_id, format_osc_packet(packet));
                 }
                 ControlMode::Disabled => {}
             }
@@ -1246,6 +1261,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 osc_feedback_task_sender: &self.osc_feedback_task_sender,
                                 feedback_output: self.feedback_output,
                                 instance_state: &self.instance_state,
+                                instance_id: &self.instance_id,
+                                output_logging_enabled: self.output_logging_enabled,
                             },
                             &self.logger,
                         );
@@ -1674,6 +1691,9 @@ pub enum ControlMainTask {
     LogLearnInput {
         msg: RawShortMessage,
     },
+    LogTargetOutput {
+        event: Box<RawMidiEvent>,
+    },
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
@@ -1909,7 +1929,7 @@ fn send_direct_source_feedback<EH: DomainEventHandler>(
         SourceFeedbackValue::Osc(msg) => {
             if let FeedbackOutput::Osc(dev_id) = feedback_output {
                 if instance.output_logging_enabled {
-                    log_feedback_output(&instance.instance_id, format!("{:?}", msg));
+                    log_feedback_output(&instance.instance_id, format_osc_message(&msg));
                 }
                 instance
                     .osc_feedback_task_sender
@@ -1960,6 +1980,8 @@ fn control_virtual_mappings_osc<EH: DomainEventHandler>(
                                 osc_feedback_task_sender: instance.osc_feedback_task_sender,
                                 feedback_output: instance.feedback_output,
                                 instance_state: instance.instance_state,
+                                instance_id: &instance.instance_id,
+                                output_logging_enabled: instance.output_logging_enabled,
                             },
                             &instance.logger,
                         )
@@ -2115,6 +2137,8 @@ fn process_feedback_related_reaper_event_for_mapping<EH: DomainEventHandler>(
                 osc_feedback_task_sender: instance.osc_feedback_task_sender,
                 feedback_output: instance.feedback_output,
                 instance_state: instance.instance_state,
+                instance_id: &instance.instance_id,
+                output_logging_enabled: instance.output_logging_enabled,
             };
             m.given_or_current_value(new_value, target, control_context)
                 .unwrap_or(UnitValue::MIN)

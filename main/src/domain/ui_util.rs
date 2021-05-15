@@ -1,11 +1,13 @@
 use crate::domain::InstanceId;
 use core::fmt;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
+    format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, RawMidiEvent,
+    UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use reaper_high::{FxParameter, Reaper, Volume};
 use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use rosc::{OscMessage, OscPacket};
 use slog::warn;
 use std::convert::TryInto;
 
@@ -118,18 +120,34 @@ pub fn log_lifecycle_output(instance_id: &InstanceId, msg: String) {
     log(instance_id, "Lifecycle output", &msg);
 }
 
+pub fn log_target_output(instance_id: &InstanceId, msg: String) {
+    log(instance_id, "Target output", &msg);
+}
+
 pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> String {
     use MidiSourceValue::*;
     match value {
-        Plain(m) => format_short_message(*m),
+        Plain(m) => format_short_midi_message(*m),
         ParameterNumber(m) => serde_json::to_string(&m).unwrap(),
         ControlChange14Bit(m) => serde_json::to_string(&m).unwrap(),
         Tempo(bpm) => format!("{:?}", bpm),
-        Raw(evt) => format!("{:02X?}", evt.bytes()),
+        Raw(evt) => format_raw_midi_event(evt),
     }
 }
 
-pub fn format_short_message(msg: RawShortMessage) -> String {
+pub fn format_raw_midi_event(evt: &RawMidiEvent) -> String {
+    format!("{:02X?}", evt.bytes())
+}
+
+pub fn format_osc_packet(packet: &OscPacket) -> String {
+    format!("{:?}", packet)
+}
+
+pub fn format_osc_message(msg: &OscMessage) -> String {
+    format!("{:?}", msg)
+}
+
+pub fn format_short_midi_message(msg: RawShortMessage) -> String {
     let bytes = msg.to_bytes();
     let decimal = format!("[{}, {}, {}]", bytes.0, bytes.1, bytes.2);
     let structured = format!("{:?}", msg.to_structured());

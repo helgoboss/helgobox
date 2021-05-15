@@ -37,8 +37,8 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::domain::{
-    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, SendMidiDestination,
-    SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
+    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, InstanceId,
+    SendMidiDestination, SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -3656,6 +3656,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 let control_context = create_control_context(
                     self.session.feedback_output(),
                     self.session.instance_state(),
+                    self.session.instance_id(),
+                    self.session.output_logging_enabled.get(),
                 );
                 let value = t.current_value(control_context).unwrap_or(UnitValue::MIN);
                 self.invalidate_target_value_controls_with_value(value);
@@ -5176,11 +5178,19 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok((targets, feedback_output, instance_state)) = self.read(|p| {
+                if let Ok((
+                    targets,
+                    feedback_output,
+                    instance_state,
+                    instance_id,
+                    output_logging_enabled,
+                )) = self.read(|p| {
                     (
                         p.resolved_targets(),
                         p.session.feedback_output(),
                         p.session.instance_state().clone(),
+                        *p.session.instance_id(),
+                        p.session.output_logging_enabled.get(),
                     )
                 }) {
                     update_target_value(
@@ -5188,6 +5198,8 @@ impl View for MappingPanel {
                         s.slider_unit_value(),
                         feedback_output,
                         &instance_state,
+                        &instance_id,
+                        output_logging_enabled,
                     );
                 }
             }
@@ -5245,7 +5257,14 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (targets, value, feedback_output, instance_state) = view.write(|p| {
+                let (
+                    targets,
+                    value,
+                    feedback_output,
+                    instance_state,
+                    instance_id,
+                    output_logging_enabled,
+                ) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
                         .unwrap_or(UnitValue::MIN);
@@ -5254,9 +5273,18 @@ impl View for MappingPanel {
                         value,
                         p.session.feedback_output(),
                         p.session.instance_state().clone(),
+                        *p.session.instance_id(),
+                        p.session.output_logging_enabled.get(),
                     )
                 });
-                update_target_value(&targets, value, feedback_output, &instance_state);
+                update_target_value(
+                    &targets,
+                    value,
+                    feedback_output,
+                    &instance_state,
+                    &instance_id,
+                    output_logging_enabled,
+                );
             }
             _ => return false,
         };
@@ -5339,12 +5367,19 @@ fn update_target_value(
     value: UnitValue,
     feedback_output: Option<FeedbackOutput>,
     instance_state: &SharedInstanceState,
+    instance_id: &InstanceId,
+    output_logging_enabled: bool,
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
         let res = target.control(
             ControlValue::Absolute(value),
-            create_control_context(feedback_output, instance_state),
+            create_control_context(
+                feedback_output,
+                instance_state,
+                instance_id,
+                output_logging_enabled,
+            ),
         );
         if let Err(msg) = res {
             slog::debug!(App::logger(), "Control failed: {}", msg);
@@ -5352,15 +5387,19 @@ fn update_target_value(
     }
 }
 
-fn create_control_context(
+fn create_control_context<'a>(
     feedback_output: Option<FeedbackOutput>,
-    instance_state: &SharedInstanceState,
-) -> ControlContext {
+    instance_state: &'a SharedInstanceState,
+    instance_id: &'a InstanceId,
+    output_logging_enabled: bool,
+) -> ControlContext<'a> {
     ControlContext {
         feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
         osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
         feedback_output,
         instance_state,
+        instance_id,
+        output_logging_enabled,
     }
 }
 

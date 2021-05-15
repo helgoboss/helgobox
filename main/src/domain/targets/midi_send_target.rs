@@ -1,3 +1,4 @@
+use crate::domain::ui_util::{format_raw_midi_event, log_target_output};
 use crate::domain::{
     ControlContext, FeedbackAudioHookTask, FeedbackOutput, MidiDestination, RealTimeReaperTarget,
     RealearnTarget, SendMidiDestination, TargetCharacter,
@@ -83,6 +84,12 @@ impl RealearnTarget for MidiSendTarget {
             SendMidiDestination::FeedbackOutput => {
                 let feedback_output = context.feedback_output.ok_or("no feedback output set")?;
                 if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) = feedback_output {
+                    if context.output_logging_enabled {
+                        log_target_output(
+                            context.instance_id,
+                            format_raw_midi_event(&raw_midi_event),
+                        );
+                    }
                     let _ = context
                         .feedback_audio_hook_task_sender
                         .send(FeedbackAudioHookTask::SendMidi(

@@ -295,4 +295,8 @@ impl OscDeviceId {
     pub fn random() -> OscDeviceId {
         OscDeviceId(Uuid::new_v4())
     }
+
+    pub fn fmt_short(&self) -> String {
+        self.0.to_string().chars().take(5).collect()
+    }
 }

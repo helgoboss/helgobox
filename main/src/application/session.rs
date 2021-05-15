@@ -225,6 +225,10 @@ impl Session {
         }
     }
 
+    pub fn instance_id(&self) -> &InstanceId {
+        &self.instance_id
+    }
+
     pub fn id(&self) -> &str {
         self.id.get_ref()
     }
