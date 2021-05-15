@@ -296,10 +296,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         );
                     }
                     LogLearnInput { msg } => {
-                        log_learn_input(
-                            self.instance_id(),
-                            format!("{}", format_short_midi_message(msg)),
-                        );
+                        log_learn_input(self.instance_id(), format_short_midi_message(msg));
                     }
                     LogTargetOutput { event } => {
                         log_target_output(self.instance_id(), format_raw_midi_event(&event));

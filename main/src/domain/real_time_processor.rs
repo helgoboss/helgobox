@@ -1221,6 +1221,7 @@ fn control_controller_mappings_midi(
     matched
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_real_mapping(
     mapping: &mut RealTimeMapping,
     sender: &crossbeam_channel::Sender<ControlMainTask>,
@@ -1273,7 +1274,7 @@ fn process_real_mapping(
                     permit_alloc(|| {
                         sender
                             .try_send(ControlMainTask::LogTargetOutput {
-                                event: Box::new(raw_midi_event.clone()),
+                                event: Box::new(raw_midi_event),
                             })
                             .unwrap();
                     });
