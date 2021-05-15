@@ -131,10 +131,9 @@ impl RealearnTarget for ClipTransportTarget {
 }
 
 impl<'a> Target<'a> for ClipTransportTarget {
-    type Context = Option<ControlContext<'a>>;
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: Option<ControlContext<'a>>) -> Option<UnitValue> {
-        let context = context.as_ref()?;
+    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
         let instance_state = context.instance_state.borrow();
         use TransportAction::*;
         let val = match self.action {

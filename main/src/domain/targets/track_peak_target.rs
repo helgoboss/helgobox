@@ -12,7 +12,7 @@ pub struct TrackPeakTarget {
 }
 
 impl<'a> Target<'a> for TrackPeakTarget {
-    type Context = Option<ControlContext<'a>>;
+    type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<UnitValue> {
         let reaper = Reaper::get().medium_reaper();

@@ -928,7 +928,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         m,
                         &self.mappings_with_virtual_targets,
                         &mut |t| {
-                            if let Some(value) = t.current_value(Some(control_context)) {
+                            if let Some(value) = t.current_value(control_context) {
                                 if let Some(previous_value) =
                                     previous_target_values[compartment].insert(*mapping_id, value)
                                 {

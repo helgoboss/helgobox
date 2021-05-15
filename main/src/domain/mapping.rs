@@ -404,7 +404,7 @@ impl MainMapping {
             } else {
                 continue;
             };
-            let final_value = if let Some(v) = self.core.mode.poll(target, Some(context)) {
+            let final_value = if let Some(v) = self.core.mode.poll(target, context) {
                 v
             } else {
                 continue;
@@ -449,7 +449,7 @@ impl MainMapping {
             let final_value = self.core.mode.control_with_options(
                 value,
                 target,
-                Some(context),
+                context,
                 options.mode_control_options,
             );
             if let Some(v) = final_value {
@@ -530,7 +530,7 @@ impl MainMapping {
             .targets
             .iter()
             .filter_map(|target| match target {
-                CompoundMappingTarget::Reaper(t) => t.current_value(Some(context)),
+                CompoundMappingTarget::Reaper(t) => t.current_value(context),
                 _ => None,
             })
             .max()?;
@@ -551,7 +551,7 @@ impl MainMapping {
         target: &ReaperTarget,
         context: ControlContext,
     ) -> Option<UnitValue> {
-        target_value.or_else(|| target.current_value(Some(context)))
+        target_value.or_else(|| target.current_value(context))
     }
 
     pub fn feedback_given_target_value(
@@ -1246,9 +1246,9 @@ impl RealearnTarget for CompoundMappingTarget {
 }
 
 impl<'a> Target<'a> for CompoundMappingTarget {
-    type Context = Option<ControlContext<'a>>;
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext) -> Option<UnitValue> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.current_value(context),

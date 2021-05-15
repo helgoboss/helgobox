@@ -60,7 +60,6 @@ pub enum TargetCharacter {
 // 2. One situation where this doesn't work is when we use `matches!`. So after that, just search
 //    for occurrences of `matches!` in this file and do what needs to be done!
 // 3. To not miss anything, look for occurrences of `TrackVolume` (as a good example).
-// TODO-high The Clone can probably be removed now!
 #[enum_dispatch]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
@@ -562,10 +561,9 @@ impl ReaperTarget {
 impl<'a> Target<'a> for ReaperTarget {
     // An option because we don't have the context available e.g. if some target variants are
     // controlled from real-time processor.
-    // TODO-high This can be changed now!!!
-    type Context = Option<ControlContext<'a>>;
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext) -> Option<UnitValue> {
         use ReaperTarget::*;
         match self {
             SendOsc { .. } => None,

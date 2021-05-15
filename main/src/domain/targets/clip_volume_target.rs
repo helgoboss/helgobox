@@ -65,10 +65,9 @@ impl RealearnTarget for ClipVolumeTarget {
 }
 
 impl<'a> Target<'a> for ClipVolumeTarget {
-    type Context = Option<ControlContext<'a>>;
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: Option<ControlContext<'a>>) -> Option<UnitValue> {
-        let context = context.as_ref()?;
+    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
         let instance_state = context.instance_state.borrow();
         let volume = instance_state.get_slot(self.slot_index).ok()?.volume();
         Some(reaper_volume_unit_value(volume))

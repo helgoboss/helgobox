@@ -3651,9 +3651,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     self.session.feedback_output(),
                     self.session.instance_state(),
                 );
-                let value = t
-                    .current_value(Some(control_context))
-                    .unwrap_or(UnitValue::MIN);
+                let value = t.current_value(control_context).unwrap_or(UnitValue::MIN);
                 self.invalidate_target_value_controls_with_value(value);
                 None
             } else {
