@@ -631,7 +631,7 @@ pub struct RealTimeMapping {
     /// Is `Some` if user-provided target data is complete.
     target_category: Option<UnresolvedTargetCategory>,
     target_is_resolved: bool,
-    /// Is `Some` if this target needs to be processed in real-time.
+    /// Is `Some` if virtual or this target needs to be processed in real-time.
     pub resolved_target: Option<RealTimeCompoundMappingTarget>,
     pub lifecycle_midi_data: LifecycleMidiData,
 }
@@ -742,13 +742,10 @@ impl RealTimeMapping {
         } else {
             return None;
         };
-        match self.resolved_target.as_ref()? {
-            RealTimeCompoundMappingTarget::Reaper(_) => {
-                Some(PartialControlMatch::ProcessDirect(control_value))
-            }
-            RealTimeCompoundMappingTarget::Virtual(t) => {
-                match_partially(&mut self.core, t, control_value)
-            }
+        if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = self.resolved_target.as_ref() {
+            match_partially(&mut self.core, t, control_value)
+        } else {
+            Some(PartialControlMatch::ProcessDirect(control_value))
         }
     }
 }

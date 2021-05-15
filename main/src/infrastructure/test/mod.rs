@@ -35,6 +35,11 @@ impl Test {
 
     pub async fn test(&mut self) {
         self.step("Basics", basics()).await;
+        self.step(
+            "Basics in controller compartment",
+            basics_controller_compartment(),
+        )
+        .await;
         self.step("Track by ID", track_by_id()).await;
         self.step("Track by position", track_by_position()).await;
         self.step("Track by name", track_by_name()).await;
@@ -97,6 +102,29 @@ async fn basics() {
     // Given
     let realearn = setup().await;
     load_realearn_preset(&realearn, include_str!("presets/basics.json"));
+    let realearn_track = realearn.track().unwrap();
+    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
+    {
+        // When
+        send_midi(note_on(0, 0, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
+    }
+    {
+        // When
+        send_midi(note_on(0, 127, 100)).await;
+        // Then
+        assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
+    }
+}
+
+async fn basics_controller_compartment() {
+    // Given
+    let realearn = setup().await;
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/basics-controller-compartment.json"),
+    );
     let realearn_track = realearn.track().unwrap();
     assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
     {
