@@ -7,6 +7,7 @@ use reaper_high::{Project, Track, TrackRoute};
 #[derive(Clone, Debug, PartialEq)]
 pub struct RouteMuteTarget {
     pub route: TrackRoute,
+    pub poll_for_feedback: bool,
 }
 
 impl RealearnTarget for RouteMuteTarget {
@@ -44,7 +45,7 @@ impl RealearnTarget for RouteMuteTarget {
     }
 
     fn supports_automatic_feedback(&self) -> bool {
-        false
+        self.poll_for_feedback
     }
 }
 

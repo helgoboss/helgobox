@@ -79,6 +79,7 @@ pub enum UnresolvedReaperTarget {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
         area: TrackArea,
+        poll_for_feedback: bool,
     },
     TrackSolo {
         track_descriptor: TrackDescriptor,
@@ -95,6 +96,7 @@ pub enum UnresolvedReaperTarget {
     },
     TrackSendMute {
         descriptor: TrackRouteDescriptor,
+        poll_for_feedback: bool,
     },
     Tempo,
     Playrate,
@@ -123,6 +125,7 @@ pub enum UnresolvedReaperTarget {
     AllTrackFxEnable {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
+        poll_for_feedback: bool,
     },
     Transport {
         action: TransportAction,
@@ -271,6 +274,7 @@ impl UnresolvedReaperTarget {
                 track_descriptor,
                 exclusivity,
                 area,
+                poll_for_feedback,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
@@ -278,6 +282,7 @@ impl UnresolvedReaperTarget {
                         track,
                         exclusivity: *exclusivity,
                         area: *area,
+                        poll_for_feedback: *poll_for_feedback,
                     })
                 })
                 .collect(),
@@ -312,8 +317,12 @@ impl UnresolvedReaperTarget {
             TrackSendPan { descriptor } => vec![ReaperTarget::TrackRoutePan(RoutePanTarget {
                 route: get_track_route(context, descriptor, compartment)?,
             })],
-            TrackSendMute { descriptor } => vec![ReaperTarget::TrackRouteMute(RouteMuteTarget {
+            TrackSendMute {
+                descriptor,
+                poll_for_feedback,
+            } => vec![ReaperTarget::TrackRouteMute(RouteMuteTarget {
                 route: get_track_route(context, descriptor, compartment)?,
+                poll_for_feedback: *poll_for_feedback,
             })],
             Tempo => vec![ReaperTarget::Tempo(TempoTarget {
                 project: context.context().project_or_current_project(),
@@ -365,12 +374,14 @@ impl UnresolvedReaperTarget {
             AllTrackFxEnable {
                 track_descriptor,
                 exclusivity,
+                poll_for_feedback,
             } => get_effective_tracks(context, &track_descriptor.track, compartment)?
                 .into_iter()
                 .map(|track| {
                     ReaperTarget::AllTrackFxEnable(AllTrackFxEnableTarget {
                         track,
                         exclusivity: *exclusivity,
+                        poll_for_feedback: *poll_for_feedback,
                     })
                 })
                 .collect(),
@@ -592,7 +603,7 @@ impl UnresolvedReaperTarget {
             } => (Some(track_descriptor), None),
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
-            | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
+            | TrackSendMute { descriptor, .. } => (Some(&descriptor.track_descriptor), None),
             ClipTransport {
                 track_descriptor, ..
             } => (track_descriptor.as_ref(), None),
@@ -611,20 +622,17 @@ impl UnresolvedReaperTarget {
             | TrackArm { .. }
             | TrackSelection { .. }
             | TrackMute { .. }
-            | TrackShow { .. }
             | TrackAutomationMode { .. }
             | FxOpen { .. }
             | AutomationModeOverride { .. }
             | FxNavigate { .. }
             | TrackSolo { .. }
             | TrackSendPan { .. }
-            | TrackSendMute { .. }
             | Tempo
             | Playrate
             | FxEnable { .. }
             | FxPreset { .. }
             | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
             | LoadFxPreset { .. }
             | LastTouched
             | SendMidi { .. }
@@ -632,7 +640,16 @@ impl UnresolvedReaperTarget {
             | ClipTransport { .. }
             | ClipVolume { .. }
             | AutomationTouchState { .. } => return None,
-            FxParameter {
+            AllTrackFxEnable {
+                poll_for_feedback, ..
+            }
+            | TrackSendMute {
+                poll_for_feedback, ..
+            }
+            | TrackShow {
+                poll_for_feedback, ..
+            }
+            | FxParameter {
                 poll_for_feedback, ..
             } => {
                 if *poll_for_feedback {

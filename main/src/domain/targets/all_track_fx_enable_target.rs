@@ -10,6 +10,7 @@ use reaper_high::{Project, Track};
 pub struct AllTrackFxEnableTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,
+    pub poll_for_feedback: bool,
 }
 
 impl RealearnTarget for AllTrackFxEnableTarget {
@@ -49,7 +50,7 @@ impl RealearnTarget for AllTrackFxEnableTarget {
     }
 
     fn supports_automatic_feedback(&self) -> bool {
-        false
+        self.poll_for_feedback
     }
 }
 

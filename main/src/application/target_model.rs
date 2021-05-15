@@ -745,6 +745,7 @@ impl TargetModel {
                             RealearnTrackArea::Tcp => TrackArea::Tcp,
                             RealearnTrackArea::Mcp => TrackArea::Mcp,
                         },
+                        poll_for_feedback: self.poll_for_feedback.get(),
                     },
                     TrackAutomationMode => UnresolvedReaperTarget::TrackAutomationMode {
                         track_descriptor: self.track_descriptor()?,
@@ -761,6 +762,7 @@ impl TargetModel {
                     },
                     TrackSendMute => UnresolvedReaperTarget::TrackSendMute {
                         descriptor: self.track_route_descriptor()?,
+                        poll_for_feedback: self.poll_for_feedback.get(),
                     },
                     Tempo => UnresolvedReaperTarget::Tempo,
                     Playrate => UnresolvedReaperTarget::Playrate,
@@ -799,6 +801,7 @@ impl TargetModel {
                     AllTrackFxEnable => UnresolvedReaperTarget::AllTrackFxEnable {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
+                        poll_for_feedback: self.poll_for_feedback.get(),
                     },
                     Transport => UnresolvedReaperTarget::Transport {
                         action: self.transport_action.get(),
@@ -1545,7 +1548,10 @@ impl ReaperTargetType {
 
     pub fn supports_poll_for_feedback(self) -> bool {
         use ReaperTargetType::*;
-        matches!(self, FxParameter)
+        matches!(
+            self,
+            FxParameter | TrackSendMute | AllTrackFxEnable | TrackShow
+        )
     }
 
     pub fn supports_track(self) -> bool {
@@ -1725,7 +1731,7 @@ impl ReaperTargetType {
             Action => "Limited feedback only",
             Seek => "Experimental target",
             ClipTransport => "Experimental target, record not supported",
-            TrackSendMute | AllTrackFxEnable | TrackShow => "No automatic feedback",
+            TrackSendMute | AllTrackFxEnable | TrackShow => "Automatic feedback via polling only",
             TrackPeak => "Feedback only, no control",
             _ => "",
         }

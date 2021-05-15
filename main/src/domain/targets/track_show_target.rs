@@ -12,6 +12,7 @@ pub struct TrackShowTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,
     pub area: TrackArea,
+    pub poll_for_feedback: bool,
 }
 
 impl RealearnTarget for TrackShowTarget {
@@ -55,7 +56,7 @@ impl RealearnTarget for TrackShowTarget {
     }
 
     fn supports_automatic_feedback(&self) -> bool {
-        false
+        self.poll_for_feedback
     }
 }
 
