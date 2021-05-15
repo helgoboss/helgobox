@@ -3,15 +3,15 @@ use crate::base::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, ExtendedProcessorContext, FxDisplayType, FxEnableTarget, FxNavigateTarget,
-    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, LoadFxSnapshotTarget,
-    MappingCompartment, MidiSendTarget, OscDeviceId, OscSendTarget, ParameterSlice,
-    PlayPosFeedbackResolution, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget,
-    RoutePanTarget, RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget,
-    SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType,
-    TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget,
-    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    ClipVolumeTarget, ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget,
+    FxNavigateTarget, FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget,
+    LoadFxSnapshotTarget, MappingCompartment, MidiSendTarget, OscDeviceId, OscSendTarget,
+    ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget,
+    RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget, SendMidiDestination,
+    SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType, TrackArmTarget,
+    TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -44,6 +44,7 @@ pub enum UnresolvedReaperTarget {
     },
     FxParameter {
         fx_parameter_descriptor: FxParameterDescriptor,
+        poll_for_feedback: bool,
     },
     TrackVolume {
         track_descriptor: TrackDescriptor,
@@ -163,7 +164,7 @@ pub enum UnresolvedReaperTarget {
     },
     ClipSeek {
         slot_index: usize,
-        feedback_resolution: PlayPosFeedbackResolution,
+        feedback_resolution: FeedbackResolution,
     },
     ClipVolume {
         slot_index: usize,
@@ -192,8 +193,10 @@ impl UnresolvedReaperTarget {
             })],
             FxParameter {
                 fx_parameter_descriptor,
+                poll_for_feedback,
             } => vec![ReaperTarget::FxParameter(FxParameterTarget {
                 param: get_fx_param(context, fx_parameter_descriptor, compartment)?,
+                poll_for_feedback: *poll_for_feedback,
             })],
             TrackVolume { track_descriptor } => {
                 get_effective_tracks(context, &track_descriptor.track, compartment)?
@@ -551,6 +554,7 @@ impl UnresolvedReaperTarget {
             }
             FxParameter {
                 fx_parameter_descriptor,
+                ..
             } => (
                 Some(&fx_parameter_descriptor.fx_descriptor.track_descriptor),
                 Some(&fx_parameter_descriptor.fx_descriptor),
@@ -595,11 +599,11 @@ impl UnresolvedReaperTarget {
         }
     }
 
-    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
         use UnresolvedReaperTarget::*;
         let res = match self {
             Action { .. }
-            | FxParameter { .. }
             | TrackVolume { .. }
             | TrackSendVolume { .. }
             | TrackPan { .. }
@@ -628,11 +632,18 @@ impl UnresolvedReaperTarget {
             | ClipTransport { .. }
             | ClipVolume { .. }
             | AutomationTouchState { .. } => return None,
-            Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => {
-                PlayPosFeedbackResolution::Beat
+            FxParameter {
+                poll_for_feedback, ..
+            } => {
+                if *poll_for_feedback {
+                    FeedbackResolution::High
+                } else {
+                    return None;
+                }
             }
+            Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => FeedbackResolution::Beat,
             Seek { options, .. } => options.feedback_resolution,
-            TrackPeak { .. } => PlayPosFeedbackResolution::High,
+            TrackPeak { .. } => FeedbackResolution::High,
         };
         Some(res)
     }

@@ -43,7 +43,7 @@ use crate::domain::{
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
     resolve_track_route_by_index, ActionInvocationType, CompoundMappingTarget,
-    ExtendedProcessorContext, FxDisplayType, MappingCompartment, PlayPosFeedbackResolution,
+    ExtendedProcessorContext, FeedbackResolution, FxDisplayType, MappingCompartment,
     QualifiedMappingId, RealearnTarget, ReaperTarget, SoloBehavior, TargetCharacter,
     TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
     VirtualControlElementId, VirtualFx,
@@ -1519,6 +1519,9 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::ClipTransport => {
                     self.mapping.target_model.next_bar.set(is_checked);
                 }
+                t if t.supports_poll_for_feedback() => {
+                    self.mapping.target_model.poll_for_feedback.set(is_checked);
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -2721,7 +2724,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_feedback_resolution() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(PlayPosFeedbackResolution::into_enum_iter());
+                    combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.feedback_resolution.get().into(),
@@ -3571,6 +3574,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     ) =>
                 {
                     Some(("Next bar", self.target.next_bar.get()))
+                }
+                t if t.supports_poll_for_feedback() => {
+                    Some(("Poll for feedback", self.target.poll_for_feedback.get()))
                 }
                 _ => None,
             },
@@ -4731,7 +4737,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             target
                 .use_loop_points
                 .changed()
-                .merge(target.buffered.changed()),
+                .merge(target.buffered.changed())
+                .merge(target.poll_for_feedback.changed()),
             |view, _| {
                 view.invalidate_target_check_boxes();
             },

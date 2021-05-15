@@ -1,7 +1,7 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, InstanceFeedbackEvent, MappingActivationEffect, MidiSource, Mode,
-    ParameterArray, ParameterSlice, PlayPosFeedbackResolution, RealSource, RealTimeReaperTarget,
+    ExtendedProcessorContext, FeedbackResolution, InstanceFeedbackEvent, MappingActivationEffect,
+    MidiSource, Mode, ParameterArray, ParameterSlice, RealSource, RealTimeReaperTarget,
     RealearnTarget, ReaperTarget, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
     VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
     COMPARTMENT_PARAMETER_COUNT,
@@ -285,9 +285,10 @@ impl MainMapping {
         )
     }
 
-    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
         let t = self.unresolved_target.as_ref()?;
-        t.play_pos_feedback_resolution()
+        t.feedback_resolution()
     }
 
     pub fn wants_to_be_polled_for_control(&self) -> bool {
@@ -982,10 +983,11 @@ impl UnresolvedCompoundMappingTarget {
         })
     }
 
-    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
         use UnresolvedCompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.play_pos_feedback_resolution(),
+            Reaper(t) => t.feedback_resolution(),
             Virtual(_) => None,
         }
     }

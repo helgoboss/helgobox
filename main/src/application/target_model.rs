@@ -15,10 +15,10 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
-    PlayPosFeedbackResolution, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
-    SendMidiDestination, SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor,
-    TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
+    OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
+    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
+    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
     VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
     VirtualTrackRoute,
@@ -98,7 +98,7 @@ pub struct TargetModel {
     pub use_project: Prop<bool>,
     pub move_view: Prop<bool>,
     pub seek_play: Prop<bool>,
-    pub feedback_resolution: Prop<PlayPosFeedbackResolution>,
+    pub feedback_resolution: Prop<FeedbackResolution>,
     // # For track show target
     pub track_area: Prop<RealearnTrackArea>,
     // # For track automation mode target
@@ -122,6 +122,8 @@ pub struct TargetModel {
     pub slot_index: Prop<usize>,
     pub next_bar: Prop<bool>,
     pub buffered: Prop<bool>,
+    // # For targets that might have to be polled in order to get automatic feedback in all cases.
+    pub poll_for_feedback: Prop<bool>,
 }
 
 impl Default for TargetModel {
@@ -186,6 +188,7 @@ impl Default for TargetModel {
             slot_index: prop(0),
             next_bar: prop(false),
             buffered: prop(false),
+            poll_for_feedback: prop(true),
         }
     }
 }
@@ -515,6 +518,7 @@ impl TargetModel {
             .merge(self.slot_index.changed())
             .merge(self.next_bar.changed())
             .merge(self.buffered.changed())
+            .merge(self.poll_for_feedback.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -703,6 +707,7 @@ impl TargetModel {
                     },
                     FxParameter => UnresolvedReaperTarget::FxParameter {
                         fx_parameter_descriptor: self.fx_parameter_descriptor()?,
+                        poll_for_feedback: self.poll_for_feedback.get(),
                     },
                     TrackVolume => UnresolvedReaperTarget::TrackVolume {
                         track_descriptor: self.track_descriptor()?,
@@ -1536,6 +1541,11 @@ impl ReaperTargetType {
     pub fn supports_feedback_resolution(self) -> bool {
         use ReaperTargetType::*;
         matches!(self, Seek | ClipSeek)
+    }
+
+    pub fn supports_poll_for_feedback(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, FxParameter)
     }
 
     pub fn supports_track(self) -> bool {

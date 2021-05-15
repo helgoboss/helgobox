@@ -8,7 +8,7 @@ use crate::application::{
     TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
-use crate::base::default_util::{is_default, is_none_or_some_default};
+use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
@@ -117,6 +117,8 @@ pub struct TargetModelData {
     pub next_bar: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub buffered: bool,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    pub poll_for_feedback: bool,
 }
 
 impl TargetModelData {
@@ -175,6 +177,7 @@ impl TargetModelData {
             slot_index: model.slot_index.get(),
             next_bar: model.next_bar.get(),
             buffered: model.buffered.get(),
+            poll_for_feedback: model.poll_for_feedback.get(),
         }
     }
 
@@ -373,6 +376,9 @@ impl TargetModelData {
         model
             .buffered
             .set_with_optional_notification(self.buffered, with_notification);
+        model
+            .poll_for_feedback
+            .set_with_optional_notification(self.poll_for_feedback, with_notification);
     }
 }
 

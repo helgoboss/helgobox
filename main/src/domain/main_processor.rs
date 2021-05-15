@@ -2,12 +2,12 @@ use crate::domain::{
     ActivationChange, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent,
     CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
     DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackValue,
+    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackValue,
     InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch,
-    PlayPosFeedbackResolution, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
-    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperTarget,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext,
+    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperTarget,
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
@@ -370,11 +370,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.needs_refresh_when_target_touched() {
                                 self.target_touch_dependent_mappings[compartment].insert(m.id());
                             }
-                            let influence = m.play_pos_feedback_resolution();
-                            if influence == Some(PlayPosFeedbackResolution::Beat) {
+                            let feedback_resolution = m.feedback_resolution();
+                            if feedback_resolution == Some(FeedbackResolution::Beat) {
                                 self.beat_dependent_feedback_mappings[compartment].insert(m.id());
                             }
-                            if influence == Some(PlayPosFeedbackResolution::High) {
+                            if feedback_resolution == Some(FeedbackResolution::High) {
                                 self.milli_dependent_feedback_mappings[compartment].insert(m.id());
                             }
                             if m.wants_to_be_polled_for_control() {
@@ -558,13 +558,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
                     }
-                    let influence = mapping.play_pos_feedback_resolution();
-                    if influence == Some(PlayPosFeedbackResolution::Beat) {
+                    let influence = mapping.feedback_resolution();
+                    if influence == Some(FeedbackResolution::Beat) {
                         self.beat_dependent_feedback_mappings[compartment].insert(mapping.id());
                     } else {
                         self.beat_dependent_feedback_mappings[compartment].remove(&mapping.id());
                     }
-                    if influence == Some(PlayPosFeedbackResolution::High) {
+                    if influence == Some(FeedbackResolution::High) {
                         self.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
                     } else {
                         self.milli_dependent_feedback_mappings[compartment].remove(&mapping.id());

@@ -8,6 +8,7 @@ use std::convert::TryInto;
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxParameterTarget {
     pub param: FxParameter,
+    pub poll_for_feedback: bool,
 }
 
 impl RealearnTarget for FxParameterTarget {
@@ -111,6 +112,9 @@ impl RealearnTarget for FxParameterTarget {
         evt: &ChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<UnitValue>) {
+        if self.poll_for_feedback {
+            return (false, None);
+        }
         match evt {
             ChangeEvent::FxParameterValueChanged(e) if e.parameter == self.param => (
                 true,
@@ -124,6 +128,9 @@ impl RealearnTarget for FxParameterTarget {
         &self,
         evt: &AdditionalFeedbackEvent,
     ) -> (bool, Option<UnitValue>) {
+        if self.poll_for_feedback {
+            return (false, None);
+        }
         match evt {
             AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e)
                 if e.parameter == self.param =>

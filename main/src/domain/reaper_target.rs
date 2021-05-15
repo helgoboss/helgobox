@@ -144,7 +144,7 @@ pub struct SeekOptions {
     #[serde(default, skip_serializing_if = "is_default")]
     pub seek_play: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub feedback_resolution: PlayPosFeedbackResolution,
+    pub feedback_resolution: FeedbackResolution,
 }
 
 /// Determines in which granularity the play position influences feedback of a target.
@@ -162,18 +162,18 @@ pub struct SeekOptions {
     Display,
 )]
 #[repr(usize)]
-pub enum PlayPosFeedbackResolution {
-    /// It's enough to ask every beat.
+pub enum FeedbackResolution {
+    /// Query for feedback every beat that's played on the main timeline.
     #[serde(rename = "beat")]
     #[display(fmt = "Beat")]
     Beat,
-    /// It should be asked as frequently as possible (main loop).
+    /// Query for feedback as frequently as possible (main loop).
     #[serde(rename = "high")]
     #[display(fmt = "Fast")]
     High,
 }
 
-impl Default for PlayPosFeedbackResolution {
+impl Default for FeedbackResolution {
     fn default() -> Self {
         Self::Beat
     }
@@ -396,9 +396,10 @@ impl ReaperTarget {
                 })
             }
             FxEnabledChanged(e) => FxEnable(FxEnableTarget { fx: e.fx }),
-            FxParameterValueChanged(e) if e.touched => {
-                FxParameter(FxParameterTarget { param: e.parameter })
-            }
+            FxParameterValueChanged(e) if e.touched => FxParameter(FxParameterTarget {
+                param: e.parameter,
+                poll_for_feedback: true,
+            }),
             FxPresetChanged(e) => FxPreset(FxPresetTarget { fx: e.fx }),
             MasterTempoChanged(e) if e.touched => Tempo(TempoTarget {
                 // TODO-low In future this might come from a certain project
@@ -431,11 +432,13 @@ impl ReaperTarget {
         let csurf_rx = Global::control_surface_rx();
         let action_rx = Global::action_rx();
         observable::empty()
-            .merge(
-                csurf_rx
-                    .fx_parameter_touched()
-                    .map(move |param| FxParameter(FxParameterTarget { param }).into()),
-            )
+            .merge(csurf_rx.fx_parameter_touched().map(move |param| {
+                FxParameter(FxParameterTarget {
+                    param,
+                    poll_for_feedback: true,
+                })
+                .into()
+            }))
             .merge(
                 csurf_rx
                     .fx_enabled_changed()

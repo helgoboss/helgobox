@@ -1,13 +1,13 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext,
-    InstanceFeedbackEvent, PlayPosFeedbackResolution, RealearnTarget, TargetCharacter,
+    AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
+    InstanceFeedbackEvent, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
     pub slot_index: usize,
-    pub feedback_resolution: PlayPosFeedbackResolution,
+    pub feedback_resolution: FeedbackResolution,
 }
 
 impl RealearnTarget for ClipSeekTarget {
@@ -34,7 +34,7 @@ impl RealearnTarget for ClipSeekTarget {
     ) -> (bool, Option<UnitValue>) {
         // If feedback resolution is high, we use the special ClipChangedEvent to do our job
         // (in order to not lock mutex of playing clips more than once per main loop cycle).
-        if self.feedback_resolution == PlayPosFeedbackResolution::Beat
+        if self.feedback_resolution == FeedbackResolution::Beat
             && matches!(evt, AdditionalFeedbackEvent::BeatChanged(_))
         {
             return (true, None);
@@ -47,7 +47,7 @@ impl RealearnTarget for ClipSeekTarget {
         evt: &InstanceFeedbackEvent,
     ) -> (bool, Option<UnitValue>) {
         // When feedback resolution is beat, we only react to the main timeline beat changes.
-        if self.feedback_resolution != PlayPosFeedbackResolution::High {
+        if self.feedback_resolution != FeedbackResolution::High {
             return (false, None);
         }
         match evt {
