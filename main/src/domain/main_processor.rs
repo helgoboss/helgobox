@@ -15,6 +15,7 @@ use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     ControlValue, MidiSourceValue, ModeControlOptions, OscSource, RawMidiEvent, Target, UnitValue,
+    FEEDBACK_EPSILON,
 };
 
 use crate::domain::ui_util::{
@@ -28,6 +29,7 @@ use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket};
 use slog::{debug, trace};
 use smallvec::SmallVec;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -979,19 +981,22 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &self.mappings_with_virtual_targets,
                         &mut |t| {
                             if let Some(value) = t.current_value(control_context) {
-                                if let Some(previous_value) =
-                                    previous_target_values[compartment].insert(*mapping_id, value)
-                                {
-                                    if value == previous_value {
-                                        // Value hasn't changed.
-                                        (false, None)
-                                    } else {
-                                        // Value has changed.
+                                match previous_target_values[compartment].entry(*mapping_id) {
+                                    Entry::Occupied(mut e) => {
+                                        if (e.get().get() - value.get()).abs() <= FEEDBACK_EPSILON {
+                                            // Value hasn't changed significantly.
+                                            (false, None)
+                                        } else {
+                                            // Value has changed.
+                                            e.insert(value);
+                                            (true, Some(value))
+                                        }
+                                    }
+                                    Entry::Vacant(e) => {
+                                        // No feedback sent yet for that milli-dependent mapping.
+                                        e.insert(value);
                                         (true, Some(value))
                                     }
-                                } else {
-                                    // No feedback sent yet for that milli-dependent mapping.
-                                    (true, Some(value))
                                 }
                             } else {
                                 // Couldn't determine feedback value.
