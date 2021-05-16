@@ -265,15 +265,18 @@ If you think that what we saw until now is not more than what REAPER's built-in 
 offers, I can't blame you. First, don't worry, there's more to come, this was just the beginning.
 Second, there _is_ a difference. For some folks, this is an insignificant difference, for others
 it's a game changer, it depends on the usage scenario. The key to understand this difference is to
-understand the MIDI _routing_: We have just used the so-called _track MIDI path_ to control a
-parameter in REAPER. This is different from REAPER's built-in MIDI learn, which uses the _control
-MIDI path_.
+understand the MIDI _routing_: In above example, *Control input*  was set to `<FX input>`. That means
+we used normal track MIDI messages to control a parameter in REAPER - let's call it *track MIDI path*.
+This is different from REAPER's built-in MIDI learn, which uses the totally separate *control MIDI path*.
 
 Using the track MIDI path means it's completely up to you to decide what MIDI messages flow into
 ReaLearn. You decide that by using REAPER's powerful routing capabilities. For example, you can
 simply "disable" the mapping by disarming your track, a feature that is very desirable if you use
 REAPER as live instrument. Or you can preprocess incoming MIDI (although that should rarely be
 necessary given ReaLearn's mapping customization possibilities).
+
+Instead of using `<FX input>`, you can also pick the MIDI device of your choice directly, in which case ReaLearn will
+ignore track MIDI messages and capture MIDI messages directly from the already open MIDI device.
 
 Another thing worth to point out which is different from built-in MIDI learn is that we didn't use
 the action "Track: Set volume for track 01". Benefit: ReaLearn will let you control the volume of
