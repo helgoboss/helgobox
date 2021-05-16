@@ -144,7 +144,7 @@ mod codegen {
         let bindings = builder.generate().expect("Unable to generate bindings");
         let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
         bindings
-            .write_to_file(out_path.join("src/core/bindings.rs"))
+            .write_to_file(out_path.join("src/base/bindings.rs"))
             .expect("Couldn't write bindings!");
     }
 

@@ -1,6 +1,6 @@
-use crate::application::{GroupId, MappingModel};
+use crate::application::MappingModel;
 use crate::base::default_util::is_default;
-use crate::domain::{ExtendedProcessorContext, MappingCompartment, MappingId};
+use crate::domain::{ExtendedProcessorContext, GroupId, MappingCompartment, MappingId};
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
     TargetModelData,

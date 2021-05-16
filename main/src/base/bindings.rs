@@ -128,6 +128,40 @@ pub mod root {
         );
     }
     extern "C" {
+        pub fn NSEEL_addfunc_varparm_ctxptr(
+            name: *const ::std::os::raw::c_char,
+            min_np: ::std::os::raw::c_int,
+            want_exact: ::std::os::raw::c_int,
+            ctxptr: *mut ::std::os::raw::c_void,
+            fptr: ::std::option::Option<
+                unsafe extern "C" fn(
+                    arg1: *mut ::std::os::raw::c_void,
+                    arg2: root::INT_PTR,
+                    arg3: *mut *mut root::EEL_F,
+                ) -> root::EEL_F,
+            >,
+            destination: *mut root::eel_function_table,
+        );
+    }
+    extern "C" {
+        pub fn NSEEL_addfunc_varparm_ctxptr2(
+            name: *const ::std::os::raw::c_char,
+            min_np: ::std::os::raw::c_int,
+            want_exact: ::std::os::raw::c_int,
+            pproc: root::NSEEL_PPPROC,
+            ctx: *mut ::std::os::raw::c_void,
+            fptr: ::std::option::Option<
+                unsafe extern "C" fn(
+                    arg1: *mut ::std::os::raw::c_void,
+                    arg2: *mut ::std::os::raw::c_void,
+                    arg3: root::INT_PTR,
+                    arg4: *mut *mut root::EEL_F,
+                ) -> root::EEL_F,
+            >,
+            destination: *mut root::eel_function_table,
+        );
+    }
+    extern "C" {
         pub fn NSEEL_getstats() -> *mut ::std::os::raw::c_int;
     }
     pub type NSEEL_VMCTX = *mut ::std::os::raw::c_void;

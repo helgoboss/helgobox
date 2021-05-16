@@ -7,9 +7,9 @@ use crate::infrastructure::ui::{
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     check_mode_applicability, AbsoluteMode, ButtonUsage, ControlValue, DetailedSourceCharacter,
-    EncoderUsage, FireMode, MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter,
-    OscTypeTag, OutOfRangeBehavior, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
-    UnitValue,
+    EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
+    ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior,
+    SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
@@ -1024,6 +1024,17 @@ impl<'a> MutableMappingPanel<'a> {
             .expect("invalid out-of-range behavior");
         self.update_mode_hint(ModeParameter::SpecificOutOfRangeBehavior(behavior));
         self.mapping.mode_model.out_of_range_behavior.set(behavior);
+    }
+
+    fn update_mode_group_interaction(&mut self) {
+        let interaction = self
+            .view
+            .require_control(root::ID_MODE_GROUP_INTERACTION_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid group interaction");
+        self.update_mode_hint(ModeParameter::SpecificGroupInteraction(interaction));
+        self.mapping.mode_model.group_interaction.set(interaction);
     }
 
     fn update_mode_fire_mode(&mut self) {
@@ -2096,6 +2107,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_source_midi_message_number_combo_box();
         self.fill_source_midi_clock_transport_message_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
+        self.fill_mode_group_interaction_combo_box();
         self.fill_mode_takeover_mode_combo_box();
         self.fill_mode_button_usage_combo_box();
         self.fill_mode_encoder_usage_combo_box();
@@ -3944,6 +3956,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
+        self.invalidate_mode_group_interaction_combo_box();
         self.invalidate_mode_round_target_value_check_box();
         self.invalidate_mode_takeover_mode_combo_box();
         self.invalidate_mode_button_usage_combo_box();
@@ -4020,6 +4033,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                 &[
                     root::ID_MODE_OUT_OF_RANGE_LABEL_TEXT,
                     root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX,
+                ],
+            );
+            let show_group_interaction = is_relevant(ModeParameter::GroupInteraction);
+            self.enable_if(
+                show_group_interaction,
+                &[
+                    root::ID_MODE_GROUP_INTERACTION_LABEL_TEXT,
+                    root::ID_MODE_GROUP_INTERACTION_COMBO_BOX,
                 ],
             );
             let show_target_min_max =
@@ -4511,6 +4532,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .unwrap();
     }
 
+    fn invalidate_mode_group_interaction_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_GROUP_INTERACTION_COMBO_BOX)
+            .select_combo_box_item_by_index(self.mode.group_interaction.get().into())
+            .unwrap();
+    }
+
     fn invalidate_mode_fire_mode_combo_box(&self) {
         let combo = self.view.require_control(root::ID_MODE_FIRE_COMBO_BOX);
         combo.set_enabled(self.target_category() != TargetCategory::Virtual);
@@ -4831,6 +4859,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_out_of_range_behavior_combo_box();
             });
         self.panel
+            .when(mode.group_interaction.changed(), |view, _| {
+                view.invalidate_mode_group_interaction_combo_box();
+            });
+        self.panel
             .when(mode.round_target_value.changed(), |view, _| {
                 view.invalidate_mode_round_target_value_check_box();
             });
@@ -4961,6 +4993,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX)
             .fill_combo_box_indexed(OutOfRangeBehavior::into_enum_iter());
+    }
+
+    fn fill_mode_group_interaction_combo_box(&self) {
+        self.view
+            .require_control(root::ID_MODE_GROUP_INTERACTION_COMBO_BOX)
+            .fill_combo_box_indexed(GroupInteraction::into_enum_iter());
     }
 
     fn fill_mode_fire_mode_combo_box(&self) {
@@ -5109,6 +5147,9 @@ impl View for MappingPanel {
             root::ID_SETTINGS_MODE_COMBO_BOX => self.write(|p| p.update_mode_type()),
             root::ID_MODE_OUT_OF_RANGE_COMBOX_BOX => {
                 self.write(|p| p.update_mode_out_of_range_behavior())
+            }
+            root::ID_MODE_GROUP_INTERACTION_COMBO_BOX => {
+                self.write(|p| p.update_mode_group_interaction())
             }
             root::ID_MODE_TAKEOVER_MODE => self.write(|p| p.update_takeover_mode()),
             root::ID_MODE_BUTTON_FILTER_COMBO_BOX => self.write(|p| p.update_button_usage()),

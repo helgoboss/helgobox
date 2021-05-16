@@ -1,5 +1,5 @@
 use crate::application::{
-    share_group, share_mapping, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
+    share_group, share_mapping, ControllerPreset, FxId, GroupModel, MainPreset,
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
     SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
@@ -7,7 +7,7 @@ use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackOutput, InstanceId, MainMapping, MappingCompartment,
+    ExtendedProcessorContext, FeedbackOutput, GroupId, InstanceId, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
     RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,

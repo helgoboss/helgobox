@@ -1,17 +1,17 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, InstanceFeedbackEvent, MappingActivationEffect,
-    MidiSource, Mode, ParameterArray, ParameterSlice, RealSource, RealTimeReaperTarget,
-    RealearnTarget, ReaperTarget, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, InstanceFeedbackEvent,
+    MappingActivationEffect, MidiSource, Mode, ParameterArray, ParameterSlice, RealSource,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, TargetCharacter, TrackExclusivity,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
+    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSourceValue, ModeControlOptions, OscSource, RawMidiEvent,
-    SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions, OscSource,
+    RawMidiEvent, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -108,8 +108,10 @@ impl MainMapping {
     pub fn new(
         compartment: MappingCompartment,
         id: MappingId,
+        group_id: GroupId,
         source: CompoundMappingSource,
         mode: Mode,
+        group_interaction: GroupInteraction,
         unresolved_target: Option<UnresolvedCompoundMappingTarget>,
         activation_condition_1: ActivationCondition,
         activation_condition_2: ActivationCondition,
@@ -120,8 +122,10 @@ impl MainMapping {
             core: MappingCore {
                 compartment,
                 id,
+                group_id,
                 source,
                 mode,
+                group_interaction,
                 options,
                 time_of_last_control: None,
             },
@@ -425,16 +429,61 @@ impl MainMapping {
         }
     }
 
+    pub fn group_interaction(&self) -> GroupInteraction {
+        self.core.group_interaction
+    }
+
     /// Controls mode => target.
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
-    pub fn control_if_enabled(
+    pub fn control_from_mode_if_enabled(
+        &mut self,
+        source_value: ControlValue,
+        options: ControlOptions,
+        context: ControlContext,
+        logger: &slog::Logger,
+    ) -> Option<FeedbackValue> {
+        self.control_if_enabled_internal(
+            options,
+            context,
+            logger,
+            |options, context, mode, target| {
+                mode.control_with_options(
+                    source_value,
+                    target,
+                    context,
+                    options.mode_control_options,
+                )
+            },
+        )
+    }
+
+    /// Controls target directly without using mode.
+    ///
+    /// Don't execute in real-time processor because this executes REAPER main-thread-only
+    /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    pub fn control_from_target_if_enabled(
         &mut self,
         value: ControlValue,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
+    ) -> Option<FeedbackValue> {
+        self.control_if_enabled_internal(options, context, logger, |_, _, _, _| Some(value))
+    }
+
+    fn control_if_enabled_internal(
+        &mut self,
+        options: ControlOptions,
+        context: ControlContext,
+        logger: &slog::Logger,
+        get_final_value: impl Fn(
+            ControlOptions,
+            ControlContext,
+            &mut Mode,
+            &ReaperTarget,
+        ) -> Option<ControlValue>,
     ) -> Option<FeedbackValue> {
         if !self.control_is_effectively_on() {
             return None;
@@ -447,12 +496,7 @@ impl MainMapping {
             } else {
                 continue;
             };
-            let final_value = self.core.mode.control_with_options(
-                value,
-                target,
-                context,
-                options.mode_control_options,
-            );
+            let final_value = get_final_value(options, context, &mut self.core.mode, target);
             if let Some(v) = final_value {
                 at_least_one_target_val_was_changed = true;
                 if self.core.options.prevent_echo_feedback {
@@ -553,6 +597,19 @@ impl MainMapping {
         context: ControlContext,
     ) -> Option<UnitValue> {
         target_value.or_else(|| target.current_value(context))
+    }
+
+    pub fn current_aggregated_target_value(&self, context: ControlContext) -> Option<UnitValue> {
+        let values = self.targets.iter().map(|t| t.current_value(context));
+        aggregate_target_values(values)
+    }
+
+    pub fn mode(&self) -> &Mode {
+        &self.core.mode
+    }
+
+    pub fn group_id(&self) -> GroupId {
+        self.core.group_id
     }
 
     pub fn feedback_given_target_value(
@@ -760,8 +817,10 @@ pub enum PartialControlMatch {
 pub struct MappingCore {
     compartment: MappingCompartment,
     id: MappingId,
+    group_id: GroupId,
     pub source: CompoundMappingSource,
     pub mode: Mode,
+    group_interaction: GroupInteraction,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
 }
@@ -1368,4 +1427,12 @@ pub(crate) enum ControlMode {
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
     },
+}
+
+/// Supposed to be used to aggregate values of all resolved targets of one mapping into one single
+/// value. At the moment we just take the maximum.
+pub fn aggregate_target_values(
+    values: impl Iterator<Item = Option<UnitValue>>,
+) -> Option<UnitValue> {
+    values.map(|v| v.unwrap_or_default()).max()
 }

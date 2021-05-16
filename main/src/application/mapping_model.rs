@@ -1,12 +1,12 @@
 use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionModel, GroupId, MappingExtensionModel,
-    ModeModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionModel, MappingExtensionModel, ModeModel,
+    SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
-    MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, TargetCharacter,
+    GroupId, MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -280,8 +280,10 @@ impl MappingModel {
         MainMapping::new(
             self.compartment,
             id,
+            self.group_id.get(),
             source,
             mode,
+            self.mode_model.group_interaction.get(),
             unresolved_target,
             group_data.activation_condition,
             activation_condition,

@@ -3,8 +3,8 @@ use crate::base::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
-    AbsoluteMode, ButtonUsage, EncoderUsage, FireMode, Interval, OutOfRangeBehavior,
-    SoftSymmetricUnitValue, TakeoverMode, UnitValue,
+    AbsoluteMode, ButtonUsage, EncoderUsage, FireMode, GroupInteraction, Interval,
+    OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 use serde::{Deserialize, Serialize};
 use slog::debug;
@@ -73,6 +73,8 @@ pub struct ModeModelData {
     rotate_is_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     make_absolute_enabled: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    group_interaction: GroupInteraction,
 }
 
 fn default_step_size() -> SoftSymmetricUnitValue {
@@ -121,6 +123,7 @@ impl ModeModelData {
             encoder_usage: model.encoder_usage.get(),
             rotate_is_enabled: model.rotate.get(),
             make_absolute_enabled: model.make_absolute.get(),
+            group_interaction: model.group_interaction.get(),
         }
     }
 
@@ -233,5 +236,8 @@ impl ModeModelData {
         model
             .make_absolute
             .set_with_optional_notification(self.make_absolute_enabled, with_notification);
+        model
+            .group_interaction
+            .set_with_optional_notification(self.group_interaction, with_notification);
     }
 }

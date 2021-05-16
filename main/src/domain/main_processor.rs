@@ -1,7 +1,7 @@
 use crate::domain::{
-    ActivationChange, AdditionalFeedbackEvent, BackboneState, ClipChangedEvent,
-    CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
-    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
+    ClipChangedEvent, CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput,
+    ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackValue,
     InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
@@ -14,8 +14,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    ControlValue, MidiSourceValue, ModeControlOptions, OscSource, RawMidiEvent, Target, UnitValue,
-    FEEDBACK_EPSILON,
+    ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior, ModeControlOptions,
+    OscSource, RawMidiEvent, Target, UnitValue, BASE_EPSILON, FEEDBACK_EPSILON,
 };
 
 use crate::domain::ui_util::{
@@ -271,21 +271,88 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             // there might be a short amount of time
                             // where we still receive control
                             // statements. We filter them here.
-                            let feedback = m.control_if_enabled(
+                            let context = ControlContext {
+                                feedback_audio_hook_task_sender: &self
+                                    .feedback_audio_hook_task_sender,
+                                osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                                feedback_output: self.feedback_output,
+                                instance_state: &self.instance_state,
+                                instance_id: &self.instance_id,
+                                output_logging_enabled: self.output_logging_enabled,
+                            };
+                            let feedback = m.control_from_mode_if_enabled(
                                 value,
                                 options,
-                                ControlContext {
-                                    feedback_audio_hook_task_sender: &self
-                                        .feedback_audio_hook_task_sender,
-                                    osc_feedback_task_sender: &self.osc_feedback_task_sender,
-                                    feedback_output: self.feedback_output,
-                                    instance_state: &self.instance_state,
-                                    instance_id: &self.instance_id,
-                                    output_logging_enabled: self.output_logging_enabled,
-                                },
+                                context,
                                 &self.logger,
                             );
-                            self.send_feedback(FeedbackReason::Normal, feedback);
+                            let instance_props = InstanceProps {
+                                rt_sender: &self.feedback_real_time_task_sender,
+                                fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                                osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                                instance_orchestration_sender: &self
+                                    .instance_orchestration_event_sender,
+                                instance_id: &self.instance_id,
+                                feedback_is_globally_enabled: self.feedback_is_globally_enabled,
+                                event_handler: &self.event_handler,
+                                feedback_output: self.feedback_output,
+                                logger: &self.logger,
+                                instance_state: &self.instance_state,
+                                output_logging_enabled: self.output_logging_enabled,
+                            };
+                            send_direct_and_virtual_feedback(
+                                &instance_props,
+                                &self.mappings_with_virtual_targets,
+                                FeedbackReason::Normal,
+                                feedback,
+                            );
+                            match m.group_interaction() {
+                                GroupInteraction::None => {}
+                                GroupInteraction::Inverse => {
+                                    if let Some(reference_value) =
+                                        m.current_aggregated_target_value(context)
+                                    {
+                                        let group_id = m.group_id();
+                                        let normalized_reference_value = reference_value
+                                            .map_to_unit_interval_from(
+                                                &m.mode().target_value_interval,
+                                                MinIsMaxBehavior::PreferOne,
+                                                BASE_EPSILON,
+                                            );
+                                        for other_mapping in self.mappings[compartment].values_mut()
+                                        {
+                                            if other_mapping.id() == mapping_id
+                                                || other_mapping.group_id() != group_id
+                                            {
+                                                continue;
+                                            }
+                                            // Other mapping in same group.
+                                            let inverse_value = {
+                                                normalized_reference_value
+                                                    .inverse()
+                                                    .map_from_unit_interval_to(
+                                                        &other_mapping.mode().target_value_interval,
+                                                    )
+                                            };
+                                            // Control other mapping.
+                                            let other_feedback = other_mapping
+                                                .control_from_target_if_enabled(
+                                                    ControlValue::Absolute(inverse_value),
+                                                    options,
+                                                    context,
+                                                    &self.logger,
+                                                );
+                                            send_direct_and_virtual_feedback(
+                                                &instance_props,
+                                                &self.mappings_with_virtual_targets,
+                                                FeedbackReason::Normal,
+                                                other_feedback,
+                                            );
+                                            // TODO-medium Make it work for "MIDI: Send message", too.
+                                        }
+                                    }
+                                }
+                            }
                         };
                     }
                     LogControlInput {
@@ -1257,7 +1324,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
-                        let feedback = m.control_if_enabled(
+                        let feedback = m.control_from_mode_if_enabled(
                             control_value,
                             ControlOptions::default(),
                             ControlContext {
@@ -1359,6 +1426,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
     }
 
+    // TODO-medium Try to make this a macro so it can be reused in all places. The borrow checker
+    //  prevents this at the moment because it can't see that not everything of self is borrowed.
     fn instance_props(&self) -> InstanceProps<EH> {
         InstanceProps {
             rt_sender: &self.feedback_real_time_task_sender,
@@ -2043,7 +2112,7 @@ fn control_main_mappings_virtual(
         .filter_map(|m| {
             if let CompoundMappingSource::Virtual(s) = &m.source() {
                 let control_value = s.control(&value)?;
-                m.control_if_enabled(control_value, options, context, logger)
+                m.control_from_mode_if_enabled(control_value, options, context, logger)
             } else {
                 None
             }
@@ -2153,21 +2222,18 @@ fn process_feedback_related_reaper_event_for_mapping<EH: DomainEventHandler>(
     if !at_least_one_target_is_affected {
         return;
     }
-    let new_target_value = new_values
-        .into_iter()
-        .map(|(target, new_value)| {
-            let control_context = ControlContext {
-                feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
-                osc_feedback_task_sender: instance.osc_feedback_task_sender,
-                feedback_output: instance.feedback_output,
-                instance_state: instance.instance_state,
-                instance_id: &instance.instance_id,
-                output_logging_enabled: instance.output_logging_enabled,
-            };
-            m.given_or_current_value(new_value, target, control_context)
-                .unwrap_or(UnitValue::MIN)
-        })
-        .max();
+    let new_target_values = new_values.into_iter().map(|(target, new_value)| {
+        let control_context = ControlContext {
+            feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
+            osc_feedback_task_sender: instance.osc_feedback_task_sender,
+            feedback_output: instance.feedback_output,
+            instance_state: instance.instance_state,
+            instance_id: &instance.instance_id,
+            output_logging_enabled: instance.output_logging_enabled,
+        };
+        m.given_or_current_value(new_value, target, control_context)
+    });
+    let new_target_value = aggregate_target_values(new_target_values);
     if let Some(new_value) = new_target_value {
         // Feedback
         let feedback_is_effectively_on = m.feedback_is_effectively_on();

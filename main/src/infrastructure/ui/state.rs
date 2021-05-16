@@ -1,7 +1,7 @@
 use crate::base::{prop, Prop};
-use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
+use crate::domain::{CompoundMappingSource, GroupId, MappingCompartment, ReaperTarget};
 
-use crate::application::{GroupId, MappingModel};
+use crate::application::MappingModel;
 use enum_map::{enum_map, EnumMap};
 use rxrust::prelude::*;
 use std::cell::RefCell;

@@ -3,7 +3,7 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
     check_mode_applicability, full_unit_interval, AbsoluteMode, ButtonUsage,
-    DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode, Interval,
+    DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode, GroupInteraction, Interval,
     ModeApplicabilityCheckInput, ModeParameter, OutOfRangeBehavior, PressDurationProcessor,
     SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
@@ -50,6 +50,7 @@ pub struct ModeModel {
     pub step_interval: Prop<Interval<SoftSymmetricUnitValue>>,
     pub rotate: Prop<bool>,
     pub make_absolute: Prop<bool>,
+    pub group_interaction: Prop<GroupInteraction>,
 }
 
 impl Default for ModeModel {
@@ -76,6 +77,7 @@ impl Default for ModeModel {
             step_interval: prop(Self::default_step_size_interval()),
             rotate: prop(false),
             make_absolute: prop(false),
+            group_interaction: prop(Default::default()),
         }
     }
 }
@@ -115,6 +117,7 @@ impl ModeModel {
         self.encoder_usage.set(def.encoder_usage.get());
         self.rotate.set(def.rotate.get());
         self.make_absolute.set(def.make_absolute.get());
+        self.group_interaction.set(def.group_interaction.get());
         self.reverse.set(def.reverse.get());
         self.step_interval.set(def.step_interval.get());
         self.press_duration_interval
@@ -143,6 +146,7 @@ impl ModeModel {
             .merge(self.press_duration_interval.changed())
             .merge(self.turbo_rate.changed())
             .merge(self.make_absolute.changed())
+            .merge(self.group_interaction.changed())
     }
 
     pub fn mode_parameter_is_relevant(

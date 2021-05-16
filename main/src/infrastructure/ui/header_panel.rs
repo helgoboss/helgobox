@@ -17,12 +17,12 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
-    GroupId, MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset,
-    PresetManager, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset, PresetManager,
+    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
-    ControlInput, ExtendedProcessorContext, MappingCompartment, OscDeviceId, ReaperTarget,
+    ControlInput, ExtendedProcessorContext, GroupId, MappingCompartment, OscDeviceId, ReaperTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};

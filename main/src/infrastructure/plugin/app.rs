@@ -1,12 +1,11 @@
 use crate::application::{
-    GroupId, InputDescriptor, Session, SharedMapping, SharedSession, VirtualControlElementType,
-    WeakSession,
+    InputDescriptor, Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::default_util::is_default;
 use crate::base::{notification, Global};
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask, Garbage,
-    GarbageBin, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
+    GarbageBin, GroupId, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
     MidiSource, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
     RealSource, RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
     RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTarget,

@@ -1,12 +1,10 @@
 use crate::application::{ActivationConditionModel, GroupData};
 use crate::base::{prop, Prop};
-use crate::domain::MappingCompartment;
+use crate::domain::{GroupId, MappingCompartment};
 use core::fmt;
 use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use uuid::Uuid;
 
 /// A mapping group.
 #[derive(Clone, Debug)]
@@ -37,32 +35,6 @@ pub type WeakGroup = Weak<RefCell<GroupModel>>;
 
 pub fn share_group(group: GroupModel) -> SharedGroup {
     Rc::new(RefCell::new(group))
-}
-
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default,
-)]
-#[serde(transparent)]
-pub struct GroupId {
-    uuid: Uuid,
-}
-
-impl GroupId {
-    pub fn is_default(&self) -> bool {
-        self.uuid.is_nil()
-    }
-
-    pub fn random() -> GroupId {
-        GroupId {
-            uuid: Uuid::new_v4(),
-        }
-    }
-}
-
-impl fmt::Display for GroupId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uuid)
-    }
 }
 
 impl GroupModel {

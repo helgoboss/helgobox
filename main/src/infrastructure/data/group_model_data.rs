@@ -1,6 +1,6 @@
-use crate::application::{GroupId, GroupModel};
+use crate::application::GroupModel;
 use crate::base::default_util::is_default;
-use crate::domain::MappingCompartment;
+use crate::domain::{GroupId, MappingCompartment};
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;

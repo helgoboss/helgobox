@@ -1,9 +1,8 @@
 use crate::application::{
-    GroupId, MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
-    WeakSession,
+    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
 use crate::base::when;
-use crate::domain::{MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
+use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
 
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,

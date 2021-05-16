@@ -210,4 +210,6 @@ pub mod root {
     pub const ID_MODE_ALL_GROUP_BOX: u32 = 40125;
     pub const ID_MODE_BUTTON_GROUP_BOX: u32 = 40126;
     pub const ID_TARGET_LINE_3_LABEL_2: u32 = 40127;
+    pub const ID_MODE_GROUP_INTERACTION_LABEL_TEXT: u32 = 40128;
+    pub const ID_MODE_GROUP_INTERACTION_COMBO_BOX: u32 = 40129;
 }
