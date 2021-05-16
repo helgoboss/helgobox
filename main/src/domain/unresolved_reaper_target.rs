@@ -1311,10 +1311,7 @@ fn find_track_by_name(project: Project, name: &WildMatch) -> Option<Track> {
     })
 }
 
-fn find_tracks_by_name<'a>(
-    project: Project,
-    name: &'a WildMatch,
-) -> impl Iterator<Item = Track> + 'a {
+fn find_tracks_by_name(project: Project, name: &WildMatch) -> impl Iterator<Item = Track> + '_ {
     project.tracks().filter(move |t| match t.name() {
         None => false,
         Some(n) => name.matches(n.to_str()),
