@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-05-11 (v2.9.0)</code></td>
+  <td><code>2021-05-16 (v2.10.0-pre.1)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -607,11 +607,35 @@ on macOS) with the following entries:
   This is practical because it's completely up to you how to put these parameters to use. Perfect for preset authors:
   The parameter names are saved together with the compartment preset. Parameter values will be reset whenever you load
   a preset (just the ones in that compartment).
-- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
-  investigating bugs or understanding how this plug-in works.
 - **Send feedback now:** Usually ReaLearn sends feedback whenever something changed to keep the LEDs
   or motorized faders of your controller in sync with REAPER at all times. There might be situations
-  where it doesn't work though. In this case you can send feedback manually using this button. 
+  where it doesn't work though. In this case you can send feedback manually using this button.
+- **Log debug info:** Logs some information about ReaLearn's internal state. Can be interesting for
+  investigating bugs or understanding how this plug-in works.
+- **Log incoming messages:** When enabled, all incoming MIDI or OSC messages will be logged to the console. Each log
+  entry contains the following information:
+    - Timestamp in seconds
+    - ReaLearn instance ID (a randomly assigned ID that uniquely identifies a particular instance, will change after
+      restart)
+    - Message purpose
+        - **Control input:** A message used for controlling targets.
+        - **Learn input:** A message used for learning a source.
+    - Actual message (MIDI messages will be shown as hexadecimal byte sequence, short MIDI messages also as
+      decimal byte sequence and decoded)
+    - Match result
+        - **unmatched:** The message didn't match any mappings.
+        - **matched:** The message matched at least one of the mappings.
+        - **consumed:** Only for short MIDI messages. This short message is part of a (N)RPN or 14-bit CC message and
+          there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be 
+          processed. The complete (N)RPN or 14-bit CC message will be.
+- **Log outgoing messages:** When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log
+  entries look similar to the ones described above, with the following notable differences.
+    - Message purpose
+        - **Feedback output:** A message sent to your controller as response to target value changes.
+        - **Lifecycle output:** A message sent to your controller as response to mapping activation/deactivation 
+          (see [Mapping lifecycle actions](#mapping-lifecycle-actions)).
+        - **Target output:** A message sent because of either the [MIDI: Send message](#midi-send-message) or
+          [OSC: Send message](#osc-send-message) target.
 
 #### Mapping lists in general
 
@@ -1483,13 +1507,15 @@ Only available for targets that are associated with a particular REAPER track:
     chain, this resolves to the master track of the current project.
   - **&lt;Selected&gt;**: Currently selected track. If multiple tracks are selected, refers only to the first one.
   - **&lt;All selected&gt;**: All currently selected tracks. This makes track targets (not FX target and not send
-    targets) do its job on *all* selected tracks.
+    targets) do their job on *all* selected tracks.
         - *Attention:* If you select many tracks, things can become quite slow!
         - The feedback value always corresponds to the highest value among all selected tracks.
   - **&lt;Master&gt;**: Master track of the project which hosts this ReaLearn instance. 
       - If ReaLearn is on the monitoring FX chain, this resolves to the master track of the current project.
       - If you don't have ReaLearn on the monitoring FX chain but you want to control an FX on the monitoring FX
-        chain, this option is the right choice as well. Make sure to enable the "Monitoring FX" checkbox. 
+        chain, this option is the right choice as well. Make sure to enable the "Monitoring FX" checkbox.
+  - **All by name:** Allows you to use wildcards (see *By name* selector) to make track targets do their thing on
+    all matching tracks instead of only the first one.
   - **By ID or name:** This lets you refer to a track by its unique ID and name as fallback. This was the default
     behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons. You shouldn't use it
     anymore.
@@ -1497,13 +1523,14 @@ Only available for targets that are associated with a particular REAPER track:
   _Track_ is currently selected. Of course, this doesn't have any effect if latter is
   _&lt;Selected&gt;_.
   
-Targets which control an on/off-style property of tracks (e.g. [Track: Solo/unsolo](#track-solounsolo)) additionally provide this:
+Targets which control an on/off-style property of tracks (e.g. [Track: Solo/unsolo](#track-solounsolo)) additionally 
+provide this:
 
 - **Exclusive:** By default, this option is set to "No".
     - **No:** Makes the track target affect just this track.
-    - **Within all tracks:** Switches the property on (or off) for this track only, making sure that it's off (or on)
+    - **Within all tracks:** Switches the property on (or off) for this track and makes sure that it's off (or on)
       for all other tracks in the project.
-    - **Within folder:** Switches the property on (or off) for this track only, making sure that it's off (or on) for
+    - **Within folder:** Switches the property on (or off) for this track and makes sure that it's off (or on) for
       all tracks in the same folder and same level. Very powerful feature!
 
 Only available for targets that work on a send/receive:
@@ -1539,6 +1566,23 @@ Only available for targets associated with a particular FX instance:
   that the floating window is active. If it's displayed within the FX chain window, _focused_ means
   that the FX chain window is currently open and the FX instance is the currently selected FX in
   that FX chain. Of course, this flag doesn't have any effect if you chose _&lt;Focused&gt;_ FX.
+  
+Only available for the few targets that need polling (= regular value querying) in order to support automatic feedback
+in all cases:
+
+- **Poll for feedback:** This makes ReaLearn query the current target value every few milliseconds in order to send
+  up-to-date feedback to your controller at all times. This is not necessary for most targets because usually ReaLearn
+  takes advantage of REAPER's internal notification system to get notified about target value changes (which is great 
+  for performance). For the few targets for which it is, this option is enabled by default in order to give
+  you the best feedback experience out-of-the-box. In the probably rare case that the polling causes performance issues,
+  you can untick this checkbox. 
+    - For most targets, if you untick this checkbox, automatic feedback for that target will simply stop working. This
+      means you will not receive up-to-date feedback anymore whenever you change the target value within REAPER itself
+      (not using ReaLearn).
+    - The "FX: Set parameter value" target is an exception. Automatic feedback will still work, even without *Poll for 
+      feedback* enabled. But in the following corner cases it might not:
+        - If the FX is on the monitoring FX chain.
+        - If you change a preset from within the FX GUI.
 
 All other UI elements in this section depend on the chosen target type.
 
