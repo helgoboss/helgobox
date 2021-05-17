@@ -443,7 +443,7 @@ impl MainMapping {
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
-    ) -> Option<FeedbackValue> {
+    ) -> ControlResult {
         self.control_internal(
             options,
             context,
@@ -471,6 +471,7 @@ impl MainMapping {
         logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
         self.control_internal(options, context, logger, |_, _, _, _| Some(value))
+            .feedback_value
     }
 
     fn control_internal(
@@ -484,7 +485,7 @@ impl MainMapping {
             &mut Mode,
             &ReaperTarget,
         ) -> Option<ControlValue>,
-    ) -> Option<FeedbackValue> {
+    ) -> ControlResult {
         let mut send_feedback = false;
         let mut at_least_one_target_val_was_changed = false;
         for target in &self.targets {
@@ -514,7 +515,7 @@ impl MainMapping {
                 send_feedback = true;
             }
         }
-        if at_least_one_target_val_was_changed {
+        let feedback_value = if at_least_one_target_val_was_changed {
             if send_feedback {
                 self.feedback(true, context)
             } else {
@@ -524,6 +525,10 @@ impl MainMapping {
             self.feedback_after_control_if_enabled(options, context)
         } else {
             None
+        };
+        ControlResult {
+            successful: at_least_one_target_val_was_changed,
+            feedback_value,
         }
     }
 
@@ -1432,4 +1437,11 @@ pub fn aggregate_target_values(
     values: impl Iterator<Item = Option<UnitValue>>,
 ) -> Option<UnitValue> {
     values.map(|v| v.unwrap_or_default()).max()
+}
+
+pub struct ControlResult {
+    /// `true` if target hit.
+    pub successful: bool,
+    /// Even if not hit, this can contain a feedback value!
+    pub feedback_value: Option<FeedbackValue>,
 }

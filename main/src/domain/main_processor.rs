@@ -328,35 +328,66 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 return;
             }
             let context = self.basics.control_context();
-            let feedback = m.control_from_mode(value, options, context, &self.basics.logger);
+            let result = m.control_from_mode(value, options, context, &self.basics.logger);
             self.basics.send_feedback(
                 &self.collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
-                feedback,
+                result.feedback_value,
             );
             // Group interaction
             let group_id = m.group_id();
+            use GroupInteraction::*;
             match m.group_interaction() {
-                GroupInteraction::None => {}
-                GroupInteraction::InverseTargetValue => {
+                None => {}
+                SameControl | InverseControl => {
+                    let interaction_value = match m.group_interaction() {
+                        SameControl => value,
+                        InverseControl => value.inverse(),
+                        _ => unreachable!(),
+                    };
+                    self.process_other_mappings(
+                        compartment,
+                        mapping_id,
+                        group_id,
+                        |other_mapping, basics| {
+                            other_mapping
+                                .control_from_mode(
+                                    interaction_value,
+                                    options,
+                                    basics.control_context(),
+                                    &basics.logger,
+                                )
+                                .feedback_value
+                        },
+                    );
+                }
+                SameTargetValue | InverseTargetValue => {
+                    if !result.successful {
+                        return;
+                    }
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        let inverse_target_value = reference_value
-                            .map_to_unit_interval_from(
-                                &m.mode().target_value_interval,
-                                MinIsMaxBehavior::PreferOne,
-                                BASE_EPSILON,
-                            )
-                            .inverse();
+                        let target_value = reference_value.map_to_unit_interval_from(
+                            &m.mode().target_value_interval,
+                            MinIsMaxBehavior::PreferOne,
+                            BASE_EPSILON,
+                        );
+
+                        let interaction_value = match m.group_interaction() {
+                            SameTargetValue => target_value,
+                            InverseTargetValue => target_value.inverse(),
+                            _ => unreachable!(),
+                        };
                         self.process_other_mappings(
                             compartment,
                             mapping_id,
                             group_id,
                             |other_mapping, basics| {
-                                let final_value = inverse_target_value.map_from_unit_interval_to(
-                                    &other_mapping.mode().target_value_interval,
-                                );
+                                let scaled_interaction_value = interaction_value
+                                    .map_from_unit_interval_to(
+                                        &other_mapping.mode().target_value_interval,
+                                    );
                                 other_mapping.control_from_target(
-                                    ControlValue::Absolute(final_value),
+                                    ControlValue::Absolute(scaled_interaction_value),
                                     options,
                                     basics.control_context(),
                                     &basics.logger,
@@ -364,22 +395,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             },
                         );
                     }
-                }
-                GroupInteraction::InverseControl => {
-                    let inverse_control_value = value.inverse();
-                    self.process_other_mappings(
-                        compartment,
-                        mapping_id,
-                        group_id,
-                        |other_mapping, basics| {
-                            other_mapping.control_from_mode(
-                                inverse_control_value,
-                                options,
-                                basics.control_context(),
-                                &basics.logger,
-                            )
-                        },
-                    );
                 }
             }
         };
@@ -1258,12 +1273,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
-                        let feedback = m.control_from_mode(
-                            control_value,
-                            ControlOptions::default(),
-                            self.basics.control_context(),
-                            &self.basics.logger,
-                        );
+                        let feedback = m
+                            .control_from_mode(
+                                control_value,
+                                ControlOptions::default(),
+                                self.basics.control_context(),
+                                &self.basics.logger,
+                            )
+                            .feedback_value;
                         self.basics.send_feedback(
                             &self.collections.mappings_with_virtual_targets,
                             FeedbackReason::Normal,
@@ -2216,6 +2233,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         self.control_context(),
                         &self.logger,
                     )
+                    .feedback_value
                 } else {
                     None
                 }
