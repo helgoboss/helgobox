@@ -153,20 +153,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 input_logging_enabled: false,
                 output_logging_enabled: false,
                 channels: Channels {
-                    self_normal_sender,
                     self_feedback_sender,
+                    self_normal_sender,
                     normal_task_receiver,
                     normal_real_time_to_main_thread_task_receiver,
                     feedback_task_receiver,
-                    control_task_receiver,
                     parameter_task_receiver,
+                    instance_feedback_event_receiver,
+                    control_task_receiver,
                     normal_real_time_task_sender,
                     feedback_real_time_task_sender,
+                    feedback_audio_hook_task_sender,
                     osc_feedback_task_sender,
                     additional_feedback_event_sender,
                     instance_orchestration_event_sender,
-                    feedback_audio_hook_task_sender,
-                    instance_feedback_event_receiver,
                 },
             },
             collections: Collections {
@@ -197,7 +197,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
         {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
-                if self.feedback_is_effectively_enabled() {
+                if self.basics.feedback_is_effectively_enabled() {
                     debug!(self.basics.logger, "Taking over source {:?}...", source);
                     let feedback = followed_mapping.feedback(true, self.basics.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
@@ -331,7 +331,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             let context = self.basics.control_context();
             let feedback =
                 m.control_from_mode_if_enabled(value, options, context, &self.basics.logger);
-            self.basics.send_direct_and_virtual_feedback(
+            self.basics.send_feedback(
                 &self.collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 feedback,
@@ -368,7 +368,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 context,
                                 &self.basics.logger,
                             );
-                            self.basics.send_direct_and_virtual_feedback(
+                            self.basics.send_feedback(
                                 &self.collections.mappings_with_virtual_targets,
                                 FeedbackReason::Normal,
                                 other_feedback,
@@ -1012,14 +1012,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .control_is_allowed(self.instance_id(), self.basics.control_input)
     }
 
-    fn feedback_is_effectively_enabled(&self) -> bool {
-        feedback_is_effectively_enabled(
-            self.basics.feedback_is_globally_enabled,
-            self.instance_id(),
-            self.basics.feedback_output,
-        )
-    }
-
     fn io_released_event(&self) -> IoUpdatedEvent {
         IoUpdatedEvent {
             control_input_used: false,
@@ -1243,7 +1235,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             self.basics.control_context(),
                             &self.basics.logger,
                         );
-                        self.basics.send_direct_and_virtual_feedback(
+                        self.basics.send_feedback(
                             &self.collections.mappings_with_virtual_targets,
                             FeedbackReason::Normal,
                             feedback,
@@ -1295,7 +1287,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn update_on_mappings(&self) {
         let instance_is_enabled =
-            self.control_is_effectively_enabled() && self.feedback_is_effectively_enabled();
+            self.control_is_effectively_enabled() && self.basics.feedback_is_effectively_enabled();
         let on_mappings = if instance_is_enabled {
             self.all_mappings()
                 .filter(|m| m.is_effectively_on())
@@ -1314,7 +1306,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = FeedbackValue>,
     ) {
-        self.basics.send_direct_and_virtual_feedback(
+        self.basics.send_feedback(
             &self.collections.mappings_with_virtual_targets,
             reason,
             feedback_values,
@@ -1420,7 +1412,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .and_then(FeedbackOutput::device_output)
             == Some(feedback_output)
         {
-            if self.feedback_is_effectively_enabled() {
+            if self.basics.feedback_is_effectively_enabled() {
                 debug!(self.basics.logger, "Reactivating instance...");
                 // For this to really work reliably (eventual feedback consistency), it was
                 // necessary to let the direct MIDI device feedback process in the global
@@ -1820,7 +1812,7 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.basics.logger, "Dropping main processor...");
-        if self.feedback_is_effectively_enabled() {
+        if self.basics.feedback_is_effectively_enabled() {
             // We clear feedback right here and now because that's the last chance.
             // Other instances can take over the feedback output afterwards.
             self.clear_all_feedback_preventing_source_takeover();
@@ -1935,18 +1927,15 @@ impl<EH: DomainEventHandler> Basics<EH> {
             // Feedback
             let feedback_is_effectively_on = m.feedback_is_effectively_on();
             let projection_feedback_desired = feedback_is_effectively_on;
-            let source_feedback_desired = feedback_is_effectively_enabled(
-                self.feedback_is_globally_enabled,
-                &self.instance_id,
-                self.feedback_output,
-            ) && feedback_is_effectively_on
+            let source_feedback_desired = self.feedback_is_effectively_enabled()
+                && feedback_is_effectively_on
                 && !m.is_echo();
             let feedback_value = m.feedback_given_target_value(
                 new_value,
                 projection_feedback_desired,
                 source_feedback_desired,
             );
-            self.send_direct_and_virtual_feedback(
+            self.send_feedback(
                 mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 feedback_value,
@@ -1978,7 +1967,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     use PartialControlMatch::*;
                     match control_match {
                         ProcessVirtual(virtual_source_value) => {
-                            control_main_mappings_virtual(
+                            self.control_main_mappings_virtual(
                                 main_mappings,
                                 virtual_source_value,
                                 ControlOptions {
@@ -1996,8 +1985,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         .send_feedback_after_control,
                                     mode_control_options: m.mode_control_options(),
                                 },
-                                self.control_context(),
-                                &self.logger,
                             )
                         }
                         ProcessDirect(_) => {
@@ -2010,7 +1997,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             })
             .collect();
         // Feedback
-        self.send_direct_and_virtual_feedback(
+        self.send_feedback(
             mappings_with_virtual_targets,
             FeedbackReason::Normal,
             source_values,
@@ -2018,7 +2005,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     }
 
     /// Sends both direct and virtual-source feedback.
-    pub fn send_direct_and_virtual_feedback(
+    pub fn send_feedback(
         &self,
         mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
         feedback_reason: FeedbackReason,
@@ -2170,36 +2157,42 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    fn feedback_is_effectively_enabled(&self) -> bool {
-        feedback_is_effectively_enabled(
-            self.feedback_is_globally_enabled,
-            &self.instance_id,
-            self.feedback_output,
-        )
+    pub fn feedback_is_effectively_enabled(&self) -> bool {
+        if let Some(fo) = self.feedback_output {
+            self.feedback_is_globally_enabled
+                && BackboneState::get().feedback_is_allowed(&self.instance_id, fo)
+        } else {
+            // Pointless but allowed
+            true
+        }
     }
-}
 
-fn control_main_mappings_virtual(
-    main_mappings: &mut HashMap<MappingId, MainMapping>,
-    value: VirtualSourceValue,
-    options: ControlOptions,
-    context: ControlContext,
-    logger: &slog::Logger,
-) -> Vec<FeedbackValue> {
-    // Controller mappings can't have virtual sources, so for now we only need to check
-    // main mappings.
-    main_mappings
-        .values_mut()
-        .filter(|m| m.control_is_effectively_on())
-        .filter_map(|m| {
-            if let CompoundMappingSource::Virtual(s) = &m.source() {
-                let control_value = s.control(&value)?;
-                m.control_from_mode_if_enabled(control_value, options, context, logger)
-            } else {
-                None
-            }
-        })
-        .collect()
+    fn control_main_mappings_virtual(
+        &self,
+        main_mappings: &mut HashMap<MappingId, MainMapping>,
+        value: VirtualSourceValue,
+        options: ControlOptions,
+    ) -> Vec<FeedbackValue> {
+        // Controller mappings can't have virtual sources, so for now we only need to check
+        // main mappings.
+        main_mappings
+            .values_mut()
+            .filter(|m| m.control_is_effectively_on())
+            .filter_map(|m| {
+                if let CompoundMappingSource::Virtual(s) = &m.source() {
+                    let control_value = s.control(&value)?;
+                    m.control_from_mode_if_enabled(
+                        control_value,
+                        options,
+                        self.control_context(),
+                        &self.logger,
+                    )
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 /// Includes virtual mappings if the controller mapping compartment is queried.
@@ -2229,19 +2222,6 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
             None
         },
     )
-}
-
-fn feedback_is_effectively_enabled(
-    feedback_is_globally_enabled: bool,
-    instance_id: &InstanceId,
-    feedback_output: Option<FeedbackOutput>,
-) -> bool {
-    if let Some(fo) = feedback_output {
-        feedback_is_globally_enabled && BackboneState::get().feedback_is_allowed(instance_id, fo)
-    } else {
-        // Pointless but allowed
-        true
-    }
 }
 
 // At the moment based on a SmallAsciiString. When changing this in future, e.g. to UUID, take care
