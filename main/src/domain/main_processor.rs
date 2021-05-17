@@ -199,7 +199,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.feedback_is_effectively_enabled() {
                     debug!(self.basics.logger, "Taking over source {:?}...", source);
-                    let feedback = followed_mapping.feedback(true, self.control_context());
+                    let feedback = followed_mapping.feedback(true, self.basics.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
@@ -214,17 +214,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
         } else {
             false
-        }
-    }
-
-    fn control_context(&self) -> ControlContext {
-        ControlContext {
-            feedback_audio_hook_task_sender: &self.basics.channels.feedback_audio_hook_task_sender,
-            osc_feedback_task_sender: &self.basics.channels.osc_feedback_task_sender,
-            feedback_output: self.basics.feedback_output,
-            instance_state: &self.basics.instance_state,
-            instance_id: &self.basics.instance_id,
-            output_logging_enabled: self.basics.output_logging_enabled,
         }
     }
 
@@ -311,17 +300,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for compartment in MappingCompartment::enum_iter() {
             for id in self.collections.poll_control_mappings[compartment].iter() {
                 if let Some(m) = self.collections.mappings[compartment].get_mut(id) {
-                    let feedback = m.poll_if_control_enabled(ControlContext {
-                        feedback_audio_hook_task_sender: &self
-                            .basics
-                            .channels
-                            .feedback_audio_hook_task_sender,
-                        osc_feedback_task_sender: &self.basics.channels.osc_feedback_task_sender,
-                        feedback_output: self.basics.feedback_output,
-                        instance_state: &self.basics.instance_state,
-                        instance_id: &self.basics.instance_id,
-                        output_logging_enabled: self.basics.output_logging_enabled,
-                    });
+                    let feedback = m.poll_if_control_enabled(self.basics.control_context());
                     self.send_feedback(FeedbackReason::Normal, feedback);
                 }
             }
@@ -349,17 +328,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // there might be a short amount of time
             // where we still receive control
             // statements. We filter them here.
-            let context = ControlContext {
-                feedback_audio_hook_task_sender: &self
-                    .basics
-                    .channels
-                    .feedback_audio_hook_task_sender,
-                osc_feedback_task_sender: &self.basics.channels.osc_feedback_task_sender,
-                feedback_output: self.basics.feedback_output,
-                instance_state: &self.basics.instance_state,
-                instance_id: &self.basics.instance_id,
-                output_logging_enabled: self.basics.output_logging_enabled,
-            };
+            let context = self.basics.control_context();
             let feedback =
                 m.control_from_mode_if_enabled(value, options, context, &self.basics.logger);
             self.basics.send_direct_and_virtual_feedback(
@@ -429,17 +398,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let Some(m) = self.collections.mappings[compartment].get(&mapping_id) {
                     let previous_target_values = &mut self.collections.previous_target_values;
-                    let control_context = ControlContext {
-                        feedback_audio_hook_task_sender: &self
-                            .basics
-                            .channels
-                            .feedback_audio_hook_task_sender,
-                        osc_feedback_task_sender: &self.basics.channels.osc_feedback_task_sender,
-                        feedback_output: self.basics.feedback_output,
-                        instance_state: &self.basics.instance_state,
-                        instance_id: &self.basics.instance_id,
-                        output_logging_enabled: self.basics.output_logging_enabled,
-                    };
+                    let control_context = self.basics.control_context();
                     self.basics
                         .process_feedback_related_reaper_event_for_mapping(
                             compartment,
@@ -575,23 +534,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if m.feedback_is_effectively_on() {
                                 // TODO-high Is this executed too frequently and maybe
                                 // even sends redundant feedback!?
-                                m.feedback(
-                                    true,
-                                    ControlContext {
-                                        feedback_audio_hook_task_sender: &self
-                                            .basics
-                                            .channels
-                                            .feedback_audio_hook_task_sender,
-                                        osc_feedback_task_sender: &self
-                                            .basics
-                                            .channels
-                                            .osc_feedback_task_sender,
-                                        feedback_output: self.basics.feedback_output,
-                                        instance_state: &self.basics.instance_state,
-                                        instance_id: &self.basics.instance_id,
-                                        output_logging_enabled: self.basics.output_logging_enabled,
-                                    },
-                                )
+                                m.feedback(true, self.basics.control_context())
                             } else {
                                 None
                             }
@@ -1185,7 +1128,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .unwrap();
         }
         self.process_feedback_related_reaper_event(|target| {
-            target.process_change_event(event, self.control_context())
+            target.process_change_event(event, self.basics.control_context())
         });
     }
 
@@ -1297,20 +1240,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         let feedback = m.control_from_mode_if_enabled(
                             control_value,
                             ControlOptions::default(),
-                            ControlContext {
-                                feedback_audio_hook_task_sender: &self
-                                    .basics
-                                    .channels
-                                    .feedback_audio_hook_task_sender,
-                                osc_feedback_task_sender: &self
-                                    .basics
-                                    .channels
-                                    .osc_feedback_task_sender,
-                                feedback_output: self.basics.feedback_output,
-                                instance_state: &self.basics.instance_state,
-                                instance_id: &self.basics.instance_id,
-                                output_logging_enabled: self.basics.output_logging_enabled,
-                            },
+                            self.basics.control_context(),
                             &self.basics.logger,
                         );
                         self.basics.send_direct_and_virtual_feedback(
@@ -1425,7 +1355,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.all_mappings_without_virtual_targets()
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
-                    m.feedback(true, self.control_context())
+                    m.feedback(true, self.basics.control_context())
                 } else {
                     None
                 }
@@ -1464,7 +1394,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
         let followed_mapping = self.follow_maybe_virtual_mapping(m)?;
-        followed_mapping.feedback(true, self.control_context())
+        followed_mapping.feedback(true, self.basics.control_context())
     }
 
     fn follow_maybe_virtual_mapping<'a>(&'a self, m: &'a MainMapping) -> Option<&'a MainMapping> {
@@ -1946,31 +1876,18 @@ impl FeedbackReason {
     }
 }
 
-struct InstanceProps<'a, EH: DomainEventHandler> {
-    rt_sender: &'a RealTimeSender<FeedbackRealTimeTask>,
-    fb_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
-    osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
-    instance_orchestration_sender: &'a crossbeam_channel::Sender<InstanceOrchestrationEvent>,
-    instance_id: &'a InstanceId,
-    feedback_is_globally_enabled: bool,
-    event_handler: &'a EH,
-    feedback_output: Option<FeedbackOutput>,
-    logger: &'a slog::Logger,
-    instance_state: &'a SharedInstanceState,
-    output_logging_enabled: bool,
-}
-
-impl<'a, EH: DomainEventHandler> InstanceProps<'a, EH> {
-    pub fn feedback_is_effectively_enabled(&self) -> bool {
-        feedback_is_effectively_enabled(
-            self.feedback_is_globally_enabled,
-            self.instance_id,
-            self.feedback_output,
-        )
-    }
-}
-
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn control_context(&self) -> ControlContext {
+        ControlContext {
+            feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
+            osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
+            feedback_output: self.feedback_output,
+            instance_state: &self.instance_state,
+            instance_id: &self.instance_id,
+            output_logging_enabled: self.output_logging_enabled,
+        }
+    }
+
     pub fn process_feedback_related_reaper_event_for_mapping(
         &self,
         compartment: MappingCompartment,
@@ -1978,7 +1895,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
         mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
         f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
     ) {
-        let instance = self.instance_props();
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
         let mut at_least_one_target_is_affected = false;
@@ -2012,15 +1928,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             return;
         }
         let new_target_values = new_values.into_iter().map(|(target, new_value)| {
-            let control_context = ControlContext {
-                feedback_audio_hook_task_sender: instance.fb_audio_hook_task_sender,
-                osc_feedback_task_sender: instance.osc_feedback_task_sender,
-                feedback_output: instance.feedback_output,
-                instance_state: instance.instance_state,
-                instance_id: &instance.instance_id,
-                output_logging_enabled: instance.output_logging_enabled,
-            };
-            m.given_or_current_value(new_value, target, control_context)
+            m.given_or_current_value(new_value, target, self.control_context())
         });
         let new_target_value = aggregate_target_values(new_target_values);
         if let Some(new_value) = new_target_value {
@@ -2028,9 +1936,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
             let feedback_is_effectively_on = m.feedback_is_effectively_on();
             let projection_feedback_desired = feedback_is_effectively_on;
             let source_feedback_desired = feedback_is_effectively_enabled(
-                instance.feedback_is_globally_enabled,
-                instance.instance_id,
-                instance.feedback_output,
+                self.feedback_is_globally_enabled,
+                &self.instance_id,
+                self.feedback_output,
             ) && feedback_is_effectively_on
                 && !m.is_echo();
             let feedback_value = m.feedback_given_target_value(
@@ -2044,8 +1952,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 feedback_value,
             );
             // Inform session, e.g. for UI updates
-            instance
-                .event_handler
+            self.event_handler
                 .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
                     compartment,
                     mapping_id: m.id(),
@@ -2062,7 +1969,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
         main_mappings: &mut HashMap<MappingId, MainMapping>,
         msg: &OscMessage,
     ) {
-        let instance = self.instance_props();
         // Control
         let source_values: Vec<_> = mappings_with_virtual_targets
             .values_mut()
@@ -2090,16 +1996,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         .send_feedback_after_control,
                                     mode_control_options: m.mode_control_options(),
                                 },
-                                ControlContext {
-                                    feedback_audio_hook_task_sender: instance
-                                        .fb_audio_hook_task_sender,
-                                    osc_feedback_task_sender: instance.osc_feedback_task_sender,
-                                    feedback_output: instance.feedback_output,
-                                    instance_state: instance.instance_state,
-                                    instance_id: &instance.instance_id,
-                                    output_logging_enabled: instance.output_logging_enabled,
-                                },
-                                &instance.logger,
+                                self.control_context(),
+                                &self.logger,
                             )
                         }
                         ProcessDirect(_) => {
@@ -2170,10 +2068,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         source_feedback_value: SourceFeedbackValue,
     ) {
-        let instance = self.instance_props();
         // No interference with other instances.
         trace!(
-            instance.logger,
+            self.logger,
             "Schedule sending feedback because {:?}: {:?}",
             feedback_reason,
             source_feedback_value
@@ -2183,14 +2080,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 if let FeedbackOutput::Midi(midi_output) = feedback_output {
                     match midi_output {
                         MidiDestination::FxOutput => {
-                            if instance.output_logging_enabled {
+                            if self.output_logging_enabled {
                                 log_feedback_output(
-                                    &instance.instance_id,
+                                    &self.instance_id,
                                     format_midi_source_value(&v),
                                 );
                             }
-                            instance
-                                .rt_sender
+                            self.channels
+                                .feedback_real_time_task_sender
                                 .send(FeedbackRealTimeTask::FxOutputFeedback(v))
                                 .unwrap();
                         }
@@ -2205,14 +2102,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // thread, in order to support multiple instances with the same device) ...
                             // it won't be useful at all if the real-time processors send the feedback
                             // in the order of instance instantiation.
-                            if instance.output_logging_enabled {
+                            if self.output_logging_enabled {
                                 log_feedback_output(
-                                    &instance.instance_id,
+                                    &self.instance_id,
                                     format_midi_source_value(&v),
                                 );
                             }
-                            instance
-                                .fb_audio_hook_task_sender
+                            self.channels
+                                .feedback_audio_hook_task_sender
                                 .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
                                 .unwrap();
                         }
@@ -2221,10 +2118,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
             }
             SourceFeedbackValue::Osc(msg) => {
                 if let FeedbackOutput::Osc(dev_id) = feedback_output {
-                    if instance.output_logging_enabled {
-                        log_feedback_output(&instance.instance_id, format_osc_message(&msg));
+                    if self.output_logging_enabled {
+                        log_feedback_output(&self.instance_id, format_osc_message(&msg));
                     }
-                    instance
+                    self.channels
                         .osc_feedback_task_sender
                         .try_send(OscFeedbackTask::new(dev_id, msg))
                         .unwrap();
@@ -2238,9 +2135,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         feedback_value: RealFeedbackValue,
     ) {
-        let instance = self.instance_props();
-        if feedback_reason.is_always_allowed() || instance.feedback_is_effectively_enabled() {
-            if let Some(feedback_output) = instance.feedback_output {
+        if feedback_reason.is_always_allowed() || self.feedback_is_effectively_enabled() {
+            if let Some(feedback_output) = self.feedback_output {
                 if let Some(source_feedback_value) = feedback_value.source {
                     // At this point we can be sure that this mapping can't have a
                     // virtual source.
@@ -2249,12 +2145,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         // Give other instances the chance to take over.
                         let event =
                             InstanceOrchestrationEvent::SourceReleased(SourceReleasedEvent {
-                                instance_id: instance.instance_id.to_owned(),
+                                instance_id: self.instance_id.to_owned(),
                                 feedback_output,
                                 feedback_value: source_feedback_value,
                             });
-                        instance
-                            .instance_orchestration_sender
+                        self.channels
+                            .instance_orchestration_event_sender
                             .try_send(event)
                             .unwrap();
                     } else {
@@ -2269,27 +2165,17 @@ impl<EH: DomainEventHandler> Basics<EH> {
             }
         }
         if let Some(projection_feedback_value) = feedback_value.projection {
-            instance
-                .event_handler
+            self.event_handler
                 .handle_event(DomainEvent::ProjectionFeedback(projection_feedback_value));
         }
     }
 
-    // TODO-high Eventually remove
-    fn instance_props(&self) -> InstanceProps<EH> {
-        InstanceProps {
-            rt_sender: &self.channels.feedback_real_time_task_sender,
-            fb_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
-            osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
-            instance_orchestration_sender: &self.channels.instance_orchestration_event_sender,
-            instance_id: &self.instance_id,
-            feedback_is_globally_enabled: self.feedback_is_globally_enabled,
-            event_handler: &self.event_handler,
-            feedback_output: self.feedback_output,
-            logger: &self.logger,
-            instance_state: &self.instance_state,
-            output_logging_enabled: self.output_logging_enabled,
-        }
+    fn feedback_is_effectively_enabled(&self) -> bool {
+        feedback_is_effectively_enabled(
+            self.feedback_is_globally_enabled,
+            &self.instance_id,
+            self.feedback_output,
+        )
     }
 }
 
