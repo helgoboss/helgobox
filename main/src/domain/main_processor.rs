@@ -338,7 +338,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             );
             match m.group_interaction() {
                 GroupInteraction::None => {}
-                GroupInteraction::Inverse => {
+                GroupInteraction::InverseTargetValue => {
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
                         let group_id = m.group_id();
                         let normalized_reference_value = reference_value.map_to_unit_interval_from(
@@ -373,7 +373,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 FeedbackReason::Normal,
                                 other_feedback,
                             );
-                            // TODO-medium Make it work for "MIDI: Send message", too.
                         }
                     }
                 }
