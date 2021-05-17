@@ -247,775 +247,169 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect();
         // It's possible that control is disabled because another instance cancels us. In that case
         // the RealTimeProcessor won't know about it and keeps sending MIDI. Stop it here!
-        if self.control_is_effectively_enabled() {
-            for task in control_tasks {
-                use ControlMainTask::*;
-                match task {
-                    Control {
-                        compartment,
-                        mapping_id,
-                        value,
-                        options,
-                    } => {
-                        // Resolving mappings with virtual targets is not necessary anymore. It has
-                        // been done in the real-time processor already.
-                        if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
-                            // Most of the time, the main processor won't even receive a
-                            // MIDI-triggered control instruction from
-                            // the real-time processor for a mapping for
-                            // which control is disabled, because the
-                            // real-time processor doesn't process
-                            // disabled mappings. But if control is (temporarily) disabled because a
-                            // target condition is (temporarily) not met (e.g. "track must be
-                            // selected") and the real-time processor doesn't yet know about it,
-                            // there might be a short amount of time
-                            // where we still receive control
-                            // statements. We filter them here.
-                            let context = ControlContext {
-                                feedback_audio_hook_task_sender: &self
-                                    .feedback_audio_hook_task_sender,
-                                osc_feedback_task_sender: &self.osc_feedback_task_sender,
-                                feedback_output: self.feedback_output,
-                                instance_state: &self.instance_state,
-                                instance_id: &self.instance_id,
-                                output_logging_enabled: self.output_logging_enabled,
-                            };
-                            let feedback = m.control_from_mode_if_enabled(
-                                value,
-                                options,
-                                context,
-                                &self.logger,
-                            );
-                            let instance_props = InstanceProps {
-                                rt_sender: &self.feedback_real_time_task_sender,
-                                fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
-                                osc_feedback_task_sender: &self.osc_feedback_task_sender,
-                                instance_orchestration_sender: &self
-                                    .instance_orchestration_event_sender,
-                                instance_id: &self.instance_id,
-                                feedback_is_globally_enabled: self.feedback_is_globally_enabled,
-                                event_handler: &self.event_handler,
-                                feedback_output: self.feedback_output,
-                                logger: &self.logger,
-                                instance_state: &self.instance_state,
-                                output_logging_enabled: self.output_logging_enabled,
-                            };
-                            send_direct_and_virtual_feedback(
-                                &instance_props,
-                                &self.mappings_with_virtual_targets,
-                                FeedbackReason::Normal,
-                                feedback,
-                            );
-                            match m.group_interaction() {
-                                GroupInteraction::None => {}
-                                GroupInteraction::Inverse => {
-                                    if let Some(reference_value) =
-                                        m.current_aggregated_target_value(context)
-                                    {
-                                        let group_id = m.group_id();
-                                        let normalized_reference_value = reference_value
-                                            .map_to_unit_interval_from(
-                                                &m.mode().target_value_interval,
-                                                MinIsMaxBehavior::PreferOne,
-                                                BASE_EPSILON,
-                                            );
-                                        for other_mapping in self.mappings[compartment].values_mut()
-                                        {
-                                            if other_mapping.id() == mapping_id
-                                                || other_mapping.group_id() != group_id
-                                            {
-                                                continue;
-                                            }
-                                            // Other mapping in same group.
-                                            let inverse_value = {
-                                                normalized_reference_value
-                                                    .inverse()
-                                                    .map_from_unit_interval_to(
-                                                        &other_mapping.mode().target_value_interval,
-                                                    )
-                                            };
-                                            // Control other mapping.
-                                            let other_feedback = other_mapping
-                                                .control_from_target_if_enabled(
-                                                    ControlValue::Absolute(inverse_value),
-                                                    options,
-                                                    context,
-                                                    &self.logger,
-                                                );
-                                            send_direct_and_virtual_feedback(
-                                                &instance_props,
-                                                &self.mappings_with_virtual_targets,
-                                                FeedbackReason::Normal,
-                                                other_feedback,
-                                            );
-                                            // TODO-medium Make it work for "MIDI: Send message", too.
-                                        }
-                                    }
-                                }
-                            }
-                        };
-                    }
-                    LogControlInput {
-                        value,
-                        match_result,
-                    } => {
-                        log_control_input(
-                            self.instance_id(),
-                            format!("{} ({})", format_midi_source_value(&value), match_result),
-                        );
-                    }
-                    LogLearnInput { msg } => {
-                        log_learn_input(self.instance_id(), format_short_midi_message(msg));
-                    }
-                    LogTargetOutput { event } => {
-                        log_target_output(self.instance_id(), format_raw_midi_event(&event));
-                    }
+        if !self.control_is_effectively_enabled() {
+            return;
+        }
+        self.process_control_tasks(control_tasks.into_iter());
+        self.poll_control();
+    }
+
+    fn process_control_tasks(&mut self, control_tasks: impl Iterator<Item = ControlMainTask>) {
+        for task in control_tasks {
+            use ControlMainTask::*;
+            match task {
+                Control {
+                    compartment,
+                    mapping_id,
+                    value,
+                    options,
+                } => {
+                    self.control(compartment, mapping_id, value, options);
                 }
-            }
-            for compartment in MappingCompartment::enum_iter() {
-                for id in self.poll_control_mappings[compartment].iter() {
-                    if let Some(m) = self.mappings[compartment].get_mut(id) {
-                        let feedback = m.poll_if_control_enabled(ControlContext {
-                            feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
-                            osc_feedback_task_sender: &self.osc_feedback_task_sender,
-                            feedback_output: self.feedback_output,
-                            instance_state: &self.instance_state,
-                            instance_id: &self.instance_id,
-                            output_logging_enabled: self.output_logging_enabled,
-                        });
-                        self.send_feedback(FeedbackReason::Normal, feedback);
-                    }
+                LogControlInput {
+                    value,
+                    match_result,
+                } => {
+                    log_control_input(
+                        self.instance_id(),
+                        format!("{} ({})", format_midi_source_value(&value), match_result),
+                    );
+                }
+                LogLearnInput { msg } => {
+                    log_learn_input(self.instance_id(), format_short_midi_message(msg));
+                }
+                LogTargetOutput { event } => {
+                    log_target_output(self.instance_id(), format_raw_midi_event(&event));
                 }
             }
         }
     }
 
+    fn poll_control(&mut self) {
+        for compartment in MappingCompartment::enum_iter() {
+            for id in self.poll_control_mappings[compartment].iter() {
+                if let Some(m) = self.mappings[compartment].get_mut(id) {
+                    let feedback = m.poll_if_control_enabled(ControlContext {
+                        feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                        osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                        feedback_output: self.feedback_output,
+                        instance_state: &self.instance_state,
+                        instance_id: &self.instance_id,
+                        output_logging_enabled: self.output_logging_enabled,
+                    });
+                    self.send_feedback(FeedbackReason::Normal, feedback);
+                }
+            }
+        }
+    }
+
+    fn control(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+        value: ControlValue,
+        options: ControlOptions,
+    ) {
+        // Resolving mappings with virtual targets is not necessary anymore. It has
+        // been done in the real-time processor already.
+        if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
+            // Most of the time, the main processor won't even receive a
+            // MIDI-triggered control instruction from
+            // the real-time processor for a mapping for
+            // which control is disabled, because the
+            // real-time processor doesn't process
+            // disabled mappings. But if control is (temporarily) disabled because a
+            // target condition is (temporarily) not met (e.g. "track must be
+            // selected") and the real-time processor doesn't yet know about it,
+            // there might be a short amount of time
+            // where we still receive control
+            // statements. We filter them here.
+            let context = ControlContext {
+                feedback_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                feedback_output: self.feedback_output,
+                instance_state: &self.instance_state,
+                instance_id: &self.instance_id,
+                output_logging_enabled: self.output_logging_enabled,
+            };
+            let feedback = m.control_from_mode_if_enabled(value, options, context, &self.logger);
+            let instance_props = InstanceProps {
+                rt_sender: &self.feedback_real_time_task_sender,
+                fb_audio_hook_task_sender: &self.feedback_audio_hook_task_sender,
+                osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                instance_orchestration_sender: &self.instance_orchestration_event_sender,
+                instance_id: &self.instance_id,
+                feedback_is_globally_enabled: self.feedback_is_globally_enabled,
+                event_handler: &self.event_handler,
+                feedback_output: self.feedback_output,
+                logger: &self.logger,
+                instance_state: &self.instance_state,
+                output_logging_enabled: self.output_logging_enabled,
+            };
+            send_direct_and_virtual_feedback(
+                &instance_props,
+                &self.mappings_with_virtual_targets,
+                FeedbackReason::Normal,
+                feedback,
+            );
+            match m.group_interaction() {
+                GroupInteraction::None => {}
+                GroupInteraction::Inverse => {
+                    if let Some(reference_value) = m.current_aggregated_target_value(context) {
+                        let group_id = m.group_id();
+                        let normalized_reference_value = reference_value.map_to_unit_interval_from(
+                            &m.mode().target_value_interval,
+                            MinIsMaxBehavior::PreferOne,
+                            BASE_EPSILON,
+                        );
+                        for other_mapping in self.mappings[compartment].values_mut() {
+                            if other_mapping.id() == mapping_id
+                                || other_mapping.group_id() != group_id
+                                || !other_mapping.control_is_effectively_on()
+                            {
+                                continue;
+                            }
+                            // Other mapping in same group for which control is enabled.
+                            let inverse_value = {
+                                normalized_reference_value
+                                    .inverse()
+                                    .map_from_unit_interval_to(
+                                        &other_mapping.mode().target_value_interval,
+                                    )
+                            };
+                            // Control other mapping.
+                            let other_feedback = other_mapping.control_from_target(
+                                ControlValue::Absolute(inverse_value),
+                                options,
+                                context,
+                                &self.logger,
+                            );
+                            send_direct_and_virtual_feedback(
+                                &instance_props,
+                                &self.mappings_with_virtual_targets,
+                                FeedbackReason::Normal,
+                                other_feedback,
+                            );
+                            // TODO-medium Make it work for "MIDI: Send message", too.
+                        }
+                    }
+                }
+            }
+        };
+    }
+
     /// This should be regularly called by the control surface, even during global target learning.
     pub fn run_essential(&mut self) {
-        // Process normal tasks from real-time- processor
-        for task in self
-            .normal_real_time_to_main_thread_task_receiver
-            .try_iter()
-            .take(NORMAL_TASK_BULK_SIZE)
-        {
-            use NormalRealTimeToMainThreadTask::*;
-            match task {
-                LearnMidiSource {
-                    source,
-                    allow_virtual_sources,
-                } => {
-                    self.event_handler.handle_event(DomainEvent::LearnedSource {
-                        source: RealSource::Midi(source),
-                        allow_virtual_sources,
-                    });
-                }
-                FullResyncToRealTimeProcessorPlease => {
-                    // We cannot provide everything that the real-time processor needs so we need
-                    // to delegate to the session in order to let it do the resync (could be
-                    // changed by also holding unnecessary things but for now, why not taking the
-                    // session detour).
-                    self.event_handler
-                        .handle_event(DomainEvent::FullResyncRequested);
-                }
-                LogLifecycleOutput { value } => {
-                    log_lifecycle_output(&self.instance_id, format_midi_source_value(&value));
-                }
-            }
-        }
+        self.process_normal_tasks_from_real_time_processor();
+        self.process_normal_tasks_from_session();
+        self.process_parameter_tasks();
+        self.process_feedback_tasks();
+        self.poll_slots();
+        self.process_instance_feedback_events();
+        self.poll_for_feedback()
+    }
 
-        // Process normal tasks
-        // We could also iterate directly while keeping the receiver open. But that would (for
-        // good reason) prevent us from calling other methods that mutably borrow
-        // self. To at least avoid heap allocations, we use a smallvec.
-        let normal_tasks: SmallVec<[NormalMainTask; NORMAL_TASK_BULK_SIZE]> = self
-            .normal_task_receiver
-            .try_iter()
-            .take(NORMAL_TASK_BULK_SIZE)
-            .collect();
-        let normal_task_count = normal_tasks.len();
-        for task in normal_tasks {
-            use NormalMainTask::*;
-            match task {
-                UpdateSettings {
-                    control_input,
-                    feedback_output,
-                    input_logging_enabled,
-                    output_logging_enabled,
-                } => {
-                    self.input_logging_enabled = input_logging_enabled;
-                    self.output_logging_enabled = output_logging_enabled;
-                    let released_event = self.io_released_event();
-                    self.control_input = control_input;
-                    self.feedback_output = feedback_output;
-                    let changed_event = self.feedback_output_usage_might_have_changed_event();
-                    self.send_io_update(released_event).unwrap();
-                    self.send_io_update(changed_event).unwrap();
-                }
-                UpdateAllMappings(compartment, mut mappings) => {
-                    debug!(
-                        self.logger,
-                        "Updating {} {}...",
-                        mappings.len(),
-                        compartment
-                    );
-                    let mut unused_sources =
-                        self.currently_feedback_enabled_sources(compartment, true);
-                    self.target_touch_dependent_mappings[compartment].clear();
-                    self.beat_dependent_feedback_mappings[compartment].clear();
-                    self.milli_dependent_feedback_mappings[compartment].clear();
-                    self.previous_target_values[compartment].clear();
-                    self.poll_control_mappings[compartment].clear();
-                    // Refresh and splinter real-time mappings
-                    let real_time_mappings = mappings
-                        .iter_mut()
-                        .map(|m| {
-                            m.refresh_all(ExtendedProcessorContext::new(
-                                &self.context,
-                                &self.parameters,
-                            ));
-                            if m.feedback_is_effectively_on() {
-                                // Mark source as used
-                                unused_sources.remove(&m.qualified_source());
-                            }
-                            if m.needs_refresh_when_target_touched() {
-                                self.target_touch_dependent_mappings[compartment].insert(m.id());
-                            }
-                            let feedback_resolution = m.feedback_resolution();
-                            if feedback_resolution == Some(FeedbackResolution::Beat) {
-                                self.beat_dependent_feedback_mappings[compartment].insert(m.id());
-                            }
-                            if feedback_resolution == Some(FeedbackResolution::High) {
-                                self.milli_dependent_feedback_mappings[compartment].insert(m.id());
-                            }
-                            if m.wants_to_be_polled_for_control() {
-                                self.poll_control_mappings[compartment].insert(m.id());
-                            }
-                            m.splinter_real_time_mapping()
-                        })
-                        .collect();
-                    // Put into hash map in order to quickly look up mappings by ID
-                    let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
-                    if compartment == MappingCompartment::ControllerMappings {
-                        let (virtual_target_mappings, normal_mappings) =
-                            mapping_tuples.partition(|(_, m)| m.has_virtual_target());
-                        self.mappings[compartment] = normal_mappings;
-                        self.mappings_with_virtual_targets = virtual_target_mappings;
-                    } else {
-                        self.mappings[compartment] = mapping_tuples.collect();
-                    }
-                    // Sync to real-time processor
-                    self.normal_real_time_task_sender
-                        .send(NormalRealTimeTask::UpdateAllMappings(
-                            compartment,
-                            real_time_mappings,
-                        ))
-                        .unwrap();
-                    // Important to send IO event first ...
-                    self.notify_feedback_dev_usage_might_have_changed(compartment);
-                    // ... and then mapping update. Otherwise, if this is an upper-floor instance
-                    // clearing all mappings, other instances won't see yet that they are actually
-                    // allowed to take over sources! Which might delay the reactivation of
-                    // lower-floor instances.
-                    self.handle_feedback_after_having_updated_all_mappings(
-                        compartment,
-                        &unused_sources,
-                    );
-                    self.update_on_mappings();
-                }
-                // This is sent on events such as track list change, FX focus etc.
-                RefreshAllTargets => {
-                    debug!(self.logger, "Refreshing all targets...");
-                    for compartment in MappingCompartment::enum_iter() {
-                        let mut activation_updates: Vec<ActivationChange> = vec![];
-                        let mut changed_mappings = vec![];
-                        let mut unused_sources =
-                            self.currently_feedback_enabled_sources(compartment, false);
-                        // Mappings with virtual targets don't have to be refreshed because virtual
-                        // targets are always active and never change depending on circumstances.
-                        for m in self.mappings[compartment].values_mut() {
-                            let context =
-                                ExtendedProcessorContext::new(&self.context, &self.parameters);
-                            let (target_changed, activation_update) = m.refresh_target(context);
-                            if target_changed || activation_update.is_some() {
-                                changed_mappings.push(m.id());
-                            }
-                            if let Some(u) = activation_update {
-                                activation_updates.push(u);
-                            }
-                            if m.feedback_is_effectively_on() {
-                                // Mark source as used
-                                unused_sources.remove(&m.qualified_source());
-                            }
-                        }
-                        if !activation_updates.is_empty() {
-                            // In some cases like closing projects, it's possible that this will
-                            // fail because the real-time processor is
-                            // already gone. But it doesn't matter.
-                            let _ = self.normal_real_time_task_sender.send(
-                                NormalRealTimeTask::UpdateTargetActivations(
-                                    compartment,
-                                    activation_updates,
-                                ),
-                            );
-                        }
-                        // Important to send IO event first ...
-                        self.notify_feedback_dev_usage_might_have_changed(compartment);
-                        self.handle_feedback_after_having_updated_particular_mappings(
-                            compartment,
-                            &unused_sources,
-                            changed_mappings.into_iter(),
-                        );
-                    }
-                    self.update_on_mappings();
-                }
-                UpdateSingleMapping(compartment, mut mapping) => {
-                    debug!(
-                        self.logger,
-                        "Updating single {} {:?}...",
-                        compartment,
-                        mapping.id()
-                    );
-                    // Refresh
-                    mapping.refresh_all(ExtendedProcessorContext::new(
-                        &self.context,
-                        &self.parameters,
-                    ));
-                    // Sync to real-time processor
-                    self.normal_real_time_task_sender
-                        .send(NormalRealTimeTask::UpdateSingleMapping(
-                            compartment,
-                            Box::new(Some(mapping.splinter_real_time_mapping())),
-                        ))
-                        .unwrap();
-                    // Collect feedback (important to send later as soon as mappings updated)
-                    struct Fb(FeedbackReason, Option<FeedbackValue>);
-                    impl Fb {
-                        fn none() -> Self {
-                            Fb(FeedbackReason::Normal, None)
-                        }
-
-                        fn unused(value: Option<FeedbackValue>) -> Self {
-                            Fb(FeedbackReason::ClearUnusedSource, value)
-                        }
-
-                        fn normal(value: Option<FeedbackValue>) -> Self {
-                            Fb(FeedbackReason::Normal, value)
-                        }
-                    }
-
-                    let (fb1, fb2) = if let Some(previous_mapping) =
-                        self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
-                    {
-                        // An existing mapping is being overwritten.
-                        if previous_mapping.feedback_is_effectively_on() {
-                            // And its light is currently on.
-                            if mapping.source() == previous_mapping.source() {
-                                // Source is the same.
-                                if mapping.feedback_is_effectively_on() {
-                                    // Lights should still be on.
-                                    // Send new lights.
-                                    (
-                                        Fb::none(),
-                                        Fb::normal(
-                                            self.get_mapping_feedback_follow_virtual(&*mapping),
-                                        ),
-                                    )
-                                } else {
-                                    // Lights should now be off.
-                                    (Fb::unused(mapping.zero_feedback()), Fb::none())
-                                }
-                            } else {
-                                // Source has changed.
-                                // Switch previous source light off.
-                                let fb1 = Fb::unused(previous_mapping.zero_feedback());
-                                let fb2 = if mapping.feedback_is_effectively_on() {
-                                    // Lights should be on. Send new lights.
-                                    Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping))
-                                } else {
-                                    Fb::none()
-                                };
-                                (fb1, fb2)
-                            }
-                        } else {
-                            // Previous lights were off.
-                            if mapping.feedback_is_effectively_on() {
-                                // Now should be on.
-                                (
-                                    Fb::none(),
-                                    Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
-                                )
-                            } else {
-                                // Still off.
-                                (Fb::none(), Fb::none())
-                            }
-                        }
-                    } else {
-                        // This mapping is new.
-                        if mapping.feedback_is_effectively_on() {
-                            // Lights on.
-                            (
-                                Fb::none(),
-                                Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
-                            )
-                        } else {
-                            // Lights off.
-                            (Fb::none(), Fb::none())
-                        }
-                    };
-                    // Update hash map entries
-                    if mapping.needs_refresh_when_target_touched() {
-                        self.target_touch_dependent_mappings[compartment].insert(mapping.id());
-                    } else {
-                        self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
-                    }
-                    let influence = mapping.feedback_resolution();
-                    if influence == Some(FeedbackResolution::Beat) {
-                        self.beat_dependent_feedback_mappings[compartment].insert(mapping.id());
-                    } else {
-                        self.beat_dependent_feedback_mappings[compartment].remove(&mapping.id());
-                    }
-                    if influence == Some(FeedbackResolution::High) {
-                        self.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
-                    } else {
-                        self.milli_dependent_feedback_mappings[compartment].remove(&mapping.id());
-                        self.previous_target_values[compartment].remove(&mapping.id());
-                    }
-                    if mapping.wants_to_be_polled_for_control() {
-                        self.poll_control_mappings[compartment].insert(mapping.id());
-                    } else {
-                        self.poll_control_mappings[compartment].remove(&mapping.id());
-                    }
-                    let relevant_map = if mapping.has_virtual_target() {
-                        self.mappings[compartment].remove(&mapping.id());
-                        &mut self.mappings_with_virtual_targets
-                    } else {
-                        self.mappings_with_virtual_targets.remove(&mapping.id());
-                        &mut self.mappings[compartment]
-                    };
-                    relevant_map.insert(mapping.id(), *mapping);
-                    // Send feedback
-                    self.send_feedback(fb1.0, fb1.1);
-                    self.send_feedback(fb1.0, fb2.1);
-                    // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
-                    self.update_on_mappings();
-                }
-                SendAllFeedback => {
-                    self.send_all_feedback();
-                }
-                LogDebugInfo => {
-                    self.log_debug_info(normal_task_count);
-                }
-                LogMapping(compartment, mapping_id) => {
-                    self.log_mapping(compartment, mapping_id);
-                }
-                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
-                    debug!(
-                        self.logger,
-                        "Updating feedback_is_globally_enabled to {}", is_enabled
-                    );
-                    self.feedback_is_globally_enabled = is_enabled;
-                    if is_enabled {
-                        for compartment in MappingCompartment::enum_iter() {
-                            self.handle_feedback_after_having_updated_all_mappings(
-                                compartment,
-                                &HashSet::new(),
-                            );
-                        }
-                    } else {
-                        // Clear it completely. Other instances that might take over maybe don't use
-                        // all control elements and we don't want to leave traces.
-                        self.clear_all_feedback_allowing_source_takeover();
-                    };
-                    let event = self.feedback_output_usage_might_have_changed_event();
-                    self.send_io_update(event).unwrap();
-                }
-                StartLearnSource {
-                    allow_virtual_sources,
-                    osc_arg_index_hint,
-                } => {
-                    debug!(self.logger, "Start learning source");
-                    self.control_mode = ControlMode::LearningSource {
-                        allow_virtual_sources,
-                        osc_arg_index_hint,
-                    };
-                }
-                DisableControl => {
-                    debug!(self.logger, "Disable control");
-                    self.control_mode = ControlMode::Disabled;
-                }
-                ReturnToControlMode => {
-                    debug!(self.logger, "Return to control mode");
-                    self.control_mode = ControlMode::Controlling;
-                }
-                UpdateControlIsGloballyEnabled(is_enabled) => {
-                    self.control_is_globally_enabled = is_enabled;
-                    let event = IoUpdatedEvent {
-                        ..self.basic_io_changed_event()
-                    };
-                    self.send_io_update(event).unwrap();
-                }
-            }
-        }
-        // Process parameter tasks
-        let parameter_tasks: SmallVec<[ParameterMainTask; PARAMETER_TASK_BULK_SIZE]> = self
-            .parameter_task_receiver
-            .try_iter()
-            .take(PARAMETER_TASK_BULK_SIZE)
-            .collect();
-        for task in parameter_tasks {
-            use ParameterMainTask::*;
-            match task {
-                UpdateAllParameters(parameters) => {
-                    debug!(self.logger, "Updating all parameters...");
-                    self.parameters = *parameters;
-                    self.event_handler
-                        .handle_event(DomainEvent::UpdatedAllParameters(parameters));
-                    for compartment in MappingCompartment::enum_iter() {
-                        let mut mapping_activation_changes: Vec<ActivationChange> = vec![];
-                        let mut target_activation_changes: Vec<ActivationChange> = vec![];
-                        let mut changed_mappings = vec![];
-                        let mut unused_sources =
-                            self.currently_feedback_enabled_sources(compartment, true);
-                        for m in all_mappings_in_compartment_mut(
-                            &mut self.mappings,
-                            &mut self.mappings_with_virtual_targets,
-                            compartment,
-                        ) {
-                            if m.activation_can_be_affected_by_parameters() {
-                                if let Some(update) = m.update_activation(&self.parameters) {
-                                    mapping_activation_changes.push(update);
-                                }
-                            }
-                            if m.target_can_be_affected_by_parameters() {
-                                let context =
-                                    ExtendedProcessorContext::new(&self.context, &self.parameters);
-                                let (has_changed, activation_change) = m.refresh_target(context);
-                                if has_changed || activation_change.is_some() {
-                                    changed_mappings.push(m.id())
-                                }
-                                if let Some(u) = activation_change {
-                                    target_activation_changes.push(u);
-                                }
-                            }
-                            if m.feedback_is_effectively_on() {
-                                // Mark source as used
-                                unused_sources.remove(&m.qualified_source());
-                            }
-                        }
-                        self.process_mapping_updates_due_to_parameter_changes(
-                            compartment,
-                            mapping_activation_changes,
-                            target_activation_changes,
-                            &unused_sources,
-                            changed_mappings.into_iter(),
-                        );
-                    }
-                }
-                UpdateParameter { index, value } => {
-                    debug!(self.logger, "Updating parameter {} to {}...", index, value);
-                    // Work around REAPER's inability to notify about parameter changes in
-                    // monitoring FX by simulating the notification ourselves.
-                    // Then parameter learning and feedback works at least for
-                    // ReaLearn monitoring FX instances, which is especially
-                    // useful for conditional activation.
-                    if self.context.is_on_monitoring_fx_chain() {
-                        let parameter = self.context.containing_fx().parameter_by_index(index);
-                        self.additional_feedback_event_sender
-                            .try_send(
-                                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
-                                    RealearnMonitoringFxParameterValueChangedEvent {
-                                        parameter,
-                                        new_value: ReaperNormalizedFxParamValue::new(value as _),
-                                    },
-                                ),
-                            )
-                            .unwrap();
-                    }
-                    // Update own value (important to do first)
-                    let previous_value = self.parameters[index as usize];
-                    self.parameters[index as usize] = value;
-                    self.event_handler
-                        .handle_event(DomainEvent::UpdatedParameter { index, value });
-                    // Mapping activation is supported for both compartments and target activation
-                    // might change also in non-virtual controller mappings due to dynamic targets.
-                    if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
-                        let mut changed_mappings = HashSet::new();
-                        let mut unused_sources =
-                            self.currently_feedback_enabled_sources(compartment, true);
-                        // In order to avoid a mutable borrow of mappings and an immutable borrow of
-                        // parameters at the same time, we need to separate into READ activation
-                        // effects and WRITE activation updates.
-                        // 1. Mapping activation: Read
-                        let activation_effects: Vec<MappingActivationEffect> = self
-                            .all_mappings_in_compartment(compartment)
-                            .filter_map(|m| {
-                                m.check_activation_effect(&self.parameters, index, previous_value)
-                            })
-                            .collect();
-                        // 2. Mapping activation: Write
-                        let mapping_activation_updates: Vec<ActivationChange> = activation_effects
-                            .into_iter()
-                            .filter_map(|eff| {
-                                changed_mappings.insert(eff.id);
-                                let m = get_normal_or_virtual_target_mapping_mut(
-                                    &mut self.mappings,
-                                    &mut self.mappings_with_virtual_targets,
-                                    compartment,
-                                    eff.id,
-                                )?;
-                                m.update_activation_from_effect(eff)
-                            })
-                            .collect();
-                        // 3. Target refreshment and determine unused sources
-                        let mut target_activation_changes: Vec<ActivationChange> = vec![];
-                        for m in all_mappings_in_compartment_mut(
-                            &mut self.mappings,
-                            &mut self.mappings_with_virtual_targets,
-                            compartment,
-                        ) {
-                            if m.target_can_be_affected_by_parameters() {
-                                let context =
-                                    ExtendedProcessorContext::new(&self.context, &self.parameters);
-                                let (target_has_changed, activation_change) =
-                                    m.refresh_target(context);
-                                if target_has_changed || activation_change.is_some() {
-                                    changed_mappings.insert(m.id());
-                                }
-                                if let Some(c) = activation_change {
-                                    target_activation_changes.push(c);
-                                }
-                            }
-                            if m.feedback_is_effectively_on() {
-                                // Mark source as used
-                                unused_sources.remove(&m.qualified_source());
-                            }
-                        }
-                        self.process_mapping_updates_due_to_parameter_changes(
-                            compartment,
-                            mapping_activation_updates,
-                            target_activation_changes,
-                            &unused_sources,
-                            changed_mappings.into_iter(),
-                        )
-                    }
-                }
-            }
-        }
-        // Process feedback tasks
-        let feedback_tasks: SmallVec<[FeedbackMainTask; FEEDBACK_TASK_BULK_SIZE]> = self
-            .feedback_task_receiver
-            .try_iter()
-            .take(FEEDBACK_TASK_BULK_SIZE)
-            .collect();
-        for task in feedback_tasks {
-            use FeedbackMainTask::*;
-            match task {
-                TargetTouched => {
-                    // A target has been touched! We re-resolve all "Last touched" targets so they
-                    // now control the last touched target.
-                    for compartment in MappingCompartment::enum_iter() {
-                        for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
-                            // Virtual targets are not candidates for "Last touched" so we don't
-                            // need to consider them here.
-                            let fb = if let Some(m) =
-                                self.mappings[compartment].get_mut(&mapping_id)
-                            {
-                                // We don't need to track activation updates because this target
-                                // is always on. Switching off is not necessary since the last
-                                // touched target can never be "unset".
-                                m.refresh_target(ExtendedProcessorContext::new(
-                                    &self.context,
-                                    &self.parameters,
-                                ));
-                                if m.has_reaper_target() && m.has_resolved_successfully() {
-                                    if m.feedback_is_effectively_on() {
-                                        // TODO-high Is this executed too frequently and maybe
-                                        // even sends redundant feedback!?
-                                        m.feedback(
-                                            true,
-                                            ControlContext {
-                                                feedback_audio_hook_task_sender: &self
-                                                    .feedback_audio_hook_task_sender,
-                                                osc_feedback_task_sender: &self
-                                                    .osc_feedback_task_sender,
-                                                feedback_output: self.feedback_output,
-                                                instance_state: &self.instance_state,
-                                                instance_id: &self.instance_id,
-                                                output_logging_enabled: self.output_logging_enabled,
-                                            },
-                                        )
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            };
-                            self.send_feedback(FeedbackReason::Normal, fb);
-                        }
-                    }
-                }
-            }
-        }
-        // TODO-medium This is polled on each main loop cycle. As soon as we have more than 8 slots,
-        //  We should introduce a set that contains the currently filled or playing slot numbers
-        //  iterate over them only instead of all slots.
-        {
-            let mut instance_state = self.instance_state.borrow_mut();
-            for i in 0..CLIP_SLOT_COUNT {
-                for event in instance_state.poll_slot(i).into_iter() {
-                    if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
-                        // Position changed. This happens very frequently when a clip is playing.
-                        // Mappings with slot seek targets are in the beat-dependent feedback
-                        // mapping set, not in the milli-dependent one (because we don't want to
-                        // query their feedback value more than once in one main loop cycle).
-                        let instance_event = InstanceFeedbackEvent::ClipChanged {
-                            slot_index: i,
-                            event,
-                        };
-                        for compartment in MappingCompartment::enum_iter() {
-                            for mapping_id in
-                                self.beat_dependent_feedback_mappings[compartment].iter()
-                            {
-                                if let Some(m) = self.mappings[compartment].get(&mapping_id) {
-                                    self.process_feedback_related_reaper_event_for_mapping(
-                                        compartment,
-                                        m,
-                                        &mut |target| {
-                                            target.value_changed_from_instance_feedback_event(
-                                                &instance_event,
-                                            )
-                                        },
-                                    );
-                                }
-                            }
-                        }
-                    } else {
-                        // Other property of clip changed.
-                        let instance_event = InstanceFeedbackEvent::ClipChanged {
-                            slot_index: i,
-                            event,
-                        };
-                        self.process_feedback_related_reaper_event(|target| {
-                            target.value_changed_from_instance_feedback_event(&instance_event)
-                        });
-                    }
-                }
-            }
-        }
-        // Process instance-state feedback events
-        for event in self
-            .instance_feedback_event_receiver
-            .try_iter()
-            .take(FEEDBACK_TASK_BULK_SIZE)
-        {
-            self.process_feedback_related_reaper_event(|target| {
-                target.value_changed_from_instance_feedback_event(&event)
-            });
-        }
-        // Process high-resolution playback-position dependent feedback
+    fn poll_for_feedback(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
             for mapping_id in self.milli_dependent_feedback_mappings[compartment].iter() {
                 if let Some(m) = self.mappings[compartment].get(&mapping_id) {
@@ -1071,6 +465,530 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             }
                         },
                     );
+                }
+            }
+        }
+    }
+
+    fn process_instance_feedback_events(&mut self) {
+        for event in self
+            .instance_feedback_event_receiver
+            .try_iter()
+            .take(FEEDBACK_TASK_BULK_SIZE)
+        {
+            self.process_feedback_related_reaper_event(|target| {
+                target.value_changed_from_instance_feedback_event(&event)
+            });
+        }
+    }
+
+    fn poll_slots(&mut self) {
+        // TODO-medium This is polled on each main loop cycle. As soon as we have more than 8 slots,
+        //  We should introduce a set that contains the currently filled or playing slot numbers
+        //  iterate over them only instead of all slots.
+        let mut instance_state = self.instance_state.borrow_mut();
+        for i in 0..CLIP_SLOT_COUNT {
+            for event in instance_state.poll_slot(i).into_iter() {
+                if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
+                    // Position changed. This happens very frequently when a clip is playing.
+                    // Mappings with slot seek targets are in the beat-dependent feedback
+                    // mapping set, not in the milli-dependent one (because we don't want to
+                    // query their feedback value more than once in one main loop cycle).
+                    let instance_event = InstanceFeedbackEvent::ClipChanged {
+                        slot_index: i,
+                        event,
+                    };
+                    for compartment in MappingCompartment::enum_iter() {
+                        for mapping_id in self.beat_dependent_feedback_mappings[compartment].iter()
+                        {
+                            if let Some(m) = self.mappings[compartment].get(&mapping_id) {
+                                self.process_feedback_related_reaper_event_for_mapping(
+                                    compartment,
+                                    m,
+                                    &mut |target| {
+                                        target.value_changed_from_instance_feedback_event(
+                                            &instance_event,
+                                        )
+                                    },
+                                );
+                            }
+                        }
+                    }
+                } else {
+                    // Other property of clip changed.
+                    let instance_event = InstanceFeedbackEvent::ClipChanged {
+                        slot_index: i,
+                        event,
+                    };
+                    self.process_feedback_related_reaper_event(|target| {
+                        target.value_changed_from_instance_feedback_event(&instance_event)
+                    });
+                }
+            }
+        }
+    }
+
+    fn process_feedback_tasks(&mut self) {
+        let feedback_tasks: SmallVec<[FeedbackMainTask; FEEDBACK_TASK_BULK_SIZE]> = self
+            .feedback_task_receiver
+            .try_iter()
+            .take(FEEDBACK_TASK_BULK_SIZE)
+            .collect();
+        for task in feedback_tasks {
+            use FeedbackMainTask::*;
+            match task {
+                TargetTouched => self.process_target_touched_event(),
+            }
+        }
+    }
+
+    fn process_target_touched_event(&mut self) {
+        // A target has been touched! We re-resolve all "Last touched" targets so they
+        // now control the last touched target.
+        for compartment in MappingCompartment::enum_iter() {
+            for mapping_id in self.target_touch_dependent_mappings[compartment].iter() {
+                // Virtual targets are not candidates for "Last touched" so we don't
+                // need to consider them here.
+                let fb = if let Some(m) = self.mappings[compartment].get_mut(&mapping_id) {
+                    // We don't need to track activation updates because this target
+                    // is always on. Switching off is not necessary since the last
+                    // touched target can never be "unset".
+                    m.refresh_target(ExtendedProcessorContext::new(
+                        &self.context,
+                        &self.parameters,
+                    ));
+                    if m.has_reaper_target() && m.has_resolved_successfully() {
+                        if m.feedback_is_effectively_on() {
+                            // TODO-high Is this executed too frequently and maybe
+                            // even sends redundant feedback!?
+                            m.feedback(
+                                true,
+                                ControlContext {
+                                    feedback_audio_hook_task_sender: &self
+                                        .feedback_audio_hook_task_sender,
+                                    osc_feedback_task_sender: &self.osc_feedback_task_sender,
+                                    feedback_output: self.feedback_output,
+                                    instance_state: &self.instance_state,
+                                    instance_id: &self.instance_id,
+                                    output_logging_enabled: self.output_logging_enabled,
+                                },
+                            )
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                self.send_feedback(FeedbackReason::Normal, fb);
+            }
+        }
+    }
+
+    fn process_parameter_tasks(&mut self) {
+        let parameter_tasks: SmallVec<[ParameterMainTask; PARAMETER_TASK_BULK_SIZE]> = self
+            .parameter_task_receiver
+            .try_iter()
+            .take(PARAMETER_TASK_BULK_SIZE)
+            .collect();
+        for task in parameter_tasks {
+            use ParameterMainTask::*;
+            match task {
+                UpdateAllParameters(parameters) => {
+                    self.update_all_parameters(parameters);
+                }
+                UpdateParameter { index, value } => self.update_single_parameter(index, value),
+            }
+        }
+    }
+
+    fn update_single_parameter(&mut self, index: u32, value: f32) {
+        debug!(self.logger, "Updating parameter {} to {}...", index, value);
+        // Work around REAPER's inability to notify about parameter changes in
+        // monitoring FX by simulating the notification ourselves.
+        // Then parameter learning and feedback works at least for
+        // ReaLearn monitoring FX instances, which is especially
+        // useful for conditional activation.
+        if self.context.is_on_monitoring_fx_chain() {
+            let parameter = self.context.containing_fx().parameter_by_index(index);
+            self.additional_feedback_event_sender
+                .try_send(
+                    AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(
+                        RealearnMonitoringFxParameterValueChangedEvent {
+                            parameter,
+                            new_value: ReaperNormalizedFxParamValue::new(value as _),
+                        },
+                    ),
+                )
+                .unwrap();
+        }
+        // Update own value (important to do first)
+        let previous_value = self.parameters[index as usize];
+        self.parameters[index as usize] = value;
+        self.event_handler
+            .handle_event(DomainEvent::UpdatedParameter { index, value });
+        // Mapping activation is supported for both compartments and target activation
+        // might change also in non-virtual controller mappings due to dynamic targets.
+        if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
+            let mut changed_mappings = HashSet::new();
+            let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
+            // In order to avoid a mutable borrow of mappings and an immutable borrow of
+            // parameters at the same time, we need to separate into READ activation
+            // effects and WRITE activation updates.
+            // 1. Mapping activation: Read
+            let activation_effects: Vec<MappingActivationEffect> = self
+                .all_mappings_in_compartment(compartment)
+                .filter_map(|m| m.check_activation_effect(&self.parameters, index, previous_value))
+                .collect();
+            // 2. Mapping activation: Write
+            let mapping_activation_updates: Vec<ActivationChange> = activation_effects
+                .into_iter()
+                .filter_map(|eff| {
+                    changed_mappings.insert(eff.id);
+                    let m = get_normal_or_virtual_target_mapping_mut(
+                        &mut self.mappings,
+                        &mut self.mappings_with_virtual_targets,
+                        compartment,
+                        eff.id,
+                    )?;
+                    m.update_activation_from_effect(eff)
+                })
+                .collect();
+            // 3. Target refreshment and determine unused sources
+            let mut target_activation_changes: Vec<ActivationChange> = vec![];
+            for m in all_mappings_in_compartment_mut(
+                &mut self.mappings,
+                &mut self.mappings_with_virtual_targets,
+                compartment,
+            ) {
+                if m.target_can_be_affected_by_parameters() {
+                    let context = ExtendedProcessorContext::new(&self.context, &self.parameters);
+                    let (target_has_changed, activation_change) = m.refresh_target(context);
+                    if target_has_changed || activation_change.is_some() {
+                        changed_mappings.insert(m.id());
+                    }
+                    if let Some(c) = activation_change {
+                        target_activation_changes.push(c);
+                    }
+                }
+                if m.feedback_is_effectively_on() {
+                    // Mark source as used
+                    unused_sources.remove(&m.qualified_source());
+                }
+            }
+            self.process_mapping_updates_due_to_parameter_changes(
+                compartment,
+                mapping_activation_updates,
+                target_activation_changes,
+                &unused_sources,
+                changed_mappings.into_iter(),
+            )
+        }
+    }
+
+    fn update_all_parameters(&mut self, parameters: Box<ParameterArray>) {
+        debug!(self.logger, "Updating all parameters...");
+        self.parameters = *parameters;
+        self.event_handler
+            .handle_event(DomainEvent::UpdatedAllParameters(parameters));
+        for compartment in MappingCompartment::enum_iter() {
+            let mut mapping_activation_changes: Vec<ActivationChange> = vec![];
+            let mut target_activation_changes: Vec<ActivationChange> = vec![];
+            let mut changed_mappings = vec![];
+            let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
+            for m in all_mappings_in_compartment_mut(
+                &mut self.mappings,
+                &mut self.mappings_with_virtual_targets,
+                compartment,
+            ) {
+                if m.activation_can_be_affected_by_parameters() {
+                    if let Some(update) = m.update_activation(&self.parameters) {
+                        mapping_activation_changes.push(update);
+                    }
+                }
+                if m.target_can_be_affected_by_parameters() {
+                    let context = ExtendedProcessorContext::new(&self.context, &self.parameters);
+                    let (has_changed, activation_change) = m.refresh_target(context);
+                    if has_changed || activation_change.is_some() {
+                        changed_mappings.push(m.id())
+                    }
+                    if let Some(u) = activation_change {
+                        target_activation_changes.push(u);
+                    }
+                }
+                if m.feedback_is_effectively_on() {
+                    // Mark source as used
+                    unused_sources.remove(&m.qualified_source());
+                }
+            }
+            self.process_mapping_updates_due_to_parameter_changes(
+                compartment,
+                mapping_activation_changes,
+                target_activation_changes,
+                &unused_sources,
+                changed_mappings.into_iter(),
+            );
+        }
+    }
+
+    fn process_normal_tasks_from_session(&mut self) {
+        // We could also iterate directly while keeping the receiver open. But that would (for
+        // good reason) prevent us from calling other methods that mutably borrow
+        // self. To at least avoid heap allocations, we use a smallvec.
+        let normal_tasks: SmallVec<[NormalMainTask; NORMAL_TASK_BULK_SIZE]> = self
+            .normal_task_receiver
+            .try_iter()
+            .take(NORMAL_TASK_BULK_SIZE)
+            .collect();
+        let normal_task_count = normal_tasks.len();
+        for task in normal_tasks {
+            use NormalMainTask::*;
+            match task {
+                UpdateSettings {
+                    control_input,
+                    feedback_output,
+                    input_logging_enabled,
+                    output_logging_enabled,
+                } => {
+                    self.update_settings(
+                        control_input,
+                        feedback_output,
+                        input_logging_enabled,
+                        output_logging_enabled,
+                    );
+                }
+                UpdateAllMappings(compartment, mappings) => {
+                    self.update_all_mappings(compartment, mappings);
+                }
+                // This is sent on events such as track list change, FX focus etc.
+                RefreshAllTargets => {
+                    self.refresh_all_targets();
+                }
+                UpdateSingleMapping(compartment, mapping) => {
+                    self.update_single_mapping(compartment, mapping);
+                }
+                SendAllFeedback => {
+                    self.send_all_feedback();
+                }
+                LogDebugInfo => {
+                    self.log_debug_info(normal_task_count);
+                }
+                LogMapping(compartment, mapping_id) => {
+                    self.log_mapping(compartment, mapping_id);
+                }
+                UpdateFeedbackIsGloballyEnabled(is_enabled) => {
+                    self.update_feedback_is_globally_enabled(is_enabled);
+                }
+                StartLearnSource {
+                    allow_virtual_sources,
+                    osc_arg_index_hint,
+                } => {
+                    debug!(self.logger, "Start learning source");
+                    self.control_mode = ControlMode::LearningSource {
+                        allow_virtual_sources,
+                        osc_arg_index_hint,
+                    };
+                }
+                DisableControl => {
+                    debug!(self.logger, "Disable control");
+                    self.control_mode = ControlMode::Disabled;
+                }
+                ReturnToControlMode => {
+                    debug!(self.logger, "Return to control mode");
+                    self.control_mode = ControlMode::Controlling;
+                }
+                UpdateControlIsGloballyEnabled(is_enabled) => {
+                    self.control_is_globally_enabled = is_enabled;
+                    let event = IoUpdatedEvent {
+                        ..self.basic_io_changed_event()
+                    };
+                    self.send_io_update(event).unwrap();
+                }
+            }
+        }
+    }
+
+    fn update_feedback_is_globally_enabled(&mut self, is_enabled: bool) {
+        debug!(
+            self.logger,
+            "Updating feedback_is_globally_enabled to {}", is_enabled
+        );
+        self.feedback_is_globally_enabled = is_enabled;
+        if is_enabled {
+            for compartment in MappingCompartment::enum_iter() {
+                self.handle_feedback_after_having_updated_all_mappings(
+                    compartment,
+                    &HashSet::new(),
+                );
+            }
+        } else {
+            // Clear it completely. Other instances that might take over maybe don't use
+            // all control elements and we don't want to leave traces.
+            self.clear_all_feedback_allowing_source_takeover();
+        };
+        let event = self.feedback_output_usage_might_have_changed_event();
+        self.send_io_update(event).unwrap();
+    }
+
+    fn refresh_all_targets(&mut self) {
+        debug!(self.logger, "Refreshing all targets...");
+        for compartment in MappingCompartment::enum_iter() {
+            let mut activation_updates: Vec<ActivationChange> = vec![];
+            let mut changed_mappings = vec![];
+            let mut unused_sources = self.currently_feedback_enabled_sources(compartment, false);
+            // Mappings with virtual targets don't have to be refreshed because virtual
+            // targets are always active and never change depending on circumstances.
+            for m in self.mappings[compartment].values_mut() {
+                let context = ExtendedProcessorContext::new(&self.context, &self.parameters);
+                let (target_changed, activation_update) = m.refresh_target(context);
+                if target_changed || activation_update.is_some() {
+                    changed_mappings.push(m.id());
+                }
+                if let Some(u) = activation_update {
+                    activation_updates.push(u);
+                }
+                if m.feedback_is_effectively_on() {
+                    // Mark source as used
+                    unused_sources.remove(&m.qualified_source());
+                }
+            }
+            if !activation_updates.is_empty() {
+                // In some cases like closing projects, it's possible that this will
+                // fail because the real-time processor is
+                // already gone. But it doesn't matter.
+                let _ = self.normal_real_time_task_sender.send(
+                    NormalRealTimeTask::UpdateTargetActivations(compartment, activation_updates),
+                );
+            }
+            // Important to send IO event first ...
+            self.notify_feedback_dev_usage_might_have_changed(compartment);
+            self.handle_feedback_after_having_updated_particular_mappings(
+                compartment,
+                &unused_sources,
+                changed_mappings.into_iter(),
+            );
+        }
+        self.update_on_mappings();
+    }
+
+    fn update_settings(
+        &mut self,
+        control_input: ControlInput,
+        feedback_output: Option<FeedbackOutput>,
+        input_logging_enabled: bool,
+        output_logging_enabled: bool,
+    ) {
+        self.input_logging_enabled = input_logging_enabled;
+        self.output_logging_enabled = output_logging_enabled;
+        let released_event = self.io_released_event();
+        self.control_input = control_input;
+        self.feedback_output = feedback_output;
+        let changed_event = self.feedback_output_usage_might_have_changed_event();
+        self.send_io_update(released_event).unwrap();
+        self.send_io_update(changed_event).unwrap();
+    }
+
+    fn update_all_mappings(
+        &mut self,
+        compartment: MappingCompartment,
+        mut mappings: Vec<MainMapping>,
+    ) {
+        debug!(
+            self.logger,
+            "Updating {} {}...",
+            mappings.len(),
+            compartment
+        );
+        let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
+        self.target_touch_dependent_mappings[compartment].clear();
+        self.beat_dependent_feedback_mappings[compartment].clear();
+        self.milli_dependent_feedback_mappings[compartment].clear();
+        self.previous_target_values[compartment].clear();
+        self.poll_control_mappings[compartment].clear();
+        // Refresh and splinter real-time mappings
+        let real_time_mappings = mappings
+            .iter_mut()
+            .map(|m| {
+                m.refresh_all(ExtendedProcessorContext::new(
+                    &self.context,
+                    &self.parameters,
+                ));
+                if m.feedback_is_effectively_on() {
+                    // Mark source as used
+                    unused_sources.remove(&m.qualified_source());
+                }
+                if m.needs_refresh_when_target_touched() {
+                    self.target_touch_dependent_mappings[compartment].insert(m.id());
+                }
+                let feedback_resolution = m.feedback_resolution();
+                if feedback_resolution == Some(FeedbackResolution::Beat) {
+                    self.beat_dependent_feedback_mappings[compartment].insert(m.id());
+                }
+                if feedback_resolution == Some(FeedbackResolution::High) {
+                    self.milli_dependent_feedback_mappings[compartment].insert(m.id());
+                }
+                if m.wants_to_be_polled_for_control() {
+                    self.poll_control_mappings[compartment].insert(m.id());
+                }
+                m.splinter_real_time_mapping()
+            })
+            .collect();
+        // Put into hash map in order to quickly look up mappings by ID
+        let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
+        if compartment == MappingCompartment::ControllerMappings {
+            let (virtual_target_mappings, normal_mappings) =
+                mapping_tuples.partition(|(_, m)| m.has_virtual_target());
+            self.mappings[compartment] = normal_mappings;
+            self.mappings_with_virtual_targets = virtual_target_mappings;
+        } else {
+            self.mappings[compartment] = mapping_tuples.collect();
+        }
+        // Sync to real-time processor
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateAllMappings(
+                compartment,
+                real_time_mappings,
+            ))
+            .unwrap();
+        // Important to send IO event first ...
+        self.notify_feedback_dev_usage_might_have_changed(compartment);
+        // ... and then mapping update. Otherwise, if this is an upper-floor instance
+        // clearing all mappings, other instances won't see yet that they are actually
+        // allowed to take over sources! Which might delay the reactivation of
+        // lower-floor instances.
+        self.handle_feedback_after_having_updated_all_mappings(compartment, &unused_sources);
+        self.update_on_mappings();
+    }
+
+    fn process_normal_tasks_from_real_time_processor(&mut self) {
+        for task in self
+            .normal_real_time_to_main_thread_task_receiver
+            .try_iter()
+            .take(NORMAL_TASK_BULK_SIZE)
+        {
+            use NormalRealTimeToMainThreadTask::*;
+            match task {
+                LearnMidiSource {
+                    source,
+                    allow_virtual_sources,
+                } => {
+                    self.event_handler.handle_event(DomainEvent::LearnedSource {
+                        source: RealSource::Midi(source),
+                        allow_virtual_sources,
+                    });
+                }
+                FullResyncToRealTimeProcessorPlease => {
+                    // We cannot provide everything that the real-time processor needs so we need
+                    // to delegate to the session in order to let it do the resync (could be
+                    // changed by also holding unnecessary things but for now, why not taking the
+                    // session detour).
+                    self.event_handler
+                        .handle_event(DomainEvent::FullResyncRequested);
+                }
+                LogLifecycleOutput { value } => {
+                    log_lifecycle_output(&self.instance_id, format_midi_source_value(&value));
                 }
             }
         }
@@ -1704,6 +1622,140 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mapping_id, mapping
         );
         Reaper::get().show_console_msg(msg);
+    }
+
+    fn update_single_mapping(
+        &mut self,
+        compartment: MappingCompartment,
+        mut mapping: Box<MainMapping>,
+    ) {
+        debug!(
+            self.logger,
+            "Updating single {} {:?}...",
+            compartment,
+            mapping.id()
+        );
+        // Refresh
+        mapping.refresh_all(ExtendedProcessorContext::new(
+            &self.context,
+            &self.parameters,
+        ));
+        // Sync to real-time processor
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdateSingleMapping(
+                compartment,
+                Box::new(Some(mapping.splinter_real_time_mapping())),
+            ))
+            .unwrap();
+        // Collect feedback (important to send later as soon as mappings updated)
+        struct Fb(FeedbackReason, Option<FeedbackValue>);
+        impl Fb {
+            fn none() -> Self {
+                Fb(FeedbackReason::Normal, None)
+            }
+
+            fn unused(value: Option<FeedbackValue>) -> Self {
+                Fb(FeedbackReason::ClearUnusedSource, value)
+            }
+
+            fn normal(value: Option<FeedbackValue>) -> Self {
+                Fb(FeedbackReason::Normal, value)
+            }
+        }
+
+        let (fb1, fb2) = if let Some(previous_mapping) =
+            self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
+        {
+            // An existing mapping is being overwritten.
+            if previous_mapping.feedback_is_effectively_on() {
+                // And its light is currently on.
+                if mapping.source() == previous_mapping.source() {
+                    // Source is the same.
+                    if mapping.feedback_is_effectively_on() {
+                        // Lights should still be on.
+                        // Send new lights.
+                        (
+                            Fb::none(),
+                            Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
+                        )
+                    } else {
+                        // Lights should now be off.
+                        (Fb::unused(mapping.zero_feedback()), Fb::none())
+                    }
+                } else {
+                    // Source has changed.
+                    // Switch previous source light off.
+                    let fb1 = Fb::unused(previous_mapping.zero_feedback());
+                    let fb2 = if mapping.feedback_is_effectively_on() {
+                        // Lights should be on. Send new lights.
+                        Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping))
+                    } else {
+                        Fb::none()
+                    };
+                    (fb1, fb2)
+                }
+            } else {
+                // Previous lights were off.
+                if mapping.feedback_is_effectively_on() {
+                    // Now should be on.
+                    (
+                        Fb::none(),
+                        Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
+                    )
+                } else {
+                    // Still off.
+                    (Fb::none(), Fb::none())
+                }
+            }
+        } else {
+            // This mapping is new.
+            if mapping.feedback_is_effectively_on() {
+                // Lights on.
+                (
+                    Fb::none(),
+                    Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping)),
+                )
+            } else {
+                // Lights off.
+                (Fb::none(), Fb::none())
+            }
+        };
+        // Update hash map entries
+        if mapping.needs_refresh_when_target_touched() {
+            self.target_touch_dependent_mappings[compartment].insert(mapping.id());
+        } else {
+            self.target_touch_dependent_mappings[compartment].remove(&mapping.id());
+        }
+        let influence = mapping.feedback_resolution();
+        if influence == Some(FeedbackResolution::Beat) {
+            self.beat_dependent_feedback_mappings[compartment].insert(mapping.id());
+        } else {
+            self.beat_dependent_feedback_mappings[compartment].remove(&mapping.id());
+        }
+        if influence == Some(FeedbackResolution::High) {
+            self.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
+        } else {
+            self.milli_dependent_feedback_mappings[compartment].remove(&mapping.id());
+            self.previous_target_values[compartment].remove(&mapping.id());
+        }
+        if mapping.wants_to_be_polled_for_control() {
+            self.poll_control_mappings[compartment].insert(mapping.id());
+        } else {
+            self.poll_control_mappings[compartment].remove(&mapping.id());
+        }
+        let relevant_map = if mapping.has_virtual_target() {
+            self.mappings[compartment].remove(&mapping.id());
+            &mut self.mappings_with_virtual_targets
+        } else {
+            self.mappings_with_virtual_targets.remove(&mapping.id());
+            &mut self.mappings[compartment]
+        };
+        relevant_map.insert(mapping.id(), *mapping);
+        // Send feedback
+        self.send_feedback(fb1.0, fb1.1);
+        self.send_feedback(fb1.0, fb2.1);
+        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
+        self.update_on_mappings();
     }
 }
 

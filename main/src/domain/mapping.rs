@@ -444,7 +444,10 @@ impl MainMapping {
         context: ControlContext,
         logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
-        self.control_if_enabled_internal(
+        if !self.control_is_effectively_on() {
+            return None;
+        }
+        self.control_internal(
             options,
             context,
             logger,
@@ -463,17 +466,17 @@ impl MainMapping {
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
-    pub fn control_from_target_if_enabled(
+    pub fn control_from_target(
         &mut self,
         value: ControlValue,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
-        self.control_if_enabled_internal(options, context, logger, |_, _, _, _| Some(value))
+        self.control_internal(options, context, logger, |_, _, _, _| Some(value))
     }
 
-    fn control_if_enabled_internal(
+    fn control_internal(
         &mut self,
         options: ControlOptions,
         context: ControlContext,
@@ -485,9 +488,6 @@ impl MainMapping {
             &ReaperTarget,
         ) -> Option<ControlValue>,
     ) -> Option<FeedbackValue> {
-        if !self.control_is_effectively_on() {
-            return None;
-        }
         let mut send_feedback = false;
         let mut at_least_one_target_val_was_changed = false;
         for target in &self.targets {
