@@ -437,16 +437,13 @@ impl MainMapping {
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
-    pub fn control_from_mode_if_enabled(
+    pub fn control_from_mode(
         &mut self,
         source_value: ControlValue,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
-        if !self.control_is_effectively_on() {
-            return None;
-        }
         self.control_internal(
             options,
             context,

@@ -3,7 +3,7 @@ use crate::domain::{
     ClipChangedEvent, CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput,
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackValue,
-    InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
+    GroupId, InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
     NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext,
     QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
@@ -317,67 +317,97 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Resolving mappings with virtual targets is not necessary anymore. It has
         // been done in the real-time processor already.
         if let Some(m) = self.collections.mappings[compartment].get_mut(&mapping_id) {
-            // Most of the time, the main processor won't even receive a
-            // MIDI-triggered control instruction from
-            // the real-time processor for a mapping for
-            // which control is disabled, because the
-            // real-time processor doesn't process
-            // disabled mappings. But if control is (temporarily) disabled because a
-            // target condition is (temporarily) not met (e.g. "track must be
-            // selected") and the real-time processor doesn't yet know about it,
-            // there might be a short amount of time
-            // where we still receive control
-            // statements. We filter them here.
+            // Most of the time, the main processor won't even receive a MIDI-triggered control
+            // instruction from the real-time processor for a mapping for which control is disabled,
+            // because the real-time processor doesn't process disabled mappings. But if control is
+            // (temporarily) disabled because a target condition is (temporarily) not met (e.g.
+            // "track must be selected") and the real-time processor doesn't yet know about it,
+            // there might be a short amount of time where we still receive control statements. We
+            // filter them here.
+            if !m.control_is_effectively_on() {
+                return;
+            }
             let context = self.basics.control_context();
-            let feedback =
-                m.control_from_mode_if_enabled(value, options, context, &self.basics.logger);
+            let feedback = m.control_from_mode(value, options, context, &self.basics.logger);
             self.basics.send_feedback(
                 &self.collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 feedback,
             );
+            // Group interaction
+            let group_id = m.group_id();
             match m.group_interaction() {
                 GroupInteraction::None => {}
                 GroupInteraction::InverseTargetValue => {
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        let group_id = m.group_id();
-                        let normalized_reference_value = reference_value.map_to_unit_interval_from(
-                            &m.mode().target_value_interval,
-                            MinIsMaxBehavior::PreferOne,
-                            BASE_EPSILON,
+                        let inverse_target_value = reference_value
+                            .map_to_unit_interval_from(
+                                &m.mode().target_value_interval,
+                                MinIsMaxBehavior::PreferOne,
+                                BASE_EPSILON,
+                            )
+                            .inverse();
+                        self.process_other_mappings(
+                            compartment,
+                            mapping_id,
+                            group_id,
+                            |other_mapping, basics| {
+                                let final_value = inverse_target_value.map_from_unit_interval_to(
+                                    &other_mapping.mode().target_value_interval,
+                                );
+                                other_mapping.control_from_target(
+                                    ControlValue::Absolute(final_value),
+                                    options,
+                                    basics.control_context(),
+                                    &basics.logger,
+                                )
+                            },
                         );
-                        for other_mapping in self.collections.mappings[compartment].values_mut() {
-                            if other_mapping.id() == mapping_id
-                                || other_mapping.group_id() != group_id
-                                || !other_mapping.control_is_effectively_on()
-                            {
-                                continue;
-                            }
-                            // Other mapping in same group for which control is enabled.
-                            let inverse_value = {
-                                normalized_reference_value
-                                    .inverse()
-                                    .map_from_unit_interval_to(
-                                        &other_mapping.mode().target_value_interval,
-                                    )
-                            };
-                            // Control other mapping.
-                            let other_feedback = other_mapping.control_from_target(
-                                ControlValue::Absolute(inverse_value),
-                                options,
-                                context,
-                                &self.basics.logger,
-                            );
-                            self.basics.send_feedback(
-                                &self.collections.mappings_with_virtual_targets,
-                                FeedbackReason::Normal,
-                                other_feedback,
-                            );
-                        }
                     }
+                }
+                GroupInteraction::InverseControl => {
+                    let inverse_control_value = value.inverse();
+                    self.process_other_mappings(
+                        compartment,
+                        mapping_id,
+                        group_id,
+                        |other_mapping, basics| {
+                            other_mapping.control_from_mode(
+                                inverse_control_value,
+                                options,
+                                basics.control_context(),
+                                &basics.logger,
+                            )
+                        },
+                    );
                 }
             }
         };
+    }
+
+    fn process_other_mappings(
+        &mut self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+        group_id: GroupId,
+        f: impl Fn(&mut MainMapping, &Basics<EH>) -> Option<FeedbackValue>,
+    ) {
+        let other_mappings =
+            self.collections.mappings[compartment]
+                .values_mut()
+                .filter(|other_m| {
+                    other_m.id() != mapping_id
+                        && other_m.group_id() == group_id
+                        && other_m.control_is_effectively_on()
+                });
+        for other_mapping in other_mappings {
+            let other_feedback = f(other_mapping, &self.basics);
+            self.basics.send_feedback(
+                &self.collections.mappings_with_virtual_targets,
+                FeedbackReason::Normal,
+                other_feedback,
+            );
+        }
     }
 
     /// This should be regularly called by the control surface, even during global target learning.
@@ -1228,7 +1258,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let CompoundMappingSource::Osc(s) = m.source() {
                     if let Some(control_value) = s.control(msg) {
-                        let feedback = m.control_from_mode_if_enabled(
+                        let feedback = m.control_from_mode(
                             control_value,
                             ControlOptions::default(),
                             self.basics.control_context(),
@@ -2180,7 +2210,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter_map(|m| {
                 if let CompoundMappingSource::Virtual(s) = &m.source() {
                     let control_value = s.control(&value)?;
-                    m.control_from_mode_if_enabled(
+                    m.control_from_mode(
                         control_value,
                         options,
                         self.control_context(),
