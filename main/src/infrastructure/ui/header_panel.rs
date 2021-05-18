@@ -16,13 +16,12 @@ use slog::debug;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    make_mappings_project_independent, mappings_have_project_references, ControllerPreset, FxId,
-    MainPreset, MainPresetAutoLoadMode, MappingModel, ParameterSetting, Preset, PresetManager,
-    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, ParameterSetting, Preset,
+    PresetManager, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
-    ControlInput, ExtendedProcessorContext, GroupId, MappingCompartment, OscDeviceId, ReaperTarget,
+    ControlInput, GroupId, MappingCompartment, OscDeviceId, ReaperTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
@@ -159,9 +158,6 @@ impl HeaderPanel {
 
     fn add_group(&self) {
         if let Some(name) = dialog_util::prompt_for("Group name", "") {
-            if name.is_empty() {
-                return;
-            }
             let id = self
                 .session()
                 .borrow_mut()
@@ -1677,34 +1673,34 @@ impl HeaderPanel {
         let _ = App::get().main_preset_manager().borrow_mut().load_presets();
     }
 
-    fn save_active_preset(&self) -> Result<(), &'static str> {
+    fn make_mappings_project_independent_if_desired(&self) {
         let session = self.session();
-        let (context, params, mut mappings, preset_id, compartment) = {
-            let session = session.borrow();
-            let compartment = self.active_compartment();
-            let preset_id = match compartment {
-                MappingCompartment::ControllerMappings => session.active_controller_preset_id(),
-                MappingCompartment::MainMappings => session.active_main_preset_id(),
-            };
-            let preset_id = match preset_id {
-                None => return Err("no active preset"),
-                Some(id) => id,
-            };
-            let mappings: Vec<_> = session
-                .mappings(compartment)
-                .map(|ptr| ptr.borrow().clone())
-                .collect();
-            (
-                session.context().clone(),
-                *session.parameters(),
-                mappings,
-                preset_id.to_owned(),
-                compartment,
-            )
-        };
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
-        self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
+        let compartment = self.active_compartment();
+        if session
+            .borrow()
+            .mappings_have_project_references(compartment)
+            && self.ask_user_if_project_independence_desired()
+        {
+            session
+                .borrow()
+                .make_mappings_project_independent(compartment);
+        }
+    }
+
+    fn save_active_preset(&self) -> Result<(), &'static str> {
+        self.make_mappings_project_independent_if_desired();
+        let session = self.session();
         let session = session.borrow();
+        let compartment = self.active_compartment();
+        let preset_id = match compartment {
+            MappingCompartment::ControllerMappings => session.active_controller_preset_id(),
+            MappingCompartment::MainMappings => session.active_main_preset_id(),
+        }
+        .ok_or("no active preset")?;
+        let mappings: Vec<_> = session
+            .mappings(compartment)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
         let default_group = session.default_group(compartment).borrow().clone();
         let parameter_settings = session.non_default_parameter_settings_by_compartment(compartment);
         let groups = session
@@ -1743,7 +1739,7 @@ impl HeaderPanel {
         let current_session_id = { self.session().borrow().id.get_ref().clone() };
         let new_session_id = match dialog_util::prompt_for("Session ID", &current_session_id) {
             None => return,
-            Some(n) => n.trim().to_string(),
+            Some(n) => n,
         };
         if new_session_id == current_session_id {
             return;
@@ -1765,44 +1761,26 @@ impl HeaderPanel {
     }
 
     /// Don't borrow the session while calling this!
-    fn make_mappings_project_independent_if_desired(
-        &self,
-        context: ExtendedProcessorContext,
-        mut mappings: &mut [MappingModel],
-    ) {
+    fn ask_user_if_project_independence_desired(&self) -> bool {
         let msg = "Some of the mappings have references to this particular project. This usually doesn't make too much sense for a preset that's supposed to be reusable among different projects. Do you want ReaLearn to automatically adjust the mappings so that track targets refer to tracks by their position and FX targets relate to whatever FX is currently focused?";
-        if mappings_have_project_references(&mappings)
-            && self.view.require_window().confirm("ReaLearn", msg)
-        {
-            make_mappings_project_independent(&mut mappings, context);
-        }
+        self.view.require_window().confirm("ReaLearn", msg)
     }
 
     fn save_as_preset(&self) -> Result<(), &'static str> {
-        let session = self.session();
-        let (context, params, mut mappings, compartment, param_settings) = {
-            let session = session.borrow_mut();
-            let compartment = self.active_compartment();
-            let mappings: Vec<_> = session
-                .mappings(compartment)
-                .map(|ptr| ptr.borrow().clone())
-                .collect();
-            (
-                session.context().clone(),
-                *session.parameters(),
-                mappings,
-                compartment,
-                session.non_default_parameter_settings_by_compartment(compartment),
-            )
-        };
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
-        self.make_mappings_project_independent_if_desired(extended_context, &mut mappings);
         let preset_name = match dialog_util::prompt_for("Preset name", "") {
             None => return Ok(()),
             Some(n) => n,
         };
-        let preset_id = slug::slugify(&preset_name);
+        self.make_mappings_project_independent_if_desired();
+        let session = self.session();
         let mut session = session.borrow_mut();
+        let compartment = self.active_compartment();
+        let mappings: Vec<_> = session
+            .mappings(compartment)
+            .map(|ptr| ptr.borrow().clone())
+            .collect();
+        let param_settings = session.non_default_parameter_settings_by_compartment(compartment);
+        let preset_id = slug::slugify(&preset_name);
         let default_group = session.default_group(compartment).borrow().clone();
         let groups = session
             .groups(compartment)

@@ -11,7 +11,8 @@ use crate::domain::{
     MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
     RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -283,6 +284,17 @@ impl Session {
                 _ => false,
             }
         })
+    }
+
+    pub fn mappings_have_project_references(&self, compartment: MappingCompartment) -> bool {
+        mappings_have_project_references(self.mappings[compartment].iter())
+    }
+
+    pub fn make_mappings_project_independent(&self, compartment: MappingCompartment) {
+        make_mappings_project_independent(
+            self.mappings[compartment].iter(),
+            self.extended_context(),
+        );
     }
 
     pub fn get_parameter_settings(
@@ -1907,10 +1919,6 @@ impl Session {
         }
     }
 
-    pub fn parameters(&self) -> &ParameterArray {
-        &self.parameters
-    }
-
     /// Just syncs whether control globally enabled or not.
     fn sync_control_is_globally_enabled(&self) {
         let enabled = self.control_is_globally_enabled();
@@ -2128,4 +2136,79 @@ pub enum InputDescriptor {
 
 pub fn empty_parameter_settings() -> Vec<ParameterSetting> {
     vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize]
+}
+
+fn mappings_have_project_references<'a>(
+    mut mappings: impl Iterator<Item = &'a SharedMapping>,
+) -> bool {
+    mappings.any(mapping_has_project_references)
+}
+
+fn make_mappings_project_independent<'a>(
+    mappings: impl Iterator<Item = &'a SharedMapping>,
+    context: ExtendedProcessorContext,
+) {
+    mappings.for_each(|m| make_mapping_project_independent(m, context));
+}
+
+/// Checks if the given mapping has references to a project, e.g. refers to track or FX by ID.
+fn mapping_has_project_references(mapping: &SharedMapping) -> bool {
+    let mapping = mapping.borrow();
+    let target = &mapping.target_model;
+    match target.category.get() {
+        TargetCategory::Reaper => {
+            if target.r#type.get().supports_track() && target.track_type.get().refers_to_project() {
+                return true;
+            }
+            target.supports_fx() && target.fx_type.get().refers_to_project()
+        }
+        TargetCategory::Virtual => false,
+    }
+}
+
+fn make_mapping_project_independent(mapping: &SharedMapping, context: ExtendedProcessorContext) {
+    let mut mapping = mapping.borrow_mut();
+    let compartment = mapping.compartment();
+    let target = &mut mapping.target_model;
+    match target.category.get() {
+        TargetCategory::Reaper => {
+            let changed_to_track_ignore_fx = if target.supports_fx() {
+                let refers_to_project = target.fx_type.get().refers_to_project();
+                if refers_to_project {
+                    let target_with_context = target.with_context(context, compartment);
+                    let virtual_fx = if target_with_context.fx().ok().as_ref()
+                        == Some(context.context().containing_fx())
+                    {
+                        // This is ourselves!
+                        VirtualFx::This
+                    } else {
+                        VirtualFx::Focused
+                    };
+                    target.set_virtual_fx(virtual_fx);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+            if target.r#type.get().supports_track() && target.track_type.get().refers_to_project() {
+                let new_virtual_track = if changed_to_track_ignore_fx {
+                    // Track doesn't matter at all. We change it to <This>. Looks nice.
+                    Some(VirtualTrack::This)
+                } else if let Ok(t) = target
+                    .with_context(context, compartment)
+                    .first_effective_track()
+                {
+                    t.index().map(VirtualTrack::ByIndex)
+                } else {
+                    None
+                };
+                if let Some(t) = new_virtual_track {
+                    target.set_virtual_track(t);
+                }
+            }
+        }
+        TargetCategory::Virtual => {}
+    }
 }
